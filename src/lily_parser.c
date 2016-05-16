@@ -36,54 +36,9 @@ if (lex->token != expected) \
  */
 
 static void statement(lily_parse_state *, int);
-static lily_import_entry *raw_new_import_entry(lily_parse_state *);
-static lily_import_entry *make_new_import_entry(lily_parse_state *,
-        const char *);
 static lily_type *type_by_name(lily_parse_state *, const char *);
-
-/** This area is where the parser is initialized. These first functions create
-    the two paths that the parser reads from. One path is the native path, and
-    the other path is the C/library path. These two are split from each other
-    because the latter path set is more restricted. Namely, .so/library files
-    cannot be loaded relative to the file run. This is to prevent .so files
-    from being stuck in a server. **/
-
-
-/* Create a new path link which has the 'initial' link as the next. The path of
-   the new length is the given path_str, which has 'length' chars copied for the
-   path. */
-static lily_path_link *add_path_slice_to(lily_parse_state *parser,
-        lily_path_link *initial, const char *path_str, unsigned int length)
-{
-    lily_path_link *new_link = lily_malloc(sizeof(lily_path_link));
-    char *buffer = lily_malloc(length + 1);
-    strncpy(buffer, path_str, length);
-    buffer[length] = '\0';
-
-    new_link->path = buffer;
-    new_link->next = initial;
-
-    return new_link;
-}
-
-/* This prepares a proper lily_path_link by reading a ';' delimited seed in. */
-static lily_path_link *prepare_path_by_seed(lily_parse_state *parser,
-        const char *seed)
-{
-    const char *path_base = seed;
-    lily_path_link *result = NULL;
-    while (1) {
-        const char *search = strchr(path_base, ';');
-        if (search == NULL)
-            break;
-
-        unsigned int diff = search - path_base;
-        result = add_path_slice_to(parser, result, path_base, diff);
-        path_base = search + 1;
-    }
-
-    return result;
-}
+static lily_package *new_package(lily_parse_state *, const char *,
+        const char *);
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
@@ -92,16 +47,14 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
-    parser->import_top = NULL;
-    parser->import_start = NULL;
+    parser->package_top = NULL;
+    parser->package_start = NULL;
 
-    /* Booting up Lily is rather tricky. To begin with, there's a special-cased
-       import that's right here on this next line. This import will receive all
-       of the classes that are builtin (integer, string, function, etc). The
-       interpreter is special-cased to first search in the current import, then
-       this one if there is a problem. */
-    lily_import_entry *builtin_import = make_new_import_entry(parser,
-            "[builtin]");
+    /* The builtin package is a special package that holds builtin data. Since
+       it holds such vital information, it is implicitly use'd. It's placed into
+       a package to make builtin data easy to iterate over and destroy. */
+    new_package(parser, "", "[builtin]");
+
     lily_raiser *raiser = lily_new_raiser();
 
     parser->optarg_stack_pos = 0;
@@ -113,7 +66,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->exception_type = NULL;
     parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
     parser->ast_pool = lily_new_ast_pool();
-    parser->symtab = lily_new_symtab(builtin_import);
+    parser->symtab = lily_new_symtab(parser->package_start);
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);
@@ -139,15 +92,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->lex->symtab = parser->symtab;
 
-    /* Before things get carried away, define the import paths that will be
-       available. This isn't final: If the interpreter runs from a file, that
-       file's relative path will be added to the native set of paths as the
-       first one. */
-
-    parser->import_paths = prepare_path_by_seed(parser, LILY_PATH_SEED);
-    parser->library_import_paths = prepare_path_by_seed(parser,
-            LILY_LIBRARY_PATH_SEED);
-
     /* All code that isn't within a function is grouped together in a special
        function called __main__. Since that function is the first kind of a
        block, it needs a special function to initialize that block. */
@@ -157,33 +101,19 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        used when creating new functions so that they have a type. */
     parser->default_call_type = parser->symtab->main_var->type;
 
-    lily_import_entry *main_import = raw_new_import_entry(parser);
-
-    main_import->loadname = lily_malloc(1);
-    main_import->loadname[0] = '\0';
+    lily_package *main_package = new_package(parser, "", NULL);
+    parser->main_module = main_package->first_module;
 
     /* This puts __main__ into the scope of the first thing to be executed, and
        makes it the context for var/class/etc. searching. */
-    parser->symtab->main_function->import = main_import;
-    parser->symtab->active_import = main_import;
+    parser->symtab->main_function->module = parser->main_module;
+    parser->symtab->active_module = parser->main_module;
 
-    /* This allows the internal sys package to be located later. */
     lily_pkg_sys_init(parser, options);
 
     parser->executing = 0;
 
     return parser;
-}
-
-static void free_paths(lily_parse_state *parser, lily_path_link *path_iter)
-{
-    lily_path_link *path_next;
-    while (path_iter) {
-        path_next = path_iter->next;
-        lily_free(path_iter->path);
-        lily_free(path_iter);
-        path_iter = path_next;
-    }
 }
 
 void lily_free_parse_state(lily_parse_state *parser)
@@ -200,31 +130,53 @@ void lily_free_parse_state(lily_parse_state *parser)
 
     lily_free_emit_state(parser->emit);
 
-    free_paths(parser, parser->import_paths);
-    free_paths(parser, parser->library_import_paths);
-
     lily_free(parser->optarg_stack);
 
-    lily_import_entry *import_iter = parser->import_start;
-    lily_import_entry *import_next = NULL;
-    while (import_iter) {
-        import_next = import_iter->root_next;
-        lily_import_link *link_iter = import_iter->import_chain;
-        lily_import_link *link_next = NULL;
+    /* The path for the first module is always a shallow copy of the loadname
+       that was sent. Make sure that doesn't get free'd. */
+    parser->package_start->root_next->first_module->path = NULL;
+
+    lily_package *package_iter = parser->package_start;
+    lily_package *package_next = NULL;
+    while (package_iter) {
+        lily_module_entry *module_iter = package_iter->first_module;
+        lily_module_entry *module_next = NULL;
+
+        while (module_iter) {
+            lily_module_link *link_iter = module_iter->module_chain;
+            lily_module_link *link_next = NULL;
+            while (link_iter) {
+                link_next = link_iter->next_module;
+                lily_free(link_iter->as_name);
+                lily_free(link_iter);
+                link_iter = link_next;
+            }
+
+            module_next = module_iter->root_next;
+
+            if (module_iter->library)
+                lily_library_free(module_iter->library);
+
+            lily_free(module_iter->path);
+            lily_free(module_iter->dirname);
+            lily_free(module_iter->loadname);
+            lily_free(module_iter);
+
+            module_iter = module_next;
+        }
+
+        lily_package_link *link_iter = package_iter->linked_packages;
+        lily_package_link *link_next = NULL;
         while (link_iter) {
-            link_next = link_iter->next_import;
-            lily_free(link_iter->as_name);
+            link_next = link_iter->next;
             lily_free(link_iter);
             link_iter = link_next;
         }
-        if (import_iter->library)
-            lily_library_free(import_iter->library);
 
-        lily_free(import_iter->path);
-        lily_free(import_iter->loadname);
-        lily_free(import_iter);
-
-        import_iter = import_next;
+        package_next = package_iter->root_next;
+        lily_free(package_iter->name);
+        lily_free(package_iter);
+        package_iter = package_next;
     }
 
     lily_free_msgbuf(parser->msgbuf);
@@ -236,8 +188,8 @@ typedef struct {
     uint16_t next_class_id;
     uint16_t next_main_id;
     uint32_t pad;
-    lily_import_entry *last_import;
-    lily_import_link *last_link;
+    lily_module_entry *last_import;
+    lily_module_link *last_link;
 } rewind_data;
 
 void rewind_parse_state(lily_parse_state *parser)
@@ -259,123 +211,126 @@ void rewind_parse_state(lily_parse_state *parser)
  *                   |_|                   
  */
 
-/** Lily largely copies import semantics from Python, including the keyword.
-    Currently, the biggest differences are likely to be the lack of features:
-    No support for `import x.y`, and no `from x import *`. The former will be
-    changed hopefully in the near future. The latter, however, is unlikely to be
-    changed soon.
+/** Lily has two keywords for loading code: `import` and `use`.
 
-    An important function here is 'lily_register_import'. This function can be
-    used by a Lily 'runner' to provide a module that the script can import.
-    However, the script will still have to explicitly load the module. Why?
+    To understand why there are two keywords, one must first understand how Lily
+    looks at code. Here are two terms:
 
-    Suppose there is a script in tag mode that runs from Apache. Apache provides
-    a server module, and the script does not explicitly import it. If the script
-    is run through the command line, it fails because 'server' is not defined.
-    But worse, the script has to be manually patched to have 'import server'.
+    A module is a 1:1 mapping between a source file, and some code. The names
+    inside of a module are accessible through using it as a namespace. For
+    example 'import foo' will give everything in foo, using 'foo.*' as a
+    namespace. Modules are loaded relative to the current module.
 
-    By requiring explicit import of modules that are registered, the script can
-    be moved elsewhere with ease. The interpreter will search for either
-    server.lly or a server library from the usual paths. So long as that module
-    provides what Apache provides, it just works.
+    A package, however, is designed to hold 1+ modules inside of itself. The
+    first module can 'use' other packages to bring them into scope, and import
+    other modules. The modules, classes, and definitions that are available in
+    the first module are available through the name of the package.
 
-    One other thing: When importing files, the files that are imported are
-    always imported in non-tag mode. That is also intentional. **/
+    There are some rules. Within a package, only the first module can use
+    subpackages. In doing so, one can look at the first package, and have a
+    good idea of what it requires. Similarly, the exports of a package are what
+    is visible from the first module.
 
-static lily_import_entry *raw_new_import_entry(lily_parse_state *parser)
-{
-    lily_import_entry *new_entry = lily_malloc(sizeof(lily_import_entry));
-    if (parser->import_top) {
-        parser->import_top->root_next = new_entry;
-        parser->import_top = new_entry;
-    }
-    else {
-        parser->import_start = new_entry;
-        parser->import_top = new_entry;
-    }
+    Additionally, a Lily runner may also provide packages. However, those
+    packages must be explicitly use'd. This allows a script designed for, say,
+    the mod_lily runner to be moved and run from the normal 'lily' runner. All
+    one need to is provide a package with the same api that mod_lily provides,
+    and the package runs without a hitch.
 
-    new_entry->cid_start = 0;
-    new_entry->library = NULL;
-    new_entry->root_next = NULL;
-    new_entry->import_chain = NULL;
-    new_entry->class_chain = NULL;
-    new_entry->var_chain = NULL;
-    new_entry->dynaload_table = NULL;
-    new_entry->var_load_fn = NULL;
-    new_entry->item_kind = ITEM_TYPE_IMPORT;
+    It should be also be noted that the first file loaded is considered the
+    first module of a nameless root package. Therefore, 'use' is allowed in the
+    first file loaded, but not subsequent ones. **/
 
-    return new_entry;
-}
-
-/* This creates a new import entry within the parser and links it to existing
-   import entry. The path of the import may or may not be a full path.
-   Regardless, the loadname of the import is derived from the path passed.
-   'path' should take one of three forms:
-   [x]:   This is [builtin], [cli], or something similar. The loadname is set to
-          "", making it unimportable.
-   x:     Since no suffix is provided, this must be a registered module. The
-          loadname is set to the path provided.
-   x.lly
-   x.so
-   ...  : The loadname is everything before the dot. */
-static lily_import_entry *make_new_import_entry(lily_parse_state *parser,
+static void set_module_names_by_path(lily_module_entry *module,
         const char *path)
 {
-    lily_import_entry *new_entry = raw_new_import_entry(parser);
-
-    /* Paths that start with '[' are used only internally. Don't bother giving
-       these a sane name. */
     if (path[0] == '[') {
-        new_entry->loadname = lily_malloc(1);
-        new_entry->loadname[0] = '\0';
+        module->loadname = lily_malloc(1);
+        module->loadname[0] = '\0';
+        module->dirname = lily_malloc(3);
+        strcpy(module->dirname, "." LILY_PATH_SLASH);
+        module->cmp_len = 0;
     }
     else {
-        char *name_end = strrchr(path, '.');
-        if (name_end == NULL) {
-            /* This only happens when a module is registered as a builtin. */
-            new_entry->loadname = lily_malloc(strlen(path) + 1);
-            strcpy(new_entry->loadname, path);
+        const char *slash = strrchr(path, LILY_PATH_CHAR);
+
+        if (slash == NULL) {
+            module->dirname = lily_malloc(1);
+            module->dirname[0] = '\0';
+            slash = path;
         }
         else {
-            const char *name_start = strrchr(path, LILY_PATH_CHAR);
-            if (name_start == NULL)
-                name_start = path;
-            else
-                name_start += 1;
+            slash += 1;
+            int bare_len = slash - path;
+            module->dirname = lily_malloc(bare_len + 1);
 
-            int diff = name_end - name_start;
-            new_entry->loadname = lily_malloc(diff + 1);
-            strncpy(new_entry->loadname, name_start, diff);
-            new_entry->loadname[diff] = '\0';
+            strncpy(module->dirname, path, bare_len);
+            module->dirname[bare_len] = '\0';
         }
+
+        char *dot = strrchr(slash, '.');
+        int load_len = dot - slash;
+
+        module->loadname = lily_malloc(load_len + 1);
+        strncpy(module->loadname, slash, load_len);
+        module->loadname[load_len] = '\0';
+
+        module->cmp_len = strlen(module->dirname) + load_len;
     }
-
-    new_entry->path = lily_malloc(strlen(path) + 1);
-    strcpy(new_entry->path, path);
-
-    return new_entry;
 }
 
-/* This creates a new module using the information provided. The name supplied
-   will become the name used to load the module (the path will be "[builtin]").
-   Be aware that this does not automatically make the module loaded: It will
-   still need to be imported by the script. That is intentional. */
-void lily_register_import(lily_parse_state *parser, const char *name,
+static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
+{
+    lily_module_entry *module = lily_malloc(sizeof(lily_module_entry));
+
+    if (path) {
+        module->path = lily_malloc(strlen(path) + 1);
+        strcpy(module->path, path);
+
+        set_module_names_by_path(module, path);
+    }
+    else {
+        module->loadname = NULL;
+        module->dirname = NULL;
+        module->path = NULL;
+        module->cmp_len = 0;
+    }
+
+    module->cid_start = 0;
+    module->library = NULL;
+    module->root_next = NULL;
+    module->module_chain = NULL;
+    module->class_chain = NULL;
+    module->var_chain = NULL;
+    module->dynaload_table = NULL;
+    module->var_load_fn = NULL;
+    module->item_kind = ITEM_TYPE_MODULE;
+
+    return module;
+}
+
+/* This creates a new package using the name provided. The package is
+   intentionally NOT linked anywhere, even to the first import. The reason for
+   this is that it prevents scripts from assuming that a package exists and then
+   breaking when another runner doesn't provide it. */
+void lily_register_package(lily_parse_state *parser, const char *name,
         const void *dynaload_table, var_loader var_load_fn)
 {
-    lily_import_entry *entry = make_new_import_entry(parser, name);
-    entry->dynaload_table = dynaload_table;
-    entry->var_load_fn = var_load_fn;
+    lily_package *package = new_package(parser, name, NULL);
+    lily_module_entry *module = package->first_module;
+
+    module->dynaload_table = dynaload_table;
+    module->var_load_fn = var_load_fn;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
    reference it later on. If 'as_name' is not NULL, then 'to_link' will be
    available through that name. Otherwise, it will be available as the name it
    actually has. */
-static void link_import_to(lily_import_entry *target,
-        lily_import_entry *to_link, const char *as_name)
+static void link_module_to(lily_module_entry *target, lily_module_entry *to_link,
+        const char *as_name)
 {
-    lily_import_link *new_link = lily_malloc(sizeof(lily_import_link));
+    lily_module_link *new_link = lily_malloc(sizeof(lily_module_link));
     char *link_name;
     if (as_name == NULL)
         link_name = NULL;
@@ -384,153 +339,122 @@ static void link_import_to(lily_import_entry *target,
         strcpy(link_name, as_name);
     }
 
-    new_link->entry = to_link;
-    new_link->next_import = target->import_chain;
+    new_link->module = to_link;
+    new_link->next_module = target->module_chain;
     new_link->as_name = link_name;
 
-    target->import_chain = new_link;
+    target->module_chain = new_link;
 }
 
-/* This attempts to load a native file using the path + name combo given.
-   Success: A newly-made import entry
-   Failure: NULL */
-static lily_import_entry *load_native(lily_parse_state *parser,
-        const char *path)
+static lily_package *new_empty_package(lily_parse_state *parser,
+        const char *name)
 {
-    lily_import_entry *result = NULL;
-    if (lily_try_load_file(parser->lex, parser->msgbuf->message))
-        result = make_new_import_entry(parser, path);
+    lily_package *package = lily_malloc(sizeof(lily_package));
+
+    if (parser->package_top) {
+        parser->package_top->root_next = package;
+        parser->package_top = package;
+    }
+    else {
+        parser->package_start = package;
+        parser->package_top = package;
+    }
+
+    package->linked_packages = NULL;
+    package->root_next = NULL;
+    package->name = lily_malloc(strlen(name) + 1);
+    strcpy(package->name, name);
+
+    return package;
+}
+
+static lily_package *new_package(lily_parse_state *parser,
+        const char *name, const char *module_path)
+{
+    lily_package *package = new_empty_package(parser, name);
+
+    lily_module_entry *module = new_module(parser, module_path);
+    package->first_module = module;
+    module->parent = package;
+
+    return package;
+}
+
+static lily_module_entry *load_file(lily_parse_state *parser, const char *path)
+{
+    lily_module_entry *result = NULL;
+    if (lily_try_load_file(parser->lex, path))
+        result = new_module(parser, path);
 
     return result;
 }
 
-/* This attempts to load a foreign file using the path + name combo given. If it
-   works, then a newly-made import is returned (which has the library added).
-   Success: A newly-made import entry
-   Failure: NULL */
-static lily_import_entry *load_foreign(lily_parse_state *parser,
+static lily_module_entry *load_library(lily_parse_state *parser,
         const char *path)
 {
-    lily_import_entry *result = NULL;
+    lily_module_entry *result = NULL;
     void *library = lily_library_load(path);
     if (library) {
-        result = make_new_import_entry(parser, path);
+        result = new_module(parser, path);
         result->library = library;
     }
 
     return result;
 }
 
-/* This takes one of parser's paths (native or foreign) and tries to import
-   the given name + suffix for each path that there is. The callback given is
-   used to attempt the import, and will be either 'load_native' or
-   'load_foreign'.
-   Success: A newly-made import entry
-   Failure: NULL */
-static lily_import_entry *attempt_import(lily_parse_state *parser,
-        lily_path_link *path_iter, const char *name, const char *suffix,
-        lily_import_entry *(*callback)(lily_parse_state *, const char *))
-{
-    lily_import_entry *result = NULL;
-    lily_msgbuf *msgbuf = parser->msgbuf;
+typedef struct {
+    const char *suffix;
+    lily_module_entry *(*load_fn)(lily_parse_state *, const char *);
+} module_loader;
 
-    while (path_iter) {
+static module_loader builtin_module_loaders[] =
+{
+    {".lly",          load_file},
+    {LILY_LIB_SUFFIX, load_library}
+};
+
+/* Try loading 'name' using 'dirpath' as a prefix to it. Attempt to load 'name'
+   using one of the loaders mentioned above, which will use either the .lly or
+   the appropriate library suffix. */
+static lily_module_entry *load_module(lily_parse_state *parser,
+        const char *dirpath, const char *name)
+{
+    lily_module_entry *result;
+
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_msgbuf_flush(parser->msgbuf);
+    int i;
+
+    for (i = 0;i < 2;i++) {
+        module_loader l = builtin_module_loaders[i];
+
+        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", dirpath, name, l.suffix);
+        result = l.load_fn(parser, msgbuf->message);
         lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", path_iter->path, name,
-                suffix);
-        result = (*callback)(parser, msgbuf->message);
+
         if (result)
             break;
-
-        path_iter = path_iter->next;
     }
+
+    if (result == NULL) {
+        lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
+        for (i = 0;i < 2;i++) {
+            module_loader l = builtin_module_loaders[i];
+            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
+                    dirpath, name, l.suffix);
+        }
+
+        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
+    }
+
+    /* Put this module in the current package. */
+    lily_module_entry *active = parser->symtab->active_module;
+    result->root_next = active->root_next;
+    active->root_next = result;
+
+    result->parent = active->parent;
 
     return result;
-}
-
-
-/* This is called when all attempts to load a name have failed. This walks down
-   the path given, and writes all of the different combonations that have been
-   tried. */
-static void write_import_paths(lily_msgbuf *msgbuf,
-        lily_path_link *path_iter, const char *name, const char *suffix)
-{
-    while (path_iter) {
-        lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
-                path_iter->path, name, suffix);
-        path_iter = path_iter->next;
-    }
-}
-
-static void add_relative_path_to_msgbuf(lily_parse_state *parser)
-{
-    char *path = parser->symtab->active_import->path;
-    char *search_str = strrchr(path, LILY_PATH_CHAR);
-
-    if (search_str)
-        lily_msgbuf_add_text_range(parser->msgbuf, path, 0,
-                (search_str - path) + 1);
-}
-
-static lily_import_entry *attempt_relative_import(lily_parse_state *parser,
-        const char *to_load)
-{
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_msgbuf_flush(msgbuf);
-
-    add_relative_path_to_msgbuf(parser);
-    lily_msgbuf_add_fmt(msgbuf, "%s.lly", to_load);
-
-    lily_import_entry *result = load_native(parser, msgbuf->message);
-    lily_msgbuf_flush(msgbuf);
-    return result;
-}
-
-
-/* This is called when `import x` or `import x as y` has been seen. It tries to
-   find 'x' at any place along the paths that it has.
-   Success: A newly-made import entry is returned.
-   Failure: The paths tried are printed, and SyntaxError is raised. */
-static lily_import_entry *load_import(lily_parse_state *parser,
-        const char *name)
-{
-    lily_import_entry *result;
-
-    result = attempt_import(parser, parser->import_paths, name, ".lly",
-            load_native);
-    if (result) {
-        parser->symtab->active_import = result;
-        return result;
-    }
-
-    result = attempt_relative_import(parser, name);
-    if (result) {
-        parser->symtab->active_import = result;
-        return result;
-    }
-
-    result = attempt_import(parser, parser->import_paths, name, LILY_LIB_SUFFIX,
-            load_foreign);
-    if (result) {
-        parser->symtab->active_import = result;
-        return result;
-    }
-
-    /* The parser's msgbuf is used for doing class dynaloading, so it should not
-       be in use here. Also, as credit, this idea comes from seeing lua do the
-       same. */
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_msgbuf_flush(msgbuf);
-    lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
-    lily_msgbuf_add_fmt(msgbuf, "no builtin module '%s'\n", name);
-    write_import_paths(msgbuf, parser->import_paths, name, ".lly");
-    lily_msgbuf_add(msgbuf, "    no file './");
-    add_relative_path_to_msgbuf(parser);
-    lily_msgbuf_add_fmt(msgbuf, "%s.lly'\n", name);
-    write_import_paths(msgbuf, parser->library_import_paths, name,
-            LILY_LIB_SUFFIX);
-    lily_raise(parser->raiser, lily_SyntaxError, parser->msgbuf->message);
-    return NULL;
 }
 
 /***
@@ -933,8 +857,8 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls,
  */
 
 static void parse_class_body(lily_parse_state *, lily_class *);
-static lily_class *find_run_class_dynaload(lily_parse_state *, lily_import_entry *,
-        const char *);
+static lily_class *find_run_class_dynaload(lily_parse_state *,
+        lily_module_entry *, const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 
 /** Lily is a statically-typed language, which carries benefits as well as
@@ -972,7 +896,7 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_item *find_run_dynaload(lily_parse_state *, lily_item *,
         const char *);
 
-static int get_seed_cid(lily_import_entry *entry, const lily_base_seed *seed)
+static int get_seed_cid(lily_module_entry *entry, const lily_base_seed *seed)
 {
     int cid = 0;
     const lily_base_seed *seed_iter = entry->dynaload_table;
@@ -994,18 +918,24 @@ static int get_seed_cid(lily_import_entry *entry, const lily_base_seed *seed)
    If it is, then this function will continue digging until all of the modules
    have been seen.
    The result of this is the context from which to continue looking up. */
-static lily_import_entry *resolve_import(lily_parse_state *parser)
+static lily_module_entry *resolve_module(lily_parse_state *parser)
 {
-    lily_import_entry *result = NULL, *search_entry = NULL;
+    lily_module_entry *result = NULL, *search_entry = NULL;
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
+    lily_package *package;
 
-    search_entry = lily_find_import(symtab, result, lex->label);
+    package = lily_find_package(parser->symtab->active_module, lex->label);
+    if (package)
+        search_entry = package->first_module;
+    else
+        search_entry = lily_find_module(symtab, result, lex->label);
+
     while (search_entry) {
         result = search_entry;
         NEED_NEXT_TOK(tk_dot)
         NEED_NEXT_TOK(tk_word)
-        search_entry = lily_find_import(symtab, result, lex->label);
+        search_entry = lily_find_module(symtab, result, lex->label);
     }
 
     return result;
@@ -1018,8 +948,8 @@ static lily_import_entry *resolve_import(lily_parse_state *parser)
 static const lily_base_seed *find_dynaload_entry(lily_item *item, const char *name)
 {
     const void *raw_iter;
-    if (item->item_kind == ITEM_TYPE_IMPORT)
-        raw_iter = ((lily_import_entry *)item)->dynaload_table;
+    if (item->item_kind == ITEM_TYPE_MODULE)
+        raw_iter = ((lily_module_entry *)item)->dynaload_table;
     else
         raw_iter = ((lily_class *)item)->dynaload_table;
 
@@ -1044,15 +974,15 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_word)
 
-    lily_import_entry *search_import = resolve_import(parser);
-    lily_class *result = lily_find_class(symtab, search_import, lex->label);
+    lily_module_entry *search_module = resolve_module(parser);
+    lily_class *result = lily_find_class(symtab, search_module, lex->label);
     if (result == NULL) {
-        if (search_import == NULL)
-            search_import = symtab->builtin_import;
+        if (search_module == NULL)
+            search_module = symtab->builtin_module;
 
-        result = find_run_class_dynaload(parser, search_import, lex->label);
+        result = find_run_class_dynaload(parser, search_module, lex->label);
         if (result == NULL)
-            result = find_run_class_dynaload(parser, symtab->active_import,
+            result = find_run_class_dynaload(parser, symtab->active_module,
                     lex->label);
             if (result == NULL)
                 lily_raise(parser->raiser, lily_SyntaxError,
@@ -1070,7 +1000,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_func_seed *func_seed = (lily_func_seed *)seed;
-    lily_import_entry *save_active = parser->symtab->active_import;
+    lily_module_entry *save_active = parser->symtab->active_module;
     int save_generics = parser->generic_count;
     lily_var *call_var;
 
@@ -1079,10 +1009,10 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
 
     /* Lookups for classes need to be done relative to what's being imported,
        because the thing being imported won't know it's name at compile time. */
-    if (source->item_kind == ITEM_TYPE_IMPORT)
-        parser->symtab->active_import = (lily_import_entry *)source;
+    if (source->item_kind == ITEM_TYPE_MODULE)
+        parser->symtab->active_module = (lily_module_entry *)source;
     else
-        parser->symtab->active_import = ((lily_class *)source)->import;
+        parser->symtab->active_module = ((lily_class *)source)->module;
 
     collect_generics_or(parser, 0);
 
@@ -1127,7 +1057,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
 
     lily_update_symtab_generics(symtab, save_generics);
 
-    parser->symtab->active_import = save_active;
+    parser->symtab->active_module = save_active;
 
     lily_pop_lex_entry(lex);
 
@@ -1137,7 +1067,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
 /* This dynaloads an enum that is represented by 'seed' with 'import' as the
    context. The result of this is the enum class that was dynaloaded. */
 static lily_class *dynaload_enum(lily_parse_state *parser,
-        lily_import_entry *import, const lily_base_seed *seed)
+        lily_module_entry *module, const lily_base_seed *seed)
 {
     /* Dynaloading an enum is similar to creating a regular one: A scope needs
        to be made so that the generic count can be saved/restored later. That,
@@ -1153,7 +1083,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
     }
     else {
         parser->symtab->next_class_id--;
-        enum_cls->id = get_seed_cid(import, seed);
+        enum_cls->id = get_seed_cid(module, seed);
     }
 
     int save_generics = parser->generic_count;
@@ -1204,17 +1134,17 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
    result of this is the variant. As a side-effect, this calls dynaload_enum to
    ensure all variants of the parent enum are loaded. */
 static lily_class *dynaload_variant(lily_parse_state *parser,
-        lily_import_entry *import, const lily_base_seed *seed)
+        lily_module_entry *module, const lily_base_seed *seed)
 {
     lily_variant_seed *variant_seed = (lily_variant_seed *)seed;
-    const lily_base_seed *enum_seed = find_dynaload_entry((lily_item *)import,
+    const lily_base_seed *enum_seed = find_dynaload_entry((lily_item *)module,
             variant_seed->enum_name);
-    dynaload_enum(parser, import, enum_seed);
-    return lily_find_class(parser->symtab, import, seed->name);
+    dynaload_enum(parser, module, enum_seed);
+    return lily_find_class(parser->symtab, module, seed->name);
 }
 
 static lily_class *dynaload_bootstrap(lily_parse_state *parser,
-        lily_import_entry *import, const lily_base_seed *seed)
+        lily_module_entry *module, const lily_base_seed *seed)
 {
     lily_bootstrap_seed *boot_seed = (lily_bootstrap_seed *)seed;
     lily_symtab *symtab = parser->symtab;
@@ -1222,8 +1152,8 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     /* Before getting tangled in this dynaload, run the parent dynaload first.
        This saves from dynaloads being nested, which could be hairy. */
     if (boot_seed->parent &&
-        lily_find_class(symtab, import, boot_seed->parent) == NULL) {
-        find_run_dynaload(parser, (lily_item *)import, boot_seed->parent);
+        lily_find_class(symtab, module, boot_seed->parent) == NULL) {
+        find_run_dynaload(parser, (lily_item *)module, boot_seed->parent);
     }
 
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, boot_seed->body);
@@ -1250,17 +1180,17 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
 static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
         const lily_base_seed *seed)
 {
-    lily_import_entry *saved_active = parser->symtab->active_import;
+    lily_module_entry *saved_active = parser->symtab->active_module;
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
 
-    lily_import_entry *import;
-    if (scope->item_kind == ITEM_TYPE_IMPORT)
-        import = (lily_import_entry *)scope;
+    lily_module_entry *module;
+    if (scope->item_kind == ITEM_TYPE_MODULE)
+        module = (lily_module_entry *)scope;
     else
-        import = ((lily_class *)scope)->import;
+        module = ((lily_class *)scope)->module;
 
-    symtab->active_import = import;
+    symtab->active_module = module;
 
     if (seed->seed_type == dyna_var) {
         lily_var_seed *var_seed = (lily_var_seed *)seed;
@@ -1268,12 +1198,12 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
            create vars of a type not found in the interpreter's core. However,
            if that changes, this must change as well. */
         lily_type *var_type = type_by_name(parser, var_seed->type);
-        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, import,
+        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, module,
                 var_type, seed->name);
 
         /* The dynaload function is responsible for moving something into the
            data part of the tie. */
-        import->var_load_fn(parser, seed->name,
+        module->var_load_fn(parser, seed->name,
                 lily_new_foreign_tie(symtab, new_var));
         result = (lily_item *)new_var;
     }
@@ -1284,29 +1214,29 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
     else if (seed->seed_type == dyna_class) {
         lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
         parser->symtab->next_class_id--;
-        new_cls->id = get_seed_cid(import, seed);
+        new_cls->id = get_seed_cid(module, seed);
         result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_bootstrap_class) {
-        lily_class *new_cls = dynaload_bootstrap(parser, import, seed);
+        lily_class *new_cls = dynaload_bootstrap(parser, module, seed);
         result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_variant) {
-        lily_class *new_cls = dynaload_variant(parser, import, seed);
+        lily_class *new_cls = dynaload_variant(parser, module, seed);
         result = (lily_item *)new_cls;
     }
     else if (seed->seed_type == dyna_enum ||
              seed->seed_type == dyna_builtin_enum) {
-        lily_class *new_cls = dynaload_enum(parser, import, seed);
+        lily_class *new_cls = dynaload_enum(parser, module, seed);
         result = (lily_item *)new_cls;
     }
 
-    symtab->active_import = saved_active;
+    symtab->active_module = saved_active;
     return result;
 }
 
-/* Given a name, try to find that within the dynaload table of 'import' (which
-   may be a class). If a seed is found, run it in the context of 'import' and
+/* Given a name, try to find that within the dynaload table of 'module' (which
+   may be a class). If a seed is found, run it in the context of 'module' and
    return the result as an item. If nothing is found, return NULL. */
 static lily_item *find_run_dynaload(lily_parse_state *parser,
         lily_item *scope, const char *name)
@@ -1339,13 +1269,13 @@ static int is_class_seed(const lily_base_seed *seed)
 /* Like find_run_dynaload, but only do the dynaload if the entity to be loaded
    is a class-like entity. */
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
-        lily_import_entry *import, const char *name)
+        lily_module_entry *module, const char *name)
 {
     lily_class *result;
 
-    const lily_base_seed *seed = find_dynaload_entry((lily_item *)import, name);
+    const lily_base_seed *seed = find_dynaload_entry((lily_item *)module, name);
     if (seed && is_class_seed(seed))
-        result = (lily_class *)run_dynaload(parser, (lily_item *)import, seed);
+        result = (lily_class *)run_dynaload(parser, (lily_item *)module, seed);
     else
         result = NULL;
 
@@ -1391,16 +1321,16 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
    'import' is likely to be the builtin import, but could be one for a foreign
    module if a module wanted to make an exception (ex: postgres). */
 lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
-        lily_import_entry *import, const char *name)
+        lily_module_entry *module, const char *name)
 {
     lily_symtab *symtab = parser->symtab;
-    if (import == NULL)
-        import = symtab->builtin_import;
+    if (module == NULL)
+        module = symtab->builtin_module;
 
-    lily_class *cls = lily_find_class(parser->symtab, import, name);
+    lily_class *cls = lily_find_class(parser->symtab, module, name);
 
     if (cls == NULL) {
-        cls = (lily_class *)find_run_dynaload(parser, (lily_item *)import,
+        cls = (lily_class *)find_run_dynaload(parser, (lily_item *)module,
                 name);
         /* ...Just in case an instance needs to be printed. */
         lily_vm_add_class(parser->vm, cls);
@@ -1662,15 +1592,15 @@ static void expression_word(lily_parse_state *parser, int *state)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_import_entry *search_entry = resolve_import(parser);
+    lily_module_entry *search_module = resolve_module(parser);
 
-    lily_var *var = lily_find_var(symtab, search_entry, lex->label);
+    lily_var *var = lily_find_var(symtab, search_module, lex->label);
     if (var) {
         dispatch_word_as_var(parser, var, state);
         return;
     }
 
-    if (search_entry == NULL) {
+    if (search_module == NULL) {
         int key_id = keyword_by_name(lex->label);
         if (key_id != -1) {
             lily_sym *sym = parse_special_keyword(parser, key_id);
@@ -1686,14 +1616,14 @@ static void expression_word(lily_parse_state *parser, int *state)
         }
     }
 
-    lily_class *cls = lily_find_class(parser->symtab, search_entry, lex->label);
+    lily_class *cls = lily_find_class(parser->symtab, search_module, lex->label);
 
     if (cls) {
         dispatch_word_as_class(parser, cls, state);
         return;
     }
 
-    if (search_entry == NULL && parser->class_self_type) {
+    if (search_module == NULL && parser->class_self_type) {
         var = lily_find_method(parser->class_self_type->cls, lex->label);
 
         if (var) {
@@ -1703,10 +1633,10 @@ static void expression_word(lily_parse_state *parser, int *state)
         }
     }
 
-    if (search_entry == NULL)
-        search_entry = symtab->builtin_import;
+    if (search_module == NULL)
+        search_module = symtab->builtin_module;
 
-    lily_item *dl_result = find_run_dynaload(parser, (lily_item *)search_entry,
+    lily_item *dl_result = find_run_dynaload(parser, (lily_item *)search_module,
             lex->label);
 
     if (dl_result) {
@@ -1906,11 +1836,11 @@ static void expression_dot(lily_parse_state *parser, int *state)
            the specified type. This allows emitter to not worry about
            dynaloading when casting. */
         lily_symtab *symtab = parser->symtab;
-        lily_class *option_cls = lily_find_class(symtab, symtab->builtin_import,
+        lily_class *option_cls = lily_find_class(symtab, symtab->builtin_module,
                 "Option");
         if (option_cls == NULL)
             option_cls = (lily_class *)find_run_dynaload(parser,
-                    (lily_item *)symtab->builtin_import, "Option");
+                    (lily_item *)symtab->builtin_module, "Option");
 
         lily_tm_add(parser->tm, bare_type);
         lily_type *cast_type = lily_tm_make(parser->tm, 0, option_cls, 1);
@@ -2476,6 +2406,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
 static void if_handler(lily_parse_state *, int);
 static void do_handler(lily_parse_state *, int);
+static void use_handler(lily_parse_state *, int);
 static void var_handler(lily_parse_state *, int);
 static void for_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
@@ -2508,6 +2439,7 @@ typedef void (keyword_handler)(lily_parse_state *, int);
 static keyword_handler *handlers[] = {
     if_handler,
     do_handler,
+    use_handler,
     var_handler,
     for_handler,
     try_handler,
@@ -3030,7 +2962,7 @@ static void except_handler(lily_parse_state *parser, int multi)
         lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
         if (cls == NULL)
             cls = (lily_class *)find_run_dynaload(parser,
-                (lily_item *)parser->symtab->builtin_import, "Exception");
+                (lily_item *)parser->symtab->builtin_module, "Exception");
 
         parser->exception_type = cls->type;
     }
@@ -3083,10 +3015,11 @@ static void except_handler(lily_parse_state *parser, int multi)
    it makes. However, it's also important to do dynaloads. To reconcile these
    two, importing a builtin module will set aside as many slots for classes as
    that module will end up needed. */
-static void reserve_cids_for(lily_parse_state *parser, lily_import_entry *entry)
+static void reserve_cids_for(lily_parse_state *parser,
+        lily_module_entry *module)
 {
     int count = 0;
-    const lily_base_seed *seed_iter = entry->dynaload_table;
+    const lily_base_seed *seed_iter = module->dynaload_table;
     while (seed_iter) {
         if (seed_iter->seed_type == dyna_enum ||
             seed_iter->seed_type == dyna_class)
@@ -3095,21 +3028,70 @@ static void reserve_cids_for(lily_parse_state *parser, lily_import_entry *entry)
         seed_iter = seed_iter->next;
     }
 
-    entry->cid_start = parser->symtab->next_class_id;
+    module->cid_start = parser->symtab->next_class_id;
     parser->symtab->next_class_id += count;
+}
+
+static void run_loaded_module(lily_parse_state *parser,
+        lily_module_entry *module)
+{
+    if (module->library == NULL) {
+        lily_module_entry *save_active = parser->symtab->active_module;
+        lily_lex_state *lex = parser->lex;
+
+        parser->symtab->active_module = module;
+
+        /* lily_emit_enter_block will write new code to this special var. */
+        lily_var *import_var = lily_emit_new_define_var(parser->emit,
+                parser->default_call_type, "__import__");
+
+        lily_emit_enter_block(parser->emit, block_file);
+
+        /* The whole of the file can be thought of as one large statement. */
+        lily_lexer(lex);
+        statement(parser, 1);
+
+        /* Since this is processing an import, the lexer will raise an error if
+           ?> is found. Because of that, multi-line statement can only end with
+           either } or eof. Only one is right. */
+        if (lex->token == tk_right_curly)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "'}' outside of a block.\n");
+
+        if (parser->emit->block->block_type != block_file)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Unterminated block(s) at end of file.\n");
+
+        lily_emit_leave_block(parser->emit);
+        lily_pop_lex_entry(parser->lex);
+
+        lily_emit_write_import_call(parser->emit, import_var);
+
+        parser->symtab->active_module = save_active;
+    }
+    else {
+        module->dynaload_table = module->library->dynaload_table;
+        reserve_cids_for(parser, module);
+    }
 }
 
 static void import_handler(lily_parse_state *parser, int multi)
 {
+#ifdef WITH_EMSCRIPTEN
+    lily_raise(parser->raiser, lily_SyntaxError,
+            "'import' not allowed within the sandbox.\n");
+#else
+    lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot import a file here.\n");
 
-    lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_import_entry *link_target = symtab->active_import;
+    lily_module_entry *active = symtab->active_module;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_msgbuf_flush(msgbuf);
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
@@ -3117,71 +3099,31 @@ static void import_handler(lily_parse_state *parser, int multi)
            because it won't allow spaces in between. */
         lily_scan_import_path(lex);
 
-        char *import_name = parser->lex->label;
+        char *search_start = lex->label;
+        char *path_tail = strrchr(search_start, LILY_PATH_CHAR);
+        /* Will the name that is going to be added conflict with something that
+           has already been added? */
+        if (path_tail != NULL)
+            search_start = path_tail + 1;
 
-        /* Start off by determining if a module with this name has been imported
-           in this file. This search is done by checking the name the module was
-           imported as, not the true name.
-           This is so that 'import x as y    import y' fails, even if 'y' is not
-           actually loaded (because there would be a clash). */
-        lily_import_entry *load_search = lily_find_import(symtab,
-                symtab->active_import, import_name);
-        if (load_search)
+        if (lily_find_module(symtab, active, search_start))
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Package '%s' has already been imported in this file.\n",
-                    import_name);
+                    "A module named '%s' has already been imported here.\n",
+                    search_start);
 
-        /* Has anything imported this module anywhere? If it has, then just make
-           a new link to it.
-           Note: lily_find_import_anywhere is unique in that it searches by the
-           REAL names of the modules, not the 'as' names. */
-        lily_import_entry *new_import = lily_find_import_anywhere(symtab,
-                import_name);
-        if (new_import == NULL) {
-#ifndef WITH_EMSCRIPTEN
-            new_import = load_import(parser, import_name);
-            if (new_import->library == NULL) {
-                /* lily_emit_enter_block will write new code to this special
-                   var. */
-                lily_var *import_var = lily_emit_new_define_var(parser->emit,
-                        parser->default_call_type, "__import__");
+        /* Has this path been imported before? */
+        lily_msgbuf_flush(msgbuf);
+        lily_msgbuf_add(msgbuf, active->dirname);
+        lily_msgbuf_add(msgbuf, lex->label);
 
-                lily_emit_enter_block(parser->emit, block_file);
+        lily_module_entry *module = lily_find_module_by_path(active->parent,
+                msgbuf->message);
 
-                /* The whole of the file can be thought of as one large
-                   statement. */
-                lily_lexer(lex);
-                statement(parser, 1);
+        lily_msgbuf_flush(msgbuf);
 
-                /* Since this is processing an import, the lexer will raise an
-                   error if ?> is found. Because of that, multi-line statement
-                   can only end with either } or eof. Only one is right. */
-                if (lex->token == tk_right_curly)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "'}' outside of a block.\n");
-
-                if (parser->emit->block->block_type != block_file)
-                    lily_raise(parser->raiser, lily_SyntaxError,
-                            "Unterminated block(s) at end of file.\n");
-
-                lily_emit_leave_block(parser->emit);
-                lily_pop_lex_entry(parser->lex);
-
-                lily_emit_write_import_call(parser->emit, import_var);
-            }
-            else {
-                new_import->dynaload_table = new_import->library->dynaload_table;
-                reserve_cids_for(parser, new_import);
-            }
-
-            parser->symtab->active_import = link_target;
-#else
-        /* This only happens when trying to import a non-builtin module from the
-           sandbox. For security reasons, don't allow that to happen. */
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot import '%s':\n"
-                "no builtin module '%s'\n", import_name, import_name);
-#endif
+        if (module == NULL) {
+            module = load_module(parser, active->dirname, lex->label);
+            run_loaded_module(parser, module);
         }
 
         lily_lexer(parser->lex);
@@ -3189,11 +3131,11 @@ static void import_handler(lily_parse_state *parser, int multi)
             NEED_NEXT_TOK(tk_word)
             /* This link must be done now, because the next token may be a word
                and lex->label would be modified. */
-            link_import_to(link_target, new_import, lex->label);
+            link_module_to(active, module, lex->label);
             lily_lexer(lex);
         }
         else
-            link_import_to(link_target, new_import, NULL);
+            link_module_to(active, module, NULL);
 
         if (lex->token == tk_comma) {
             lily_lexer(parser->lex);
@@ -3202,6 +3144,125 @@ static void import_handler(lily_parse_state *parser, int multi)
         else
             break;
     }
+#endif
+}
+
+static void link_package_to(lily_package *target, lily_package *to_link)
+{
+    lily_package_link *link = lily_malloc(sizeof(lily_package_link));
+
+    link->package = to_link;
+    link->next = target->linked_packages;
+    target->linked_packages = link;
+}
+
+typedef struct {
+    const char *prefix;
+    const char *suffix;
+    lily_module_entry *(*load_fn)(lily_parse_state *, const char *);
+} package_loader;
+
+/* The 'package.lly' suffix is used to native packages to make finding the root
+   easier (you don't have to guess which one it is).
+   For the second, the prefix is there to make it well know that it's a library
+   for loading only by Lily. */
+package_loader builtin_package_loaders[] =
+{
+    {"packages" LILY_PATH_SLASH, LILY_PATH_SLASH "package.lly", load_file},
+    {"packages" LILY_PATH_SLASH "liblily_", LILY_LIB_SUFFIX,    load_library},
+};
+
+static lily_package *load_registered_package(lily_parse_state *parser,
+        const char *name)
+{
+    lily_package *package_iter = parser->package_start;
+
+    while (package_iter) {
+        if (strcmp(package_iter->name, name) == 0)
+            break;
+
+        package_iter = package_iter->root_next;
+    }
+
+    return package_iter;
+}
+
+static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
+        const char *name)
+{
+    int i;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_module_entry *module = NULL;
+
+    for (i = 0;i < 2;i++) {
+        package_loader l = builtin_package_loaders[i];
+        lily_msgbuf_flush(msgbuf);
+
+        lily_msgbuf_add_fmt(msgbuf, "%s%s%s%s", dirpath, l.prefix, name,
+                l.suffix);
+
+        module = l.load_fn(parser, msgbuf->message);
+        if (module != NULL)
+            break;
+    }
+
+    if (module == NULL) {
+        lily_msgbuf_flush(msgbuf);
+        lily_msgbuf_add_fmt(msgbuf, "Cannot load package '%s':\n", name);
+        lily_msgbuf_add_fmt(msgbuf, "    no built-in package '%s'.\n", name);
+
+        for (i = 0;i < 2;i++) {
+            package_loader l = builtin_package_loaders[i];
+            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s%s'\n",
+                    dirpath, l.prefix, name, l.suffix);
+        }
+
+        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
+    }
+
+    lily_package *new_package = new_empty_package(parser, name);
+    new_package->first_module = module;
+    module->parent = new_package;
+
+    return new_package;
+}
+
+static void use_handler(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_block *block = parser->emit->block;
+    if (block->block_type != block_file &&
+        block->prev != NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'use' not allowed inside of a block.\n");
+
+    /* All packages that are 'use'-d by the root module of a package are
+       available to non-root packages. Forbid use-ing throughout a package, so
+       that uses are cleaner (they're just in the root).
+       This seems like a good idea. */
+    lily_module_entry *active = parser->symtab->active_module;
+    if (active != active->parent->first_module)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'use' only allowed within the first module of a package.\n");
+
+    lily_package_link *link_iter = active->parent->linked_packages;
+    while (link_iter) {
+        if (strcmp(link_iter->package->name, lex->label) == 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Attempt to use '%s' more than once.\n", lex->label);
+
+        link_iter = link_iter->next;
+    }
+
+    NEED_CURRENT_TOK(tk_word)
+    lily_package *package = load_registered_package(parser, lex->label);
+    if (package == NULL) {
+        package = load_package(parser, active->dirname, lex->label);
+        run_loaded_module(parser, package->first_module);
+    }
+
+    link_package_to(active->parent, package);
+    lily_lexer(lex);
 }
 
 static void try_handler(lily_parse_state *parser, int multi)
@@ -3267,7 +3328,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
     }
 
     const lily_base_seed *dl_item = find_dynaload_entry(
-            (lily_item *)parser->symtab->builtin_import, name);
+            (lily_item *)parser->symtab->builtin_module, name);
     if (dl_item && is_class_seed(dl_item))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A built-in class named '%s' already exists.\n", name);
@@ -3777,7 +3838,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         parser->emit->block->block_type == block_enum) {
         lily_add_class_method(parser->symtab,
                 parser->class_self_type->cls,
-                parser->symtab->active_import->var_chain);
+                parser->symtab->active_module->var_chain);
     }
 }
 
@@ -3834,12 +3895,9 @@ static void parser_loop(lily_parse_state *parser)
        the builtin namespace. */
     if (parser->first_pass) {
         const char *name = parser->lex->entry->filename;
-        char *path = lily_malloc(strlen(name) + 1);
-        strcpy(path, name);
+        parser->main_module->const_path = name;
 
-        /* Parser's init always creates the first import right after the builtin
-           import, so this is safe. */
-        parser->import_start->root_next->path = path;
+        set_module_names_by_path(parser->main_module, name);
 
         parser->first_pass = 0;
     }
@@ -3866,7 +3924,7 @@ static void parser_loop(lily_parse_state *parser)
                point in revving up the vm to do nothing. */
             if (parser->emit->code_pos != 0) {
                 lily_register_classes(parser->symtab, parser->vm);
-                lily_prepare_main(parser->emit, parser->import_start);
+                lily_prepare_main(parser->emit);
                 lily_vm_prep(parser->vm, parser->symtab);
 
                 parser->executing = 1;
@@ -3969,12 +4027,12 @@ char *lily_build_error_message(lily_parse_state *parser)
     lily_msgbuf_flush(parser->msgbuf);
 
     if (raiser->exception_cls) {
-        /* If this error isn't builtin, and isn't from the first import, then
-           show it as 'modulename.ErrorName' for context. */
-        lily_import_entry *import = raiser->exception_cls->import;
-        if (import != parser->import_start &&
-            import != parser->import_start->root_next)
-            lily_msgbuf_add_fmt(msgbuf, "%s.", import->loadname);
+        /* If this exception came from another package, then print that package
+           name for context. The only way the parent is NULL is if it's coming
+           from the builtin module which isn't in a package. */
+        lily_package *package = raiser->exception_cls->module->parent;
+        if (package->name[0] != '\0')
+            lily_msgbuf_add_fmt(msgbuf, "%s.", package->name);
     }
 
     lily_msgbuf_add(msgbuf, lily_name_for_error(raiser));
@@ -4026,7 +4084,7 @@ char *lily_build_error_message(lily_parse_state *parser)
             else
                 lily_msgbuf_add_fmt(msgbuf,
                         "    from %s:%d: in %s%s%s\n",
-                        func->import->path, frame->line_num, class_name,
+                        func->module->path, frame->line_num, class_name,
                         separator, func->trace_name);
 
             frame = frame->prev;

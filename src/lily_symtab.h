@@ -26,8 +26,10 @@ typedef struct lily_symtab_ {
     /* This holds dynaloaded vars until the vm runs and scoops them up. */
     lily_foreign_tie *foreign_ties;
 
-    lily_import_entry *builtin_import;
-    lily_import_entry *active_import;
+    lily_package *first_package;
+
+    lily_module_entry *builtin_module;
+    lily_module_entry *active_module;
 
     /* Defined functions that go out of scope are stuffed in here, unless
        they're class methods. */
@@ -67,7 +69,7 @@ typedef struct lily_symtab_ {
     uint32_t *lex_linenum;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_import_entry *);
+lily_symtab *lily_new_symtab(lily_package *);
 void lily_free_symtab(lily_symtab *);
 
 lily_tie *lily_get_boolean_literal(lily_symtab *, int64_t);
@@ -81,14 +83,14 @@ void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
 lily_foreign_tie *lily_new_foreign_tie(lily_symtab *, lily_var *);
 
-lily_class *lily_find_class(lily_symtab *, lily_import_entry *, const char *);
+lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);
 lily_prop_entry *lily_find_property(lily_class *, const char *);
 lily_variant_class *lily_find_scoped_variant(lily_class *, const char *);
 
 lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
-lily_var *lily_find_var(lily_symtab *, lily_import_entry *, const char *);
+lily_var *lily_find_var(lily_symtab *, lily_module_entry *, const char *);
 
 lily_type *lily_build_type(lily_symtab *, lily_class *, int, lily_type **, int, int);
 
@@ -109,9 +111,8 @@ void lily_change_parent_class(lily_class *, lily_class *);
 
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
-void lily_set_import(lily_symtab *, lily_import_entry *);
-lily_import_entry *lily_find_import(lily_symtab *, lily_import_entry *,
+lily_module_entry *lily_find_module(lily_symtab *, lily_module_entry *,
         const char *);
-lily_import_entry *lily_find_import_anywhere(lily_symtab *, const char *);
-void lily_link_import_to_active(lily_symtab *, lily_import_entry *);
+lily_module_entry *lily_find_module_by_path(lily_package *, const char *);
+lily_package *lily_find_package(lily_module_entry *, const char *);
 #endif

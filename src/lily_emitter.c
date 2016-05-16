@@ -295,11 +295,11 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
 
     lily_function_val *func_val;
 
-    if (source->item_kind == ITEM_TYPE_IMPORT) {
-        lily_import_entry *import = (lily_import_entry *)source;
+    if (source->item_kind == ITEM_TYPE_MODULE) {
+        lily_module_entry *module = (lily_module_entry *)source;
 
-        new_var->next = import->var_chain;
-        import->var_chain = new_var;
+        new_var->next = module->var_chain;
+        module->var_chain = new_var;
 
         func_val = lily_new_foreign_function_val(func, NULL, name);
     }
@@ -321,7 +321,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
    is used so that dynamically-loaded vars will be loaded once (and only once)
    into their appropriate scope. */
 lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
-        lily_import_entry *import, lily_type *type, const char *name)
+        lily_module_entry *module, lily_type *type, const char *name)
 {
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
@@ -330,8 +330,8 @@ lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
     new_var->function_depth = 1;
     new_var->flags |= VAR_IS_GLOBAL;
 
-    new_var->next = import->var_chain;
-    import->var_chain = new_var;
+    new_var->next = module->var_chain;
+    module->var_chain = new_var;
 
     return new_var;
 }
@@ -792,7 +792,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         new_block = emit->block->next;
 
     new_block->block_type = block_type;
-    new_block->var_start = emit->symtab->active_import->var_chain;
+    new_block->var_start = emit->symtab->active_module->var_chain;
     new_block->class_entry = emit->block->class_entry;
     new_block->self = emit->block->self;
     new_block->patch_start = emit->patches->pos;
@@ -813,14 +813,14 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         else if (block_type == block_enum) {
             /* Enum entries are not considered function-like, because they do
                not have a class .new. */
-            new_block->class_entry = emit->symtab->active_import->class_chain;
+            new_block->class_entry = emit->symtab->active_module->class_chain;
             new_block->loop_start = -1;
         }
     }
     else {
-        lily_var *v = emit->symtab->active_import->var_chain;
+        lily_var *v = emit->symtab->active_module->var_chain;
         if (block_type == block_class)
-            new_block->class_entry = emit->symtab->active_import->class_chain;
+            new_block->class_entry = emit->symtab->active_module->class_chain;
 
         v->parent = new_block->class_entry;
 
@@ -875,7 +875,7 @@ static void finalize_function_block(lily_emit_state *emit,
         lily_var *var_stop = function_block->function_var;
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
                  malloc isn't cheap if there are a lot of vars. */
-        lily_var *var_iter = emit->symtab->active_import->var_chain;
+        lily_var *var_iter = emit->symtab->active_module->var_chain;
         lily_var *var_temp;
         while (var_iter != var_stop) {
             var_temp = var_iter->next;
@@ -945,11 +945,11 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (emit->block->block_type == block_class) {
         lily_class *cls = emit->block->class_entry;
 
-        emit->symtab->active_import->var_chain = block->function_var;
+        emit->symtab->active_module->var_chain = block->function_var;
         lily_add_class_method(emit->symtab, cls, block->function_var);
     }
     else if (emit->block->block_type != block_file)
-        emit->symtab->active_import->var_chain = block->function_var;
+        emit->symtab->active_module->var_chain = block->function_var;
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
 
@@ -1101,7 +1101,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     }
 
     lily_var *v = emit->block->var_start;
-    if (v != emit->symtab->active_import->var_chain)
+    if (v != emit->symtab->active_module->var_chain)
         lily_hide_block_vars(emit->symtab, v);
 
     /* Transitioning between blocks is simple: First write a jump at the end of
@@ -1422,7 +1422,7 @@ static void ensure_params_in_closure(lily_emit_state *emit)
        To know if something has optargs, prod the function's types. */
     lily_type **real_param_types = function_var->type->subtypes;
 
-    lily_var *var_iter = emit->symtab->active_import->var_chain;
+    lily_var *var_iter = emit->symtab->active_module->var_chain;
     while (var_iter != function_var) {
         if (var_iter->flags & SYM_CLOSED_OVER &&
             var_iter->reg_spot < local_count) {
@@ -1731,7 +1731,7 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
     /* Since this function is called immediately after declaring the last var
        that will receive the decompose, it's safe to pull the vars directly
        from symtab's var chain. */
-    lily_var *var_iter = emit->symtab->active_import->var_chain;
+    lily_var *var_iter = emit->symtab->active_module->var_chain;
 
     /* Go down because the vars are linked from newest -> oldest. If this isn't
        done, then the first var will get the last value in the variant, the
@@ -1787,7 +1787,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
         lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_import->var_chain)
+        if (v != emit->symtab->active_module->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
     else
@@ -4372,7 +4372,7 @@ void lily_reset_main(lily_emit_state *emit)
 /* This function is to be called before lily_vm_prep. This will ensure that the
    register info for __main__ is up-to-date. If any text is parsed, then this
    has to be called before running the vm. */
-void lily_prepare_main(lily_emit_state *emit, lily_import_entry *import_iter)
+void lily_prepare_main(lily_emit_state *emit)
 {
     lily_function_val *f = emit->symtab->main_function;
     int register_count = emit->main_block->next_reg_spot;

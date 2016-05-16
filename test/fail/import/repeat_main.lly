@@ -1,5 +1,5 @@
 #[
-SyntaxError: Package 'repeat_a' has already been imported in this file.
+SyntaxError: A module named 'repeat_a' has already been imported here.
     from repeat_main.lly:7
 ]#
 

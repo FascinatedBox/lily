@@ -1291,7 +1291,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         char *separator;
         const char *name = func_val->trace_name;
         if (func_val->code) {
-            path = func_val->import->path;
+            path = func_val->module->path;
             sprintf(line, "%d:", frame_iter->line_num);
         }
         else
@@ -1766,8 +1766,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         const char *package_name = "";
         const char *separator = "";
 
-        if (cls->import->loadname[0] != '\0') {
-            package_name = cls->import->loadname;
+        if (cls->module->loadname[0] != '\0') {
+            package_name = cls->module->parent->name;
             separator = ".";
         }
 
@@ -1892,7 +1892,7 @@ static void load_foreign_ties(lily_vm_state *vm)
 static void maybe_fix_print(lily_vm_state *vm)
 {
     lily_symtab *symtab = vm->symtab;
-    lily_import_entry *builtin = symtab->builtin_import;
+    lily_module_entry *builtin = symtab->builtin_module;
     lily_var *stdout_var = lily_find_var(symtab, builtin, "stdout");
 
     if (stdout_var) {

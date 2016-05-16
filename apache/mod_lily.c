@@ -249,7 +249,7 @@ static int lily_handler(request_rec *r)
     options->data = r;
 
     lily_parse_state *parser = lily_new_parse_state(options);
-    lily_register_import(parser, "server", &seed_write, apache_var_dynaloader);
+    lily_register_package(parser, "server", &seed_write, apache_var_dynaloader);
 
     lily_parse_file(parser, lm_tags, r->filename);
 

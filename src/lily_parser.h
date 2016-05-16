@@ -10,17 +10,12 @@
 # include "lily_msgbuf.h"
 # include "lily_type_maker.h"
 
-typedef struct lily_path_link_ {
-    char *path;
-    struct lily_path_link_ *next;
-} lily_path_link;
-
 typedef struct lily_parse_state_ {
-    lily_path_link *import_paths;
-    lily_path_link *library_import_paths;
+    lily_package *package_start;
+    lily_package *package_top;
 
-    lily_import_entry *import_top;
-    lily_import_entry *import_start;
+    lily_module_entry *builtin_module;
+    lily_module_entry *main_module;
 
     uint16_t *optarg_stack;
     uint16_t optarg_stack_pos;
@@ -55,9 +50,9 @@ int lily_parse_file(lily_parse_state *, lily_lex_mode, const char *);
 int lily_parse_string(lily_parse_state *, const char *, lily_lex_mode,
         char *);
 int lily_parse_chunk(lily_parse_state *, char *);
-lily_class *lily_maybe_dynaload_class(lily_parse_state *, lily_import_entry *,
+lily_class *lily_maybe_dynaload_class(lily_parse_state *, lily_module_entry *,
         const char *);
-void lily_register_import(lily_parse_state *, const char *, const void *,
+void lily_register_package(lily_parse_state *, const char *, const void *,
         var_loader);
 char *lily_build_error_message(lily_parse_state *);
 
