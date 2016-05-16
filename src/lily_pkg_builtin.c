@@ -292,7 +292,7 @@ static void builtin_var_loader(lily_parse_state *parser, const char *name,
     lily_move_file(&tie->data, file_val);
 }
 
-void lily_init_builtin_package(lily_symtab *symtab, lily_import_entry *builtin)
+void lily_init_builtin_package(lily_symtab *symtab, lily_module_entry *builtin)
 {
     symtab->integer_class    = lily_integer_init(symtab);
     symtab->double_class     = lily_double_init(symtab);

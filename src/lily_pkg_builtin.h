@@ -5,6 +5,6 @@ struct lily_symtab_;
 struct lily_import_entry_;
 
 void lily_init_builtin_package(struct lily_symtab_ *,
-        struct lily_import_entry_ *);
+        struct lily_module_entry_ *);
 
 #endif

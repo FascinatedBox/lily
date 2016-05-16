@@ -29,5 +29,5 @@ static const lily_var_seed argv_seed = {NULL, "argv", dyna_var, "List[String]"};
 
 void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
 {
-    lily_register_import(parser, "sys", &argv_seed, lily_sys_var_loader);
+    lily_register_package(parser, "sys", &argv_seed, lily_sys_var_loader);
 }

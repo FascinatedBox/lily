@@ -4,7 +4,7 @@
 
 [1, 2, 3].each(print)
 
-import sys
+use sys
 
 # This time, the item of interest is Option.is_none
 # The List, post map, is List[Option[Integer]]

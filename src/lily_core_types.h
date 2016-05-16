@@ -123,9 +123,9 @@ typedef struct lily_class_ {
        without generics, this is the default type. */
     struct lily_type_ *self_type;
 
-    /* This is the package that this class was defined within. This is used to
-       print a proper package name for classes.  */
-    struct lily_import_entry_ *import;
+    /* This is the module that this class was defined within. This is sometimes
+       used for establishing a scope when doing dynaloading. */
+    struct lily_module_entry_ *module;
 
     /* This contains all types which have this class as their class. */
     struct lily_type_ *all_subtypes;
@@ -364,8 +364,8 @@ typedef struct lily_function_val_ {
     const char *class_name;
     /* The name of this function, for use by debug and stack trace. */
     const char *trace_name;
-    /* The import that this function was created within. */
-    struct lily_import_entry_ *import;
+    /* The module that this function was created within. */
+    struct lily_module_entry_ *module;
 
     /* Foreign functions only. To determine if a function is foreign, simply
        check 'foreign_func == NULL'. */
@@ -428,14 +428,13 @@ typedef struct lily_gc_entry_ {
     struct lily_gc_entry_ *next;
 } lily_gc_entry;
 
-typedef struct lily_import_link_ {
-    struct lily_import_entry_ *entry;
+typedef struct lily_module_link_ {
+    struct lily_module_entry_ *module;
     char *as_name;
-    struct lily_import_link_ *next_import;
-} lily_import_link;
+    struct lily_module_link_ *next_module;
+} lily_module_link;
 
-/* This struct holds information for when an import references a
-   library. */
+/* This is for when a module has a link to a library. */
 typedef struct {
     /* This is the handle to the library. */
     void *source;
@@ -443,44 +442,88 @@ typedef struct {
     const void *dynaload_table;
 } lily_library;
 
-/* This is used to manage information about imports. */
-typedef struct lily_import_entry_ {
-    /* Every import entry that is created is linked to each other starting from
-       this one. */
-    struct lily_import_entry_ *root_next;
+/* A module either a single code file, or a single library that has been loaded.
+   The contents inside are what the module has exported. */
+typedef struct lily_module_entry_ {
+    /* This links all modules within a package together, so that they can be
+       iterated over and destroyed. */
+    struct lily_module_entry_ *root_next;
 
-    /* This allows imports to be cast as lily_item, which is used during parser
-       dynaloading. */
+    /* Modules have 'item_kind' set so that they can be cast to lily_item, for
+       use with dynaloading. */
     uint32_t item_kind;
+    /* Modules from a library are reserved a certain number of ids, so that
+       they can use an 'offset' from that id to get the ids of the classes both
+       inside of them and inside the interpeter. */
     uint16_t cid_start;
-    uint16_t pad;
 
-    /* The name given to import this thing. */
+    uint16_t cmp_len;
+
+    /* The name of this module. */
     char *loadname;
 
-    /* The path used to load this file. */
-    char *path;
+    /* If the path includes a directory, then this is just the directory.
+       Otherwise, it's just '\0'. */
+    char *dirname;
 
-    lily_import_link *import_chain;
+    /* The total path to this module. This may be relative to the first module,
+       or an absolute path. */
+    union {
+        char *path;
+        /* This is ONLY for the first module, which shallow-copies the path that
+           is provided. Parser makes sure to NOT free this during teardown. */
+        const char *const_path;
+    };
 
-    /* The classes that were declared within the imported file. */
+    /* These links are modules that have been imported (and thus are visible)
+       from this module. */
+    lily_module_link *module_chain;
+
+    /* The classes declared within this module. */
     lily_class *class_chain;
 
-    /* The vars within the imported file. */
+    /* The vars declared within this module. */
     lily_var *var_chain;
 
-    /* This is non-NULL if 'import' found a dynamic library to open in place of
-       a normal module. */
+    /* The package that this module is contained within. */
+    struct lily_package_ *parent;
+
+    /* If the module is a shared library, then this contains a handle to that
+       library. */
     lily_library *library;
 
-    /* For builtin imports, this can contain classes, vars, or functions to
-       dynaload. */
+    /* For modules which wrap a library (or the builtin module), then this is
+       the dynaload table inside of it. */
     const void *dynaload_table;
 
-    /* If the import provides seeds of type dyna_var, this is called with the
-       name when the given name is referenced. */
+    /* Modules that provide var seeds need to also provide a var loading
+       function to load those seeds. */
     var_loader var_load_fn;
-} lily_import_entry;
+} lily_module_entry;
+
+/* A package is a collection of modules. */
+typedef struct lily_package_ {
+    struct lily_package_ *root_next;
+
+    /* The first module will probably have a standardized name, so this is the
+       real name for this package. */
+    char *name;
+
+    struct lily_package_link_ *linked_packages;
+
+    /* If this package is designated as a root package, then data inside will
+       not be printed with a namespace. */
+    uint64_t is_root;
+
+    /* The first module loaded as part of this package, which contains a
+       root_next to all modules loaded within this package. */
+    lily_module_entry *first_module;
+} lily_package;
+
+typedef struct lily_package_link_ {
+    lily_package *package;
+    struct lily_package_link_ *next;
+} lily_package_link;
 
 /* Finally, various definitions. */
 
@@ -494,7 +537,7 @@ typedef struct lily_import_entry_ {
 #define ITEM_TYPE_STORAGE  3
 #define ITEM_TYPE_VARIANT  4
 #define ITEM_TYPE_PROPERTY 5
-#define ITEM_TYPE_IMPORT   6
+#define ITEM_TYPE_MODULE   6
 
 
 /* CLS_* defines are for lily_class. */

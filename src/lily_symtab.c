@@ -18,7 +18,7 @@
  *                          |_|
  */
 
-lily_symtab *lily_new_symtab(lily_import_entry *builtin_import)
+lily_symtab *lily_new_symtab(lily_package *builtin_package)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
@@ -30,13 +30,14 @@ lily_symtab *lily_new_symtab(lily_import_entry *builtin_import)
     symtab->literals = NULL;
     symtab->function_ties = NULL;
     symtab->foreign_ties = NULL;
-    symtab->builtin_import = builtin_import;
-    symtab->active_import = builtin_import;
+    symtab->builtin_module = builtin_package->first_module;
+    symtab->active_module = builtin_package->first_module;
     symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
+    symtab->first_package = builtin_package;
 
     /* Builtin classes are established by this function. */
-    lily_init_builtin_package(symtab, builtin_import);
+    lily_init_builtin_package(symtab, builtin_package->first_module);
 
     return symtab;
 }
@@ -142,12 +143,16 @@ void lily_free_symtab(lily_symtab *symtab)
     free_classes(symtab, symtab->old_class_chain);
     free_vars(symtab, symtab->old_function_chain);
 
-    lily_import_entry *import_iter = symtab->builtin_import;
-    while (import_iter) {
-        free_classes(symtab, import_iter->class_chain);
-        free_vars(symtab, import_iter->var_chain);
+    lily_package *package_iter = symtab->first_package;
+    while (package_iter) {
+        lily_module_entry *module_iter = package_iter->first_module;
+        while (module_iter) {
+            free_classes(symtab, module_iter->class_chain);
+            free_vars(symtab, module_iter->var_chain);
 
-        import_iter = import_iter->root_next;
+            module_iter = module_iter->root_next;
+        }
+        package_iter = package_iter->root_next;
     }
 
     /* __main__ requires a special teardown because it doesn't allocate names
@@ -369,14 +374,14 @@ lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
     return var;
 }
 
-/* Create a new var that is immediately added to the current import. */
+/* Create a new var that is immediately added to the current module. */
 lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
         const char *name)
 {
     lily_var *var = lily_new_raw_unlinked_var(symtab, type, name);
 
-    var->next = symtab->active_import->var_chain;
-    symtab->active_import->var_chain = var;
+    var->next = symtab->active_module->var_chain;
+    symtab->active_module->var_chain = var;
 
     return var;
 }
@@ -400,23 +405,23 @@ static lily_var *find_var(lily_var *var_iter, const char *name,
     return var_iter;
 }
 
-/* Try to find a var. If the given import is NULL, then search through both the
-   current and builtin imports. For everything else, just search through the
-   import given. */
-lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
+/* Try to find a var. If the given module is NULL, then search through both the
+   current and builtin modules. For everything else, just search through the
+   module given. */
+lily_var *lily_find_var(lily_symtab *symtab, lily_module_entry *module,
         const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
     lily_var *result;
 
-    if (import == NULL) {
-        result = find_var(symtab->builtin_import->var_chain, name,
+    if (module == NULL) {
+        result = find_var(symtab->builtin_module->var_chain, name,
                     shorthash);
         if (result == NULL)
-            result = find_var(symtab->active_import->var_chain, name, shorthash);
+            result = find_var(symtab->active_module->var_chain, name, shorthash);
     }
     else
-        result = find_var(import->var_chain, name, shorthash);
+        result = find_var(module->var_chain, name, shorthash);
 
     return result;
 }
@@ -424,7 +429,7 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_import_entry *import,
 /* Hide all vars that occur until 'var_stop'. */
 void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 {
-    lily_var *var_iter = symtab->active_import->var_chain;
+    lily_var *var_iter = symtab->active_module->var_chain;
     while (var_iter != var_stop) {
         var_iter->flags |= VAR_OUT_OF_SCOPE;
         var_iter = var_iter->next;
@@ -445,13 +450,13 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
     next vm prep phase. **/
 
 static void tie_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val, lily_import_entry *import)
+        lily_function_val *func_val, lily_module_entry *module)
 {
     lily_tie *tie = lily_malloc(sizeof(lily_tie));
 
     /* This is done so that lily_debug can print line numbers. */
     func_val->line_num = func_var->line_num;
-    func_val->import = import;
+    func_val->module = module;
 
     tie->type = func_var->type;
     tie->value.function = func_val;
@@ -467,13 +472,13 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
 void lily_tie_builtin(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val)
 {
-    tie_function(symtab, func_var, func_val, symtab->builtin_import);
+    tie_function(symtab, func_var, func_val, symtab->builtin_module);
 }
 
 void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val)
 {
-    tie_function(symtab, func_var, func_val, symtab->active_import);
+    tie_function(symtab, func_var, func_val, symtab->active_module);
 }
 
 lily_foreign_tie *lily_new_foreign_tie(lily_symtab *symtab, lily_var *var)
@@ -528,7 +533,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->generic_count = class_seed->generic_count;
     new_class->flags = 0;
     new_class->is_refcounted = class_seed->is_refcounted;
-    new_class->import = symtab->active_import;
+    new_class->module = symtab->active_module;
     new_class->dynaload_table = class_seed->dynaload_table;
 
     return new_class;
@@ -538,7 +543,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
    should be. The entity is going to be either an enum, a variant, or a
    user-defined class. The class is assumed to be refcounted, because it usually
    is.
-   The new class is automatically linked up to the current import. No default
+   The new class is automatically linked up to the current module. No default
    type is created, in case the newly-made class ends up needing generics. */
 lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 {
@@ -561,15 +566,15 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     new_class->dynaload_table = NULL;
     new_class->call_chain = NULL;
     new_class->variant_members = NULL;
-    new_class->import = symtab->active_import;
+    new_class->module = symtab->active_module;
     new_class->all_subtypes = NULL;
     new_class->move_flags = VAL_IS_INSTANCE;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
 
-    new_class->next = symtab->active_import->class_chain;
-    symtab->active_import->class_chain = new_class;
+    new_class->next = symtab->active_module->class_chain;
+    symtab->active_module->class_chain = new_class;
 
     return new_class;
 }
@@ -633,21 +638,21 @@ static lily_class *find_class(lily_class *class_iter, const char *name,
 }
 
 
-/* Try to find a class. If 'import' is NULL, then search through both the
-   current import AND the builtin import. In all other cases, search just the
-   import given. */
-lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
+/* Try to find a class. If 'module' is NULL, then search through both the
+   current module AND the builtin module. In all other cases, search just the
+   module given. */
+lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
         const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
     lily_class *result;
 
-    if (import == NULL) {
+    if (module == NULL) {
         if (name[1] != '\0') {
-            result = find_class(symtab->builtin_import->class_chain, name,
+            result = find_class(symtab->builtin_module->class_chain, name,
                     shorthash);
             if (result == NULL)
-                result = find_class(symtab->active_import->class_chain, name,
+                result = find_class(symtab->active_module->class_chain, name,
                         shorthash);
         }
         else {
@@ -667,7 +672,7 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_import_entry *import,
         }
     }
     else
-        result = find_class(import->class_chain, name, shorthash);
+        result = find_class(module->class_chain, name, shorthash);
 
     return result;
 }
@@ -697,8 +702,8 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
 {
     /* Prevent class methods from being accessed globally, because they're now
        longer globals. */
-    if (method_var == symtab->active_import->var_chain)
-        symtab->active_import->var_chain = method_var->next;
+    if (method_var == symtab->active_module->var_chain)
+        symtab->active_module->var_chain = method_var->next;
 
     method_var->next = cls->call_chain;
     cls->call_chain = method_var;
@@ -730,25 +735,25 @@ lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
     return ret;
 }
 
-static lily_import_entry *find_import(lily_import_entry *import,
+static lily_module_entry *find_module(lily_module_entry *module,
         const char *name)
 {
-    lily_import_link *link_iter = import->import_chain;
-    lily_import_entry *result = NULL;
+    lily_module_link *link_iter = module->module_chain;
+    lily_module_entry *result = NULL;
     while (link_iter) {
         char *as_name = link_iter->as_name;
-        char *loadname = link_iter->entry->loadname;
+        char *loadname = link_iter->module->loadname;
 
         /* If it was imported like 'import x as y', then as_name will be
            non-null. In such a case, don't allow fallback access as 'x', just
            in case something else is imported with the name 'x'. */
         if ((as_name && strcmp(as_name, name) == 0) ||
             (as_name == NULL && strcmp(loadname, name) == 0)) {
-            result = link_iter->entry;
+            result = link_iter->module;
             break;
         }
 
-        link_iter = link_iter->next_import;
+        link_iter = link_iter->next_module;
     }
 
     return result;
@@ -811,8 +816,8 @@ lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
     variant->name = lily_malloc(strlen(name) + 1);
     strcpy(variant->name, name);
 
-    variant->next = symtab->active_import->class_chain;
-    symtab->active_import->class_chain = (lily_class *)variant;
+    variant->next = symtab->active_module->class_chain;
+    symtab->active_module->class_chain = (lily_class *)variant;
 
     /* Variant classes do not need a unique class id because they are not
        compared in ts. In vm, they're always accessed through their enum. */
@@ -889,7 +894,7 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
         lily_type *enum_type)
 {
     int i, variant_count = 0;
-    lily_class *class_iter = symtab->active_import->class_chain;
+    lily_class *class_iter = symtab->active_module->class_chain;
     while (class_iter != enum_cls) {
         variant_count++;
         class_iter = class_iter->next;
@@ -900,7 +905,7 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
 
     /* The ordering is important here. This makes it so the first variant will
        get the lowest id and be at 0. It makes indexing in vm sensible. */
-    for (i = 0, class_iter = symtab->active_import->class_chain;
+    for (i = 0, class_iter = symtab->active_module->class_chain;
          i < variant_count;
          i++, class_iter = class_iter->next) {
         lily_variant_class *variant = (lily_variant_class *)class_iter;
@@ -922,7 +927,7 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;
         /* This removes the variants from symtab's classes, so that parser has
            to get them from the enum. */
-        symtab->active_import->class_chain = enum_cls;
+        symtab->active_module->class_chain = enum_cls;
     }
 }
 
@@ -941,15 +946,21 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
 void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
 {
     lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
-    lily_import_entry *import_iter = symtab->builtin_import;
-    while (import_iter) {
-        lily_class *class_iter = import_iter->class_chain;
-        while (class_iter) {
-            if ((class_iter->flags & CLS_IS_VARIANT) == 0)
-                lily_vm_add_class_unchecked(vm, class_iter);
-            class_iter = class_iter->next;
+
+    lily_package *package_iter = symtab->first_package;
+    while (package_iter) {
+        lily_module_entry *module_iter = package_iter->first_module;
+        while (module_iter) {
+            lily_class *class_iter = module_iter->class_chain;
+            while (class_iter) {
+                if ((class_iter->flags & CLS_IS_VARIANT) == 0)
+                    lily_vm_add_class_unchecked(vm, class_iter);
+
+                class_iter = class_iter->next;
+            }
+            module_iter = module_iter->root_next;
         }
-        import_iter = import_iter->root_next;
+        package_iter = package_iter->root_next;
     }
 
     /* Variants have an id of 0 since they don't need to go into the class
@@ -958,43 +969,59 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
     lily_vm_add_class_unchecked(vm, symtab->integer_class);
 }
 
-/* This checks if a package named 'name' has been imported anywhere at all. This
-   is used to prevent re-importing something that has already been imported (it
-   can just be linked). */
-lily_import_entry *lily_find_import_anywhere(lily_symtab *symtab,
-        const char *name)
-{
-    lily_import_entry *entry_iter = symtab->builtin_import;
-
-    while (entry_iter) {
-        if (strcmp(entry_iter->loadname, name) == 0)
-            break;
-
-        entry_iter = entry_iter->root_next;
-    }
-
-    return entry_iter;
-}
-
-/* Try to find an import named 'name' within the given import. If the given
+/* Try to find an module named 'name' within the given import. If the given
    import is NULL, then both the current import AND the builtin import are
    searched. */
-lily_import_entry *lily_find_import(lily_symtab *symtab,
-        lily_import_entry *import, const char *name)
+lily_module_entry *lily_find_module(lily_symtab *symtab,
+        lily_module_entry *module, const char *name)
 {
-    lily_import_entry *result;
-    if (import == NULL) {
-        result = find_import(symtab->active_import,
-                name);
-        if (result == NULL)
-            result = find_import(symtab->builtin_import, name);
-    }
+    lily_module_entry *result;
+    if (module == NULL)
+        result = find_module(symtab->active_module, name);
     else
-        result = find_import(import, name);
+        result = find_module(module, name);
 
     return result;
 }
 
+/* This checks to see if a module has already been loaded. The path provided
+   includes dirs, and is relative to the root module of the package. However,
+   the path does not include the suffix so that this works regardless of what
+   kind of thing was loaded (library or real file). */
+lily_module_entry *lily_find_module_by_path(lily_package *package,
+        const char *path)
+{
+    int cmp_len = strlen(path);
+    lily_module_entry *module_iter = package->first_module;
+
+    while (module_iter) {
+        if (module_iter->cmp_len == cmp_len &&
+            strncmp(module_iter->path, path, cmp_len) == 0)
+            break;
+
+        module_iter = module_iter->root_next;
+    }
+
+    return module_iter;
+}
+
+/* Check if a package named 'name' exists within 'module'. */
+lily_package *lily_find_package(lily_module_entry *module, const char *name)
+{
+    lily_package_link *link_iter = module->parent->linked_packages;
+    lily_package *result = NULL;
+
+    while (link_iter) {
+        if (strcmp(link_iter->package->name, name) == 0) {
+            result = link_iter->package;
+            break;
+        }
+
+        link_iter = link_iter->next;
+    }
+
+    return result;
+}
 
 /* This...is called to 'fix' how many generics are available in the current
    class. As a 'neat' side-effect, it also sets how many generics that

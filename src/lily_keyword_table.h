@@ -9,6 +9,7 @@ typedef struct {
 keyword_entry keywords[] = {
     {"if",           26217},
     {"do",           28516},
+    {"use",          6648693},
     {"var",          7496054},
     {"for",          7499622},
     {"try",          7959156},
@@ -38,31 +39,32 @@ keyword_entry keywords[] = {
 
 # define KEY_IF            0
 # define KEY_DO            1
-# define KEY_VAR           2
-# define KEY_FOR           3
-# define KEY_TRY           4
-# define KEY_CASE          5
-# define KEY_ELSE          6
-# define KEY_TRUE          7
-# define KEY_ELIF          8
-# define KEY_SELF          9
-# define KEY_ENUM         10
-# define KEY_WHILE        11
-# define KEY_RAISE        12
-# define KEY_FALSE        13
-# define KEY_MATCH        14
-# define KEY_BREAK        15
-# define KEY_CLASS        16
-# define KEY_DEFINE       17
-# define KEY_RETURN       18
-# define KEY_EXCEPT       19
-# define KEY_IMPORT       20
-# define KEY_PRIVATE      21
-# define KEY__FILE__      22
-# define KEY__LINE__      23
-# define KEY_PROTECTED    24
-# define KEY_CONTINUE     25
-# define KEY__FUNCTION__  26
-# define KEY_LAST_ID      26
+# define KEY_USE           2
+# define KEY_VAR           3
+# define KEY_FOR           4
+# define KEY_TRY           5
+# define KEY_CASE          6
+# define KEY_ELSE          7
+# define KEY_TRUE          8
+# define KEY_ELIF          9
+# define KEY_SELF         10
+# define KEY_ENUM         11
+# define KEY_WHILE        12
+# define KEY_RAISE        13
+# define KEY_FALSE        14
+# define KEY_MATCH        15
+# define KEY_BREAK        16
+# define KEY_CLASS        17
+# define KEY_DEFINE       18
+# define KEY_RETURN       19
+# define KEY_EXCEPT       20
+# define KEY_IMPORT       21
+# define KEY_PRIVATE      22
+# define KEY__FILE__      23
+# define KEY__LINE__      24
+# define KEY_PROTECTED    25
+# define KEY_CONTINUE     26
+# define KEY__FUNCTION__  27
+# define KEY_LAST_ID      27
 
 #endif

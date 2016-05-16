@@ -13,7 +13,7 @@
 #include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 
-#define ID_OFFSET    vm->call_chain->function->import->cid_start
+#define ID_OFFSET    vm->call_chain->function->module->cid_start
 #define CLSID_RESULT 2
 #define CLSID_CONN   1
 
