@@ -3955,10 +3955,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         padded_type = lily_ts_resolve_with(emit->ts,
                 variant->parent->self_type, emit->ts->question_class_type);
 
-        lily_type *result_type = build_type->subtypes[0];
-        if (result_type->flags & TYPE_IS_UNRESOLVED)
-            result_type = lily_ts_resolve(emit->ts, result_type);
-
         /* This causes all arguments to be written down into an o_build_enum op
            and be drained from the call. */
         write_build_enum(emit, cs, variant);
