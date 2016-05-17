@@ -1,3 +1,5 @@
+#include "lily_api_options.h"
+
 #include "lily_parser.h"
 
 /* This file is to be compiled only by emscripten, and serves as a bridge
@@ -16,6 +18,7 @@ lily_parse_state *get_parser()
     lily_options *options = lily_new_default_options();
     lily_parse_state *parser = lily_new_parse_state(options);
 
+    lily_free_options(options);
     return parser;
 }
 
