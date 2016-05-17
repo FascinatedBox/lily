@@ -97,9 +97,8 @@ def process_test_dir(basepath):
         for filepath in filepath_list:
             run_test(options, dirpath, filepath)
 
-if __name__ == '__main__':
-    process_test_dir('test' + os.sep + 'fail')
-    process_test_dir('test' + os.sep + 'pass')
+process_test_dir('test' + os.sep + 'fail')
+process_test_dir('test' + os.sep + 'pass')
 
 print ('Final stats: %d tests passed, %d errors, %d crashed.' \
         % (pass_count, error_count, crash_count))
