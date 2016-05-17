@@ -1090,6 +1090,12 @@ static lily_class *dynaload_enum(lily_parse_state *parser,
     int generics_used = enum_seed->generic_count;
     lily_lex_state *lex = parser->lex;
 
+    /* Since enums aren't calling for generic collection, they need to manually
+       tell ts about how many generics that they're using. This lets ts know how
+       much space to reserve. Without doing this, types from a different scope
+       will bleed down and cause very strange bugs. */
+    lily_ts_generics_seen(parser->emit->ts, enum_seed->generic_count);
+
     enum_cls->dynaload_table = enum_seed->dynaload_table;
     enum_cls->generic_count = enum_seed->generic_count;
 
