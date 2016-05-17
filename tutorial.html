@@ -40,7 +40,7 @@
                             <li><a href="index.html">Home</a></li>
                             <li class="active"><a href="#">Tutorial</a></li>
                             <li><a href="reference.html">Reference</a></li>
-                            <li><a href="modules.html">Modules</a></li>
+                            <li><a href="packages.html">Modules</a></li>
                             <li><a href="sandbox.html">Sandbox</a></li>
                             <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
                         </ul>
@@ -134,7 +134,7 @@
                     </dt>
                     <dt>
                         <span>
-                            <a href="#_Import">import</a>
+                            <a href="#_ImportAndUse">import and use</a>
                         </span>
                     </dt>
                     <dt>
@@ -195,7 +195,7 @@ Here's a script you can place into <code>/var/www/cgi-bin/</code> (or whatever d
                 </p>
                 <pre>
 &lt;?lily
-import server
+use server
 ?&gt;
 &lt;html&gt;
 &lt;body&gt;
@@ -1298,17 +1298,20 @@ So, such typecasting is not possible in Lily.
                 </p>
             </div>
             <div class="section">
-                <h1 id="_ImportingCode">
-                    Importing Code
+                <h1 id="_ImportAndUse">
+                    import and use
                 </h1>
                 <p>
-<span class="varname">import</span> is used to load code from another module into the current one.
-The design of <span class="varname">import</span> is inspired by Python, as well as PHP.
-<span class="varname">import</span> is still pretty basic, but here's what it looks like:
+Thus far, all examples have run as though they were in the same file.
+Lily provides two different keywords for using code from other files: <span class="varname">import</span> and <span class="varname">use</span>.
+                </p>
+                <p>
+The first keyword, <span class="varname">import</span>, loads a single module.
+It's called a module, because it can provide classes, variables, and functions.
+Here's an example of a simple module:
                 </p>
                 <pre>
-# file: library.lly
-
+# file: utils.lly
 class CustomError(message: String, code: Integer) &lt; Exception(message)
 {
     var @code = code
@@ -1322,65 +1325,99 @@ define fib(n: Integer): Integer
         return fib(n - 1) + fib(n - 2)
 }
 
-print("Loaded library.lly!")
+var some_param = 10
 
-# file: your_file.lly
+print("Loaded utils.lly!")
 
-import library
+# (from another file...)
+import utils
 
-var fib_7 = library.fib(7)
+utils.fib(10)
+print(utils.some_param)
+try:
+    raise utils.CustomError("Test", 123)
+except utils.CustomError:
+    print("Caught it!")</pre>
+                <p>
+Access to data within a module always uses the module's name as a prefix.
+Additionally, a module is allowed to have code outside of a function.
+That code is run exactly once, the first time a module is loaded.
+Subsequent loads only make a module available, but do not run the code again.
+                </p>
+                <p>
+<span class="varname">import</span> also supports some syntatic sugar:
+                </p>
+                <pre>
+# somedir/other_utils.lly
+import utils
 
-class MyError(message: String, code: Integer) &lt; library.CustomError(message, code)
+define and_then[A, B, C](f: Function(A => B), g: Function(B => C)): Function(A => C)
 {
-    
+    return {|x| f(g(x)) }
 }
 
-print(fib_7) # 13
+# (from another file...)
+import somedir/other_utils
 
-try:
-    raise MyError("oh no!", 123)
-except MyError as e:
-    print(e.code) # 123</pre>
+other_utils.and_then(Integer.to_s, String.parse_i)
+
+import somedir/other_utils as u
+
+u.and_then(Integer.to_s, String.parse_i)
+
+u.utils.fib(1)
+
+import x, y, z</pre>
                 <p>
-When <span class="varname">import</span> loads a module, everything within that module is then accessible using the name as a namespace.
-It is not possible to directly access members from one module in another module.
-Sometimes you'd like to load a module under a different name, or multiple modules at once:
-                </p>
-                <pre>
-import library as mylib
-
-# var fib_func = library.fib # Syntax error!
-var fib_func = mylib.fib
-
-import x, y, z
-                </pre>
-                <p>
-The <strong>first</strong> time that a module is imported, any code in it that is not within a function is automatically run.
-Subsequent imports of a module will simply make the data available to the caller.
+The above shows first how Lily allows loading from a directory other than the current one.
+<span class="varname">import</span> always works relative from the currently-loaded file.
+It's also possible to load a module under a different name (perhaps you wish to rename postgres to database, for example).
+It also shows that one can access modules that have been loaded in other modules.
                 </p>
                 <p>
-It is also possible to import code that is within a different directory than the current one.
+There are some limitations to import though.                    
+As of right now, there is no way to run a <code>from x import *</code> type import, or to be more selective <code>import (x, y, z) from abc</code>.
                 </p>
-                <pre>
-# file: src/jsonlib/json.lly
-define readJson() { ... }
-define writeJson() { ... }
-
-# file: src/main.lly
-import jsonlib/json
-
-json.writeJson()
-json.readJson()</pre>
                 <p>
-While it is possible to import a path in a lower directory, importing one from a higher directory (ex: '../sometarget.lly') is prohibited.
-Furthermore, when importing using a slashed path, the import is relative to the current import.
-When importing using a slashed path, the name of the module is whatever comes after the last slash (and using a trailing slash is prohibited).
+But modules and <span class="varname">import</span> are only half of the story. 
+Suppose you have a grouping of modules, and you'd like to distribute them together.
+Lily terms this collection as a package.
                 </p>
+                <p>
+<span class="varname">use</span> is the keyword use for loading packages.
+Whereas <span class="varname">import</span> has many options, <span class="varname">use</span> is more restrictive.
+A use command must specify the name of a package.
+By default, Lily provides the <code>sys</code> package which holds argv.
+The mod_lily runner provides a <code>server</code> package that provides an api for talking to apache.
+                </p>
+                <p>
+Within any given package, the first file loaded is considered special.
+For one, only the first file is able to <span class="varname">use</span> packages.
+Determining what a package exports is simple: It's whatever that the first file loaded has available to it.
+You can thus look at the first file of a package to get a fair idea of what it needs, and what it provides.
+                </p>
+                <p>
+When <span class="varname">use</span> looks for a module, it searches relative from the first file of the current module.
+This design allows multiple versions of a package to exist at the same time.
+Packages are expected to be located in a <code>packages</code> directory relative to where the first file is.
+Like modules, packages can be either plain text (<code>.lly</code>) or a platform library.
+Given the directive <code>use json</code>, Lily will look for:
+                </p>
+                <p>
+<code>./packages/json/package.lly</code>
+                </p>
+                <p>
+<code>./packages/liblily_json.(dll/so)</code>
+                </p>
+                <p>
+...with the <code>./</code> including the relative path to the first file, if need be.
+                </p>
+                <p>
                 <p>
 Earlier, it was mentioned that Lily has two modes of operation: <code>standalone</code> and <code>template</code>.
-Regardless of the starting mode, <code>import</code> will assume that the module contains only code.
+Regardless of the starting mode, the item is always loaded in <code>standalone</code> mode.
 Lily is smart enough that it won't serve your code-only files (they won't start with <code>&lt;?lily</code>, and it's invalid for code files).
-Another advantage of importing in a consistent mode is that you can easily move your files from standalone to your server.
+Another advantage of importing in a consistent mode is that you can easily move your files from standalone to a server.
                 </p>
             </div>
             <div class="section">

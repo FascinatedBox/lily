@@ -40,7 +40,7 @@
                             <li class="active"><a href="#">Home</a></li>
                             <li><a href="tutorial.html">Tutorial</a></li>
                             <li><a href="reference.html">Reference</a></li>
-                            <li><a href="modules.html">Modules</a></li>
+                            <li><a href="packages.html">Modules</a></li>
                             <li><a href="sandbox.html">Sandbox</a></li>
                             <li><a href="http://github.com/jesserayadkins/lily">Github</a></li>
                         </ul>
@@ -58,7 +58,7 @@
                     </div>
                     <div class="span6 col-md-6" title="Sum numbers from the command-line. This example shows off: 1) import and namespace access. 2) Method used as a function. 3) Option as first-class. 4) Inference with lambdas (particularly the fold). 5) Call-piping.">
                         <code style="padding: 0px 0px; background-color:inherit; color: white">
-                        <span>import sys</span><br />
+                        <span>use sys</span><br />
                         <span>sys.argv.map(String.parse_i)</span><br />
                         <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        .reject{|r| r.is_none() }</span></br />
                         <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;        .map{|m| m.unwrap() }</span><br />
