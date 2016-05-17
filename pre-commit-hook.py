@@ -99,6 +99,7 @@ def process_test_dir(basepath):
 
 process_test_dir('test' + os.sep + 'fail')
 process_test_dir('test' + os.sep + 'pass')
+process_test_dir('try')
 
 print ('Final stats: %d tests passed, %d errors, %d crashed.' \
         % (pass_count, error_count, crash_count))
