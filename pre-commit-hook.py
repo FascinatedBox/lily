@@ -21,15 +21,15 @@ verbose = (sys.argv[-1] == '--verbose')
 def get_expected_str(filename):
     f = open(filename, "r")
     output = ''
-    collecting = 0
-    for line in f:
-        if line.startswith('#[') and line.rstrip('\r\n') == '#[':
-            collecting = True
-        elif line.startswith(']#') and line.rstrip('\r\n') == "]#":
-            collecting = False
-        elif collecting:
-            # This assumes that line is always \n terminated.
-            output += line
+
+    if f.readline().rstrip('\r\n') == '#[':
+        for line in f:
+            if line.startswith(']#') and line.rstrip('\r\n') == "]#":
+                break
+            else:
+                # This assumes that line is always \n terminated.
+                output += line
+
     return output
 
 def run_test(options, dirpath, filepath):
