@@ -8,11 +8,6 @@
    helper functions to be called by the js side. It also has the impl for puts
    that's necessary. */
 
-void lily_impl_puts(void *data, char *text)
-{
-    fputs(text, stdout);
-}
-
 lily_parse_state *get_parser()
 {
     lily_options *options = lily_new_default_options();

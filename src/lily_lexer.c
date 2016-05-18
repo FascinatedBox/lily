@@ -12,11 +12,6 @@
 
 #include "lily_api_options.h"
 
-/* All Lily runners are required to provide this function so that lexer is able
-   to push out html data when in tagged mode. You can implement it as a no-op if
-   such functionality isn't important to you. */
-void lily_impl_puts(void *, char *);
-
 /** The lexer is responsible for:
     * Opening and reading the file given by parser. It also handles strings sent
       by parser. The lexer has some mode-switching code, since scanning strings
@@ -131,6 +126,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
 {
     lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
     lexer->data = options->data;
+    lexer->html_sender = options->html_sender;
 
     char *ch_class;
 
@@ -1666,7 +1662,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <?lily. */
                     lexer->label[htmlp] = '\0';
-                    lily_impl_puts(data, lexer->label);
+                    lexer->html_sender(lexer->label, data);
                 }
                 lbp += 5;
                 /* Yield control to the lexer. */
@@ -1677,7 +1673,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         htmlp++;
         if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
-            lily_impl_puts(data, lexer->label);
+            lexer->html_sender(lexer->label, data);
             /* This isn't done, so fix htmlp. */
             htmlp = 0;
         }
@@ -1688,7 +1684,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             else {
                 if (htmlp != 0) {
                     lexer->label[htmlp] = '\0';
-                    lily_impl_puts(data, lexer->label);
+                    lexer->html_sender(lexer->label, data);
                 }
 
                 lexer->token = tk_eof;

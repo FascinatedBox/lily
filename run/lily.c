@@ -11,11 +11,6 @@
 /*  lily_main.c
     This is THE main runner for Lily. */
 
-void lily_impl_puts(void *data, char *text)
-{
-    fputs(text, stdout);
-}
-
 static void usage()
 {
     fputs("Usage: lily [option] ...\n"

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 
 #include "lily_alloc.h"
 #include "lily_api_options.h"
@@ -15,7 +16,9 @@ lily_options *lily_new_default_options(void)
     options->gc_multiplier = 4;
     options->argc = 0;
     options->argv = NULL;
-    options->data = NULL;
+
+    options->html_sender = (lily_html_sender) fputs;
+    options->data = stdout;
 
     /* todo: This key sucks. Get a better one. */
     char key[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
