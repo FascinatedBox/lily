@@ -73,14 +73,6 @@ lily_type *lily_ts_resolve_with(lily_type_system *, lily_type *, lily_type *);
    The result is a solved type, and never NULL. */
 lily_type *lily_ts_resolve_by_second(lily_type_system *, lily_type *, lily_type *);
 
-/* This function marks every unresolved generic as solved by itself. This may
-   seem silly, but there are at least two uses for this:
-   * Function argument type mismatch, where some generics are not solved. Not
-     doing this would cause the wrong types to get shown.
-   * This prevents the generics from WITHIN a generic function (which are
-     quasi-known) from being resolved to something when they can't be. */
-void lily_ts_resolve_as_self(lily_type_system *, lily_type *);
-
 /* This is called when there is an error. It replaces the NULL in unsolved
    generics with the ? type. */
 void lily_ts_resolve_as_question(lily_type_system *);

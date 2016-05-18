@@ -3699,25 +3699,20 @@ static void validate_and_prep_call(lily_emit_state *emit,
         push_first_tree_value(emit, cs);
 
     if (cs->call_type->flags & TYPE_IS_UNRESOLVED) {
-        if (first_tt == tree_local_var || first_tt == tree_inherited_new ||
-            first_tt == tree_upvalue) {
-            /* This forces each generic to be resolved as itself. (A = A, B = B,
-                etc.). This is really important.
-                tree_local_var + tree_upvalue:
-                    define f[A](a: function (A => A), b: A)
-                If g is called, it can't resolve what A is. It gets that
-                information from f. I call this being 'quasi-solved'.
+        if (first_tt == tree_local_var || first_tt == tree_upvalue ||
+            first_tt == tree_inherited_new)
+            /* This forces generic types to be solved as themselves.
+               For the first two cases, this is about correctness. When inside
+               of a generic function, the generics are quantified but as some
+               unknown type. So allowing them to be solved allows wrong code. To
+               do otherwise requires (at least) rank 2 polymorphism, which does
+               not exist in Lily (YET).
 
-                tree_inherited_new:
-                    class one[A, B](a: A, b: B) { ... }
-                    class two[A, B, C](a: A, b: B, c: C) < one(b, a) # INVALID
-
-                By forcing 'two' to have the same generic ordering as 'one', Lily
-                greatly simplifies generics handling. The A of one is the A of
-                two. */
-            lily_ts_resolve_as_self(emit->ts,
-                    emit->symtab->generic_class->all_subtypes);
-        }
+               For the last case, solving generics as themselves forces the A
+               of a class to be in the same position regardless of how much it's
+               inherited and extended. That makes solving for types easier,
+               because A is always strictly A. */
+            lily_ts_check(emit->ts, cs->call_type, cs->call_type);
         else {
             lily_type *call_result = cs->call_type->subtypes[0];
             if (call_result && expect) {
