@@ -363,17 +363,6 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
     return result_type;
 }
 
-void lily_ts_resolve_as_self(lily_type_system *ts, lily_type *generic_iter)
-{
-    int i, stop;
-
-    stop = ts->pos + ts->ceiling;
-    for (i = ts->pos;i < stop;i++, generic_iter = generic_iter->next) {
-        if (ts->types[i] == NULL)
-            ts->types[i] = generic_iter;
-    }
-}
-
 void lily_ts_resolve_as_question(lily_type_system *ts)
 {
     int i, stop = ts->pos + ts->ceiling;
