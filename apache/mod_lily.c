@@ -1,7 +1,5 @@
 /*  mod_lily.c
     This is an apache binding for the Lily language. */
-#include <ctype.h>
-
 #include "httpd.h"
 #include "http_config.h"
 #include "http_protocol.h"
@@ -10,7 +8,6 @@
 
 #include "lily_alloc.h"
 #include "lily_parser.h"
-#include "lily_lexer.h"
 #include "lily_utf8.h"
 #include "lily_cls_hash.h"
 
@@ -20,7 +17,6 @@
 
 struct table_bind_data {
     lily_parse_state *parser;
-    lily_symtab *symtab;
     request_rec *r;
     int ok;
     lily_hash_val *hash_val;
@@ -63,7 +59,6 @@ static void bind_table_as(lily_parse_state *parser, request_rec *r,
 
     struct table_bind_data data;
     data.parser = parser;
-    data.symtab = parser->symtab;
     data.r = r;
     data.ok = 1;
     data.hash_val = tie->data.value.hash;
