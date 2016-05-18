@@ -109,25 +109,6 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
     return lily_ts_resolve_with(ts, type, ts->dynamic_class_type);
 }
 
-void lily_ts_pull_generics(lily_type_system *ts, lily_type *left, lily_type *right)
-{
-    if (left == NULL)
-        return;
-    else if (left->flags & TYPE_IS_UNRESOLVED) {
-        if (left->cls->id == SYM_CLASS_GENERIC)
-            ts->types[ts->pos + left->generic_pos] = right;
-        else if (left->subtype_count) {
-            int i;
-            for (i = 0;i < left->subtype_count;i++) {
-                lily_type *left_sub = left->subtypes[i];
-                lily_type *right_sub = right->subtypes[i];
-
-                lily_ts_pull_generics(ts, left_sub, right_sub);
-            }
-        }
-    }
-}
-
 static void simple_unify(lily_type_system *ts, lily_type *left,
         lily_type *right, int num_subtypes)
 {
