@@ -1494,15 +1494,8 @@ static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
        the given value. */
     if (key_id == KEY__LINE__)
         ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
-    else if (key_id == KEY__FILE__) {
-        /* This is necessary because lambdas and interpolation register as
-           file-like things. This will grab the first REAL file. */
-        lily_lex_entry *entry = parser->lex->entry;
-        while (strcmp(entry->filename, "[expand]") == 0)
-            entry = entry->prev;
-
-        ret = (lily_sym *) lily_get_string_literal(symtab, entry->filename);
-    }
+    else if (key_id == KEY__FILE__)
+        ret = (lily_sym *) lily_get_string_literal(symtab, parser->symtab->active_module->path);
     else if (key_id == KEY__FUNCTION__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
     else if (key_id == KEY_TRUE)
