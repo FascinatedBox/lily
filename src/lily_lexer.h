@@ -7,6 +7,8 @@
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 
+# include "lily_api_options.h"
+
 typedef enum {
     tk_left_parenth,
     tk_right_parenth,
@@ -128,6 +130,7 @@ typedef struct lily_lex_state_ {
     lily_tie *last_literal;
     lily_symtab *symtab;
     lily_raiser *raiser;
+    lily_html_sender html_sender;
     void *data;
 } lily_lex_state;
 

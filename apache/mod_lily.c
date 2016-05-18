@@ -18,11 +18,6 @@
 #include "lily_api_value.h"
 #include "lily_api_options.h"
 
-void lily_impl_puts(void *data, char *text)
-{
-    ap_rputs(text, (request_rec *)data);
-}
-
 struct table_bind_data {
     lily_parse_state *parser;
     lily_symtab *symtab;
@@ -247,6 +242,7 @@ static int lily_handler(request_rec *r)
 
     lily_options *options = lily_new_default_options();
     options->data = r;
+    options->html_sender = (lily_html_sender) ap_rputs;
 
     lily_parse_state *parser = lily_new_parse_state(options);
     lily_register_package(parser, "server", &seed_write, apache_var_dynaloader);

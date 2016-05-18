@@ -11,11 +11,6 @@
 /*  lily_repl.c
     This implements a REPL for Lily. */
 
-void lily_impl_puts(void *data, char *text)
-{
-    fputs(text, stdout);
-}
-
 int main(int argc, char **argv)
 {
     lily_options *options = lily_new_default_options();
