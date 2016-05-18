@@ -51,11 +51,6 @@ lily_type *lily_ts_unify(lily_type_system *, lily_type *, lily_type *);
    to the second type. This understands variance, but will not solve any generics. */
 int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);
 
-/* This is a simpler version of lily_ts check that does not validate types.
-   Use it if you need to dig out type information that has already been
-   verified. */
-void lily_ts_pull_generics(lily_type_system *, lily_type *, lily_type *);
-
 /* This recurses through the given type, building up a new, completely resolved
    type whereever the given type has generics.
    In the event that the given type specifies generics that are not solved,
