@@ -5,10 +5,7 @@
 #include "lily_vm.h"
 #include "lily_parser.h"
 
-#include "lily_cls_dynamic.h"
 #include "lily_cls_hash.h"
-#include "lily_cls_function.h"
-#include "lily_cls_list.h"
 #include "lily_cls_string.h"
 
 #include "lily_api_alloc.h"
@@ -311,6 +308,8 @@ void lily_free_vm(lily_vm_state *vm)
  *
  */
 
+static void gc_mark(int, lily_value *);
+
 /* This is Lily's garbage collector. It runs in multiple stages:
    1: Go to each _in-use_ register that is not nil and use the appropriate
       gc_marker call to mark all values inside that value which are visible.
@@ -354,7 +353,7 @@ static void invoke_gc(lily_vm_state *vm)
     for (i = 0;i < vm->num_registers;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_IS_GC_SWEEPABLE)
-            lily_gc_mark(pass, reg);
+            gc_mark(pass, reg);
     }
 
     /* Stage 2: Start destroying everything that wasn't marked as visible.
@@ -425,7 +424,55 @@ static void invoke_gc(lily_vm_state *vm)
     vm->gc_spare_entries = new_spare_entries;
 }
 
-void lily_gc_mark(int pass, lily_value *v)
+void dynamic_marker(int pass, lily_value *v)
+{
+    lily_value *inner_value = v->value.dynamic->inner_value;
+
+    if (inner_value->flags & VAL_IS_GC_SWEEPABLE)
+        gc_mark(pass, inner_value);
+}
+
+void list_marker(int pass, lily_value *v)
+{
+    lily_list_val *list_val = v->value.list;
+    int i;
+
+    for (i = 0;i < list_val->num_values;i++) {
+        lily_value *elem = list_val->elems[i];
+
+        if (elem->flags & VAL_IS_GC_SWEEPABLE)
+            gc_mark(pass, elem);
+    }
+}
+
+void hash_marker(int pass, lily_value *v)
+{
+    lily_hash_val *hash_val = v->value.hash;
+    lily_hash_elem *elem_iter = hash_val->elem_chain;
+    while (elem_iter) {
+        lily_value *elem_value = elem_iter->elem_value;
+        gc_mark(pass, elem_value);
+
+        elem_iter = elem_iter->next;
+    }
+}
+
+static void function_marker(int pass, lily_value *v)
+{
+    lily_function_val *function_val = v->value.function;
+
+    lily_value **upvalues = function_val->upvalues;
+    int count = function_val->num_upvalues;
+    int i;
+
+    for (i = 0;i < count;i++) {
+        lily_value *up = upvalues[i];
+        if (up && (up->flags & VAL_IS_GC_SWEEPABLE))
+            gc_mark(pass, up);
+    }
+}
+
+static void gc_mark(int pass, lily_value *v)
 {
     if (((v->flags & VAL_IS_GC_TAGGED) &&
          v->value.gc_generic->gc_entry &&
@@ -439,13 +486,13 @@ void lily_gc_mark(int pass, lily_value *v)
 
         if (v->flags &
             (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_ENUM | VAL_IS_TUPLE))
-            lily_gc_list_marker(pass, v);
+            list_marker(pass, v);
         else if (v->flags & VAL_IS_HASH)
-            lily_gc_hash_marker(pass, v);
+            hash_marker(pass, v);
         else if (v->flags & VAL_IS_DYNAMIC)
-            lily_gc_dynamic_marker(pass, v);
+            dynamic_marker(pass, v);
         else if (v->flags & VAL_IS_FUNCTION)
-            lily_gc_function_marker(pass, v);
+            function_marker(pass, v);
     }
 }
 

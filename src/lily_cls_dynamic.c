@@ -4,14 +4,6 @@
 #include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 
-void lily_gc_dynamic_marker(int pass, lily_value *v)
-{
-    lily_value *inner_value = v->value.dynamic->inner_value;
-
-    if (inner_value->flags & VAL_IS_GC_SWEEPABLE)
-        lily_gc_mark(pass, inner_value);
-}
-
 void lily_dynamic_new(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
