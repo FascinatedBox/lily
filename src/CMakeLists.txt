@@ -17,5 +17,5 @@ endif()
 install(FILES lily_api_alloc.h
               lily_api_dynaload.h
               lily_api_options.h
-              lily_api_value.h
+              lily_api_value_ops.h
         DESTINATION "lily")

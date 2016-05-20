@@ -9,7 +9,7 @@
 #include "lily_opcode_table.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 # define IS_LOOP_BLOCK(b) (b == block_while || \
                            b == block_do_while || \

@@ -6,7 +6,7 @@
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 void lily_destroy_file(lily_value *v)
 {

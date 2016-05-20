@@ -12,7 +12,7 @@
 #include "lily_cls_string.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);

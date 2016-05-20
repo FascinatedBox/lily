@@ -4,7 +4,7 @@
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 /* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
    returned. If no element is found, then NULL is returned. */

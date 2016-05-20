@@ -13,7 +13,7 @@
 #include "lily_cls_file.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 /***
  *       ___                       _   _
