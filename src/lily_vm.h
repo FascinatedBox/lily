@@ -134,7 +134,6 @@ uint64_t lily_siphash(lily_vm_state *, lily_value *);
 void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *, lily_value *);
 
 void lily_tag_value(lily_vm_state *, lily_value *);
-void lily_gc_mark(int, lily_value *);
 
 void lily_vm_ensure_class_table(lily_vm_state *, int);
 void lily_vm_add_class_unchecked(lily_vm_state *, lily_class *);

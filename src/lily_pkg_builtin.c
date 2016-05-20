@@ -8,7 +8,6 @@
 #include "lily_cls_string.h"
 #include "lily_cls_bytestring.h"
 #include "lily_cls_boolean.h"
-#include "lily_cls_function.h"
 #include "lily_cls_dynamic.h"
 #include "lily_cls_list.h"
 #include "lily_cls_hash.h"

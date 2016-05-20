@@ -103,18 +103,6 @@ void lily_hash_set_elem(lily_vm_state *vm, lily_hash_val *hash_val,
         lily_assign_value(elem->elem_value, pair_value);
 }
 
-void lily_gc_hash_marker(int pass, lily_value *v)
-{
-    lily_hash_val *hash_val = v->value.hash;
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    while (elem_iter) {
-        lily_value *elem_value = elem_iter->elem_value;
-        lily_gc_mark(pass, elem_value);
-
-        elem_iter = elem_iter->next;
-    }
-}
-
 static void destroy_elem(lily_hash_elem *elem)
 {
     lily_deref(elem->elem_key);
