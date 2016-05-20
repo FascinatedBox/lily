@@ -13,3 +13,8 @@ void *lily_realloc(void *ptr, size_t new_size)
 {
     return realloc(ptr, new_size);
 }
+
+void lily_free(void *ptr)
+{
+    free(ptr);
+}
