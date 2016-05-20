@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "lily_alloc.h"
 #include "lily_ast.h"
 #include "lily_emitter.h"
 #include "lily_opcode.h"
@@ -9,6 +8,7 @@
 #include "lily_parser.h"
 #include "lily_opcode_table.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_value.h"
 
 # define IS_LOOP_BLOCK(b) (b == block_while || \

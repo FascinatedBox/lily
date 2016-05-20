@@ -1,10 +1,7 @@
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_vm.h"
 #include "lily_core_types.h"
-
-#include "lily_api_value.h"
 
 /* This is for their destroy funcs. :( */
 
@@ -14,6 +11,9 @@
 #include "lily_cls_dynamic.h"
 #include "lily_cls_function.h"
 #include "lily_cls_file.h"
+
+#include "lily_api_alloc.h"
+#include "lily_api_value.h"
 
 /***
  *       ___                       _   _

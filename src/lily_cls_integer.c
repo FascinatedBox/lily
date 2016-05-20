@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "lily_alloc.h"
 #include "lily_vm.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_value.h"
 #include "lily_api_dynaload.h"
 

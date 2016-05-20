@@ -6,11 +6,11 @@
 #include "ap_config.h"
 #include "util_script.h"
 
-#include "lily_alloc.h"
 #include "lily_parser.h"
 #include "lily_utf8.h"
 #include "lily_cls_hash.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 #include "lily_api_options.h"

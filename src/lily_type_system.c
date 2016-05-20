@@ -1,8 +1,8 @@
 #include <stdio.h>
 
-#include "lily_alloc.h"
 #include "lily_type_system.h"
 
+#include "lily_api_alloc.h"
 
 # define ENSURE_TYPE_STACK(new_size) \
 if (new_size >= ts->max) \

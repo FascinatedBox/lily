@@ -1,7 +1,8 @@
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_membuf.h"
+
+#include "lily_api_alloc.h"
 
 lily_membuf *lily_membuf_new(void)
 {

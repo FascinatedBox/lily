@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_config.h"
 #include "lily_library.h"
 #include "lily_parser.h"
@@ -11,6 +10,7 @@
 #include "lily_pkg_sys.h"
 #include "lily_membuf.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
 #include "lily_api_value.h"
 #include "lily_api_options.h"

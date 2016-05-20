@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "lily_alloc.h"
 #include "lily_msgbuf.h"
 #include "lily_core_types.h"
+
+#include "lily_api_alloc.h"
 
 lily_msgbuf *lily_new_msgbuf(void)
 {
