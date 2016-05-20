@@ -11,7 +11,7 @@
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 #define ID_OFFSET    vm->call_chain->function->module->cid_start
 #define CLSID_RESULT 2

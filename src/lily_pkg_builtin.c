@@ -15,7 +15,7 @@
 #include "lily_cls_file.h"
 
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 extern const lily_func_seed lily_option_dl_start;
 extern const lily_func_seed lily_either_dl_start;

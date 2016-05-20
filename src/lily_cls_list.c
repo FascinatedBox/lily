@@ -4,7 +4,7 @@
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 extern lily_gc_entry *lily_gc_stopper;
 

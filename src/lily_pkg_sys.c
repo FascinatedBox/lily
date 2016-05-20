@@ -4,7 +4,7 @@
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
 void lily_sys_var_loader(lily_parse_state *parser, const char *name,

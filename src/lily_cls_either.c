@@ -2,7 +2,7 @@
 #include "lily_vm.h"
 
 #include "lily_api_dynaload.h"
-#include "lily_api_value.h"
+#include "lily_api_value_ops.h"
 
 static void either_is_left_right(lily_vm_state *vm, uint16_t *code, int expect)
 {
