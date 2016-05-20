@@ -9,16 +9,6 @@
 #include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 
-void lily_destroy_string(lily_value *v)
-{
-    lily_string_val *sv = v->value.string;
-
-    if (sv->string)
-        lily_free(sv->string);
-
-    lily_free(sv);
-}
-
 static lily_string_val *make_sv(lily_vm_state *vm, int size)
 {
     lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));

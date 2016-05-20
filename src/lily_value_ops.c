@@ -3,14 +3,9 @@
 #include "lily_vm.h"
 #include "lily_core_types.h"
 
-/* This is for their destroy funcs. :( */
-
-#include "lily_cls_string.h"
-#include "lily_cls_list.h"
+/* The destroy function for hashes is included inside of hash because a couple
+   things inside of hash need to be able to destroy elems/clear it out. */
 #include "lily_cls_hash.h"
-#include "lily_cls_dynamic.h"
-#include "lily_cls_function.h"
-#include "lily_cls_file.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
@@ -24,21 +19,134 @@
  *           |_|
  */
 
+extern lily_gc_entry *lily_gc_stopper;
+
+static void destroy_list(lily_value *v)
+{
+    lily_list_val *lv = v->value.list;
+
+    int full_destroy = 1;
+    if (lv->gc_entry) {
+        if (lv->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            lv->gc_entry = lily_gc_stopper;
+        }
+        else
+            lv->gc_entry->value.generic = NULL;
+    }
+
+    int i;
+    for (i = 0;i < lv->num_values;i++) {
+        lily_deref(lv->elems[i]);
+        lily_free(lv->elems[i]);
+    }
+
+    lily_free(lv->elems);
+
+    if (full_destroy)
+        lily_free(lv);
+}
+
+static void destroy_string(lily_value *v)
+{
+    lily_string_val *sv = v->value.string;
+
+    if (sv->string)
+        lily_free(sv->string);
+
+    lily_free(sv);
+}
+
+static void destroy_function(lily_value *v)
+{
+    lily_function_val *fv = v->value.function;
+    if (fv->gc_entry == lily_gc_stopper)
+        return;
+
+    if (fv->upvalues == NULL) {
+        lily_free(fv->code);
+        lily_free(fv);
+    }
+    else {
+        int full_destroy = 1;
+
+        if (fv->gc_entry) {
+            if (fv->gc_entry->last_pass == -1) {
+                full_destroy = 0;
+                fv->gc_entry = lily_gc_stopper;
+            }
+            else
+                fv->gc_entry->value.generic = NULL;
+        }
+
+        lily_value **upvalues = fv->upvalues;
+        int count = fv->num_upvalues;
+        int i;
+
+        for (i = 0;i < count;i++) {
+            lily_value *up = upvalues[i];
+            if (up) {
+                up->cell_refcount--;
+
+                if (up->cell_refcount == 0) {
+                    lily_deref(up);
+                    lily_free(up);
+                }
+            }
+        }
+        lily_free(upvalues);
+
+        if (full_destroy)
+            lily_free(fv);
+    }
+}
+
+static void destroy_dynamic(lily_value *v)
+{
+    lily_dynamic_val *dv = v->value.dynamic;
+
+    int full_destroy = 1;
+    if (dv->gc_entry) {
+        if (dv->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            dv->gc_entry = lily_gc_stopper;
+        }
+        else
+            dv->gc_entry->value.generic = NULL;
+    }
+
+    lily_deref(dv->inner_value);
+    lily_free(dv->inner_value);
+
+    if (full_destroy)
+        lily_free(dv);
+}
+
+static void destroy_file(lily_value *v)
+{
+    lily_file_val *filev = v->value.file;
+
+    if (filev->inner_file && filev->is_builtin == 0)
+        fclose(filev->inner_file);
+
+    lily_free(filev);
+}
+
 void lily_destroy_value(lily_value *v)
 {
     int flags = v->flags;
     if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
-        lily_destroy_list(v);
+        destroy_list(v);
     else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
-        lily_destroy_string(v);
+        destroy_string(v);
     else if (flags & VAL_IS_FUNCTION)
-        lily_destroy_function(v);
+        destroy_function(v);
     else if (flags & VAL_IS_HASH)
         lily_destroy_hash(v);
     else if (flags & VAL_IS_DYNAMIC)
-        lily_destroy_dynamic(v);
+        destroy_dynamic(v);
     else if (flags & VAL_IS_FILE)
-        lily_destroy_file(v);
+        destroy_file(v);
     else if (flags & VAL_IS_FOREIGN)
         v->value.foreign->destroy_func(v);
 }

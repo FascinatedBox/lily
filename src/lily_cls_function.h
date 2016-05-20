@@ -4,5 +4,4 @@
 # include "lily_core_types.h"
 
 void lily_gc_function_marker(int, lily_value *);
-void lily_destroy_function(lily_value *);
 #endif
