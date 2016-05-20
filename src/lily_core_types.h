@@ -279,27 +279,26 @@ typedef struct lily_string_val_ {
     char *string;
 } lily_string_val;
 
-/* These are values for the Dynamic class. They're always refcounted. Since the
-   contents are unknown, Dynamic values always have a gc tag set on them. */
+/* Instances of the Dynamic class act as a wrapper around some singular value.
+   Their padding exists so that their gc entry aligns with that of instances. */
 typedef struct lily_dynamic_val_ {
     uint32_t refcount;
-    uint32_t pad;
-    struct lily_gc_entry_ *gc_entry;
+    uint32_t pad1;
+    uint64_t pad2;
     struct lily_value_ *inner_value;
+    struct lily_gc_entry_ *gc_entry;
 } lily_dynamic_val;
 
-/* This implements Lily's list, and tuple as well. The list class only allows
-   the elements to have a single type. However, the tuple class allows for
-   different types (but checking for the proper type).
-   The gc_entry field is only set if the symtab determines that this particular
-   list/tuple can become circular. */
+/* This handles both List and Tuple. The restrictions about what can be put in
+   are handled entirely at parse-time (vm just assumes correctness). There is no
+   marker for this because Dynamic can't 'lose' either of those types inside of
+   itself. */
 typedef struct lily_list_val_ {
     uint32_t refcount;
     uint32_t extra_space;
-    struct lily_gc_entry_ *gc_entry;
-    struct lily_value_ **elems;
     uint32_t num_values;
     uint32_t pad;
+    struct lily_value_ **elems;
 } lily_list_val;
 
 /* Lily's hashes are in two parts: The hash value, and the hash element. The
@@ -317,20 +316,21 @@ typedef struct lily_hash_elem_ {
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
-    uint32_t pad;
     uint32_t num_elems;
+    uint32_t pad;
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* This represents either a class instance or an enum. */
+/* Either an instance or an enum. The instance_id tells the id of it either way.
+   This may or may not have a gc_entry set for it. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
     uint16_t instance_id;
     uint16_t variant_id;
-    struct lily_gc_entry_ *gc_entry;
-    struct lily_value_ **values;
     uint32_t num_values;
     uint32_t pad;
+    struct lily_value_ **values;
+    struct lily_gc_entry_ *gc_entry;
 } lily_instance_val;
 
 typedef struct lily_file_val_ {
@@ -358,12 +358,14 @@ typedef struct lily_function_val_ {
     uint32_t refcount;
     uint32_t line_num;
 
-    struct lily_gc_entry_ *gc_entry;
-
     /* The name of the class that this function belongs to OR "". */
     const char *class_name;
+
     /* The name of this function, for use by debug and stack trace. */
     const char *trace_name;
+
+    struct lily_gc_entry_ *gc_entry;
+
     /* The module that this function was created within. */
     struct lily_module_entry_ *module;
 
@@ -404,6 +406,8 @@ typedef struct lily_foreign_val_ {
 typedef struct lily_generic_gc_val_ {
     uint32_t refcount;
     uint32_t pad;
+    uint64_t pad2;
+    uint64_t pad3;
     struct lily_gc_entry_ *gc_entry;
 } lily_generic_gc_val;
 

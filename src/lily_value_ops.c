@@ -21,19 +21,36 @@
 
 extern lily_gc_entry *lily_gc_stopper;
 
-static void destroy_list(lily_value *v)
+static void destroy_instance(lily_value *v)
 {
-    lily_list_val *lv = v->value.list;
+    lily_instance_val *iv = v->value.instance;
 
     int full_destroy = 1;
-    if (lv->gc_entry) {
-        if (lv->gc_entry->last_pass == -1) {
+    if (iv->gc_entry) {
+        if (iv->gc_entry->last_pass == -1) {
             full_destroy = 0;
-            lv->gc_entry = lily_gc_stopper;
+            iv->gc_entry = lily_gc_stopper;
         }
         else
-            lv->gc_entry->value.generic = NULL;
+            iv->gc_entry->value.generic = NULL;
     }
+
+    int i;
+    for (i = 0;i < iv->num_values;i++) {
+        lily_deref(iv->values[i]);
+        lily_free(iv->values[i]);
+    }
+
+    lily_free(iv->values);
+
+    if (full_destroy)
+        lily_free(iv);
+}
+
+static void destroy_list(lily_value *v)
+{
+
+    lily_list_val *lv = v->value.list;
 
     int i;
     for (i = 0;i < lv->num_values;i++) {
@@ -42,9 +59,7 @@ static void destroy_list(lily_value *v)
     }
 
     lily_free(lv->elems);
-
-    if (full_destroy)
-        lily_free(lv);
+    lily_free(lv);
 }
 
 static void destroy_string(lily_value *v)
@@ -135,8 +150,10 @@ static void destroy_file(lily_value *v)
 void lily_destroy_value(lily_value *v)
 {
     int flags = v->flags;
-    if (flags & (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_TUPLE | VAL_IS_ENUM))
+    if (flags & (VAL_IS_LIST | VAL_IS_TUPLE))
         destroy_list(v);
+    else if (flags & (VAL_IS_INSTANCE |VAL_IS_ENUM))
+        destroy_instance(v);
     else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
         destroy_string(v);
     else if (flags & VAL_IS_FUNCTION)
@@ -485,7 +502,6 @@ lily_list_val *lily_new_list_val(void)
 {
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     lv->refcount = 1;
-    lv->gc_entry = NULL;
     lv->elems = NULL;
     lv->num_values = -1;
     lv->extra_space = 0;
