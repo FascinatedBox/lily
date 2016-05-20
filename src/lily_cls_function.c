@@ -1,7 +1,7 @@
-#include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_vm.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_value.h"
 
 extern lily_gc_entry *lily_gc_stopper;

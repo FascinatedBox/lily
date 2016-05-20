@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "lily_alloc.h"
+#include "lily_api_alloc.h"
 #include "lily_api_options.h"
 
 /* This creates an option structure containing "good" default values. This

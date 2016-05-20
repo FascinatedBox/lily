@@ -1,7 +1,8 @@
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_buffers.h"
+
+#include "lily_api_alloc.h"
 
 #define CREATE_BUFFER_FUNCTIONS_FOR(name, type) \
 lily_##name##_buffer *lily_new_##name(int start) \

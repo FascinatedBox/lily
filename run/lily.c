@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_parser.h"
 
+#include "lily_api_alloc.h"
 #include "lily_api_options.h"
 
 /*  lily_main.c

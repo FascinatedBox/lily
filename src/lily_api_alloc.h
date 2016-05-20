@@ -1,5 +1,5 @@
-#ifndef LILY_ALLOC_H
-# define LILY_ALLOC_H
+#ifndef LILY_API_ALLOC_H
+# define LILY_API_ALLOC_H
 
 # include <stdlib.h>
 

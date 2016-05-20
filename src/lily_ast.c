@@ -1,7 +1,8 @@
 #include <string.h>
 
-#include "lily_alloc.h"
 #include "lily_ast.h"
+
+#include "lily_api_alloc.h"
 
 /** How ast works
     * Every kind of a tree represents something different. It's always either a
