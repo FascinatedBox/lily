@@ -8,16 +8,6 @@
 #include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 
-void lily_destroy_file(lily_value *v)
-{
-    lily_file_val *filev = v->value.file;
-
-    if (filev->inner_file && filev->is_builtin == 0)
-        fclose(filev->inner_file);
-
-    lily_free(filev);
-}
-
 static void write_check(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)

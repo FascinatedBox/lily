@@ -4,7 +4,6 @@
 # include "lily_core_types.h"
 
 void lily_gc_list_marker(int, lily_value *);
-void lily_destroy_list(lily_value *);
 lily_class *lily_list_init(lily_symtab *);
 
 #endif
