@@ -3161,14 +3161,14 @@ typedef struct {
     lily_module_entry *(*load_fn)(lily_parse_state *, const char *);
 } package_loader;
 
-/* The 'package.lly' suffix is used to native packages to make finding the root
-   easier (you don't have to guess which one it is).
+/* For the first, the file to search for is the as the name of the package, but
+   with .lly as the suffix. This makes finding the initial file easy.
    For the second, the prefix is there to make it well know that it's a library
    for loading only by Lily. */
 package_loader builtin_package_loaders[] =
 {
-    {"packages" LILY_PATH_SLASH, LILY_PATH_SLASH "package.lly", load_file},
-    {"packages" LILY_PATH_SLASH "liblily_", LILY_LIB_SUFFIX,    load_library},
+    {LILY_PATH_SLASH, ".lly", load_file},
+    {LILY_PATH_SLASH "liblily_", LILY_LIB_SUFFIX,    load_library},
 };
 
 static lily_package *load_registered_package(lily_parse_state *parser,
@@ -3197,8 +3197,8 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
         package_loader l = builtin_package_loaders[i];
         lily_msgbuf_flush(msgbuf);
 
-        lily_msgbuf_add_fmt(msgbuf, "%s%s%s%s", dirpath, l.prefix, name,
-                l.suffix);
+        lily_msgbuf_add_fmt(msgbuf, "%spackages" LILY_PATH_SLASH "%s%s%s%s",
+                dirpath, name, l.prefix, name, l.suffix);
 
         module = l.load_fn(parser, msgbuf->message);
         if (module != NULL)
@@ -3212,8 +3212,9 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
 
         for (i = 0;i < 2;i++) {
             package_loader l = builtin_package_loaders[i];
-            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s%s'\n",
-                    dirpath, l.prefix, name, l.suffix);
+            lily_msgbuf_add_fmt(msgbuf,
+                    "    %spackages" LILY_PATH_SLASH "%s%s%s%s\n", dirpath,
+                    name, l.prefix, name, l.suffix);
         }
 
         lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
