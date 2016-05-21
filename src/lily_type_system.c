@@ -25,7 +25,7 @@ if (new_size >= ts->max) \
 #define T_CONTRAVARIANT 0x4
 
 /* Add the narrowest of the two matching types during match. */
-#define T_UNIFY 0x10
+#define T_UNIFY 0x8
 
 lily_type_system *lily_new_type_system(lily_type_maker *tm,
         lily_type *dynamic_type, lily_type *question_type)

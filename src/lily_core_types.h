@@ -550,19 +550,19 @@ typedef struct lily_package_link_ {
 #define CLS_VALID_HASH_KEY 0x001
 #define CLS_VALID_OPTARG   0x002
 #define CLS_IS_ENUM        0x004
-#define CLS_IS_VARIANT     0x010
+#define CLS_IS_VARIANT     0x008
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x020
-#define CLS_EMPTY_VARIANT  0x040
+#define CLS_ENUM_IS_SCOPED 0x010
+#define CLS_EMPTY_VARIANT  0x020
 /* This class can become circular, so instances must have a gc tag. */
-#define CLS_GC_TAGGED      0x100
+#define CLS_GC_TAGGED      0x040
 /* This class might have circular data inside of it. */
-#define CLS_GC_SPECULATIVE 0x200
+#define CLS_GC_SPECULATIVE 0x080
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
-#define CLS_VISITED        0x400
+#define CLS_VISITED        0x100
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
@@ -582,10 +582,10 @@ typedef struct lily_package_link_ {
 /* This is set on function types that have at least one optional argument. This
    is set so that emitter and ts can easily figure out if the function doesn't
    have to take some arguments. */
-#define TYPE_HAS_OPTARGS       0x10
+#define TYPE_HAS_OPTARGS       0x08
 /* This is set on a type that either is the ? type, or has a type that contains
    the ? type within it. */
-#define TYPE_IS_INCOMPLETE     0x20
+#define TYPE_IS_INCOMPLETE     0x10
 
 /* SYM_* flags are for things based off of lily_sym. */
 
@@ -600,10 +600,10 @@ typedef struct lily_package_link_ {
 #define SYM_CLOSED_OVER         0x04
 
 /* properties, vars: This is 'private' to the class it was declared within. */
-#define SYM_SCOPE_PRIVATE       0x10
+#define SYM_SCOPE_PRIVATE       0x08
 
 /* properties, vars: This is 'protected' to the class it was declared within. */
-#define SYM_SCOPE_PROTECTED     0x20
+#define SYM_SCOPE_PROTECTED     0x10
 
 /* There is no 'SYM_SCOPE_PUBLIC', because public is the default. */
 
@@ -614,45 +614,45 @@ typedef struct lily_package_link_ {
 /* This is a var that is no longer in scope. It is kept around until the
    function it is within is done so type information can be loaded up into the
    registers later. */
-#define VAR_OUT_OF_SCOPE        0x040
+#define VAR_OUT_OF_SCOPE        0x020
 
 /* This is set on vars which will be used to hold the value of a defined
    function, a lambda, or a class constructor. Vars with this flag cannot be
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
-#define VAR_IS_READONLY         0x100
+#define VAR_IS_READONLY         0x040
 
 /* This flag is set on defined functions that are found inside of other defined
    functions. Calling a function with this tag may involve the use of closures,
    so the emitter needs to wrap the given function so that it will have closure
    information. */
-#define VAR_NEEDS_CLOSURE       0x200
+#define VAR_NEEDS_CLOSURE       0x100
 
 /* Global vars need o_get_global/o_set_global opcodes to get/set them. */
-#define VAR_IS_GLOBAL           0x400
+#define VAR_IS_GLOBAL           0x200
 
 /* VAL_* flags are for lily_value. */
 
 
-#define VAL_IS_BOOLEAN          0x000001
-#define VAL_IS_INTEGER          0x000002
-#define VAL_IS_DOUBLE           0x000004
-#define VAL_IS_STRING           0x000010
-#define VAL_IS_BYTESTRING       0x000020
-#define VAL_IS_FUNCTION         0x000040
-#define VAL_IS_DYNAMIC          0x000100
-#define VAL_IS_LIST             0x000200
-#define VAL_IS_HASH             0x000400
-#define VAL_IS_TUPLE            0x001000
-#define VAL_IS_INSTANCE         0x002000
-#define VAL_IS_ENUM             0x004000
-#define VAL_IS_FILE             0x010000
-#define VAL_IS_DEREFABLE        0x020000
-#define VAL_IS_FOREIGN          0x040000
+#define VAL_IS_BOOLEAN          0x00001
+#define VAL_IS_INTEGER          0x00002
+#define VAL_IS_DOUBLE           0x00004
+#define VAL_IS_STRING           0x00008
+#define VAL_IS_BYTESTRING       0x00010
+#define VAL_IS_FUNCTION         0x00020
+#define VAL_IS_DYNAMIC          0x00040
+#define VAL_IS_LIST             0x00080
+#define VAL_IS_HASH             0x00100
+#define VAL_IS_TUPLE            0x00200
+#define VAL_IS_INSTANCE         0x00400
+#define VAL_IS_ENUM             0x00800
+#define VAL_IS_FILE             0x01000
+#define VAL_IS_DEREFABLE        0x02000
+#define VAL_IS_FOREIGN          0x04000
 /* VAL_IS_GC_TAGGED means it is gc tagged, and must be found during a sweep. */
-#define VAL_IS_GC_TAGGED        0x100000
+#define VAL_IS_GC_TAGGED        0x08000
 /* VAL_IS_GC_SPECULATIVE means it might have tagged data inside. */
-#define VAL_IS_GC_SPECULATIVE   0x200000
+#define VAL_IS_GC_SPECULATIVE   0x10000
 #define VAL_IS_GC_SWEEPABLE     (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
 
 /* SYM_CLASS_* defines are for checking ids of a type's class. These are
