@@ -4282,11 +4282,15 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
         ap->root->result = NULL;
 }
 
-/* This handles the 'return' keyword. The parser will send an ast only if the
-   current function should return a value. If it sends one, the return is
-   validated. */
-void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
+/* This handles the 'return' keyword. If parser has the pool filled with some
+   expression, then run that expression (checking the result). The pool will be
+   cleared out if there was an expression. */
+void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
 {
+    lily_ast *ast = ap->root;
+
+    write_pop_try_blocks_up_to(emit, emit->function_block);
+
     if (ast) {
         lily_type *ret_type = emit->top_function_ret;
 
@@ -4299,13 +4303,10 @@ void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
                     "return expected type '^T' but got type '^T'.\n", ret_type,
                     ast->result->type);
         }
-    }
 
-    write_pop_try_blocks_up_to(emit, emit->function_block);
-
-    if (ast) {
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
         emit->block->last_exit = emit->code_pos;
+        lily_ast_reset_pool(ap);
     }
     else
         write_2(emit, o_return_noval, *emit->lex_linenum);

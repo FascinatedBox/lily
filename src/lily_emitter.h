@@ -284,7 +284,7 @@ void lily_emit_variant_decompose(lily_emit_state *, lily_type *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
-void lily_emit_return(lily_emit_state *, lily_ast *);
+void lily_emit_eval_return(lily_emit_state *, lily_ast_pool *);
 
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 void lily_emit_enter_simple_block(lily_emit_state *, int);
