@@ -3017,18 +3017,25 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
+    lily_unary_tree u = ast->unary;
+    /* Inference shouldn't be necessary for something so simple. */
+    if (u.left->tree_type != tree_local_var)
+        eval_tree(emit, u.left, NULL);
+
     int opcode = -1;
-    lily_class *lhs_class = ast->left->result->type->cls;
+    lily_class *lhs_class = u.left->result->type->cls;
     lily_storage *storage;
 
-    lily_expr_op op = ast->op;
+    lily_expr_op op = u.op;
 
-    if (lhs_class == emit->symtab->boolean_class && op == expr_unary_not)
-        opcode = o_unary_not;
+    if (lhs_class == emit->symtab->boolean_class) {
+        if (op == expr_unary_not)
+            opcode = o_unary_not;
+    }
     else if (lhs_class == emit->symtab->integer_class) {
-        if (ast->op == expr_unary_minus)
+        if (op == expr_unary_minus)
             opcode = o_unary_minus;
-        else if (ast->op == expr_unary_not)
+        else if (op == expr_unary_not)
             opcode = o_unary_not;
     }
 
@@ -3040,7 +3047,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     storage = get_storage(emit, lhs_class->type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
-    write_4(emit, opcode, ast->line_num, ast->left->result->reg_spot,
+    write_4(emit, opcode, ast->line_num, u.left->result->reg_spot,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
@@ -4081,12 +4088,8 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
             ast->padded_variant_type = start->padded_variant_type;
         }
    }
-    else if (ast->tree_type == tree_unary) {
-        if (ast->left->tree_type != tree_local_var)
-            eval_tree(emit, ast->left, expect);
-
+    else if (ast->tree_type == tree_unary)
         eval_unary_op(emit, ast);
-    }
     else if (ast->tree_type == tree_interp_top)
         eval_interpolation(emit, ast);
     else if (ast->tree_type == tree_list)
