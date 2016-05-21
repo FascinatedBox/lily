@@ -2775,13 +2775,16 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
 
 static void return_handler(lily_parse_state *parser, int multi)
 {
-    lily_block_type block_type = parser->emit->function_block->block_type;
-    if (block_type == block_class)
+    lily_block *block = parser->emit->function_block;
+    if (block->block_type == block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a class constructor.\n");
-    else if (block_type == block_lambda)
+    else if (block->block_type == block_lambda)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' not allowed in a lambda.\n");
+    else if (block->block_type == block_file || block->prev == NULL)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'return' used outside of a function.\n");
 
     lily_type *ret_type = parser->emit->top_function_ret;
     lily_ast *ast;

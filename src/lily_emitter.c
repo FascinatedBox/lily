@@ -4287,10 +4287,6 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
    validated. */
 void lily_emit_return(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->function_depth == 1)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "'return' used outside of a function.\n");
-
     if (ast) {
         lily_type *ret_type = emit->top_function_ret;
 
