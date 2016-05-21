@@ -2786,19 +2786,10 @@ static void return_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' used outside of a function.\n");
 
-    lily_type *ret_type = parser->emit->top_function_ret;
-    lily_ast *ast;
-
-    if (ret_type != NULL) {
+    if (parser->emit->top_function_ret)
         expression(parser);
-        ast = parser->ast_pool->root;
-    }
-    else
-        ast = NULL;
 
-    lily_emit_return(parser->emit, ast);
-    if (ast)
-        lily_ast_reset_pool(parser->ast_pool);
+    lily_emit_eval_return(parser->emit, parser->ast_pool);
 
     if (multi)
         ensure_no_code_after_exit(parser, "return");
