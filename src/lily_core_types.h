@@ -515,10 +515,6 @@ typedef struct lily_package_ {
 
     struct lily_package_link_ *linked_packages;
 
-    /* If this package is designated as a root package, then data inside will
-       not be printed with a namespace. */
-    uint64_t is_root;
-
     /* The first module loaded as part of this package, which contains a
        root_next to all modules loaded within this package. */
     lily_module_entry *first_module;
