@@ -47,16 +47,27 @@ typedef enum {
     tree_interp_block, tree_binary
 } lily_tree_type;
 
+typedef struct {
+    struct lily_ast_ *left;
+    lily_expr_op op;
+} lily_unary_tree;
+
 typedef struct lily_ast_ {
     lily_sym *result;
 
     lily_tree_type tree_type : 16;
-    lily_expr_op op : 16;
+    lily_expr_op op: 16;
+
     uint32_t line_num;
     /* This is an offset in emitter's code where the result was stored. In most
        cases, this is 1, which is why the ast sets that to begin with. */
     uint16_t result_code_offset;
     uint16_t args_collected;
+
+    union {
+        lily_unary_tree unary;
+        uint64_t unused;
+    };
 
     union {
         /* If this tree has some text data associated with it, then that data
