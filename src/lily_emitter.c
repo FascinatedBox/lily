@@ -21,6 +21,12 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
+/* (Temporary) What this does is rewind the membuf that parser and emitter share
+   since the strings are no longer useful. It also rewinds the pool that  */
+#define RESET_POOL(pool) \
+emit->ast_membuf->pos = pool->membuf_start; \
+lily_ast_reset_pool(pool);
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -1839,7 +1845,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 
     emit->code_pos += 4 + i;
 
-    lily_ast_reset_pool(ap);
+    RESET_POOL(ap)
 }
 
 /***
@@ -4175,7 +4181,7 @@ void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
     eval_tree(emit, ap->root, NULL);
     emit->expr_num++;
 
-    lily_ast_reset_pool(ap);
+    RESET_POOL(ap)
 }
 
 lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_ast_pool *ap)
@@ -4208,7 +4214,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
     write_4(emit, o_fast_assign, ast->line_num, ast->result->reg_spot,
             var->reg_spot);
 
-    lily_ast_reset_pool(ap);
+    RESET_POOL(ap)
 }
 
 /* Evaluate the root of the given pool, making sure that the result is something
@@ -4249,7 +4255,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             write_2(emit, o_jump, emit->block->loop_start);
     }
 
-    lily_ast_reset_pool(ap);
+    RESET_POOL(ap)
 }
 
 /* This is called from parser to evaluate the last expression that is within a
@@ -4306,7 +4312,7 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
 
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
         emit->block->last_exit = emit->code_pos;
-        lily_ast_reset_pool(ap);
+        RESET_POOL(ap)
     }
     else
         write_2(emit, o_return_noval, *emit->lex_linenum);
@@ -4350,7 +4356,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast_pool *ap)
 
     write_3(emit, o_raise, ast->line_num, ast->result->reg_spot);
     emit->block->last_exit = emit->code_pos;
-    lily_ast_reset_pool(ap);
+    RESET_POOL(ap)
 }
 
 /* This resets __main__'s code position for the next pass. Only tagged mode

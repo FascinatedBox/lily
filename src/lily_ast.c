@@ -185,7 +185,6 @@ void lily_ast_reset_pool(lily_ast_pool *ap)
 {
     ap->root = NULL;
     ap->active = NULL;
-    lily_membuf_restore_to(ap->ast_membuf, ap->membuf_start);
     ap->available_current = ap->available_restore;
 }
 
