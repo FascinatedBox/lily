@@ -3294,12 +3294,10 @@ static void raise_handler(lily_parse_state *parser, int multi)
                 "'raise' not allowed in a lambda.\n");
 
     expression(parser);
-    lily_emit_raise(parser->emit, parser->ast_pool->root);
+    lily_emit_raise(parser->emit, parser->ast_pool);
 
     if (multi)
         ensure_no_code_after_exit(parser, "raise");
-
-    lily_ast_reset_pool(parser->ast_pool);
 }
 
 static void ensure_valid_class(lily_parse_state *parser, const char *name)

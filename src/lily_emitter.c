@@ -4336,8 +4336,9 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 /* Evaluate the given tree, then try to write instructions that will raise the
    result of the tree.
    SyntaxError happens if the tree's result is not raise-able. */
-void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
+void lily_emit_raise(lily_emit_state *emit, lily_ast_pool *ap)
 {
+    lily_ast *ast = ap->root;
     eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.\n");
 
     lily_class *result_cls = ast->result->type->cls;
@@ -4348,8 +4349,8 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast *ast)
     }
 
     write_3(emit, o_raise, ast->line_num, ast->result->reg_spot);
-
     emit->block->last_exit = emit->code_pos;
+    lily_ast_reset_pool(ap);
 }
 
 /* This resets __main__'s code position for the next pass. Only tagged mode
