@@ -46,11 +46,6 @@ typedef enum {
     tree_interp_block, tree_binary
 } lily_tree_type;
 
-typedef struct {
-    uint32_t membuf_pos;
-    uint32_t start_line;
-} lily_text_tree;
-
 typedef struct lily_ast_ {
     union {
         lily_sym *result;
@@ -67,11 +62,7 @@ typedef struct lily_ast_ {
        do not, this is the code position where that result is. */
     uint16_t maybe_result_pos;
     uint16_t args_collected;
-
-    union {
-        lily_text_tree text;
-        uint64_t unused;
-    };
+    uint32_t membuf_pos;
 
     /* Since lily_item is a superset of all of the types that follow, it would
        be possible to just use lily_item alone here. However, that results in
