@@ -653,8 +653,9 @@ void lily_ast_push_text(lily_ast_pool *ap, lily_tree_type tt, uint32_t start,
 {
     AST_COMMON_INIT(a, tt)
 
-    a->membuf_pos = pos;
-    a->line_num = start;
+    lily_text_tree *t = &a->text;
+    t->membuf_pos = pos;
+    t->start_line = start;
 
     merge_value(ap, a);
 }

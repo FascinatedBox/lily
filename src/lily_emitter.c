@@ -2092,7 +2092,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_oo_access) {
         result_type = determine_left_type(emit, ast->arg_start);
         if (result_type != NULL) {
-            char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+            lily_text_tree t = ast->text;
+            char *oo_name = lily_membuf_get(emit->ast_membuf, t.membuf_pos);
             lily_class *lookup_class = result_type->cls;
             lily_type *lookup_type = result_type;
 
@@ -2376,7 +2377,8 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     if (lookup_class->flags & CLS_IS_VARIANT)
         lookup_class = lookup_class->parent;
 
-    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    lily_text_tree t = ast->text;
+    char *oo_name = lily_membuf_get(emit->ast_membuf, t.membuf_pos);
     lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
             oo_name);
 
@@ -2739,10 +2741,10 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
     lily_ast *tree_iter = ast->arg_start;
     while (tree_iter) {
         if (tree_iter->tree_type == tree_interp_block) {
-            char *interp_body = lily_membuf_get(emit->ast_membuf,
-                    tree_iter->membuf_pos);
+            lily_text_tree t = tree_iter->text;
+            char *interp_body = lily_membuf_get(emit->ast_membuf, t.membuf_pos);
             lily_sym *result = lily_parser_interp_eval(emit->parser,
-                    tree_iter->line_num, interp_body);
+                    t.start_line, interp_body);
             if (result == NULL)
                 lily_raise_adjusted(emit->raiser, tree_iter->line_num,
                         lily_SyntaxError,
@@ -2779,13 +2781,14 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     int save_expr_num = emit->expr_num;
-    char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    lily_text_tree t = ast->text;
+    char *lambda_body = lily_membuf_get(emit->ast_membuf, t.membuf_pos);
 
     if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
         expect = NULL;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
-            ast->line_num, lambda_body, expect);
+            t.start_line, lambda_body, expect);
 
     /* Lambdas may run 1+ expressions. Restoring the expression count to what it
        was prevents grabbing expressions that are currently in use. */

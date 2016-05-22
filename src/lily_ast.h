@@ -51,6 +51,11 @@ typedef struct {
     lily_expr_op op;
 } lily_unary_tree;
 
+typedef struct {
+    uint32_t membuf_pos;
+    uint32_t start_line;
+} lily_text_tree;
+
 typedef struct lily_ast_ {
     lily_sym *result;
 
@@ -65,13 +70,11 @@ typedef struct lily_ast_ {
 
     union {
         lily_unary_tree unary;
+        lily_text_tree text;
         uint64_t unused;
     };
 
     union {
-        /* If this tree has some text data associated with it, then that data
-           can be gotten from the ast pool's membuf at this position. */
-        uint32_t membuf_pos;
         /* This is the code position where the variant's result was placed.
            When a variant is done, this spot is patched so that it points to a
            valid storage. */
