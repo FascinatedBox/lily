@@ -175,20 +175,18 @@ static void merge_unary(lily_ast_pool *ap, lily_ast *given, lily_ast *new_tree)
        the lowest unary tree, so that the merge will be against the value it
        holds. */
     while (given->tree_type == tree_unary &&
-           given->unary.left != NULL &&
-           given->unary.left->tree_type == tree_unary)
-        given = given->unary.left;
+           given->left != NULL &&
+           given->left->tree_type == tree_unary)
+        given = given->left;
 
-    lily_unary_tree *u = &given->unary;
-
-    if (u->left == NULL)
+    if (given->left == NULL)
         /* Either a value, or another unary tree. */
-        u->left = new_tree;
+        given->left = new_tree;
     else {
         /* This won't be a unary, binary, or a value, so absorb the unary's
            value and become the new unary value. */
-        merge_absorb(ap, u->left, new_tree);
-        u->left = new_tree;
+        merge_absorb(ap, given->left, new_tree);
+        given->left = new_tree;
     }
 
     new_tree->parent = given;
@@ -516,9 +514,8 @@ void lily_ast_push_unary_op(lily_ast_pool *ap, lily_expr_op op)
 {
     AST_COMMON_INIT(a, tree_unary)
 
-    lily_unary_tree *u = &a->unary;
-    u->left = NULL;
-    u->op = op;
+    a->left = NULL;
+    a->op = op;
 
     merge_value(ap, a);
 }

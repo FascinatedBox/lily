@@ -47,11 +47,6 @@ typedef enum {
 } lily_tree_type;
 
 typedef struct {
-    struct lily_ast_ *left;
-    lily_expr_op op;
-} lily_unary_tree;
-
-typedef struct {
     uint32_t membuf_pos;
     uint32_t start_line;
 } lily_text_tree;
@@ -74,7 +69,6 @@ typedef struct lily_ast_ {
     uint16_t args_collected;
 
     union {
-        lily_unary_tree unary;
         lily_text_tree text;
         uint64_t unused;
     };

@@ -2998,16 +2998,15 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_unary_tree u = ast->unary;
     /* Inference shouldn't be necessary for something so simple. */
-    if (u.left->tree_type != tree_local_var)
-        eval_tree(emit, u.left, NULL);
+    if (ast->left->tree_type != tree_local_var)
+        eval_tree(emit, ast->left, NULL);
 
     int opcode = -1;
-    lily_class *lhs_class = u.left->result->type->cls;
+    lily_class *lhs_class = ast->left->result->type->cls;
     lily_storage *storage;
 
-    lily_expr_op op = u.op;
+    lily_expr_op op = ast->op;
 
     if (lhs_class == emit->symtab->boolean_class) {
         if (op == expr_unary_not)
@@ -3028,7 +3027,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     storage = get_storage(emit, lhs_class->type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
-    write_4(emit, opcode, ast->line_num, u.left->result->reg_spot,
+    write_4(emit, opcode, ast->line_num, ast->left->result->reg_spot,
             storage->reg_spot);
 
     ast->result = (lily_sym *)storage;
