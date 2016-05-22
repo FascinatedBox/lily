@@ -112,10 +112,6 @@ typedef struct lily_ast_ {
            enum has generics, but the variant did not have an opinion, then ? is
            used as a solution. */
         lily_type *padded_variant_type;
-        /* If tree_oo_access looks up a property, then it stores the index of that
-           property here. This is used by oo assign to prevent two lookups of the
-           same property. */
-        int oo_property_index;
         int priority;
     };
 
