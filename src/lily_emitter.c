@@ -2194,10 +2194,10 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
 {
     int ret;
     lily_type *right_type;
-    if (right->result)
-        right_type = right->result->type;
-    else
+    if (right->result->item_kind == ITEM_TYPE_TYPE)
         right_type = right->padded_variant_type;
+    else
+        right_type = right->result->type;
 
     if (want_type == right_type ||
         lily_ts_type_greater_eq(emit->ts, want_type, right_type))
@@ -2364,6 +2364,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start, NULL);
+
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
     /* This allows variant values to use enum methods. */
@@ -3177,7 +3178,7 @@ static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
         tree_iter = tree_iter->next_arg;
 
     while (tree_iter != NULL) {
-        if (tree_iter->result == NULL)
+        if (tree_iter->result->item_kind == ITEM_TYPE_TYPE)
             rebox_variant_to_enum(emit, tree_iter, rebox_type);
 
         tree_iter = tree_iter->next_arg;
@@ -3583,7 +3584,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
 
     if (tree_iter->tree_type == tree_oo_access) {
         /* The first tree will yield a value unless it's a variant. */
-        if (tree_iter->arg_start->result == NULL)
+        if (tree_iter->arg_start->result->item_kind == ITEM_TYPE_TYPE)
             box_variant_at(emit, cs, tree_iter->arg_start, 0);
 
         arg_num++;
@@ -3596,7 +3597,7 @@ static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
     tree_iter = tree_iter->next_arg;
 
     for (;tree_iter;tree_iter = tree_iter->next_arg, arg_num++)
-        if (tree_iter->result == NULL)
+        if (tree_iter->result->item_kind == ITEM_TYPE_TYPE)
             box_variant_at(emit, cs, tree_iter, arg_num);
 }
 
@@ -3997,7 +3998,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
     ast->variant_result_pos = emit->code_pos - 1;
     ast->padded_variant_type = padded_type;
-    ast->result = NULL;
 }
 
 /* This handles function pipes by faking them as calls and running them as a
@@ -4084,14 +4084,12 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         lily_ast *start = ast->arg_start;
 
         eval_raw(emit, start, expect);
-        if (start->result) {
-            ast->result = start->result;
-            ast->result_code_offset = start->result_code_offset;
-        }
-        else {
+        if (start->result->item_kind == ITEM_TYPE_TYPE)
             ast->variant_result_pos = start->variant_result_pos;
-            ast->padded_variant_type = start->padded_variant_type;
-        }
+        else
+            ast->result_code_offset = start->result_code_offset;
+
+        ast->result = start->result;
    }
     else if (ast->tree_type == tree_unary)
         eval_unary_op(emit, ast);
@@ -4132,7 +4130,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 
     /* Variants are the only thing that won't return a value (aside from
        toplevel expressions). */
-    if (ast->result == NULL && ast->variant_result_pos)
+    if (ast->result && ast->result->item_kind == ITEM_TYPE_TYPE)
         rebox_variant_to_enum(emit, ast, expect);
 }
 

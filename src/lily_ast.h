@@ -57,7 +57,10 @@ typedef struct {
 } lily_text_tree;
 
 typedef struct lily_ast_ {
-    lily_sym *result;
+    union {
+        lily_sym *result;
+        lily_type *padded_variant_type;
+    };
 
     lily_tree_type tree_type : 16;
     lily_expr_op op: 16;
@@ -111,7 +114,6 @@ typedef struct lily_ast_ {
         /* This is the enum type that resulted from evaluating a variant. If the
            enum has generics, but the variant did not have an opinion, then ? is
            used as a solution. */
-        lily_type *padded_variant_type;
         int priority;
     };
 
