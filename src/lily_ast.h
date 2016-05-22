@@ -62,8 +62,10 @@ typedef struct lily_ast_ {
         lily_type *padded_variant_type;
     };
 
-    lily_tree_type tree_type : 16;
-    lily_expr_op op: 16;
+    lily_tree_type tree_type: 8;
+    lily_expr_op op: 8;
+    uint8_t priority;
+    uint8_t pad;
 
     uint32_t line_num;
     /* This is an offset in emitter's code where the result was stored. In most
@@ -111,10 +113,6 @@ typedef struct lily_ast_ {
         /* This is no longer called 'type', because of numerous prior issues
            with doing ast->type instead of ast->result->type. */
         lily_type *typecast_type;
-        /* This is the enum type that resulted from evaluating a variant. If the
-           enum has generics, but the variant did not have an opinion, then ? is
-           used as a solution. */
-        int priority;
     };
 
     /* If this tree is a subexpression, then this will be set to the calling
