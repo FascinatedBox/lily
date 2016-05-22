@@ -97,7 +97,6 @@ lily_ast_pool *lily_new_ast_pool(void)
     ap->freeze_chain = NULL;
     ap->membuf_start = 0;
     ap->save_depth = 0;
-    ap->ast_membuf = NULL;
 
     last_tree = NULL;
     for (i = 0;i < 4;i++) {
@@ -111,7 +110,6 @@ lily_ast_pool *lily_new_ast_pool(void)
     ap->available_restore = last_tree;
     ap->available_current = last_tree;
 
-    ap->ast_membuf = lily_membuf_new();
     add_save_entry(ap);
 
     return ap;
@@ -138,8 +136,6 @@ void lily_rewind_ast_pool(lily_ast_pool *ap)
 
     ap->available_current = ap->available_start;
     ap->available_restore = ap->available_start;
-
-    ap->ast_membuf->pos = 0;
 
     ap->membuf_start = 0;
     ap->save_depth = 0;
@@ -174,9 +170,6 @@ void lily_free_ast_pool(lily_ast_pool *ap)
         lily_free(freeze_iter);
         freeze_iter = freeze_temp;
     }
-
-    if (ap->ast_membuf)
-        lily_membuf_free(ap->ast_membuf);
 
     lily_free(ap);
 }
@@ -632,10 +625,10 @@ void lily_ast_push_literal(lily_ast_pool *ap, lily_tie *lit)
     merge_value(ap, a);
 }
 
-void lily_ast_push_oo_access(lily_ast_pool *ap, char *oo_name)
+void lily_ast_push_oo_access(lily_ast_pool *ap, int pos)
 {
     AST_ENTERABLE_INIT(a, tree_oo_access)
-    a->membuf_pos = lily_membuf_add(ap->ast_membuf, oo_name);
+    a->membuf_pos = pos;
     /* This MUST be set to NULL to clear out any prior value, as emitter checks
        it to make sure the tree is not double evaluated. */
     a->result = NULL;
@@ -667,11 +660,11 @@ void lily_ast_push_self(lily_ast_pool *ap)
 }
 
 void lily_ast_push_expanding(lily_ast_pool *ap, lily_tree_type tt,
-        int start_line, char *text)
+        int start_line, int pos)
 {
     AST_COMMON_INIT(a, tt)
 
-    a->membuf_pos = lily_membuf_add(ap->ast_membuf, text);
+    a->membuf_pos = pos;
     /* Expanding trees need this so that their line numbers make sense if they
        span multiple lines. */
     a->line_num = start_line;
@@ -708,7 +701,6 @@ void lily_ast_freeze_state(lily_ast_pool *ap)
 
     ap->active = NULL;
     ap->root = NULL;
-    ap->membuf_start = ap->ast_membuf->pos;
     ap->save_depth = 0;
     ap->available_restore = ap->available_current;
 
