@@ -136,17 +136,18 @@ typedef struct lily_class_ {
 typedef struct lily_type_ {
     lily_class *cls;
 
+    uint16_t item_kind;
+    uint16_t flags;
+    /* If this type is for a generic, then this is the id of that generic.
+       A = 0, B = 1, C = 2, etc. */
+    uint16_t generic_pos;
+    uint16_t subtype_count;
+
     /* If this type has subtypes (ex: A list has a subtype that explains what
        type is allowed inside), then this is where those subtypes are.
        Functions are a special case, where subtypes[0] is either their return
        type, or NULL. */
     struct lily_type_ **subtypes;
-
-    uint32_t subtype_count;
-    /* If this type is for a generic, then this is the id of that generic.
-       A = 0, B = 1, C = 2, etc. */
-    uint16_t generic_pos;
-    uint16_t flags;
 
     /* All types are stored in a linked list in the symtab so they can be
        easily destroyed. */
@@ -538,7 +539,7 @@ typedef struct lily_package_link_ {
 #define ITEM_TYPE_VARIANT  4
 #define ITEM_TYPE_PROPERTY 5
 #define ITEM_TYPE_MODULE   6
-
+#define ITEM_TYPE_TYPE     7
 
 /* CLS_* defines are for lily_class. */
 

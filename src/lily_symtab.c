@@ -594,6 +594,7 @@ lily_class *lily_new_enum(lily_symtab *symtab, const char *name)
 static lily_type *make_new_type(lily_class *cls)
 {
     lily_type *new_type = lily_malloc(sizeof(lily_type));
+    new_type->item_kind = ITEM_TYPE_TYPE;
     new_type->cls = cls;
     new_type->flags = 0;
     new_type->generic_pos = 0;
