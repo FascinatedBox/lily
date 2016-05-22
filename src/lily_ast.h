@@ -68,22 +68,15 @@ typedef struct lily_ast_ {
     uint8_t pad;
 
     uint32_t line_num;
-    /* This is an offset in emitter's code where the result was stored. In most
-       cases, this is 1, which is why the ast sets that to begin with. */
-    uint16_t result_code_offset;
+    /* Most opcodes will write the result down at the very end. For those that
+       do not, this is the code position where that result is. */
+    uint16_t maybe_result_pos;
     uint16_t args_collected;
 
     union {
         lily_unary_tree unary;
         lily_text_tree text;
         uint64_t unused;
-    };
-
-    union {
-        /* This is the code position where the variant's result was placed.
-           When a variant is done, this spot is patched so that it points to a
-           valid storage. */
-        uint32_t variant_result_pos;
     };
 
     /* Since lily_item is a superset of all of the types that follow, it would
