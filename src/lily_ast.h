@@ -221,7 +221,6 @@ void lily_ast_collect_arg(lily_ast_pool *);
 void lily_ast_enter_tree(lily_ast_pool *, lily_tree_type);
 void lily_free_ast_pool(lily_ast_pool *);
 lily_ast_pool *lily_new_ast_pool(void);
-void lily_rewind_ast_pool(lily_ast_pool *);
 void lily_ast_leave_tree(lily_ast_pool *);
 lily_ast *lily_ast_get_saved_tree(lily_ast_pool *);
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_type *type);

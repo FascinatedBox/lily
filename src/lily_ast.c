@@ -115,37 +115,8 @@ lily_ast_pool *lily_new_ast_pool(void)
     return ap;
 }
 
-void lily_rewind_ast_pool(lily_ast_pool *ap)
-{
-    lily_ast_freeze_entry *freeze_iter = ap->freeze_chain;
-    if (freeze_iter) {
-        while (freeze_iter->prev)
-            freeze_iter = freeze_iter->prev;
-
-        ap->available_start = freeze_iter->available_restore;
-        ap->freeze_chain = freeze_iter;
-    }
-
-    lily_ast_save_entry *save_iter = ap->save_chain;
-    if (save_iter) {
-        while (save_iter->prev)
-            save_iter = save_iter->prev;
-
-        ap->save_chain = save_iter;
-    }
-
-    ap->available_current = ap->available_start;
-    ap->available_restore = ap->available_start;
-
-    ap->membuf_start = 0;
-    ap->save_depth = 0;
-    ap->root = NULL;
-    ap->active = NULL;
-}
-
 void lily_free_ast_pool(lily_ast_pool *ap)
 {
-    lily_rewind_ast_pool(ap);
     lily_ast *ast_iter = ap->available_start;
     lily_ast *ast_temp;
 

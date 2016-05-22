@@ -46,12 +46,6 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     return ts;
 }
 
-void lily_rewind_type_system(lily_type_system *ts)
-{
-    ts->pos = 0;
-    ts->ceiling = 0;
-}
-
 void lily_free_type_system(lily_type_system *ts)
 {
     if (ts)
