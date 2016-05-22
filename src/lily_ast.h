@@ -100,6 +100,7 @@ typedef struct lily_ast_ {
         lily_prop_entry *property;
         lily_variant_class *variant;
         struct lily_ast_ *left;
+        lily_type *typecast_type;
     };
 
     union {
@@ -107,12 +108,6 @@ typedef struct lily_ast_ {
         struct lily_ast_ *arg_start;
         /* Binary: This is the right side of the operation. */
         struct lily_ast_ *right;
-    };
-
-    union {
-        /* This is no longer called 'type', because of numerous prior issues
-           with doing ast->type instead of ast->result->type. */
-        lily_type *typecast_type;
     };
 
     /* If this tree is a subexpression, then this will be set to the calling
