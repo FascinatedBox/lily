@@ -2176,13 +2176,6 @@ static int assign_optimize_check(lily_ast *ast)
             break;
         }
 
-        /* If the parent is binary, then it is an assignment or compound op.
-           Those eval from right-to-left, so leave them alone. */
-        if (ast->parent != NULL && ast->parent->tree_type == tree_binary) {
-            can_optimize = 0;
-            break;
-        }
-
         /* Also check if the right side is an assignment or compound op. */
         if (right_tree->tree_type == tree_binary &&
             right_tree->op >= expr_assign) {
