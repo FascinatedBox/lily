@@ -185,24 +185,6 @@ void lily_free_parse_state(lily_parse_state *parser)
     lily_free(parser);
 }
 
-typedef struct {
-    uint16_t next_class_id;
-    uint16_t next_main_id;
-    uint32_t pad;
-    lily_module_entry *last_import;
-    lily_module_link *last_link;
-} rewind_data;
-
-void rewind_parse_state(lily_parse_state *parser)
-{
-    lily_rewind_ast_pool(parser->ast_pool);
-    lily_rewind_emit_state(parser->emit);
-    /* Don't rewind the vm here, because the runner hasn't had a chance to get
-       the error yet. They may want a full error, not care, or want just the
-       message. Instead, leave the parser marked as being in execution. The next
-       time that a chunk is sent, THEN the vm can be rewound. */
-}
-
 /***
  *      ___                            _   
  *     |_ _|_ __ ___  _ __   ___  _ __| |_ 
@@ -3991,20 +3973,6 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
         lily_pop_lex_entry(parser->lex);
         return 1;
     }
-
-    return 0;
-}
-
-int lily_parse_chunk(lily_parse_state *parser, char *str)
-{
-    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_load_str(parser->lex, "[cli]", lm_no_tags, str);
-        parser_loop(parser);
-        lily_pop_lex_entry(parser->lex);
-        return 1;
-    }
-    else
-        rewind_parse_state(parser);
 
     return 0;
 }

@@ -35,8 +35,6 @@ typedef struct {
 lily_type_system *lily_new_type_system(lily_type_maker *, lily_type *,
         lily_type *);
 
-void lily_rewind_type_system(lily_type_system *);
-
 void lily_free_type_system(lily_type_system *);
 
 /* The first type (left) is the type that is wanted.
