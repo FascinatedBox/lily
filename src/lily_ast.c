@@ -625,17 +625,6 @@ void lily_ast_push_literal(lily_ast_pool *ap, lily_tie *lit)
     merge_value(ap, a);
 }
 
-void lily_ast_push_oo_access(lily_ast_pool *ap, int pos)
-{
-    AST_ENTERABLE_INIT(a, tree_oo_access)
-    a->membuf_pos = pos;
-    /* This MUST be set to NULL to clear out any prior value, as emitter checks
-       it to make sure the tree is not double evaluated. */
-    a->result = NULL;
-
-    merge_value(ap, a);
-}
-
 void lily_ast_push_property(lily_ast_pool *ap, lily_prop_entry *prop)
 {
     AST_COMMON_INIT(a, tree_property);
@@ -659,15 +648,13 @@ void lily_ast_push_self(lily_ast_pool *ap)
     merge_value(ap, a);
 }
 
-void lily_ast_push_expanding(lily_ast_pool *ap, lily_tree_type tt,
-        int start_line, int pos)
+void lily_ast_push_text(lily_ast_pool *ap, lily_tree_type tt, uint32_t start,
+        int pos)
 {
     AST_COMMON_INIT(a, tt)
 
     a->membuf_pos = pos;
-    /* Expanding trees need this so that their line numbers make sense if they
-       span multiple lines. */
-    a->line_num = start_line;
+    a->line_num = start;
 
     merge_value(ap, a);
 }

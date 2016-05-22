@@ -1748,7 +1748,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
             int is_interp = lily_scan_interpolation_piece(lex, &scan_string);
             if (is_interp) {
                 int mem_spot = lily_membuf_add(parser->ast_membuf, lex->label);
-                lily_ast_push_expanding(ap, tree_interp_block,
+                lily_ast_push_text(ap, tree_interp_block,
                         lex->expand_start_line, mem_spot);
             }
             else {
@@ -1829,8 +1829,8 @@ static void expression_dot(lily_parse_state *parser, int *state)
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
     if (lex->token == tk_word) {
-        int spot = lily_membuf_add(parser->ast_membuf, parser->lex->label);
-        lily_ast_push_oo_access(parser->ast_pool, spot);
+        int spot = lily_membuf_add(parser->ast_membuf, lex->label);
+        lily_ast_push_text(parser->ast_pool, tree_oo_access, 0, spot);
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
@@ -1958,9 +1958,9 @@ static void expression_raw(lily_parse_state *parser, int state)
             if (state == ST_WANT_OPERATOR)
                 lily_ast_enter_tree(parser->ast_pool, tree_call);
 
-            int spot = lily_membuf_add(parser->ast_membuf, parser->lex->label);
-            lily_ast_push_expanding(parser->ast_pool, tree_lambda,
-                    parser->lex->expand_start_line, spot);
+            int spot = lily_membuf_add(parser->ast_membuf, lex->label);
+            lily_ast_push_text(parser->ast_pool, tree_lambda,
+                    lex->expand_start_line, spot);
 
             if (state == ST_WANT_OPERATOR)
                 lily_ast_leave_tree(parser->ast_pool);
