@@ -63,15 +63,13 @@ ap->available_current = a->next_tree; \
 a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *ap->lex_linenum; \
-a->result_code_offset = 1; \
-a->variant_result_pos = 0; \
+a->maybe_result_pos = 0; \
 a->parent = NULL;
 
 #define AST_ENTERABLE_INIT(a, tt) \
 AST_COMMON_INIT(a, tt) \
 a->args_collected = 0; \
 a->arg_start = NULL; \
-a->result_code_offset = 1; \
 a->result = NULL;
 
 static void add_save_entry(lily_ast_pool *);

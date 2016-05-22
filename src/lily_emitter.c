@@ -2101,8 +2101,6 @@ static void assign_post_check(lily_emit_state *emit, lily_ast *ast)
     else if (ast->parent == NULL) {
         /* This prevents conditions from using the result of an assignment. */
         ast->result = NULL;
-        /* This prevents ast->result == NULL from being seen as a variant to rebox. */
-        ast->variant_result_pos = 0;
     }
 }
 
@@ -2198,7 +2196,7 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *s = get_storage(emit, storage_type);
 
-    emit->code[ast->variant_result_pos] = s->reg_spot;
+    emit->code[ast->maybe_result_pos] = s->reg_spot;
     ast->result = (lily_sym *)s;
 }
 
@@ -2604,8 +2602,15 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
     if (can_optimize && assign_optimize_check(ast)) {
-        emit->code[emit->code_pos - ast->right->result_code_offset] =
-                left_sym->reg_spot;
+        int pos;
+        /* Most trees dump their result at the end, so that patching is easy.
+           Those that don't will write down where it should go. */
+        if (ast->right->maybe_result_pos == 0)
+            pos = emit->code_pos - 1;
+        else
+            pos = ast->right->maybe_result_pos;
+
+        emit->code[pos] = left_sym->reg_spot;
     }
     else {
         write_4(emit, opcode, ast->line_num, right_sym->reg_spot,
@@ -3867,9 +3872,9 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         emit->code[emit->code_pos - 1] = 0;
     }
 
-    write_call_values(emit, cs, 0);
+    ast->maybe_result_pos = emit->code_pos - 1;
 
-    ast->result_code_offset = cs->arg_count + 1;
+    write_call_values(emit, cs, 0);
 }
 
 /* Finishes a call: The state is relinquished, and the ts ceiling associated
@@ -3966,7 +3971,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             padded_type = ast->variant->parent->self_type;
     }
 
-    ast->variant_result_pos = emit->code_pos - 1;
+    ast->maybe_result_pos = emit->code_pos - 1;
     ast->padded_variant_type = padded_type;
 }
 
@@ -4054,11 +4059,7 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         lily_ast *start = ast->arg_start;
 
         eval_raw(emit, start, expect);
-        if (start->result->item_kind == ITEM_TYPE_TYPE)
-            ast->variant_result_pos = start->variant_result_pos;
-        else
-            ast->result_code_offset = start->result_code_offset;
-
+        ast->maybe_result_pos = start->maybe_result_pos;
         ast->result = start->result;
    }
     else if (ast->tree_type == tree_unary)
