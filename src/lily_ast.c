@@ -262,7 +262,7 @@ static void add_new_tree(lily_ast_pool *ap)
     ap->available_current->next_tree = new_tree;
 }
 
-static int priority_for_op(lily_expr_op o)
+static uint8_t priority_for_op(lily_expr_op o)
 {
     int prio;
 
