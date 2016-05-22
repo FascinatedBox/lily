@@ -6,6 +6,7 @@
 # include "lily_type_system.h"
 # include "lily_type_maker.h"
 # include "lily_buffers.h"
+# include "lily_membuf.h"
 
 typedef enum {
     block_if,

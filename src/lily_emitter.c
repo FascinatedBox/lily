@@ -53,6 +53,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
+    emit->ast_membuf = lily_membuf_new();
+
     /* tm uses Dynamic's type as a special default, so it needs that. */
     emit->tm->dynamic_class_type = symtab->dynamic_class->type;
     emit->tm->question_class_type = symtab->question_class->type;
@@ -150,6 +152,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         }
     }
 
+    lily_membuf_free(emit->ast_membuf);
     lily_free(emit->transform_table);
     lily_free(emit->closed_syms);
     lily_free(emit->call_values);

@@ -4,7 +4,6 @@
 # include <stdint.h>
 
 # include "lily_core_types.h"
-# include "lily_membuf.h"
 
 typedef enum {
     expr_plus,
@@ -197,11 +196,6 @@ typedef struct {
        value to merge as an arg, etc). */
     lily_ast *active;
 
-    /* This membuf holds two kinds of things:
-       * The name to lookup when doing a dot access (ex: The 'y' of x.y).
-       * The body of a lambda. */
-    lily_membuf *ast_membuf;
-
     /* This holds bits of the pool's state when handling non-lambda tree
        entry. */
     lily_ast_save_entry *save_chain;
@@ -238,10 +232,10 @@ void lily_ast_push_method(lily_ast_pool *, lily_var *);
 void lily_ast_push_static_func(lily_ast_pool *, lily_var *);
 void lily_ast_push_literal(lily_ast_pool *, lily_tie *);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
-void lily_ast_push_oo_access(lily_ast_pool *, char *);
+void lily_ast_push_oo_access(lily_ast_pool *, int);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
 void lily_ast_push_variant(lily_ast_pool *, lily_variant_class *);
-void lily_ast_push_expanding(lily_ast_pool *, lily_tree_type, int, char *);
+void lily_ast_push_expanding(lily_ast_pool *, lily_tree_type, int, int);
 void lily_ast_push_inherited_new(lily_ast_pool *, lily_var *);
 void lily_ast_push_self(lily_ast_pool *);
 void lily_ast_push_upvalue(lily_ast_pool *, lily_var *);

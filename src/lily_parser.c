@@ -87,10 +87,11 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
-    parser->emit->ast_membuf = parser->ast_pool->ast_membuf;
     parser->emit->parser = parser;
 
     parser->lex->symtab = parser->symtab;
+
+    parser->ast_membuf = parser->emit->ast_membuf;
 
     /* All code that isn't within a function is grouped together in a special
        function called __main__. Since that function is the first kind of a
@@ -1745,9 +1746,11 @@ static void expression_literal(lily_parse_state *parser, int *state)
         lily_ast_enter_tree(ap, tree_interp_top);
         do {
             int is_interp = lily_scan_interpolation_piece(lex, &scan_string);
-            if (is_interp)
+            if (is_interp) {
+                int mem_spot = lily_membuf_add(parser->ast_membuf, lex->label);
                 lily_ast_push_expanding(ap, tree_interp_block,
-                        lex->expand_start_line, lex->label);
+                        lex->expand_start_line, mem_spot);
+            }
             else {
                 lily_tie *tie = lily_get_string_literal(symtab, lex->label);
                 lily_ast_push_literal(parser->ast_pool, tie);
@@ -1825,8 +1828,10 @@ static void expression_dot(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
-    if (lex->token == tk_word)
-        lily_ast_push_oo_access(parser->ast_pool, parser->lex->label);
+    if (lex->token == tk_word) {
+        int spot = lily_membuf_add(parser->ast_membuf, parser->lex->label);
+        lily_ast_push_oo_access(parser->ast_pool, spot);
+    }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
         lily_type *bare_type = get_type(parser);
@@ -1953,8 +1958,9 @@ static void expression_raw(lily_parse_state *parser, int state)
             if (state == ST_WANT_OPERATOR)
                 lily_ast_enter_tree(parser->ast_pool, tree_call);
 
+            int spot = lily_membuf_add(parser->ast_membuf, parser->lex->label);
             lily_ast_push_expanding(parser->ast_pool, tree_lambda,
-                    parser->lex->expand_start_line, parser->lex->label);
+                    parser->lex->expand_start_line, spot);
 
             if (state == ST_WANT_OPERATOR)
                 lily_ast_leave_tree(parser->ast_pool);

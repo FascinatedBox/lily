@@ -24,6 +24,7 @@ typedef struct lily_parse_state_ {
     uint8_t first_pass;
     uint8_t generic_count;
 
+    lily_membuf *ast_membuf;
     lily_type *exception_type;
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
