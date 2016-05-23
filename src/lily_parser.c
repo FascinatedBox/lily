@@ -3493,7 +3493,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     else
         mark = 0;
 
-    lily_prop_entry *prop_iter = target->properties;
+    lily_named_sym *prop_iter = target->members;
 
     while (prop_iter) {
         lily_type *type = prop_iter->type;
