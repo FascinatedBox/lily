@@ -1497,13 +1497,8 @@ static lily_sym *parse_constant(lily_parse_state *parser, int key_id)
         ret = (lily_sym *) lily_get_boolean_literal(symtab, 1);
     else if (key_id == CONST_FALSE)
         ret = (lily_sym *) lily_get_boolean_literal(symtab, 0);
-    else if (key_id == CONST_SELF) {
-        if (parser->class_self_type == NULL) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "'self' must be used within a class.\n");
-        }
+    else if (key_id == CONST_SELF)
         ret = (lily_sym *) parser->emit->block->self;
-    }
     else
         ret = NULL;
 
@@ -1597,16 +1592,18 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_module == NULL) {
         int const_id = constant_by_name(lex->label);
         if (const_id != -1) {
-            lily_sym *sym = parse_constant(parser, const_id);
-            if (sym != NULL) {
-                if (sym->item_kind == ITEM_TYPE_TIE)
-                    lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-                else
-                    lily_ast_push_self(parser->ast_pool);
+            if (const_id == CONST_SELF && parser->class_self_type == NULL)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "'self' must be used within a class.\n");
 
-                *state = ST_WANT_OPERATOR;
-                return;
-            }
+            lily_sym *sym = parse_constant(parser, const_id);
+            if (sym->item_kind == ITEM_TYPE_TIE)
+                lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
+            else
+                lily_ast_push_self(parser->ast_pool);
+
+            *state = ST_WANT_OPERATOR;
+            return;
         }
     }
 
