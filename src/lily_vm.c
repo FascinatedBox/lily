@@ -1050,21 +1050,8 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
             lily_tag_value(vm, result);
     }
 
-    i = 0;
-
-    lily_class *prop_class = instance_class;
-    lily_prop_entry *prop = instance_class->properties;
-    for (i = total_entries - 1;i >= 0;i--, prop = prop->next) {
-        /* If the properties of this class run out, then grab more from the
-           superclass. This is single-inheritance, so the properties ARE there
-           somewhere. */
-        while (prop == NULL) {
-            prop_class = prop_class->parent;
-            prop = prop_class->properties;
-        }
-
+    for (i = 0;i < total_entries;i++)
         iv->values[i] = lily_new_empty_value();
-    }
 
     iv->num_values = total_entries;
 
