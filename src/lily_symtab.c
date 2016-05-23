@@ -58,8 +58,8 @@ void free_vars(lily_symtab *symtab, lily_var *var)
 
 static void free_properties(lily_symtab *symtab, lily_class *cls)
 {
-    lily_prop_entry *prop_iter = cls->properties;
-    lily_prop_entry *next_prop;
+    lily_named_sym *prop_iter = cls->members;
+    lily_named_sym *next_prop;
     while (prop_iter) {
         next_prop = prop_iter->next;
 
@@ -82,7 +82,7 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
             continue;
         }
 
-        if (class_iter->properties != NULL)
+        if (class_iter->members != NULL)
             free_properties(symtab, class_iter);
 
         if (class_iter->call_chain != NULL)
@@ -534,6 +534,7 @@ lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
     new_class->flags = 0;
     new_class->is_refcounted = class_seed->is_refcounted;
     new_class->module = symtab->active_module;
+    new_class->members = NULL;
     new_class->dynaload_table = class_seed->dynaload_table;
 
     return new_class;
@@ -561,11 +562,11 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     new_class->shorthash = shorthash_for_name(name);
     new_class->name = name_copy;
     new_class->generic_count = 0;
-    new_class->properties = NULL;
     new_class->prop_count = 0;
     new_class->dynaload_table = NULL;
     new_class->call_chain = NULL;
     new_class->variant_members = NULL;
+    new_class->members = NULL;
     new_class->module = symtab->active_module;
     new_class->all_subtypes = NULL;
     new_class->move_flags = VAL_IS_INSTANCE;
@@ -716,13 +717,13 @@ lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
 {
     lily_prop_entry *ret = NULL;
 
-    if (cls->properties != NULL) {
+    if (cls->members != NULL) {
         uint64_t shorthash = shorthash_for_name(name);
-        lily_prop_entry *prop_iter = cls->properties;
+        lily_named_sym *prop_iter = cls->members;
         while (prop_iter) {
             if (prop_iter->name_shorthash == shorthash &&
                 strcmp(prop_iter->name, name) == 0) {
-                ret = prop_iter;
+                ret = (lily_prop_entry *)prop_iter;
                 break;
             }
 
@@ -780,15 +781,8 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     entry->cls = cls;
     cls->prop_count++;
 
-    /* It's REALLY important that properties be linked this way, because it
-       allows the vm to walk from a derived class up through the superclasses
-       when setting property types in instance creation.
-       It goes like this:
-
-        Animal        >  Bird          >  Falcon
-       [3 => 2 => 1] => [6 => 5 => 4] => [9 => 8 => 7] */
-    entry->next = cls->properties;
-    cls->properties = entry;
+    entry->next = (lily_prop_entry *)cls->members;
+    cls->members = (lily_named_sym *)entry;
 
     return entry;
 }

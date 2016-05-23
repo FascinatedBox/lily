@@ -101,7 +101,7 @@ typedef struct lily_class_ {
 
     struct lily_class_ *parent;
 
-    struct lily_prop_entry_ *properties;
+    struct lily_named_sym_ *members;
 
     /* If it's an enum, then the variants are here. NULL otherwise. */
     lily_variant_class **variant_members;
@@ -184,6 +184,16 @@ typedef struct lily_sym_ {
     lily_type *type;
 } lily_sym;
 
+typedef struct lily_named_sym_ {
+    struct lily_named_sym_ *next;
+    uint16_t item_kind;
+    uint16_t flags;
+    uint32_t reg_spot;
+    lily_type *type;
+    char *name;
+    uint64_t name_shorthash;
+} lily_named_sym;
+
 /* This represents a property within a class that isn't "primitive" to the
    interpreter (lists, tuples, integer, string, etc.).
    User-defined classes and Exception both support these. */
@@ -253,6 +263,7 @@ typedef struct lily_var_ {
     uint16_t flags;
     uint32_t reg_spot;
     lily_type *type;
+    char *name;
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
     uint32_t line_num;
@@ -261,7 +272,6 @@ typedef struct lily_var_ {
        This is an important difference, because the vm has to do different
        loads for globals versus locals. */
     uint32_t function_depth;
-    char *name;
     /* (Up to) the first 8 bytes of the name. This is compared before comparing
        the name. */
     uint64_t shorthash;
