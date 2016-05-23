@@ -1271,29 +1271,24 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
     return result;
 }
 
-/* Given a class, attempt to find 'name' as a member of that class. The result
-   may be that it's a property OR a var.
-   The search order is: Property, methods in progress, existing methods, and
-   dynaloads. There's no real importance to the search order here...aside from
-   methods in progress needing to go before the rest. The reason is that methods
-   in progress will be for the most recent class.
-   If, say, there's a Two class being declared that inherits from One, then it
-   will have a .new already (One.new). However, the Two.new should be
-   considered first. */
+/* Try to find 'name' within 'cls', wherein 'cls' may be the currently entered
+   class. If it's the current class, then it may have methods that are in the
+   current module (because parser doesn't automatically immediately add them).
+   If the entity exists as a dynaload, then the dynaload is run (hence the dl
+   part of the name). */
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
         const char *name)
 {
-    lily_prop_entry *prop = lily_find_property(cls, name);
-    if (prop)
-        return (lily_item *)prop;
-
+    /* The var search needs to come first because this may be a .new call. If it
+       is, then the var is in the current var chain. Doing the member lookup
+       first means that the .new of a parent class might instead be found. */
     lily_var *var = lily_find_var(parser->symtab, NULL, name);
     if (var && var->parent == cls)
         return (lily_item *)var;
 
-    var = lily_find_method(cls, name);
-    if (var)
-        return (lily_item *)var;
+    lily_named_sym *member = lily_find_member(cls, name);
+    if (member)
+        return (lily_item *)member;
 
     /* This should return a var if it succeeds, as nested classes are not
        allowed. */
@@ -2263,23 +2258,19 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
 
-    lily_prop_entry *prop = lily_find_property(current_class, name);
+    lily_named_sym *sym = lily_find_member(current_class, name);
+    if (sym) {
+        if (sym->item_kind == ITEM_TYPE_VAR)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "A method in class '%s' already has the name '%s'.\n",
+                    current_class->name, name);
+        else
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Property %s already exists in class %s.\n", name,
+                    current_class->name);
+    }
 
-    if (prop != NULL)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Property %s already exists in class %s.\n", name,
-                current_class->name);
-
-    /* Like with get_named_var, prevent properties from having the same name as
-       what will become a class method. This is because they are both accessed
-       in the same manner outside the class. */
-    lily_var *lookup_var = lily_find_method(current_class, name);
-
-    if (lookup_var)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "A method in class '%s' already has the name '%s'.\n",
-                current_class->name, name);
-
+    lily_prop_entry *prop;
     prop = lily_add_class_property(parser->symtab, current_class, prop_type,
             name, flags & ~SYM_NOT_INITIALIZED);
 

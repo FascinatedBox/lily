@@ -677,7 +677,7 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
 
 /* Does 'name' exist within 'cls' as either a var or a name? If so, return it.
    If not, then return NULL. */
-static lily_named_sym *find_member(lily_class *cls, const char *name)
+lily_named_sym *lily_find_member(lily_class *cls, const char *name)
 {
     lily_named_sym *ret = NULL;
 
@@ -696,7 +696,7 @@ static lily_named_sym *find_member(lily_class *cls, const char *name)
     }
 
     if (ret == NULL && cls->parent != NULL)
-        ret = find_member(cls->parent, name);
+        ret = lily_find_member(cls->parent, name);
 
     return ret;
 }
@@ -705,7 +705,7 @@ static lily_named_sym *find_member(lily_class *cls, const char *name)
    then any parents of the class. */
 lily_var *lily_find_method(lily_class *cls, const char *name)
 {
-    lily_named_sym *sym = find_member(cls, name);
+    lily_named_sym *sym = lily_find_member(cls, name);
     if (sym && sym->item_kind != ITEM_TYPE_VAR)
         sym = NULL;
 
@@ -716,7 +716,7 @@ lily_var *lily_find_method(lily_class *cls, const char *name)
    classes if there are any. */
 lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
 {
-    lily_named_sym *sym = find_member(cls, name);
+    lily_named_sym *sym = lily_find_member(cls, name);
     if (sym && sym->item_kind != ITEM_TYPE_PROPERTY)
         sym = NULL;
 
