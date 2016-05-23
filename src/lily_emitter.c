@@ -285,8 +285,8 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
     else {
         lily_class *cls = (lily_class *)source;
 
-        new_var->next = cls->call_chain;
-        cls->call_chain = new_var;
+        new_var->next = (lily_var *)cls->members;
+        cls->members = (lily_named_sym *)new_var;
         new_var->parent = cls;
 
         func_val = lily_new_foreign_function_val(func, cls->name, name);

@@ -95,10 +95,6 @@ typedef struct lily_class_ {
     /* The type of the var stores the complete type knowledge of the var. */
     struct lily_type_ *type;
 
-    /* This is a linked list of all methods that are within this function. This
-       is NULL if there are no methods. */
-    struct lily_var_ *call_chain;
-
     struct lily_class_ *parent;
 
     struct lily_named_sym_ *members;
@@ -264,6 +260,7 @@ typedef struct lily_var_ {
     uint32_t reg_spot;
     lily_type *type;
     char *name;
+    uint64_t shorthash;
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
     uint32_t line_num;
@@ -274,7 +271,6 @@ typedef struct lily_var_ {
     uint32_t function_depth;
     /* (Up to) the first 8 bytes of the name. This is compared before comparing
        the name. */
-    uint64_t shorthash;
     struct lily_class_ *parent;
 } lily_var;
 

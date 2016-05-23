@@ -85,9 +85,6 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
         if (class_iter->members != NULL)
             free_properties(symtab, class_iter);
 
-        if (class_iter->call_chain != NULL)
-            free_vars(symtab, class_iter->call_chain);
-
         lily_type *type_iter = class_iter->all_subtypes;
         lily_type *type_next;
         while (type_iter) {
@@ -564,7 +561,6 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     new_class->generic_count = 0;
     new_class->prop_count = 0;
     new_class->dynaload_table = NULL;
-    new_class->call_chain = NULL;
     new_class->variant_members = NULL;
     new_class->members = NULL;
     new_class->module = symtab->active_module;
@@ -679,22 +675,52 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
     return result;
 }
 
+/* Does 'name' exist within 'cls' as either a var or a name? If so, return it.
+   If not, then return NULL. */
+static lily_named_sym *find_member(lily_class *cls, const char *name)
+{
+    lily_named_sym *ret = NULL;
+
+    if (cls->members != NULL) {
+        uint64_t shorthash = shorthash_for_name(name);
+        lily_named_sym *sym_iter = cls->members;
+        while (sym_iter) {
+            if (sym_iter->name_shorthash == shorthash &&
+                strcmp(sym_iter->name, name) == 0) {
+                ret = (lily_named_sym *)sym_iter;
+                break;
+            }
+
+            sym_iter = sym_iter->next;
+        }
+    }
+
+    if (ret == NULL && cls->parent != NULL)
+        ret = find_member(cls->parent, name);
+
+    return ret;
+}
+
 /* Try to find a method within the class given. The given class is search first,
    then any parents of the class. */
 lily_var *lily_find_method(lily_class *cls, const char *name)
 {
-    lily_var *iter;
-    uint64_t shorthash = shorthash_for_name(name);
+    lily_named_sym *sym = find_member(cls, name);
+    if (sym && sym->item_kind != ITEM_TYPE_VAR)
+        sym = NULL;
 
-    for (iter = cls->call_chain;iter != NULL;iter = iter->next) {
-        if (iter->shorthash == shorthash && strcmp(iter->name, name) == 0)
-            break;
-    }
+    return (lily_var *)sym;
+}
 
-    if (iter == NULL && cls->parent)
-        iter = lily_find_method(cls->parent, name);
+/* Search for a property within the current class, then upward through parent
+   classes if there are any. */
+lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
+{
+    lily_named_sym *sym = find_member(cls, name);
+    if (sym && sym->item_kind != ITEM_TYPE_PROPERTY)
+        sym = NULL;
 
-    return iter;
+    return (lily_prop_entry *)sym;
 }
 
 /* Add a var as a method to the current class. The var should be at the top of
@@ -707,34 +733,8 @@ void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
     if (method_var == symtab->active_module->var_chain)
         symtab->active_module->var_chain = method_var->next;
 
-    method_var->next = cls->call_chain;
-    cls->call_chain = method_var;
-}
-
-/* Try to find a property with a name in a class. The parent class(es), if any,
-   are tries as a fallback if unable to find it in the given class. */
-lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
-{
-    lily_prop_entry *ret = NULL;
-
-    if (cls->members != NULL) {
-        uint64_t shorthash = shorthash_for_name(name);
-        lily_named_sym *prop_iter = cls->members;
-        while (prop_iter) {
-            if (prop_iter->name_shorthash == shorthash &&
-                strcmp(prop_iter->name, name) == 0) {
-                ret = (lily_prop_entry *)prop_iter;
-                break;
-            }
-
-            prop_iter = prop_iter->next;
-        }
-    }
-
-    if (ret == NULL && cls->parent != NULL)
-        ret = lily_find_property(cls->parent, name);
-
-    return ret;
+    method_var->next = (lily_var *)cls->members;
+    cls->members = (lily_named_sym *)method_var;
 }
 
 static lily_module_entry *find_module(lily_module_entry *module,
