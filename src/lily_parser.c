@@ -451,7 +451,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 
 static lily_type *get_type(lily_parse_state *);
 static lily_class *resolve_class_name(lily_parse_state *);
-static int keyword_by_name(const char *);
+static int constant_by_name(const char *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -501,13 +501,13 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
 
     lily_tie *result;
     if (cls == symtab->boolean_class) {
-        int key_id = keyword_by_name(lex->label);
-        if (key_id != KEY_TRUE && key_id != KEY_FALSE)
+        int key_id = constant_by_name(lex->label);
+        if (key_id != CONST_TRUE && key_id != CONST_FALSE)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'%s' is not a valid default value for a Boolean.\n",
                     lex->label);
 
-        result = lily_get_boolean_literal(symtab, key_id == KEY_TRUE);
+        result = lily_get_boolean_literal(symtab, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
         /* It's an enum. Allow any variant to be a default argument if that
@@ -1339,6 +1339,22 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
+static int constant_by_name(const char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+
+    for (i = 0;i <= CONST_LAST_ID;i++) {
+        if (constants[i].shorthash == shorthash &&
+            strcmp(constants[i].name, name) == 0)
+            return i;
+        else if (constants[i].shorthash > shorthash)
+            break;
+    }
+
+    return -1;
+}
+
 static int keyword_by_name(const char *name)
 {
     int i;
@@ -1462,25 +1478,26 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             "%s.%s does not exist.\n", cls->name, lex->label);
 }
 
-/* This handles all the simple keywords that map to a string/integer value. */
-static lily_sym *parse_special_keyword(lily_parse_state *parser, int key_id)
+/* This handles 'magic' constants that almost never have the same value twice,
+   and must be calculated each time. */
+static lily_sym *parse_constant(lily_parse_state *parser, int key_id)
 {
     lily_symtab *symtab = parser->symtab;
     lily_sym *ret;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
-    if (key_id == KEY__LINE__)
+    if (key_id == CONST__LINE__)
         ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
-    else if (key_id == KEY__FILE__)
+    else if (key_id == CONST__FILE__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->symtab->active_module->path);
-    else if (key_id == KEY__FUNCTION__)
+    else if (key_id == CONST__FUNCTION__)
         ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
-    else if (key_id == KEY_TRUE)
+    else if (key_id == CONST_TRUE)
         ret = (lily_sym *) lily_get_boolean_literal(symtab, 1);
-    else if (key_id == KEY_FALSE)
+    else if (key_id == CONST_FALSE)
         ret = (lily_sym *) lily_get_boolean_literal(symtab, 0);
-    else if (key_id == KEY_SELF) {
+    else if (key_id == CONST_SELF) {
         if (parser->class_self_type == NULL) {
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'self' must be used within a class.\n");
@@ -1578,9 +1595,9 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
 
     if (search_module == NULL) {
-        int key_id = keyword_by_name(lex->label);
-        if (key_id != -1) {
-            lily_sym *sym = parse_special_keyword(parser, key_id);
+        int const_id = constant_by_name(lex->label);
+        if (const_id != -1) {
+            lily_sym *sym = parse_constant(parser, const_id);
             if (sym != NULL) {
                 if (sym->item_kind == ITEM_TYPE_TIE)
                     lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
@@ -2006,22 +2023,6 @@ static lily_var *get_named_var(lily_parse_state *, lily_type *);
     against being run within a lambda (ex: class decl, import, define, and
     more). Aside from that, lambdas can do much of what typical defines do. **/
 
-/* Is this keyword a value that can be part of an expression? */
-static int is_key_a_value(int key_id)
-{
-    switch(key_id) {
-        case KEY_TRUE:
-        case KEY_FALSE:
-        case KEY__FILE__:
-        case KEY__FUNCTION__:
-        case KEY__LINE__:
-        case KEY_SELF:
-            return 1;
-        default:
-            return 0;
-    }
-}
-
 /* This runs through the body of a lambda, running any statements inside. The
    result of this function is the type of the last expression that was run.
    If the last thing was a block, or did not return a value, then NULL is
@@ -2038,7 +2039,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
         if (lex->token == tk_word)
             key_id = keyword_by_name(lex->label);
 
-        if (key_id == -1 || is_key_a_value(key_id)) {
+        if (key_id == -1) {
             expression(parser);
             if (lex->token != tk_right_curly)
                 /* This expression isn't the last one, so it can do whatever it
@@ -2390,13 +2391,10 @@ static void for_handler(lily_parse_state *, int);
 static void try_handler(lily_parse_state *, int);
 static void case_handler(lily_parse_state *, int);
 static void else_handler(lily_parse_state *, int);
-static void true_handler(lily_parse_state *, int);
 static void elif_handler(lily_parse_state *, int);
-static void self_handler(lily_parse_state *, int);
 static void enum_handler(lily_parse_state *, int);
 static void while_handler(lily_parse_state *, int);
 static void raise_handler(lily_parse_state *, int);
-static void false_handler(lily_parse_state *, int);
 static void match_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
@@ -2405,11 +2403,8 @@ static void return_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
 static void import_handler(lily_parse_state *, int);
 static void private_handler(lily_parse_state *, int);
-static void file_kw_handler(lily_parse_state *, int);
-static void line_kw_handler(lily_parse_state *, int);
 static void protected_handler(lily_parse_state *, int);
 static void continue_handler(lily_parse_state *, int);
-static void function_kw_handler(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
@@ -2423,13 +2418,10 @@ static keyword_handler *handlers[] = {
     try_handler,
     case_handler,
     else_handler,
-    true_handler,
     elif_handler,
-    self_handler,
     enum_handler,
     while_handler,
     raise_handler,
-    false_handler,
     match_handler,
     break_handler,
     class_handler,
@@ -2438,11 +2430,8 @@ static keyword_handler *handlers[] = {
     except_handler,
     import_handler,
     private_handler,
-    file_kw_handler,
-    line_kw_handler,
     protected_handler,
     continue_handler,
-    function_kw_handler
 };
 
 static void var_handler(lily_parse_state *parser, int multi)
@@ -2706,30 +2695,6 @@ static void else_handler(lily_parse_state *parser, int multi)
     statement(parser, multi);
 }
 
-/* This handles keywords that start expressions (true, false, __line__, etc.) */
-static void do_keyword(lily_parse_state *parser, int key_id)
-{
-    lily_sym *sym;
-    sym = parse_special_keyword(parser, key_id);
-    if (sym->item_kind == ITEM_TYPE_TIE)
-        lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-    else
-        lily_ast_push_self(parser->ast_pool);
-
-    expression_raw(parser, ST_WANT_OPERATOR);
-    lily_emit_eval_expr(parser->emit, parser->ast_pool);
-}
-
-static void true_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY_TRUE);
-}
-
-static void false_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY_FALSE);
-}
-
 /* Call this to make sure there's no obviously-dead code. */
 static void ensure_no_code_after_exit(lily_parse_state *parser,
         const char *name)
@@ -2809,21 +2774,6 @@ static void break_handler(lily_parse_state *parser, int multi)
     if (multi && parser->lex->token != tk_right_curly)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'break' not at the end of a multi-line block.\n");
-}
-
-static void line_kw_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY__LINE__);
-}
-
-static void file_kw_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY__FILE__);
-}
-
-static void function_kw_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY__FUNCTION__);
 }
 
 static void for_handler(lily_parse_state *parser, int multi)
@@ -3852,11 +3802,6 @@ static void private_handler(lily_parse_state *parser, int multi)
 static void protected_handler(lily_parse_state *parser, int multi)
 {
     parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
-}
-
-static void self_handler(lily_parse_state *parser, int multi)
-{
-    do_keyword(parser, KEY_SELF);
 }
 
 /* This is the entry point of the parser. It parses the thing that it was given
