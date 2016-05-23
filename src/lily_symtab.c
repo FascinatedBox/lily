@@ -1051,14 +1051,3 @@ void lily_update_symtab_generics(lily_symtab *symtab, int count)
         type_iter = type_iter->next;
     }
 }
-
-/* This makes 'sub_class' have 'super_class' as a parent. */
-void lily_change_parent_class(lily_class *super_class, lily_class *sub_class)
-{
-    sub_class->parent = super_class;
-    /* This must be copied over because the vm uses this number to determine
-       how many slots to allocate for the class.
-       Subclass properties can safely start after superclass properties because
-       of single inheritance. */
-    sub_class->prop_count = super_class->prop_count;
-}

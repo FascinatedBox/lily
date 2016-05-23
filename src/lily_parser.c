@@ -3421,7 +3421,9 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_ast_leave_tree(parser->ast_pool);
 
     lily_emit_eval_expr(parser->emit, ap);
-    lily_change_parent_class(super_class, cls);
+
+    cls->parent = super_class;
+    cls->prop_count = super_class->prop_count;
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
