@@ -2070,6 +2070,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->flags = readonly_val->move_flags;
                 code_pos += 4;
                 break;
+            case o_get_integer:
+                lhs_reg = vm_regs[code[code_pos+3]];
+                lhs_reg->value.integer = code[code_pos+2];
+                lhs_reg->flags = VAL_IS_INTEGER;
+                code_pos += 4;
+                break;
             case o_integer_add:
                 INTEGER_OP(+)
                 break;

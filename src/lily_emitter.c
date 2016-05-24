@@ -475,11 +475,9 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     /* If no step is provided, provide '1' as a step. */
     if (for_step == NULL) {
-        lily_tie *integer_lit = lily_get_integer_literal(emit->symtab, 1);
         for_step = (lily_sym *)lily_emit_new_scoped_var(emit, cls->type,
                 "(for step)");
-        write_4(emit, o_get_readonly, line_num, integer_lit->reg_spot,
-                for_step->reg_spot);
+        write_4(emit, o_get_integer, line_num, 1, for_step->reg_spot);
     }
 
     lily_sym *target;
@@ -2832,25 +2830,19 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
     if (is_top == 1) {
         int save_pos;
-        lily_tie *success_lit, *failure_lit;
         lily_symtab *symtab = emit->symtab;
 
         result = get_storage(emit, symtab->integer_class->type);
 
-        success_lit = lily_get_integer_literal(symtab,
-                (ast->op == expr_logical_and));
-        failure_lit = lily_get_integer_literal(symtab,
-                (ast->op == expr_logical_or));
+        int truthy = (ast->op == expr_logical_and);
 
-        write_4(emit, o_get_readonly, ast->line_num, success_lit->reg_spot,
-                result->reg_spot);
+        write_4(emit, o_get_integer, ast->line_num, truthy, result->reg_spot);
 
         write_2(emit, o_jump, 0);
         save_pos = emit->code_pos - 1;
 
         lily_emit_leave_block(emit);
-        write_4(emit, o_get_readonly, ast->line_num, failure_lit->reg_spot,
-                result->reg_spot);
+        write_4(emit, o_get_integer, ast->line_num, !truthy, result->reg_spot);
 
         emit->code[save_pos] = emit->code_pos - emit->block->jump_offset;
         ast->result = (lily_sym *)result;
