@@ -344,7 +344,6 @@ static void invoke_gc(lily_vm_state *vm)
 
     lily_value **regs_from_main = vm->regs_from_main;
     int pass = vm->gc_pass;
-    int num_registers = vm->num_registers;
     int i;
     lily_gc_entry *gc_iter;
 
@@ -371,19 +370,14 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    /* num_registers is -1 if the vm is calling this from lily_free_vm_state and
-       there are no registers left. */
-    if (num_registers != -1) {
-        int i;
-        /* Stage 3: Check registers not currently in use to see if they hold a
-                    value that's going to be collected. If so, then mark the
-                    register as nil so that the value will be cleared later. */
-        for (i = vm->num_registers;i < vm->true_max_registers;i++) {
-            lily_value *reg = regs_from_main[i];
-            if (reg->flags & VAL_IS_GC_TAGGED &&
-                reg->value.gc_generic->gc_entry == lily_gc_stopper) {
-                reg->flags = 0;
-            }
+    /* Stage 3: Check registers not currently in use to see if they hold a
+                value that's going to be collected. If so, then mark the
+                register as nil so that the value will be cleared later. */
+    for (i = vm->num_registers;i < vm->true_max_registers;i++) {
+        lily_value *reg = regs_from_main[i];
+        if (reg->flags & VAL_IS_GC_TAGGED &&
+            reg->value.gc_generic->gc_entry == lily_gc_stopper) {
+            reg->flags = 0;
         }
     }
 
