@@ -1480,31 +1480,39 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             "%s.%s does not exist.\n", cls->name, lex->label);
 }
 
-/* This handles 'magic' constants that almost never have the same value twice,
-   and must be calculated each time. */
-static lily_sym *parse_constant(lily_parse_state *parser, int key_id)
+/* This takes an id that corresponds to some id in the table of magic constants.
+   From that, it determines that value of the magic constant, and then adds that
+   value to the current ast pool. */
+static void push_constant(lily_parse_state *parser, int key_id)
 {
+    lily_ast_pool *ap = parser->ast_pool;
     lily_symtab *symtab = parser->symtab;
-    lily_sym *ret;
+    lily_tie *tie;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
-    if (key_id == CONST__LINE__)
-        ret = (lily_sym *) lily_get_integer_literal(symtab, parser->lex->line_num);
-    else if (key_id == CONST__FILE__)
-        ret = (lily_sym *) lily_get_string_literal(symtab, parser->symtab->active_module->path);
-    else if (key_id == CONST__FUNCTION__)
-        ret = (lily_sym *) lily_get_string_literal(symtab, parser->emit->top_var->name);
-    else if (key_id == CONST_TRUE)
-        ret = (lily_sym *) lily_get_boolean_literal(symtab, 1);
-    else if (key_id == CONST_FALSE)
-        ret = (lily_sym *) lily_get_boolean_literal(symtab, 0);
+    if (key_id == CONST__LINE__) {
+        tie = lily_get_integer_literal(symtab, parser->lex->line_num);
+        lily_ast_push_literal(ap, tie);
+    }
+    else if (key_id == CONST__FILE__) {
+        tie = lily_get_string_literal(symtab, parser->symtab->active_module->path);
+        lily_ast_push_literal(ap, tie);
+    }
+    else if (key_id == CONST__FUNCTION__) {
+        tie = lily_get_string_literal(symtab, parser->emit->top_var->name);
+        lily_ast_push_literal(ap, tie);
+    }
+    else if (key_id == CONST_TRUE) {
+        tie = lily_get_boolean_literal(symtab, 1);
+        lily_ast_push_literal(ap, tie);
+    }
+    else if (key_id == CONST_FALSE) {
+        tie = lily_get_boolean_literal(symtab, 0);
+        lily_ast_push_literal(ap, tie);
+    }
     else if (key_id == CONST_SELF)
-        ret = (lily_sym *) parser->emit->block->self;
-    else
-        ret = NULL;
-
-    return ret;
+        lily_ast_push_self(ap);
 }
 
 /* This is called when a class (enum or regular) is found. This determines how
@@ -1598,12 +1606,7 @@ static void expression_word(lily_parse_state *parser, int *state)
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "'self' must be used within a class.\n");
 
-            lily_sym *sym = parse_constant(parser, const_id);
-            if (sym->item_kind == ITEM_TYPE_TIE)
-                lily_ast_push_literal(parser->ast_pool, (lily_tie *)sym);
-            else
-                lily_ast_push_self(parser->ast_pool);
-
+            push_constant(parser, const_id);
             *state = ST_WANT_OPERATOR;
             return;
         }
