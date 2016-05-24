@@ -527,6 +527,8 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
 
         result = variant->default_value;
     }
+    else if (expect == tk_integer)
+        result = lily_get_integer_literal(symtab, lex->last_integer);
     else
         result = lex->last_literal;
 
@@ -1705,7 +1707,15 @@ static int maybe_digit_fixup(lily_parse_state *parser)
            a proper new token. */
         lily_lexer_digit_rescan(lex);
 
-        lily_ast_push_literal(parser->ast_pool, lex->last_literal);
+        if (lex->token == tk_integer) {
+            lily_tie *tie = lily_get_integer_literal(parser->symtab,
+                    lex->last_integer);
+
+            lily_ast_push_literal(parser->ast_pool, tie);
+        }
+        else
+            lily_ast_push_literal(parser->ast_pool, lex->last_literal);
+
         fixed = 1;
     }
 
@@ -1751,6 +1761,12 @@ static void expression_literal(lily_parse_state *parser, int *state)
 
         lily_ast_leave_tree(ap);
         lily_msgbuf_flush(msgbuf);
+        *state = ST_WANT_OPERATOR;
+    }
+    else if (lex->token == tk_integer) {
+        lily_tie *tie = lily_get_integer_literal(parser->symtab,
+                lex->last_integer);
+        lily_ast_push_literal(parser->ast_pool, tie);
         *state = ST_WANT_OPERATOR;
     }
     else {
