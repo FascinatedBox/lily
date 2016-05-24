@@ -66,9 +66,7 @@ static void destroy_string(lily_value *v)
 {
     lily_string_val *sv = v->value.string;
 
-    if (sv->string)
-        lily_free(sv->string);
-
+    lily_free(sv->string);
     lily_free(sv);
 }
 
