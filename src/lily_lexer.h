@@ -96,6 +96,7 @@ typedef struct lily_lex_entry_ {
     lily_token saved_token : 16;
     uint32_t saved_line_num;
     uint32_t pad2;
+    int64_t saved_last_integer;
 
     void *source;
     void *extra;
@@ -121,6 +122,8 @@ typedef struct lily_lex_state_ {
 
     uint16_t input_size;
     uint16_t input_pos;
+
+    int64_t last_integer;
 
     lily_token token;
     lily_lex_mode mode;

@@ -137,6 +137,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     lexer->label = lily_malloc(128 * sizeof(char));
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
+    lexer->last_integer = 0;
     ch_class = lily_malloc(256 * sizeof(char));
 
     lexer->input_pos = 0;
@@ -291,6 +292,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, const char *filename)
         prev_entry->saved_input_size = lexer->input_size;
         prev_entry->saved_token = lexer->token;
         prev_entry->saved_last_literal = lexer->last_literal;
+        prev_entry->saved_last_integer = lexer->last_integer;
 
         lexer->line_num = 0;
     }
@@ -344,6 +346,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
            Do NOT restore lexer->input_size here. Ever. */
         lexer->entry = entry;
         lexer->last_literal = entry->saved_last_literal;
+        lexer->last_integer = entry->saved_last_integer;
 
         lexer->token = entry->saved_token;
 
@@ -806,8 +809,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
                            "Integer value is too large.\n");
         }
 
-        lexer->last_literal = lily_get_integer_literal(lexer->symtab,
-                yield_val.integer);
+        lexer->last_integer = yield_val.integer;
         *tok = tk_integer;
     }
     /* Not an integer, so use strtod to try converting it to a double so it can
