@@ -469,7 +469,6 @@ static void function_marker(int pass, lily_value *v)
 static void gc_mark(int pass, lily_value *v)
 {
     if (((v->flags & VAL_IS_GC_TAGGED) &&
-         v->value.gc_generic->gc_entry &&
          v->value.gc_generic->gc_entry->last_pass != pass) ||
          v->flags & VAL_IS_GC_SPECULATIVE)
     {
