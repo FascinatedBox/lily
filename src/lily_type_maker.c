@@ -117,22 +117,6 @@ static lily_type *lookup_type(lily_type *input_type)
     return ret;
 }
 
-/* This does flag bubbling for a newly-made type. */
-static void finalize_type(lily_type *input_type)
-{
-    int cls_flags = 0;
-    if (input_type->subtypes) {
-        int i;
-        for (i = 0;i < input_type->subtype_count;i++) {
-            lily_type *subtype = input_type->subtypes[i];
-            if (subtype) {
-                input_type->flags |= subtype->flags & BUBBLE_FLAGS;
-                cls_flags |= subtype->cls->flags;
-            }
-        }
-    }
-}
-
 static lily_type *build_real_type_for(lily_type *fake_type)
 {
     lily_type *new_type = make_new_type(fake_type->cls);
@@ -140,25 +124,29 @@ static lily_type *build_real_type_for(lily_type *fake_type)
 
     memcpy(new_type, fake_type, sizeof(lily_type));
 
-    if (count) {
-        lily_type **new_subtypes = lily_malloc(count *
-                sizeof(lily_type *));
-        memcpy(new_subtypes, fake_type->subtypes, count *
-                sizeof(lily_type *));
-        new_type->subtypes = new_subtypes;
-    }
-    else {
+    if (count == 0) {
         new_type->subtypes = NULL;
+        new_type->subtype_count = 0;
         /* If this type has no subtypes, and it was just created, then it
             has to be the default type for this class. */
         fake_type->cls->type = new_type;
+        return new_type;
     }
 
+    lily_type **new_subtypes = lily_malloc(count * sizeof(lily_type *));
+    memcpy(new_subtypes, fake_type->subtypes, count * sizeof(lily_type *));
+    new_type->subtypes = new_subtypes;
     new_type->subtype_count = count;
     new_type->next = new_type->cls->all_subtypes;
     new_type->cls->all_subtypes = new_type;
 
-    finalize_type(new_type);
+    int i;
+    for (i = 0;i < new_type->subtype_count;i++) {
+        lily_type *subtype = new_type->subtypes[i];
+        if (subtype)
+            new_type->flags |= subtype->flags & BUBBLE_FLAGS;
+    }
+
     return new_type;
 }
 
