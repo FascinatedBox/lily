@@ -3531,11 +3531,12 @@ static void parse_variant_header(lily_parse_state *parser,
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Empty () not needed for a variant.\n");
 
-    int result_pos = parser->tm->pos;
     int i = 1;
     int flags = 0;
 
-    /* This reserves a slot for the return that will be written. */
+    /* The return of a variant is always written as NULL. Since variants are
+       special cased (they emit as tuple-like things), the return of a variant
+       is NEVER checked or used. */
     lily_tm_add(parser->tm, NULL);
 
     while (1) {
@@ -3559,10 +3560,6 @@ static void parse_variant_header(lily_parse_state *parser,
     }
 
     lily_lexer(lex);
-
-    lily_type *variant_return = lily_tm_make_variant_result(parser->tm,
-            variant_cls->parent, result_pos, i);
-    lily_tm_insert(parser->tm, result_pos, variant_return);
 
     lily_type *build_type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
