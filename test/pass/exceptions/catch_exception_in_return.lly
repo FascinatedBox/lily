@@ -1,0 +1,9 @@
+define f(input: List[Integer]): Option[Integer]
+{
+    try:
+        return input.pop() |> Some
+    except Exception:
+        return None
+}
+
+f([])
