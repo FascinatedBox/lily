@@ -111,7 +111,7 @@ else if (lhs_reg->flags & VAL_IS_STRING) { \
 vm_regs[code[code_pos+4]]->flags = VAL_IS_BOOLEAN; \
 code_pos += 5;
 
-/** If you're interestforeign_called in working on the vm, or having trouble with it, here's
+/** If you're interested in working on the vm, or having trouble with it, here's
     some advice that might make things easier.
 
     * The vm uses a mix of refcounting and a gc. Anything that has subvalues
