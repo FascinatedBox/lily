@@ -4251,8 +4251,6 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
 {
     lily_ast *ast = ap->root;
 
-    write_pop_try_blocks_up_to(emit, emit->function_block);
-
     if (ast) {
         lily_type *ret_type = emit->top_function_ret;
 
@@ -4266,12 +4264,15 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
                     ast->result->type);
         }
 
+        write_pop_try_blocks_up_to(emit, emit->function_block);
         write_3(emit, o_return_val, ast->line_num, ast->result->reg_spot);
         emit->block->last_exit = emit->code_pos;
         RESET_POOL(ap)
     }
-    else
+    else {
+        write_pop_try_blocks_up_to(emit, emit->function_block);
         write_2(emit, o_return_noval, *emit->lex_linenum);
+    }
 }
 
 /* This is called after parsing the header of a define or a class. Since blocks
