@@ -184,49 +184,6 @@ lily_type *lily_tm_make(lily_type_maker *tm, int flags, lily_class *cls,
     return result_type;
 }
 
-static void walk_for_generics(lily_type_maker *tm, lily_type **use_map,
-        lily_type *type, int offset, int *max)
-{
-    if (type) {
-        if (type->subtypes) {
-            int i;
-            for (i = 0;i < type->subtype_count;i++)
-                walk_for_generics(tm, use_map, type->subtypes[i], offset, max);
-        }
-        else if (type->cls->id == SYM_CLASS_GENERIC) {
-            int pos = type->generic_pos;
-            if (pos > *max)
-                *max = pos;
-
-            use_map[pos] = type;
-        }
-    }
-}
-
-lily_type *lily_tm_make_variant_result(lily_type_maker *tm,
-        lily_class *enum_cls, int start, int end)
-{
-    int i, max_seen = -1;
-    lily_type *use_map[32];
-
-    for (i = 0;i < 32;i++)
-        use_map[i] = tm->question_class_type;
-
-    for (i = start;i < end;i++)
-        walk_for_generics(tm, use_map, tm->types[i], tm->pos, &max_seen);
-
-    /* Necessary because generic positions start at 0 instead of 1. */
-    max_seen++;
-    int j = 0;
-
-    for (i = 0;i < max_seen;i++)
-        lily_tm_add(tm, use_map[i]);
-
-    lily_type *result = lily_tm_make(tm, 0, enum_cls, j);
-
-    return result;
-}
-
 lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
 {
     lily_type *dynamic_type = tm->dynamic_class_type;
