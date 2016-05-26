@@ -1041,6 +1041,7 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
             source, type, func_seed->name);
 
     lily_update_symtab_generics(symtab, save_generics);
+    parser->generic_count = save_generics;
 
     parser->symtab->active_module = save_active;
 

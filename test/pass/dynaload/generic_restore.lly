@@ -1,0 +1,10 @@
+class Test[A, B]
+{
+    Some(1).is_none()
+
+    define abc(key: A): Test[A, B]
+    {
+        return self
+    }
+}
+
