@@ -965,33 +965,25 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
     lily_raise_value(vm->raiser, raise_cls, exception_val, message);
 }
 
-/* o_setup_optargs is a strange opcode. The contents are
-   '#values, lit, reg, lit, reg...'. */
-static void do_o_setup_optargs(lily_vm_state *vm, uint16_t *code, int code_pos)
+/* This is an uncommon, but decently fast opcode. What it does is to scan from
+   the last optional register down. The first one that has a value decides where
+   to jump. If none are set, it'll fall into the last jump, which will jump
+   right to the start of all the instructions.
+   This is done outside of the vm's main loop because it's not common. */
+static int do_o_optarg_dispatch(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    lily_tie **ro_table = vm->readonly_table;
+    uint16_t first_spot = code[1];
+    int count = code[2] - 1;
+    unsigned int i;
 
-    /* This goes in reverse because arguments fill from the bottom up. Doing it
-       this way means that the loop can stop when it finds the first filled
-       argument. It's a slight optimization, but such an easy one. */
-    int count = code[code_pos + 1];
-    int i = count + code_pos + 1;
-    int half = count / 2;
-    int end = i - half;
-
-    for (;i > end;i--) {
-        lily_value *left = vm_regs[code[i]];
-        if (left->flags)
+    for (i = 0;i < count;i++) {
+        lily_value *reg = vm_regs[first_spot - i];
+        if (reg->flags)
             break;
-
-        /* Note! The right side is ALWAYS a literal. Do not use vm_regs! */
-        lily_tie *right = ro_table[code[i - half]];
-
-        /* It's definitely a literal, so just move it over without a ref. */
-        left->flags = right->move_flags;
-        left->value = right->value;
     }
+
+    return code[3 + i];
 }
 
 /* This creates a new instance of a class. This checks if the current call is
@@ -2394,9 +2386,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_assign_value(lhs_reg, rhs_reg);
                 code_pos += 4;
                 break;
-            case o_setup_optargs:
-                do_o_setup_optargs(vm, code, code_pos);
-                code_pos += 2 + code[code_pos + 1];
+            case o_optarg_dispatch:
+                code_pos = do_o_optarg_dispatch(vm, code+code_pos);
                 break;
             case o_integer_for:
                 /* loop_reg is an internal counter, while lhs_reg is an external
