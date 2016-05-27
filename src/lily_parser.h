@@ -9,6 +9,7 @@
 # include "lily_vm.h"
 # include "lily_msgbuf.h"
 # include "lily_type_maker.h"
+# include "lily_buffers.h"
 
 typedef struct lily_parse_state_ {
     lily_package *package_start;
@@ -17,12 +18,12 @@ typedef struct lily_parse_state_ {
     lily_module_entry *builtin_module;
     lily_module_entry *main_module;
 
-    uint16_t *optarg_stack;
-    uint16_t optarg_stack_pos;
-    uint16_t optarg_stack_size;
+    lily_u16_buffer *optarg_stack;
+
     uint16_t executing;
     uint8_t first_pass;
     uint8_t generic_count;
+    uint32_t pad;
 
     lily_membuf *ast_membuf;
     lily_type *exception_type;

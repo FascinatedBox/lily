@@ -57,14 +57,11 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     lily_raiser *raiser = lily_new_raiser();
 
-    parser->optarg_stack_pos = 0;
-    parser->optarg_stack_size = 4;
     parser->first_pass = 1;
     parser->generic_count = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->exception_type = NULL;
-    parser->optarg_stack = lily_malloc(4 * sizeof(uint16_t));
     parser->ast_pool = lily_new_ast_pool();
     parser->symtab = lily_new_symtab(parser->package_start);
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
@@ -72,6 +69,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
+    parser->optarg_stack = lily_new_u16(4);
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -131,7 +129,7 @@ void lily_free_parse_state(lily_parse_state *parser)
 
     lily_free_emit_state(parser->emit);
 
-    lily_free(parser->optarg_stack);
+    lily_free_buffer(parser->optarg_stack);
 
     /* The path for the first module is always a shallow copy of the loadname
        that was sent. Make sure that doesn't get free'd. */
@@ -465,27 +463,18 @@ static int constant_by_name(const char *);
     Some types have no subtypes, and thus only need a single type to describe
     them. This type is their 'default type'. **/
 
-static void grow_optarg_stack(lily_parse_state *parser)
-{
-    parser->optarg_stack_size *= 2;
-    parser->optarg_stack = lily_realloc(parser->optarg_stack,
-            sizeof(uint16_t) * parser->optarg_stack_size);
-}
-
-/* So you've got a class that wants to have an optional argument. This takes
-   that class, and grabs a valid default value for it. This is semi-tricky when
-   it comes to booleans, because booleans need a word, but the word must be
-   either `true` or `false`.
-   The requirement that default values have to be constants is intentional, with
-   the goal being to prevent complex expressions and/or emit-time evaluation of
-   functions/etc.
-   This is a helper function. No direct calls. */
-static lily_tie *get_optarg_value(lily_parse_state *parser,
-        lily_class *cls)
+/* Given a var, collect the optional argument that goes with it. This will push
+   information to parser's optarg_stack to link the value to the var. The token
+   is expected to start on the '=', and will be set at the token after the
+   optional value. */
+static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_token expect;
+    lily_u16_buffer *optarg_stack = parser->optarg_stack;
+    lily_class *cls = var->type->cls;
+
     if (cls == symtab->integer_class)
         expect = tk_integer;
     else if (cls == symtab->double_class)
@@ -497,9 +486,11 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
     else
         expect = tk_word;
 
+    NEED_CURRENT_TOK(tk_equal)
     NEED_NEXT_TOK(expect)
 
-    lily_tie *result;
+    lily_u16_push(optarg_stack, var->reg_spot);
+
     if (cls == symtab->boolean_class) {
         int key_id = constant_by_name(lex->label);
         if (key_id != CONST_TRUE && key_id != CONST_FALSE)
@@ -507,7 +498,7 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
                     "'%s' is not a valid default value for a Boolean.\n",
                     lex->label);
 
-        result = lily_get_boolean_literal(symtab, key_id == CONST_TRUE);
+        lily_u16_push(optarg_stack, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
         /* It's an enum. Allow any variant to be a default argument if that
@@ -525,32 +516,14 @@ static lily_tie *get_optarg_value(lily_parse_state *parser,
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.\n");
 
-        result = variant->default_value;
+        lily_u16_push(optarg_stack, variant->default_value->reg_spot);
     }
-    else if (expect == tk_integer)
-        result = lily_get_integer_literal(symtab, lex->last_integer);
+    else if (expect == tk_integer) {
+        lily_tie *tie = lily_get_integer_literal(symtab, lex->last_integer);
+        lily_u16_push(optarg_stack, tie->reg_spot);
+    }
     else
-        result = lex->last_literal;
-
-    return result;
-}
-
-/* This takes a var that has been marked as being optional and collects a
-   default value for it.
-   Assumptions: var->type->cls is a valid optional argument class. */
-static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_equal)
-
-    if (parser->optarg_stack_pos + 1 >= parser->optarg_stack_size)
-        grow_optarg_stack(parser);
-
-    lily_tie *lit = get_optarg_value(parser, var->type->cls);
-
-    parser->optarg_stack[parser->optarg_stack_pos] = lit->reg_spot;
-    parser->optarg_stack[parser->optarg_stack_pos + 1] = var->reg_spot;
-    parser->optarg_stack_pos += 2;
+        lily_u16_push(optarg_stack, lex->last_literal->reg_spot);
 
     lily_lexer(lex);
 }
@@ -2492,6 +2465,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     int i = 0;
     int arg_flags = 0;
     int result_pos = parser->tm->pos;
+    int optarg_start = parser->optarg_stack->pos;
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
@@ -2557,12 +2531,9 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     lily_emit_update_function_block(parser->emit, NULL,
             define_var->type->subtypes[0]);
 
-    if (parser->optarg_stack_pos != 0) {
+    if (arg_flags & TYPE_HAS_OPTARGS)
         lily_emit_write_optargs(parser->emit, parser->optarg_stack,
-                parser->optarg_stack_pos);
-
-        parser->optarg_stack_pos = 0;
-    }
+                optarg_start);
 }
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
@@ -3294,6 +3265,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     int i = 1;
     int flags = 0;
+    int optarg_start = parser->optarg_stack->pos;
     lily_tm_add(parser->tm, parser->class_self_type);
 
     if (lex->token == tk_left_parenth) {
@@ -3326,12 +3298,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_emit_update_function_block(parser->emit, parser->class_self_type,
             call_var->type->subtypes[0]);
 
-    if (parser->optarg_stack_pos != 0) {
+    if (flags & TYPE_HAS_OPTARGS)
         lily_emit_write_optargs(parser->emit, parser->optarg_stack,
-                parser->optarg_stack_pos);
-
-        parser->optarg_stack_pos = 0;
-    }
+                optarg_start);
 }
 
 /* This is called when one class wants to inherit from another. It makes sure

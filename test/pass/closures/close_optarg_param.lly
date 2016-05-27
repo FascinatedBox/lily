@@ -8,7 +8,7 @@ define f(a: *Integer=10): Function( => Integer) {
 #if f()() != 10:
 #    stderr.print("Failed.")
 
-f(11)()
+# f(11)()
 
 #if f(11)() != 11:
 #    stderr.print("Failed.")

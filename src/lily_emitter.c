@@ -444,25 +444,58 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
     emit->code_pos += 6;
 }
 
-/* This is called from parser to force the writing of the optargs chunk that
-   will occur at/near the top of a function. */
-void lily_emit_write_optargs(lily_emit_state *emit, uint16_t *reg_spots,
-        uint16_t count)
+/* This takes the stack of optional arguments and writes out the jumping
+   necessary at the top. */
+void lily_emit_write_optargs(lily_emit_state *emit, lily_u16_buffer *optargs,
+        int start)
 {
-    write_prep(emit, count + 2);
+    /* Optional arguments are sent in pairs of class id and some data (usually
+       the register spot of a value). The arguments have been added from left to
+       right. The thinking is that registers at vm-time will be scanned from
+       right to left.
 
-    emit->code[emit->code_pos] = o_setup_optargs;
-    emit->code[emit->code_pos+1] = count;
+       Supposing that there are 4 locals, the goal is to have something like
+       this happen:
 
-    emit->code_pos += 2;
+       switch(#regs)
+           case 0:
+               assign reg #1
+           case 1:
+               assign reg #2
+           case 2:
+               no-op
+       } */
+    int stop = optargs->pos;
+    uint16_t *stack = optargs->data;
+    uint16_t line_num = *emit->lex_linenum;
+    int count = ((stop - start) / 2) + 1;
+    int i;
 
-    int i, j;
-    for (j = 0;j < 2;j++) {
-        for (i = j;i < count;i += 2) {
-            emit->code[emit->code_pos] = reg_spots[i];
-            emit->code_pos++;
-        }
+    /* This writes down the most recent register and the count. The count is
+       sent because the vm doesn't have an easy way to know how many to scan. */
+    write_3(emit, o_optarg_dispatch, emit->block->next_reg_spot - 1, count);
+
+    /* Write a block of zeroes that will be patched later. */
+    write_prep(emit, count - 1);
+    for (i = 0;i < count - 1;i++)
+        emit->code[emit->code_pos + i] = 0;
+
+    emit->code_pos += i;
+    int jump_target = emit->code_pos;
+
+    /* The last jump is the 'case 2' from above.  */
+    emit->code[emit->code_pos + 1] = emit->code_pos + 2;
+    emit->code_pos++;
+
+    for (i = start;i != stop;i += 2, jump_target--) {
+        int target_reg = stack[i];
+        int value = stack[i + 1];
+        emit->code[jump_target] = emit->code_pos - emit->block->jump_offset;
+        write_4(emit, o_get_readonly, line_num, value, target_reg);
     }
+
+    /* The first jump will be cascading down all of the default assigns. */
+    emit->code[jump_target] = emit->code_pos - emit->block->jump_offset;
 }
 
 /* This function writes the code necessary to get a for <var> in x...y style
