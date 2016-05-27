@@ -2,7 +2,6 @@
 
 lib/*
 lily
-lily_repl
 
 # CMake-related stuff.
 CMakeFiles
