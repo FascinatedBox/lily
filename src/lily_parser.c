@@ -1691,10 +1691,16 @@ static int maybe_digit_fixup(lily_parse_state *parser)
         lily_lexer_digit_rescan(lex);
 
         if (lex->token == tk_integer) {
-            lily_tie *tie = lily_get_integer_literal(parser->symtab,
-                    lex->last_integer);
+            if (lex->last_integer <= INT16_MAX &&
+                lex->last_integer >= INT16_MIN)
+                lily_ast_push_integer(parser->ast_pool, (int16_t)
+                        lex->last_integer);
+            else {
+                lily_tie *tie = lily_get_integer_literal(parser->symtab,
+                        lex->last_integer);
 
-            lily_ast_push_literal(parser->ast_pool, tie);
+                lily_ast_push_literal(parser->ast_pool, tie);
+            }
         }
         else
             lily_ast_push_literal(parser->ast_pool, lex->last_literal);
@@ -1747,9 +1753,16 @@ static void expression_literal(lily_parse_state *parser, int *state)
         *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_integer) {
-        lily_tie *tie = lily_get_integer_literal(parser->symtab,
-                lex->last_integer);
-        lily_ast_push_literal(parser->ast_pool, tie);
+        if (lex->last_integer <= INT16_MAX &&
+            lex->last_integer >= INT16_MIN)
+            lily_ast_push_integer(parser->ast_pool, (int16_t)
+                    lex->last_integer);
+        else {
+            lily_tie *tie = lily_get_integer_literal(parser->symtab,
+                    lex->last_integer);
+            lily_ast_push_literal(parser->ast_pool, tie);
+        }
+
         *state = ST_WANT_OPERATOR;
     }
     else {
