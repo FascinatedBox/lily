@@ -1941,13 +1941,12 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         }
     }
     else if (var_cls_id == SYM_CLASS_TUPLE) {
-        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER ||
-            index_ast->tree_type != tree_literal) {
+        if (index_ast->tree_type != tree_integer) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
                     "tuple subscripts must be integer literals.\n", "");
         }
 
-        int index_value = index_ast->literal->value.integer;
+        int index_value = index_ast->backing_value;
         lily_type *var_type = var_ast->result->type;
         if (index_value < 0 || index_value >= var_type->subtype_count) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
@@ -1975,7 +1974,7 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
         result = type->subtypes[1];
     else if (type->cls->id == SYM_CLASS_TUPLE) {
         /* check_valid_subscript ensures that this is safe. */
-        int literal_index = index_ast->literal->value.integer;
+        int literal_index = index_ast->backing_value;
         result = type->subtypes[literal_index];
     }
     else if (type->cls->id == SYM_CLASS_STRING)
@@ -2072,11 +2071,10 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             if (result_type->cls->id == SYM_CLASS_HASH)
                 result_type = result_type->subtypes[1];
             else if (result_type->cls->id == SYM_CLASS_TUPLE) {
-                if (index_tree->tree_type != tree_literal ||
-                    index_tree->sym->type->cls->id != SYM_CLASS_INTEGER)
+                if (index_tree->tree_type != tree_integer)
                     result_type = NULL;
                 else {
-                    int literal_index = index_tree->literal->value.integer;
+                    int literal_index = index_tree->backing_value;
                     if (literal_index < 0 ||
                         literal_index > result_type->subtype_count)
                         result_type = NULL;
