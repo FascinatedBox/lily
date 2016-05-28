@@ -3135,6 +3135,16 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)ret;
 }
 
+static void emit_integer(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *s = get_storage(emit, emit->symtab->integer_class->type);
+
+    write_4(emit, o_get_integer, ast->line_num, ast->backing_value,
+            s->reg_spot);
+
+    ast->result = (lily_sym *)s;
+}
+
 void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
     ast->result = (lily_sym *)emit->block->self;
@@ -4040,6 +4050,8 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         ast->tree_type == tree_method ||
         ast->tree_type == tree_inherited_new)
         emit_nonlocal_var(emit, ast);
+    else if (ast->tree_type == tree_integer)
+        emit_integer(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect);
     else if (ast->tree_type == tree_binary) {

@@ -43,7 +43,7 @@ typedef enum {
     tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
     tree_variant, tree_lambda, tree_literal, tree_inherited_new, tree_method,
     tree_static_func, tree_self, tree_upvalue, tree_interp_top,
-    tree_interp_block, tree_binary
+    tree_interp_block, tree_integer, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_ {
@@ -62,7 +62,11 @@ typedef struct lily_ast_ {
        do not, this is the code position where that result is. */
     uint16_t maybe_result_pos;
     uint16_t args_collected;
-    uint32_t membuf_pos;
+    union {
+        uint32_t membuf_pos;
+        /* For raw integers, this is the value to write to the bytecode. */
+        int16_t backing_value;
+    };
 
     /* Since lily_item is a superset of all of the types that follow, it would
        be possible to just use lily_item alone here. However, that results in
@@ -209,6 +213,7 @@ void lily_ast_push_text(lily_ast_pool *, lily_tree_type, uint32_t, int);
 void lily_ast_push_inherited_new(lily_ast_pool *, lily_var *);
 void lily_ast_push_self(lily_ast_pool *);
 void lily_ast_push_upvalue(lily_ast_pool *, lily_var *);
+void lily_ast_push_integer(lily_ast_pool *, int16_t);
 void lily_ast_reset_pool(lily_ast_pool *);
 
 void lily_ast_freeze_state(lily_ast_pool *);

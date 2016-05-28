@@ -2057,7 +2057,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_get_integer:
                 lhs_reg = vm_regs[code[code_pos+3]];
-                lhs_reg->value.integer = code[code_pos+2];
+                lhs_reg->value.integer = (int16_t)code[code_pos+2];
                 lhs_reg->flags = VAL_IS_INTEGER;
                 code_pos += 4;
                 break;
