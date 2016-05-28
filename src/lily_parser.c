@@ -1466,8 +1466,14 @@ static void push_constant(lily_parse_state *parser, int key_id)
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
     if (key_id == CONST__LINE__) {
-        tie = lily_get_integer_literal(symtab, parser->lex->line_num);
-        lily_ast_push_literal(ap, tie);
+        int num = parser->lex->line_num;
+
+        if ((int16_t)num <= INT16_MAX)
+            lily_ast_push_integer(ap, (int16_t)num);
+        else {
+            tie = lily_get_integer_literal(symtab, parser->lex->line_num);
+            lily_ast_push_literal(ap, tie);
+        }
     }
     else if (key_id == CONST__FILE__) {
         tie = lily_get_string_literal(symtab, parser->symtab->active_module->path);

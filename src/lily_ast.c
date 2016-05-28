@@ -591,6 +591,14 @@ void lily_ast_push_literal(lily_ast_pool *ap, lily_tie *lit)
     merge_value(ap, a);
 }
 
+void lily_ast_push_integer(lily_ast_pool *ap, int16_t value)
+{
+    AST_COMMON_INIT(a, tree_integer);
+    a->backing_value = value;
+
+    merge_value(ap, a);
+}
+
 void lily_ast_push_property(lily_ast_pool *ap, lily_prop_entry *prop)
 {
     AST_COMMON_INIT(a, tree_property);
