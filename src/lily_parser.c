@@ -1483,14 +1483,10 @@ static void push_constant(lily_parse_state *parser, int key_id)
         tie = lily_get_string_literal(symtab, parser->emit->top_var->name);
         lily_ast_push_literal(ap, tie);
     }
-    else if (key_id == CONST_TRUE) {
-        tie = lily_get_boolean_literal(symtab, 1);
-        lily_ast_push_literal(ap, tie);
-    }
-    else if (key_id == CONST_FALSE) {
-        tie = lily_get_boolean_literal(symtab, 0);
-        lily_ast_push_literal(ap, tie);
-    }
+    else if (key_id == CONST_TRUE)
+        lily_ast_push_boolean(ap, 1);
+    else if (key_id == CONST_FALSE)
+        lily_ast_push_boolean(ap, 0);
     else if (key_id == CONST_SELF)
         lily_ast_push_self(ap);
 }

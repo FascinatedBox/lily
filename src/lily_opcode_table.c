@@ -43,6 +43,7 @@ const int opcode_table[][8] = {
     {o_set_global,            3, C_LINENO,         C_INPUT,          C_GLOBAL_OUTPUT, -1,              -1,           -1},
     {o_get_readonly,          3, C_LINENO,         C_READONLY_INPUT, C_OUTPUT,        -1,              -1,           -1},
     {o_get_integer,           3, C_LINENO,         C_INT_VAL,        C_OUTPUT,        -1,              -1,           -1},
+    {o_get_boolean,           3, C_LINENO,         C_INT_VAL,        C_OUTPUT,        -1,              -1,           -1},
     {o_get_property,          4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_OUTPUT,        -1,           -1},
     {o_set_property,          4, C_LINENO,         C_INPUT,          C_INT_VAL,       C_INPUT,         -1,           -1},
     {o_push_try,              2, C_LINENO,         C_JUMP,           C_INT_VAL,       -1,              -1,           -1},

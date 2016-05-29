@@ -43,7 +43,7 @@ typedef enum {
     tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
     tree_variant, tree_lambda, tree_literal, tree_inherited_new, tree_method,
     tree_static_func, tree_self, tree_upvalue, tree_interp_top,
-    tree_interp_block, tree_integer, tree_binary
+    tree_interp_block, tree_boolean, tree_integer, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_ {
@@ -64,7 +64,8 @@ typedef struct lily_ast_ {
     uint16_t args_collected;
     union {
         uint32_t membuf_pos;
-        /* For raw integers, this is the value to write to the bytecode. */
+        /* For raw integers or booleans, this is the value to write to the
+           bytecode. */
         int16_t backing_value;
     };
 
@@ -214,6 +215,7 @@ void lily_ast_push_inherited_new(lily_ast_pool *, lily_var *);
 void lily_ast_push_self(lily_ast_pool *);
 void lily_ast_push_upvalue(lily_ast_pool *, lily_var *);
 void lily_ast_push_integer(lily_ast_pool *, int16_t);
+void lily_ast_push_boolean(lily_ast_pool *, int16_t);
 void lily_ast_reset_pool(lily_ast_pool *);
 
 void lily_ast_freeze_state(lily_ast_pool *);
