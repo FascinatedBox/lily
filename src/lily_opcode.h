@@ -261,6 +261,8 @@ typedef enum {
 
     o_get_integer,
 
+    o_get_boolean,
+
     /* get property:
        * int lineno
        * reg local_reg
