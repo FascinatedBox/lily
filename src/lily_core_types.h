@@ -108,8 +108,11 @@ typedef struct lily_class_ {
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
-    uint16_t prop_count;
-    uint16_t variant_size;
+    union {
+        uint16_t prop_count;
+        uint16_t variant_size;
+    };
+    uint16_t pad;
 
     /* Enums: This is how many subvalues (slots) that the vm must allocate for
        this if it's an enum. */
