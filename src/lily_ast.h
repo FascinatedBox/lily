@@ -69,13 +69,6 @@ typedef struct lily_ast_ {
         int16_t backing_value;
     };
 
-    /* Since lily_item is a superset of all of the types that follow, it would
-       be possible to just use lily_item alone here. However, that results in
-       parts of the emitter having to cast the item to a sym or something higher
-       up as a means of acquiring either a type or a name. That sucks.
-       Why include lily_item then? Well, call makes use of it (since a call can
-       be against a variant, a var, or a storage) by putting the thing it's
-       trying to call there. Doing so allows debug information to be grabbed. */
     union {
         lily_item *item;
         lily_sym *sym;
@@ -83,7 +76,7 @@ typedef struct lily_ast_ {
         lily_prop_entry *property;
         lily_variant_class *variant;
         struct lily_ast_ *left;
-        lily_type *typecast_type;
+        lily_type *type;
     };
 
     union {

@@ -331,10 +331,10 @@ static uint8_t priority_for_op(lily_expr_op o)
     return prio;
 }
 
-static void push_typecast_type(lily_ast_pool *ap, lily_type *type)
+static void push_type(lily_ast_pool *ap, lily_type *type)
 {
     AST_COMMON_INIT(a, tree_type)
-    a->typecast_type = type;
+    a->type = type;
 
     merge_value(ap, a);
 }
@@ -506,7 +506,7 @@ void lily_ast_push_binary_op(lily_ast_pool *ap, lily_expr_op op)
 void lily_ast_enter_typecast(lily_ast_pool *ap, lily_type *type)
 {
     lily_ast_enter_tree(ap, tree_typecast);
-    push_typecast_type(ap, type);
+    push_type(ap, type);
     lily_ast_collect_arg(ap);
 }
 
