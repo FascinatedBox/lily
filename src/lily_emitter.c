@@ -2964,7 +2964,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *boxed_type = ast->arg_start->next_arg->typecast_type;
+    lily_type *boxed_type = ast->arg_start->next_arg->type;
     lily_ast *right_tree = ast->arg_start;
     lily_type *cast_type = boxed_type->subtypes[0];
 
