@@ -72,7 +72,6 @@ typedef struct lily_symtab_ {
 lily_symtab *lily_new_symtab(lily_package *);
 void lily_free_symtab(lily_symtab *);
 
-lily_tie *lily_get_boolean_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_tie *lily_get_double_literal(lily_symtab *, double);
 lily_tie *lily_get_bytestring_literal(lily_symtab *, const char *, int);

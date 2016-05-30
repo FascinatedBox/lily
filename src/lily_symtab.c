@@ -201,28 +201,6 @@ static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
     return make_new_literal_of_type(symtab, cls->type);
 }
 
-lily_tie *lily_get_boolean_literal(lily_symtab *symtab, int64_t int_val)
-{
-    lily_tie *lit, *ret;
-    ret = NULL;
-    lily_class *boolean_cls = symtab->boolean_class;
-    lily_type *want_type = boolean_cls->type;
-
-    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
-        if (lit->type == want_type && lit->value.integer == int_val) {
-            ret = lit;
-            break;
-        }
-    }
-
-    if (ret == NULL) {
-        ret = make_new_literal(symtab, boolean_cls);
-        ret->value.integer = int_val;
-    }
-
-    return ret;
-}
-
 lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
     lily_tie *lit, *ret;
