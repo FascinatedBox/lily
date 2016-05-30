@@ -1876,32 +1876,6 @@ static const char *opname(lily_expr_op op)
     return opnames[op];
 }
 
-/* This is called to see if 'ast' contains a literal that is always considered
-   truthy. 1 if yes, 0 if no. */
-static int condition_optimize_check(lily_ast *ast)
-{
-    int can_optimize = 1;
-
-    /* This may not be a literal. It could be a user-defined/built-in function
-       which would always automatically be true. */
-    if (ast->result->item_kind == ITEM_TYPE_TIE) {
-        lily_tie *lit = (lily_tie *)ast->result;
-
-        /* Keep this synced with vm's o_jump_if calculation. */
-        int lit_cls_id = lit->type->cls->id;
-        if (lit_cls_id == SYM_CLASS_INTEGER && lit->value.integer == 0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_DOUBLE && lit->value.doubleval == 0.0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_STRING && lit->value.string->size == 0)
-            can_optimize = 0;
-        else if (lit_cls_id == SYM_CLASS_BOOLEAN && lit->value.integer == 0)
-            can_optimize = 0;
-    }
-
-    return can_optimize;
-}
-
 /* Check if 'type' is something that can be considered truthy/falsey.
    Keep this synced with the vm's o_jump_if calculation.
    Failure: SyntaxError is raised. */
@@ -4238,8 +4212,9 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
     lily_ast *ast = ap->root;
     lily_block_type current_type = emit->block->block_type;
 
-    if ((ast->tree_type == tree_literal &&
-         condition_optimize_check(ast)) == 0) {
+    if (((ast->tree_type == tree_boolean ||
+          ast->tree_type == tree_integer) &&
+          ast->backing_value != 0) == 0) {
         eval_enforce_value(emit, ast, NULL,
                 "Conditional expression has no value.\n");
         ensure_valid_condition_type(emit, ast->result->type);
