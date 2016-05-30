@@ -1465,6 +1465,14 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             "%s.%s does not exist.\n", cls->name, lex->label);
 }
 
+/* This is a wrapper function that handles pushing the given literal into the
+   parser's ast pool. This function exists because literals may, in the future,
+   not have a type associated with them (and be just a lily_value). */
+static void push_literal(lily_parse_state *parser, lily_tie *literal)
+{
+    lily_ast_push_literal(parser->ast_pool, literal->type, literal->reg_spot);
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
@@ -1483,16 +1491,16 @@ static void push_constant(lily_parse_state *parser, int key_id)
             lily_ast_push_integer(ap, (int16_t)num);
         else {
             tie = lily_get_integer_literal(symtab, parser->lex->line_num);
-            lily_ast_push_literal(ap, tie);
+            push_literal(parser, tie);
         }
     }
     else if (key_id == CONST__FILE__) {
         tie = lily_get_string_literal(symtab, parser->symtab->active_module->path);
-        lily_ast_push_literal(ap, tie);
+        push_literal(parser, tie);
     }
     else if (key_id == CONST__FUNCTION__) {
         tie = lily_get_string_literal(symtab, parser->emit->top_var->name);
-        lily_ast_push_literal(ap, tie);
+        push_literal(parser, tie);
     }
     else if (key_id == CONST_TRUE)
         lily_ast_push_boolean(ap, 1);
@@ -1706,11 +1714,11 @@ static int maybe_digit_fixup(lily_parse_state *parser)
                 lily_tie *tie = lily_get_integer_literal(parser->symtab,
                         lex->last_integer);
 
-                lily_ast_push_literal(parser->ast_pool, tie);
+                push_literal(parser, tie);
             }
         }
         else
-            lily_ast_push_literal(parser->ast_pool, lex->last_literal);
+            push_literal(parser, lex->last_literal);
 
         fixed = 1;
     }
@@ -1750,7 +1758,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
             }
             else {
                 lily_tie *tie = lily_get_string_literal(symtab, lex->label);
-                lily_ast_push_literal(parser->ast_pool, tie);
+                push_literal(parser, tie);
             }
             lily_ast_collect_arg(parser->ast_pool);
         } while (*scan_string != '\0');
@@ -1767,13 +1775,13 @@ static void expression_literal(lily_parse_state *parser, int *state)
         else {
             lily_tie *tie = lily_get_integer_literal(parser->symtab,
                     lex->last_integer);
-            lily_ast_push_literal(parser->ast_pool, tie);
+            push_literal(parser, tie);
         }
 
         *state = ST_WANT_OPERATOR;
     }
     else {
-        lily_ast_push_literal(parser->ast_pool, lex->last_literal);
+        push_literal(parser, lex->last_literal);
         *state = ST_WANT_OPERATOR;
     }
 }

@@ -2702,7 +2702,7 @@ void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-static void emit_nonlocal_var(lily_emit_state *, lily_ast *);
+static void emit_literal(lily_emit_state *, lily_ast *);
 
 /* This evaluates an interpolation block `$"..."`. The children of this tree are
    divided into either tree_literal or tree_interp_block. The former does not
@@ -2724,9 +2724,8 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
 
             tree_iter->result = result;
         }
-        else {
-            emit_nonlocal_var(emit, tree_iter);
-        }
+        else
+            emit_literal(emit, tree_iter);
 
         tree_iter = tree_iter->next_arg;
     }
@@ -3075,6 +3074,16 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 
     write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
+    ast->result = (lily_sym *)s;
+}
+
+static void emit_literal(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *s = get_storage(emit, ast->type);
+
+    write_4(emit, o_get_readonly, ast->line_num, ast->literal_reg_spot,
+            s->reg_spot);
+
     ast->result = (lily_sym *)s;
 }
 
@@ -4027,12 +4036,13 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
 static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     if (ast->tree_type == tree_global_var ||
-        ast->tree_type == tree_literal ||
         ast->tree_type == tree_defined_func ||
         ast->tree_type == tree_static_func ||
         ast->tree_type == tree_method ||
         ast->tree_type == tree_inherited_new)
         emit_nonlocal_var(emit, ast);
+    else if (ast->tree_type == tree_literal)
+        emit_literal(emit, ast);
     else if (ast->tree_type == tree_integer)
         emit_integer(emit, ast);
     else if (ast->tree_type == tree_boolean)

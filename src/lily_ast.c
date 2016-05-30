@@ -582,11 +582,11 @@ void lily_ast_push_inherited_new(lily_ast_pool *ap, lily_var *func)
     merge_value(ap, a);
 }
 
-void lily_ast_push_literal(lily_ast_pool *ap, lily_tie *lit)
+void lily_ast_push_literal(lily_ast_pool *ap, lily_type *t, uint16_t reg_spot)
 {
     AST_COMMON_INIT(a, tree_literal);
-    a->result = (lily_sym *)lit;
-    a->literal = lit;
+    a->type = t;
+    a->literal_reg_spot = reg_spot;
 
     merge_value(ap, a);
 }

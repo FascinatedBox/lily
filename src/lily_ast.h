@@ -67,6 +67,8 @@ typedef struct lily_ast_ {
         /* For raw integers or booleans, this is the value to write to the
            bytecode. */
         int16_t backing_value;
+        /* For other kinds of literals, this is their register spot. */
+        uint16_t literal_reg_spot;
     };
 
     union {
@@ -199,7 +201,7 @@ void lily_ast_push_global_var(lily_ast_pool *, lily_var *);
 void lily_ast_push_defined_func(lily_ast_pool *, lily_var *);
 void lily_ast_push_method(lily_ast_pool *, lily_var *);
 void lily_ast_push_static_func(lily_ast_pool *, lily_var *);
-void lily_ast_push_literal(lily_ast_pool *, lily_tie *);
+void lily_ast_push_literal(lily_ast_pool *, lily_type *, uint16_t);
 void lily_ast_push_unary_op(lily_ast_pool *, lily_expr_op);
 void lily_ast_push_property(lily_ast_pool *, lily_prop_entry *);
 void lily_ast_push_variant(lily_ast_pool *, lily_variant_class *);
