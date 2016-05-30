@@ -468,7 +468,7 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_u16_buffer *optargs,
     int stop = optargs->pos;
     uint16_t *stack = optargs->data;
     uint16_t line_num = *emit->lex_linenum;
-    int count = ((stop - start) / 2) + 1;
+    int count = ((stop - start) / 3) + 1;
     int i;
 
     /* This writes down the most recent register and the count. The count is
@@ -487,11 +487,12 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_u16_buffer *optargs,
     emit->code[emit->code_pos + 1] = emit->code_pos + 2;
     emit->code_pos++;
 
-    for (i = start;i != stop;i += 2, jump_target--) {
+    for (i = start;i != stop;i += 3, jump_target--) {
         int target_reg = stack[i];
-        int value = stack[i + 1];
+        int opcode = stack[i + 1];
+        int value = stack[i + 2];
         emit->code[jump_target] = emit->code_pos - emit->block->jump_offset;
-        write_4(emit, o_get_readonly, line_num, value, target_reg);
+        write_4(emit, opcode, line_num, value, target_reg);
     }
 
     /* The first jump will be cascading down all of the default assigns. */
