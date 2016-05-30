@@ -9,6 +9,7 @@
 #include "lily_keyword_table.h"
 #include "lily_pkg_sys.h"
 #include "lily_membuf.h"
+#include "lily_opcode.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_dynaload.h"
@@ -498,6 +499,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
                     "'%s' is not a valid default value for a Boolean.\n",
                     lex->label);
 
+        lily_u16_push(optarg_stack, o_get_boolean);
         lily_u16_push(optarg_stack, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
@@ -516,14 +518,23 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.\n");
 
+        lily_u16_push(optarg_stack, o_get_readonly);
         lily_u16_push(optarg_stack, variant->default_value->reg_spot);
     }
-    else if (expect == tk_integer) {
+    else if (expect != tk_integer) {
+        lily_u16_push(optarg_stack, o_get_readonly);
+        lily_u16_push(optarg_stack, lex->last_literal->reg_spot);
+    }
+    else if (lex->last_integer <= INT16_MAX &&
+             lex->last_integer >= INT16_MIN) {
+        lily_u16_push(optarg_stack, o_get_integer);
+        lily_u16_push(optarg_stack, (uint16_t)lex->last_integer);
+    }
+    else {
         lily_tie *tie = lily_get_integer_literal(symtab, lex->last_integer);
+        lily_u16_push(optarg_stack, o_get_readonly);
         lily_u16_push(optarg_stack, tie->reg_spot);
     }
-    else
-        lily_u16_push(optarg_stack, lex->last_literal->reg_spot);
 
     lily_lexer(lex);
 }
