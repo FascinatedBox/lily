@@ -15,7 +15,6 @@ typedef struct lily_parse_state_ {
     lily_package *package_start;
     lily_package *package_top;
 
-    lily_module_entry *builtin_module;
     lily_module_entry *main_module;
 
     lily_u16_buffer *optarg_stack;
