@@ -111,8 +111,6 @@ typedef struct lily_lex_state_ {
     char *input_buffer;
     char *label;
 
-    char *scan_buffer;
-
     uint32_t line_num;
     uint32_t expand_start_line;
     /* Where the last digit scan started at. This is used by parser to fixup
