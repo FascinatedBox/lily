@@ -4,6 +4,6 @@
 # include "lily_core_types.h"
 
 lily_library *lily_library_load(const char *);
-void lily_library_free(lily_library *);
+void lily_library_free(void *);
 
 #endif
