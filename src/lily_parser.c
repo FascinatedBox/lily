@@ -154,8 +154,8 @@ void lily_free_parse_state(lily_parse_state *parser)
 
             module_next = module_iter->root_next;
 
-            if (module_iter->library)
-                lily_library_free(module_iter->library);
+            if (module_iter->handle)
+                lily_library_free(module_iter->handle);
 
             lily_free(module_iter->path);
             lily_free(module_iter->dirname);
@@ -279,7 +279,7 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
     }
 
     module->cid_start = 0;
-    module->library = NULL;
+    module->handle = NULL;
     module->root_next = NULL;
     module->module_chain = NULL;
     module->class_chain = NULL;
@@ -375,10 +375,12 @@ static lily_module_entry *load_library(lily_parse_state *parser,
         const char *path)
 {
     lily_module_entry *result = NULL;
-    void *library = lily_library_load(path);
+    lily_library *library = lily_library_load(path);
     if (library) {
         result = new_module(parser, path);
-        result->library = library;
+        result->handle = library->source;
+        result->dynaload_table = library->dynaload_table;
+        lily_free(library);
     }
 
     return result;
@@ -2979,7 +2981,7 @@ static void reserve_cids_for(lily_parse_state *parser,
 static void run_loaded_module(lily_parse_state *parser,
         lily_module_entry *module)
 {
-    if (module->library == NULL) {
+    if (module->handle == NULL) {
         lily_module_entry *save_active = parser->symtab->active_module;
         lily_lex_state *lex = parser->lex;
 
@@ -3013,10 +3015,8 @@ static void run_loaded_module(lily_parse_state *parser,
 
         parser->symtab->active_module = save_active;
     }
-    else {
-        module->dynaload_table = module->library->dynaload_table;
+    else
         reserve_cids_for(parser, module);
-    }
 }
 
 static void import_handler(lily_parse_state *parser, int multi)

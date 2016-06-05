@@ -23,10 +23,9 @@ lily_library *lily_library_load(const char *path)
     return lib;
 }
 
-void lily_library_free(lily_library *lib)
+void lily_library_free(void *source)
 {
-    FreeLibrary(lib->source);
-    lily_free(lib);
+    FreeLibrary((HMODULE)source);
 }
 #else
 #include <dlfcn.h>
@@ -50,9 +49,8 @@ lily_library *lily_library_load(const char *path)
     return lib;
 }
 
-void lily_library_free(lily_library *lib)
+void lily_library_free(void *source)
 {
-    dlclose(lib->source);
-    lily_free(lib);
+    dlclose(source);
 }
 #endif

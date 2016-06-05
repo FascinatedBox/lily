@@ -502,9 +502,8 @@ typedef struct lily_module_entry_ {
     /* The package that this module is contained within. */
     struct lily_package_ *parent;
 
-    /* If the module is a shared library, then this contains a handle to that
-       library. */
-    lily_library *library;
+    /* For modules backed by a shared library, the handle of that library. */
+    void *handle;
 
     /* For modules which wrap a library (or the builtin module), then this is
        the dynaload table inside of it. */
