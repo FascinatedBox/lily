@@ -3106,14 +3106,12 @@ typedef struct {
     lily_module_entry *(*load_fn)(lily_parse_state *, const char *);
 } package_loader;
 
-/* For the first, the file to search for is the as the name of the package, but
-   with .lly as the suffix. This makes finding the initial file easy.
-   For the second, the prefix is there to make it well know that it's a library
-   for loading only by Lily. */
+/* This is pretty similar to module loading, except there's a prefix to worry
+   about this time. */
 package_loader builtin_package_loaders[] =
 {
-    {LILY_PATH_SLASH, ".lly", load_file},
-    {LILY_PATH_SLASH "liblily_", LILY_LIB_SUFFIX,    load_library},
+    {LILY_PATH_SLASH, ".lly",          load_file},
+    {LILY_PATH_SLASH, LILY_LIB_SUFFIX, load_library},
 };
 
 static lily_package *load_registered_package(lily_parse_state *parser,
