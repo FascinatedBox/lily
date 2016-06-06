@@ -837,8 +837,12 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 
         /* This only happens when a define occurs within another define. The
            inner define is marked as needing closures. This makes it so all
-           calls to the inner define will create a copy with closures. */
-        if (emit->function_depth >= 2 && emit->block->block_type != block_class)
+           calls to the inner define will create a copy with closures.
+           The last line exists to prevent dynaloaded class constructors from
+           unnecessarily being marked as closures. */
+        if (emit->function_depth >= 2 &&
+            emit->block->block_type != block_class &&
+            new_block->block_type != block_class)
             v->flags |= VAR_NEEDS_CLOSURE;
 
         new_block->next_reg_spot = 0;
