@@ -19,8 +19,13 @@ lily_library *lily_library_load(const char *path)
 
     lily_library *lib = lily_malloc(sizeof(*lib));
     lib->source = handle;
-    lib->dynaload_table = dynaload_table;
+    lib->dynaload_table = (const char **)dynaload_table;
     return lib;
+}
+
+void *lily_library_get(void *source, const char *target)
+{
+    return GetProcAddress((HMODULE)source, target);
 }
 
 void lily_library_free(void *source)
@@ -44,9 +49,14 @@ lily_library *lily_library_load(const char *path)
 
     lily_library *lib = lily_malloc(sizeof(lily_library));
     lib->source = handle;
-    lib->dynaload_table = dynaload_table;
+    lib->dynaload_table = (const char **)dynaload_table;
 
     return lib;
+}
+
+void *lily_library_get(void *source, const char *name)
+{
+    return dlsym(source, name);
 }
 
 void lily_library_free(void *source)

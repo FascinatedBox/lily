@@ -12,7 +12,6 @@
 #include "lily_opcode.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
@@ -160,6 +159,7 @@ void lily_free_parse_state(lily_parse_state *parser)
             lily_free(module_iter->path);
             lily_free(module_iter->dirname);
             lily_free(module_iter->loadname);
+            lily_free(module_iter->cid_table);
             lily_free(module_iter);
 
             module_iter = module_next;
@@ -285,7 +285,8 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
     module->class_chain = NULL;
     module->var_chain = NULL;
     module->dynaload_table = NULL;
-    module->var_load_fn = NULL;
+    module->loader = NULL;
+    module->cid_table = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
 
     return module;
@@ -296,13 +297,13 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
    this is that it prevents scripts from assuming that a package exists and then
    breaking when another runner doesn't provide it. */
 void lily_register_package(lily_parse_state *parser, const char *name,
-        const void *dynaload_table, var_loader var_load_fn)
+        const char **dynaload_table, lily_loader loader)
 {
     lily_package *package = new_package(parser, name, NULL);
     lily_module_entry *module = package->first_module;
 
     module->dynaload_table = dynaload_table;
-    module->var_load_fn = var_load_fn;
+    module->loader = loader;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
@@ -380,6 +381,12 @@ static lily_module_entry *load_library(lily_parse_state *parser,
         result = new_module(parser, path);
         result->handle = library->source;
         result->dynaload_table = library->dynaload_table;
+        unsigned char cid_count = result->dynaload_table[0][0];
+        if (cid_count) {
+            result->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
+            memset(result->cid_table, 0, cid_count * sizeof(uint16_t));
+        }
+
         lily_free(library);
     }
 
@@ -831,6 +838,12 @@ static void parse_class_body(lily_parse_state *, lily_class *);
 static lily_class *find_run_class_dynaload(lily_parse_state *,
         lily_module_entry *, const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
+static lily_class *parse_enum(lily_parse_state *, int);
+static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
+        const char *);
+
+/* [0...1] of a dynaload are used for header information. */
+#define DYNA_NAME_OFFSET 2
 
 /** Lily is a statically-typed language, which carries benefits as well as
     drawbacks. One drawback is that creating a new function or a new var is
@@ -864,25 +877,46 @@ static void parse_variant_header(lily_parse_state *, lily_variant_class *);
     An unfortunate side-effect of this is that it requires a lot of forward
     definitions. Sorry about that. **/
 
-static lily_item *find_run_dynaload(lily_parse_state *, lily_item *,
-        const char *);
-
-static int get_seed_cid(lily_module_entry *entry, const lily_base_seed *seed)
+/* This function scans through the first line in the dynaload table to find the
+   cid entries listed. For each of those cid entries, the ones currently
+   available are loaded into the appropriate place in the cid table. */
+static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
 {
-    int cid = 0;
-    const lily_base_seed *seed_iter = entry->dynaload_table;
-    while (seed_iter) {
-        if (seed_iter->seed_type == dyna_enum ||
-            seed_iter->seed_type == dyna_class)
-            cid++;
+    const char *cid_entry = m->dynaload_table[0] + 1;
+    int counter = 0;
+    int stop = cid_entry[-1];
+    uint16_t *cid_table = m->cid_table;
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *builtin = parser->package_start->first_module;
 
-        if (seed == seed_iter)
-            break;
+    while (counter < stop) {
+        if (cid_table[counter] == 0) {
+            lily_class *cls = lily_find_class(symtab, m, cid_entry);
+            if (cls == NULL)
+                cls = lily_find_class(symtab, builtin, cid_entry);
 
-        seed_iter = seed_iter->next;
+            if (cls)
+                cid_table[counter] = cls->id;
+        }
+        cid_entry += strlen(cid_entry) + 1;
+        counter++;
     }
+}
 
-    return entry->cid_start + cid;
+static void update_all_cid_tables(lily_parse_state *parser)
+{
+    lily_package *package_iter = parser->package_start;
+    while (package_iter) {
+        lily_module_entry *entry_iter = package_iter->first_module;
+        while (entry_iter) {
+            if (entry_iter->cid_table)
+                update_cid_table(parser, entry_iter);
+            
+            entry_iter = entry_iter->root_next;
+        }
+
+        package_iter = package_iter->root_next;
+    }
 }
 
 /* This function is called when the current label could potentially be a module.
@@ -912,29 +946,6 @@ static lily_module_entry *resolve_module(lily_parse_state *parser)
     return result;
 }
 
-/* See if the given item has a dynaload table that contains the given name.
-   Success: A seed with a name matching 'name'
-   Failure: NULL
-   Assumptions: 'item' is either a class or a module. */
-static const lily_base_seed *find_dynaload_entry(lily_item *item, const char *name)
-{
-    const void *raw_iter;
-    if (item->item_kind == ITEM_TYPE_MODULE)
-        raw_iter = ((lily_module_entry *)item)->dynaload_table;
-    else
-        raw_iter = ((lily_class *)item)->dynaload_table;
-
-    while (raw_iter) {
-        const lily_base_seed *base_seed = (lily_base_seed *)raw_iter;
-        if (strcmp(base_seed->name, name) == 0)
-            break;
-
-        raw_iter = base_seed->next;
-    }
-
-    return raw_iter;
-}
-
 /* This is used to collect class names. Trying to just get a class name isn't
    possible because there could be a module before the class name (`a.b.c`).
    To make things more complicated, there could be a dynaload of a class. */
@@ -951,40 +962,65 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
         if (search_module == NULL)
             search_module = symtab->builtin_module;
 
-        result = find_run_class_dynaload(parser, search_module, lex->label);
-        if (result == NULL)
+        if (search_module->dynaload_table)
+            result = find_run_class_dynaload(parser, search_module, lex->label);
+
+        if (result == NULL && symtab->active_module->dynaload_table)
             result = find_run_class_dynaload(parser, symtab->active_module,
                     lex->label);
-            if (result == NULL)
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Class '%s' does not exist.\n", lex->label);
+
+        if (result == NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Class '%s' does not exist.\n", lex->label);
     }
 
     return result;
 }
 
-/* Load the function described by 'seed' into 'source'. 'source' should either
-   be an import entry, or a class. */
-static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
-        const lily_base_seed *seed)
+
+static lily_var *dynaload_function(lily_parse_state *parser,
+        lily_module_entry *m, lily_class *cls, int dyna_index)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_func_seed *func_seed = (lily_func_seed *)seed;
-    lily_module_entry *save_active = parser->symtab->active_module;
-    int save_generics = parser->generic_count;
     lily_var *call_var;
 
-    lily_load_str(lex, "[builtin]", lm_no_tags, func_seed->func_definition);
+    const char *entry = m->dynaload_table[dyna_index];
+    const char *name = entry + DYNA_NAME_OFFSET;
+    const char *body = name + strlen(name) + 1;
+
+    lily_module_entry *save_active = parser->symtab->active_module;
+    int save_generics = parser->generic_count;
+
+    lily_load_str(lex, "[builtin]", lm_no_tags, body);
     lily_lexer(lex);
 
-    /* Lookups for classes need to be done relative to what's being imported,
-       because the thing being imported won't know it's name at compile time. */
-    if (source->item_kind == ITEM_TYPE_MODULE)
-        parser->symtab->active_module = (lily_module_entry *)source;
+    lily_item *source;
+    if (cls == NULL)
+        source = (lily_item *)m;
     else
-        parser->symtab->active_module = ((lily_class *)source)->module;
+        source = (lily_item *)cls;
 
+    lily_foreign_func func;
+
+    if (m->loader)
+        func = (lily_foreign_func)m->loader(parser->options, m->cid_table,
+                dyna_index);
+    else {
+        lily_msgbuf *msgbuf = parser->msgbuf;
+        lily_msgbuf_flush(msgbuf);
+
+        char *cls_name = "";
+        if (cls)
+            cls_name = cls->name;
+
+        lily_msgbuf_add_fmt(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
+                name);
+
+        func = (lily_foreign_func)lily_library_get(m->handle, msgbuf->message);
+    }
+
+    parser->symtab->active_module = m;
     collect_generics_or(parser, 0);
 
     int result_pos = parser->tm->pos;
@@ -1023,125 +1059,121 @@ static lily_var *dynaload_function(lily_parse_state *parser, lily_item *source,
     lily_type *type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 
-    call_var = lily_emit_new_tied_dyna_var(parser->emit, func_seed->func,
-            source, type, func_seed->name);
+    call_var = lily_emit_new_tied_dyna_var(parser->emit, func, source, type,
+            name);
 
     lily_update_symtab_generics(symtab, save_generics);
-    parser->generic_count = save_generics;
-
-    parser->symtab->active_module = save_active;
 
     lily_pop_lex_entry(lex);
+
+    parser->generic_count = save_generics;
+    parser->symtab->active_module = save_active;
 
     return call_var;
 }
 
 /* This dynaloads an enum that is represented by 'seed' with 'import' as the
    context. The result of this is the enum class that was dynaloaded. */
-static lily_class *dynaload_enum(lily_parse_state *parser,
-        lily_module_entry *module, const lily_base_seed *seed)
+static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
+        int dyna_index)
 {
-    /* Dynaloading an enum is similar to creating a regular one: A scope needs
-       to be made so that the generic count can be saved/restored later. That,
-       in turn, means loading the block.
-       'ensure_valid_class' is absent intentionally, as it is assumed the caller
-       will only provide a proper, non-clashing name. */
-    lily_enum_seed *enum_seed = (lily_enum_seed *)seed;
-    lily_class *enum_cls = lily_new_enum(parser->symtab, seed->name);
+    const char **table = m->dynaload_table;
+    const char *entry = table[dyna_index];
+    const char *name = entry + DYNA_NAME_OFFSET;
+    int entry_index = dyna_index;
 
-    if (seed->seed_type == dyna_builtin_enum) {
-        parser->symtab->next_class_id--;
-        enum_cls->id = enum_seed->builtin_id;
-    }
-    else {
-        parser->symtab->next_class_id--;
-        enum_cls->id = get_seed_cid(module, seed);
-    }
-
-    int save_generics = parser->generic_count;
-    int generics_used = enum_seed->generic_count;
-    lily_lex_state *lex = parser->lex;
-
-    /* Since enums aren't calling for generic collection, they need to manually
-       tell ts about how many generics that they're using. This lets ts know how
-       much space to reserve. Without doing this, types from a different scope
-       will bleed down and cause very strange bugs. */
-    lily_ts_generics_seen(parser->emit->ts, enum_seed->generic_count);
-
-    enum_cls->dynaload_table = enum_seed->dynaload_table;
-    enum_cls->generic_count = enum_seed->generic_count;
-
-    lily_update_symtab_generics(parser->symtab, generics_used);
-    lily_emit_enter_block(parser->emit, block_enum);
-
-    lily_type *result_type = build_self_type(parser, enum_cls, generics_used);
-    lily_type *save_self_type = parser->class_self_type;
-    parser->class_self_type = result_type;
-
-    /* Option, at least, is linked so that the variants that it holds come after
-       it. For the sake of simplicity, it is assumed that future enums will be
-       made in the same way. By doing so, there is no need to search for the
-       variants since they're all in a line. */
-    const lily_base_seed *seed_iter = enum_seed->next;
-    int i = 0;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_msgbuf_flush(msgbuf);
+    lily_msgbuf_add(msgbuf, name);
+    lily_msgbuf_add(msgbuf, name + strlen(name) + 1);
+    lily_msgbuf_add_char(msgbuf, '{');
 
     do {
-        lily_variant_seed *variant_seed = (lily_variant_seed *)seed_iter;
-        lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
-                enum_cls, variant_seed->name, i);
-        i++;
+        entry_index++;
+        entry = table[entry_index];
+    } while (entry[0] != 'V');
 
-        lily_load_str(parser->lex, "[builtin]", lm_no_tags, variant_seed->body);
-        lily_lexer(lex);
+    do {
+        name = entry + DYNA_NAME_OFFSET;
+        lily_msgbuf_add(msgbuf, name);
+        lily_msgbuf_add(msgbuf, name + strlen(name) + 1);
+        lily_msgbuf_add_char(msgbuf, ' ');
 
-        if (lex->token == tk_left_parenth)
-            parse_variant_header(parser, variant_cls);
+        entry_index++;
+        entry = table[entry_index];
+    } while (entry[0] == 'V');
 
-        lily_pop_lex_entry(parser->lex);
-        seed_iter = seed_iter->next;
-    } while (seed_iter && seed_iter->seed_type == dyna_variant);
+    lily_msgbuf_add_char(msgbuf, '}');
 
-    lily_finish_enum(parser->symtab, enum_cls, 0, result_type);
-    lily_emit_leave_block(parser->emit);
-    lily_update_symtab_generics(parser->symtab, save_generics);
-    parser->class_self_type = save_self_type;
-    return enum_cls;
+    lily_load_copy_string(parser->lex, "[dynaload]", lm_no_tags,
+            msgbuf->message);
+    lily_lexer(parser->lex);
+    lily_class *result = parse_enum(parser, 1);
+    result->dyna_start = dyna_index + 1;
+
+    /* Option and Either have specific ids set aside for them so they don't need
+       to be included in cid tables. */
+    if (m->parent == parser->package_start) {
+        parser->symtab->next_class_id--;
+
+        name = table[dyna_index] + DYNA_NAME_OFFSET;
+        if (name[0] == 'O')
+            result->id = SYM_CLASS_OPTION;
+        else
+            result->id = SYM_CLASS_EITHER;
+    }
+
+    lily_pop_lex_entry(parser->lex);
+
+    return result;
 }
 
 /* Dynaload a variant, represented by 'seed', into the context 'import'. The
    result of this is the variant. As a side-effect, this calls dynaload_enum to
    ensure all variants of the parent enum are loaded. */
 static lily_class *dynaload_variant(lily_parse_state *parser,
-        lily_module_entry *module, const lily_base_seed *seed)
+        lily_module_entry *m, int dyna_index)
 {
-    lily_variant_seed *variant_seed = (lily_variant_seed *)seed;
-    const lily_base_seed *enum_seed = find_dynaload_entry((lily_item *)module,
-            variant_seed->enum_name);
-    dynaload_enum(parser, module, enum_seed);
-    return lily_find_class(parser->symtab, module, seed->name);
+    int enum_pos = dyna_index - 1;
+    const char **table = m->dynaload_table;
+    const char *entry = table[dyna_index - 1];
+    while (entry[0] != 'E') {
+        entry = table[enum_pos];
+        enum_pos--;
+    }
+
+    entry = table[dyna_index];
+    dynaload_enum(parser, m, enum_pos + 1);
+    return lily_find_class(parser->symtab, m, entry + DYNA_NAME_OFFSET);
+}
+
+static lily_class *dynaload_class(lily_parse_state *parser,
+        lily_module_entry *m, int dyna_index)
+{
+    const char *entry = m->dynaload_table[dyna_index];
+    lily_class *cls = lily_new_class(parser->symtab, entry + 2);
+
+    cls->is_builtin = 1;
+    cls->dyna_start = dyna_index;
+
+    lily_tm_make_default_for(parser->tm, cls);
+    return cls;
 }
 
 static lily_class *dynaload_bootstrap(lily_parse_state *parser,
-        lily_module_entry *module, const lily_base_seed *seed)
+        lily_module_entry *m, int dyna_index)
 {
-    lily_bootstrap_seed *boot_seed = (lily_bootstrap_seed *)seed;
-    lily_symtab *symtab = parser->symtab;
+    const char *entry = m->dynaload_table[dyna_index];
+    const char *name = entry + DYNA_NAME_OFFSET;
+    const char *body = name + strlen(name) + 1;
 
-    /* Before getting tangled in this dynaload, run the parent dynaload first.
-       This saves from dynaloads being nested, which could be hairy. */
-    if (boot_seed->parent &&
-        lily_find_class(symtab, module, boot_seed->parent) == NULL) {
-        find_run_dynaload(parser, (lily_item *)module, boot_seed->parent);
-    }
-
-    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, boot_seed->body);
-    lily_class *cls = lily_new_class(symtab, boot_seed->name);
-
-    /* The class id is set to 0 if it doesn't matter. The builtin subclasses of
-       Exception, for example, do this because their id doesn't matter. */
-    if (boot_seed->class_id != 0) {
-        symtab->next_class_id--;
-        cls->id = boot_seed->class_id;
+    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, body);
+    lily_class *cls = lily_new_class(parser->symtab, name);
+    cls->dyna_start = dyna_index + 1;
+    if (m->parent == parser->package_start &&
+        strcmp(name, "Exception") == 0) {
+        parser->symtab->next_class_id--;
+        cls->id = SYM_CLASS_EXCEPTION;
     }
 
     lily_ast_pool *ap = parser->ast_pool;
@@ -1155,109 +1187,110 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     return cls;
 }
 
-static lily_item *run_dynaload(lily_parse_state *parser, lily_item *scope,
-        const lily_base_seed *seed)
+static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
+        int dyna_pos)
 {
-    lily_module_entry *saved_active = parser->symtab->active_module;
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
 
-    lily_module_entry *module;
-    if (scope->item_kind == ITEM_TYPE_MODULE)
-        module = (lily_module_entry *)scope;
-    else
-        module = ((lily_class *)scope)->module;
+    char letter = m->dynaload_table[dyna_pos][0];
+    lily_module_entry *saved_active = parser->symtab->active_module;
+    symtab->active_module = m;
 
-    symtab->active_module = module;
-
-    if (seed->seed_type == dyna_var) {
-        lily_var_seed *var_seed = (lily_var_seed *)seed;
+    if (letter == 'R') {
+        const char *entry = m->dynaload_table[dyna_pos];
         /* Note: This is currently fine because there are no modules which
            create vars of a type not found in the interpreter's core. However,
            if that changes, this must change as well. */
-        lily_type *var_type = type_by_name(parser, var_seed->type);
-        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, module,
-                var_type, seed->name);
+        const char *name = entry + DYNA_NAME_OFFSET;
+        lily_type *var_type = type_by_name(parser, name + strlen(name) + 1);
+        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, m, var_type,
+                name);
 
-        /* The dynaload function is responsible for moving something into the
-           data part of the tie. */
-        module->var_load_fn(parser, seed->name,
-                lily_new_foreign_tie(symtab, new_var));
+        /* Vars should not be uncommon, and they may need cid information.
+           mod_lily (Apache) for example, uses Tainted which ends up being
+           dynaloaded. Make sure that cid information is up-to-date. */
+        update_cid_table(parser, m);
+        void *value = m->loader(parser->options, m->cid_table, dyna_pos);
+        lily_new_foreign_tie(symtab, new_var, value);
         result = (lily_item *)new_var;
     }
-    else if (seed->seed_type == dyna_function) {
-        lily_var *new_var = dynaload_function(parser, scope, seed);
+    else if (letter == 'F') {
+        lily_var *new_var = dynaload_function(parser, m, NULL, dyna_pos);
         result = (lily_item *)new_var;
     }
-    else if (seed->seed_type == dyna_class) {
-        lily_class *new_cls = lily_new_class_by_seed(symtab, seed);
-        parser->symtab->next_class_id--;
-        new_cls->id = get_seed_cid(module, seed);
+    else if (letter == 'C') {
+        lily_class *new_cls = dynaload_class(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
-    else if (seed->seed_type == dyna_bootstrap_class) {
-        lily_class *new_cls = dynaload_bootstrap(parser, module, seed);
+    else if (letter == 'B') {
+        lily_class *new_cls = dynaload_bootstrap(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
-    else if (seed->seed_type == dyna_variant) {
-        lily_class *new_cls = dynaload_variant(parser, module, seed);
+    else if (letter == 'V') {
+        lily_class *new_cls = dynaload_variant(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
-    else if (seed->seed_type == dyna_enum ||
-             seed->seed_type == dyna_builtin_enum) {
-        lily_class *new_cls = dynaload_enum(parser, module, seed);
+    else if (letter == 'E') {
+        lily_class *new_cls = dynaload_enum(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
+    else
+        result = NULL;
 
     symtab->active_module = saved_active;
     return result;
 }
 
-/* Given a name, try to find that within the dynaload table of 'module' (which
-   may be a class). If a seed is found, run it in the context of 'module' and
-   return the result as an item. If nothing is found, return NULL. */
-static lily_item *find_run_dynaload(lily_parse_state *parser,
-        lily_item *scope, const char *name)
+static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
+        lily_module_entry *m, const char *name)
 {
-    lily_item *result;
+    int i = 1;
+    const char **table = m->dynaload_table;
+    const char *entry = table[i];
+    lily_item *result = NULL;
 
-    const lily_base_seed *seed = find_dynaload_entry(scope, name);
-    if (seed)
-        result = run_dynaload(parser, scope, seed);
-    else
-        result = NULL;
+    do {
+        if (strcmp(entry + DYNA_NAME_OFFSET, name) == 0) {
+            result = run_dynaload(parser, m, i);
+            break;
+        }
+
+        i += (unsigned char)entry[1] + 1;
+        entry = table[i];
+    } while (entry[0] != 'Z');
 
     return result;
 }
 
-static int is_class_seed(const lily_base_seed *seed)
+lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
+        lily_module_entry *module, const char *name)
 {
-    int seed_type = seed->seed_type;
-    int result = 0;
+    lily_symtab *symtab = parser->symtab;
+    if (module == NULL)
+        module = symtab->builtin_module;
 
-    if (seed_type == dyna_class ||
-        seed_type == dyna_enum ||
-        seed_type == dyna_bootstrap_class ||
-        seed_type == dyna_builtin_enum)
-        result = 1;
+    lily_class *cls = lily_find_class(parser->symtab, module, name);
 
-    return result;
+    if (cls == NULL) {
+        cls = (lily_class *)try_toplevel_dynaload(parser, module, name);
+        /* ...Just in case an instance needs to be printed. */
+        lily_vm_add_class(parser->vm, cls);
+    }
+
+    return cls;
 }
 
 /* Like find_run_dynaload, but only do the dynaload if the entity to be loaded
    is a class-like entity. */
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
-        lily_module_entry *module, const char *name)
+        lily_module_entry *m, const char *name)
 {
-    lily_class *result;
-
-    const lily_base_seed *seed = find_dynaload_entry((lily_item *)module, name);
-    if (seed && is_class_seed(seed))
-        result = (lily_class *)run_dynaload(parser, (lily_item *)module, seed);
+    lily_item *result = try_toplevel_dynaload(parser, m, name);
+    if (result && result->item_kind != ITEM_TYPE_VAR)
+        return (lily_class *)result;
     else
-        result = NULL;
-
-    return result;
+        return NULL;
 }
 
 /* Try to find 'name' within 'cls', wherein 'cls' may be the currently entered
@@ -1279,37 +1312,24 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
     if (member)
         return (lily_item *)member;
 
-    /* This should return a var if it succeeds, as nested classes are not
-       allowed. */
-    var = (lily_var *)find_run_dynaload(parser, (lily_item *)cls, name);
-    if (var)
-        return (lily_item *)var;
+    if (cls->dyna_start) {
+        int index = cls->dyna_start;
+        lily_module_entry *m = cls->module;
+        const char **table = m->dynaload_table;
+        const char *entry = table[index];
 
-    return NULL;
-}
+        do {
+            if (strcmp(name, entry + 2) == 0)
+                break;
+            index++;
+            entry = table[index];
+        } while (entry[0] == 'm');
 
-/* This is called by the vm because the exception raised either was raised
-   through a code or by a module seed. So the vm needs parser to find the class
-   or dynaload it if it can't be found. One of those two should work.
-   'import' is likely to be the builtin import, but could be one for a foreign
-   module if a module wanted to make an exception (ex: postgres). */
-lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
-        lily_module_entry *module, const char *name)
-{
-    lily_symtab *symtab = parser->symtab;
-    if (module == NULL)
-        module = symtab->builtin_module;
-
-    lily_class *cls = lily_find_class(parser->symtab, module, name);
-
-    if (cls == NULL) {
-        cls = (lily_class *)find_run_dynaload(parser, (lily_item *)module,
-                name);
-        /* ...Just in case an instance needs to be printed. */
-        lily_vm_add_class(parser->vm, cls);
+        if (entry[0] == 'm')
+            return (lily_item *)dynaload_function(parser, m, cls, index);
     }
 
-    return cls;
+    return NULL;
 }
 
 /* This gets (up to) the first 8 bytes of a name and puts it into a numeric
@@ -1629,7 +1649,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_module == NULL)
         search_module = symtab->builtin_module;
 
-    lily_item *dl_result = find_run_dynaload(parser, (lily_item *)search_module,
+    lily_item *dl_result = try_toplevel_dynaload(parser, search_module,
             lex->label);
 
     if (dl_result) {
@@ -1863,8 +1883,8 @@ static void expression_dot(lily_parse_state *parser, int *state)
         lily_class *option_cls = lily_find_class(symtab, symtab->builtin_module,
                 "Option");
         if (option_cls == NULL)
-            option_cls = (lily_class *)find_run_dynaload(parser,
-                    (lily_item *)symtab->builtin_module, "Option");
+            option_cls = find_run_class_dynaload(parser, symtab->builtin_module,
+                    "Option");
 
         lily_tm_add(parser->tm, bare_type);
         lily_type *cast_type = lily_tm_make(parser->tm, 0, option_cls, 1);
@@ -2907,8 +2927,8 @@ static void except_handler(lily_parse_state *parser, int multi)
     if (parser->exception_type == NULL) {
         lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
         if (cls == NULL)
-            cls = (lily_class *)find_run_dynaload(parser,
-                (lily_item *)parser->symtab->builtin_module, "Exception");
+            cls = find_run_class_dynaload(parser,
+                    parser->symtab->builtin_module, "Exception");
 
         parser->exception_type = cls->type;
     }
@@ -2957,27 +2977,6 @@ static void except_handler(lily_parse_state *parser, int multi)
         statement(parser, multi);
 }
 
-/* Lily's vm needs to be able to pin ids onto the instance and enum values that
-   it makes. However, it's also important to do dynaloads. To reconcile these
-   two, importing a builtin module will set aside as many slots for classes as
-   that module will end up needed. */
-static void reserve_cids_for(lily_parse_state *parser,
-        lily_module_entry *module)
-{
-    int count = 0;
-    const lily_base_seed *seed_iter = module->dynaload_table;
-    while (seed_iter) {
-        if (seed_iter->seed_type == dyna_enum ||
-            seed_iter->seed_type == dyna_class)
-            count++;
-
-        seed_iter = seed_iter->next;
-    }
-
-    module->cid_start = parser->symtab->next_class_id;
-    parser->symtab->next_class_id += count;
-}
-
 static void run_loaded_module(lily_parse_state *parser,
         lily_module_entry *module)
 {
@@ -3015,8 +3014,6 @@ static void run_loaded_module(lily_parse_state *parser,
 
         parser->symtab->active_module = save_active;
     }
-    else
-        reserve_cids_for(parser, module);
 }
 
 static void import_handler(lily_parse_state *parser, int multi)
@@ -3268,9 +3265,9 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
                 "Class '%s' has already been declared.\n", name);
     }
 
-    const lily_base_seed *dl_item = find_dynaload_entry(
-            (lily_item *)parser->symtab->builtin_module, name);
-    if (dl_item && is_class_seed(dl_item))
+    lily_item *item = try_toplevel_dynaload(parser,
+            parser->symtab->builtin_module, name);
+    if (item && item->item_kind != ITEM_TYPE_VAR)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A built-in class named '%s' already exists.\n", name);
 }
@@ -3570,10 +3567,11 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->flags &= ~CLS_EMPTY_VARIANT;
 }
 
-static void enum_handler(lily_parse_state *parser, int multi)
+static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_file &&
+    if (is_dynaload == 0 &&
+        block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Cannot define an enum here.\n");
@@ -3581,7 +3579,8 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_word)
-    ensure_valid_class(parser, lex->label);
+    if (is_dynaload == 0)
+        ensure_valid_class(parser, lex->label);
 
     lily_class *enum_cls = lily_new_enum(parser->symtab, lex->label);
 
@@ -3610,11 +3609,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
         }
 
         NEED_CURRENT_TOK(tk_word)
-        lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
-        if (cls != NULL)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "A class with the name '%s' already exists.\n",
-                    cls->name);
+        if (is_dynaload == 0) {
+            lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
+            if (cls != NULL)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "A class with the name '%s' already exists.\n",
+                        cls->name);
+        }
 
         lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
                 enum_cls, lex->label, variant_count);
@@ -3641,7 +3642,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
        the member functions. */
     lily_finish_enum(parser->symtab, enum_cls, is_scoped, result_type);
 
-    if (lex->token == tk_word) {
+    if (is_dynaload == 0 && lex->token == tk_word) {
         while (1) {
             lily_lexer(lex);
             define_handler(parser, 1);
@@ -3661,6 +3662,13 @@ static void enum_handler(lily_parse_state *parser, int multi)
     lily_update_symtab_generics(parser->symtab, save_generics);
     parser->generic_count = save_generics;
     lily_lexer(lex);
+
+    return enum_cls;
+}
+
+static void enum_handler(lily_parse_state *parser, int multi)
+{
+    parse_enum(parser, 0);
 }
 
 static void match_handler(lily_parse_state *parser, int multi)
@@ -3860,6 +3868,7 @@ static void parser_loop(lily_parse_state *parser)
                 lily_register_classes(parser->symtab, parser->vm);
                 lily_prepare_main(parser->emit);
                 lily_vm_prep(parser->vm, parser->symtab);
+                update_all_cid_tables(parser);
 
                 parser->executing = 1;
                 lily_vm_execute(parser->vm);

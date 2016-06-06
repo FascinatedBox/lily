@@ -8,30 +8,55 @@
 
 #include "lily_parser.h"
 #include "lily_utf8.h"
-#include "lily_cls_hash.h"
 
+#include "lily_api_hash.h"
 #include "lily_api_alloc.h"
-#include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
 struct table_bind_data {
-    lily_parse_state *parser;
-    request_rec *r;
-    int ok;
     lily_hash_val *hash_val;
-    char *sipkey;
+    const char *sipkey;
+    uint16_t cid_tainted;
 };
 
-lily_value *bind_tainted_of(lily_parse_state *parser, lily_value *input)
+#define CID_TAINTED 0
+
+lily_value *bind_tainted_of(lily_value *input, uint16_t cid_tainted)
 {
     lily_instance_val *iv = lily_new_instance_val();
     iv->values = lily_malloc(1 * sizeof(lily_value *));
-    iv->instance_id = SYM_CLASS_TAINTED;
+    iv->instance_id = cid_tainted;
     iv->values[0] = input;
     lily_value *result = lily_new_empty_value();
     lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
     return result;
+}
+
+extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
+
+/* This is temporary. I've added this because I don't want to 'fix' the hash api
+   when it's going to be removed soon. */
+static void apache_add_unique_hash_entry(const char *sipkey,
+        lily_hash_val *hash_val, lily_value *pair_key, lily_value *pair_value)
+{
+    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+
+    uint64_t key_siphash = siphash24(pair_key->value.string->string,
+            pair_key->value.string->size, sipkey);
+
+    elem->key_siphash = key_siphash;
+    elem->elem_key = pair_key;
+    elem->elem_value = pair_value;
+
+    if (hash_val->elem_chain)
+        hash_val->elem_chain->prev = elem;
+
+    elem->prev = NULL;
+    elem->next = hash_val->elem_chain;
+    hash_val->elem_chain = elem;
+
+    hash_val->num_elems++;
 }
 
 static int bind_table_entry(void *data, const char *key, const char *value)
@@ -46,31 +71,33 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     lily_value *elem_key = lily_new_string(key);
     lily_value *elem_raw_value = lily_new_string(value);
-    lily_value *elem_value = bind_tainted_of(d->parser, elem_raw_value);
+    lily_value *elem_value = bind_tainted_of(elem_raw_value, d->cid_tainted);
 
-    lily_hash_add_unique(d->parser->vm, d->hash_val, elem_key, elem_value);
+    apache_add_unique_hash_entry(d->sipkey, d->hash_val, elem_key, elem_value);
     return TRUE;
 }
 
-static void bind_table_as(lily_parse_state *parser, request_rec *r,
-        apr_table_t *table, char *name, lily_foreign_tie *tie)
+static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
+        uint16_t *cid_table, char *name)
 {
-    lily_move_hash_f(MOVE_DEREF_NO_GC, &tie->data, lily_new_hash_val());
+    lily_value *v = lily_new_empty_value();
+    lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
 
     struct table_bind_data data;
-    data.parser = parser;
-    data.r = r;
-    data.ok = 1;
-    data.hash_val = tie->data.value.hash;
-    data.sipkey = parser->vm->sipkey;
+    data.cid_tainted = cid_table[CID_TAINTED];
+    data.hash_val = v->value.hash;
+    data.sipkey = options->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
+    return v;
 }
 
-static void bind_post(lily_parse_state *parser, request_rec *r,
-        lily_foreign_tie *tie)
+static lily_value *bind_post(lily_options *options, uint16_t *cid_table)
 {
-    lily_move_hash_f(MOVE_DEREF_NO_GC, &tie->data, lily_new_hash_val());
-    lily_hash_val *hash_val = tie->data.value.hash;
+    lily_value *v = lily_new_empty_value();
+    lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
+    lily_hash_val *hash_val = v->value.hash;
+    uint16_t cid_tainted = cid_table[CID_TAINTED];
+    request_rec *r = (request_rec *)options->data;
 
     apr_array_header_t *pairs;
     apr_off_t len;
@@ -101,64 +128,42 @@ static void bind_post(lily_parse_state *parser, request_rec *r,
             lily_value *elem_key = lily_new_string(pair->name);
             /* Give the buffer to the value to save memory. */
             lily_value *elem_raw_value = lily_new_string_take(buffer);
-            lily_value *elem_value = bind_tainted_of(parser, elem_raw_value);
+            lily_value *elem_value = bind_tainted_of(elem_raw_value,
+                    cid_tainted);
 
-            lily_hash_add_unique(parser->vm, hash_val, elem_key, elem_value);
+            apache_add_unique_hash_entry(options->sipkey, hash_val, elem_key,
+                    elem_value);
         }
     }
+
+    return v;
 }
 
-static void bind_get(lily_parse_state *parser, request_rec *r,
-        lily_foreign_tie *tie)
+static lily_value *bind_get(lily_options *options, uint16_t *cid_table)
 {
     apr_table_t *http_get_args;
-    ap_args_to_table(r, &http_get_args);
+    ap_args_to_table((request_rec *)options->data, &http_get_args);
 
-    bind_table_as(parser, r, http_get_args, "get", tie);
+    return bind_table_as(options, http_get_args, cid_table, "get");
 }
 
-static void bind_env(lily_parse_state *parser, request_rec *r,
-        lily_foreign_tie *tie)
+static lily_value *bind_env(lily_options *options, uint16_t *cid_table)
 {
+    request_rec *r = (request_rec *)options->data;
     ap_add_cgi_vars(r);
     ap_add_common_vars(r);
 
-    bind_table_as(parser, r, r->subprocess_env, "env", tie);
+    return bind_table_as(options, r->subprocess_env, cid_table, "env");
 }
 
-static void bind_httpmethod(lily_parse_state *parser, request_rec *r,
-        lily_foreign_tie *tie)
+static lily_value *bind_httpmethod(lily_options *options)
 {
-    lily_move_string(&tie->data, lily_new_raw_string(r->method));
+    lily_value *v = lily_new_empty_value();
+    request_rec *r = (request_rec *)options->data;
+
+    lily_move_string(v, lily_new_raw_string(r->method));
+    return v;
 }
-
-void apache_var_dynaloader(lily_parse_state *parser, const char *name,
-        lily_foreign_tie *tie)
-{
-    request_rec *r = (request_rec *)parser->data;
-
-    if (strcmp("httpmethod", name) == 0)
-        bind_httpmethod(parser, r, tie);
-    else if (strcmp("post", name) == 0)
-        bind_post(parser, r, tie);
-    else if (strcmp("get", name) == 0)
-        bind_get(parser, r, tie);
-    else if (strcmp("env", name) == 0)
-        bind_env(parser, r, tie);
-}
-
-const lily_var_seed httpmethod_seed =
-        {NULL, "httpmethod", dyna_var, "String"};
-
-const lily_var_seed post_seed =
-        {&httpmethod_seed, "post", dyna_var, "Hash[String, Tainted[String]]"};
-
-const lily_var_seed get_seed =
-        {&post_seed, "get", dyna_var, "Hash[String, Tainted[String]]"};
-
-const lily_var_seed env_seed =
-        {&get_seed, "env", dyna_var, "Hash[String, Tainted[String]]"};
-
 
 /*  Implements server.write_literal
 
@@ -221,12 +226,43 @@ void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_string_html_encode(vm, argc, code);
 }
 
-#define DYNA_NAME apache_server
+#define SERVER_ESCAPE        1
+#define SERVER_WRITE_RAW     2
+#define SERVER_WRITE_LITERAL 3
+#define SERVER_WRITE         4
+#define VAR_HTTPMETHOD       5
+#define VAR_POST             6
+#define VAR_GET              7
+#define VAR_ENV              8
 
-DYNA_FUNCTION(NULL,                escape,        "(String):String")
-DYNA_FUNCTION(&seed_escape,        write_raw,     "(String)")
-DYNA_FUNCTION(&seed_write_raw,     write_literal, "(String)")
-DYNA_FUNCTION(&seed_write_literal, write,         "(String)")
+void *lily_apache_loader(lily_options *options, uint16_t *cid_table, int id)
+{
+    switch (id) {
+        case SERVER_ESCAPE:        return lily_apache_server_escape;
+        case SERVER_WRITE_RAW:     return lily_apache_server_write_raw;
+        case SERVER_WRITE_LITERAL: return lily_apache_server_write_literal;
+        case SERVER_WRITE:         return lily_apache_server_write;
+        case VAR_HTTPMETHOD:       return bind_httpmethod(options);
+        case VAR_POST:             return bind_post(options, cid_table);
+        case VAR_GET:              return bind_get(options, cid_table);
+        case VAR_ENV:              return bind_env(options, cid_table);
+        default:                   return NULL;
+    }
+}
+
+const char *dl_table[] =
+{
+    "\001Tainted"
+    ,"F\000escape\0(String):String"
+    ,"F\000write_raw\0(String)"
+    ,"F\000write_literal\0(String)"
+    ,"F\000write\0(String)"
+    ,"R\000httpmethod\0String"
+    ,"R\000post\0Hash[String, Tainted[String]]"
+    ,"R\000get\0Hash[String, Tainted[String]]"
+    ,"R\000env\0Hash[String, Tainted[String]]"
+    ,"Z"
+};
 
 static int lily_handler(request_rec *r)
 {
@@ -240,7 +276,7 @@ static int lily_handler(request_rec *r)
     options->html_sender = (lily_html_sender) ap_rputs;
 
     lily_parse_state *parser = lily_new_parse_state(options);
-    lily_register_package(parser, "server", &seed_write, apache_var_dynaloader);
+    lily_register_package(parser, "server", dl_table, lily_apache_loader);
 
     lily_parse_file(parser, lm_tags, r->filename);
 

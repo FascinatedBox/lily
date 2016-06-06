@@ -52,8 +52,8 @@ int lily_parse_string(lily_parse_state *, const char *, lily_lex_mode,
         char *);
 lily_class *lily_maybe_dynaload_class(lily_parse_state *, lily_module_entry *,
         const char *);
-void lily_register_package(lily_parse_state *, const char *, const void *,
-        var_loader);
+void lily_register_package(lily_parse_state *, const char *, const char **,
+        lily_loader);
 char *lily_build_error_message(lily_parse_state *);
 
 #endif
