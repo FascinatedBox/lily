@@ -3661,6 +3661,7 @@ static void enum_handler(lily_parse_state *parser, int multi)
     parser->class_self_type = save_self_type;
 
     lily_update_symtab_generics(parser->symtab, save_generics);
+    parser->generic_count = save_generics;
     lily_lexer(lex);
 }
 
