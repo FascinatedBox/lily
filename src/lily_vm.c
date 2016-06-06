@@ -5,13 +5,13 @@
 #include "lily_vm.h"
 #include "lily_parser.h"
 
-#include "lily_cls_hash.h"
-#include "lily_cls_string.h"
-
+#include "lily_api_hash.h"
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
+extern void lily_string_subscript(lily_vm_state *, lily_value *, lily_value *,
+        lily_value *);
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */

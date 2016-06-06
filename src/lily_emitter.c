@@ -281,6 +281,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         module->var_chain = new_var;
 
         func_val = lily_new_foreign_function_val(func, NULL, name);
+        func_val->cid_table = ((lily_module_entry *)source)->cid_table;
     }
     else {
         lily_class *cls = (lily_class *)source;
@@ -290,6 +291,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         new_var->parent = cls;
 
         func_val = lily_new_foreign_function_val(func, cls->name, name);
+        func_val->cid_table = ((lily_class *)source)->module->cid_table;
     }
 
     lily_tie_function(emit->symtab, new_var, func_val);

@@ -25,9 +25,9 @@ typedef void (*lily_foreign_func)(struct lily_vm_state_ *, uint16_t,
    This handles a value of a given class (regardless of type) and frees what is
    inside. */
 typedef void (*class_destroy_func)(struct lily_value_ *);
-/* This function is called to initialize seeds of type dyna_var. */
-typedef void (*var_loader)(struct lily_parse_state_ *, const char *,
-        struct lily_foreign_tie_ *);
+/* A module that has a dynaload table should also come with a loader. The loader
+   is responsible for fetching functions and initializing variables. */
+typedef void *(*lily_loader)(struct lily_options_ *, uint16_t *, int);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -112,7 +112,7 @@ typedef struct lily_class_ {
         uint16_t prop_count;
         uint16_t variant_size;
     };
-    uint16_t pad;
+    uint16_t dyna_start;
 
     /* Enums: This is how many subvalues (slots) that the vm must allocate for
        this if it's an enum. */
@@ -128,8 +128,6 @@ typedef struct lily_class_ {
 
     /* This contains all types which have this class as their class. */
     struct lily_type_ *all_subtypes;
-
-    const void *dynaload_table;
 } lily_class;
 
 typedef struct lily_type_ {
@@ -383,8 +381,6 @@ typedef struct lily_function_val_ {
        check 'foreign_func == NULL'. */
     lily_foreign_func foreign_func;
 
-    /* Native functions only */
-
     /* Here's where the function's code is stored. */
     uint16_t *code;
 
@@ -395,7 +391,12 @@ typedef struct lily_function_val_ {
     /* This is how many registers that this function uses. */
     uint16_t reg_count;
 
-    struct lily_value_ **upvalues;
+    union {
+        struct lily_value_ **upvalues;
+        /* A function's cid table holds a mapping that's used to obtain class
+           ids for dynaloaded classes. */
+        uint16_t *cid_table;
+    };
 } lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */
@@ -453,7 +454,7 @@ typedef struct {
     /* This is the handle to the library. */
     void *source;
     /* This is the first link in the module's dynaloads. */
-    const void *dynaload_table;
+    const char **dynaload_table;
 } lily_library;
 
 /* A module either a single code file, or a single library that has been loaded.
@@ -465,7 +466,10 @@ typedef struct lily_module_entry_ {
 
     /* Modules have 'item_kind' set so that they can be cast to lily_item, for
        use with dynaloading. */
-    uint32_t item_kind;
+    uint16_t item_kind;
+
+    uint16_t flags;
+
     /* Modules from a library are reserved a certain number of ids, so that
        they can use an 'offset' from that id to get the ids of the classes both
        inside of them and inside the interpeter. */
@@ -507,11 +511,11 @@ typedef struct lily_module_entry_ {
 
     /* For modules which wrap a library (or the builtin module), then this is
        the dynaload table inside of it. */
-    const void *dynaload_table;
+    const char **dynaload_table;
 
-    /* Modules that provide var seeds need to also provide a var loading
-       function to load those seeds. */
-    var_loader var_load_fn;
+    lily_loader loader;
+
+    uint16_t *cid_table;
 } lily_module_entry;
 
 /* A package is a collection of modules. */
@@ -541,13 +545,13 @@ typedef struct lily_package_link_ {
    be cast to.
    To prevent potential clashes, the definitions afterward (except for
    type) start off where these end. */
-#define ITEM_TYPE_TIE      1
-#define ITEM_TYPE_VAR      2
-#define ITEM_TYPE_STORAGE  3
-#define ITEM_TYPE_VARIANT  4
-#define ITEM_TYPE_PROPERTY 5
-#define ITEM_TYPE_MODULE   6
-#define ITEM_TYPE_TYPE     7
+#define ITEM_TYPE_VAR      1
+#define ITEM_TYPE_STORAGE  2
+#define ITEM_TYPE_VARIANT  3
+#define ITEM_TYPE_PROPERTY 4
+#define ITEM_TYPE_MODULE   5
+#define ITEM_TYPE_TYPE     6
+#define ITEM_TYPE_CLASS    7
 
 /* CLS_* defines are for lily_class. */
 

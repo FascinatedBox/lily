@@ -3,10 +3,7 @@
 #include "lily_vm.h"
 #include "lily_core_types.h"
 
-/* The destroy function for hashes is included inside of hash because a couple
-   things inside of hash need to be able to destroy elems/clear it out. */
-#include "lily_cls_hash.h"
-
+#include "lily_api_hash.h"
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
 
@@ -19,6 +16,7 @@
  *           |_|
  */
 
+extern void lily_destroy_hash(lily_value *);
 extern lily_gc_entry *lily_gc_stopper;
 
 static void destroy_instance(lily_value *v)
@@ -76,7 +74,7 @@ static void destroy_function(lily_value *v)
     if (fv->gc_entry == lily_gc_stopper)
         return;
 
-    if (fv->upvalues == NULL) {
+    if (fv->num_upvalues == (uint16_t)-1) {
         lily_free(fv->code);
         lily_free(fv);
     }
@@ -383,7 +381,7 @@ MOVE_FN  (double,         double,              doubleval, VAL_IS_DOUBLE)
 MOVE_FN  (dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
 MOVE_FN_F(enum,           lily_instance_val *, instance,  VAL_IS_ENUM)
 MOVE_FN  (file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
-MOVE_FN  (foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
+MOVE_FN_F(foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
 MOVE_FN_F(function,       lily_function_val *, function,  VAL_IS_FUNCTION)
 MOVE_FN_F(hash,           lily_hash_val *,     hash,      VAL_IS_HASH)
 MOVE_FN  (integer,        int64_t,             integer,   VAL_IS_INTEGER)
@@ -459,7 +457,8 @@ lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
     f->trace_name = name;
     f->foreign_func = func;
     f->code = NULL;
-    f->num_upvalues = 0;
+    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
+    f->num_upvalues = (uint16_t) -1;
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
@@ -478,7 +477,8 @@ lily_function_val *lily_new_native_function_val(char *class_name,
     f->trace_name = name;
     f->foreign_func = NULL;
     f->code = NULL;
-    f->num_upvalues = 0;
+    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
+    f->num_upvalues = (uint16_t)-1;
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;

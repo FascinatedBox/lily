@@ -1310,7 +1310,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
 
 /* This loads a string as an initial entry. A shallow copy of 'str' is kept. */
 void lily_load_str(lily_lex_state *lexer, const char *name, lily_lex_mode mode,
-        char *str)
+        const char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer, name);
 

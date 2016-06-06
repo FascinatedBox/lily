@@ -10,12 +10,11 @@
 #include "lily_vm.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 
-#define ID_OFFSET    vm->call_chain->function->module->cid_start
-#define CLSID_RESULT 2
-#define CLSID_CONN   1
+#define CID_RESULT cid_table[0]
+#define CID_CONN   cid_table[1]
+#define GET_CID_TABLE vm->call_chain->function->cid_table
 
 /******************************************************************************/
 /* Result                                                                     */
@@ -47,7 +46,8 @@ void destroy_result(lily_value *v)
     lily_free(v->value.generic);
 }
 
-void lily_pg_result_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_postgres_Result_close(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code)
 {
     lily_value *to_close_reg = vm->vm_regs[code[1]];
     lily_pg_result *to_close = (lily_pg_result *)to_close_reg->value.generic;
@@ -56,7 +56,8 @@ void lily_pg_result_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     to_close->row_count = 0;
 }
 
-void lily_pg_result_each_row(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_postgres_Result_each_row(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_pg_result *boxed_result = (lily_pg_result *)
@@ -105,7 +106,8 @@ void lily_pg_result_each_row(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
-void lily_pg_result_row_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_postgres_Result_row_count(lily_vm_state *vm, uint16_t argc,
+        uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_pg_result *boxed_result = (lily_pg_result *)
@@ -115,22 +117,6 @@ void lily_pg_result_row_count(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_move_integer(result_reg, row);
 }
-
-#define DYNA_NAME pg_result
-
-DYNA_FUNCTION(NULL,           close,     "(Result)")
-DYNA_FUNCTION(&seed_close,    each_row,  "(Result, Function(List[String]))")
-DYNA_FUNCTION(&seed_each_row, row_count, "(Result):Integer")
-
-const lily_class_seed result_seed =
-{
-    NULL,                   /* next */
-    "Result",               /* name */
-    dyna_class,             /* load_type */
-    1,                      /* is_refcounted */
-    0,                      /* generic_count */
-    &seed_row_count         /* dynaload_table */
-};
 
 /******************************************************************************/
 /* Conn                                                                       */
@@ -152,7 +138,7 @@ void destroy_conn(lily_value *v)
     lily_free(conn_value);
 }
 
-void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_postgres_Conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     char *fmt;
     int arg_pos, fmt_index;
@@ -160,6 +146,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_value *result_reg;
+    uint16_t *cid_table = GET_CID_TABLE;
 
     lily_msgbuf_flush(vm_buffer);
 
@@ -226,7 +213,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     new_result->refcount = 1;
     new_result->current_row = 0;
     new_result->is_closed = 0;
-    new_result->instance_id = ID_OFFSET + CLSID_RESULT;
+    new_result->instance_id = CID_CONN;
     new_result->destroy_func = destroy_result;
     new_result->pg_result = raw_result;
     new_result->row_count = PQntuples(raw_result);
@@ -237,7 +224,7 @@ void lily_pg_conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_right(v));
 }
 
-void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_postgres_Conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     const char *host = NULL;
@@ -245,6 +232,7 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     const char *dbname = NULL;
     const char *name = NULL;
     const char *pass = NULL;
+    uint16_t *cid_table = GET_CID_TABLE;
 
     switch (argc) {
         case 5:
@@ -267,7 +255,7 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     switch (PQstatus(conn)) {
         case CONNECTION_OK:
             new_val = lily_malloc(sizeof(lily_pg_conn_value));
-            new_val->instance_id = ID_OFFSET + CLSID_CONN;
+            new_val->instance_id = CID_CONN;
             new_val->destroy_func = destroy_conn;
             new_val->refcount = 1;
             new_val->is_open = 1;
@@ -284,18 +272,15 @@ void lily_pg_conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 }
 
-#undef DYNA_NAME
-#define DYNA_NAME pg_conn
-
-DYNA_FUNCTION(NULL,        query, "(Conn, String, List[String]...):Either[String, Result]")
-DYNA_FUNCTION(&seed_query, open,  "(*String, *String, *String, *String, *String):Option[Conn]")
-
-const lily_class_seed lily_dynaload_table =
+const char *lily_dynaload_table[] =
 {
-    &result_seed,         /* next */
-    "Conn",               /* name */
-    dyna_class,           /* load_type */
-    1,                    /* is_refcounted */
-    0,                    /* generic_count */
-    &seed_query           /* dynaload_table */
+    "\002Result\0Conn\0"
+    ,"C\003Result"
+    ,"m:close\0(Result)"
+    ,"m:each_row\0(Result,Function(List[String]))"
+    ,"m:row_count\0(Result):Integer"
+    ,"C\002Conn"
+    ,"m:query\0(Conn, String, List[String]...):Either[String, Result]"
+    ,"m:open\0(*String, *String, *String, *String, *String):Option[Conn]"
+    ,"Z"
 };

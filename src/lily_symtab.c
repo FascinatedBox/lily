@@ -6,7 +6,6 @@
 #include "lily_vm.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_dynaload.h"
 #include "lily_api_value_ops.h"
 
 /***
@@ -36,7 +35,6 @@ lily_symtab *lily_new_symtab(lily_package *builtin_package)
     symtab->old_class_chain = NULL;
     symtab->first_package = builtin_package;
 
-    /* Builtin classes are established by this function. */
     lily_init_builtin_package(symtab, builtin_package->first_module);
 
     return symtab;
@@ -183,7 +181,7 @@ static lily_tie *make_new_literal_of_type(lily_symtab *symtab, lily_type *type)
     /* Literal values always have a default type, so this is safe. */
     lit->type = type;
 
-    lit->item_kind = ITEM_TYPE_TIE;
+    lit->item_kind = 0;
     lit->flags = 0;
     lit->reg_spot = symtab->next_readonly_spot;
     lit->move_flags = type->cls->move_flags;
@@ -436,7 +434,7 @@ static void tie_function(lily_symtab *symtab, lily_var *func_var,
     tie->type = func_var->type;
     tie->value.function = func_val;
     tie->reg_spot = func_var->reg_spot;
-    tie->item_kind = ITEM_TYPE_TIE;
+    tie->item_kind = 0;
     tie->flags = VAL_IS_FUNCTION;
     tie->move_flags = VAL_IS_FUNCTION;
 
@@ -456,17 +454,21 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
     tie_function(symtab, func_var, func_val, symtab->active_module);
 }
 
-lily_foreign_tie *lily_new_foreign_tie(lily_symtab *symtab, lily_var *var)
+lily_foreign_tie *lily_new_foreign_tie(lily_symtab *symtab, lily_var *var,
+        void *value)
 {
     lily_foreign_tie *tie = lily_malloc(sizeof(lily_tie));
+    lily_value *v = (lily_value *)value;
 
     tie->type = var->type;
     tie->reg_spot = var->reg_spot;
-    tie->item_kind = ITEM_TYPE_TIE;
-    /* This must be set so that move functions do not do invalid reads. */
-    tie->data.flags = 0;
+    tie->item_kind = 0;
+    tie->data.flags = v->flags;
+    tie->data.value = v->value;
+    tie->data.cell_refcount = 0;
     tie->next = symtab->foreign_ties;
     symtab->foreign_ties = tie;
+    lily_free(v);
 
     return tie;
 }
@@ -486,31 +488,12 @@ static lily_type *make_new_type(lily_class *);
    from the seed given.
    If the given class does not take generics, this will also set the default
    type of the newly-made class. */
-lily_class *lily_new_class_by_seed(lily_symtab *symtab, const void *seed)
+lily_class *lily_new_raw_class(lily_symtab *symtab, const char *name)
 {
-    lily_class_seed *class_seed = (lily_class_seed *)seed;
-    lily_class *new_class = lily_new_class(symtab, class_seed->name);
-    lily_type *type;
-
-    /* If a class doesn't take generics (or isn't the generic class), then
-        give it a default type.  */
-    if (class_seed->generic_count != 0)
-        type = NULL;
-    else {
-        /* A basic class? Make a quick default type for it. */
-        type = make_new_type(new_class);
-        new_class->type = type;
-        new_class->all_subtypes = type;
-    }
-
-    new_class->type = type;
+    lily_class *new_class = lily_new_class(symtab, name);
+    new_class->id = 0;
     new_class->is_builtin = 1;
-    new_class->generic_count = class_seed->generic_count;
-    new_class->flags = 0;
-    new_class->is_refcounted = class_seed->is_refcounted;
-    new_class->module = symtab->active_module;
-    new_class->members = NULL;
-    new_class->dynaload_table = class_seed->dynaload_table;
+    symtab->next_class_id--;
 
     return new_class;
 }
@@ -538,12 +521,12 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     new_class->name = name_copy;
     new_class->generic_count = 0;
     new_class->prop_count = 0;
-    new_class->dynaload_table = NULL;
     new_class->variant_members = NULL;
     new_class->members = NULL;
     new_class->module = symtab->active_module;
     new_class->all_subtypes = NULL;
     new_class->move_flags = VAL_IS_INSTANCE;
+    new_class->dyna_start = 0;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
