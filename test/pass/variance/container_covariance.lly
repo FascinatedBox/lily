@@ -1,0 +1,11 @@
+class One[A](a: A) {}
+class Two[A](a: A) < One(a) {}
+
+define g[A](a: One[A])
+{
+}
+
+define f[A](a: One[A], b: Two[A])
+{
+    g(b)
+}
