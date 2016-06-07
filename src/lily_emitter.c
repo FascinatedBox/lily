@@ -3544,11 +3544,12 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *solved_want = lily_ts_resolve_with(emit->ts, want_type,
                 question_type);
 
-        int adjust = lily_ts_raise_ceiling(emit->ts);
+        lily_ts_save_point p;
+        lily_ts_scope_save(emit->ts, &p);
         lily_ts_check(emit->ts, result_type, solved_want);
         lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
                 question_type);
-        lily_ts_lower_ceiling(emit->ts, adjust);
+        lily_ts_scope_restore(emit->ts, &p);
         /* Don't assume it succeeded, because it worsens the error message in
            the case that it didn't. */
         if (solved_want == solved_result)
@@ -3839,10 +3840,6 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
 
     result->item = call_item;
     result->call_type = call_type;
-    /* Adjust ts to make space for this call's generics. It's important to do
-       this after doing the above evals, because an eval might trigger a
-       dynaload which might increase the maximum number of generics seen. */
-    result->ts_adjust = lily_ts_raise_ceiling(emit->ts);
 
     if (call_type->flags & TYPE_IS_VARARGS) {
         /* The vararg type is always the last type in the function. It is
@@ -3910,7 +3907,6 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
    with it is lowered back down. */
 static void end_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
-    lily_ts_lower_ceiling(emit->ts, cs->ts_adjust);
     emit->call_values_pos -= cs->arg_count;
     emit->call_state = cs;
 }
@@ -3929,9 +3925,12 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 
     lily_emit_call_state *cs = begin_call(emit, ast);
 
+    lily_ts_save_point p;
+    lily_ts_scope_save(emit->ts, &p);
     eval_verify_call_args(emit, cs, expect);
     write_call(emit, cs);
     end_call(emit, cs);
+    lily_ts_scope_restore(emit->ts, &p);
 }
 
 /* This evaluates a variant type. Variant types are interesting because some of
@@ -3958,7 +3957,10 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     variant->name);
 
         lily_emit_call_state *cs;
+        lily_ts_save_point p;
+
         cs = begin_call(emit, ast);
+        lily_ts_scope_save(emit->ts, &p);
         eval_verify_call_args(emit, cs, expect);
 
         /* A variant is responsible for creating a padded type. Said padded type
@@ -3972,6 +3974,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         write_build_enum(emit, cs, variant);
 
         end_call(emit, cs);
+        lily_ts_scope_restore(emit->ts, &p);
     }
     else {
         lily_variant_class *variant = ast->variant;
@@ -3983,7 +3986,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                 variant->default_value->reg_spot, 0);
 
         if (variant->parent->generic_count) {
-            int amount = lily_ts_raise_ceiling(emit->ts);
+            lily_ts_save_point p;
+            lily_ts_scope_save(emit->ts, &p);
             lily_type *self_type = variant->parent->self_type;
 
             /* Since the variant has no opinion on generics, try to pull any
@@ -3994,7 +3998,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             padded_type = lily_ts_resolve_with(emit->ts, self_type,
                     emit->ts->question_class_type);
 
-            lily_ts_lower_ceiling(emit->ts, amount);
+            lily_ts_scope_restore(emit->ts, &p);
         }
         else
             padded_type = ast->variant->parent->self_type;

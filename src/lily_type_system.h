@@ -4,28 +4,27 @@
 # include "lily_core_types.h"
 # include "lily_type_maker.h"
 
-/* lily_type_system is a container for type information that is used by
-   different parts of the interpreter. As a bonus, a series of common
-   type-related operations are also provided.
-   The main user of this is the emitter. Each currently-invoked function stores
-   the generics it uses starting at 'pos' and up to 'ceiling'. This is done so
-   that different trees can pull generics that are in the process of being
-   resolved.
-   When an emitter function enters, pos is set to pos + ceiling, and a new
-   ceiling is set (which may be 0 if there are no generics).
-   The area from 'ceiling' to 'max' is considered fair game, and may be blasted
-   by type operations. But...you wouldn't put anything there, would you? */
+/* This is where the brains of Lily's type system lies. This handles type
+   matching, unification, and solving.
+   The type system (ts for short) works by having parser always tell it the max
+   number of generics that any one function or class needs at once.
+   How it works is by establishing a series of scope. Each scope has the max
+   number of generics seen reserved into it. Matching will lay values down into
+   the current scope, and will handle generics as it goes along. Resolving then
+   later uses those filled-in types. */
+
+typedef struct {
+    uint16_t pos;
+    uint16_t num_used;
+    uint32_t pad;
+} lily_ts_save_point;
 
 typedef struct {
     lily_type **types;
     uint16_t pos;
-    uint16_t max;
-    uint16_t ceiling;
-
-    /* This is set to the maximum # of generics that have ever been visible at
-       one time. To simplify things, the ceiling is raised by this much each
-       time. */
+    uint16_t num_used;
     uint16_t max_seen;
+    uint16_t max;
 
     lily_type *dynamic_class_type;
     lily_type *question_class_type;
@@ -76,15 +75,12 @@ void lily_ts_resolve_as_question(lily_type_system *);
    create types with ? inside. */
 void lily_ts_default_incomplete_solves(lily_type_system *);
 
-/* This function is called by emitter when it is about to enter a call. The
-   current ceiling is added to the stack's pos. The new ceiling is set to
-   whatever ts->max_seen is. */
-int lily_ts_raise_ceiling(lily_type_system *);
+/* This saves information for the current scope down to the save point, and
+   reserves a fresh set of types for a new scope. */
+void lily_ts_scope_save(lily_type_system *, lily_ts_save_point *);
 
-/* This function is called when a function has been called. The stack's pos is
-   adjusted downward to where it was, and the ceiling is restored to the given
-   value. */
-void lily_ts_lower_ceiling(lily_type_system *, int);
+/* This restores ts to a previously-established scope. */
+void lily_ts_scope_restore(lily_type_system *, lily_ts_save_point *);
 
 /* The parser calls this each time that generics are collected. This reports
    how many were collected. max_seen may or may not be updated. */
