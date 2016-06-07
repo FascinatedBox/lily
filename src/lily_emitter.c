@@ -3680,21 +3680,27 @@ static void push_first_tree_value(lily_emit_state *emit,
     lily_ast *ast = cs->ast;
     lily_tree_type call_tt = ast->arg_start->tree_type;
     lily_type *push_type;
+    lily_sym *push_value;
 
     if (call_tt == tree_method) {
         push_type = emit->block->self->type;
-        add_value(emit, cs, (lily_sym *)emit->block->self);
+        push_value = (lily_sym *)emit->block->self;
     }
     else {
         lily_ast *arg = ast->arg_start->arg_start;
-        add_value(emit, cs, arg->result);
+        push_value = arg->result;
         push_type = arg->result->type;
         if (push_type->cls->flags & CLS_IS_VARIANT)
             cs->have_bare_variants = 1;
     }
 
-    /* This causes type inference to get pulled in. It shouldn't be wrong. */
-    lily_ts_check(emit->ts, get_expected_type(cs, 0), push_type);
+    lily_type *expect = get_expected_type(cs, 0);
+    /* This will almost always succeed. But occasionally (like with File.open),
+       the first argument is not self. So make sure to check it. */
+    if (lily_ts_check(emit->ts, expect, push_type) == 1)
+        add_value(emit, cs, push_value);
+    else
+        bad_arg_error(emit, cs, expect, push_type);
 }
 
 /* This will make sure the call is sound, and add some starting type
