@@ -677,14 +677,16 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_LIST            7
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9
-#define SYM_CLASS_OPTARG         10
-#define SYM_CLASS_FILE           11
-#define SYM_CLASS_GENERIC        12
-#define SYM_CLASS_QUESTION       13
-#define SYM_CLASS_OPTION         14
-#define SYM_CLASS_EITHER         15
-#define SYM_CLASS_EXCEPTION      16
-#define SYM_CLASS_TAINTED        17
-#define START_CLASS_ID           18
+#define SYM_CLASS_FILE           10
+#define SYM_CLASS_GENERIC        11
+#define SYM_CLASS_QUESTION       12
+#define SYM_CLASS_OPTION         13
+#define SYM_CLASS_EITHER         14
+#define SYM_CLASS_EXCEPTION      15
+#define SYM_CLASS_TAINTED        16
+#define START_CLASS_ID           17
+
+/* Instances of this are never made, so this will never be seen by vm. */
+#define SYM_CLASS_OPTARG      65535
 
 #endif
