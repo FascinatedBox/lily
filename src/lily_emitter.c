@@ -2274,7 +2274,7 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
 /* This is called when the call state (more on that later) has an argument that
    does not work. This will raise a SyntaxError explaining the issue. */
 static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_type *got, lily_type *expected)
+        lily_type *expected, lily_type *got)
 {
     const char *class_name, *separator, *name;
     get_error_name(emit, cs->ast, &class_name, &separator, &name);
@@ -3567,7 +3567,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
          type_matchup(emit, want_type, arg)))
         add_value(emit, cs, arg->result);
     else
-        bad_arg_error(emit, cs, result_type, want_type);
+        bad_arg_error(emit, cs, want_type, result_type);
 }
 
 static void box_variant_at(lily_emit_state *emit, lily_emit_call_state *cs,
