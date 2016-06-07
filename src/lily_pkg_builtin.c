@@ -2338,11 +2338,11 @@ static lily_value *new_builtin_file(FILE *source, const char *mode)
 #define DYNAMIC_OFFSET    30
 #define LIST_OFFSET       32
 #define HASH_OFFSET       50
-#define FILE_OFFSET       64
-#define OPTION_OFFSET     72
-#define EITHER_OFFSET     85
-#define TAINTED_OFFSET    93
-#define MISC_OFFSET      101
+#define FILE_OFFSET       63
+#define OPTION_OFFSET     71
+#define EITHER_OFFSET     84
+#define TAINTED_OFFSET    92
+#define MISC_OFFSET      100
 
 extern void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 extern void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
@@ -2516,7 +2516,6 @@ const char *dynaload_table[] =
     ,"m:size\0[A, B](Hash[A, B]):Integer"
 
     ,"!\000Tuple"
-    ,"!\000*"
 
     ,"!\005File"
     ,"m:close\0(File)"
@@ -2597,6 +2596,26 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
     return result;
 }
 
+/* This handles building classes for which no concrete values will ever exist.
+   Giving them a sequential id is a waste because the vm will want to eventually
+   scoop it up into the class table. So don't do that. */
+static lily_class *build_special(lily_symtab *symtab, const char *name,
+        int generic_count, int id)
+{
+    lily_class *result = lily_new_class(symtab, name);
+    result->id = id;
+    result->generic_count = generic_count;
+    result->is_builtin = 1;
+
+    symtab->active_module->class_chain = result->next;
+    symtab->next_class_id--;
+
+    result->next = symtab->old_class_chain;
+    symtab->old_class_chain = result;
+
+    return result;
+}
+
 void lily_init_builtin_package(lily_symtab *symtab, lily_module_entry *builtin)
 {
     builtin->dynaload_table = dynaload_table;
@@ -2614,10 +2633,11 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_module_entry *builtin)
     symtab->list_class       = build_class(symtab, "List",       &i,  1);
     symtab->hash_class       = build_class(symtab, "Hash",       &i,  2);
     symtab->tuple_class      = build_class(symtab, "Tuple",      &i, -1);
-    symtab->optarg_class     = build_class(symtab, "*",          &i,  1);
     lily_class *file_class   = build_class(symtab, "File",       &i,  0);
     symtab->generic_class    = build_class(symtab, "",           &i,  0);
     symtab->question_class   = build_class(symtab, "?",          &i,  0);
+
+    symtab->optarg_class = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
 
     symtab->integer_class->is_refcounted = 0;
     symtab->double_class->is_refcounted = 0;
