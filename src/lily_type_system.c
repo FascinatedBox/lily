@@ -295,7 +295,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 
 int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 {
-    return check_raw(ts, left, right, 0);
+    return check_raw(ts, left, right, T_COVARIANT);
 }
 
 lily_type *lily_ts_unify(lily_type_system *ts, lily_type *left, lily_type *right)
