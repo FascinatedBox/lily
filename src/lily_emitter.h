@@ -152,10 +152,7 @@ typedef struct lily_emit_call_state_ {
        possible. */
     uint16_t have_bare_variants;
 
-    /* Each call needs to have space set aside in ts for solving generics. To
-       simplify things, call start/end automatically does the necessary ts
-       adjustments. */
-    uint16_t ts_adjust;
+    uint16_t pad;
 } lily_emit_call_state;
 
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */

@@ -38,7 +38,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->pos = 0;
     ts->max = 4;
     ts->max_seen = 0;
-    ts->ceiling = 0;
+    ts->num_used = 0;
     ts->dynamic_class_type = dynamic_type;
     ts->question_class_type = question_type;
     ts->types[0] = NULL;
@@ -322,7 +322,7 @@ int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *ri
 lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
         lily_type *second)
 {
-    int stack_start = ts->pos + ts->ceiling + 1;
+    int stack_start = ts->pos + ts->num_used + 1;
     int save_ssp = ts->pos;
 
     ENSURE_TYPE_STACK(stack_start + first->subtype_count)
@@ -340,7 +340,7 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
 
 void lily_ts_resolve_as_question(lily_type_system *ts)
 {
-    int i, stop = ts->pos + ts->ceiling;
+    int i, stop = ts->pos + ts->num_used;
     for (i = ts->pos;i < stop;i++) {
         if (ts->types[i] == NULL)
             ts->types[i] = ts->question_class_type;
@@ -351,7 +351,7 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
 {
     /* This isn't quite the same as lily_ts_resolve_with_question, because there
        are also enums which could have been solved with any. */
-    int i, stop = ts->pos + ts->ceiling;
+    int i, stop = ts->pos + ts->num_used;
     lily_type *question = ts->question_class_type;
 
     for (i = ts->pos;i < stop;i++) {
@@ -371,26 +371,26 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
     }
 }
 
-int lily_ts_raise_ceiling(lily_type_system *ts)
+#define COPY(to, from) \
+to->pos = from->pos; \
+to->num_used = from->num_used; \
+
+void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 {
-    int old_ceiling = ts->ceiling;
+    COPY(p, ts)
+
+    ts->pos += ts->num_used;
+    ts->num_used = ts->max_seen;
+    ENSURE_TYPE_STACK(ts->pos + ts->num_used);
+
     int i;
-
-    /* This makes sure that there's enough space for everything as well as the
-       just the new ceiling. */
-    ENSURE_TYPE_STACK(ts->pos + ts->ceiling + ts->max_seen);
-    ts->pos += ts->ceiling;
-    ts->ceiling = ts->max_seen;
-    for (i = 0;i < ts->max_seen;i++)
+    for (i = 0;i < ts->num_used;i++)
         ts->types[ts->pos + i] = NULL;
-
-    return old_ceiling;
 }
 
-void lily_ts_lower_ceiling(lily_type_system *ts, int old_ceiling)
+void lily_ts_scope_restore(lily_type_system *ts, lily_ts_save_point *p)
 {
-    ts->pos -= old_ceiling;
-    ts->ceiling = old_ceiling;
+    COPY(ts, p)
 }
 
 void lily_ts_generics_seen(lily_type_system *ts, int amount)
