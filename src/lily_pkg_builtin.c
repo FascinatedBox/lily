@@ -2312,6 +2312,58 @@ void lily_tainted_sanitize(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 }
 
 /***
+ *      _____            _
+ *     |_   _|   _ _ __ | | ___
+ *       | || | | | '_ \| |/ _ \
+ *       | || |_| | |_) | |  __/
+ *       |_| \__,_| .__/|_|\___|
+ *                |_|
+ */
+
+void lily_tuple_merge(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *left_tuple = vm_regs[code[1]]->value.list;
+    lily_list_val *right_tuple = vm_regs[code[2]]->value.list;
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_list_val *lv = lily_new_list_val();
+    int new_count = left_tuple->num_values + right_tuple->num_values;
+    lv->elems = lily_malloc(sizeof(lily_value *) * new_count);
+    lv->num_values = new_count;
+
+    int i, j;
+    for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
+        lv->elems[j] = lily_copy_value(left_tuple->elems[i]);
+
+    for (i = 0;i < right_tuple->num_values;i++, j++)
+        lv->elems[j] = lily_copy_value(right_tuple->elems[i]);
+
+    lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result_reg, lv);
+}
+
+void lily_tuple_push(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    lily_list_val *left_tuple = vm_regs[code[1]]->value.list;
+    lily_value *right = vm_regs[code[2]];
+    lily_value *result_reg = vm_regs[code[0]];
+
+    lily_list_val *lv = lily_new_list_val();
+    int new_count = left_tuple->num_values + 1;
+    lv->elems = lily_malloc(sizeof(lily_value *) * new_count);
+    lv->num_values = new_count;
+
+    int i, j;
+    for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
+        lv->elems[j] = lily_copy_value(left_tuple->elems[i]);
+
+    lv->elems[j] = lily_copy_value(right);
+
+    lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result_reg, lv);
+}
+
+/***
  *      ____                    _                 _ 
  *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
  *     | | | | | | | '_ \ / _` | |/ _ \ / _` |/ _` |
@@ -2338,11 +2390,12 @@ static lily_value *new_builtin_file(FILE *source, const char *mode)
 #define DYNAMIC_OFFSET    30
 #define LIST_OFFSET       32
 #define HASH_OFFSET       50
-#define FILE_OFFSET       63
-#define OPTION_OFFSET     71
-#define EITHER_OFFSET     84
-#define TAINTED_OFFSET    92
-#define MISC_OFFSET      100
+#define TUPLE_OFFSET      62
+#define FILE_OFFSET       65
+#define OPTION_OFFSET     73
+#define EITHER_OFFSET     86
+#define TAINTED_OFFSET    94
+#define MISC_OFFSET      102
 
 extern void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
 extern void lily_builtin_print(lily_vm_state *, uint16_t, uint16_t *);
@@ -2408,6 +2461,9 @@ void *lily_builtin_loader(lily_options *options, uint16_t *cid_table, int id)
         case HASH_OFFSET +  8: return lily_hash_reject;
         case HASH_OFFSET +  9: return lily_hash_select;
         case HASH_OFFSET + 10: return lily_hash_size;
+
+        case TUPLE_OFFSET + 0: return lily_tuple_merge;
+        case TUPLE_OFFSET + 1: return lily_tuple_push;
 
         case FILE_OFFSET + 0: return lily_file_close;
         case FILE_OFFSET + 1: return lily_file_open;
@@ -2515,7 +2571,9 @@ const char *dynaload_table[] =
     ,"m:select\0[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]"
     ,"m:size\0[A, B](Hash[A, B]):Integer"
 
-    ,"!\000Tuple"
+    ,"!\002Tuple"
+    ,"m:merge\0(Tuple[1], Tuple[2]):Tuple[1, 2]"
+    ,"m:push\0[A](Tuple[1], A):Tuple[1, A]"
 
     ,"!\005File"
     ,"m:close\0(File)"
@@ -2571,6 +2629,19 @@ const char *dynaload_table[] =
     ,"Z"
 };
 
+static void make_default_type_for(lily_class *cls)
+{
+    lily_type *t = lily_malloc(sizeof(lily_type));
+    t->cls = cls;
+    t->flags = 0;
+    t->generic_pos = 0;
+    t->subtype_count = 0;
+    t->subtypes = NULL;
+    t->next = NULL;
+    cls->type = t;
+    cls->all_subtypes = t;
+}
+
 static lily_class *build_class(lily_symtab *symtab, const char *name,
         int *dyna_start, int generic_count)
 {
@@ -2579,18 +2650,8 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
     result->generic_count = generic_count;
     result->is_builtin = 1;
 
-    /* No generics? Here's a default type then. */
-    if (generic_count == 0) {
-        lily_type *t = lily_malloc(sizeof(lily_type));
-        t->cls = result;
-        t->flags = 0;
-        t->generic_pos = 0;
-        t->subtype_count = 0;
-        t->subtypes = NULL;
-        t->next = NULL;
-        result->type = t;
-        result->all_subtypes = t;
-    }
+    if (generic_count == 0)
+        make_default_type_for(result);
 
     *dyna_start += ((unsigned char) dynaload_table[*dyna_start][1]) + 1;
     return result;
@@ -2612,6 +2673,9 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
     result->next = symtab->old_class_chain;
     symtab->old_class_chain = result;
+
+    if (generic_count == 0)
+        make_default_type_for(result);
 
     return result;
 }
@@ -2637,7 +2701,12 @@ void lily_init_builtin_package(lily_symtab *symtab, lily_module_entry *builtin)
     symtab->generic_class    = build_class(symtab, "",           &i,  0);
     symtab->question_class   = build_class(symtab, "?",          &i,  0);
 
-    symtab->optarg_class = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
+    symtab->optarg_class    = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
+    lily_class *scoop1 = build_special(symtab, "~1", 0, SYM_CLASS_SCOOP_1);
+    lily_class *scoop2 = build_special(symtab, "~2", 0, SYM_CLASS_SCOOP_2);
+
+    scoop1->type->flags |= TYPE_HAS_SCOOP;
+    scoop2->type->flags |= TYPE_HAS_SCOOP;
 
     symtab->integer_class->is_refcounted = 0;
     symtab->double_class->is_refcounted = 0;

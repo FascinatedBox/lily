@@ -581,11 +581,34 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     }
 }
 
+static lily_class *get_scoop_class(lily_parse_state *parser, int which)
+{
+    if (which > 2)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Numeric scoop type must be between 0 and 2.");
+
+    lily_class *old_class_iter = parser->symtab->old_class_chain;
+    int id = UINT16_MAX - which;
+
+    while (old_class_iter) {
+        if (old_class_iter->id == id)
+            break;
+
+        old_class_iter = old_class_iter->next;
+    }
+
+    return old_class_iter;
+}
+
+/* Flags is initially set to this is getting scoop types is A-OK. This is set to
+   an arbitrarily high value so that it doesn't clash with type flags. */
+#define F_SCOOP_OK 0x4000
+
 /* Call this if you need a type that may/may not have optargs/varargs, but no
    name is reqired. This is useful for, say, doing collection of optargs/varargs
    in nested parameter functions (`function(function(*integer))`).
-   'flags' has TYPE_HAS_OPTARGS or TYPE_IS_VARARGS set onto it if either of
-   those things was found. */
+   'flags' is updated with information about optargs/varargs/scoop if one of
+   those was collected. */
 static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
@@ -621,6 +644,13 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
                     "Expected either '=>' or ')' after varargs.\n");
 
         *flags |= TYPE_IS_VARARGS;
+    }
+    else if (type->flags & TYPE_HAS_SCOOP) {
+        if ((*flags & F_SCOOP_OK) == 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                    "Numeric scooping types only available to the backend.\n");
+
+        *flags |= TYPE_HAS_SCOOP;
     }
 
     return type;
@@ -669,8 +699,15 @@ static lily_type *get_type(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *result;
+    lily_class *cls;
 
-    lily_class *cls = resolve_class_name(parser);
+    if (lex->token == tk_word)
+        cls = resolve_class_name(parser);
+    else if (lex->token == tk_integer)
+        cls = get_scoop_class(parser, lex->last_integer);
+    else {
+        NEED_CURRENT_TOK(tk_word)
+    }
 
     if (cls->flags & CLS_IS_VARIANT)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -1025,7 +1062,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
 
     int result_pos = parser->tm->pos;
     int i = 1;
-    int flags = 0;
+    int flags = 0 | F_SCOOP_OK;
 
     /* This means the function doesn't return anything. This is mostly about
        reserving a slot to maybe be overwritten later. */
@@ -1056,6 +1093,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
         lily_tm_insert(parser->tm, result_pos, get_type(parser));
     }
 
+    flags &= ~F_SCOOP_OK;
     lily_type *type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 

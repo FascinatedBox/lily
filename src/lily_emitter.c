@@ -3885,7 +3885,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     if (cs->call_type->subtypes[0] != NULL) {
         lily_type *return_type = cs->call_type->subtypes[0];
 
-        if (return_type->flags & TYPE_IS_UNRESOLVED)
+        if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
 
         lily_storage *storage = get_storage(emit, return_type);
