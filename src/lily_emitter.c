@@ -3043,7 +3043,9 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
                 "Cannot create an empty tuple.\n");
     }
 
-    if (expect && expect->cls->id != SYM_CLASS_TUPLE)
+    if (expect != NULL &&
+        (expect->cls->id != SYM_CLASS_TUPLE ||
+         ast->args_collected > expect->subtype_count))
         expect = NULL;
 
     int i;
