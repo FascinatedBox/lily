@@ -17,6 +17,7 @@ typedef struct {
     uint16_t pos;
     uint16_t num_used;
     uint32_t pad;
+    uint16_t scoop_starts[4];
 } lily_ts_save_point;
 
 typedef struct {
@@ -25,6 +26,7 @@ typedef struct {
     uint16_t num_used;
     uint16_t max_seen;
     uint16_t max;
+    uint16_t scoop_starts[4];
 
     lily_type *dynamic_class_type;
     lily_type *question_class_type;

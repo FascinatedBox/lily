@@ -1,4 +1,6 @@
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "lily_type_system.h"
 
@@ -37,11 +39,12 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->types = types;
     ts->pos = 0;
     ts->max = 4;
-    ts->max_seen = 0;
+    ts->max_seen = 1;
     ts->num_used = 0;
     ts->dynamic_class_type = dynamic_type;
     ts->question_class_type = question_type;
     ts->types[0] = NULL;
+    memset(ts->scoop_starts, 0, sizeof(ts->scoop_starts));
 
     return ts;
 }
@@ -66,21 +69,23 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
 {
     lily_type *ret = type;
 
-    if (type == NULL || (type->flags & TYPE_IS_UNRESOLVED) == 0)
+    if (type == NULL ||
+        (type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         ;
     else if (type->subtypes != NULL) {
         int i;
-        /* lily_ts_resolve is called by the vm to rebuild generics. Instead of
-           using the normal add (which will do a grow check each time), call
-           for a grow check now and do unsafe adds. Every little bit counts. */
-        lily_tm_reserve(ts->tm, type->subtype_count);
+        /* Resolve handles solving generics and is thus hit pretty often. So
+           it reserves the maximum that could possibly be used at once
+           (including for scoops) to prevent repeated growing checks. */
+        lily_tm_reserve(ts->tm, type->subtype_count + ts->num_used);
         lily_type **subtypes = type->subtypes;
+        int start = ts->tm->pos;
 
         for (i = 0;i < type->subtype_count;i++)
             lily_tm_add_unchecked(ts->tm,
                     lily_ts_resolve_with(ts, subtypes[i], fallback));
 
-        ret = lily_tm_make(ts->tm, type->flags, type->cls, i);
+        ret = lily_tm_make(ts->tm, type->flags, type->cls, ts->tm->pos - start);
     }
     else if (type->cls->id == SYM_CLASS_GENERIC) {
         ret = ts->types[ts->pos + type->generic_pos];
@@ -92,6 +97,25 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
                resolved (and prevent it). */
             ts->types[ts->pos + type->generic_pos] = fallback;
         }
+    }
+    else if (type->cls->id >= LOWEST_SCOOP_ID) {
+        int scoop_pos = UINT16_MAX - type->cls->id;
+        int stop = ts->scoop_starts[scoop_pos] - 1;
+        if (stop != 0) {
+            int target = ts->scoop_starts[scoop_pos - 1];
+
+            /* This starts from where the last one stopped (inclusively) and
+               goes up to (but not including) where the next one starts. */
+            for (;target < stop;target++)
+                lily_tm_add_unchecked(ts->tm, ts->types[target]);
+
+            /* Yield the last type, because all the other cases yield a type. */
+            ret = ts->types[stop];
+        }
+        else
+            /* This only happens when the emitter is showing an error. There's
+               nothing to scoop, so show the scoop type instead. */
+            ret = type;
     }
 
     return ret;
@@ -262,6 +286,50 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
     return ret;
 }
 
+static int check_tuple(lily_type_system *ts, lily_type *left, lily_type *right,
+        int flags)
+{
+    if (right->cls->id != SYM_CLASS_TUPLE)
+        return 0;
+
+    if ((left->flags & TYPE_HAS_SCOOP) == 0) {
+        /* Do not allow Tuples to be considered equal if they don't have the
+           same # of subtypes. The reason is that Tuple operations work on the
+           size at vm-time. So if emit-time and vm-time disagree about the size
+           of a Tuple, there WILL be problems. */
+        if (left->subtype_count != right->subtype_count)
+            return 0;
+        else
+            return check_misc(ts, left, right, flags);
+    }
+
+    /* Not yet. Maybe later. */
+    if (flags & T_UNIFY)
+        return 0;
+
+    /* Scoop currently expects at least one value. */
+    if (left->subtype_count > right->subtype_count)
+        return 0;
+
+    /* This carries a few assumptions with it:
+     * Scoop types are always seen in order
+     * Scoop types are never next to each other on the left
+     * (Currently) Scoop types are always the only type. */
+    int start = ts->pos + ts->num_used;
+    int scoop_pos = UINT16_MAX - left->subtypes[0]->cls->id;
+
+    ENSURE_TYPE_STACK(start + right->subtype_count)
+
+    int i;
+    for (i = 0;i < right->subtype_count;i++)
+        ts->types[start + i] = right->subtypes[i];
+
+    ts->num_used += right->subtype_count;
+    ts->scoop_starts[scoop_pos] = ts->pos + ts->num_used;
+
+    return 1;
+}
+
 static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int flags)
 {
     int ret = 0;
@@ -286,6 +354,8 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
     else if (left->cls->id == SYM_CLASS_FUNCTION &&
              right->cls->id == SYM_CLASS_FUNCTION)
         ret = check_function(ts, left, right, flags);
+    else if (left->cls->id == SYM_CLASS_TUPLE)
+        ret = check_tuple(ts, left, right, flags);
     else
         ret = check_misc(ts, left, right, flags);
 
@@ -339,18 +409,23 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
 
 void lily_ts_resolve_as_question(lily_type_system *ts)
 {
-    int i, stop = ts->pos + ts->num_used;
+    int i, stop = ts->scoop_starts[0];
     for (i = ts->pos;i < stop;i++) {
         if (ts->types[i] == NULL)
             ts->types[i] = ts->question_class_type;
     }
+
+    /* This function gets called as a prelude to emitter dumping an error
+       message. Make sure the scoops are all set to zero, so that resolve will
+       write down the scoop types back instead of crashing. */
+    memset(ts->scoop_starts, 0, 4 * sizeof(uint16_t));
 }
 
 void lily_ts_default_incomplete_solves(lily_type_system *ts)
 {
     /* This isn't quite the same as lily_ts_resolve_with_question, because there
        are also enums which could have been solved with any. */
-    int i, stop = ts->pos + ts->num_used;
+    int i, stop = ts->scoop_starts[0];
     lily_type *question = ts->question_class_type;
 
     for (i = ts->pos;i < stop;i++) {
@@ -373,6 +448,7 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
 #define COPY(to, from) \
 to->pos = from->pos; \
 to->num_used = from->num_used; \
+memcpy(to->scoop_starts, from->scoop_starts, sizeof(to->scoop_starts));
 
 void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 {
@@ -380,6 +456,8 @@ void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 
     ts->pos += ts->num_used;
     ts->num_used = ts->max_seen;
+    ts->scoop_starts[0] = ts->pos + ts->num_used;
+
     ENSURE_TYPE_STACK(ts->pos + ts->num_used);
 
     int i;

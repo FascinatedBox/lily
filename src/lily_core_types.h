@@ -595,6 +595,8 @@ typedef struct lily_package_link_ {
 /* This is set on a type that either is the ? type, or has a type that contains
    the ? type within it. */
 #define TYPE_IS_INCOMPLETE     0x10
+/* This is a scoop type, or has one inside somewhere. */
+#define TYPE_HAS_SCOOP         0x20
 
 /* SYM_* flags are for things based off of lily_sym. */
 
@@ -686,7 +688,9 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_TAINTED        16
 #define START_CLASS_ID           17
 
-/* Instances of this are never made, so this will never be seen by vm. */
-#define SYM_CLASS_OPTARG      65535
-
+/* Instances of these are never made, so these ids will never be seen by vm. */
+#define SYM_CLASS_OPTARG      65532
+#define SYM_CLASS_SCOOP_2     65533
+#define SYM_CLASS_SCOOP_1     65534
+#define LOWEST_SCOOP_ID       65533
 #endif
