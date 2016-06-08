@@ -66,9 +66,8 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
 {
     lily_type *ret = type;
 
-    if (type == NULL)
-        /* functions use NULL to indicate they don't return a value. */
-        ret = NULL;
+    if (type == NULL || (type->flags & TYPE_IS_UNRESOLVED) == 0)
+        ;
     else if (type->subtypes != NULL) {
         int i;
         /* lily_ts_resolve is called by the vm to rebuild generics. Instead of
