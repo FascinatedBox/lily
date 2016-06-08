@@ -917,7 +917,10 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lv->num_values = num_elems;
     lv->elems = elems;
 
-    lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
+    if (code[0] == o_build_list)
+        lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
+    else
+        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, lv);
 
     int i;
     for (i = 0;i < num_elems;i++) {
@@ -2360,7 +2363,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_build_hash(vm, code, code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;
-            case o_build_list_tuple:
+            case o_build_list:
+            case o_build_tuple:
                 do_o_build_list_tuple(vm, code+code_pos);
                 code_pos += code[code_pos+2] + 4;
                 break;

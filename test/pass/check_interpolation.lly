@@ -26,6 +26,7 @@ ok($"^(1),^(2),^(3)" == "1,2,3",   "Triple interpolation, divided.")
 ok($"""
 ^(1)
 """ == "\n1\n",                    "Interpolation with a multi-line string.")
+ok($"^(<[1, [2]]>)" == "<[1, [2]]>", "Tuples interpolate correctly.")
 
 define f(a: Integer)
 {

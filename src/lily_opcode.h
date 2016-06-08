@@ -140,16 +140,9 @@ typedef enum {
     o_unary_not,
     o_unary_minus,
 
-    /* Build list/tuple:
-       * int lineno
-       * int num_args
-       * reg args...
-       * reg result
-       This creates a new list/tuple. Which one gets made depends on the type
-       of the result. Emitter has already set the sig of result, and that is
-       the type the elements are assumed to be. Emitter also guarantees that
-       all elements are of the same type. */
-    o_build_list_tuple,
+    o_build_list,
+
+    o_build_tuple,
 
     /* Build hash:
        * int lineno

@@ -1968,8 +1968,8 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
 }
 
 
-/* Since o_build_list_tuple and o_build_hash are fairly similar (and the former
-   is moderately common), this function will write that.
+/* Since o_build_list, o_build_tuple, and o_build_hash are fairly similar (and
+   the first two are fairly common), this function writes all of them.
 
    This function takes a tree, and will walk it up to 'num_values' times. This
    function does not create a storage. Instead, the caller is expected to
@@ -3080,7 +3080,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             i);
     lily_storage *s = get_storage(emit, new_type);
 
-    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
+    write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
@@ -3245,7 +3245,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_tm_add(emit->tm, elem_type);
 
         cls = emit->symtab->list_class;
-        op = o_build_list_tuple;
+        op = o_build_list;
         num = 1;
     }
 
@@ -3369,7 +3369,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *s = get_storage(emit, new_type);
 
-    write_build_op(emit, o_build_list_tuple, ast->arg_start, ast->line_num,
+    write_build_op(emit, o_build_list, ast->arg_start, ast->line_num,
             ast->args_collected, s->reg_spot);
     ast->result = (lily_sym *)s;
 }
@@ -3492,7 +3492,7 @@ static void write_varargs(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_storage *s = get_storage(emit, type);
     int count = cs->arg_count - from;
 
-    write_3(emit, o_build_list_tuple, cs->ast->line_num, count);
+    write_3(emit, o_build_list, cs->ast->line_num, count);
     write_call_values(emit, cs, from);
     write_1(emit, s->reg_spot);
 
