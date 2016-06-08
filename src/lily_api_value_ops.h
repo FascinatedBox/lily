@@ -26,6 +26,7 @@ void lily_move_instance_f(uint32_t, lily_value *, lily_instance_val *);
 void lily_move_integer(lily_value *, int64_t);
 void lily_move_list_f(uint32_t, lily_value *, lily_list_val *);
 void lily_move_string(lily_value *, lily_string_val *);
+void lily_move_tuple_f(uint32_t, lily_value *, lily_list_val *);
 
 /* The flags of a value include what kind of value that it is. The above moves
    that have _f as a suffix take a flag as their first parameter to determine
