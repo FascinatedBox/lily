@@ -1,8 +1,6 @@
 The Lily Programming Language
 =====
 
-[![Join the group at https://groups.google.com/d/forum/lily-programming](https://img.shields.io/badge/Google Groups-Lily-ff68b4.svg)](https://groups.google.com/d/forum/lily-programming)
-
 [![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
 [![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
 
