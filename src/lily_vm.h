@@ -103,7 +103,6 @@ typedef struct lily_vm_state_ {
 
     char *sipkey;
 
-    lily_vm_catch_entry *catch_top;
     lily_vm_catch_entry *catch_chain;
 
     /* This buffer is used as an intermediate storage for String values. */
