@@ -2394,7 +2394,7 @@ static lily_value *new_builtin_file(FILE *source, const char *mode)
 #define FILE_OFFSET       65
 #define OPTION_OFFSET     73
 #define EITHER_OFFSET     86
-#define TAINTED_OFFSET    94
+#define TAINTED_OFFSET   101
 #define MISC_OFFSET      102
 
 extern void lily_builtin_calltrace(lily_vm_state *, uint16_t, uint16_t *);
@@ -2609,9 +2609,6 @@ const char *dynaload_table[] =
 
     ,"B\000Exception\0(msg:String){ var @message = msg var @traceback: List[String] = [] }"
 
-    ,"B\001Tainted\0[A](v:A){ var @value = v }"
-    ,"m:sanitize\0[A,B](Tainted[A], Function(A => B)):B"
-
     ,"B\000IOError\0(m:String) < Exception(m) {  }"
     ,"B\000FormatError\0(m:String) < Exception(m) {  }"
     ,"B\000KeyError\0(m:String) < Exception(m) {  }"
@@ -2619,6 +2616,9 @@ const char *dynaload_table[] =
     ,"B\000ValueError\0(m:String) < Exception(m) {  }"
     ,"B\000IndexError\0(m:String) < Exception(m) {  }"
     ,"B\000DivisionByZeroError\0(m:String) < Exception(m) {  }"
+
+    ,"B\001Tainted\0[A](v:A){ var @value = v }"
+    ,"m:sanitize\0[A,B](Tainted[A], Function(A => B)):B"
 
     ,"F\000calltrace\0:List[String]"
     ,"F\000print\0[A](A)"
