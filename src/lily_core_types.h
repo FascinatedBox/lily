@@ -685,8 +685,7 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_OPTION         13
 #define SYM_CLASS_EITHER         14
 #define SYM_CLASS_EXCEPTION      15
-#define SYM_CLASS_TAINTED        16
-#define START_CLASS_ID           17
+#define START_CLASS_ID           16
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_OPTARG      65532
