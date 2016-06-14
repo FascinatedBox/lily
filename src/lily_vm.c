@@ -179,8 +179,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     if (vm->gc_multiplier > 16)
         vm->gc_multiplier = 16;
 
-    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
-
     vm->sipkey = options->sipkey;
     vm->call_depth = 0;
     vm->raiser = raiser;
@@ -194,7 +192,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->gc_live_entry_count = 0;
     vm->gc_pass = 0;
     vm->catch_chain = NULL;
-    vm->catch_top = NULL;
     vm->symtab = NULL;
     vm->readonly_table = NULL;
     vm->readonly_count = 0;
@@ -209,9 +206,11 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
 
     add_call_frame(vm);
 
-    vm->catch_chain = catch_entry;
+    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
     catch_entry->prev = NULL;
     catch_entry->next = NULL;
+
+    vm->catch_chain = catch_entry;
 
     return vm;
 }
@@ -1399,7 +1398,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
 {
     lily_class *raised_cls = vm->raiser->exception_cls;
 
-    if (vm->catch_top == NULL)
+	/* The entries are always forward. */
+    if (vm->catch_chain->prev == NULL)
         return 0;
 
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
@@ -1413,7 +1413,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         raised_cls = lily_maybe_dynaload_class(vm->parser, NULL, except_name);
     }
 
-    lily_vm_catch_entry *catch_iter = vm->catch_top;
+    lily_vm_catch_entry *catch_iter = vm->catch_chain->prev;
     lily_value *catch_reg = NULL;
     lily_value **stack_regs;
     int do_unbox, jump_location, match;
@@ -1425,7 +1425,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
            that were not made in the same jump level. If it does, the vm could
            be called from a foreign function, but think it isn't. */
         if (catch_iter->jump_entry != raiser_jump) {
-            vm->catch_top = catch_iter;
+            vm->catch_chain = catch_iter->next;
             break;
         }
 
@@ -1487,11 +1487,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         vm->call_chain->code_pos = jump_location;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
-        vm->catch_top = catch_iter->prev;
-        if (vm->catch_top != NULL)
-            vm->catch_chain = vm->catch_top;
-        else
-            vm->catch_chain = catch_iter;
+        vm->catch_chain = catch_iter;
     }
 
     return match;
@@ -2441,14 +2437,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->offset_from_main = (int64_t)(vm_regs - regs_from_main);
                 catch_entry->vm_list_pos = vm->vm_list->pos;
 
-                vm->catch_top = vm->catch_chain;
                 vm->catch_chain = vm->catch_chain->next;
                 code_pos += 3;
                 break;
             }
             case o_pop_try:
-                vm->catch_chain = vm->catch_top;
-                vm->catch_top = vm->catch_top->prev;
+                vm->catch_chain = vm->catch_chain->prev;
 
                 code_pos++;
                 break;
