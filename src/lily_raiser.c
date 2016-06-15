@@ -28,9 +28,6 @@ lily_raiser *lily_new_raiser(void)
 
 void lily_free_raiser(lily_raiser *raiser)
 {
-    if (raiser->msgbuf)
-        lily_free_msgbuf(raiser->msgbuf);
-
     lily_jump_link *jump_next;
     while (raiser->all_jumps->prev)
         raiser->all_jumps = raiser->all_jumps->prev;
@@ -41,6 +38,7 @@ void lily_free_raiser(lily_raiser *raiser)
         raiser->all_jumps = jump_next;
     }
 
+    lily_free_msgbuf(raiser->msgbuf);
     lily_free(raiser);
 }
 
