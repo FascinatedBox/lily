@@ -22,7 +22,6 @@ lily_raiser *lily_new_raiser(void)
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
     raiser->exception_cls = NULL;
-    raiser->exception_value = NULL;
 
     return raiser;
 }
@@ -101,12 +100,11 @@ void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/* This is called to raise a proper Lily value as an exception. A class is
-   required because the value only has a class id. */
-void lily_raise_value(lily_raiser *raiser, lily_class *raise_cls, lily_value *v,
+/* This is called by the vm to raise an exception via a class and a message. If
+   the exception is a proper Lily value, then the vm will hold that value. */
+void lily_raise_class(lily_raiser *raiser, lily_class *raise_cls,
         const char *msg)
 {
-    raiser->exception_value = v;
     raiser->exception_cls = raise_cls;
     lily_msgbuf_flush(raiser->msgbuf);
     lily_msgbuf_add(raiser->msgbuf, msg);

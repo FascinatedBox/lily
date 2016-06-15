@@ -27,7 +27,6 @@ typedef struct lily_raiser_ {
     lily_jump_link *all_jumps;
     lily_msgbuf *msgbuf;
     lily_class *exception_cls;
-    lily_value *exception_value;
 
     /* This is set when the emitter raises an error and that error does not
        reference the current line. This will be set to the actual line. It can
@@ -41,7 +40,7 @@ lily_raiser *lily_new_raiser(void);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, const char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
-void lily_raise_value(lily_raiser *, lily_class *, lily_value *, const char *);
+void lily_raise_class(lily_raiser *, lily_class *, const char *);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_jump_back(lily_raiser *);
 void lily_release_jump(lily_raiser *);

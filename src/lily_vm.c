@@ -203,6 +203,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->class_count = 0;
     vm->class_table = NULL;
     vm->stdout_reg = NULL;
+    vm->exception_value = NULL;
 
     add_call_frame(vm);
 
@@ -964,7 +965,10 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
     char *message = ival->values[0]->value.string->string;
     lily_class *raise_cls = vm->class_table[ival->instance_id];
 
-    lily_raise_value(vm->raiser, raise_cls, exception_val, message);
+    /* There's no need for a ref/deref here, because the gc cannot trigger
+       foreign stack unwind and/or exception capture. */
+    vm->exception_value = exception_val;
+    lily_raise_class(vm->raiser, raise_cls, message);
 }
 
 /* This is an uncommon, but decently fast opcode. What it does is to scan from
@@ -1375,10 +1379,9 @@ static void make_proper_exception_val(lily_vm_state *vm,
 /* This is called when 'raise' raises an error. The traceback property is
    assigned to freshly-made traceback. The other fields of the value are left
    intact, however. */
-static void fixup_exception_val(lily_vm_state *vm, lily_value *result,
-        lily_value *thrown)
+static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
 {
-    lily_assign_value(result, thrown);
+    lily_assign_value(result, vm->exception_value);
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
 
@@ -1473,14 +1476,15 @@ static int maybe_catch_exception(lily_vm_state *vm)
                this exception was triggered by raise, then use that (after
                dumping traceback into it). If not, create a new instance to
                hold the info. */
-            lily_value *raised_value = vm->raiser->exception_value;
-            if (raised_value)
-                fixup_exception_val(vm, catch_reg, raised_value);
+            if (vm->exception_value)
+                fixup_exception_val(vm, catch_reg);
             else
                 make_proper_exception_val(vm, raised_cls, catch_reg);
         }
 
-        vm->raiser->exception_value = NULL;
+        /* Make sure any exception value that was held is gone. No ref/deref is
+           necessary, because the value was saved somewhere in a register. */
+        vm->exception_value = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
         vm->vm_list->pos = catch_iter->vm_list_pos;

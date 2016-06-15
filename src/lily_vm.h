@@ -105,6 +105,12 @@ typedef struct lily_vm_state_ {
 
     lily_vm_catch_entry *catch_chain;
 
+    /* If a proper value is being raised (currently only the `raise` keyword),
+       then this is the value raised. Otherwise, this is NULL. Since exception
+       capture sets this to NULL when successful, raises of non-proper values do
+       not need to do anything. */
+    lily_value *exception_value;
+
     /* This buffer is used as an intermediate storage for String values. */
     lily_msgbuf *vm_buffer;
 
