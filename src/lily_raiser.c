@@ -19,6 +19,7 @@ lily_raiser *lily_new_raiser(void)
     first_jump->next = NULL;
 
     raiser->msgbuf = lily_new_msgbuf();
+    raiser->aux_msgbuf = lily_new_msgbuf();
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
     raiser->exception_cls = NULL;
@@ -38,6 +39,7 @@ void lily_free_raiser(lily_raiser *raiser)
         raiser->all_jumps = jump_next;
     }
 
+    lily_free_msgbuf(raiser->aux_msgbuf);
     lily_free_msgbuf(raiser->msgbuf);
     lily_free(raiser);
 }
@@ -87,13 +89,6 @@ void lily_raise(lily_raiser *raiser, int error_code, const char *fmt, ...)
     lily_msgbuf_add_fmt_va(raiser->msgbuf, fmt, var_args);
     va_end(var_args);
 
-    raiser->error_code = error_code;
-    longjmp(raiser->all_jumps->jump, 1);
-}
-
-/* This raises an error when the msgbuf already has a message set. */
-void lily_raise_prebuilt(lily_raiser *raiser, int error_code)
-{
     raiser->error_code = error_code;
     longjmp(raiser->all_jumps->jump, 1);
 }

@@ -25,7 +25,16 @@ typedef struct lily_jump_link_ {
 
 typedef struct lily_raiser_ {
     lily_jump_link *all_jumps;
+
+    /* This is where the error message is stored. */
     lily_msgbuf *msgbuf;
+
+    /* Some messages are more difficult to write. This auxillary buffer is for
+       building up more complex messages. Any part of the interpreter is free to
+       take this, flush it, and use it to build their error message.
+       *  */
+    lily_msgbuf *aux_msgbuf;
+
     lily_class *exception_cls;
 
     /* This is set when the emitter raises an error and that error does not
@@ -39,7 +48,6 @@ typedef struct lily_raiser_ {
 lily_raiser *lily_new_raiser(void);
 void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, const char *, ...);
-void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_class(lily_raiser *, lily_class *, const char *);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_jump_back(lily_raiser *);

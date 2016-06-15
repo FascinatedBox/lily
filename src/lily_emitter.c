@@ -1709,7 +1709,7 @@ static void ensure_proper_match_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
     int error = 0;
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     int i;
     lily_class *match_class = block->match_sym->type->cls;
 
@@ -1727,7 +1727,7 @@ static void ensure_proper_match_block(lily_emit_state *emit)
     }
 
     if (error)
-        lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+        lily_raise(emit->raiser, lily_SyntaxError, msgbuf->message);
 }
 
 /* This writes a decomposition for a given variant type. As for the values, it
@@ -2279,7 +2279,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     const char *class_name, *separator, *name;
     get_error_name(emit, cs->ast, &class_name, &separator, &name);
 
-    lily_msgbuf *msgbuf = emit->raiser->msgbuf;
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
 
     emit->raiser->line_adjust = cs->ast->line_num;
 
@@ -2298,7 +2298,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
             class_name, separator, name,
             lily_ts_resolve_with(emit->ts, expected, question), got);
 
-    lily_raise_prebuilt(emit->raiser, lily_SyntaxError);
+    lily_raise(emit->raiser, lily_SyntaxError, msgbuf->message);
 }
 
 /***
