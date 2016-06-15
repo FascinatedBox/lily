@@ -682,7 +682,7 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 {
     vm->call_chain->line_num = vm->call_chain->code[code_pos + 1];
 
-    lily_msgbuf *msgbuf = vm->raiser->msgbuf;
+    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
     if (key->flags & VAL_IS_STRING) {
         /* String values are required to be \0 terminated, so this is ok. */
@@ -691,7 +691,7 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
     else
         lily_msgbuf_add_fmt(msgbuf, "%d\n", key->value.integer);
 
-    lily_raise_prebuilt(vm->raiser, lily_KeyError);
+    lily_raise(vm->raiser, lily_KeyError, msgbuf->message);
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
