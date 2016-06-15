@@ -196,19 +196,19 @@ void lily_either_right(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 static void write_check(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_raise(vm->raiser, lily_IOError, "IO operation on closed file.\n");
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.\n");
 
     if (filev->write_ok == 0)
-        lily_raise(vm->raiser, lily_IOError, "File not open for writing.\n");
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for writing.\n");
 }
 
 static void read_check(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_raise(vm->raiser, lily_IOError, "IO operation on closed file.\n");
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.\n");
 
     if (filev->read_ok == 0)
-        lily_raise(vm->raiser, lily_IOError, "File not open for reading.\n");
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for reading.\n");
 }
 
 void lily_file_close(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -250,12 +250,12 @@ void lily_file_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     if (ok == 0)
-        lily_raise(vm->raiser, lily_IOError,
+        lily_vm_raise_fmt(vm, SYM_CLASS_IOERROR,
                 "Invalid mode '%s' given.\n", mode);
 
     FILE *f = fopen(path, mode);
     if (f == NULL) {
-        lily_raise(vm->raiser, lily_IOError, "Errno %d: ^R (%s).\n",
+        lily_vm_raise_fmt(vm, SYM_CLASS_IOERROR, "Errno %d: ^R (%s).\n",
                 errno, errno, path);
     }
 
@@ -388,7 +388,7 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
 static inline void remove_key_check(lily_vm_state *vm, lily_hash_val *hash_val)
 {
     if (hash_val->iter_count)
-        lily_raise(vm->raiser, lily_RuntimeError,
+        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.\n");
 }
 
@@ -482,7 +482,7 @@ void lily_hash_clear(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_hash_val *hash_val = vm_regs[code[1]]->value.hash;
 
     if (hash_val->iter_count != 0)
-        lily_raise(vm->raiser, lily_RuntimeError,
+        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.\n");
 
     destroy_hash_elems(hash_val);
@@ -836,7 +836,7 @@ void lily_list_pop(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_reg = vm_regs[code[0]];
 
     if (list_val->num_values == 0)
-        lily_raise(vm->raiser, lily_IndexError, "Pop from an empty list.\n");
+        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Pop from an empty list.\n");
 
     lily_value *source = list_val->elems[list_val->num_values - 1];
 
@@ -858,13 +858,13 @@ static int64_t get_relative_index(lily_vm_state *vm, lily_list_val *list_val,
     if (pos < 0) {
         uint64_t unsigned_pos = -(int64_t)pos;
         if (unsigned_pos > list_val->num_values)
-            lily_raise(vm->raiser, lily_IndexError, "Index %d is too small for list (minimum: %d)\n",
+            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too small for list (minimum: %d)\n",
                     pos, -(int64_t)list_val->num_values);
 
         pos = list_val->num_values - unsigned_pos;
     }
     else if (pos > list_val->num_values)
-        lily_raise(vm->raiser, lily_IndexError, "Index %d is too large for list (maximum: %d)\n",
+        lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too large for list (maximum: %d)\n",
                 pos, list_val->num_values);
 
     return pos;
@@ -899,7 +899,7 @@ void lily_list_delete_at(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int64_t pos = vm_regs[code[2]]->value.integer;
 
     if (list_val->num_values == 0)
-        lily_raise(vm->raiser, lily_IndexError, "Cannot delete from an empty list.\n");
+        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Cannot delete from an empty list.\n");
 
     pos = get_relative_index(vm, list_val, pos);
 
@@ -977,7 +977,7 @@ void lily_list_fill(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     int n = vm_regs[code[1]]->value.integer;
     if (n < 0)
-        lily_raise(vm->raiser, lily_ValueError,
+        lily_vm_raise_fmt(vm, SYM_CLASS_VALUEERROR,
                 "Repeat count must be >= 0 (%d given).\n", n);
 
     lily_value *to_repeat = vm_regs[code[2]];
@@ -1139,7 +1139,7 @@ void lily_list_shift(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_reg = vm_regs[code[0]];
 
     if (list_val->num_values == 0)
-        lily_raise(vm->raiser, lily_IndexError, "Shift on an empty list.\n");
+        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Shift on an empty list.\n");
 
     lily_value *source = list_val->elems[0];
 
@@ -1314,7 +1314,7 @@ void lily_option_unwrap(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (optval->variant_id == SOME_VARIANT_ID)
         lily_assign_value(result_reg, opt_reg->value.instance->values[0]);
     else
-        lily_raise(vm->raiser, lily_ValueError, "unwrap called on None.\n");
+        lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.\n");
 }
 
 void lily_option_unwrap_or(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -2176,7 +2176,7 @@ void lily_string_split(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_value *result_reg = vm_regs[code[0]];
 
     if (split_strval->size == 0)
-        lily_raise(vm->raiser, lily_ValueError, "Cannot split by empty string.\n");
+        lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "Cannot split by empty string.\n");
 
     lily_list_val *lv = lily_new_list_val();
 
@@ -2262,7 +2262,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
             index--;
         }
         if (move_table[(unsigned char)*ch] == 0)
-            lily_raise(vm->raiser, lily_IndexError, "Index %d is out of range.\n",
+            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.\n",
                     index_reg->value.integer);
     }
     else {
@@ -2274,7 +2274,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
                 index++;
         }
         if (index != 0)
-            lily_raise(vm->raiser, lily_IndexError, "Index %d is out of range.\n",
+            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.\n",
                     index_reg->value.integer);
     }
 

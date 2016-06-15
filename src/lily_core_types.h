@@ -685,7 +685,15 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_OPTION         13
 #define SYM_CLASS_EITHER         14
 #define SYM_CLASS_EXCEPTION      15
-#define START_CLASS_ID           16
+/* This order must be synced with the dynaload order of these classes. */
+#define SYM_CLASS_IOERROR        16
+#define SYM_CLASS_FORMATERROR    17
+#define SYM_CLASS_KEYERROR       18
+#define SYM_CLASS_RUNTIMEERROR   19
+#define SYM_CLASS_VALUEERROR     20
+#define SYM_CLASS_INDEXERROR     21
+#define SYM_CLASS_DBZERROR       22 /* > 9000 */
+#define START_CLASS_ID           23
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_OPTARG      65532
