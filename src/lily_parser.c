@@ -1208,10 +1208,23 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     lily_load_str(parser->lex, "[dynaload]", lm_no_tags, body);
     lily_class *cls = lily_new_class(parser->symtab, name);
     cls->dyna_start = dyna_index + 1;
-    if (m->parent == parser->package_start &&
-        strcmp(name, "Exception") == 0) {
-        parser->symtab->next_class_id--;
-        cls->id = SYM_CLASS_EXCEPTION;
+    if (m->parent == parser->package_start) {
+        if (strcmp(name, "Exception") == 0) {
+            parser->symtab->next_class_id--;
+            cls->id = SYM_CLASS_EXCEPTION;
+        }
+        else if (strstr(name, "Error")) {
+            lily_class *e = lily_find_class(parser->symtab, m, "Exception");
+            if (e == NULL)
+                e = (lily_class *)try_toplevel_dynaload(parser, m, "Exception");
+
+            /* This depends on a three things:
+             * Dynaloaded exceptions always come after Exception.
+             * Their ids also come after Exception.
+             * Space is reserved for their ids, in order. */
+            parser->symtab->next_class_id--;
+            cls->id = SYM_CLASS_EXCEPTION + (cls->dyna_start - e->dyna_start);
+        }
     }
 
     lily_ast_pool *ap = parser->ast_pool;
@@ -1301,22 +1314,10 @@ static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
     return result;
 }
 
-lily_class *lily_maybe_dynaload_class(lily_parse_state *parser,
-        lily_module_entry *module, const char *name)
+lily_class *lily_dynaload_exception(lily_parse_state *parser, const char *name)
 {
-    lily_symtab *symtab = parser->symtab;
-    if (module == NULL)
-        module = symtab->builtin_module;
-
-    lily_class *cls = lily_find_class(parser->symtab, module, name);
-
-    if (cls == NULL) {
-        cls = (lily_class *)try_toplevel_dynaload(parser, module, name);
-        /* ...Just in case an instance needs to be printed. */
-        lily_vm_add_class(parser->vm, cls);
-    }
-
-    return cls;
+    lily_module_entry *m = parser->package_start->first_module;
+    return (lily_class *)try_toplevel_dynaload(parser, m, name);
 }
 
 /* Like find_run_dynaload, but only do the dynaload if the entity to be loaded

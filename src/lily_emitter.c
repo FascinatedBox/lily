@@ -4398,7 +4398,7 @@ void lily_prepare_main(lily_emit_state *emit)
          may happen at vm-time.
          If there is not enough space, then emit->code may be realloc'd, and
          thus invalidate __main__'s code...during vm exec. */
-    write_prep(emit, 16);
+    write_prep(emit, 32);
 
     write_1(emit, o_return_from_vm);
 

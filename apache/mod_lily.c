@@ -174,7 +174,7 @@ void lily_apache_server_write_literal(lily_vm_state *vm, uint16_t argc, uint16_t
     lily_value **vm_regs = vm->vm_regs;
     lily_value *write_reg = vm_regs[code[1]];
     if (write_reg->flags & VAL_IS_DEREFABLE)
-        lily_raise(vm->raiser, lily_ValueError,
+        lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
                 "The string passed must be a literal.\n");
 
     char *value = write_reg->value.string->string;
