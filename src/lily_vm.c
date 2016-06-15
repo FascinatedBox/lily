@@ -1398,7 +1398,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
 {
     lily_class *raised_cls = vm->raiser->exception_cls;
 
-	/* The entries are always forward. */
+    /* The catch entry pointer is always one spot ahead of the last entry that
+       was inserted. So this is safe. */
     if (vm->catch_chain->prev == NULL)
         return 0;
 
