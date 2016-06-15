@@ -34,7 +34,7 @@ typedef struct lily_raiser_ {
        be ignored when 0. */
     uint32_t line_adjust;
     int16_t error_code;
-    uint16_t have_error;
+    uint16_t pad;
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(void);
@@ -42,7 +42,6 @@ void lily_free_raiser(lily_raiser *);
 void lily_raise(lily_raiser *, int, const char *, ...);
 void lily_raise_prebuilt(lily_raiser *, int);
 void lily_raise_value(lily_raiser *, lily_class *, lily_value *, const char *);
-void lily_raise_prepared(lily_raiser *);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_jump_back(lily_raiser *);
 void lily_release_jump(lily_raiser *);
