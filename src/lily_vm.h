@@ -1,11 +1,8 @@
 #ifndef LILY_VM_H
 # define LILY_VM_H
 
-# include "lily_buffers.h"
 # include "lily_raiser.h"
 # include "lily_symtab.h"
-
-struct lily_base_seed_;
 
 typedef struct lily_call_frame_ {
     lily_function_val *function;
