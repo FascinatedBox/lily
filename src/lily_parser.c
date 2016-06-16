@@ -69,7 +69,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
-    parser->optarg_stack = lily_new_u16(4);
+    parser->optarg_stack = lily_new_buffer_u16(4);
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -129,7 +129,7 @@ void lily_free_parse_state(lily_parse_state *parser)
 
     lily_free_emit_state(parser->emit);
 
-    lily_free_buffer(parser->optarg_stack);
+    lily_free_buffer_u16(parser->optarg_stack);
 
     /* The path for the first module is always a shallow copy of the loadname
        that was sent. Make sure that doesn't get free'd. */
@@ -482,7 +482,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_token expect;
-    lily_u16_buffer *optarg_stack = parser->optarg_stack;
+    lily_buffer_u16 *optarg_stack = parser->optarg_stack;
     lily_class *cls = var->type->cls;
 
     if (cls == symtab->integer_class)
@@ -499,7 +499,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     NEED_CURRENT_TOK(tk_equal)
     NEED_NEXT_TOK(expect)
 
-    lily_u16_push(optarg_stack, var->reg_spot);
+    lily_u16_write_1(optarg_stack, var->reg_spot);
 
     if (cls == symtab->boolean_class) {
         int key_id = constant_by_name(lex->label);
@@ -508,8 +508,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
                     "'%s' is not a valid default value for a Boolean.\n",
                     lex->label);
 
-        lily_u16_push(optarg_stack, o_get_boolean);
-        lily_u16_push(optarg_stack, key_id == CONST_TRUE);
+        lily_u16_write_2(optarg_stack, o_get_boolean, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
         /* It's an enum. Allow any variant to be a default argument if that
@@ -527,22 +526,21 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.\n");
 
-        lily_u16_push(optarg_stack, o_get_readonly);
-        lily_u16_push(optarg_stack, variant->default_value->reg_spot);
+        lily_u16_write_2(optarg_stack, o_get_readonly,
+                variant->default_value->reg_spot);
     }
     else if (expect != tk_integer) {
-        lily_u16_push(optarg_stack, o_get_readonly);
-        lily_u16_push(optarg_stack, lex->last_literal->reg_spot);
+        lily_u16_write_2(optarg_stack, o_get_readonly,
+                lex->last_literal->reg_spot);
     }
     else if (lex->last_integer <= INT16_MAX &&
              lex->last_integer >= INT16_MIN) {
-        lily_u16_push(optarg_stack, o_get_integer);
-        lily_u16_push(optarg_stack, (uint16_t)lex->last_integer);
+        lily_u16_write_2(optarg_stack, o_get_integer,
+                (uint16_t)lex->last_integer);
     }
     else {
         lily_tie *tie = lily_get_integer_literal(symtab, lex->last_integer);
-        lily_u16_push(optarg_stack, o_get_readonly);
-        lily_u16_push(optarg_stack, tie->reg_spot);
+        lily_u16_write_2(optarg_stack, o_get_readonly, tie->reg_spot);
     }
 
     lily_lexer(lex);
