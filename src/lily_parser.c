@@ -3901,7 +3901,7 @@ static void parser_loop(lily_parse_state *parser)
                then there's literally nothing to do. Maybe the only thing that
                happened was some builtin dynaloading. Regardless, there's no
                point in revving up the vm to do nothing. */
-            if (parser->emit->code_pos != 0) {
+            if (lily_u16_pos(parser->emit->code) != 0) {
                 lily_register_classes(parser->symtab, parser->vm);
                 lily_prepare_main(parser->emit);
                 lily_vm_prep(parser->vm, parser->symtab);

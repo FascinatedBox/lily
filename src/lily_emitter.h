@@ -177,20 +177,13 @@ typedef struct {
 
     /* All code is written initially to here. When a function is done, a block
        of the appropriate size is copied from here into the function value. */
-    uint16_t *code;
+    lily_buffer_u16 *code;
 
     lily_sym **closed_syms;
 
     uint16_t *transform_table;
 
     uint64_t transform_size;
-
-    /* Where the next bit of code will be written to. It is a bug to write this
-       value into code. Use 'code_real_spot' instead. */
-    uint32_t code_pos;
-
-    /* How much space is allocated for code. */
-    uint32_t code_size;
 
     uint16_t call_values_pos;
 
