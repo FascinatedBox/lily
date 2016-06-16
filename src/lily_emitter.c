@@ -43,7 +43,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
     lily_emit_state *emit = lily_malloc(sizeof(lily_emit_state));
 
-    emit->patches = lily_new_u16(4);
+    emit->patches = lily_new_buffer_u16(4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->tm = lily_new_type_maker();
     emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->type,
@@ -128,7 +128,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
-    lily_free_buffer(emit->patches);
+    lily_free_buffer_u16(emit->patches);
     lily_free(emit->code);
     lily_free(emit);
 }
@@ -448,7 +448,7 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 
 /* This takes the stack of optional arguments and writes out the jumping
    necessary at the top. */
-void lily_emit_write_optargs(lily_emit_state *emit, lily_u16_buffer *optargs,
+void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         int start)
 {
     /* Optional arguments are sent in pairs of class id and some data (usually
@@ -572,7 +572,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     else
         offset = 5;
 
-    lily_u16_push(emit->patches, emit->code_pos - offset);
+    lily_u16_write_1(emit->patches, emit->code_pos - offset);
 }
 
 /* This is called before 'continue', 'break', or 'return' is written. It writes
@@ -638,7 +638,7 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 {
     write_3(emit, o_push_try, line_num, 0);
 
-    lily_u16_push(emit->patches, emit->code_pos - 1);
+    lily_u16_write_1(emit->patches, emit->code_pos - 1);
 }
 
 /* The parser has an 'except' clause and wants emitter to write code for it. */
@@ -652,7 +652,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
     write_6(emit, o_except, line_num, 0, (except_var != NULL),
             except_type->cls->id, except_sym->reg_spot);
 
-    lily_u16_push(emit->patches, emit->code_pos - 4);
+    lily_u16_write_1(emit->patches, emit->code_pos - 4);
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
@@ -661,7 +661,7 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
     write_4(emit, o_jump_if, jump_on, ast->result->reg_spot, 0);
 
-    lily_u16_push(emit->patches, emit->code_pos - 1);
+    lily_u16_write_1(emit->patches, emit->code_pos - 1);
 }
 
 /* This takes all patches that exist in the current block and makes them target
@@ -1064,7 +1064,7 @@ static void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
 {
     /* This is the most recent block, so add the patch to the top. */
     if (emit->block == block)
-        lily_u16_push(emit->patches, patch);
+        lily_u16_write_1(emit->patches, patch);
     else {
         lily_u16_inject(emit->patches, block->next->patch_start, patch);
 
@@ -1134,7 +1134,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         emit->code[patch] = emit->code_pos - emit->block->jump_offset;
     /* else it's a fake branch from a condition that was optimized out. */
 
-    lily_u16_push(emit->patches, save_jump);
+    lily_u16_write_1(emit->patches, save_jump);
     emit->block->block_type = new_type;
 }
 
@@ -1392,8 +1392,8 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
                     /* This is a jump to a future place. Don't patch this now,
                        because there may be more adjustments made between now
                        and the target location. Mark it down for later. */
-                    lily_u16_push(emit->patches, emit->code_pos + jump_pos);
-                    lily_u16_push(emit->patches, emit->code[emit->code_pos + jump_pos]);
+                    lily_u16_write_2(emit->patches, emit->code_pos + jump_pos,
+                            emit->code[emit->code_pos + jump_pos]);
                 }
                 else
                     emit->code[emit->code_pos + jump_pos] += jump_adjust;
@@ -1791,7 +1791,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         if (is_first_case == 0) {
             write_2(emit, o_jump, 0);
 
-            lily_u16_push(emit->patches, emit->code_pos - 1);
+            lily_u16_write_1(emit->patches, emit->code_pos - 1);
         }
 
         /* Patch the o_match_dispatch spot the corresponds with this class
@@ -4264,7 +4264,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
             /* Code that handles if/elif/else transitions expects each branch to
                write a jump. There's no easy way to tell it that none was made...
                so give it a fake jump. */
-            lily_u16_push(emit->patches, (uint16_t)-1);
+            lily_u16_write_1(emit->patches, (uint16_t)-1);
         }
         else
             write_2(emit, o_jump, emit->block->loop_start);
