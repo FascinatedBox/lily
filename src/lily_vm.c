@@ -614,8 +614,8 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
 
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
-    for (i = 0;i < code[4];i++) {
-        lily_value *get_reg = input_regs[code[6+i]];
+    for (i = 0;i < code[3];i++) {
+        lily_value *get_reg = input_regs[code[5+i]];
         lily_value *set_reg = target_regs[i];
 
         if (get_reg->flags & VAL_IS_DEREFABLE)
@@ -2235,8 +2235,11 @@ void lily_vm_execute(lily_vm_state *vm)
                         code_pos += 4;
                 }
                 break;
-            case o_function_call:
-            {
+            case o_foreign_call:
+                fval = vm->readonly_table[code[code_pos+2]]->value.function;
+
+                foreign_func_body: ;
+
                 if (vm->call_depth > 100)
                     lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
                             "Function call recursion limit reached.\n");
@@ -2244,92 +2247,110 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (current_frame->next == NULL)
                     add_call_frame(vm);
 
-                if (code[code_pos+2] == 1)
-                    fval = vm->readonly_table[code[code_pos+3]]->value.function;
-                else
-                    fval = vm_regs[code[code_pos+3]]->value.function;
-
-                i = code[code_pos+4];
+                i = code[code_pos+3];
                 current_frame->line_num = code[code_pos+1];
-                current_frame->code_pos = code_pos + i + 6;
+                current_frame->code_pos = code_pos + i + 5;
                 current_frame->upvalues = upvalues;
 
-                if (fval->code != NULL) {
-                    int register_need = fval->reg_count + num_registers;
+                lily_foreign_func func = fval->foreign_func;
 
-                    if (register_need > offset_max_registers) {
-                        grow_vm_registers(vm, register_need);
-                        /* Don't forget to update local info... */
-                        regs_from_main       = vm->regs_from_main;
-                        vm_regs              = vm->vm_regs;
-                        offset_max_registers = vm->offset_max_registers;
-                    }
+                current_frame = current_frame->next;
+                vm->call_chain = current_frame;
 
-                    /* Prepare the registers for what the function wants.
-                       Afterward, update num_registers since prep_registers
-                       changes it. */
-                    prep_registers(vm, fval, code+code_pos);
-                    num_registers = vm->num_registers;
+                current_frame->function = fval;
+                current_frame->line_num = -1;
+                current_frame->code = NULL;
+                current_frame->build_value = NULL;
+                current_frame->upvalues = NULL;
+                current_frame->regs_used = 1;
+                /* An offset from main does not have to be included, because
+                   foreign functions don't have code which can catch an
+                   exception. */
+                vm->call_depth++;
 
-                    current_frame->return_target = vm_regs[code[code_pos+5]];
-                    vm_regs = vm_regs + current_frame->regs_used;
-                    vm->vm_regs = vm_regs;
+                /* This is done so that the foreign call API can safely store an
+                   intermediate value without worrying about having to toggle
+                   this. There's no harm in this because there are always two
+                   spare registers alloted. */
+                vm->num_registers++;
 
-                    /* !PAST HERE TARGETS THE NEW FRAME! */
-
-                    current_frame = current_frame->next;
-                    vm->call_chain = current_frame;
-
-                    current_frame->function = fval;
-                    current_frame->regs_used = fval->reg_count;
-                    current_frame->code = fval->code;
-                    current_frame->upvalues = NULL;
-                    vm->call_depth++;
-                    code = fval->code;
-                    code_pos = 0;
-                    upvalues = NULL;
+                func(vm, i, code+code_pos+4);
+                /* This function may have called the vm, thus growing the number
+                   of registers. Copy over important data if that's happened. */
+                if (vm->offset_max_registers != offset_max_registers) {
+                    regs_from_main       = vm->regs_from_main;
+                    vm_regs              = vm->vm_regs;
+                    offset_max_registers = vm->offset_max_registers;
                 }
-                else {
-                    lily_foreign_func func = fval->foreign_func;
 
-                    current_frame = current_frame->next;
-                    vm->call_chain = current_frame;
+                vm->num_registers--;
+                current_frame = current_frame->prev;
+                vm->call_chain = current_frame;
 
-                    current_frame->function = fval;
-                    current_frame->line_num = -1;
-                    current_frame->code = NULL;
-                    current_frame->build_value = NULL;
-                    current_frame->upvalues = NULL;
-                    current_frame->regs_used = 1;
-                    /* An offset from main does not have to be included, because
-                       foreign functions don't have code which can catch an
-                       exception. */
-                    vm->call_depth++;
+                code_pos += 5 + i;
+                vm->call_depth--;
 
-                    /* This is done so that the foreign call API can safely
-                       store an intermediate value without worrying about having
-                       to toggle this. There's no harm in this because there are
-                       always two spare registers alloted. */
-                    vm->num_registers++;
+                break;
+            case o_native_call: {
+                fval = vm->readonly_table[code[code_pos+2]]->value.function;
 
-                    func(vm, i, code+code_pos+5);
-                    /* This function may have called the vm, thus growing the
-                       number of registers. Copy over important data if that's
-                       happened. */
-                    if (vm->offset_max_registers != offset_max_registers) {
-                        regs_from_main       = vm->regs_from_main;
-                        vm_regs              = vm->vm_regs;
-                        offset_max_registers = vm->offset_max_registers;
-                    }
+                native_func_body: ;
 
-                    vm->num_registers--;
-                    current_frame = current_frame->prev;
-                    vm->call_chain = current_frame;
+                if (vm->call_depth > 100)
+                    lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
+                            "Function call recursion limit reached.\n");
 
-                    code_pos += 6 + i;
-                    vm->call_depth--;
+                if (current_frame->next == NULL)
+                    add_call_frame(vm);
+
+                i = code[code_pos+3];
+                current_frame->line_num = code[code_pos+1];
+                current_frame->code_pos = code_pos + i + 5;
+                current_frame->upvalues = upvalues;
+
+                int register_need = fval->reg_count + num_registers;
+
+                if (register_need > offset_max_registers) {
+                    grow_vm_registers(vm, register_need);
+                    /* Don't forget to update local info... */
+                    regs_from_main       = vm->regs_from_main;
+                    vm_regs              = vm->vm_regs;
+                    offset_max_registers = vm->offset_max_registers;
                 }
+
+                /* Prepare the registers for what the function wants. Afterward,
+                   update num_registers since prep_registers changes it. */
+                prep_registers(vm, fval, code+code_pos);
+                num_registers = vm->num_registers;
+
+                current_frame->return_target = vm_regs[code[code_pos+4]];
+                vm_regs = vm_regs + current_frame->regs_used;
+                vm->vm_regs = vm_regs;
+
+                /* !PAST HERE TARGETS THE NEW FRAME! */
+
+                current_frame = current_frame->next;
+                vm->call_chain = current_frame;
+
+                current_frame->function = fval;
+                current_frame->regs_used = fval->reg_count;
+                current_frame->code = fval->code;
+                current_frame->upvalues = NULL;
+                vm->call_depth++;
+                code = fval->code;
+                code_pos = 0;
+                upvalues = NULL;
+
+                break;
             }
+            case o_function_call:
+                fval = vm_regs[code[code_pos+2]]->value.function;
+
+                if (fval->code != NULL)
+                    goto native_func_body;
+                else
+                    goto foreign_func_body;
+
                 break;
             case o_interpolation:
                 do_o_interpolation(vm, code+code_pos);
