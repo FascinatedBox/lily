@@ -2249,9 +2249,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 else
                     fval = vm_regs[code[code_pos+3]]->value.function;
 
-                int j = code[code_pos+4];
+                i = code[code_pos+4];
                 current_frame->line_num = code[code_pos+1];
-                current_frame->code_pos = code_pos + j + 6;
+                current_frame->code_pos = code_pos + i + 6;
                 current_frame->upvalues = upvalues;
 
                 if (fval->code != NULL) {
@@ -2312,7 +2312,7 @@ void lily_vm_execute(lily_vm_state *vm)
                        always two spare registers alloted. */
                     vm->num_registers++;
 
-                    func(vm, j, code+code_pos+5);
+                    func(vm, i, code+code_pos+5);
                     /* This function may have called the vm, thus growing the
                        number of registers. Copy over important data if that's
                        happened. */
@@ -2326,7 +2326,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     current_frame = current_frame->prev;
                     vm->call_chain = current_frame;
 
-                    code_pos += 6 + j;
+                    code_pos += 6 + i;
                     vm->call_depth--;
                 }
             }
