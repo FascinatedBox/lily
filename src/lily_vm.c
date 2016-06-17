@@ -1773,7 +1773,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else if (v->flags & VAL_IS_STRING)
         lily_msgbuf_add_fmt(msgbuf, "\"^E\"", v->value.string->string);
     else if (v->flags & VAL_IS_BYTESTRING)
-        lily_msgbuf_add_bytestring(msgbuf, v->value.string);
+        lily_msgbuf_add_bytestring(msgbuf, v->value.string->string,
+                v->value.string->size);
     else if (v->flags & VAL_IS_FUNCTION) {
         lily_function_val *fv = v->value.function;
         const char *builtin = "";

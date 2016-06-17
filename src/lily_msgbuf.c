@@ -107,9 +107,10 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
     msgbuf->pos += len;
 }
 
-void lily_msgbuf_add_bytestring(lily_msgbuf *msgbuf, lily_string_val *bytev)
+void lily_msgbuf_add_bytestring(lily_msgbuf *msgbuf, const char *str,
+        int length)
 {
-    add_escaped_sized(msgbuf, 1, bytev->string, bytev->size);
+    add_escaped_sized(msgbuf, 1, str, length);
 }
 
 /* Add a safe version of a \0 terminated string to a buffer. */
@@ -171,7 +172,7 @@ void lily_msgbuf_flush(lily_msgbuf *msgbuf)
     msgbuf->message[0] = '\0';
 }
 
-void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
+static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
     lily_msgbuf_add(msgbuf, type->cls->name);
 
@@ -195,7 +196,7 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
             int i;
 
             for (i = 1;i < type->subtype_count - 1;i++) {
-                lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
+                add_type(msgbuf, type->subtypes[i]);
                 lily_msgbuf_add(msgbuf, ", ");
             }
 
@@ -204,17 +205,17 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
                    actually 'list[type] ...'. This writes them as they would
                    have been written in (the extra ->subtypes[0] grabs the type
                    within the list. */
-                lily_msgbuf_add_type(msgbuf, type->subtypes[i]->subtypes[0]);
+                add_type(msgbuf, type->subtypes[i]->subtypes[0]);
                 lily_msgbuf_add(msgbuf, "...");
             }
             else
-                lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
+                add_type(msgbuf, type->subtypes[i]);
         }
         if (type->subtypes[0] == NULL)
             lily_msgbuf_add(msgbuf, ")");
         else {
             lily_msgbuf_add(msgbuf, " => ");
-            lily_msgbuf_add_type(msgbuf, type->subtypes[0]);
+            add_type(msgbuf, type->subtypes[0]);
             lily_msgbuf_add(msgbuf, ")");
         }
     }
@@ -228,7 +229,7 @@ void lily_msgbuf_add_type(lily_msgbuf *msgbuf, lily_type *type)
             lily_msgbuf_add(msgbuf, "[");
 
         for (i = 0;i < type->subtype_count;i++) {
-            lily_msgbuf_add_type(msgbuf, type->subtypes[i]);
+            add_type(msgbuf, type->subtypes[i]);
             if (i != (type->subtype_count - 1))
                 lily_msgbuf_add(msgbuf, ", ");
         }
@@ -333,7 +334,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             c = fmt[i];
             if (c == 'T') {
                 lily_type *type = va_arg(var_args, lily_type *);
-                lily_msgbuf_add_type(msgbuf, type);
+                add_type(msgbuf, type);
             }
             else if (c == 'I') {
                 int indent = va_arg(var_args, int);
