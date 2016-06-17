@@ -266,7 +266,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
     new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY;
+    new_var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
     new_var->reg_spot = emit->symtab->next_readonly_spot;
     emit->symtab->next_readonly_spot++;
 
@@ -332,7 +332,7 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
    a var. The var should always be an __import__ function. */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
-    lily_u16_write_6(emit->code, o_function_call, *emit->lex_linenum, 1,
+    lily_u16_write_5(emit->code, o_native_call, *emit->lex_linenum,
             var->reg_spot, 0, 0);
 }
 
@@ -1436,7 +1436,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
 
             /* Classes are slightly tricky. There are (up to) three different
                things that really want to be at the top of the code:
-               o_new_instance_*, o_setup_optargs, and o_function_call (in the
+               o_new_instance_*, o_setup_optargs, and o_native_call (in the
                event that there is an inherited new).
                Inject o_new_instance_mark, then patch that out of the header so
                that transform doesn't write it in again. */
@@ -3758,9 +3758,19 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     lily_sym *call_sym = cs->sym;
     lily_ast *ast = cs->ast;
 
-    lily_u16_write_5(emit->code, o_function_call, ast->line_num,
-            !!(call_sym->flags & VAR_IS_READONLY), call_sym->reg_spot,
-            cs->arg_count);
+    if (call_sym->flags & VAR_IS_READONLY) {
+        uint16_t opcode;
+        if (call_sym->flags & VAR_IS_FOREIGN_FUNC)
+            opcode = o_foreign_call;
+        else
+            opcode = o_native_call;
+
+        lily_u16_write_4(emit->code, opcode, ast->line_num,
+                call_sym->reg_spot, cs->arg_count);
+    }
+    else
+        lily_u16_write_4(emit->code, o_function_call, ast->line_num,
+                call_sym->reg_spot, cs->arg_count);
 
     lily_u16_write_1(emit->code, 0);
     /* Calls are unique, because the return is NOT the very last instruction

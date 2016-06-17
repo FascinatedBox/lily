@@ -642,6 +642,11 @@ typedef struct lily_package_link_ {
 /* Global vars need o_get_global/o_set_global opcodes to get/set them. */
 #define VAR_IS_GLOBAL           0x200
 
+/* This var holds a function that isn't defined in Lily. This is used by the
+   emitter to write specialized code when the target is known to be a foreign
+   function. */
+#define VAR_IS_FOREIGN_FUNC     0x400
+
 /* VAL_* flags are for lily_value. */
 
 

@@ -111,6 +111,10 @@ typedef enum {
        Emitter is responsible for ensuring the jump is valid. */
     o_jump_if,
 
+    o_foreign_call,
+
+    o_native_call,
+
     /* Function calls:
        * int lineno
        * reg(func *) input
