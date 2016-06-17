@@ -4,8 +4,6 @@
 # include <stdarg.h>
 # include <stdint.h>
 
-# include "lily_core_types.h"
-
 /* msgbuf is pretty simple: It's a sized buffer plus functions for safely adding
    data into that buffer. */
 typedef struct {
@@ -25,12 +23,9 @@ void lily_msgbuf_add_text_range(lily_msgbuf *, const char *, int, int);
 void lily_msgbuf_add_boolean(lily_msgbuf *, int);
 void lily_msgbuf_add_int(lily_msgbuf *, int);
 void lily_msgbuf_add_double(lily_msgbuf *, double);
-void lily_msgbuf_add_bytestring(lily_msgbuf *, lily_string_val *);
-void lily_msgbuf_add_type(lily_msgbuf *, struct lily_type_ *);
-void lily_msgbuf_add_value(lily_msgbuf *, lily_value *);
+void lily_msgbuf_add_bytestring(lily_msgbuf *,const char *, int);
 void lily_msgbuf_add_fmt(lily_msgbuf *, const char *, ...);
 void lily_msgbuf_add_fmt_va(lily_msgbuf *, const char *, va_list);
-void lily_msgbuf_escaped_add_str(lily_msgbuf *, const char *);
 void lily_msgbuf_grow(lily_msgbuf *);
 void lily_msgbuf_flush(lily_msgbuf *);
 
