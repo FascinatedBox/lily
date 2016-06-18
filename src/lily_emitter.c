@@ -1478,7 +1478,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
 
             if (closure_prop) {
                 lily_u16_write_5(emit->code, o_set_property, linenum,
-                        self_reg_spot, closure_prop->id, s->reg_spot);
+                        closure_prop->id, self_reg_spot, s->reg_spot);
             }
         }
     }
@@ -1497,7 +1497,7 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
             }
 
             lily_u16_write_5(emit->code, o_load_class_closure, f->line_num,
-                    emit->block->self->reg_spot, closure_prop->id, s->reg_spot);
+                    closure_prop->id, emit->block->self->reg_spot, s->reg_spot);
         }
         else {
             /* Lambdas don't get 'self' as their first argument: They instead
@@ -2278,7 +2278,7 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
     /* This function is only called on trees of type tree_oo_access which have
        a property into the ast's item. */
     lily_u16_write_5(emit->code, o_get_property, ast->line_num,
-            ast->arg_start->result->reg_spot, prop->id, result->reg_spot);
+            prop->id, ast->arg_start->result->reg_spot, result->reg_spot);
 
     ast->result = (lily_sym *)result;
 }
@@ -2330,7 +2330,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_u16_write_5(emit->code, o_set_property, ast->line_num,
-            ast->left->arg_start->result->reg_spot, ast->left->property->id,
+            ast->left->property->id, ast->left->arg_start->result->reg_spot,
             rhs->reg_spot);
 
     ast->result = rhs;
@@ -2531,7 +2531,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     lily_storage *result = get_storage(emit, ast->property->type);
 
     lily_u16_write_5(emit->code, o_get_property, ast->line_num,
-            emit->block->self->reg_spot, ast->property->id, result->reg_spot);
+            ast->property->id, emit->block->self->reg_spot, result->reg_spot);
 
     ast->result = (lily_sym *)result;
 }
@@ -2572,8 +2572,8 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     }
 
     lily_u16_write_5(emit->code, o_set_property, ast->line_num,
-            emit->block->self->reg_spot,
-            ast->left->property->id, rhs->reg_spot);
+            ast->left->property->id, emit->block->self->reg_spot,
+            rhs->reg_spot);
 
     ast->result = rhs;
 }
