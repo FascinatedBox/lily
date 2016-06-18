@@ -2479,9 +2479,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* loop_reg is an internal counter, while lhs_reg is an external
                    counter. rhs_reg is the stopping point. */
                 loop_reg = vm_regs[code[code_pos+2]];
-                lhs_reg  = vm_regs[code[code_pos+3]];
-                rhs_reg  = vm_regs[code[code_pos+4]];
-                step_reg = vm_regs[code[code_pos+5]];
+                rhs_reg  = vm_regs[code[code_pos+3]];
+                step_reg = vm_regs[code[code_pos+4]];
 
                 /* Note the use of the loop_reg. This makes it use the internal
                    counter, and thus prevent user assignments from damaging the loop. */
@@ -2496,12 +2495,13 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     /* Haven't reached the end yet, so bump the internal and
                        external values.*/
+                    lhs_reg = vm_regs[code[code_pos+6]];
                     lhs_reg->value.integer = for_temp;
                     loop_reg->value.integer = for_temp;
                     code_pos += 7;
                 }
                 else
-                    code_pos = code[code_pos+6];
+                    code_pos = code[code_pos+5];
 
                 break;
             case o_push_try:
