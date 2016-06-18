@@ -283,7 +283,9 @@ typedef enum {
 
     o_push_try,
     o_pop_try,
-    o_except,
+
+    o_except_ignore,
+    o_except_catch,
     o_raise,
 
     o_new_instance_basic,
