@@ -834,8 +834,8 @@ static void do_o_set_property(lily_vm_state *vm, uint16_t *code, int code_pos)
     int index;
     lily_instance_val *ival;
 
-    ival = vm_regs[code[code_pos + 2]]->value.instance;
-    index = code[code_pos + 3];
+    index = code[code_pos + 2];
+    ival = vm_regs[code[code_pos + 3]]->value.instance;
     rhs_reg = vm_regs[code[code_pos + 4]];
 
     lily_assign_value(ival->values[index], rhs_reg);
@@ -848,8 +848,8 @@ static void do_o_get_property(lily_vm_state *vm, uint16_t *code, int code_pos)
     int index;
     lily_instance_val *ival;
 
-    ival = vm_regs[code[code_pos + 2]]->value.instance;
-    index = code[code_pos + 3];
+    index = code[code_pos + 2];
+    ival = vm_regs[code[code_pos + 3]]->value.instance;
     result_reg = vm_regs[code[code_pos + 4]];
 
     lily_assign_value(result_reg, ival->values[index]);
