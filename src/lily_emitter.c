@@ -431,22 +431,18 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
        re-eval those expressions. */
     emit->block->loop_start = lily_u16_pos(emit->code);
 
-    lily_u16_write_6(emit->code, o_integer_for, line_num, target->reg_spot,
-            for_start->reg_spot, for_end->reg_spot, for_step->reg_spot);
-    lily_u16_write_1(emit->code, 0);
+    lily_u16_write_5(emit->code, o_integer_for, line_num, target->reg_spot,
+            for_end->reg_spot, for_step->reg_spot);
+
+    /* Might as well write the patch, since code is in just the right spot. */
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code));
+
+    lily_u16_write_2(emit->code, 0, for_start->reg_spot);
 
     if (target != (lily_sym *)user_loop_var) {
         lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
                 user_loop_var->reg_spot);
     }
-
-    int offset;
-    if (target == (lily_sym *)user_loop_var)
-        offset = 1;
-    else
-        offset = 5;
-
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - offset);
 }
 
 /* This is called before 'continue', 'break', or 'return' is written. It writes
