@@ -1483,27 +1483,26 @@ static int maybe_catch_exception(lily_vm_state *vm)
         stack_regs = vm->regs_from_main + catch_iter->offset_from_main;
 
         while (jump_location != 0) {
-            /* Instead of the vm hopping around to different o_except blocks,
-               this function visits them to find out which (if any) handles
-               the current exception.
-               Line numbers are:
-               +1: line number
-               +2: next jump
-               +3: unwrap this? (0 or 1)
-               +4: catch class
-               +5: unwrap target */
-            int next_location = code[jump_location + 2];
-            catch_reg = stack_regs[code[jump_location + 5]];
-            lily_class *catch_class = vm->class_table[code[jump_location + 4]];
+            lily_class *catch_class = vm->class_table[code[jump_location + 2]];
+
             if (lily_class_greater_eq(catch_class, raised_cls)) {
+                /* There are two exception opcodes:
+                 * o_except_catch will have #4 as a valid register, and is
+                   interested in having that register filled with data later on.
+                 * o_except_ignore doesn't care, so #4 is always 0. Having it as
+                   zero allows catch_reg do not need a condition check, since
+                   stack_regs[0] is always safe. */
+                do_unbox = code[jump_location] == o_except_catch;
+
+                catch_reg = stack_regs[code[jump_location + 4]];
+
                 /* ...So that execution resumes from within the except block. */
-                do_unbox = code[jump_location + 3];
-                jump_location += 6;
+                jump_location += 5;
                 match = 1;
                 break;
             }
-
-            jump_location = next_location;
+            else
+                jump_location = code[jump_location + 3];
         }
 
         if (match)

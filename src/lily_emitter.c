@@ -516,14 +516,25 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_var *except_var, int line_num)
 {
-    lily_sym *except_sym = (lily_sym *)except_var;
-    if (except_sym == NULL)
-        except_sym = (lily_sym *)get_storage(emit, except_type);
+    int spot = lily_u16_pos(emit->code) + 3;
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) + 3);
 
-    lily_u16_write_6(emit->code, o_except, line_num, 0, (except_var != NULL),
-            except_type->cls->id, except_sym->reg_spot);
+    if (except_var)
+        /* There's a register to dump the result into, so use this opcode to let
+           the vm know to copy down the information to this var. */
+        lily_u16_write_5(emit->code, o_except_catch, line_num,
+                except_var->type->cls->id, 0, except_var->reg_spot);
+    else
+        /* It doesn't matter, so the vm shouldn't bother fixing up the exception
+           stack. The last 0 is very important, because for both of these
+           opcodes, the vm grabs the register at spot. Without setting a zero,
+           the register would depend on the next opcode (or a condition check
+           would be needed). */
+        lily_u16_write_5(emit->code, o_except_ignore, line_num,
+                except_type->cls->id, 0, 0);
 
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 4);
+    if (emit->code->data[spot] != 0)
+        fprintf(stderr, "value of patch spot is %d.\n", emit->code->data[spot]);
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
@@ -1226,7 +1237,9 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
                 /* All of the o_except cases of a single try block are linked
                    together. The last one has a jump position of 0 to mean that
                    it's at the end. Make sure that is preserved. */
-                if (op != o_except && emit->code->data[pos + i + j] != 0) {
+                if (op != o_except_catch &&
+                    op != o_except_ignore &&
+                    emit->code->data[pos + i + j] != 0) {
                     jump_pos = i + j;
                     jump_end = jump_pos + 1;
                 }
