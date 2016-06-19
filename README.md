@@ -1,328 +1,78 @@
-The Lily Programming Language
-=====
+## Lily is a programming language focusing safety and expressiveness.
 
-[![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
-[![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
-
-Lily is a programming language that can be used for general-purpose programming (the default), or for server-side scripting (with code between `<?lily ... ?>` tags). Lily's design is inspired by a mixture of languages: C, F#, Haskell, Python, Ruby, and Rust. Lily's key features are:
-
-
-* __Static typing, interpreted speed__: Lily is an interpreted language, which means that there's no compiler that you'll be waiting on. A fast turn-around time encourages exploration of ideas, instead of tricks to get build times down. The `pre-commit-hook.py` script churns through over 2000+ lines spread over 200+ files, typically under 3 seconds.
-
-* __Safety first__: `Option` and `Either` are built-in and available everywhere.
-Lily's design is inspired by a mixture of languages: C, Python, Ruby, F#, Rust, and Haskell.
-
-* __The garbage collector__: Lily's garbage collector is able to take care of complicated resources, like those that the postgres module adds. Native Lily classes are taken care of automatically (no finalizers to worry about writing).
-
-* __Pay only for what you use__: Let's say you write a whole program, and never use the `Either` enum. You also make it without using, say, `Double.to_s`. Since Lily is statically-typed throughout, it's only going to dynamically allocate memory for built-in classes and methods if it truly needs to. By doing so, there's no time wasted allocating memory for things that are never used.
-
-
-In style, Lily is middle ground between functional concepts and object-oriented ideas. Lily's syntax is designed around both consistency and safety.
-
-Here are some samples of different parts of Lily:
-
-### Variable declaration
+Linux: [![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
+Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
 
 ```
-# This is a comment!
-var age = 5
-var a_string = "Hello"
-var numbers = [1, 2, 3]
-var suffixes = ["B" => 0, "KB" => 1000, "MB" => 1000000]
+print("Hello from Lily!")
 
-# Bytestrings allow escape codes above \127, and \000.
-var bytes = B"\255\253\001"
-
-# <[ ... ]> denotes a tuple.
-var record = <["abc", 123, 45.67]>
-```
-
-### Functions
-
-```
-define say_hello
+class Cat(name: String)
 {
-	print("Hello")
+    # The body of a class is the constructor.
+    # Properties start with @<name>
+    var @name = name
+    print($"My name is ^(@name).")
 }
 
-define return_ten: Integer
-{
-	return 10
-}
+# Types can almost always be inferred. This is List[Cat].
+var cats = [
+    Cat("Muffin"),
+    Cat.new("Fuzzy"),
+    "Snowball" |> Cat]
 
-define add(left: Integer, right: Integer): Integer
-{
-	return left + right
-}
+# a |> b is the same as b(a)
+cats.map{|c| c.name} |> print
 
-define subtract(left: Integer, right: Integer): Integer
-{
-	return left - right
-}
+# Option is either Some(A), or None.
+var maybe_cat: Option[Cat] = None
 
-# Functions are first-class values too.
-var math_ops = ["+" => add, "-" => subtract]
-
-math_ops["+"](10, 20) # 30
-
-define total(numbers: Integer...): Integer
-{
-	var result = 0
-	numbers.each{|n| result += n }
-	return result
-}
-
-total()        # 0 
-total(1, 2, 3) # 6
-```
-
-### Classes
-
-```
-# Default values must be either a constant or a literal value.
-class Account(initial: *Integer = 0)
-{
-    # Similar to Scala, the body of a class is the constructor.
-    # @<name> denotes class members.
-    var @balance = initial
-    define deposit(amount: Integer) {
-        @balance += amount
-    }
-    define withdraw(amount: Integer) {
-        @balance -= amount
-    }
-}
-
-var my_account = Account(100)
-my_account.withdraw(10)
-print($"Account balance is now ^(my_account.balance).")
-# my_account = Account() # uses default value of 0.
-
-class Point(x: Integer, y: Integer)
-{
-    var @x = x
-    var @y = y
-    define move2D(moveX: Integer, moveY: Integer)
-    {
-        @x += moveX
-        @y += moveY
-    }
-}
-
-class Point3D(x: Integer, y: Integer, z: Integer) < Point(x, y)
-{
-    var @z = z
-    define move3D(moveX: Integer, moveY: Integer, moveZ: Integer)
-    {
-        self.move2D(moveX, moveY)
-        # Alternatively: Point.move2D(self, moveX, moveY)
-        @z += moveZ
-    }
-}
-
-class CustomError(code: Integer, message: String) < Exception(message)
-{
-    var @code = code
+match maybe_cat: {
+    case Some(s): print("Cat.")
+    case None:    print("None")
 }
 ```
 
-### Blocks
+Lily brings ideas from a wide span of different programming languages. Influences include C, Python, Lua, Ruby, F#, Rust, and Haskell, in no particular order. The ideas come together to form a unique language, a salad like no other.
 
-```
-define bottles(count: *Integer = 10)
-{
-    # The { ... } allows for multiple expressions.
-    while count > 0: {
-        print(
-$"""
-^(count) bottles of beer on the wall,
-^(count) bottles of beer,
-take one down, pass it around,
-^(count - 1) bottles of beer on the wall!
-""")
-        count -= 1
-    }
-}
+### How Lily stands out from other languages:
 
-bottles(5)
-# bottles()   # Uses the default value of 10
+##### Statically-typed, but interpreted
 
-define run_all_tests: Tuple[Integer, Integer] {
-    var failed = 0
-    var passed = 0
+I thought, briefly, about using llvm and making a compiled language. But I wanted something different. One of the ways that Lily stands out is how fast the parser is. Take `test/pass/check_list_methods.lly` for example. It's about 200 lines, and it runs in .007 seconds on my machine, including parsing and execution. A big focus during Lily's development has been about not just execution speed, but also parsing speed.
 
-    define check(input: Boolean, message: String)
-    {
-        # The { here means that all branches allow multiple expressions.
-        # A single } then closes the if.
-        if input == true: {
-            passed += 1
-        else:
-            print($"A test has failed (^(message)).")
-            failed += 1
-        }
-    }
-    check(1 + 1 == 2, "Make sure basic math still works.")
+##### Refcounted first, garbage collected second
 
-    return <[passed, failed]>
-}
+Lily's preferred way of managing values is to use reference counting. Reference counting has the benefit of giving consistent, and more easily measured performance. There's no fear of the garbage collector suddenly leaping into action right at the worst time, or having to tune the collector to minimize pauses.
 
-define letter_for_score(score: Integer): String
-{
-    # Omitting the { means all branches allow only 1 expression.
-    if score > 90:
-        return "A"
-    elif score > 80:
-        return "B"
-    elif score > 70:
-        # print("Average") # Not allowed
-        return "C"
-    elif score > 60:
-        return "D"
-    else:
-        return "F"
-}
+Lily's garbage collection is both precise and simple. Any value that has a potential to become cyclical is given a tag. When enough tags accumulate, regardless of how many values are present, a mark + sweep action is performed.
 
-define show_for_loop
-{
-    for i in 0...5:
-        print($"i is ^(i).")
+Lily uses the type system to be smart and tag as little as it can. Types are grouped into three categories, to aid in that. The first category, simple, is never tagged. These are things like `Integer` and `String`. `Lists`, and `Hashes` can be speculative: They may or may not hold a tagged value, but are not tagged themselves. The third group, tagged, is reserved for values like `Dynamic` for which the contents can vary.
 
-    # print(i) # Not allowed: i not in this scope.
-    var i = 0
-    for i in 0...5:
-        print($"i is ^(i).")
+##### Embed, extend, and more
 
-    print(i) # 5
-}
+Similar to Lua, everything about the Lily interpreter is boxed into a state object. The interpreter never writes to global data, so it's safe to embed one or more Lily interpreters in your program.
 
-try: {
-    var v = 1
-    v = v / 0
-except DivisionByZeroError:
-    # print(v) # Not allowed: 'v' may or may not be valid.
-    print("Can't divide by zero!")
-}
-```
+Lily can also be extended. The postgres packages gives Lily access to a Postgres Conn object, as well as Postgres query result objects. These objects are provided to Lily in such a way that Lily can automatically close them up and free them for you, reducing the potential for leaks. More on that later.
 
-### Generics
+Lily can also be used as a templating language, with code between `<?lily ... ?>`. The mod_lily package can be used by Apache as a way to get Lily to serve web pages. This functionality is backed into the core of the language, and not bolted on.
 
-```
-define transform[A, B](value: A, func: Function(A => B)): B
-{
-    return func(value)
-}
+##### Dynaload
 
-transform(10, Integer.to_s) # "10"
+A common problem in many interpreted languages is how to make functions written in C (or something else) available to the language. When you write a program in Lily, regardless of how big it is, you probably won't use all of Lily's built-in functions. You probably won't use every method of every class, you may not use exceptions. This applies to packages like Postgres too: You probably won't use every function that's in there either.
 
-# This time, use a lambda. Lily will infer the type for 'a'.
-transform("  abc  ", {|a| a.trim().upper() })
+A better strategy, one might argue, is to load things only when they are absolutely needed. For example, if you load Postgres, but never use `Conn`, then `Conn` shouldn't be loaded. But, for example, once `postgres.Conn.open` is seen, then both `postgres.Conn` (the class) and `postgres.Conn.open` (the method) should be loaded and made available.
 
-define inplace_sort[A](input: List[A], cmp: Function(A, A => Boolean)): List[A]
-{
-    for i in 0...input.size() - 1: {
-        var j = i
-        while j > 0 && cmp(input[j - 1], input[j]): {
-            var temp = input[j]
-            input[j] = input[j - 1]
-            input[j - 1] = temp
-            j -= 1
-        }
-    }
-    return input
-}
+The above strategy is what Lily terms dynaloading, and it's woven deep into the parser. But on the outside, the dynaload table that is provided is a mostly-human-readable list of strings. 
 
-inplace_sort([1, 3, 5, 2, 4], {|a, b| a > b})
-# [1, 2, 3, 4, 5]
+##### Low, low memory use
 
-inplace_sort([1, 3, 5, 2, 4], {|a, b| a < b})
-# [5, 4, 3, 2, 1]
+A large focus in Lily's development has been in reducing memory use. Dynaloading allows the interpreter to only spend memory allocating information for the classes, the methods, the enums, and so on that you're going to actually use. Zero waste. A lot of time has also been spent in packing structures smartly to reduce their memory cost.
 
-inplace_sort([[1, 2], [1]], {|a, b| a.size() > b.size() })
-# [[1], [1, 2]]
-```
+Lily is able to boot within 6K of memory, and run a `print("Hello World")` in under 7K. The closest that any other interpreted language comes to this is Lua, which boots in 30K (over 4x as much!) Work is currently being done to bring Lily's memory usage even lower.
 
-### Enums
+##### Easy install
 
-```
-enum TerminalColor
-{
-    Black
-    Blue
-    Cyan
-    Green
-    Magenta
-    Red
-    White
-    Yellow
-}
-
-define terminal_example
-{
-    var foreground = Yellow
-
-    #[ Enums can have a variant as a default argument, so long as the variant
-       does not take arguments. ]#
-    define change_fg(new_fg: *TerminalColor = Black)
-    {
-        foreground = new_fg
-    }
-
-    define is_fg_yellow: Boolean
-    {
-        # 'match' is required to be exhaustive.
-        match foreground: {
-            case Black:   return false
-            case Blue:    return false
-            case Cyan:    return false
-            case Green:   return false
-            case Magenta: return false
-            case Red:     return false
-            case White:   return false
-            case Yellow:  return true
-        }
-        # Alternatively: return foreground == Yellow
-    }
-}
-
-#[
-Lily has a built-in enum called Option. It looks like this:
-
-enum Option[A] {
-    Some(A)
-    None
-
-    define is_some: Boolean {
-        match self: {
-            case Some(s): return true
-            case None:    return false
-        }
-    }
-
-    ...(and a few other methods)
-}
-]#
-
-define log_error(message: String, where: *Option[File] = None)
-{
-    var to_file = where.unwrap_or(stdin)
-    to_file.write(message)
-}
-```
-
-### import
-
-A module can be imported through, for example, `import server` or `import postgres as db`. The contents of the module are then accessible, but only through the name given (say, `server.httpmethod` or `db.Conn`. As of right now, all module imports are namespaced in some way (there is no `from x import *` equivalent right now).
-
-The code at the toplevel of a module is run once, and only for the first time the module is imported.
-
-Finally, files that are imported are only allowed to have code inside of them (no tags). This results in a strict separation between files that are code, and those that are not.
-
-Modules may be provided (ex: the apache bridge provides the server package), but they must still be explicitly loaded. Such behavior is intentional, as it prevents code from accidentally relying on some module being provided. It allows, for example, a `server.lly` file to be established as a fallback to allow a script to run locally.
-
-# Getting Started
-
-You'll need a compiler that supports C11 (gcc and clang have been tested), and cmake. To build Lily, all you have to do is:
+Do you have a modern C compiler? How about CMake? Then you've got everything you need. Building Lily is as easy as:
 
 ```
 cmake .
@@ -330,4 +80,12 @@ make
 make install
 ```
 
-By default, the apache and postgres modules won't build, just in case you don't have the headers for them. To enable Apache, add `-DWITH_APACHE=on`. For postgres, add `-DWITH_POSTGRES=on`.
+There are additional options for building the interpreter, which are documented on Lily's website.
+
+##### Learn more?
+
+[Here's a more complete tutorial that goes through the various language features.](jesserayadkins.github.io/lily/tutorial.html)
+
+Want to try Lily before you download it? [Here's a sandbox provided by compiling Lily with emscripten](jesserayadkins.github.io/lily/sandbox.html)
+
+Documentation for built-ins can be found [here](jesserayadkins.github.io/lily/reference.html)
