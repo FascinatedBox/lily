@@ -1494,7 +1494,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
                    stack_regs[0] is always safe. */
                 do_unbox = code[jump_location] == o_except_catch;
 
-                catch_reg = stack_regs[code[jump_location + 4]];
+                catch_reg = stack_regs[code[jump_location + 3]];
 
                 /* ...So that execution resumes from within the except block. */
                 jump_location += 5;
@@ -1502,7 +1502,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
                 break;
             }
             else
-                jump_location = code[jump_location + 3];
+                jump_location = code[jump_location + 4];
         }
 
         if (match)
@@ -2495,13 +2495,13 @@ void lily_vm_execute(lily_vm_state *vm)
 
                     /* Haven't reached the end yet, so bump the internal and
                        external values.*/
-                    lhs_reg = vm_regs[code[code_pos+6]];
+                    lhs_reg = vm_regs[code[code_pos+5]];
                     lhs_reg->value.integer = for_temp;
                     loop_reg->value.integer = for_temp;
                     code_pos += 7;
                 }
                 else
-                    code_pos = code[code_pos+5];
+                    code_pos = code[code_pos+6];
 
                 break;
             case o_push_try:
