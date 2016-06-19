@@ -84,8 +84,8 @@ There are additional options for building the interpreter, which are documented 
 
 ##### Learn more?
 
-[Here's a more complete tutorial that goes through the various language features.](jesserayadkins.github.io/lily/tutorial.html)
+[Here's a more complete tutorial that goes through the various language features.](https://jesserayadkins.github.io/lily/tutorial.html)
 
-Want to try Lily before you download it? [Here's a sandbox provided by compiling Lily with emscripten](jesserayadkins.github.io/lily/sandbox.html)
+Want to try Lily before you download it? [Here's a sandbox provided by compiling Lily with emscripten](https://jesserayadkins.github.io/lily/sandbox.html)
 
-Documentation for built-ins can be found [here](jesserayadkins.github.io/lily/reference.html)
+Documentation for built-ins can be found [here](https://jesserayadkins.github.io/lily/reference.html)
