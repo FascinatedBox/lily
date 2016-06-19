@@ -434,10 +434,9 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     lily_u16_write_5(emit->code, o_integer_for, line_num, target->reg_spot,
             for_end->reg_spot, for_step->reg_spot);
 
-    /* Might as well write the patch, since code is in just the right spot. */
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code));
+    lily_u16_write_2(emit->code, for_start->reg_spot, 0);
 
-    lily_u16_write_2(emit->code, 0, for_start->reg_spot);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
     if (target != (lily_sym *)user_loop_var) {
         lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
@@ -512,14 +511,11 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_var *except_var, int line_num)
 {
-    int spot = lily_u16_pos(emit->code) + 3;
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) + 3);
-
     if (except_var)
         /* There's a register to dump the result into, so use this opcode to let
            the vm know to copy down the information to this var. */
         lily_u16_write_5(emit->code, o_except_catch, line_num,
-                except_var->type->cls->id, 0, except_var->reg_spot);
+                except_var->type->cls->id, except_var->reg_spot, 0);
     else
         /* It doesn't matter, so the vm shouldn't bother fixing up the exception
            stack. The last 0 is very important, because for both of these
@@ -529,8 +525,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_u16_write_5(emit->code, o_except_ignore, line_num,
                 except_type->cls->id, 0, 0);
 
-    if (emit->code->data[spot] != 0)
-        fprintf(stderr, "value of patch spot is %d.\n", emit->code->data[spot]);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
