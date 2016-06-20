@@ -39,7 +39,7 @@ const int opcode_table[][8] = {
     {o_build_enum,            6, C_LINENO,         C_INT_VAL,        C_INT_VAL,       C_COUNT,         C_COUNT_LIST, C_OUTPUT},
     {o_dynamic_cast,          4, C_LINENO,         C_INT_VAL,        C_INPUT,         C_OUTPUT,        -1,           -1},
     {o_integer_for,           6, C_LINENO,         C_INPUT,          C_INPUT,         C_INPUT,         C_OUTPUT,     C_JUMP},
-    {o_for_setup,             6, C_LINENO,         C_INPUT,          C_INPUT,         C_INPUT,         C_INPUT,      C_INT_VAL},
+    {o_for_setup,             5, C_LINENO,         C_INPUT,          C_INPUT,         C_INPUT,         C_INPUT,      -1},
     {o_get_item,              4, C_LINENO,         C_INPUT,          C_INPUT,         C_OUTPUT,        -1,           -1},
     {o_set_item,              4, C_LINENO,         C_INPUT,          C_INPUT,         C_INPUT,         -1,           -1},
     {o_get_global,            3, C_LINENO,         C_GLOBAL_INPUT,   C_OUTPUT         -1,              -1,           -1},
