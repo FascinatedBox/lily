@@ -7,6 +7,7 @@
 #include "lily_emit_table.h"
 #include "lily_parser.h"
 #include "lily_opcode_table.h"
+#include "lily_code_iter.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
@@ -49,6 +50,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->type,
             symtab->question_class->type);
     emit->code = lily_new_buffer_u16(32);
+    emit->closure_aux_code = NULL;
+
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
@@ -126,6 +129,8 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free(emit->call_values);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
+    if (emit->closure_aux_code)
+        lily_free_buffer_u16(emit->closure_aux_code);
     lily_free_buffer_u16(emit->patches);
     lily_free_buffer_u16(emit->code);
     lily_free(emit);
@@ -1151,7 +1156,7 @@ static void maybe_close_over_class_self(lily_emit_state *emit)
     emit->function_block->make_closure = 1;
 }
 
-
+#if 0
 /* This function walks over the opcodes from 'pos' to 'end'. As it walks through
    opcodes, the values are put into three relative groups:
    * This is a local read (needs to be shadowed over).
@@ -1311,6 +1316,7 @@ static void transform_code(lily_emit_state *emit, lily_function_val *f,
 
     emit->patches->pos = patch_start;
 }
+#endif
 
 /* The parameters of a function are never assigned anywhere. As a result, the
    values won't have a shadowing assignment. If any parameters are closed over,
@@ -1334,7 +1340,7 @@ static void ensure_params_in_closure(lily_emit_state *emit)
             var_iter->reg_spot < local_count) {
             lily_type *real_type = real_param_types[var_iter->reg_spot + 1];
             if (real_type->cls != optarg_class)
-                lily_u16_write_4(emit->code, o_set_upvalue,
+                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
                         function_var->line_num,
                         find_closed_sym_spot(emit, (lily_sym *)var_iter),
                         var_iter->reg_spot);
@@ -1358,7 +1364,6 @@ static void setup_transform_table(lily_emit_state *emit)
            sizeof(uint16_t) * emit->function_block->next_reg_spot);
 
     int i;
-
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *s = (lily_sym *)emit->closed_syms[i];
         if (s && s->item_kind == ITEM_TYPE_VAR) {
@@ -1380,9 +1385,9 @@ static void setup_transform_table(lily_emit_state *emit)
    function to make new cells. */
 static void write_closure_zap(lily_emit_state *emit)
 {
-    int spot = lily_u16_pos(emit->code);
+    int spot = lily_u16_pos(emit->closure_aux_code);
     /* This will be patched with the length later. */
-    lily_u16_write_1(emit->code, 0);
+    lily_u16_write_1(emit->closure_aux_code, 0);
     int count = 0;
 
     int i;
@@ -1391,13 +1396,13 @@ static void write_closure_zap(lily_emit_state *emit)
         if (sym && sym->item_kind == ITEM_TYPE_VAR) {
             lily_var *var = (lily_var *)sym;
             if (var->function_depth == emit->function_depth) {
-                lily_u16_write_1(emit->code, i);
+                lily_u16_write_1(emit->closure_aux_code, i);
                 count++;
             }
         }
     }
 
-    lily_u16_insert(emit->code, spot, count);
+    lily_u16_insert(emit->closure_aux_code, spot, count);
 }
 
 /* This function is called to transform the currently available segment of code
@@ -1410,53 +1415,45 @@ static void write_closure_zap(lily_emit_state *emit)
    * Depending on where this function is (is it a class method, a nested
      function, or the top-most function), a different opcode will get written
      that will become the top of the transformed code. */
-static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
-        int *new_start, int *new_size)
+static void perform_closure_transform(lily_emit_state *emit,
+        lily_block *function_block, lily_function_val *f)
 {
-    int transform_start = emit->block->code_start;
-    int start = transform_start;
-    int end = lily_u16_pos(emit->code);
-    *new_start = lily_u16_pos(emit->code);
-    int save_code_pos = lily_u16_pos(emit->code);
+    if (emit->closure_aux_code == NULL)
+        emit->closure_aux_code = lily_new_buffer_u16(8);
+    else
+        lily_u16_set_pos(emit->closure_aux_code, 0);
 
-    /* To make sure that the closure information is not unexpectedly destroyed,
-       it is stored into a register. get_unique_storage is custom made for this,
-       and will grab a storage that nothing else is using. */
+    int start = emit->block->code_start;
+
+    /* Hold closure information in a storage so it isn't lost. Make sure it's
+       a closure not currently used, for the same reason. */
     lily_storage *s = get_unique_storage(emit, emit->block->function_var->type);
 
     int closed_self_spot = find_closed_self_spot(emit);
-    /* Take note that the new code start will be the current code end + 1.
-       Anything written from here until the code transform will appear at the
-       top of the transformed code. */
+
     if (emit->function_depth == 2) {
-        /* A depth of 2 means that this is the very top function. It will need
-           to create the closure that gets passed down. This is really easy. */
-        lily_u16_write_4(emit->code, o_create_closure, f->line_num,
+        /* Depth of 2 means that this needs to make the backing closure. */
+        lily_u16_write_4(emit->closure_aux_code, o_create_closure, f->line_num,
                 emit->closed_pos, s->reg_spot);
 
         if (emit->block->block_type == block_class) {
+            /* It's a fair guess that, yeah, this needs a tag. */
             emit->block->class_entry->flags |= CLS_GC_TAGGED;
-
-            /* Classes are slightly tricky. There are (up to) three different
-               things that really want to be at the top of the code:
-               o_new_instance_*, o_setup_optargs, and o_native_call (in the
-               event that there is an inherited new).
-               Inject o_new_instance_mark, then patch that out of the header so
-               that transform doesn't write it in again. */
 
             uint16_t linenum = emit->code->data[start + 1];
             uint16_t cls_id = emit->code->data[start + 2];
             uint16_t self_reg_spot = emit->code->data[start + 3];
-            /* The class is holding a Function, so it's getting tagged. */
-            lily_u16_write_4(emit->code, o_new_instance_tagged, linenum, cls_id,
-                    self_reg_spot);
 
-            transform_start += 4;
+            /* Write this directly and skip over it to prevent transforming. */
+            lily_u16_write_4(emit->closure_aux_code, o_new_instance_tagged,
+                    linenum, cls_id, self_reg_spot);
+
+            start += 4;
 
             /* The closure only needs to hold self if there was a lambda that
                used self (because the lambda doesn't automatically get self). */
             if (closed_self_spot != -1) {
-                lily_u16_write_4(emit->code, o_set_upvalue, linenum,
+                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue, linenum,
                         closed_self_spot, self_reg_spot);
                 /* This class is going out of scope, so the 'self' it contians
                    is going away as well. */
@@ -1471,8 +1468,8 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
             closure_prop = lily_find_property(cls, "*closure");
 
             if (closure_prop) {
-                lily_u16_write_5(emit->code, o_set_property, linenum,
-                        closure_prop->id, self_reg_spot, s->reg_spot);
+                lily_u16_write_5(emit->closure_aux_code, o_set_property,
+                        linenum, closure_prop->id, self_reg_spot, s->reg_spot);
             }
         }
     }
@@ -1490,28 +1487,31 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
                     s->type, "*closure", 0);
             }
 
-            lily_u16_write_5(emit->code, o_load_class_closure, f->line_num,
-                    closure_prop->id, emit->block->self->reg_spot, s->reg_spot);
+            lily_u16_write_5(emit->closure_aux_code, o_load_class_closure,
+                    f->line_num, closure_prop->id, emit->block->self->reg_spot,
+                    s->reg_spot);
         }
         else {
             /* Lambdas don't get 'self' as their first argument: They instead
                need to pull it out of the closure.
                Lambdas do not need to write in a zap for their level of
                upvalues because they cannot be called by name twice. */
-            lily_u16_write_4(emit->code, o_load_closure, f->line_num, 0,
-                    s->reg_spot);
+            lily_u16_write_4(emit->closure_aux_code, o_load_closure,
+                    f->line_num, 0, s->reg_spot);
 
             lily_storage *lambda_self = emit->block->self;
             if (lambda_self) {
-                lily_u16_write_4(emit->code, o_get_upvalue, *emit->lex_linenum,
-                        closed_self_spot, lambda_self->reg_spot);
+                lily_u16_write_4(emit->closure_aux_code, o_get_upvalue,
+                        *emit->lex_linenum, closed_self_spot,
+                        lambda_self->reg_spot);
             }
         }
     }
     else {
-        lily_u16_write_2(emit->code, o_load_closure, (uint16_t)f->line_num);
+        lily_u16_write_2(emit->closure_aux_code, o_load_closure,
+                (uint16_t)f->line_num);
         write_closure_zap(emit);
-        lily_u16_write_1(emit->code, s->reg_spot);
+        lily_u16_write_1(emit->closure_aux_code, s->reg_spot);
     }
 
     ensure_params_in_closure(emit);
@@ -1526,14 +1526,129 @@ static void closure_code_transform(lily_emit_state *emit, lily_function_val *f,
     if (emit->block->patch_start != emit->patches->pos)
         write_block_patches(emit, s->reg_spot);
 
-    /* Since jumps reference absolute locations, they need to be adjusted
-       for however much bytecode is written as a header. The
-       transform - code_start is so that class closures are accounted for as
-       well (since the o_new_instance is rewritten). */
-    int starting_adjust = (lily_u16_pos(emit->code) - save_code_pos) +
-            (transform_start - emit->block->code_start);
-    transform_code(emit, f, transform_start, end, starting_adjust);
-    *new_size = lily_u16_pos(emit->code) - *new_start;
+    lily_code_iter ci;
+    lily_ci_init(&ci, emit->code->data, start, lily_u16_pos(emit->code));
+    uint16_t *transform_table = emit->transform_table;
+
+/* If the input at the position given by 'x' is within the closure, then write
+   an instruction to fetch it from the closure first. This makes sure that if
+   this local is in the closure, it needs to read from the closure first so that
+   any assignment to it as an upvalue will be reflected. */
+#define MAYBE_TRANSFORM_INPUT(x, op) \
+{ \
+    uint16_t id = transform_table[buffer[x]]; \
+    if (id != (uint16_t)-1) { \
+        lily_u16_write_4(emit->closure_aux_code, op, f->line_num, id, \
+                buffer[x]); \
+    } \
+}
+
+    uint16_t patch_start = lily_u16_pos(emit->patches);
+
+    while (lily_ci_next(&ci)) {
+        uint16_t *buffer = ci.buffer;
+        int i;
+        int pos = ci.offset + 1;
+        int output_start = 0;
+        lily_opcode op = buffer[ci.offset];
+
+        pos += ci.line;
+
+        if (ci.special_1) {
+            switch (op) {
+                case o_function_call:
+                case o_match_dispatch:
+                case o_variant_decompose:
+                    MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
+                default:
+                    pos += ci.special_1;
+                    break;
+            }
+        }
+
+        pos += ci.counter_2;
+
+        if (ci.inputs_3) {
+            for (i = 0;i < ci.inputs_3;i++) {
+                MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
+            }
+
+            pos += ci.inputs_3;
+        }
+
+        if (ci.special_4) {
+            switch (op) {
+                case o_create_function:
+                case o_load_class_closure:
+                case o_load_closure:
+                    pos += ci.special_4;
+                    break;
+                default:
+                    lily_raise(emit->raiser, lily_Error,
+                            "Special value #4 for opcode %d not handled.\n",
+                            op);
+            }
+        }
+
+        if (ci.outputs_5) {
+            output_start = pos;
+            pos += ci.outputs_5;
+        }
+
+        if (ci.special_6) {
+            lily_opcode op = buffer[ci.offset];
+            switch (op) {
+                case o_native_call:
+                case o_foreign_call:
+                case o_function_call:
+                    for (i = 0;i < ci.special_6;i++) {
+                        MAYBE_TRANSFORM_INPUT(pos + i, o_get_upvalue)
+                    }
+                    pos += ci.special_6;
+                    break;
+                default:
+                    lily_raise(emit->raiser, lily_Error,
+                            "Special value #6 for opcode %d not handled.\n",
+                            op);
+            }
+        }
+
+        for (i = patch_start;i != lily_u16_pos(emit->patches);i += 2) {
+            int where = emit->patches->data[i + 1];
+            if (ci.offset == where) {
+                emit->closure_aux_code->data[emit->patches->data[i]] =
+                        lily_u16_pos(emit->closure_aux_code);
+            }
+        }
+
+        int stop = ci.offset + ci.round_total - ci.jumps_7;
+        for (i = ci.offset;i < stop;i++)
+            lily_u16_write_1(emit->closure_aux_code, buffer[i]);
+
+        if (ci.jumps_7) {
+            int i;
+            for (i = 0;i < ci.jumps_7;i++) {
+                /* Bug: This is broken for jumps that go backward. I'll fix that
+                   by making jumps relative, later on. */
+                lily_u16_write_1(emit->closure_aux_code, 0);
+
+                /* Insert a pairing of the position just written, and the target
+                   of that position. The target is, for the time being, assumed
+                   to be forward. */
+                lily_u16_write_2(emit->patches,
+                        lily_u16_pos(emit->closure_aux_code) - 1,
+                        buffer[stop + i] + start);
+            }
+        }
+
+        if (ci.outputs_5) {
+            int stop = output_start + ci.outputs_5;
+
+            for (i = output_start;i < stop;i++) {
+                MAYBE_TRANSFORM_INPUT(i, o_set_upvalue)
+            }
+        }
+    }
 }
 
 /* This makes the function value that will be needed by the current code
@@ -1555,17 +1670,23 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     lily_tie_function(emit->symtab, var, f);
 
     int code_start, code_size;
+    uint16_t *source, *code;
 
     if (function_block->make_closure == 0) {
         code_start = emit->block->code_start;
         code_size = lily_u16_pos(emit->code) - emit->block->code_start;
+        source = emit->code->data;
     }
     else {
-        closure_code_transform(emit, f, &code_start, &code_size);
+        perform_closure_transform(emit, function_block, f);
+
+        code_start = 0;
+        code_size = lily_u16_pos(emit->closure_aux_code);
+        source = emit->closure_aux_code->data;
     }
 
-    uint16_t *code = lily_malloc((code_size + 1) * sizeof(uint16_t));
-    memcpy(code, emit->code->data + code_start, sizeof(uint16_t) * code_size);
+    code = lily_malloc((code_size + 1) * sizeof(uint16_t));
+    memcpy(code, source + code_start, sizeof(uint16_t) * code_size);
 
     f->code = code;
     return f;
