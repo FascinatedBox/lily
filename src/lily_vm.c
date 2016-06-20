@@ -2594,7 +2594,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         lhs_reg->value.integer - step_reg->value.integer;
                 loop_reg->flags = VAL_IS_INTEGER;
 
-                code_pos += 7;
+                code_pos += 6;
                 break;
             case o_return_from_vm:
                 lily_release_jump(vm->raiser);
