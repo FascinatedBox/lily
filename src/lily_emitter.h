@@ -179,6 +179,9 @@ typedef struct {
        of the appropriate size is copied from here into the function value. */
     lily_buffer_u16 *code;
 
+    /* This is a buffer used when transforming code to build a closure. */
+    lily_buffer_u16 *closure_aux_code;
+
     lily_sym **closed_syms;
 
     uint16_t *transform_table;
