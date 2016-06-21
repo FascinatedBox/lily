@@ -373,39 +373,53 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
         lexer->line_num = 0;
 }
 
+#define READER_PREP \
+int bufsize, i; \
+lily_lex_state *lexer = entry->lexer; \
+char *input_buffer = lexer->input_buffer; \
+ \
+bufsize = lexer->input_size; \
+i = 0; \
+int utf8_check = 0;
+
+#define READER_GROW_CHECK \
+if ((i + 2) == bufsize) { \
+    lily_grow_lexer_buffers(lexer); \
+    input_buffer = lexer->input_buffer; \
+    bufsize = lexer->input_size; \
+}
+
+#define READER_EOF_CHECK(to_check, against) \
+if (to_check == against) { \
+    input_buffer[i] = '\n'; \
+    input_buffer[i + 1] = '\0'; \
+    /* Bump the line number, unless only EOF or \0 was seen. */ \
+    lexer->line_num += !!i; \
+    break; \
+}
+
+#define READER_END \
+if (utf8_check && lily_is_valid_utf8(input_buffer) == 0) { \
+    lily_raise(lexer->raiser, lily_Error, \
+            "Invalid utf-8 sequence on line %d.\n", lexer->line_num); \
+} \
+ \
+return i;
+
 /** file and str reading functions **/
 
 /* This reads a line from a file-backed entry. */
 static int read_file_line(lily_lex_entry *entry)
 {
-    int bufsize, ch, i;
-    lily_lex_state *lexer = entry->lexer;
-    char *input_buffer = lexer->input_buffer;
+    READER_PREP
     FILE *input_file = (FILE *)entry->source;
-
-    bufsize = lexer->input_size;
-    i = 0;
-    int utf8_check = 0;
+    int ch;
 
     while (1) {
         ch = fgetc(input_file);
 
-        if ((i + 2) == bufsize) {
-            lily_grow_lexer_buffers(lexer);
-            /* Do this in case the realloc decides to use a different block
-               instead of growing what it had. */
-            input_buffer = lexer->input_buffer;
-            bufsize = lexer->input_size;
-        }
-
-        if (ch == EOF) {
-            input_buffer[i] = '\n';
-            input_buffer[i + 1] = '\0';
-            /* i is zero only if just EOF has been seen. Only bump the line
-               count the first time. */
-            lexer->line_num += !!i;
-            break;
-        }
+        READER_GROW_CHECK
+        READER_EOF_CHECK(ch, EOF)
 
         input_buffer[i] = ch;
 
@@ -429,43 +443,18 @@ static int read_file_line(lily_lex_entry *entry)
         i++;
     }
 
-    if (utf8_check && lily_is_valid_utf8(input_buffer) == 0) {
-        lily_raise(lexer->raiser, lily_Error,
-                "Invalid utf-8 sequence on line %d.\n", lexer->line_num);
-    }
-
-    return i;
+    READER_END
 }
 
 /* This reads a line from a string-backed entry. */
 static int read_str_line(lily_lex_entry *entry)
 {
-    int bufsize, i, utf8_check;
-    lily_lex_state *lexer = entry->lexer;
-    char *input_buffer = lexer->input_buffer;
+    READER_PREP
     char *ch = (char *)entry->source;
 
-    bufsize = lexer->input_size;
-    i = 0;
-    utf8_check = 0;
-
     while (1) {
-        if ((i + 2) == bufsize) {
-            lily_grow_lexer_buffers(lexer);
-            /* Do this in case the realloc decides to use a different block
-               instead of growing what it had. */
-            input_buffer = lexer->input_buffer;
-            bufsize = lexer->input_size;
-        }
-
-        if (*ch == '\0') {
-            input_buffer[i] = '\n';
-            input_buffer[i + 1] = '\0';
-            /* i is zero only if just \0 has been seen. Only bump the line count
-               the first time. */
-            lexer->line_num += !!i;
-            break;
-        }
+        READER_GROW_CHECK
+        READER_EOF_CHECK(*ch, '\0')
 
         input_buffer[i] = *ch;
 
@@ -492,14 +481,14 @@ static int read_str_line(lily_lex_entry *entry)
         ch++;
     }
 
-    if (utf8_check && lily_is_valid_utf8(input_buffer) == 0) {
-        lily_raise(lexer->raiser, lily_Error,
-                "Invalid utf-8 sequence on line %d.\n", lexer->line_num);
-    }
-
     entry->source = ch;
-    return i;
+    READER_END
 }
+
+#undef READER_PREP
+#undef READER_GROW_CHECK
+#undef READER_EOF_CHECK
+#undef READER_END
 
 static int read_line(lily_lex_state *lex)
 {
