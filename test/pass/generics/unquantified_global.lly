@@ -4,11 +4,9 @@
 
 [1, 2, 3].each(print)
 
-use sys
-
 # This time, the item of interest is Option.is_none
 # The List, post map, is List[Option[Integer]]
 # Option.is_none is Option[A] => Boolean
 # Make sure this one works too.
 
-sys.argv.map(String.parse_i).reject(Option.is_none)
+var v = ["1"].map(String.parse_i).reject(Option.is_none)
