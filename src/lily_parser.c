@@ -1212,16 +1212,30 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
             cls->id = SYM_CLASS_EXCEPTION;
         }
         else if (strstr(name, "Error")) {
-            lily_class *e = lily_find_class(parser->symtab, m, "Exception");
-            if (e == NULL)
-                e = (lily_class *)try_toplevel_dynaload(parser, m, "Exception");
+            /* This is a little hacky. It loads exceptions at specific indexes
+               so that the vm can check by id if the exception exists to raise
+               it during runtime.
+               For the moment, exceptions are strictly after Exception, and all
+               have Error as their suffix. */
+            int ex_index = dyna_index - 1;
+            while (1) {
+                const char *ex_str = m->dynaload_table[ex_index] +
+                        DYNA_NAME_OFFSET;
+
+                if (*ex_str == 'E' && strcmp("Exception", ex_str) == 0)
+                    break;
+
+                ex_index--;
+            }
+
+            ex_index++;
 
             /* This depends on a three things:
              * Dynaloaded exceptions always come after Exception.
              * Their ids also come after Exception.
              * Space is reserved for their ids, in order. */
             parser->symtab->next_class_id--;
-            cls->id = SYM_CLASS_EXCEPTION + (cls->dyna_start - e->dyna_start);
+            cls->id = SYM_CLASS_EXCEPTION + (cls->dyna_start - ex_index);
         }
     }
 

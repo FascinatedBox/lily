@@ -1,0 +1,14 @@
+# This test ensures that Exception dynaloads correctly.
+
+var v = IndexError("")
+var v2 = ValueError("")
+
+define f
+{
+    raise ValueError("")
+}
+
+try:
+    f()
+except Exception:
+    0
