@@ -171,7 +171,7 @@ static void either_optionize_left_right(lily_vm_state *vm, uint16_t *code, int e
         lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result_reg,
                 lily_new_some(lily_copy_value(iv->values[0])));
     else
-        lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_get_none(vm));
+        lily_move_enum_f(MOVE_SHARED_NO_GC, result_reg, lily_get_none(vm));
 }
 
 void lily_either_left(lily_vm_state *vm, uint16_t argc, uint16_t *code)
