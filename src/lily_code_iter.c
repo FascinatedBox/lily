@@ -279,7 +279,7 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 4;
             break;
         case o_create_function:
-            iter->inputs_3 = 1;
+            iter->special_1 = 1;
             iter->special_4 = 1;
             iter->outputs_5 = 1;
 

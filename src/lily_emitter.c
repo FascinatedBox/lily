@@ -1087,8 +1087,6 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
 {
     lily_u16_write_4(emit->code, o_create_function, 0, func_sym->reg_spot,
             target->reg_spot);
-    inject_patch_into_block(emit, emit->function_block,
-            lily_u16_pos(emit->code) - 3);
     emit->function_block->make_closure = 1;
 }
 
@@ -1357,12 +1355,6 @@ static void perform_closure_transform(lily_emit_state *emit,
     if (emit->function_depth == 2)
         emit->closed_pos = 0;
 
-    /* Closures create patches when they write o_create_function. Fix those
-       patches with the spot of the closure (since they need to draw closure
-       info but won't have it just yet). */
-    if (emit->block->patch_start != emit->patches->pos)
-        write_block_patches(emit, s->reg_spot);
-
     lily_code_iter ci;
     lily_ci_init(&ci, emit->code->data, start, lily_u16_pos(emit->code));
     uint16_t *transform_table = emit->transform_table;
@@ -1393,6 +1385,13 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         if (ci.special_1) {
             switch (op) {
+                case o_create_function:
+                    /* The first special of this opcode is the register of the
+                       closure, which was only recently made. Fix the buffer,
+                       and the write that happens later will do the rest. */
+                    buffer[pos] = s->reg_spot;
+                    pos++;
+                    break;
                 case o_function_call:
                 case o_match_dispatch:
                 case o_variant_decompose:
