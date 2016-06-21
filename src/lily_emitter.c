@@ -864,11 +864,14 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     if (block->block_type != block_file) {
         emit->function_depth--;
 
-        /* If this block needed to make a closure, then mark the upward block
-           as that too. This ensures that necessary closure data is not
-           forgotten. But...don't do that to __main__ or things get weird. */
-        if (block->make_closure == 1 && emit->function_block->prev != NULL)
+        /* If this function needs a closure, then make sure the parent will end
+           up making a closure to pass downward. But don't bubble that flag up
+           to __import__ or __main__, which are never closures. */
+        if (block->make_closure == 1 &&
+            last_func_block->block_type != block_file &&
+            last_func_block->prev != NULL) {
             emit->function_block->make_closure = 1;
+        }
     }
 }
 
