@@ -1382,9 +1382,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
             class_name = func_val->class_name;
         }
 
-        /* +15 accounts for there maybe being a separator, the non-%s text, and
-           maybe having a line number. */
-        int str_size = strlen(class_name) + strlen(path) + strlen(line) + 16;
+        /* +9 accounts for the non-format part, and a terminator. */
+        int str_size = strlen(path) + strlen(line) + strlen(class_name) +
+                strlen(name) + strlen(separator) + 9;
 
         char *str = lily_malloc(str_size);
         sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
