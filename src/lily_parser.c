@@ -2589,7 +2589,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         lily_tm_add(parser->tm, parser->class_self_type);
         i++;
 
-        lily_var *self_var = lily_emit_new_scoped_var(parser->emit,
+        lily_var *self_var = lily_emit_new_local_var(parser->emit,
                 parser->class_self_type, "(self)");
         define_var->parent = parser->class_self_type->cls;
         define_var->flags |= modifiers;
@@ -2663,7 +2663,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_emit_new_scoped_var(parser->emit, cls->type, name);
+    lily_var *var = lily_emit_new_local_var(parser->emit, cls->type, name);
 
     lily_emit_eval_expr_to_var(parser->emit, ap, var);
 
@@ -2883,7 +2883,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
-        loop_var = lily_emit_new_scoped_var(parser->emit, cls->type,
+        loop_var = lily_emit_new_local_var(parser->emit, cls->type,
                 lex->label);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
@@ -3013,7 +3013,7 @@ static void except_handler(lily_parse_state *parser, int multi)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.\n", exception_var->name);
 
-        exception_var = lily_emit_new_scoped_var(parser->emit,
+        exception_var = lily_emit_new_local_var(parser->emit,
                 except_type, lex->label);
 
         lily_lexer(lex);
