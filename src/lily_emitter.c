@@ -225,6 +225,22 @@ void lily_emit_enter_main(lily_emit_state *emit)
     and for storages too. Different kinds of vars will have different needs,
     however, and thus have different entry functions. **/
 
+/* This is used to get a new var. The var that is allocated will NEVER be a
+   global, regardless of function depth. Use this to allocate intermediates,
+   since imports need to store their locals within themselves. */
+lily_var *lily_emit_new_local_var(lily_emit_state *emit, lily_type *type,
+        const char *name)
+{
+    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
+
+    new_var->reg_spot = emit->function_block->next_reg_spot;
+    emit->function_block->next_reg_spot++;
+
+    new_var->function_depth = emit->function_depth;
+
+    return new_var;
+}
+
 /* This is the most commonly-used function for creating a new var. This creates
    a new var that will be destroyed when the current block is complete. */
 lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
@@ -405,7 +421,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     /* If no step is provided, provide '1' as a step. */
     if (for_step == NULL) {
-        for_step = (lily_sym *)lily_emit_new_scoped_var(emit, cls->type,
+        for_step = (lily_sym *)lily_emit_new_local_var(emit, cls->type,
                 "(for step)");
         lily_u16_write_4(emit->code, o_get_integer, line_num, 1,
                 for_step->reg_spot);
@@ -413,11 +429,10 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     lily_sym *target;
     if (user_loop_var->function_depth == 1)
-        /* DO NOT use a storage here. Global operations are equivalent to local
-           operations when in just __main__. Besides, a storage would almost
-           certainly be repurposed. At the writing of this comment, there is no
-           way to lock a storage to prevent other uses of it. */
-        target = (lily_sym *)lily_emit_new_scoped_var(emit, cls->type,
+        /* Don't use a storage, or it will be used again for something else.
+           Don't use a scoped var here or up above either, or this will fail
+           when within __import__ functions. */
+        target = (lily_sym *)lily_emit_new_local_var(emit, cls->type,
                 "(for temp)");
     else
         target = (lily_sym *)user_loop_var;

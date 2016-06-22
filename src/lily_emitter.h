@@ -296,6 +296,7 @@ void lily_emit_update_function_block(lily_emit_state *, lily_type *,
 void lily_prepare_main(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
 
+lily_var *lily_emit_new_local_var(lily_emit_state *, lily_type *, const char *);
 lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *,
         const char *);
 lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *,
