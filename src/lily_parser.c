@@ -8,8 +8,8 @@
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
 #include "lily_pkg_sys.h"
-#include "lily_membuf.h"
 #include "lily_opcode.h"
+#include "lily_string_pile.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
@@ -62,7 +62,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->exception_type = NULL;
-    parser->ast_pool = lily_new_ast_pool();
+    parser->first_expr = lily_new_expr_state();
     parser->symtab = lily_new_symtab(parser->package_start);
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
@@ -70,6 +70,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
     parser->optarg_stack = lily_new_buffer_u16(4);
+    parser->expr = parser->first_expr;
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -81,7 +82,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
-    parser->ast_pool->lex_linenum = &parser->lex->line_num;
+    parser->expr->lex_linenum = &parser->lex->line_num;
 
     parser->emit->lex_linenum = &parser->lex->line_num;
     parser->emit->symtab = parser->symtab;
@@ -89,7 +90,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
 
     parser->lex->symtab = parser->symtab;
 
-    parser->ast_membuf = parser->emit->ast_membuf;
+    parser->expr_strings = parser->emit->expr_strings;
 
     /* All code that isn't within a function is grouped together in a special
        function called __main__. Since that function is the first kind of a
@@ -119,7 +120,9 @@ void lily_free_parse_state(lily_parse_state *parser)
 {
     lily_free_raiser(parser->raiser);
 
-    lily_free_ast_pool(parser->ast_pool);
+    /* The root expression is the only one that is allocated (the rest are on
+       stack and thus vanish when the stack is gone). */
+    lily_free_expr_state(parser->first_expr);
 
     lily_free_vm(parser->vm);
 
@@ -877,6 +880,9 @@ static lily_class *parse_enum(lily_parse_state *, int);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
 
+static void init_expr_state(lily_parse_state *, lily_expr_state *);
+static void fini_expr_state(lily_parse_state *);
+
 /* [0...1] of a dynaload are used for header information. */
 #define DYNA_NAME_OFFSET 2
 
@@ -1239,11 +1245,11 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
         }
     }
 
-    lily_ast_pool *ap = parser->ast_pool;
+    lily_expr_state es;
 
-    lily_ast_freeze_state(ap);
+    init_expr_state(parser, &es);
     parse_class_body(parser, cls);
-    lily_ast_thaw_state(ap);
+    fini_expr_state(parser);
 
     lily_pop_lex_entry(parser->lex);
 
@@ -1477,6 +1483,42 @@ static int keyword_by_name(const char *name)
    has already been pulled up. */
 #define ST_FORWARD              0x8
 
+/* This initializes a new expression state based off of the currently existing
+   one, and makes the new one the current one. No allocation is done. */
+static void init_expr_state(lily_parse_state *parser, lily_expr_state *new_es)
+{
+    lily_expr_state *old_es = parser->expr;
+
+    new_es->pile_start = old_es->pile_current;
+    new_es->pile_current = old_es->pile_current;
+    new_es->first_tree = old_es->next_available;
+    new_es->next_available = old_es->next_available;
+    new_es->prev = old_es;
+    new_es->lex_linenum = &parser->lex->line_num;
+    new_es->save_chain = old_es->save_chain;
+    new_es->save_depth = 0;
+    new_es->root = NULL;
+    new_es->active = NULL;
+
+    parser->expr = new_es;
+}
+
+/* Rewind the expression state for another run. This only needs to be done when
+   calling expression_raw. Most functions will call the toplevel expression
+   instead, which does this before expression_raw for them. */
+static void rewind_expr_state(lily_expr_state *es)
+{
+    es->root = NULL;
+    es->active = NULL;
+    es->next_available = es->first_tree;
+}
+
+/* Finishes the current expression state, restoring the last one. */
+static void fini_expr_state(lily_parse_state *parser)
+{
+    parser->expr = parser->expr->prev;
+}
+
 /* This handles when a class is seen within an expression. Any import qualifier
    has already been scanned and is unimportant. The key here is to figure out if
    this is `<class>.member` or `<class>()`. The first is a static access, while
@@ -1496,7 +1538,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Cannot implicitly use %s.new (it doesn't exist).\n", cls->name);
 
-        lily_ast_push_static_func(parser->ast_pool, (lily_var *)target);
+        lily_es_push_static_func(parser->expr, (lily_var *)target);
         *state = ST_FORWARD | ST_WANT_OPERATOR;
         return;
     }
@@ -1521,7 +1563,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
         item = NULL;
 
     if (item) {
-        lily_ast_push_static_func(parser->ast_pool, (lily_var *)item);
+        lily_es_push_static_func(parser->expr, (lily_var *)item);
         return;
     }
 
@@ -1529,7 +1571,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     if (cls->flags & CLS_IS_ENUM) {
         lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
         if (variant) {
-            lily_ast_push_variant(parser->ast_pool, variant);
+            lily_es_push_variant(parser->expr, variant);
             return;
         }
     }
@@ -1543,7 +1585,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
    not have a type associated with them (and be just a lily_value). */
 static void push_literal(lily_parse_state *parser, lily_tie *literal)
 {
-    lily_ast_push_literal(parser->ast_pool, literal->type, literal->reg_spot);
+    lily_es_push_literal(parser->expr, literal->type, literal->reg_spot);
 }
 
 /* This takes an id that corresponds to some id in the table of magic constants.
@@ -1551,7 +1593,7 @@ static void push_literal(lily_parse_state *parser, lily_tie *literal)
    value to the current ast pool. */
 static void push_constant(lily_parse_state *parser, int key_id)
 {
-    lily_ast_pool *ap = parser->ast_pool;
+    lily_expr_state *es = parser->expr;
     lily_symtab *symtab = parser->symtab;
     lily_tie *tie;
 
@@ -1561,7 +1603,7 @@ static void push_constant(lily_parse_state *parser, int key_id)
         int num = parser->lex->line_num;
 
         if ((int16_t)num <= INT16_MAX)
-            lily_ast_push_integer(ap, (int16_t)num);
+            lily_es_push_integer(es, (int16_t)num);
         else {
             tie = lily_get_integer_literal(symtab, parser->lex->line_num);
             push_literal(parser, tie);
@@ -1576,11 +1618,11 @@ static void push_constant(lily_parse_state *parser, int key_id)
         push_literal(parser, tie);
     }
     else if (key_id == CONST_TRUE)
-        lily_ast_push_boolean(ap, 1);
+        lily_es_push_boolean(es, 1);
     else if (key_id == CONST_FALSE)
-        lily_ast_push_boolean(ap, 0);
+        lily_es_push_boolean(es, 0);
     else if (key_id == CONST_SELF)
-        lily_ast_push_self(ap);
+        lily_es_push_self(es);
 }
 
 /* This is called when a class (enum or regular) is found. This determines how
@@ -1590,7 +1632,7 @@ static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
     if (cls->flags & CLS_IS_VARIANT) {
-        lily_ast_push_variant(parser->ast_pool, (lily_variant_class *)cls);
+        lily_es_push_variant(parser->expr, (lily_variant_class *)cls);
         *state = ST_WANT_OPERATOR;
     }
     else
@@ -1605,9 +1647,9 @@ static void push_maybe_method(lily_parse_state *parser, lily_var *func)
     if (func->parent &&
         parser->class_self_type &&
         lily_class_greater_eq(func->parent, parser->class_self_type->cls))
-        lily_ast_push_method(parser->ast_pool, func);
+        lily_es_push_method(parser->expr, func);
     else
-        lily_ast_push_defined_func(parser->ast_pool, func);
+        lily_es_push_defined_func(parser->expr, func);
 }
 
 /* This function takes a var and determines what kind of tree to put it into.
@@ -1625,11 +1667,11 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
     else if (var->flags & VAR_IS_READONLY)
         push_maybe_method(parser, var);
     else if (var->flags & VAR_IS_GLOBAL)
-        lily_ast_push_global_var(parser->ast_pool, var);
+        lily_es_push_global_var(parser->expr, var);
     else if (var->function_depth == parser->emit->function_depth)
-        lily_ast_push_local_var(parser->ast_pool, var);
+        lily_es_push_local_var(parser->expr, var);
     else
-        lily_ast_push_upvalue(parser->ast_pool, var);
+        lily_es_push_upvalue(parser->expr, var);
 
     *state = ST_WANT_OPERATOR;
 }
@@ -1638,14 +1680,14 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
 static void dispatch_dynaload(lily_parse_state *parser, lily_item *dl_item,
         int *state)
 {
-    lily_ast_pool *ap = parser->ast_pool;
+    lily_expr_state *es = parser->expr;
 
     if (dl_item->item_kind == ITEM_TYPE_VAR) {
         lily_var *v = (lily_var *)dl_item;
         if (v->flags & VAR_IS_READONLY)
-            lily_ast_push_defined_func(ap, v);
+            lily_es_push_defined_func(es, v);
         else
-            lily_ast_push_global_var(ap, v);
+            lily_es_push_global_var(es, v);
 
         *state = ST_WANT_OPERATOR;
     }
@@ -1691,7 +1733,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         var = lily_find_method(parser->class_self_type->cls, lex->label);
 
         if (var) {
-            lily_ast_push_method(parser->ast_pool, var);
+            lily_es_push_method(parser->expr, var);
             *state = ST_WANT_OPERATOR;
             return;
         }
@@ -1727,7 +1769,7 @@ static void expression_property(lily_parse_state *parser, int *state)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Property %s is not in class %s.\n", name, current_class->name);
 
-    lily_ast_push_property(parser->ast_pool, prop);
+    lily_es_push_property(parser->expr, prop);
     *state = ST_WANT_OPERATOR;
 }
 
@@ -1736,7 +1778,7 @@ static void expression_property(lily_parse_state *parser, int *state)
 static void check_valid_close_tok(lily_parse_state *parser)
 {
     lily_token token = parser->lex->token;
-    lily_ast *ast = lily_ast_get_saved_tree(parser->ast_pool);
+    lily_ast *ast = lily_es_get_saved_tree(parser->expr);
     lily_tree_type tt = ast->tree_type;
     lily_token expect;
 
@@ -1773,7 +1815,7 @@ static int maybe_digit_fixup(lily_parse_state *parser)
         else
             expr_op = parser_tok_table[tk_plus].expr_op;
 
-        lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
+        lily_es_push_binary_op(parser->expr, (lily_expr_op)expr_op);
         /* Call this to force a rescan from the proper starting point, yielding
            a proper new token. */
         lily_lexer_digit_rescan(lex);
@@ -1781,7 +1823,7 @@ static int maybe_digit_fixup(lily_parse_state *parser)
         if (lex->token == tk_integer) {
             if (lex->last_integer <= INT16_MAX &&
                 lex->last_integer >= INT16_MIN)
-                lily_ast_push_integer(parser->ast_pool, (int16_t)
+                lily_es_push_integer(parser->expr, (int16_t)
                         lex->last_integer);
             else {
                 lily_tie *tie = lily_get_integer_literal(parser->symtab,
@@ -1814,36 +1856,39 @@ static void expression_literal(lily_parse_state *parser, int *state)
         /* Disable multiple strings without dividing commas. */
         *state = ST_BAD_TOKEN;
     else if (token == tk_dollar_string) {
-        lily_ast_pool *ap = parser->ast_pool;
+        lily_expr_state *es = parser->expr;
         lily_symtab *symtab = parser->symtab;
         lily_msgbuf *msgbuf = parser->msgbuf;
         lily_msgbuf_flush(msgbuf);
         lily_msgbuf_add(msgbuf, lex->label);
         char *scan_string = msgbuf->message;
 
-        lily_ast_enter_tree(ap, tree_interp_top);
+        lily_es_enter_tree(es, tree_interp_top);
         do {
             int is_interp = lily_scan_interpolation_piece(lex, &scan_string);
             if (is_interp) {
-                int mem_spot = lily_membuf_add(parser->ast_membuf, lex->label);
-                lily_ast_push_text(ap, tree_interp_block,
-                        lex->expand_start_line, mem_spot);
+                int pile_spot = es->pile_current;
+                lily_sp_insert(parser->expr_strings, lex->label,
+                        &es->pile_current);
+
+                lily_es_push_text(es, tree_interp_block,
+                        lex->expand_start_line, pile_spot);
             }
             else {
                 lily_tie *tie = lily_get_string_literal(symtab, lex->label);
                 push_literal(parser, tie);
             }
-            lily_ast_collect_arg(parser->ast_pool);
+            lily_es_collect_arg(parser->expr);
         } while (*scan_string != '\0');
 
-        lily_ast_leave_tree(ap);
+        lily_es_leave_tree(es);
         lily_msgbuf_flush(msgbuf);
         *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_integer) {
         if (lex->last_integer <= INT16_MAX &&
             lex->last_integer >= INT16_MIN)
-            lily_ast_push_integer(parser->ast_pool, (int16_t)
+            lily_es_push_integer(parser->expr, (int16_t)
                     lex->last_integer);
         else {
             lily_tie *tie = lily_get_integer_literal(parser->symtab,
@@ -1867,11 +1912,11 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
 
-    if (parser->ast_pool->active == NULL)
+    if (parser->expr->active == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
                     "Expected a value, not ','.\n");
 
-    lily_ast *last_tree = lily_ast_get_saved_tree(parser->ast_pool);
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
     if (lex->token == tk_comma) {
         if (last_tree->tree_type == tree_hash &&
             (last_tree->args_collected & 0x1) == 0)
@@ -1892,7 +1937,7 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
                         "Unexpected token '%s'.\n", tokname(tk_arrow));
     }
 
-    lily_ast_collect_arg(parser->ast_pool);
+    lily_es_collect_arg(parser->expr);
     *state = ST_DEMAND_VALUE;
 }
 
@@ -1904,9 +1949,9 @@ static void expression_unary(lily_parse_state *parser, int *state)
     else {
         lily_token token = parser->lex->token;
         if (token == tk_minus)
-            lily_ast_push_unary_op(parser->ast_pool, expr_unary_minus);
+            lily_es_push_unary_op(parser->expr, expr_unary_minus);
         else if (token == tk_not)
-            lily_ast_push_unary_op(parser->ast_pool, expr_unary_not);
+            lily_es_push_unary_op(parser->expr, expr_unary_not);
 
         *state = ST_DEMAND_VALUE;
     }
@@ -1920,8 +1965,10 @@ static void expression_dot(lily_parse_state *parser, int *state)
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
     if (lex->token == tk_word) {
-        int spot = lily_membuf_add(parser->ast_membuf, lex->label);
-        lily_ast_push_text(parser->ast_pool, tree_oo_access, 0, spot);
+        lily_expr_state *es = parser->expr;
+        int spot = es->pile_current;
+        lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
+        lily_es_push_text(es, tree_oo_access, 0, spot);
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_lexer(lex);
@@ -1940,8 +1987,8 @@ static void expression_dot(lily_parse_state *parser, int *state)
         lily_tm_add(parser->tm, bare_type);
         lily_type *cast_type = lily_tm_make(parser->tm, 0, option_cls, 1);
 
-        lily_ast_enter_typecast(parser->ast_pool, cast_type);
-        lily_ast_leave_tree(parser->ast_pool);
+        lily_es_enter_typecast(parser->expr, cast_type);
+        lily_es_leave_tree(parser->expr);
     }
 
     *state = ST_WANT_OPERATOR;
@@ -1962,7 +2009,7 @@ static void expression_raw(lily_parse_state *parser, int state)
         int expr_op = parser_tok_table[lex->token].expr_op;
         if (lex->token == tk_word) {
             if (state == ST_WANT_OPERATOR)
-                if (parser->ast_pool->save_depth == 0)
+                if (parser->expr->save_depth == 0)
                     state = ST_DONE;
                 else
                     state = ST_BAD_TOKEN;
@@ -1971,7 +2018,7 @@ static void expression_raw(lily_parse_state *parser, int state)
         }
         else if (expr_op != -1) {
             if (state == ST_WANT_OPERATOR) {
-                lily_ast_push_binary_op(parser->ast_pool, (lily_expr_op)expr_op);
+                lily_es_push_binary_op(parser->expr, (lily_expr_op)expr_op);
                 state = ST_DEMAND_VALUE;
             }
             else if (lex->token == tk_minus)
@@ -1981,21 +2028,21 @@ static void expression_raw(lily_parse_state *parser, int state)
         }
         else if (lex->token == tk_left_parenth) {
             if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
-                lily_ast_enter_tree(parser->ast_pool, tree_parenth);
+                lily_es_enter_tree(parser->expr, tree_parenth);
                 state = ST_DEMAND_VALUE;
             }
             else if (state == ST_WANT_OPERATOR) {
-                lily_ast_enter_tree(parser->ast_pool, tree_call);
+                lily_es_enter_tree(parser->expr, tree_call);
                 state = ST_WANT_VALUE;
             }
         }
         else if (lex->token == tk_left_bracket) {
             if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
-                lily_ast_enter_tree(parser->ast_pool, tree_list);
+                lily_es_enter_tree(parser->expr, tree_list);
                 state = ST_WANT_VALUE;
             }
             else if (state == ST_WANT_OPERATOR) {
-                lily_ast_enter_tree(parser->ast_pool, tree_subscript);
+                lily_es_enter_tree(parser->expr, tree_subscript);
                 state = ST_DEMAND_VALUE;
             }
         }
@@ -2009,7 +2056,7 @@ static void expression_raw(lily_parse_state *parser, int state)
             if (state == ST_WANT_OPERATOR)
                 state = ST_DONE;
             else {
-                lily_ast_enter_tree(parser->ast_pool, tree_tuple);
+                lily_es_enter_tree(parser->expr, tree_tuple);
                 state = ST_WANT_VALUE;
             }
         }
@@ -2017,15 +2064,15 @@ static void expression_raw(lily_parse_state *parser, int state)
                  lex->token == tk_right_bracket ||
                  lex->token == tk_tuple_close) {
             if (state == ST_DEMAND_VALUE ||
-                parser->ast_pool->save_depth == 0) {
+                parser->expr->save_depth == 0) {
                 state = ST_BAD_TOKEN;
             }
             else {
                 check_valid_close_tok(parser);
-                lily_ast_leave_tree(parser->ast_pool);
+                lily_es_leave_tree(parser->expr);
                 if (maybe_end_on_parenth == 0 ||
                     lex->token != tk_right_parenth ||
-                    parser->ast_pool->save_depth != 0)
+                    parser->expr->save_depth != 0)
                     state = ST_WANT_OPERATOR;
                 else {
                     state = ST_DONE;
@@ -2047,21 +2094,23 @@ static void expression_raw(lily_parse_state *parser, int state)
                goes before the 'val_or_end' case, because lambdas are starting
                tokens. */
             if (state == ST_WANT_OPERATOR)
-                lily_ast_enter_tree(parser->ast_pool, tree_call);
+                lily_es_enter_tree(parser->expr, tree_call);
 
-            int spot = lily_membuf_add(parser->ast_membuf, lex->label);
-            lily_ast_push_text(parser->ast_pool, tree_lambda,
-                    lex->expand_start_line, spot);
+            lily_expr_state *es = parser->expr;
+            int spot = es->pile_current;
+            lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
+            lily_es_push_text(parser->expr, tree_lambda, lex->expand_start_line,
+                    spot);
 
             if (state == ST_WANT_OPERATOR)
-                lily_ast_leave_tree(parser->ast_pool);
+                lily_es_leave_tree(parser->expr);
 
             state = ST_WANT_OPERATOR;
         }
         /* Make sure this case stays lower down. If it doesn't, then certain
            expressions will exit before they really should. */
         else if (parser_tok_table[lex->token].val_or_end &&
-                 parser->ast_pool->save_depth == 0 &&
+                 parser->expr->save_depth == 0 &&
                  state == ST_WANT_OPERATOR)
             state = ST_DONE;
         else if (lex->token == tk_comma || lex->token == tk_arrow)
@@ -2085,6 +2134,7 @@ static void expression_raw(lily_parse_state *parser, int state)
    callers do), then use this. If you don't, then call it raw. */
 static void expression(lily_parse_state *parser)
 {
+    rewind_expr_state(parser->expr);
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
@@ -2141,15 +2191,15 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             if (lex->token != tk_right_curly)
                 /* This expression isn't the last one, so it can do whatever it
                    wants to do. */
-                lily_emit_eval_expr(parser->emit, parser->ast_pool);
+                lily_emit_eval_expr(parser->emit, parser->expr);
             else {
                 /* The last expression is what will be returned, so give it the
                    inference information of the lambda. */
-                lily_emit_eval_lambda_body(parser->emit, parser->ast_pool,
+                lily_emit_eval_lambda_body(parser->emit, parser->expr,
                         expect_type);
 
-                if (parser->ast_pool->root->result)
-                    result_type = parser->ast_pool->root->result->type;
+                if (parser->expr->root->result)
+                    result_type = parser->expr->root->result->type;
 
                 break;
             }
@@ -2227,11 +2277,12 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Empty interpolation block.\n");
 
-    lily_ast_freeze_state(parser->ast_pool);
+    lily_expr_state es;
+    init_expr_state(parser, &es);
     expression(parser);
 
     lily_sym *result = lily_emit_eval_interp_expr(parser->emit,
-            parser->ast_pool);
+            parser->expr);
 
     if (lex->token != tk_eof)
         lily_raise(parser->raiser, lily_SyntaxError,
@@ -2242,8 +2293,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Interpolation command does not return a value.\n");
 
-    lily_ast_thaw_state(parser->ast_pool);
-
+    fini_expr_state(parser);
     lily_pop_lex_entry(lex);
     return result;
 }
@@ -2293,13 +2343,12 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
                 lex->token);
 
-    /* It's time to process the body of the lambda. Before this is done, freeze
-       the ast pool's state so that the save depth is 0 and such. This allows
-       the expression function to ensure that the body of the lambda is valid. */
-    lily_ast_freeze_state(parser->ast_pool);
+    /* Evaluate the lambda within a new expression state so the old one's stuff
+       isn't trampled over. */
+    lily_expr_state es;
+    init_expr_state(parser, &es);
     root_result = parse_lambda_body(parser, expect_type);
-
-    lily_ast_thaw_state(parser->ast_pool);
+    fini_expr_state(parser);
 
     NEED_CURRENT_TOK(tk_right_curly)
     lily_lexer(lex);
@@ -2416,6 +2465,8 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     }
 
     while (1) {
+        rewind_expr_state(parser->expr);
+
         /* For this special case, give a useful error message. */
         if (lex->token == other_token)
             bad_decl_token(parser);
@@ -2426,13 +2477,13 @@ static void parse_var(lily_parse_state *parser, int modifiers)
             sym = (lily_sym *)get_named_var(parser, NULL);
             sym->flags |= SYM_NOT_INITIALIZED;
             if (sym->flags & VAR_IS_GLOBAL)
-                lily_ast_push_global_var(parser->ast_pool, (lily_var *)sym);
+                lily_es_push_global_var(parser->expr, (lily_var *)sym);
             else
-                lily_ast_push_local_var(parser->ast_pool, (lily_var *)sym);
+                lily_es_push_local_var(parser->expr, (lily_var *)sym);
         }
         else {
             sym = (lily_sym *)get_named_property(parser, NULL, flags);
-            lily_ast_push_property(parser->ast_pool, (lily_prop_entry *)sym);
+            lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
         }
 
         if (lex->token == tk_colon) {
@@ -2445,10 +2496,10 @@ static void parse_var(lily_parse_state *parser, int modifiers)
                     "An initialization expression is required here.\n");
         }
 
-        lily_ast_push_binary_op(parser->ast_pool, expr_assign);
+        lily_es_push_binary_op(parser->expr, expr_assign);
         lily_lexer(lex);
-        expression(parser);
-        lily_emit_eval_expr(parser->emit, parser->ast_pool);
+        expression_raw(parser, ST_DEMAND_VALUE);
+        lily_emit_eval_expr(parser->emit, parser->expr);
 
         token = lex->token;
         /* This is the start of the next statement (or, for 'var', only allow
@@ -2646,14 +2697,14 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 static lily_var *parse_for_range_value(lily_parse_state *parser,
         const char *name)
 {
-    lily_ast_pool *ap = parser->ast_pool;
+    lily_expr_state *es = parser->expr;
     expression(parser);
 
     /* Don't allow assigning expressions, since that just looks weird.
        ex: for i in a += 10..5
        Also, it makes no real sense to do that. */
-    if (ap->root->tree_type == tree_binary &&
-        ap->root->op >= expr_assign) {
+    if (es->root->tree_type == tree_binary &&
+        es->root->op >= expr_assign) {
         lily_raise(parser->raiser, lily_SyntaxError,
                    "For range value expression contains an assignment.");
     }
@@ -2665,7 +2716,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
        found by the user. */
     lily_var *var = lily_emit_new_local_var(parser->emit, cls->type, name);
 
-    lily_emit_eval_expr_to_var(parser->emit, ap, var);
+    lily_emit_eval_expr_to_var(parser->emit, es, var);
 
     return var;
 }
@@ -2689,7 +2740,7 @@ static void statement(lily_parse_state *parser, int multi)
             }
             else {
                 expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->ast_pool);
+                lily_emit_eval_expr(parser->emit, parser->expr);
             }
         }
         else if (token == tk_integer || token == tk_double ||
@@ -2698,7 +2749,7 @@ static void statement(lily_parse_state *parser, int multi)
                  token == tk_prop_word || token == tk_bytestring ||
                  token == tk_dollar_string) {
             expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->ast_pool);
+            lily_emit_eval_expr(parser->emit, parser->expr);
         }
         /* The caller will be expecting '}' or maybe ?> / EOF if it's the main
            parse loop. */
@@ -2736,7 +2787,7 @@ static void if_handler(lily_parse_state *parser, int multi)
 
     lily_emit_enter_block(parser->emit, block_if);
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->expr);
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -2771,7 +2822,7 @@ static void elif_handler(lily_parse_state *parser, int multi)
     lily_lex_state *lex = parser->lex;
     lily_emit_change_block_to(parser->emit, block_if_elif);
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->expr);
 
     NEED_CURRENT_TOK(tk_colon)
 
@@ -2828,7 +2879,7 @@ static void return_handler(lily_parse_state *parser, int multi)
     if (parser->emit->top_function_ret)
         expression(parser);
 
-    lily_emit_eval_return(parser->emit, parser->ast_pool);
+    lily_emit_eval_return(parser->emit, parser->expr);
 
     if (multi)
         ensure_no_code_after_exit(parser, "return");
@@ -2841,7 +2892,7 @@ static void while_handler(lily_parse_state *parser, int multi)
     lily_emit_enter_block(parser->emit, block_while);
 
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->expr);
 
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
@@ -2965,7 +3016,7 @@ static void do_handler(lily_parse_state *parser, int multi)
     lily_hide_block_vars(parser->symtab, parser->emit->block->var_start);
 
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->ast_pool);
+    lily_emit_eval_condition(parser->emit, parser->expr);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -3291,7 +3342,7 @@ static void raise_handler(lily_parse_state *parser, int multi)
                 "'raise' not allowed in a lambda.\n");
 
     expression(parser);
-    lily_emit_raise(parser->emit, parser->ast_pool);
+    lily_emit_raise(parser->emit, parser->expr);
 
     if (multi)
         ensure_no_code_after_exit(parser, "raise");
@@ -3414,10 +3465,11 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
        This is avoided by passing a special flag to expression and calling it
        directly. */
 
-    lily_ast_pool *ap = parser->ast_pool;
-    lily_ast_enter_tree(ap, tree_call);
-    lily_ast_push_inherited_new(ap, class_new);
-    lily_ast_collect_arg(ap);
+    lily_expr_state *es = parser->expr;
+    rewind_expr_state(es);
+    lily_es_enter_tree(es, tree_call);
+    lily_es_push_inherited_new(es, class_new);
+    lily_es_collect_arg(es);
 
     lily_lexer(lex);
 
@@ -3434,9 +3486,9 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_lexer(lex);
     }
     else
-        lily_ast_leave_tree(parser->ast_pool);
+        lily_es_leave_tree(parser->expr);
 
-    lily_emit_eval_expr(parser->emit, ap);
+    lily_emit_eval_expr(parser->emit, es);
 
     cls->parent = super_class;
     cls->prop_count = super_class->prop_count;
@@ -3733,7 +3785,7 @@ static void match_handler(lily_parse_state *parser, int multi)
     lily_emit_enter_block(parser->emit, block_match);
 
     expression(parser);
-    lily_emit_eval_match_expr(parser->emit, parser->ast_pool);
+    lily_emit_eval_match_expr(parser->emit, parser->expr);
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
@@ -3949,7 +4001,7 @@ static void parser_loop(lily_parse_state *parser)
                  lex->token == tk_dollar_string ||
                  lex->token == tk_tuple_open) {
             expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->ast_pool);
+            lily_emit_eval_expr(parser->emit, parser->expr);
         }
         else
             lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token %s.\n",

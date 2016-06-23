@@ -2,7 +2,7 @@
 # define LILY_PARSER_H
 
 # include "lily_raiser.h"
-# include "lily_ast.h"
+# include "lily_expr.h"
 # include "lily_lexer.h"
 # include "lily_emitter.h"
 # include "lily_symtab.h"
@@ -24,12 +24,21 @@ typedef struct lily_parse_state_ {
     uint8_t generic_count;
     uint32_t pad;
 
-    lily_membuf *ast_membuf;
+    /* The current expression state. */
+    lily_expr_state *expr;
+
+    /* Pile strings are stored here. */
+    lily_string_pile *expr_strings;
+
+    /* The first expression is malloc'd, while the rest are off the stack.
+       Holding the first one makes it easier to find and destroy both it and the
+       asts under it during teardown. */
+    lily_expr_state *first_expr;
+
     lily_type *exception_type;
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;
-    lily_ast_pool *ast_pool;
     lily_lex_state *lex;
     lily_emit_state *emit;
     lily_symtab *symtab;
