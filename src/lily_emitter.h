@@ -6,7 +6,7 @@
 # include "lily_type_system.h"
 # include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
-# include "lily_membuf.h"
+# include "lily_string_pile.h"
 
 typedef enum {
     block_if,
@@ -243,9 +243,9 @@ typedef struct {
 
     lily_raiser *raiser;
 
-    /* The ast pool stores dot access names (ex: The y of x.y), and bodies of
-       lambdas here. */
-    lily_membuf *ast_membuf;
+    /* Expressions sometimes need to hold strings, like the name of a member
+       access or the body of a lambda. They go here. */
+    lily_string_pile *expr_strings;
 
     lily_type_system *ts;
 
@@ -261,24 +261,24 @@ typedef struct {
     lily_symtab *symtab;
 } lily_emit_state;
 
-void lily_emit_eval_condition(lily_emit_state *, lily_ast_pool *);
-void lily_emit_eval_expr_to_var(lily_emit_state *, lily_ast_pool *,
+void lily_emit_eval_condition(lily_emit_state *, lily_expr_state *);
+void lily_emit_eval_expr_to_var(lily_emit_state *, lily_expr_state *,
         lily_var *);
-void lily_emit_eval_expr(lily_emit_state *, lily_ast_pool *);
-lily_sym *lily_emit_eval_interp_expr(lily_emit_state *, lily_ast_pool *);
+void lily_emit_eval_expr(lily_emit_state *, lily_expr_state *);
+lily_sym *lily_emit_eval_interp_expr(lily_emit_state *, lily_expr_state *);
 void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_sym *, int);
-void lily_emit_eval_lambda_body(lily_emit_state *, lily_ast_pool *, lily_type *);
+void lily_emit_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
 void lily_emit_write_optargs(lily_emit_state *, lily_buffer_u16 *, int);
 
-void lily_emit_eval_match_expr(lily_emit_state *, lily_ast_pool *);
+void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_add_match_case(lily_emit_state *, int);
 void lily_emit_variant_decompose(lily_emit_state *, lily_type *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
-void lily_emit_eval_return(lily_emit_state *, lily_ast_pool *);
+void lily_emit_eval_return(lily_emit_state *, lily_expr_state *);
 
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 void lily_emit_enter_simple_block(lily_emit_state *, int);
@@ -288,7 +288,7 @@ void lily_emit_leave_block(lily_emit_state *);
 
 void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
-void lily_emit_raise(lily_emit_state *, lily_ast_pool *);
+void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
 void lily_emit_update_function_block(lily_emit_state *, lily_type *,
         lily_type *);

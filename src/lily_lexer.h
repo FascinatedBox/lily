@@ -3,7 +3,6 @@
 
 # include <stdio.h>
 
-# include "lily_membuf.h"
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 

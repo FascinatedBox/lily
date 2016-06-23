@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "lily_ast.h"
+#include "lily_expr.h"
 #include "lily_emitter.h"
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
@@ -20,12 +20,6 @@
     r->line_adjust = adjust; \
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
-
-/* (Temporary) What this does is rewind the membuf that parser and emitter share
-   since the strings are no longer useful. It also rewinds the pool that  */
-#define RESET_POOL(pool) \
-emit->ast_membuf->pos = pool->membuf_start; \
-lily_ast_reset_pool(pool);
 
 /***
  *      ____       _
@@ -55,7 +49,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
-    emit->ast_membuf = lily_membuf_new();
+    emit->expr_strings = lily_new_string_pile();
 
     /* tm uses Dynamic's type as a special default, so it needs that. */
     emit->tm->dynamic_class_type = symtab->dynamic_class->type;
@@ -122,7 +116,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         }
     }
 
-    lily_membuf_free(emit->ast_membuf);
+    lily_free_string_pile(emit->expr_strings);
     lily_free(emit->transform_table);
     lily_free(emit->closed_syms);
     lily_free(emit->call_values);
@@ -1679,9 +1673,9 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
    checked for returning a value that is a valid enum. The match block's state
    is then prepared.
    The pool is cleared out for the next expression after this. */
-void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
+void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_ast *ast = ap->root;
+    lily_ast *ast = es->root;
     lily_block *block = emit->block;
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
@@ -1714,8 +1708,6 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_ast_pool *ap)
 
     for (i = 0;i < match_cases_needed;i++)
         lily_u16_write_1(emit->code, 0);
-
-    RESET_POOL(ap)
 }
 
 /***
@@ -1928,7 +1920,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
     else if (ast->tree_type == tree_oo_access) {
         result_type = determine_left_type(emit, ast->arg_start);
         if (result_type != NULL) {
-            char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+            char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
             lily_class *lookup_class = result_type->cls;
             lily_type *lookup_type = result_type;
 
@@ -2204,7 +2196,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     if (lookup_class->flags & CLS_IS_VARIANT)
         lookup_class = lookup_class->parent;
 
-    char *oo_name = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
     lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
             oo_name);
 
@@ -2576,8 +2568,8 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
     lily_ast *tree_iter = ast->arg_start;
     while (tree_iter) {
         if (tree_iter->tree_type == tree_interp_block) {
-            char *interp_body = lily_membuf_get(emit->ast_membuf,
-                    tree_iter->membuf_pos);
+            char *interp_body = lily_sp_get(emit->expr_strings,
+                    tree_iter->pile_pos);
             lily_sym *result = lily_parser_interp_eval(emit->parser,
                     ast->line_num, interp_body);
             if (result == NULL)
@@ -2615,7 +2607,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     int save_expr_num = emit->expr_num;
-    char *lambda_body = lily_membuf_get(emit->ast_membuf, ast->membuf_pos);
+    char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
     if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
         expect = NULL;
@@ -4064,18 +4056,16 @@ static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
 
 /* This evaluates an expression at the root of the given pool, then resets the
    pool for the next expression. */
-void lily_emit_eval_expr(lily_emit_state *emit, lily_ast_pool *ap)
+void lily_emit_eval_expr(lily_emit_state *emit, lily_expr_state *es)
 {
-    eval_tree(emit, ap->root, NULL);
+    eval_tree(emit, es->root, NULL);
     emit->expr_num++;
-
-    RESET_POOL(ap)
 }
 
-lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_ast_pool *ap)
+lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_expr_state *es)
 {
-    eval_tree(emit, ap->root, NULL);
-    return ap->root->result;
+    eval_tree(emit, es->root, NULL);
+    return es->root->result;
 }
 
 /* This is used by 'for...in'. It evaluates an expression, then writes an
@@ -4083,10 +4073,10 @@ lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_ast_pool *ap)
    Since this is used by 'for...in', it checks to make sure that the expression
    returns a value of type integer. If it does not, then SyntaxError is raised.
    The pool given will be cleared. */
-void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
+void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
         lily_var *var)
 {
-    lily_ast *ast = ap->root;
+    lily_ast *ast = es->root;
 
     eval_tree(emit, ast, NULL);
     emit->expr_num++;
@@ -4101,17 +4091,15 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_ast_pool *ap,
              for..in range expressions, which are always integers. */
     lily_u16_write_4(emit->code, o_fast_assign, ast->line_num,
             ast->result->reg_spot, var->reg_spot);
-
-    RESET_POOL(ap)
 }
 
 /* Evaluate the root of the given pool, making sure that the result is something
    that can be truthy/falsey. SyntaxError is raised if the result isn't.
    Since this is called to evaluate conditions, this also writes any needed jump
    or patch necessary. */
-void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
+void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_ast *ast = ap->root;
+    lily_ast *ast = es->root;
     lily_block_type current_type = emit->block->block_type;
 
     if (((ast->tree_type == tree_boolean ||
@@ -4143,15 +4131,13 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_ast_pool *ap)
         else
             lily_u16_write_2(emit->code, o_jump, emit->block->loop_start);
     }
-
-    RESET_POOL(ap)
 }
 
 /* This is called from parser to evaluate the last expression that is within a
    lambda. This is rather tricky, because 'full_type' is supposed to describe
    the full type of the lambda, but may be NULL. If it isn't NULL, then use that
    to infer what the result of the lambda should be. */
-void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
+void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
         lily_type *full_type)
 {
     lily_type *wanted_type = NULL;
@@ -4164,28 +4150,28 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_ast_pool *ap,
        the opinion is to not return anything, respect that. */
     int return_wanted = (full_type == NULL || full_type->subtypes[0] != NULL);
 
-    eval_tree(emit, ap->root, wanted_type);
-    lily_sym *root_result = ap->root->result;
+    eval_tree(emit, es->root, wanted_type);
+    lily_sym *root_result = es->root->result;
 
     if (return_wanted && root_result != NULL) {
         /* If the caller doesn't want a return, then don't give one...regardless
            of if there is one available. */
-        lily_u16_write_3(emit->code, o_return_val, ap->root->line_num,
-                ap->root->result->reg_spot);
+        lily_u16_write_3(emit->code, o_return_val, es->root->line_num,
+                es->root->result->reg_spot);
     }
     else if (return_wanted == 0)
-        ap->root->result = NULL;
+        es->root->result = NULL;
 }
 
 /* This handles the 'return' keyword. If parser has the pool filled with some
    expression, then run that expression (checking the result). The pool will be
    cleared out if there was an expression. */
-void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
+void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_ast *ast = ap->root;
+    lily_type *ret_type = emit->top_function_ret;
 
-    if (ast) {
-        lily_type *ret_type = emit->top_function_ret;
+    if (ret_type) {
+        lily_ast *ast = es->root;
 
         eval_enforce_value(emit, ast, ret_type,
                 "'return' expression has no value.\n");
@@ -4201,7 +4187,6 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_ast_pool *ap)
         lily_u16_write_3(emit->code, o_return_val, ast->line_num,
                 ast->result->reg_spot);
         emit->block->last_exit = lily_u16_pos(emit->code);
-        RESET_POOL(ap)
     }
     else {
         write_pop_try_blocks_up_to(emit, emit->function_block);
@@ -4233,9 +4218,9 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 /* Evaluate the given tree, then try to write instructions that will raise the
    result of the tree.
    SyntaxError happens if the tree's result is not raise-able. */
-void lily_emit_raise(lily_emit_state *emit, lily_ast_pool *ap)
+void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_ast *ast = ap->root;
+    lily_ast *ast = es->root;
     eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.\n");
 
     lily_class *result_cls = ast->result->type->cls;
@@ -4247,7 +4232,6 @@ void lily_emit_raise(lily_emit_state *emit, lily_ast_pool *ap)
 
     lily_u16_write_3(emit->code, o_raise, ast->line_num, ast->result->reg_spot);
     emit->block->last_exit = lily_u16_pos(emit->code);
-    RESET_POOL(ap)
 }
 
 /* This resets __main__'s code position for the next pass. Only tagged mode
