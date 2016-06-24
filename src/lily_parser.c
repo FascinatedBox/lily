@@ -40,7 +40,7 @@ if (lex->token != expected) \
 static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_package *new_package(lily_parse_state *, const char *,
-        const char *);
+        const char *, const char **);
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
@@ -103,7 +103,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
        used when creating new functions so that they have a type. */
     parser->default_call_type = parser->symtab->main_var->type;
 
-    lily_package *main_package = new_package(parser, "", NULL);
+    lily_package *main_package = new_package(parser, "", NULL, NULL);
     parser->main_module = main_package->first_module;
 
     /* This puts __main__ into the scope of the first thing to be executed, and
@@ -266,7 +266,8 @@ static void set_module_names_by_path(lily_module_entry *module,
     }
 }
 
-static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
+static lily_module_entry *new_module(const char *path,
+        const char **dynaload_table)
 {
     lily_module_entry *module = lily_malloc(sizeof(lily_module_entry));
 
@@ -283,14 +284,24 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
         module->cmp_len = 0;
     }
 
-    module->handle = NULL;
+    module->dynaload_table = dynaload_table;
+
+    if (dynaload_table) {
+        unsigned char cid_count = dynaload_table[0][0];
+        if (cid_count) {
+            module->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
+            memset(module->cid_table, 0, cid_count * sizeof(uint16_t));
+        }
+    }
+    else
+        module->cid_table = NULL;
+
     module->root_next = NULL;
     module->module_chain = NULL;
     module->class_chain = NULL;
     module->var_chain = NULL;
-    module->dynaload_table = NULL;
+    module->handle = NULL;
     module->loader = NULL;
-    module->cid_table = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
 
     return module;
@@ -303,11 +314,8 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
 void lily_register_package(lily_parse_state *parser, const char *name,
         const char **dynaload_table, lily_loader loader)
 {
-    lily_package *package = new_package(parser, name, NULL);
-    lily_module_entry *module = package->first_module;
-
-    module->dynaload_table = dynaload_table;
-    module->loader = loader;
+    lily_package *package = new_package(parser, name, NULL, dynaload_table);
+    package->first_module->loader = loader;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
@@ -356,11 +364,11 @@ static lily_package *new_empty_package(lily_parse_state *parser,
 }
 
 static lily_package *new_package(lily_parse_state *parser,
-        const char *name, const char *module_path)
+        const char *name, const char *module_path, const char **dynaload_table)
 {
     lily_package *package = new_empty_package(parser, name);
+    lily_module_entry *module = new_module(module_path, dynaload_table);
 
-    lily_module_entry *module = new_module(parser, module_path);
     package->first_module = module;
     module->parent = package;
 
@@ -371,7 +379,7 @@ static lily_module_entry *load_file(lily_parse_state *parser, const char *path)
 {
     lily_module_entry *result = NULL;
     if (lily_try_load_file(parser->lex, path))
-        result = new_module(parser, path);
+        result = new_module(path, NULL);
 
     return result;
 }
@@ -382,14 +390,8 @@ static lily_module_entry *load_library(lily_parse_state *parser,
     lily_module_entry *result = NULL;
     lily_library *library = lily_library_load(path);
     if (library) {
-        result = new_module(parser, path);
+        result = new_module(path, library->dynaload_table);
         result->handle = library->source;
-        result->dynaload_table = library->dynaload_table;
-        unsigned char cid_count = result->dynaload_table[0][0];
-        if (cid_count) {
-            result->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
-            memset(result->cid_table, 0, cid_count * sizeof(uint16_t));
-        }
 
         lily_free(library);
     }
