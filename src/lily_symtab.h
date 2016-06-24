@@ -69,7 +69,8 @@ typedef struct lily_symtab_ {
     uint32_t *lex_linenum;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_package *);
+lily_symtab *lily_new_symtab(void);
+void lily_set_first_package(lily_symtab *, lily_package *);
 void lily_free_symtab(lily_symtab *);
 
 lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
