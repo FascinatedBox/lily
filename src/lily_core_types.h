@@ -92,7 +92,8 @@ typedef struct lily_class_ {
        doing a strcmp against the name. */
     uint64_t shorthash;
 
-    /* The type of the var stores the complete type knowledge of the var. */
+    /* If a class does not take generics, then this is set and it is a single
+       type that is shared by all. NULL otherwise. */
     struct lily_type_ *type;
 
     struct lily_class_ *parent;
