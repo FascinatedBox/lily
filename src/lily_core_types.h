@@ -469,10 +469,7 @@ typedef struct lily_module_entry_ {
 
     uint16_t flags;
 
-    /* Modules from a library are reserved a certain number of ids, so that
-       they can use an 'offset' from that id to get the ids of the classes both
-       inside of them and inside the interpeter. */
-    uint16_t cid_start;
+    uint16_t pad;
 
     uint16_t cmp_len;
 

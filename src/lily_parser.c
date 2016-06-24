@@ -283,7 +283,6 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path)
         module->cmp_len = 0;
     }
 
-    module->cid_start = 0;
     module->handle = NULL;
     module->root_next = NULL;
     module->module_chain = NULL;
