@@ -993,10 +993,6 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         else
             block_name = "else";
 
-        if (current_type != block_if && current_type != block_if_elif)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "'%s' without 'if'.\n", block_name);
-
         if (current_type == block_if_else)
             lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
                     block_name);
@@ -1005,9 +1001,6 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (current_type == block_try_except_all)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "'except' clause is unreachable.\n");
-        else if (current_type != block_try && current_type != block_try_except)
-            lily_raise(emit->raiser, lily_SyntaxError,
-                    "'except' outside 'try'.\n");
 
         /* If nothing in the 'try' block raises an error, the vm needs to be
            told to unregister the 'try' block since will become unreachable

@@ -2781,6 +2781,28 @@ static void parse_multiline_block_body(lily_parse_state *parser,
     lily_lexer(lex);
 }
 
+static void do_elif(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_emit_change_block_to(parser->emit, block_if_elif);
+    expression(parser);
+    lily_emit_eval_condition(parser->emit, parser->expr);
+
+    NEED_CURRENT_TOK(tk_colon)
+
+    lily_lexer(lex);
+}
+
+static void do_else(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_change_block_to(parser->emit, block_if_else);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_lexer(lex);
+}
+
 static void if_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -2791,55 +2813,65 @@ static void if_handler(lily_parse_state *parser, int multi)
     NEED_CURRENT_TOK(tk_colon)
 
     lily_lexer(lex);
-    if (lex->token == tk_left_curly)
-        parse_multiline_block_body(parser, multi);
-    else {
-        statement(parser, 0);
-        while (lex->token == tk_word) {
-            int key_id = keyword_by_name(lex->label);
+    int multi_this_block = (lex->token == tk_left_curly);
+    int have_else = 0;
 
-            /* Jump directly into elif/else. Doing it this way (instead of
-               through statement) means that the 'if' block can be popped in a
-               single place. */
-            if (key_id == KEY_ELIF || key_id == KEY_ELSE) {
-                lily_lexer(parser->lex);
-                handlers[key_id](parser, 0);
+    if (multi_this_block)
+        lily_lexer(lex);
 
-                /* Whatever comes next cannot be for the current if block. */
-                if (key_id == KEY_ELSE)
-                    break;
+    while (1) {
+        if (lex->token == tk_word) {
+            int key = keyword_by_name(lex->label);
+            if (key == -1) {
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->expr);
             }
-            else
+            else if (key != KEY_ELIF && key != KEY_ELSE) {
+                lily_lexer(lex);
+                handlers[key](parser, multi_this_block);
+            }
+        }
+        else if (lex->token != tk_right_curly) {
+            expression(parser);
+            lily_emit_eval_expr(parser->emit, parser->expr);
+        }
+
+        if (lex->token == tk_word && have_else == 0) {
+            int key = keyword_by_name(lex->label);
+
+            if (key == KEY_ELIF || key == KEY_ELSE) {
+                lily_lexer(lex);
+                if (key == KEY_ELIF)
+                    do_elif(parser);
+                else {
+                    do_else(parser);
+                    have_else = 1;
+                }
+
+                continue;
+            }
+            else if (multi_this_block == 0)
                 break;
         }
+        else if (lex->token == tk_right_curly || multi_this_block == 0)
+            break;
     }
+
+    if (multi_this_block == 1)
+        lily_lexer(lex);
 
     lily_emit_leave_block(parser->emit);
 }
 
 static void elif_handler(lily_parse_state *parser, int multi)
 {
-    lily_lex_state *lex = parser->lex;
-    lily_emit_change_block_to(parser->emit, block_if_elif);
-    expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->expr);
-
-    NEED_CURRENT_TOK(tk_colon)
-
-    lily_lexer(lex);
-    statement(parser, multi);
+    lily_raise(parser->raiser, lily_SyntaxError, "'elif' without 'if'.\n");
 }
 
 static void else_handler(lily_parse_state *parser, int multi)
 {
-    lily_lex_state *lex = parser->lex;
-
-    lily_emit_change_block_to(parser->emit, block_if_else);
-    NEED_CURRENT_TOK(tk_colon)
-    lily_lexer(lex);
-
-    statement(parser, multi);
-}
+    lily_raise(parser->raiser, lily_SyntaxError, "'else' without 'if'.\n");
+    }
 
 /* Call this to make sure there's no obviously-dead code. */
 static void ensure_no_code_after_exit(lily_parse_state *parser,
@@ -3018,65 +3050,6 @@ static void do_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
     lily_emit_leave_block(parser->emit);
-}
-
-static void except_handler(lily_parse_state *parser, int multi)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_type *except_type = get_type(parser);
-    /* Exception is likely to always be the base exception class. */
-    if (parser->exception_type == NULL) {
-        lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
-        if (cls == NULL)
-            cls = find_run_class_dynaload(parser,
-                    parser->symtab->builtin_module, "Exception");
-
-        parser->exception_type = cls->type;
-    }
-
-    lily_type *base_type = parser->exception_type;
-    lily_block_type new_type = block_try_except;
-
-    if (except_type == base_type)
-        new_type = block_try_except_all;
-    else if (lily_class_greater_eq(base_type->cls, except_type->cls) == 0)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a valid exception class.\n",
-                except_type->cls->name);
-    else if (except_type->subtypes != 0)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "'except' type cannot have subtypes.\n");
-
-    /* The block change has to come before the var is made, or the var will be
-       made in the wrong scope. */
-    lily_emit_change_block_to(parser->emit, new_type);
-
-    lily_var *exception_var = NULL;
-    if (lex->token == tk_word) {
-        if (strcmp(parser->lex->label, "as") != 0)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected 'as', not '%s'.\n", lex->label);
-
-        NEED_NEXT_TOK(tk_word)
-        exception_var = lily_find_var(parser->symtab, NULL, lex->label);
-        if (exception_var != NULL)
-            lily_raise(parser->raiser, lily_SyntaxError,
-                "%s has already been declared.\n", exception_var->name);
-
-        exception_var = lily_emit_new_local_var(parser->emit,
-                except_type, lex->label);
-
-        lily_lexer(lex);
-    }
-
-    NEED_CURRENT_TOK(tk_colon)
-    lily_emit_except(parser->emit, except_type, exception_var,
-            lex->line_num);
-
-    lily_lexer(lex);
-    if (lex->token != tk_right_curly)
-        statement(parser, multi);
 }
 
 static void run_loaded_module(lily_parse_state *parser,
@@ -3307,6 +3280,63 @@ static void use_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 }
 
+static void process_except(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_type *except_type = get_type(parser);
+    /* Exception is likely to always be the base exception class. */
+    if (parser->exception_type == NULL) {
+        lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
+        if (cls == NULL)
+            cls = find_run_class_dynaload(parser,
+                    parser->symtab->builtin_module, "Exception");
+
+        parser->exception_type = cls->type;
+    }
+
+    lily_type *base_type = parser->exception_type;
+    lily_block_type new_type = block_try_except;
+
+    if (except_type == base_type)
+        new_type = block_try_except_all;
+    else if (lily_class_greater_eq(base_type->cls, except_type->cls) == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'%s' is not a valid exception class.\n",
+                except_type->cls->name);
+    else if (except_type->subtypes != 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "'except' type cannot have subtypes.\n");
+
+    /* The block change has to come before the var is made, or the var will be
+       made in the wrong scope. */
+    lily_emit_change_block_to(parser->emit, new_type);
+
+    lily_var *exception_var = NULL;
+    if (lex->token == tk_word) {
+        if (strcmp(parser->lex->label, "as") != 0)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected 'as', not '%s'.\n", lex->label);
+
+        NEED_NEXT_TOK(tk_word)
+        exception_var = lily_find_var(parser->symtab, NULL, lex->label);
+        if (exception_var != NULL)
+            lily_raise(parser->raiser, lily_SyntaxError,
+                "%s has already been declared.\n", exception_var->name);
+
+        exception_var = lily_emit_new_local_var(parser->emit,
+                except_type, lex->label);
+
+        lily_lexer(lex);
+    }
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_emit_except(parser->emit, except_type, exception_var,
+            lex->line_num);
+
+    lily_lexer(lex);
+}
+
 static void try_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -3316,23 +3346,55 @@ static void try_handler(lily_parse_state *parser, int multi)
 
     NEED_CURRENT_TOK(tk_colon)
     lily_lexer(lex);
-    if (lex->token == tk_left_curly)
-        parse_multiline_block_body(parser, multi);
-    else {
-        statement(parser, 0);
-        while (lex->token == tk_word) {
-            if (strcmp("except", lex->label) == 0) {
-                lily_lexer(parser->lex);
-                except_handler(parser, 0);
-                if (parser->emit->block->block_type == block_try_except_all)
-                    break;
+
+    int multi_this_block = (lex->token == tk_left_curly);
+
+    if (multi_this_block && multi == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                   "Multi-line block within single-line block.\n");
+
+    if (multi_this_block)
+        lily_lexer(lex);
+
+    while (1) {
+        if (lex->token == tk_word) {
+            int key = keyword_by_name(lex->label);
+            if (key == -1) {
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->expr);
             }
-            else
+            else if (key != KEY_EXCEPT) {
+                lily_lexer(lex);
+                handlers[key](parser, multi_this_block);
+            }
+        }
+        else if (lex->token != tk_right_curly)
+            statement(parser, 0);
+
+        if (lex->token == tk_word) {
+            int key = keyword_by_name(lex->label);
+
+            if (key == KEY_EXCEPT) {
+                lily_lexer(lex);
+                process_except(parser);
+                continue;
+            }
+            else if (multi_this_block == 0)
                 break;
         }
+        else if (lex->token == tk_right_curly || multi_this_block == 0)
+            break;
     }
 
+    if (multi_this_block)
+        lily_lexer(lex);
+
     lily_emit_leave_block(parser->emit);
+}
+
+static void except_handler(lily_parse_state *parser, int multi)
+{
+    lily_raise(parser->raiser, lily_SyntaxError, "'except' outside 'try'.\n");
 }
 
 static void raise_handler(lily_parse_state *parser, int multi)
@@ -3774,34 +3836,9 @@ static void enum_handler(lily_parse_state *parser, int multi)
     parse_enum(parser, 0);
 }
 
-static void match_handler(lily_parse_state *parser, int multi)
-{
-    if (multi == 0)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "Match block cannot be in a single-line block.\n");
-
-    lily_lex_state *lex = parser->lex;
-
-    lily_emit_enter_block(parser->emit, block_match);
-
-    expression(parser);
-    lily_emit_eval_match_expr(parser->emit, parser->expr);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
-
-    parse_multiline_block_body(parser, multi);
-
-    lily_emit_leave_block(parser->emit);
-}
-
-static void case_handler(lily_parse_state *parser, int multi)
+static void process_match_case(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_match)
-        lily_raise(parser->raiser, lily_SyntaxError,
-                "'case' not allowed outside of 'match'.\n");
-
     lily_type *match_input_type = block->match_sym->type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
@@ -3858,6 +3895,55 @@ static void case_handler(lily_parse_state *parser, int multi)
 
     NEED_NEXT_TOK(tk_colon)
     lily_lexer(lex);
+}
+
+static void match_handler(lily_parse_state *parser, int multi)
+{
+    if (multi == 0)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Match block cannot be in a single-line block.\n");
+
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_block(parser->emit, block_match);
+
+    expression(parser);
+    lily_emit_eval_match_expr(parser->emit, parser->expr);
+
+    NEED_CURRENT_TOK(tk_colon)
+    NEED_NEXT_TOK(tk_left_curly)
+    lily_lexer(lex);
+
+    while (1) {
+        if (lex->token == tk_word) {
+            int key = keyword_by_name(lex->label);
+            if (key == KEY_CASE) {
+                lily_lexer(lex);
+                process_match_case(parser, multi);
+            }
+            else if (key != -1) {
+                lily_lexer(lex);
+                handlers[key](parser, multi);
+            }
+            else {
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->expr);
+            }
+        }
+        else if (lex->token != tk_right_curly)
+            statement(parser, 0);
+        else
+            break;
+    }
+
+    lily_lexer(lex);
+    lily_emit_leave_block(parser->emit);
+}
+
+static void case_handler(lily_parse_state *parser, int multi)
+{
+    lily_raise(parser->raiser, lily_SyntaxError,
+            "'case' not allowed outside of 'match'.\n");
 }
 
 static void parse_define(lily_parse_state *parser, int modifiers)

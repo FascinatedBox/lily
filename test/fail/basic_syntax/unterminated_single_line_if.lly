@@ -1,5 +1,5 @@
 #[
-SyntaxError: Expected a value, not 'end of file'.
+SyntaxError: Unexpected token 'end of file'.
     from unterminated_single_line_if.lly:6
 ]#
 
