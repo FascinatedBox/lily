@@ -7,9 +7,11 @@
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
-#include "lily_pkg_sys.h"
 #include "lily_opcode.h"
 #include "lily_string_pile.h"
+
+#include "lily_pkg_builtin.h"
+#include "lily_pkg_sys.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value_ops.h"
@@ -50,11 +52,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->package_top = NULL;
     parser->package_start = NULL;
 
-    /* The builtin package is a special package that holds builtin data. Since
-       it holds such vital information, it is implicitly use'd. It's placed into
-       a package to make builtin data easy to iterate over and destroy. */
-    new_package(parser, "", "[builtin]");
-
     lily_raiser *raiser = lily_new_raiser();
 
     parser->first_pass = 1;
@@ -63,7 +60,12 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->raiser = raiser;
     parser->exception_type = NULL;
     parser->first_expr = lily_new_expr_state();
-    parser->symtab = lily_new_symtab(parser->package_start);
+    parser->symtab = lily_new_symtab();
+
+    lily_register_pkg_builtin(parser);
+    lily_set_first_package(parser->symtab, parser->package_top);
+    lily_init_pkg_builtin(parser->symtab);
+
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
     parser->vm = lily_new_vm_state(options, raiser);

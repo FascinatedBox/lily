@@ -2680,11 +2680,14 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     return result;
 }
 
-void lily_init_builtin_package(lily_symtab *symtab, lily_module_entry *builtin)
+void lily_register_pkg_builtin(lily_parse_state *parser)
 {
-    builtin->dynaload_table = dynaload_table;
-    builtin->loader = lily_builtin_loader;
+    lily_register_package(parser, "", dynaload_table,
+            lily_builtin_loader);
+}
 
+void lily_init_pkg_builtin(lily_symtab *symtab)
+{
     int i = 1;
 
     symtab->integer_class    = build_class(symtab, "Integer",    &i,  0);

@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "lily_symtab.h"
-#include "lily_pkg_builtin.h"
 #include "lily_vm.h"
 
 #include "lily_api_alloc.h"
@@ -17,7 +16,7 @@
  *                          |_|
  */
 
-lily_symtab *lily_new_symtab(lily_package *builtin_package)
+lily_symtab *lily_new_symtab(void)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
@@ -29,15 +28,17 @@ lily_symtab *lily_new_symtab(lily_package *builtin_package)
     symtab->literals = NULL;
     symtab->function_ties = NULL;
     symtab->foreign_ties = NULL;
-    symtab->builtin_module = builtin_package->first_module;
-    symtab->active_module = builtin_package->first_module;
     symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
-    symtab->first_package = builtin_package;
-
-    lily_init_builtin_package(symtab, builtin_package->first_module);
 
     return symtab;
+}
+
+void lily_set_first_package(lily_symtab *symtab, lily_package *package)
+{
+    symtab->builtin_module = package->first_module;
+    symtab->active_module = package->first_module;
+    symtab->first_package = package;
 }
 
 void free_vars(lily_symtab *symtab, lily_var *var)
