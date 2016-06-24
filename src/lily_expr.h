@@ -47,10 +47,7 @@ typedef enum {
 } lily_tree_type;
 
 typedef struct lily_es_ {
-    union {
-        lily_sym *result;
-        lily_type *padded_variant_type;
-    };
+    lily_sym *result;
 
     lily_tree_type tree_type: 8;
     lily_expr_op op: 8;

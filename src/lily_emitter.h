@@ -145,14 +145,7 @@ typedef struct lily_emit_call_state_ {
     /* How many arguments have been written so far. */
     uint16_t arg_count;
 
-    /* Lily requires that all values of an enum (the variants) be wrapped into
-       an enum. If a call has an unwrapped variant (ex: f(Some(1)), then it
-       needs to run a secondary pass to package up the variants. This is done
-       so that the enum the variants are put into has as much type info as
-       possible. */
-    uint16_t have_bare_variants;
-
-    uint16_t pad;
+    uint32_t pad;
 } lily_emit_call_state;
 
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
