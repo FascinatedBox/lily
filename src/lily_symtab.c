@@ -801,26 +801,6 @@ lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
     return ret;
 }
 
-/* The vm will create enums as a value with a certain number of sub values. The
-   number of subvalues necessary is the maximum number of values that any one
-   variant has. This function will walk through an enum's variants to find out
-   how many slots that the vm will need to make. */
-static uint16_t get_enum_slot_count(lily_class *enum_cls)
-{
-    int i;
-    uint16_t result = 0;
-    lily_variant_class **members = enum_cls->variant_members;
-    for (i = 0;i < enum_cls->variant_size;i++) {
-        if ((members[i]->flags & CLS_EMPTY_VARIANT) == 0) {
-            uint16_t num_subtypes = members[i]->build_type->subtype_count - 1;
-            if (num_subtypes > result)
-                result = num_subtypes;
-        }
-    }
-
-    return result;
-}
-
 lily_tie *make_variant_default(lily_symtab *symtab,
         lily_variant_class *variant)
 {
@@ -877,7 +857,6 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;
-    enum_cls->enum_slot_count = get_enum_slot_count(enum_cls);
 
     if (is_scoped) {
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;

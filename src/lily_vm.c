@@ -987,10 +987,9 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     int variant_id = code[3];
     int num_values = code[4];
     lily_value *result = vm_regs[code[code[4] + 5]];
-    int slots_needed = vm->class_table[instance_id]->enum_slot_count;
 
     lily_instance_val *ival = lily_new_instance_val();
-    lily_value **slots = lily_malloc(slots_needed * sizeof(lily_value *));
+    lily_value **slots = lily_malloc(num_values * sizeof(lily_value *));
     ival->num_values = num_values;
     ival->values = slots;
     ival->variant_id = variant_id;

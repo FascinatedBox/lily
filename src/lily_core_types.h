@@ -115,9 +115,7 @@ typedef struct lily_class_ {
     };
     uint16_t dyna_start;
 
-    /* Enums: This is how many subvalues (slots) that the vm must allocate for
-       this if it's an enum. */
-    uint16_t enum_slot_count;
+    uint32_t pad;
 
     /* Enums and classes: This is the type that 'self' will have. For those
        without generics, this is the default type. */
