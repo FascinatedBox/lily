@@ -2011,11 +2011,7 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         lily_ast *right)
 {
     int ret;
-    lily_type *right_type;
-    if (right->result->item_kind == ITEM_TYPE_TYPE)
-        right_type = right->padded_variant_type;
-    else
-        right_type = right->result->type;
+    lily_type *right_type = right->result->type;
 
     if (want_type == right_type ||
         lily_ts_type_greater_eq(emit->ts, want_type, right_type))
@@ -2024,30 +2020,6 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
         ret = 0;
 
     return ret;
-}
-
-/* 'ast' is some tree that isn't complete (it's a variant). Attempt to finish it
-   off. 'infer_type' may provide some extra inference information, or be NULL.
-   Generics that don't have a type get the type Dynamic as a fallback. */
-static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast,
-        lily_type *infer_type)
-{
-    lily_type *storage_type = ast->padded_variant_type;
-
-    if (storage_type->flags & TYPE_IS_INCOMPLETE) {
-        lily_type *unify_type = lily_ts_unify(emit->ts, storage_type,
-                infer_type);
-        if (unify_type)
-            storage_type = unify_type;
-    }
-
-    if (storage_type->flags & TYPE_IS_INCOMPLETE)
-        storage_type = lily_tm_make_dynamicd_copy(emit->tm, storage_type);
-
-    lily_storage *s = get_storage(emit, storage_type);
-
-    lily_u16_insert(emit->code, ast->maybe_result_pos, s->reg_spot);
-    ast->result = (lily_sym *)s;
 }
 
 /***
@@ -2060,13 +2032,13 @@ static void rebox_variant_to_enum(lily_emit_state *emit, lily_ast *ast,
  */
 
 static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, lily_type *got, const char *context)
+        lily_type *expect, const char *context)
 {
     lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
             "%s do not have a consistent type.\n"
             "Expected Type: ^T\n"
             "Received Type: ^T\n",
-            context, expect, got);
+            context, expect, ast->result->type);
 }
 
 static void bad_assign_error(lily_emit_state *emit, int line_num,
@@ -3012,9 +2984,6 @@ void eval_self(lily_emit_state *emit, lily_ast *ast)
  *
  */
 
-static lily_type *partial_eval(lily_emit_state *, lily_ast *, lily_type *,
-        uint16_t *);
-
 /** The eval for these two is broken away from the others because it is fairly
     difficult. The bulk of the problem comes with trying to find a 'bottom type'
     of all the values that were entered. This process is termed 'unification',
@@ -3025,26 +2994,6 @@ static lily_type *partial_eval(lily_emit_state *, lily_ast *, lily_type *,
     not work as well as they could. Another problem with the current unification
     is that it only works for enums and variants. Anything else gets sent
     straight to type Dynamic. It's unfortunate. **/
-
-/* This is called when a static list or hash has one or more variant values. It
-   walks over each value and determines if the value is a variant. Now that the
-   type that each variant will take is known, the variants can be finalized. */
-static void rebox_enum_variant_values(lily_emit_state *emit, lily_ast *ast,
-        lily_type *rebox_type, int is_hash)
-{
-    lily_ast *tree_iter = ast->arg_start;
-    if (is_hash)
-        tree_iter = tree_iter->next_arg;
-
-    while (tree_iter != NULL) {
-        if (tree_iter->result->item_kind == ITEM_TYPE_TYPE)
-            rebox_variant_to_enum(emit, tree_iter, rebox_type);
-
-        tree_iter = tree_iter->next_arg;
-        if (is_hash && tree_iter)
-            tree_iter = tree_iter->next_arg;
-    }
-}
 
 /* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
    inference. If 'key_type' is not suitable to be a hash key, then raise a
@@ -3114,7 +3063,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *key_type, *question_type, *value_type;
     question_type = emit->symtab->question_class->type;
-    uint16_t found_variant_or_enum = 0;
 
     if (expect && expect->cls->id == SYM_CLASS_HASH) {
         key_type = expect->subtypes[0];
@@ -3138,36 +3086,30 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         key_tree = tree_iter;
         value_tree = tree_iter->next_arg;
 
-        lily_type *partial_type, *unify_type;
+        lily_type *unify_type;
 
-        partial_type = partial_eval(emit, key_tree, key_type,
-                &found_variant_or_enum);
+        eval_tree(emit, key_tree, key_type);
 
-        unify_type = lily_ts_unify(emit->ts, key_type, partial_type);
+        unify_type = lily_ts_unify(emit->ts, key_type, key_tree->result->type);
         if (unify_type == NULL)
-            inconsistent_type_error(emit, key_tree, key_type, partial_type,
-                    "Hash keys");
+            inconsistent_type_error(emit, key_tree, key_type, "Hash keys");
         else {
             ensure_valid_key_type(emit, ast, unify_type);
             key_type = unify_type;
         }
 
-        partial_type = partial_eval(emit, value_tree, value_type,
-                &found_variant_or_enum);
-        unify_type = lily_ts_unify(emit->ts, value_type, partial_type);
+        eval_tree(emit, value_tree, value_type);
+        unify_type = lily_ts_unify(emit->ts, value_type,
+                value_tree->result->type);
         if (unify_type == NULL)
-            inconsistent_type_error(emit, value_tree, value_type, partial_type,
+            inconsistent_type_error(emit, value_tree, value_type,
                     "Hash values");
         else
             value_type = unify_type;
     }
 
-    if (found_variant_or_enum) {
-        if (value_type->flags & TYPE_IS_INCOMPLETE)
-            value_type = lily_tm_make_dynamicd_copy(emit->tm, value_type);
-
-        rebox_enum_variant_values(emit, ast, value_type, 1);
-    }
+    if (value_type->flags & TYPE_IS_INCOMPLETE)
+        value_type = lily_tm_make_dynamicd_copy(emit->tm, value_type);
 
     lily_class *hash_cls = emit->symtab->hash_class;
     lily_tm_add(emit->tm, key_type);
@@ -3191,7 +3133,6 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *elem_type = NULL;
     lily_ast *arg;
-    uint16_t found_variant = 0;
 
     if (expect && expect->cls->id == SYM_CLASS_LIST)
         elem_type = expect->subtypes[0];
@@ -3200,21 +3141,18 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = emit->ts->question_class_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
-        lily_type *unify_type = partial_eval(emit, arg, elem_type, &found_variant);
+        eval_tree(emit, arg, elem_type);
 
-        lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type, unify_type);
+        lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type,
+                arg->result->type);
         if (new_elem_type == NULL)
-            inconsistent_type_error(emit, arg, elem_type, unify_type, "List elements");
+            inconsistent_type_error(emit, arg, elem_type, "List elements");
 
         elem_type = new_elem_type;
     }
 
-    if (found_variant) {
-        if (elem_type->flags & TYPE_IS_INCOMPLETE)
-            elem_type = lily_tm_make_dynamicd_copy(emit->tm, elem_type);
-
-        rebox_enum_variant_values(emit, ast, elem_type, 0);
-    }
+    if (elem_type->flags & TYPE_IS_INCOMPLETE)
+        elem_type = lily_tm_make_dynamicd_copy(emit->tm, elem_type);
 
     lily_tm_add(emit->tm, elem_type);
     lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,
@@ -3357,7 +3295,6 @@ static void write_build_enum(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_u16_write_5(emit->code, o_build_enum, cs->ast->line_num,
             variant_cls->parent->id, variant_cls->variant_id, cs->arg_count);
     write_call_values(emit, cs, 0);
-    lily_u16_write_1(emit->code, 0);
 }
 
 /* This evaluates a call argument and checks that the type is what is wanted or
@@ -3376,8 +3313,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
                 emit->ts->question_class_type);
     }
 
-    lily_type *result_type = partial_eval(emit, arg, eval_type,
-            &cs->have_bare_variants);
+    eval_tree(emit, arg, eval_type);
+    lily_type *result_type = arg->result->type;
 
     /* Here's an interesting case where the result type doesn't match but where
        the result is some global generic function. Since the result function is
@@ -3418,42 +3355,6 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         add_value(emit, cs, arg->result);
     else
         bad_arg_error(emit, cs, want_type, result_type);
-}
-
-static void box_variant_at(lily_emit_state *emit, lily_emit_call_state *cs,
-        lily_ast *ast, int where)
-{
-    int offset = emit->call_values_pos - cs->arg_count;
-    lily_type *enum_type = lily_ts_resolve(emit->ts,
-            get_expected_type(cs, where));
-    rebox_variant_to_enum(emit, ast, enum_type);
-    emit->call_values[offset + where] = ast->result;
-}
-
-/* This is called after call arguments have been evaluated. It reboxes any
-   variant into an enum using the generic information known. */
-static void box_call_variants(lily_emit_state *emit, lily_emit_call_state *cs)
-{
-    int arg_num = 0;
-    lily_ast *tree_iter = cs->ast->arg_start;
-
-    if (tree_iter->tree_type == tree_oo_access) {
-        /* The first tree will yield a value unless it's a variant. */
-        if (tree_iter->arg_start->result->item_kind == ITEM_TYPE_TYPE)
-            box_variant_at(emit, cs, tree_iter->arg_start, 0);
-
-        arg_num++;
-    }
-    else if (tree_iter->tree_type == tree_method)
-        /* This causes self to be injected, and self is never a variant. */
-        arg_num++;
-
-    /* The first tree has been handled or is uninteresting. Skip it. */
-    tree_iter = tree_iter->next_arg;
-
-    for (;tree_iter;tree_iter = tree_iter->next_arg, arg_num++)
-        if (tree_iter->result->item_kind == ITEM_TYPE_TYPE)
-            box_variant_at(emit, cs, tree_iter, arg_num);
 }
 
 static void get_func_min_max(lily_type *call_type, unsigned int *min,
@@ -3540,8 +3441,6 @@ static void push_first_tree_value(lily_emit_state *emit,
         lily_ast *arg = ast->arg_start->arg_start;
         push_value = arg->result;
         push_type = arg->result->type;
-        if (push_type->cls->flags & CLS_IS_VARIANT)
-            cs->have_bare_variants = 1;
     }
 
     lily_type *expect = get_expected_type(cs, 0);
@@ -3621,9 +3520,6 @@ static void eval_verify_call_args(lily_emit_state *emit, lily_emit_call_state *c
        alone. */
     lily_ts_default_incomplete_solves(emit->ts);
 
-    if (cs->have_bare_variants)
-        box_call_variants(emit, cs);
-
     if (cs->call_type->flags & TYPE_IS_VARARGS) {
         int va_pos = cs->call_type->subtype_count - 1;
         lily_type *vararg_type = cs->call_type->subtypes[va_pos];
@@ -3646,7 +3542,6 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     emit->call_state = result->next;
     result->ast = ast;
     result->arg_count = 0;
-    result->have_bare_variants = 0;
 
     lily_ast *first_tree = ast->arg_start;
     lily_tree_type first_tt = first_tree->tree_type;
@@ -3849,8 +3744,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             verify_argument_count(emit, ast, variant->build_type, -1);
 
-        lily_u16_write_4(emit->code, o_get_readonly, ast->line_num,
-                variant->default_value->reg_spot, 0);
+        lily_u16_write_3(emit->code, o_get_readonly, ast->line_num,
+                variant->default_value->reg_spot);
 
         if (variant->parent->generic_count) {
             lily_ts_save_point p;
@@ -3871,8 +3766,16 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             padded_type = ast->variant->parent->self_type;
     }
 
-    ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
-    ast->padded_variant_type = padded_type;
+    ast->maybe_result_pos = lily_u16_pos(emit->code);
+
+    /* So here's the deal. It's quite possible that this result's type will have
+       incomplete type information. It might be written as Option[?], and the
+       vm doesn't have any '?' type. However, that doesn't matter because the vm
+       works off of type erasure, and thus doesn't care. The parent is given the
+       task of determining the full, completed type. */
+    lily_storage *s = get_storage(emit, padded_type);
+    lily_u16_write_1(emit->code, s->reg_spot);
+    ast->result = (lily_sym *)s;
 }
 
 /* This handles function pipes by faking them as calls and running them as a
@@ -3910,7 +3813,7 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
 
 /* Evaluate 'ast' using 'expect' for inference. If unsure (or have no opinion of
    what 'ast' should be), 'expect' can be NULL. */
-static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
+static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     if (ast->tree_type == tree_global_var ||
         ast->tree_type == tree_defined_func ||
@@ -3963,7 +3866,7 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_parenth) {
         lily_ast *start = ast->arg_start;
 
-        eval_raw(emit, start, expect);
+        eval_tree(emit, start, expect);
         ast->maybe_result_pos = start->maybe_result_pos;
         ast->result = start->result;
    }
@@ -3993,46 +3896,6 @@ static void eval_raw(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_upvalue)
         eval_upvalue(emit, ast);
-}
-
-/* Evaluate 'ast', using 'expect' for inference. If 'ast' produces an incomplete
-   variant, then that variant is finalized using the currently available
-   inference information.
-   Use this function if the caller needs complete values and has nothing more to
-   offer in the way of inference. */
-static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
-{
-    eval_raw(emit, ast, expect);
-
-    /* Variants are the only thing that won't return a value (aside from
-       toplevel expressions). */
-    if (ast->result && ast->result->item_kind == ITEM_TYPE_TYPE)
-        rebox_variant_to_enum(emit, ast, expect);
-}
-
-/* This is used for doing an eval but with an interest in not defaulting any
-   variant types (unless expect is Dynamic). The result of this function is
-   either the padded enum type, or the type of any result. Additionally, if a
-   variant is seen, then *found_variant is set to 1. */
-static lily_type *partial_eval(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, uint16_t *found_variant)
-{
-    eval_raw(emit, ast, expect);
-
-    lily_type *eval_type;
-    if (ast->tree_type == tree_variant ||
-        (ast->tree_type == tree_binary &&
-         ast->op == expr_func_pipe &&
-         ast->right->tree_type == tree_variant) ||
-        (ast->tree_type == tree_call &&
-         ast->arg_start->tree_type == tree_variant)) {
-        eval_type = ast->padded_variant_type;
-        *found_variant = 1;
-    }
-    else
-        eval_type = ast->result->type;
-
-    return eval_type;
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return
