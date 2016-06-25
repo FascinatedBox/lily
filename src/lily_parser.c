@@ -286,12 +286,11 @@ static lily_module_entry *new_module(const char *path,
 
     module->dynaload_table = dynaload_table;
 
-    if (dynaload_table) {
+    if (dynaload_table && dynaload_table[0][0]) {
         unsigned char cid_count = dynaload_table[0][0];
-        if (cid_count) {
-            module->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
-            memset(module->cid_table, 0, cid_count * sizeof(uint16_t));
-        }
+
+        module->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
+        memset(module->cid_table, 0, cid_count * sizeof(uint16_t));
     }
     else
         module->cid_table = NULL;
