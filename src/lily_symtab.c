@@ -806,14 +806,14 @@ lily_tie *make_variant_default(lily_symtab *symtab,
         lily_variant_class *variant)
 {
     /* This makes it easier to destroy, but makes no other difference. */
-    lily_type *enum_type = variant->parent->self_type;
+    lily_type *enum_self_type = variant->parent->all_subtypes;
 
     lily_instance_val *iv = lily_new_instance_val();
     iv->instance_id = variant->parent->id;
     iv->variant_id = variant->variant_id;
     iv->num_values = 0;
 
-    lily_tie *ret = make_new_literal_of_type(symtab, enum_type);
+    lily_tie *ret = make_new_literal_of_type(symtab, enum_self_type);
     ret->value.instance = iv;
     ret->move_flags = VAL_IS_ENUM;
     /* This variant may not be interesting, but it could be swapped out with a

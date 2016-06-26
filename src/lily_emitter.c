@@ -3712,6 +3712,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_ast *variant_tree = ast->arg_start;
         lily_variant_class *variant = variant_tree->variant;
         lily_type *build_type = variant->build_type;
+        lily_type *self_type = variant->parent->all_subtypes;
 
         if (build_type->subtype_count == 1)
             lily_raise(emit->raiser, lily_SyntaxError,
@@ -3729,7 +3730,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
            describes an enum wherein the types are either filled or have ? in
            their place. This makes working with variants much saner. */
         padded_type = lily_ts_resolve_with(emit->ts,
-                variant->parent->self_type, emit->ts->question_class_type);
+                self_type, emit->ts->question_class_type);
 
         /* This causes all arguments to be written down into an o_build_enum op
            and be drained from the call. */
@@ -3740,6 +3741,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     }
     else {
         lily_variant_class *variant = ast->variant;
+        lily_type *self_type = variant->parent->all_subtypes;
         /* Did this need arguments? It was used incorrectly if so. */
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             verify_argument_count(emit, ast, variant->build_type, -1);
@@ -3750,7 +3752,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if (variant->parent->generic_count) {
             lily_ts_save_point p;
             lily_ts_scope_save(emit->ts, &p);
-            lily_type *self_type = variant->parent->self_type;
 
             /* Since the variant has no opinion on generics, try to pull any
                inference possible before defaulting to ?. */
@@ -3763,7 +3764,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             lily_ts_scope_restore(emit->ts, &p);
         }
         else
-            padded_type = ast->variant->parent->self_type;
+            padded_type = self_type;
     }
 
     ast->maybe_result_pos = lily_u16_pos(emit->code);
