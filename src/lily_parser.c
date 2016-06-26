@@ -780,7 +780,7 @@ static lily_type *get_type(lily_parse_state *parser)
 /* Get a type represented by the name given. Largely used by dynaload. */
 static lily_type *type_by_name(lily_parse_state *parser, const char *name)
 {
-    lily_load_copy_string(parser->lex, "[api]", lm_no_tags, name);
+    lily_load_copy_string(parser->lex, lm_no_tags, name);
     lily_lexer(parser->lex);
     lily_type *result = get_type(parser);
     lily_pop_lex_entry(parser->lex);
@@ -1033,7 +1033,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     lily_module_entry *save_active = parser->symtab->active_module;
     int save_generics = parser->generic_count;
 
-    lily_load_str(lex, "[builtin]", lm_no_tags, body);
+    lily_load_str(lex, lm_no_tags, body);
     lily_lexer(lex);
 
     lily_item *source;
@@ -1147,8 +1147,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     lily_msgbuf_add_char(msgbuf, '}');
 
-    lily_load_copy_string(parser->lex, "[dynaload]", lm_no_tags,
-            msgbuf->message);
+    lily_load_copy_string(parser->lex, lm_no_tags, msgbuf->message);
     lily_lexer(parser->lex);
     lily_class *result = parse_enum(parser, 1);
     result->dyna_start = dyna_index + 1;
@@ -1209,7 +1208,7 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     const char *name = entry + DYNA_NAME_OFFSET;
     const char *body = name + strlen(name) + 1;
 
-    lily_load_str(parser->lex, "[dynaload]", lm_no_tags, body);
+    lily_load_str(parser->lex, lm_no_tags, body);
     lily_class *cls = lily_new_class(parser->symtab, name);
     cls->dyna_start = dyna_index + 1;
     if (m->parent == parser->package_start) {
@@ -2269,7 +2268,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         const char *text)
 {
     lily_lex_state *lex = parser->lex;
-    lily_load_copy_string(lex, "[expand]", lm_no_tags, text);
+    lily_load_copy_string(lex, lm_no_tags, text);
     lex->line_num = start_line;
     lily_lexer(parser->lex);
 
@@ -2316,7 +2315,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_copy_string(lex, "[expand]", lm_no_tags, lambda_body);
+    lily_load_copy_string(lex, lm_no_tags, lambda_body);
     lex->line_num = lambda_start_line;
 
     /* Block entry assumes that the most recent var added is the var to bind
@@ -4020,15 +4019,14 @@ static void protected_handler(lily_parse_state *parser, int multi)
 /* This is the entry point of the parser. It parses the thing that it was given
    and then runs the code. This shouldn't be called directly, but instead by
    one of the lily_parse_* functions that will set it up right. */
-static void parser_loop(lily_parse_state *parser)
+static void parser_loop(lily_parse_state *parser, const char *filename)
 {
     /* The first pass of the interpreter starts with the current namespace being
        the builtin namespace. */
     if (parser->first_pass) {
-        const char *name = parser->lex->entry->filename;
-        parser->main_module->const_path = name;
+        parser->main_module->const_path = filename;
 
-        set_module_names_by_path(parser->main_module, name);
+        set_module_names_by_path(parser->main_module, filename);
 
         parser->first_pass = 0;
     }
@@ -4107,7 +4105,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
                     "File name must end with '.lly'.\n");
 
         lily_load_file(parser->lex, mode, filename);
-        parser_loop(parser);
+        parser_loop(parser, filename);
         lily_pop_lex_entry(parser->lex);
 
         return 1;
@@ -4120,8 +4118,8 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
         lily_lex_mode mode, char *str)
 {
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_load_str(parser->lex, name, mode, str);
-        parser_loop(parser);
+        lily_load_str(parser->lex, mode, str);
+        parser_loop(parser, name);
         lily_pop_lex_entry(parser->lex);
         return 1;
     }
@@ -4165,19 +4163,8 @@ char *lily_build_error_message(lily_parse_state *parser)
             int fixed_line_num = (raiser->line_adjust == 0 ?
                     parser->lex->line_num : raiser->line_adjust);
 
-            /* The parser handles lambda and interpolation processing by putting
-               entries with the name [expand]. Don't show these. */
-            while (strcmp(iter->filename, "[expand]") == 0)
-                iter = iter->prev;
-
-            if (strcmp(iter->filename, "[builtin]") != 0) {
-                iter->saved_line_num = fixed_line_num;
-                lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
-                        iter->filename, iter->saved_line_num);
-            }
-            /* The entry is only [builtin] if there was a failure to load the
-               first file. Don't show any filename because, well...there isn't
-               one. */
+            lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
+                    parser->symtab->active_module->path, fixed_line_num);
         }
     }
     else {
