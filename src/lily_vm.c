@@ -2238,12 +2238,12 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 foreign_func_body: ;
 
-                if (vm->call_depth > 100)
-                    lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
-                            "Function call recursion limit reached.\n");
-
-                if (current_frame->next == NULL)
+                if (current_frame->next == NULL) {
+                    if (vm->call_depth > 100)
+                        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
+                                "Function call recursion limit reached.\n");
                     add_call_frame(vm);
+                }
 
                 i = code[code_pos+3];
                 current_frame->line_num = code[code_pos+1];
@@ -2294,12 +2294,12 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 native_func_body: ;
 
-                if (vm->call_depth > 100)
-                    lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
-                            "Function call recursion limit reached.\n");
-
-                if (current_frame->next == NULL)
+                if (current_frame->next == NULL) {
+                    if (vm->call_depth > 100)
+                        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
+                                "Function call recursion limit reached.\n");
                     add_call_frame(vm);
+                }
 
                 i = code[code_pos+3];
                 current_frame->line_num = code[code_pos+1];
