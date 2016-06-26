@@ -137,8 +137,22 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     memcpy(new_subtypes, fake_type->subtypes, count * sizeof(lily_type *));
     new_type->subtypes = new_subtypes;
     new_type->subtype_count = count;
-    new_type->next = new_type->cls->all_subtypes;
-    new_type->cls->all_subtypes = new_type;
+
+    lily_type *cls_subtypes = new_type->cls->all_subtypes;
+
+    /* Whenever a class is created, no matter what the origin is, the first type
+       they always make is their 'self' type. The 'self' type needs to be
+       available at various times. To avoid putting a field on classes, instead,
+       this links every subsequent type AFTER the 'self' type, preserving 'self'
+       as always being the first member of the list. */
+    if (cls_subtypes != NULL) {
+        new_type->next = cls_subtypes->next;
+        cls_subtypes->next = new_type;
+    }
+    else {
+        new_type->next = cls_subtypes;
+        new_type->cls->all_subtypes = new_type;
+    }
 
     int i;
     for (i = 0;i < new_type->subtype_count;i++) {

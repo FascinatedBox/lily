@@ -117,15 +117,14 @@ typedef struct lily_class_ {
 
     uint32_t pad;
 
-    /* Enums and classes: This is the type that 'self' will have. For those
-       without generics, this is the default type. */
-    struct lily_type_ *self_type;
-
     /* This is the module that this class was defined within. This is sometimes
        used for establishing a scope when doing dynaloading. */
     struct lily_module_entry_ *module;
 
-    /* This contains all types which have this class as their class. */
+    /* Every type that has this as its class can be found here. The type maker
+       (which is responsible for creating new types) will always build the
+       'self' type of any class first, as well as ensuring that it is always
+       first. */
     struct lily_type_ *all_subtypes;
 } lily_class;
 
