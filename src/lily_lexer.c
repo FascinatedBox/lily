@@ -216,7 +216,6 @@ void lily_free_lex_state(lily_lex_state *lexer)
 
             entry_next = entry_iter->next;
             lily_free(entry_iter->saved_input);
-            lily_free(entry_iter->filename);
             lily_free(entry_iter);
             entry_iter = entry_next;
         }
@@ -230,7 +229,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
 
 /* Get an entry to hold the given filename. This attempts to use an unused one,
    but makes a new one if needed. */
-static lily_lex_entry *get_entry(lily_lex_state *lexer, const char *filename)
+static lily_lex_entry *get_entry(lily_lex_state *lexer)
 {
     lily_lex_entry *ret_entry = NULL;
 
@@ -251,7 +250,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, const char *filename)
         ret_entry->extra = NULL;
         ret_entry->saved_input = NULL;
         ret_entry->saved_input_pos = 0;
-        ret_entry->filename = NULL;
 
         ret_entry->next = NULL;
         ret_entry->lexer = lexer;
@@ -261,16 +259,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer, const char *filename)
             ret_entry = lexer->entry;
         else
             ret_entry = lexer->entry->next;
-    }
-
-    /* The parser will add [builtin] as the filename for builtins, and it likes
-       to save+load that often. Make sure to only make space for a filename if
-       it's really necessary. */
-    if (ret_entry->filename == NULL ||
-        strcmp(ret_entry->filename, filename) != 0) {
-        ret_entry->filename = lily_realloc(ret_entry->filename,
-                strlen(filename) + 1);
-        strcpy(ret_entry->filename, filename);
     }
 
     if (ret_entry->prev) {
@@ -1264,9 +1252,9 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
    that accidentally sends data, and lots of other problems. */
 
 static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
-        FILE *f, const char *filename)
+        FILE *f)
 {
-    lily_lex_entry *new_entry = get_entry(lexer, filename);
+    lily_lex_entry *new_entry = get_entry(lexer);
 
     new_entry->source = f;
     new_entry->entry_type = et_file;
@@ -1280,7 +1268,7 @@ int lily_try_load_file(lily_lex_state *lexer, const char *filename)
     if (load_file == NULL)
         return 0;
 
-    setup_opened_file(lexer, lm_no_tags, load_file, filename);
+    setup_opened_file(lexer, lm_no_tags, load_file);
     return 1;
 }
 
@@ -1294,14 +1282,13 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
         lily_raise(lexer->raiser, lily_Error, "Failed to open %s: (^R).\n",
                 filename, errno);
 
-    setup_opened_file(lexer, mode, load_file, filename);
+    setup_opened_file(lexer, mode, load_file);
 }
 
 /* This loads a string as an initial entry. A shallow copy of 'str' is kept. */
-void lily_load_str(lily_lex_state *lexer, const char *name, lily_lex_mode mode,
-        const char *str)
+void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, const char *str)
 {
-    lily_lex_entry *new_entry = get_entry(lexer, name);
+    lily_lex_entry *new_entry = get_entry(lexer);
 
     new_entry->source = &str[0];
     new_entry->entry_type = et_shallow_string;
@@ -1310,10 +1297,10 @@ void lily_load_str(lily_lex_state *lexer, const char *name, lily_lex_mode mode,
 }
 
 /* This loads a string as an entry, but does a deep copy of the string. */
-void lily_load_copy_string(lily_lex_state *lexer, const char *name,
-        lily_lex_mode mode, const char *str)
+void lily_load_copy_string(lily_lex_state *lexer, lily_lex_mode mode,
+        const char *str)
 {
-    lily_lex_entry *new_entry = get_entry(lexer, name);
+    lily_lex_entry *new_entry = get_entry(lexer);
 
     char *copy = lily_malloc(strlen(str) + 1);
 
