@@ -662,7 +662,6 @@ lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
 
 static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static lily_function_val *create_code_block_for(lily_emit_state *, lily_block *);
-static void ensure_proper_match_block(lily_emit_state *);
 
 /** The emitter's blocks keep track of the current context of things. Is the
     current block an if with or without an else? Where do storages start? Were
@@ -902,10 +901,8 @@ void lily_emit_leave_block(lily_emit_state *emit)
     if (block_type == block_while || block_type == block_for_in)
         lily_u16_write_2(emit->code, o_jump,
                 block->loop_start - block->jump_offset);
-    else if (block_type == block_match) {
-        ensure_proper_match_block(emit);
+    else if (block_type == block_match)
         emit->match_case_pos = emit->block->match_case_start;
-    }
     else if (block_type == block_try ||
              block_type == block_try_except ||
              block_type == block_try_except_all) {
@@ -1557,43 +1554,17 @@ static void grow_match_cases(lily_emit_state *emit)
         sizeof(int) * emit->match_case_size);
 }
 
-/* This checks that the current match block (which is exiting) is exhaustive. IF
-   it is not, then a SyntaxError is raised. */
-static void ensure_proper_match_block(lily_emit_state *emit)
-{
-    lily_block *block = emit->block;
-    int error = 0;
-    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-    int i;
-    lily_class *match_class = block->match_sym->type->cls;
-
-    for (i = block->match_case_start;i < emit->match_case_pos;i++) {
-        if (emit->match_cases[i] == 0) {
-            if (error == 0) {
-                lily_msgbuf_add(msgbuf,
-                        "Match pattern not exhaustive. The following case(s) are missing:\n");
-                error = 1;
-            }
-
-            lily_msgbuf_add_fmt(msgbuf, "* %s\n",
-                    match_class->variant_members[i]->name);
-        }
-    }
-
-    if (error)
-        lily_raise(emit->raiser, lily_SyntaxError, msgbuf->message);
-}
-
 /* This writes a decomposition for a given variant type. As for the values, it
    pulls from recently-declared vars and assumes those vars should be the
    targets. */
-void lily_emit_variant_decompose(lily_emit_state *emit, lily_type *variant_type)
+void lily_emit_variant_decompose(lily_emit_state *emit, uint16_t match_sym_spot,
+        lily_type *variant_type)
 {
     int value_count = variant_type->subtype_count - 1;
     int i;
 
     lily_u16_write_4(emit->code, o_variant_decompose, *emit->lex_linenum,
-            emit->block->match_sym->reg_spot, value_count);
+            match_sym_spot, value_count);
 
     /* Since this function is called immediately after declaring the last var
        that will receive the decompose, it's safe to pull the vars directly
@@ -1692,7 +1663,6 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     emit->match_case_pos += match_cases_needed;
 
     block->match_code_start = lily_u16_pos(emit->code) + 4;
-    block->match_sym = (lily_sym *)ast->result;
 
     lily_u16_write_prep(emit->code, 4 + match_cases_needed);
 

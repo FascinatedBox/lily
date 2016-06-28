@@ -88,11 +88,6 @@ typedef struct lily_block_ {
        from the block (a return or a raise). This is used to help figure out if
        a function claiming to return a value will actually do so. */
     int32_t last_exit;
-
-    /* Match blocks: This sym holds a register spot and the type for helping
-       with match case checking. */
-    lily_sym *match_sym;
-
     /* This is the most recently-entered class. While Lily does not allow users
        to create nested classes, it is possible for a class to be within a class
        if there is a dynaload. */
@@ -267,7 +262,7 @@ void lily_emit_write_optargs(lily_emit_state *, lily_buffer_u16 *, int);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_add_match_case(lily_emit_state *, int);
-void lily_emit_variant_decompose(lily_emit_state *, lily_type *);
+void lily_emit_variant_decompose(lily_emit_state *, uint16_t, lily_type *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);

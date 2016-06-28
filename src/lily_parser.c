@@ -3835,10 +3835,9 @@ static void enum_handler(lily_parse_state *parser, int multi)
     parse_enum(parser, 0);
 }
 
-static void process_match_case(lily_parse_state *parser, int multi)
+static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
 {
-    lily_block *block = parser->emit->block;
-    lily_type *match_input_type = block->match_sym->type;
+    lily_type *match_input_type = match_sym->type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
     lily_variant_class *variant_case = NULL;
@@ -3887,13 +3886,43 @@ static void process_match_case(lily_parse_state *parser, int multi)
         }
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        lily_emit_variant_decompose(parser->emit, build_type);
+        lily_emit_variant_decompose(parser->emit, match_sym->reg_spot,
+                build_type);
     }
     /* else the variant does not take arguments, and cannot decompose because
        there is nothing inside to decompose. */
 
     NEED_NEXT_TOK(tk_colon)
     lily_lexer(lex);
+}
+
+
+/* This checks that the current match block (which is exiting) is exhaustive. IF
+   it is not, then a SyntaxError is raised. */
+static void ensure_proper_match_block(lily_parse_state *parser,
+        lily_sym *match_sym)
+{
+    int error = 0;
+    int match_case_start = parser->emit->block->match_case_start;
+    int i;
+    lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
+    lily_class *match_class = match_sym->type->cls;
+
+    for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
+        if (parser->emit->match_cases[i] == 0) {
+            if (error == 0) {
+                lily_msgbuf_add(msgbuf,
+                        "Match pattern not exhaustive. The following case(s) are missing:\n");
+                error = 1;
+            }
+
+            lily_msgbuf_add_fmt(msgbuf, "* %s\n",
+                    match_class->variant_members[i]->name);
+        }
+    }
+
+    if (error)
+        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
 }
 
 static void match_handler(lily_parse_state *parser, int multi)
@@ -3909,6 +3938,8 @@ static void match_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_eval_match_expr(parser->emit, parser->expr);
 
+    lily_sym *match_sym = parser->expr->root->result;
+
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
     lily_lexer(lex);
@@ -3918,7 +3949,7 @@ static void match_handler(lily_parse_state *parser, int multi)
             int key = keyword_by_name(lex->label);
             if (key == KEY_CASE) {
                 lily_lexer(lex);
-                process_match_case(parser, multi);
+                process_match_case(parser, match_sym);
             }
             else if (key != -1) {
                 lily_lexer(lex);
@@ -3934,6 +3965,8 @@ static void match_handler(lily_parse_state *parser, int multi)
         else
             break;
     }
+
+    ensure_proper_match_block(parser, match_sym);
 
     lily_lexer(lex);
     lily_emit_leave_block(parser->emit);
