@@ -3,5 +3,5 @@
 author "Miss Package Vendor"
 desc "A description of the Lily Package"
 
-github jesserayadkins/lily = 0.4.0
-github jesserayadkins/lily = 0.5.2
+github jesserayadkins/lily
+github jesserayadkins/lily
