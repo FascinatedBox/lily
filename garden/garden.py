@@ -1,25 +1,32 @@
 #!/usr/bin/env python
+import os
+import subprocess
+import sys
+import re
 
-import os, subprocess, sys, re
 
 def strip_outer_quotes(str_):
     return str_.strip('\'"')
 
+
 def lily_author(author_name):
     print("Library Author: " + author_name)
+
 
 def lily_desc(desc):
     print("Library Description: " + desc)
 
-# Fetches a given repository from GitHub with a given version
-# You can control your versioning with the operator
-# The version should match the version in the Github Release
-def lily_github(repo, operator = "=", version = -1):
+
+def lily_github(repo, operator="=", version=-1):
+    '''Fetches a given repository from GitHub with a given version you
+    can control your versioning with the operator the version should
+    match the version in the Github release'''
     print("Fetching Repository: " + repo + " - Version " + version)
     cwd = os.getcwd()
 
     repo_name = "git://github.com/{0}".format(repo)
-    subprocess.call(["git", "clone", "--depth", "1", repo_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    command = ["git", "clone", "--depth", "1", repo_name]
+    subprocess.call(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     os.chdir(repo.split("/")[1])
 
     if os.path.isfile("CMakeLists.txt"):
@@ -27,14 +34,18 @@ def lily_github(repo, operator = "=", version = -1):
     subprocess.call(["make"])
 
     os.chdir(cwd)
-    #@TODO Versioning
-    #@TODO Recursively parse any .lily file that the downloaded repository has
+    # @TODO Versioning
+    # @TODO Recursively parse any .lily file that the downloaded repository has
 
-# Generates a function call from the given line of text. The line is matched
-# against a regular expression that looks for text separated by spaces
+
 def generate_function_call(line):
-    if line.startswith("#") : return
-    if not line.strip() : return
+    '''Generates a function call from the given line of text. The line
+    is matched against a regular expression that looks for text
+    separated by spaces'''
+    if line.startswith("#"):
+        return
+    if not line.strip():
+        return
     args = re.findall("('.*?'|\".*?\"|\S+)", line)
 
     functionCall = "lily_{0}(".format(args[0])
@@ -44,8 +55,10 @@ def generate_function_call(line):
 
     return functionCall[:-1] + ")"
 
-# Parses a given `.lily` file. Documentation for this file can be found at @TODO
+
 def lily_parse_file(lily_file_path):
+    '''Parses a given `.lily` file. Documentation for this file can be
+    found at @TODO'''
     os.chdir("packages")
 
     print("Planting Seeds...")
@@ -57,6 +70,7 @@ def lily_parse_file(lily_file_path):
                 if function_call:
                     eval(function_call)
         print("Your garden is ready!")
+
 
 def execute():
     try:
