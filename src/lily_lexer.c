@@ -1290,7 +1290,7 @@ void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, const char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
-    new_entry->source = &str[0];
+    new_entry->source = (char*)&str[0];
     new_entry->entry_type = et_shallow_string;
 
     setup_entry(lexer, new_entry, mode);
