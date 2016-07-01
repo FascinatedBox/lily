@@ -82,6 +82,12 @@ make install
 
 There are additional options for building the interpreter, which are documented on Lily's website.
 
+##### Community
+
+Lily is a very young language and the community is still growing.
+
+- IRC: You can chat with other Lily users on [freenode #lily](https://webchat.freenode.net/?channels=%23lily).
+
 ##### Learn more?
 
 [Here's a more complete tutorial that goes through the various language features.](https://jesserayadkins.github.io/lily/tutorial.html)
