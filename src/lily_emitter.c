@@ -2249,10 +2249,13 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
     int opcode;
     lily_class *lhs_class, *rhs_class;
+    lily_sym *lhs_sym, *rhs_sym;
     lily_storage *s;
 
-    lhs_class = ast->left->result->type->cls;
-    rhs_class = ast->right->result->type->cls;
+    lhs_sym = ast->left->result;
+    rhs_sym = ast->right->result;
+    lhs_class = lhs_sym->type->cls;
+    rhs_class = rhs_sym->type->cls;
 
     if (lhs_class->id <= SYM_CLASS_STRING &&
         rhs_class->id <= SYM_CLASS_STRING)
@@ -2295,8 +2298,18 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
             storage_class = emit->symtab->integer_class;
     }
 
-    s = get_storage(emit, storage_class->type);
-    s->flags |= SYM_NOT_ASSIGNABLE;
+    /* Can we reuse a storage instead of making a new one? It's a simple check,
+       but every register the vm doesn't need to make helps. */
+    if (lhs_sym->item_kind == ITEM_TYPE_STORAGE &&
+        lhs_class == storage_class)
+        s = (lily_storage *)lhs_sym;
+    else if (rhs_sym->item_kind == ITEM_TYPE_STORAGE &&
+             rhs_class == storage_class)
+        s = (lily_storage *)rhs_sym;
+    else {
+        s = get_storage(emit, storage_class->type);
+        s->flags |= SYM_NOT_ASSIGNABLE;
+    }
 
     lily_u16_write_5(emit->code, opcode, ast->line_num,
             ast->left->result->reg_spot, ast->right->result->reg_spot,
