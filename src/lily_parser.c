@@ -702,7 +702,7 @@ static lily_type *get_type(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *result;
-    lily_class *cls;
+    lily_class *cls = NULL;
 
     if (lex->token == tk_word)
         cls = resolve_class_name(parser);

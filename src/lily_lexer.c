@@ -1290,7 +1290,7 @@ void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, const char *str)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
-    new_entry->source = &str[0];
+    new_entry->source = (char*)&str[0];
     new_entry->entry_type = et_shallow_string;
 
     setup_entry(lexer, new_entry, mode);
@@ -1430,6 +1430,7 @@ void lily_lexer(lily_lex_state *lexer)
             else {
                 ch++;
                 input_pos++;
+                token = tk_dot;
                 if (*ch == '.') {
                     ch++;
                     input_pos++;
@@ -1442,8 +1443,6 @@ void lily_lexer(lily_lex_state *lexer)
                         lily_raise(lexer->raiser, lily_SyntaxError,
                                 "'..' is not a valid token (expected 1 or 3 dots).\n");
                 }
-                else
-                    token = tk_dot;
             }
         }
         else if (group == CC_PLUS) {
