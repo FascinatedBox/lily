@@ -2,10 +2,8 @@
 
 import os, subprocess, sys, re
 
-def strip_outer_quotes(input):
-    if (input.startswith("\"") and input.endswith("\"")) or (input.startswith("'") and input.endswith("'")):
-        return input[1:-1]
-    return input
+def strip_outer_quotes(str_):
+    return str_.strip('\'"')
 
 def lily_author(author_name):
     print("Library Author: " + author_name)
