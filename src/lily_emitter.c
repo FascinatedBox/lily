@@ -165,7 +165,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
        from a previous block (for things such as self). */
     main_block->prev = NULL;
     main_block->next = NULL;
-    main_block->block_type = block_define;
+    main_block->block_type = block_file;
     main_block->function_var = main_var;
     main_block->storage_start = emit->all_storage_start;
     main_block->class_entry = NULL;
