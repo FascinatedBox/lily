@@ -85,12 +85,20 @@ def lily_parse_file(lily_file_path):
     found at @TODO'''
     os.chdir("packages")
     if os.path.isfile(lily_file_path):
-        with open(lily_file_path, 'r') as lily_file:
-            data = lily_file.read().splitlines()
-            for line in data:
-                function_call = generate_function_call(line)
-                if function_call:
-                    eval(function_call)
+        lines = lily_read_file(lily_file_path)
+        lst = map(generate_function_call, lines)
+        lily_eval_literal_list(lst)
+
+
+def lily_read_file(lily_file_path):
+    '''Reads lines from a given `.lily` file and splits it'''
+    with open(lily_file_path, 'r') as f:
+        return f.read().splitlines()
+
+
+def lily_eval_literal_list(lst):
+    '''Evaluates each string literal in a list'''
+    [eval(el) for el in lst if el]
 
 
 def perform_install(args):
