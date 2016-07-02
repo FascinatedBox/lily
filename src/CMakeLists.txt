@@ -9,7 +9,7 @@ STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
 # -fPIC is vital: Apache's mod_lily will not build properly without it.
 add_library(liblily STATIC ${lily_SOURCES})
 if(NOT MSVC)
-    if(IS_BSD)
+    if(IS_BSD OR MINGW)
         target_link_libraries(liblily)
     else()
         target_link_libraries(liblily dl)
