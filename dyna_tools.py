@@ -19,6 +19,10 @@ gen:   What to generate. Options are:
        [gen-docs, source]:
        Reads from 'source' for documentation comments, and uses them to generate
        HTML documentation. The documentation is printed to stdout.
+
+       [gen-dynaload, source]:
+       Reads from 'source', using the comments to build a dynaload table that is
+       printed to stdout.
 """
     print(message)
     sys.exit(0)
@@ -29,6 +33,15 @@ Scan through a file, picking up all /** ... */ comments. For each one found, a
 list of 3 elements is created containing the type, the body, and the
 documentation.
     """
+    def call_entry(source, name):
+        # The format is 'define/method $name($proto)
+        split = source.split("\n", 2)
+        doc = split[2].strip("\r\n ")
+
+        # TODO: These prototypes should be verified.
+        prototype = split[0][6:].lstrip()
+        return [name, prototype, doc]
+
     lines = [line for line in open(filename, "r")]
     i = 0
 
@@ -58,14 +71,11 @@ documentation.
             name = re.search("package (.+)", d).group(1)
             entries.append(["package", name, doc])
 
-        elif d.startswith("method") or d.startswith("define"):
-            # The format is 'method $name($prototype):$return'
-            split = d.split("\n", 2)
-            doc = split[2].strip("\r\n ")
+        elif d.startswith("method"):
+            entries.append(call_entry(d, "method"))
 
-            # TODO: These prototypes should be verified.
-            prototype = split[0][6:].lstrip()
-            entries.append(["call", prototype, doc])
+        elif d.startswith("define"):
+            entries.append(call_entry(d, "define"))
 
         elif d.startswith("var"):
             # The format is 'var $name: $type'
@@ -127,7 +137,7 @@ Generate html documentation based on comment blocks within the given filename.
             doc_string += h3(name)
             doc_string += p(doc)
 
-        elif group == "call":
+        elif group == "method" or group == "define":
             split_proto = e[1].split("(", 1)
             name = split_proto[0]
             proto = split_proto[1]
@@ -159,11 +169,116 @@ Generate html documentation based on comment blocks within the given filename.
 
     print doc_string.rstrip("\n")
 
+def strip_proto(proto):
+    arg_start = proto.find('(')
+    first_dot = proto.find('.')
+    output = ")"
+
+    # For methods, cut off the class name at the front.
+    if first_dot < arg_start and first_dot != -1:
+        proto = proto[first_dot+1:]
+        arg_start = proto.find('(')
+
+    arg_end = proto.rfind('):')
+
+    if arg_end != -1:
+        output = "):" + proto[arg_end+2:].replace(" ", "")
+
+    args = proto[arg_start+1:arg_end]
+
+    # Remove names from the arguments.
+    args = re.sub("\w+:", "", args)
+
+    # Remove any default values from the arguments.
+    args = args.replace('"', "")
+    args = args.replace("=", "")
+
+    args = args.replace(" ", "")
+
+    return proto[0:arg_start] + "\\0(" + args + output
+
+def gen_dynaload(filename):
+    """\
+Generate dynaload information based on comment blocks in a given filename.
+    """
+
+    # Write a numeric value into the dynaload table.
+    def dyencode(x):
+        return "\\%s" % (oct(x))
+
+    entries = scan_file(filename)
+
+    # Classes need to know how many methods they have so those methods can be
+    # skipped over (classes aren't searched at the same time methods are).
+    last_class_index = -1
+    class_count = 0
+    method_count = 0
+    table = []
+    classes_used = []
+
+    for e in entries:
+        group = e[0]
+
+        if group == "class":
+            class_count += 1
+            if class_count > 1:
+                table[last_class_index][1] = method_count
+                method_count = 0
+
+            last_class_index = len(table)
+            table.append(["class", 0, e[1]])
+            classes_used.append(e[1])
+
+        elif group == "method":
+            method_count += 1
+            table.append(["method", strip_proto(e[1])])
+
+        elif group == "define":
+            table.append(["define", strip_proto(e[1])])
+
+        elif group == "var":
+            proto = e[1]
+            proto = proto.replace(":", "\\0")
+            proto = proto.replace(" ", "")
+            table.append(["var", proto])
+
+    if class_count:
+        table[last_class_index][1] = method_count
+
+    # A dynaload table starts off with how many classes it used, and then their
+    # names. This information is used to build the cid table.
+    result = ['"' + dyencode(len(classes_used)) + "\\0".join(classes_used) + '\\0"']
+
+    for t in table:
+        group = t[0]
+
+        # Classes write down the distance to the next non-class entry, so that
+        # the interpreter can skip through methods when it's not looking for
+        # them.
+        if group == "class":
+            result.append(',"C%s%s"' % (dyencode(t[1]), t[2]))
+
+        elif group == "method":
+            result.append(',"m:%s"' % (t[1]))
+
+        elif group == "var":
+            result.append(',"R\\0%s' % (t[1]))
+
+        elif group == "define":
+            result.append(',"F\\0%s"' % (t[1]))
+
+    result.append(',"Z"')
+
+    for r in result:
+        print r
+
 if len(sys.argv) < 3:
     usage()
 else:
     action = sys.argv[1]
     if action == "gen-docs":
         gen_docs(sys.argv[2])
+    elif action == "gen-dynaload":
+        gen_dynaload(sys.argv[2])
     else:
         usage()
