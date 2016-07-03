@@ -2643,18 +2643,18 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         int save_pos;
         lily_symtab *symtab = emit->symtab;
 
-        result = get_storage(emit, symtab->integer_class->type);
+        result = get_storage(emit, symtab->boolean_class->type);
 
         int truthy = (ast->op == expr_logical_and);
 
-        lily_u16_write_4(emit->code, o_get_integer, ast->line_num, truthy,
+        lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, truthy,
                 result->reg_spot);
 
         lily_u16_write_2(emit->code, o_jump, 0);
         save_pos = lily_u16_pos(emit->code) - 1;
 
         lily_emit_leave_block(emit);
-        lily_u16_write_4(emit->code, o_get_integer, ast->line_num, !truthy,
+        lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, !truthy,
                 result->reg_spot);
 
         lily_u16_insert(emit->code, save_pos, lily_u16_pos(emit->code)
