@@ -16,10 +16,20 @@
 #define CID_CONN   cid_table[1]
 #define GET_CID_TABLE vm->call_chain->function->cid_table
 
-/******************************************************************************/
-/* Result                                                                     */
-/******************************************************************************/
+/**
+package postgres
 
+This package provides a limited, but usable interface for interacting with a
+postgres server.
+*/
+
+/**
+class Result
+
+The `Result` class provides a wrapper over the result of querying the postgres
+database. The class provides a very basic set of methods to allow interaction
+with the rows as a `List[String]`.
+*/
 typedef struct {
     uint32_t refcount;
     uint16_t instance_id;
@@ -46,6 +56,13 @@ void destroy_result(lily_value *v)
     lily_free(v->value.generic);
 }
 
+/**
+method Result.close(self: Result)
+
+Close a `Result` and free all data associated with it. If this is not done
+manually, then it is done automatically when the `Result` is destroyed through
+either the gc or refcounting.
+*/
 void lily_postgres_Result_close(lily_vm_state *vm, uint16_t argc,
         uint16_t *code)
 {
@@ -56,6 +73,12 @@ void lily_postgres_Result_close(lily_vm_state *vm, uint16_t argc,
     to_close->row_count = 0;
 }
 
+/**
+method Result.each_row(self: Result, fn: Function(List[String]))
+
+This loops through each row in 'self', calling 'fn' for each row that is found.
+If 'self' has no rows, or has been closed, then this does nothing.
+*/
 void lily_postgres_Result_each_row(lily_vm_state *vm, uint16_t argc,
         uint16_t *code)
 {
@@ -106,6 +129,11 @@ void lily_postgres_Result_each_row(lily_vm_state *vm, uint16_t argc,
     }
 }
 
+/**
+method Result.row_count(self: Result): Integer
+
+Returns the number of rows present within 'self'.
+*/
 void lily_postgres_Result_row_count(lily_vm_state *vm, uint16_t argc,
         uint16_t *code)
 {
@@ -118,10 +146,11 @@ void lily_postgres_Result_row_count(lily_vm_state *vm, uint16_t argc,
     lily_move_integer(result_reg, row);
 }
 
-/******************************************************************************/
-/* Conn                                                                       */
-/******************************************************************************/
+/**
+class Conn
 
+The `Conn` class represents a connection to a postgres server.
+*/
 typedef struct lily_pg_conn_value_ {
     uint32_t refcount;
     uint16_t instance_id;
@@ -138,6 +167,16 @@ void destroy_conn(lily_value *v)
     lily_free(conn_value);
 }
 
+/**
+method Conn.query(self: Conn, format: String, values: List[String]...):Either[String, Result]
+
+Perform a query using 'format'. Any "?" value found within 'format' will be
+replaced with an entry from 'values'.
+
+On success, the result is a `Right` containing a `Result`.
+
+On failure, the result is a `Left` containing a `String` describing the error.
+*/
 void lily_postgres_Conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     char *fmt;
@@ -224,6 +263,15 @@ void lily_postgres_Conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     lily_move_enum_f(MOVE_DEREF_NO_GC, result_reg, lily_new_right(v));
 }
 
+/**
+method Conn.open(host: *String="", port: *String="", dbname: *String="", name: *String="", pass: *String=""):Option[Conn]
+
+Attempt to connect to the postgres server, using the values provided.
+
+On success, the result is a `Some` containing a newly-made `Conn`.
+
+On failure, the result is a `None`.
+*/
 void lily_postgres_Conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
