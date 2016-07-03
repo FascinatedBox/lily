@@ -23,6 +23,20 @@ gen:   What to generate. Options are:
        [gen-dynaload, source]:
        Reads from 'source', using the comments to build a dynaload table that is
        printed to stdout.
+
+       [gen-loader, source, prefix]:
+       When a dynaload table specifies a var, or is not dynamically loaded, then
+       Lily needs a loader function. A loader function takes requests from the
+       interpreter, and returns either a function within the package or creates
+       a var to return it.
+
+       This generates a loader, and prints it to stdout. The format of what the
+       loader will do is as follows:
+
+       (var loaders are assumed to be static)
+       vars:      call   load_var_$name, return the result
+       methods:   return lily_$prefix_$class_$name
+       functions: return lily_$prefix_$name
 """
     print(message)
     sys.exit(0)
@@ -272,6 +286,46 @@ Generate dynaload information based on comment blocks in a given filename.
     for r in result:
         print r
 
+def gen_loader(filename, prefix):
+    """\
+Generate a loader function based upon information within a given filename.
+    """
+
+    entries = scan_file(filename)
+
+    header =  "void lily_%s_loader" % (prefix)
+    header += "(lily_options *o, uint16_t *c, int id)\n{"
+
+    loader_entries = [header]
+
+    for i in range(len(entries)):
+        e = entries[i]
+        group = e[0]
+
+        if group == "define" or group == "method":
+            name = e[1]
+            name = name[0:name.find("(")].strip()
+            # For methods, do this to sanitize their name.
+            name = name.replace(".", "_")
+
+            to_append = "    case %d: return lily_%s_%s;" % (i, prefix, name)
+
+            loader_entries.append(to_append)
+
+        elif group == "var":
+            name = e[1]
+            # No prototype, just the name
+            name = name[:name.find(":")].strip()
+            name = "load_var_" + name
+
+            # TODO: Scan the prototype to see if the cid table is really needed.
+            loader_entries.append("    case %d: return %s(o, c);" % (i, name))
+
+    loader_entries.append("    default: return NULL;\n}")
+
+    for l in loader_entries:
+        print l
+
 if len(sys.argv) < 3:
     usage()
 else:
@@ -280,5 +334,10 @@ else:
         gen_docs(sys.argv[2])
     elif action == "gen-dynaload":
         gen_dynaload(sys.argv[2])
+    elif action == "gen-loader":
+        if len(sys.argv) != 4:
+            usage()
+
+        gen_loader(sys.argv[2], sys.argv[3])
     else:
         usage()
