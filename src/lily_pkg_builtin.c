@@ -593,7 +593,7 @@ void lily_hash_has_key(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     lily_hash_elem *hash_elem = lily_hash_get_elem(vm, hash_val, key);
 
-    lily_move_integer(vm_regs[code[0]], hash_elem != NULL);
+    lily_move_boolean(vm_regs[code[0]], hash_elem != NULL);
 }
 
 static void build_hash_from_vm_list(lily_vm_state *vm, int start,
@@ -1399,14 +1399,14 @@ void WRAP_NAME(lily_vm_state *vm, uint16_t argc, uint16_t *code) \
     lily_value *input_arg = vm_regs[code[1]]; \
 \
     if (input_arg->value.string->size == 0) { \
-        lily_move_integer(ret_arg, 0); \
+        lily_move_boolean(ret_arg, 0); \
         return; \
     } \
 \
     char *loop_str = input_arg->value.string->string; \
     int i = 0; \
 \
-    lily_move_integer(ret_arg, 1); \
+    lily_move_boolean(ret_arg, 1); \
     for (i = 0;i < input_arg->value.string->size;i++) { \
         if (WRAPPED_CALL(loop_str[i]) == 0) { \
             ret_arg->value.integer = 0; \
@@ -1987,7 +1987,7 @@ void lily_string_starts_with(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     int prefix_size = prefix_arg->value.string->size;
 
     if (input_arg->value.string->size < prefix_size) {
-        lily_move_integer(result_arg, 0);
+        lily_move_boolean(result_arg, 0);
         return;
     }
 
@@ -1999,7 +1999,7 @@ void lily_string_starts_with(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         }
     }
 
-    lily_move_integer(result_arg, ok);
+    lily_move_boolean(result_arg, ok);
 }
 
 void lily_string_strip(lily_vm_state *vm, uint16_t argc, uint16_t *code)
