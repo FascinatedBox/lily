@@ -22,6 +22,13 @@ struct table_bind_data {
 
 #define CID_TAINTED 0
 
+/**
+package server
+
+This package is registered when Lily is run by Apache through mod_lily. This
+package provides Lily with information inside of Apache (such as POST), as well
+as functions for sending data through the Apache server.
+*/
 lily_value *bind_tainted_of(lily_value *input, uint16_t cid_tainted)
 {
     lily_instance_val *iv = lily_new_instance_val();
@@ -91,6 +98,55 @@ static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
     return v;
 }
 
+/**
+var env: Hash[String, Tainted[String]]
+
+This contains key+value pairs containing the current environment of the server.
+*/
+static lily_value *bind_env(lily_options *options, uint16_t *cid_table)
+{
+    request_rec *r = (request_rec *)options->data;
+    ap_add_cgi_vars(r);
+    ap_add_common_vars(r);
+
+    return bind_table_as(options, r->subprocess_env, cid_table, "env");
+}
+
+/**
+var get: Hash[String, Tainted[String]]
+
+This contains key+value pairs that were sent to the server as GET variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.
+*/
+static lily_value *bind_get(lily_options *options, uint16_t *cid_table)
+{
+    apr_table_t *http_get_args;
+    ap_args_to_table((request_rec *)options->data, &http_get_args);
+
+    return bind_table_as(options, http_get_args, cid_table, "get");
+}
+
+/**
+var httpmethod: String
+
+This is the method that was used to make the request to the server.
+Common values are "GET", and "POST".
+*/
+static lily_value *bind_httpmethod(lily_options *options)
+{
+    lily_value *v = lily_new_empty_value();
+    request_rec *r = (request_rec *)options->data;
+
+    lily_move_string(v, lily_new_raw_string(r->method));
+    return v;
+}
+
+/**
+var post: Hash[String, Tainted[String]]
+
+This contains key+value pairs that were sent to the server as POST variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.
+*/
 static lily_value *bind_post(lily_options *options, uint16_t *cid_table)
 {
     lily_value *v = lily_new_empty_value();
@@ -139,68 +195,28 @@ static lily_value *bind_post(lily_options *options, uint16_t *cid_table)
     return v;
 }
 
-static lily_value *bind_get(lily_options *options, uint16_t *cid_table)
+/**
+define escape(text: String): String
+
+This checks self for having "&", "<", or ">". If any are found, then a new
+String is created where those html entities are replaced (& becomes &amp;, <
+becomes &lt;, > becomes &gt;).
+*/
+void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
-    apr_table_t *http_get_args;
-    ap_args_to_table((request_rec *)options->data, &http_get_args);
-
-    return bind_table_as(options, http_get_args, cid_table, "get");
-}
-
-static lily_value *bind_env(lily_options *options, uint16_t *cid_table)
-{
-    request_rec *r = (request_rec *)options->data;
-    ap_add_cgi_vars(r);
-    ap_add_common_vars(r);
-
-    return bind_table_as(options, r->subprocess_env, cid_table, "env");
-}
-
-static lily_value *bind_httpmethod(lily_options *options)
-{
-    lily_value *v = lily_new_empty_value();
-    request_rec *r = (request_rec *)options->data;
-
-    lily_move_string(v, lily_new_raw_string(r->method));
-    return v;
-}
-
-/*  Implements server.write_literal
-
-    This writes a literal directly to the server, with no escaping being done.
-    If the value provided is not a literal, then ValueError is raised. */
-void lily_apache_server_write_literal(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *write_reg = vm_regs[code[1]];
-    if (write_reg->flags & VAL_IS_DEREFABLE)
-        lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
-                "The string passed must be a literal.\n");
-
-    char *value = write_reg->value.string->string;
-
-    ap_rputs(value, (request_rec *)vm->data);
-}
-
-/*  Implements server.write_raw
-
-    This function takes a string and writes it directly to the server. It is
-    assumed that escaping has already been done by server.escape. */
-void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *code)
-{
-    lily_value **vm_regs = vm->vm_regs;
-    char *value = vm_regs[code[1]]->value.string->string;
-
-    ap_rputs(value, (request_rec *)vm->data);
+    lily_string_html_encode(vm, argc, code);
 }
 
 extern void lily_string_html_encode(lily_vm_state *, uint16_t, uint16_t *);
 extern int lily_maybe_html_encode_to_buffer(lily_vm_state *, lily_value *);
 
-/*  Implements server.write
+/**
+define write(text: String)
 
-    This function takes a string and creates a copy with html encoding performed
-    upon it. The resulting string is then sent to the server. */
+This escapes, then writes 'text' to the server. It is equivalent to
+'server.write_raw(server.escape(text))', except faster because it skips building
+an intermediate `String` value.
+*/
 void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
     lily_value *input = vm->vm_regs[code[1]];
@@ -217,13 +233,38 @@ void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     ap_rputs(source, (request_rec *)vm->data);
 }
 
-/*  Implements server.escape
+/**
+define write_literal(text: String)
 
-    This function takes a string and performs basic html encoding upon it. The
-    resulting string is safe to pass to server.write_raw. */
-void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+This writes 'text' directly to the server. If 'text' is not a `String` literal,
+then `ValueError` is raised. No escaping is performed.
+*/
+void lily_apache_server_write_literal(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 {
-    lily_string_html_encode(vm, argc, code);
+    lily_value **vm_regs = vm->vm_regs;
+    lily_value *write_reg = vm_regs[code[1]];
+    if (write_reg->flags & VAL_IS_DEREFABLE)
+        lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
+                "The string passed must be a literal.\n");
+
+    char *value = write_reg->value.string->string;
+
+    ap_rputs(value, (request_rec *)vm->data);
+}
+
+/**
+define write_raw(text: String)
+
+This writes 'text' directly to the server without performing any HTML character
+escaping. Use this only if you are certain that there is no possibility of HTML
+injection.
+*/
+void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+{
+    lily_value **vm_regs = vm->vm_regs;
+    char *value = vm_regs[code[1]]->value.string->string;
+
+    ap_rputs(value, (request_rec *)vm->data);
 }
 
 #define SERVER_ESCAPE        1

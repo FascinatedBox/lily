@@ -6,6 +6,18 @@
 #include "lily_api_value_ops.h"
 #include "lily_api_options.h"
 
+/**
+package sys
+
+The sys package provides access to the arguments given to Lily.
+*/
+
+/**
+var argv: List[String]
+
+This contains arguments sent to the program through the command-line. If Lily
+was not invoked from the command-line (ex: mod_lily), then this is empty.
+*/
 void *lily_sys_loader(lily_options *options, uint16_t *unused, int id)
 {
     lily_value *result = lily_new_empty_value();
