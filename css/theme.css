@@ -49,6 +49,12 @@ body {
     font-weight: bold;
 }
 
+.type {
+    padding: 0px;
+    background-color: inherit;
+    color: #c7254e;
+}
+
 .row {
     margin-left: -15px;
     margin-right: -15px;

@@ -58,158 +58,97 @@
                 </dl>
             </div>
             <div class="section">
-                <h1>
-                    sys
-                </h1>
-                <h5>
-<span>var</span> <span class="varname">sys.argv: </span><code>List</code><span>[</span><code>String</code><span>]</span>
-                </h5>
-                <div class="explain">
-<span class="varname">sys.argv</span> contains all command-line arguments that were passed to the program.
-When Lily is being run from mod_lily, this is empty.
-                </div>
+<h1>sys</h1>
+<p>The sys package provides access to the arguments given to Lily.</p>
+
+<span class="varname">argv</span>
+<span>:</span><span class="type">List[String]</span>
+<div class="explain">This contains arguments sent to the program through the command-line. If Lily
+was not invoked from the command-line (ex: mod_lily), then this is empty.</div>
             </div>
             <div class="section">
-                <h1>
-                    server
-                </h1>
-                <p>
-mod_lily provides this module for the scripts that it runs.
-Scripts that do not run from mod_lily, but wish to emulate it, can create a server.lly file that provides these things.
-                </p>
-                <h5>
-<span>var</span> <span class="varname">server.env: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
-                </h5>
-                <div class="explain">
-                    <p>
-This is contains the environment that the server has installed upon it.
-Naturally, this varies from server to server.
-Since this is typed as <code>String</code> to <code>String</code>, any values within the environment that are not utf-8 valid are removed beforehand.
-                    </p>
-                </div>
-                <h5>
-<span>define</span><span class="funcname">server.escape</span><span>(input: </span><code>String</code><span>):</span><code>String</code>
-                </h5>
-                <div class="explain">
-                    <p>
-This checks <span class="varname">self</span> for having <span class="varname">"&amp;"</span>, <span class="varname">"&lt;"</span>, or <span class="varname">"&gt;"</span>.
-If any are found, then a new <code>String</code> is created where those html entities are replaced (&amp; becomes &amp;amp;, &lt; becomes &amp;lt;, &gt; becomes &amp;gt;).
-                    </p>
-                </div>
-                <h5>
-<span>var</span> <span class="funcname">server.get: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
-                </h5>
-                <div class="explain">
-                    <p>
-This contains key+value pairs that were sent to the server as GET variables.
-Any pair that has a key or a value that is not valid utf-8 will not be present.
-                    </p>
-                </div>
-                <h5>
-<span>var</span> <span class="funcname">server.httpmethod: <code>String</code>
-                </h5>
-                <div class="explain">
-                    <p>
-This is the method that was used to make the request to the server.
-Common values are <span class="varname">"GET"</span>, and <span class="varname">"POST"</span>.
-                    </p>
-                </div>
-                <h5>
-<span>var</span> <span class="funcname">server.post: <code>Hash</code><span>[</span><code>String</code><span>, </span>Tainted<span>[</span><code>String</code><span>]</span><span>]</span>
-                </h5>
-                <div class="explain">
-                    <p>
-This contains key+value pairs that were sent to the server as POST variables.
-Any pair that has a key or a value that is not valid utf-8 will not be present.
-                    </p>
-                </div>
-                <h5>
-<span>define</span> <span class="funcname">server.write_literal</span><span>(text: </span></<code>String</code>)
-                </h5>
-                <div class="explain">
-                    <p>
-This writes <span class="varname">text</span> directly to the server.
-If <span class="varname">text</span> is not a <code>String</code> literal, then <code>ValueError</code> is raised.
-No escaping is performed on the text sent, as the text is a <code>String</code> literal.
-                    </p>
-                </div>
-                <h5>
-<span>define</span> <span class="funcname">server.write_raw</span><span>(text: </span></<code>String</code>)
-                </h5>
-                <div class="explain">
-                    <p>
-This writes <span class="varname">text</span> directly to the server.
-No escaping is done upon <span class="varname">text</span>.
-Use this only if you are certain that there is no possibility of html injection.
-                    </p>
-                </div>
-                <h5>
-<span>define</span> <span class="funcname">server.write</span><span>(text: </span><code>String</code>)
-                </h5>
-                <div class="explain">
-                    <p>
-This escapes, then writes <span class="varname">text</span> to the server.
-It is equivalent to <span class="varname">text |&gt; server.escape |&gt; server.write_raw</span>, except faster because it skips building an intermediate <code>String</code> value.
-                    </p>
-                </div>
+<h1>server</h1>
+<p>This package is registered when Lily is run by Apache through mod_lily. This
+package provides Lily with information inside of Apache (such as POST), as well
+as functions for sending data through the Apache server.</p>
+
+<span class="varname">env</span>
+<span>:</span><span class="type">Hash[String, Tainted[String]]</span>
+<div class="explain">This contains key+value pairs containing the current environment of the server.</div>
+
+<span class="varname">get</span>
+<span>:</span><span class="type">Hash[String, Tainted[String]]</span>
+<div class="explain">This contains key+value pairs that were sent to the server as GET variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.</div>
+
+<span class="varname">httpmethod</span>
+<span>:</span><span class="type">String</span>
+<div class="explain">This is the method that was used to make the request to the server.
+Common values are "GET", and "POST".</div>
+
+<span class="varname">post</span>
+<span>:</span><span class="type">Hash[String, Tainted[String]]</span>
+<div class="explain">This contains key+value pairs that were sent to the server as POST variables.
+Any pair that has a key or a value that is not valid utf-8 will not be present.</div>
+
+<span class="funcname">escape</span><span class><strong>(text: String): String</strong></span>
+<div class="explain">This checks self for having "&amp;", "&amp;lt;", or "&amp;gt;". If any are found, then a new
+String is created where those html entities are replaced (&amp; becomes &amp;amp;, &amp;lt;
+becomes &amp;lt;, &amp;gt; becomes &amp;gt;).</div>
+
+<span class="funcname">write</span><span class><strong>(text: String)</strong></span>
+<div class="explain">This escapes, then writes <span class="varname">text</span> to the server. It is equivalent to
+<span class="varname">server.write_raw(server.escape(text))</span>, except faster because it skips building
+an intermediate <span class="type">String</span> value.</div>
+
+<span class="funcname">write_literal</span><span class><strong>(text: String)</strong></span>
+<div class="explain">This writes <span class="varname">text</span> directly to the server. If <span class="varname">text</span> is not a <span class="type">String</span> literal,
+then <span class="type">ValueError</span> is raised. No escaping is performed.</div>
+
+<span class="funcname">write_raw</span><span class><strong>(text: String)</strong></span>
+<div class="explain">This writes <span class="varname">text</span> directly to the server without performing any HTML character
+escaping. Use this only if you are certain that there is no possibility of HTML
+injection.</div>
             </div>
             <div class="section">
-                <h1>
-                    server
-                </h1>
-                <p>
-The server module provides a very basic interface to Postgres.
-This module is available so long as Lily has been built with Postgres support.
-This module provides two classes: <code>Result</code> and <code>Conn</code>.
-Both classes have only methods, and are not inheritable.
-                </p>
-                <h5>
-<span class="funcname">Result.close</span><span>(self: </span><code>Result</code><span>)</span>
-                </h5>
-                <div class="explain">
-                    <p>
-Closes <span class="varname">self</span>, and relinquishes any resources it was holding.
-                    </p>
-                </div>
-<span class="funcname">Result.each_row</span><span>(self: </span><code>Result</code><span>, </span><span class="varname">fn: </span><code>Function</code><span>(</span><code>List</code><span>[</span><code>String</code><span>]))</span>
-                </h5>
-                <div class="explain">
-                    <p>
-This calls <span class="varname">fn</span> upon each row that is present within <span class="varname">self</span>.
-If <span class="varname">self</span> is empty, then this does not do anything.
-This function exhausts all rows that are present within the <code>Result</code>
-                    </p>
-                </div>
-                <h5>
-<span class="funcname">Result.row_count</span><span>(self: </span><code>Result</code><span>):</span><code>Integer</code>
-                </h5>
-                <div class="explain">
-                    <p>
-This function returns the number of rows that are present within <span class="varname">self</span>.
-If <span class="varname">self</span> is closed, then this returns 0.
-                    </p>
-                </div>
-                <h5>
-<span class="funcname">Conn.query</span><span>(self: </span><code>Conn</code><span>, </span><span class="varname">question: </span><code>String</code><span>, </span><span class="varname">args: </span><code>List</code><span>[</span><code>String</code><span>]...):</span><code>Either</code><span>[</span><code>String</code><span>, </span><code>Result</code><span>]</span>
-                </h5>
-                <div class="explain">
-                    <p>
-Attempts to perform a query with the <span class="varname">self</span>.
-Any instance of ? within <span class="varname">question</span> is replaced with an element within <span class="varname">args</span>.
-If there were too few arguments to replace, or the query failed, then the result is a <span class="varname">Left</span> describing the error.
-If the query succeeded, the result is a <span class="varname">Right</span> with the <code>Result</span> object.
-                    </p>
-                </div>
-                <h5>
-<span class="funcname">Conn.open</span><span>(host: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">port: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">dbname: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">name: </span><code>*String</code><span>=</span><span class="varname">""</span><span>, </span><span class="varname">pass: </span><code>*String</code><span>=</span><span class="varname">""</span><span>):</span><code>Option</code><span>[</span><code>Conn</code><span>]</span>
-                </h5>
-                <div class="explain">
-                    <p>
-Attempts to open a new database connection using the information provided.
-On success, this yields a <span class="varname">Some</span> holding the new database connection.
-On failure, it yields a <span class="varname">None</span>.
-                    </p>
-                </div>
+<h1>postgres</h1>
+<p>This package provides a limited, but usable interface for interacting with a
+postgres server.</p>
+
+<h3>Result</h3>
+<p>The <span class="type">Result</span> class provides a wrapper over the result of querying the postgres
+database. The class provides a very basic set of methods to allow interaction
+with the rows as a <span class="type">List[String]</span>.</p>
+
+<span class="funcname">Result.close</span><span class><strong>(self: Result)</strong></span>
+<div class="explain">Close a <span class="type">Result</span> and free all data associated with it. If this is not done
+manually, then it is done automatically when the <span class="type">Result</span> is destroyed through
+either the gc or refcounting.</div>
+
+<span class="funcname">Result.each_row</span><span class><strong>(self: Result, fn: Function(List[String]))</strong></span>
+<div class="explain">This loops through each row in <span class="varname">self</span>, calling <span class="varname">fn</span> for each row that is found.
+If <span class="varname">self</span> has no rows, or has been closed, then this does nothing.</div>
+
+<span class="funcname">Result.row_count</span><span class><strong>(self: Result): Integer</strong></span>
+<div class="explain">Returns the number of rows present within <span class="varname">self</span>.</div>
+
+<h3>Conn</h3>
+<p>The <span class="type">Conn</span> class represents a connection to a postgres server.</p>
+
+<span class="funcname">Conn.query</span><span class><strong>(self: Conn, format: String, values: List[String]...):Either[String, Result]</strong></span>
+<div class="explain">Perform a query using <span class="varname">format</span>. Any "?" value found within <span class="varname">format</span> will be
+replaced with an entry from <span class="varname">values</span>.
+<br />
+On success, the result is a <span class="type">Right</span> containing a <span class="type">Result</span>.
+<br />
+On failure, the result is a <span class="type">Left</span> containing a <span class="type">String</span> describing the error.</div>
+
+<span class="funcname">Conn.open</span><span class><strong>(host: *String="", port: *String="", dbname: *String="", name: *String="", pass: *String=""):Option[Conn]</strong></span>
+<div class="explain">Attempt to connect to the postgres server, using the values provided.
+<br />
+On success, the result is a <span class="type">Some</span> containing a newly-made <span class="type">Conn</span>.
+<br />
+On failure, the result is a <span class="type">None</span>.</div>
             </div>
         </div>
 
