@@ -1216,6 +1216,10 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
             parser->symtab->next_class_id--;
             cls->id = SYM_CLASS_EXCEPTION;
         }
+        else if (strcmp(name, "Tainted") == 0) {
+            parser->symtab->next_class_id--;
+            cls->id = SYM_CLASS_TAINTED;
+        }
         else if (strstr(name, "Error")) {
             /* This is a little hacky. It loads exceptions at specific indexes
                so that the vm can check by id if the exception exists to raise
