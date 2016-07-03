@@ -693,7 +693,8 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_VALUEERROR     20
 #define SYM_CLASS_INDEXERROR     21
 #define SYM_CLASS_DBZERROR       22 /* > 9000 */
-#define START_CLASS_ID           23
+#define SYM_CLASS_TAINTED        23
+#define START_CLASS_ID           24
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_OPTARG      65532

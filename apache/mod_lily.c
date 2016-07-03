@@ -17,10 +17,7 @@
 struct table_bind_data {
     lily_hash_val *hash_val;
     const char *sipkey;
-    uint16_t cid_tainted;
 };
-
-#define CID_TAINTED 0
 
 /**
 package server
@@ -29,11 +26,11 @@ This package is registered when Lily is run by Apache through mod_lily. This
 package provides Lily with information inside of Apache (such as POST), as well
 as functions for sending data through the Apache server.
 */
-lily_value *bind_tainted_of(lily_value *input, uint16_t cid_tainted)
+lily_value *bind_tainted_of(lily_value *input)
 {
     lily_instance_val *iv = lily_new_instance_val();
     iv->values = lily_malloc(1 * sizeof(lily_value *));
-    iv->instance_id = cid_tainted;
+    iv->instance_id = SYM_CLASS_TAINTED;
     iv->values[0] = input;
     lily_value *result = lily_new_empty_value();
     lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
@@ -78,20 +75,19 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     lily_value *elem_key = lily_new_string(key);
     lily_value *elem_raw_value = lily_new_string(value);
-    lily_value *elem_value = bind_tainted_of(elem_raw_value, d->cid_tainted);
+    lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
     apache_add_unique_hash_entry(d->sipkey, d->hash_val, elem_key, elem_value);
     return TRUE;
 }
 
 static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
-        uint16_t *cid_table, char *name)
+        char *name)
 {
     lily_value *v = lily_new_empty_value();
     lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
 
     struct table_bind_data data;
-    data.cid_tainted = cid_table[CID_TAINTED];
     data.hash_val = v->value.hash;
     data.sipkey = options->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
@@ -103,13 +99,13 @@ var env: Hash[String, Tainted[String]]
 
 This contains key+value pairs containing the current environment of the server.
 */
-static lily_value *bind_env(lily_options *options, uint16_t *cid_table)
+static lily_value *bind_env(lily_options *options)
 {
     request_rec *r = (request_rec *)options->data;
     ap_add_cgi_vars(r);
     ap_add_common_vars(r);
 
-    return bind_table_as(options, r->subprocess_env, cid_table, "env");
+    return bind_table_as(options, r->subprocess_env, "env");
 }
 
 /**
@@ -118,12 +114,12 @@ var get: Hash[String, Tainted[String]]
 This contains key+value pairs that were sent to the server as GET variables.
 Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
-static lily_value *bind_get(lily_options *options, uint16_t *cid_table)
+static lily_value *bind_get(lily_options *options)
 {
     apr_table_t *http_get_args;
     ap_args_to_table((request_rec *)options->data, &http_get_args);
 
-    return bind_table_as(options, http_get_args, cid_table, "get");
+    return bind_table_as(options, http_get_args, "get");
 }
 
 /**
@@ -147,12 +143,11 @@ var post: Hash[String, Tainted[String]]
 This contains key+value pairs that were sent to the server as POST variables.
 Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
-static lily_value *bind_post(lily_options *options, uint16_t *cid_table)
+static lily_value *bind_post(lily_options *options)
 {
     lily_value *v = lily_new_empty_value();
     lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
     lily_hash_val *hash_val = v->value.hash;
-    uint16_t cid_tainted = cid_table[CID_TAINTED];
     request_rec *r = (request_rec *)options->data;
 
     apr_array_header_t *pairs;
@@ -184,8 +179,7 @@ static lily_value *bind_post(lily_options *options, uint16_t *cid_table)
             lily_value *elem_key = lily_new_string(pair->name);
             /* Give the buffer to the value to save memory. */
             lily_value *elem_raw_value = lily_new_string_take(buffer);
-            lily_value *elem_value = bind_tainted_of(elem_raw_value,
-                    cid_tainted);
+            lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
             apache_add_unique_hash_entry(options->sipkey, hash_val, elem_key,
                     elem_value);
@@ -284,16 +278,16 @@ void *lily_apache_loader(lily_options *options, uint16_t *cid_table, int id)
         case SERVER_WRITE_LITERAL: return lily_apache_server_write_literal;
         case SERVER_WRITE:         return lily_apache_server_write;
         case VAR_HTTPMETHOD:       return bind_httpmethod(options);
-        case VAR_POST:             return bind_post(options, cid_table);
-        case VAR_GET:              return bind_get(options, cid_table);
-        case VAR_ENV:              return bind_env(options, cid_table);
+        case VAR_POST:             return bind_post(options);
+        case VAR_GET:              return bind_get(options);
+        case VAR_ENV:              return bind_env(options);
         default:                   return NULL;
     }
 }
 
 const char *dl_table[] =
 {
-    "\001Tainted"
+    "\0"
     ,"F\000escape\0(String):String"
     ,"F\000write_raw\0(String)"
     ,"F\000write_literal\0(String)"
