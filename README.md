@@ -68,7 +68,7 @@ The above strategy is what Lily terms dynaloading, and it's woven deep into the 
 
 A large focus in Lily's development has been in reducing memory use. Dynaloading allows the interpreter to only spend memory allocating information for the classes, the methods, the enums, and so on that you're going to actually use. Zero waste. A lot of time has also been spent in packing structures smartly to reduce their memory cost.
 
-Lily is able to boot within 6K of memory, and run a `print("Hello World")` in under 7K. The closest that any other interpreted language comes to this is Lua, which boots in 30K (over 4x as much!). Work is currently being done to bring Lily's memory usage even lower.
+So even though Lily has a lot of features: Enum classes, user-defined classes, exceptions, and generics, you'll find that Lily doesn't hog memory.
 
 ##### Easy install
 
