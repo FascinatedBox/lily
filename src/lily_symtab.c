@@ -117,9 +117,13 @@ static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
 
     while (tie_iter) {
         tie_next = tie_iter->next;
-        if (tie_iter->type->cls->is_refcounted) {
+        /* Literals are marked where their refcount won't be adjusted during
+           the vm's run. Any literal that isn't primitive will have 1 ref, and
+           can be destroyed by sending it to deref. */
+        if ((tie_iter->move_flags &
+            (VAL_IS_BOOLEAN | VAL_IS_INTEGER | VAL_IS_DOUBLE)) == 0) {
             lily_value v;
-            v.flags = tie_iter->type->cls->move_flags | VAL_IS_DEREFABLE;
+            v.flags = tie_iter->move_flags | VAL_IS_DEREFABLE;
             v.value = tie_iter->value;
 
             lily_deref(&v);
@@ -514,7 +518,6 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 
     new_class->item_kind = 0;
     new_class->flags = 0;
-    new_class->is_refcounted = 1;
     new_class->is_builtin = 0;
     new_class->type = NULL;
     new_class->parent = NULL;
