@@ -104,7 +104,6 @@ typedef struct lily_class_ {
     lily_variant_class **variant_members;
 
     uint16_t id;
-    uint16_t is_builtin;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
@@ -113,9 +112,6 @@ typedef struct lily_class_ {
         uint16_t variant_size;
     };
     uint16_t dyna_start;
-
-    uint16_t pad;
-    uint32_t pad2;
 
     /* This is the module that this class was defined within. This is sometimes
        used for establishing a scope when doing dynaloading. */
@@ -564,9 +560,11 @@ typedef struct lily_package_link_ {
 #define CLS_GC_TAGGED      0x040
 /* This class might have circular data inside of it. */
 #define CLS_GC_SPECULATIVE 0x080
+/* This class does not have an inheritable representation. */
+#define CLS_IS_BUILTIN     0x100
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
-#define CLS_VISITED        0x100
+#define CLS_VISITED        0x200
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where

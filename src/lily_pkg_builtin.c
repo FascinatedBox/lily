@@ -2648,7 +2648,7 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
     lily_class *result = lily_new_class(symtab, name);
     result->dyna_start = *dyna_start + 1;
     result->generic_count = generic_count;
-    result->is_builtin = 1;
+    result->flags |= CLS_IS_BUILTIN;
 
     if (generic_count == 0)
         make_default_type_for(result);
@@ -2666,7 +2666,7 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     lily_class *result = lily_new_class(symtab, name);
     result->id = id;
     result->generic_count = generic_count;
-    result->is_builtin = 1;
+    result->flags |= CLS_IS_BUILTIN;
 
     symtab->active_module->class_chain = result->next;
     symtab->next_class_id--;
