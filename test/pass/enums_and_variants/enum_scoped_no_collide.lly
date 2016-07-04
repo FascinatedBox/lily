@@ -1,0 +1,11 @@
+enum StrangeSpeed {
+    Fast
+    Medium
+    Slow
+}
+
+enum Speed {
+    .Fast
+    .Medium
+    .Slow
+}

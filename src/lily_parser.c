@@ -3779,10 +3779,17 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
         NEED_CURRENT_TOK(tk_word)
         if (is_dynaload == 0) {
             lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
-            if (cls != NULL)
+
+            /* Plain enums dump their variants into the same area that classes
+               go. So if there is a clash of any sort, reject this. But scoped
+               enums keep what they have behind themselves as a qualifier. So
+               for scoped enums, only consider it a problem if there are more
+               than two in the same scope. */
+            if (cls != NULL && (is_scoped == 0 || cls->parent == enum_cls)) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "A class with the name '%s' already exists.\n",
                         cls->name);
+            }
         }
 
         lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
