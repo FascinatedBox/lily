@@ -10,6 +10,7 @@
 # include "lily_msgbuf.h"
 # include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
+# include "lily_value_stack.h"
 
 typedef struct lily_parse_state_ {
     lily_package *package_start;
@@ -34,6 +35,10 @@ typedef struct lily_parse_state_ {
        Holding the first one makes it easier to find and destroy both it and the
        asts under it during teardown. */
     lily_expr_state *first_expr;
+
+    /* These are the values of vars that have been dynaloaded. They're stored
+       here until the vm is ready to receive them. */
+    lily_value_stack *foreign_values;
 
     lily_type *exception_type;
     lily_type *class_self_type;
