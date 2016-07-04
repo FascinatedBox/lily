@@ -1194,7 +1194,7 @@ static lily_class *dynaload_class(lily_parse_state *parser,
     const char *entry = m->dynaload_table[dyna_index];
     lily_class *cls = lily_new_class(parser->symtab, entry + 2);
 
-    cls->is_builtin = 1;
+    cls->flags |= CLS_IS_BUILTIN;
     cls->dyna_start = dyna_index;
 
     lily_tm_make_default_for(parser->tm, cls);
@@ -3515,8 +3515,8 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!\n");
-    else if (super_class->is_builtin ||
-             super_class->flags & (CLS_IS_ENUM | CLS_IS_VARIANT))
+    else if (super_class->flags &
+             (CLS_IS_ENUM | CLS_IS_VARIANT | CLS_IS_BUILTIN))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' cannot be inherited from.\n", super_class->name);
 

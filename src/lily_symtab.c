@@ -496,8 +496,9 @@ static lily_type *make_new_type(lily_class *);
 lily_class *lily_new_raw_class(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_new_class(symtab, name);
+
+    new_class->flags |= CLS_IS_BUILTIN;
     new_class->id = 0;
-    new_class->is_builtin = 1;
     symtab->next_class_id--;
 
     return new_class;
@@ -518,7 +519,6 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 
     new_class->item_kind = 0;
     new_class->flags = 0;
-    new_class->is_builtin = 0;
     new_class->type = NULL;
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
