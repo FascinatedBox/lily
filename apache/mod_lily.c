@@ -300,6 +300,7 @@ static int lily_handler(request_rec *r)
     lily_options *options = lily_new_default_options();
     options->data = r;
     options->html_sender = (lily_html_sender) ap_rputs;
+    options->allow_sys = 0;
 
     lily_parse_state *parser = lily_new_parse_state(options);
     lily_register_package(parser, "server", apache_server_dynaload_table,

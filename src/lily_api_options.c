@@ -19,6 +19,7 @@ lily_options *lily_new_default_options(void)
 
     options->html_sender = (lily_html_sender) fputs;
     options->data = stdout;
+    options->allow_sys = 1;
 
     /* todo: This key sucks. Get a better one. */
     char key[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
