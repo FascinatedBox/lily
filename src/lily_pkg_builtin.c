@@ -2711,10 +2711,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     scoop1->type->flags |= TYPE_HAS_SCOOP;
     scoop2->type->flags |= TYPE_HAS_SCOOP;
 
-    symtab->integer_class->is_refcounted = 0;
-    symtab->double_class->is_refcounted = 0;
-    symtab->boolean_class->is_refcounted = 0;
-
     symtab->integer_class->flags    |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
     symtab->double_class->flags     |= CLS_VALID_OPTARG;
     symtab->string_class->flags     |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;

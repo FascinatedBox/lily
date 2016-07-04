@@ -105,7 +105,6 @@ typedef struct lily_class_ {
 
     uint16_t id;
     uint16_t is_builtin;
-    uint16_t is_refcounted;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
@@ -115,7 +114,8 @@ typedef struct lily_class_ {
     };
     uint16_t dyna_start;
 
-    uint32_t pad;
+    uint16_t pad;
+    uint32_t pad2;
 
     /* This is the module that this class was defined within. This is sometimes
        used for establishing a scope when doing dynaloading. */
