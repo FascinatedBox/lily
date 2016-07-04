@@ -284,7 +284,7 @@ Generate dynaload information based on comment blocks in a given filename.
     result.append(',"Z"')
 
     for r in result:
-        print r
+        print "    ", r
 
 def gen_loader(filename, prefix):
     """\
