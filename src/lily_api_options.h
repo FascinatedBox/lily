@@ -18,6 +18,12 @@ typedef struct lily_options_ {
     /* The initial maximum amount of entries allowed to have a gc tag before
        asking for another causes a sweep. */
     uint32_t gc_start;
+    /* Should the interpreter allow the sys package to be loaded? Sandboxes and
+       untrusted environments should set this to 0.
+       Default: 1 */
+    uint32_t allow_sys;
+
+    uint32_t pad;
     /* This is used by the interpreter to compute hashes of a raw value for
        doing Hash collision checks. This key should be composed of exactly 16
        chars. */

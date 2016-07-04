@@ -12,6 +12,7 @@ lily_parse_state *get_parser()
 {
     lily_options *options = lily_new_default_options();
     lily_parse_state *parser = lily_new_parse_state(options);
+    options->allow_sys = 0;
 
     lily_free_options(options);
     return parser;

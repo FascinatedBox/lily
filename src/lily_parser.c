@@ -111,7 +111,8 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->symtab->main_function->module = parser->main_module;
     parser->symtab->active_module = parser->main_module;
 
-    lily_pkg_sys_init(parser, options);
+    if (options->allow_sys)
+        lily_pkg_sys_init(parser, options);
 
     parser->executing = 0;
 
