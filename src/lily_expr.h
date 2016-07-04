@@ -71,7 +71,6 @@ typedef struct lily_ast_ {
     union {
         lily_item *item;
         lily_sym *sym;
-        lily_tie *literal;
         lily_prop_entry *property;
         lily_variant_class *variant;
         struct lily_ast_ *left;
