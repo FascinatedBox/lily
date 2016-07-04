@@ -73,6 +73,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->options = options;
     parser->optarg_stack = lily_new_buffer_u16(4);
     parser->expr = parser->first_expr;
+    parser->foreign_values = lily_new_value_stack();
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -185,6 +186,7 @@ void lily_free_parse_state(lily_parse_state *parser)
         package_iter = package_next;
     }
 
+    lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
     lily_free_type_maker(parser->tm);
     lily_free(parser);
@@ -1284,8 +1286,16 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            mod_lily (Apache) for example, uses Tainted which ends up being
            dynaloaded. Make sure that cid information is up-to-date. */
         update_cid_table(parser, m);
+
         void *value = m->loader(parser->options, m->cid_table, dyna_pos);
-        lily_new_foreign_tie(symtab, new_var, value);
+        lily_foreign_value *foreign = (lily_foreign_value *)value;
+
+        /* Values are saved in parser space until the vm is ready to receive
+           them. Make use of the extra space in a lily_value to write down what
+           register this value will target later on. */
+        foreign->reg_spot = new_var->reg_spot;
+        lily_vs_push(parser->foreign_values, (lily_value *)foreign);
+
         result = (lily_item *)new_var;
     }
     else if (letter == 'F') {
@@ -4099,7 +4109,9 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
             if (lily_u16_pos(parser->emit->code) != 0) {
                 lily_register_classes(parser->symtab, parser->vm);
                 lily_prepare_main(parser->emit);
-                lily_vm_prep(parser->vm, parser->symtab);
+                lily_vm_prep(parser->vm, parser->symtab,
+                        parser->foreign_values);
+
                 update_all_cid_tables(parser);
 
                 parser->executing = 1;

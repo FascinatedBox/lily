@@ -27,7 +27,6 @@ lily_symtab *lily_new_symtab(void)
     symtab->old_function_chain = NULL;
     symtab->literals = NULL;
     symtab->function_ties = NULL;
-    symtab->foreign_ties = NULL;
     symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
 
@@ -457,25 +456,6 @@ void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val)
 {
     tie_function(symtab, func_var, func_val, symtab->active_module);
-}
-
-lily_foreign_tie *lily_new_foreign_tie(lily_symtab *symtab, lily_var *var,
-        void *value)
-{
-    lily_foreign_tie *tie = lily_malloc(sizeof(lily_tie));
-    lily_value *v = (lily_value *)value;
-
-    tie->type = var->type;
-    tie->reg_spot = var->reg_spot;
-    tie->item_kind = 0;
-    tie->data.flags = v->flags;
-    tie->data.value = v->value;
-    tie->data.cell_refcount = 0;
-    tie->next = symtab->foreign_ties;
-    symtab->foreign_ties = tie;
-    lily_free(v);
-
-    return tie;
 }
 
 /***
