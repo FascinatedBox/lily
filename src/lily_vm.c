@@ -4,6 +4,7 @@
 #include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
+#include "lily_value_stack.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
@@ -1939,30 +1940,20 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
     vm->class_table[cls->id] = cls;
 }
 
-/* Foreign ties are created when a module wants to associate some bit of data
-   with a particular register. This happens mostly when dynaloading vars (such
-   as sys.argv, stdio, etc.)
-
-   These ties are freed after they are loaded because they are loaded only once
-   and are few in number. */
-static void load_foreign_ties(lily_vm_state *vm)
+/* Foreign values are created when Lily needs to dynaload a var. This receives
+   those values now that vm has the registers allocated. */
+static void load_foreign_values(lily_vm_state *vm, lily_value_stack *values)
 {
-    lily_foreign_tie *tie_iter = vm->symtab->foreign_ties;
-    lily_foreign_tie *tie_next;
-    lily_value **regs_from_main = vm->regs_from_main;
+    while (lily_vs_pos(values)) {
+        lily_foreign_value *fv = (lily_foreign_value *)lily_vs_pop(values);
+        uint16_t reg_spot = fv->reg_spot;
 
-    while (tie_iter) {
-        lily_value *reg_value = regs_from_main[tie_iter->reg_spot];
-
-        /* Don't use regular assign, because this is transferring ownership. */
-        lily_assign_value_noref(reg_value, &tie_iter->data);
-
-        tie_next = tie_iter->next;
-        lily_free(tie_iter);
-        tie_iter = tie_next;
+        /* The value already has a ref from being made, so don't use regular
+           assign or it will have two refs. Since this is a transfer of
+           ownership, use noref and drop the old container. */
+        lily_assign_value_noref(vm->regs_from_main[reg_spot], (lily_value *)fv);
+        lily_free(fv);
     }
-
-    vm->symtab->foreign_ties = NULL;
 }
 
 static void maybe_fix_print(lily_vm_state *vm)
@@ -1991,7 +1982,8 @@ static void maybe_fix_print(lily_vm_state *vm)
 /* This must be called before lily_vm_execute if the parser has read any data
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
-void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
+void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
+        lily_value_stack *foreign_values)
 {
     lily_function_val *main_function = symtab->main_function;
 
@@ -2012,10 +2004,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab)
         vm->vm_regs = vm->regs_from_main;
     }
 
-    /* Symtab is guaranteed to always have a non-NULL tie because the sys
-       package creates a tie. */
-    if (vm->symtab->foreign_ties)
-        load_foreign_ties(vm);
+    load_foreign_values(vm, foreign_values);
 
     if (vm->readonly_count != symtab->next_readonly_spot)
         setup_readonly_table(vm);

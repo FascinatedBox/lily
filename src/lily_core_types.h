@@ -60,6 +60,15 @@ typedef struct lily_value_ {
     lily_raw_value value;
 } lily_value;
 
+/* This is the var of a value that's being stored in the parser until the vm is
+   ready to receive it. */
+typedef struct lily_foreign_value_ {
+    uint32_t flags;
+    uint16_t pad;
+    uint16_t reg_spot;
+    lily_raw_value value;
+} lily_foreign_value;
+
 typedef struct {
     struct lily_class_ *next;
 
@@ -211,24 +220,6 @@ typedef struct lily_tie_ {
     uint32_t move_flags;
     lily_raw_value value;
 } lily_tie;
-
-/* A foreign tie associates a dynaloaded var with a particular register spot.
-   Foreign ties are always loaded as globals so that they are available in any
-   scope. The difference between this and lily_tie is that foreign ties have a
-   non-pointer 'data' field for the value instead of having the value but as
-   different fields.
-   This split was not done without reason. Emitter often needs to reach into the
-   raw value of a tie (ex: Tuple subscripts). So having a '.data' in the way is
-   annoying at best.
-   Modules, on the other hand, can't use the move api with inlined fields. */
-typedef struct lily_foreign_tie_ {
-    struct lily_foreign_tie_ *next;
-    uint16_t item_kind;
-    uint16_t flags;
-    uint32_t reg_spot;
-    lily_type *type;
-    lily_value data;
-} lily_foreign_tie;
 
 /* lily_storage is a struct used by emitter to hold info for intermediate
    values (such as the result of an addition). The emitter will reuse these

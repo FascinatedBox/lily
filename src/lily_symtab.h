@@ -23,9 +23,6 @@ typedef struct lily_symtab_ {
        search through. */
     lily_tie *function_ties;
 
-    /* This holds dynaloaded vars until the vm runs and scoops them up. */
-    lily_foreign_tie *foreign_ties;
-
     lily_package *first_package;
 
     lily_module_entry *builtin_module;
@@ -81,7 +78,6 @@ lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
 
 void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
 void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
-lily_foreign_tie *lily_new_foreign_tie(lily_symtab *, lily_var *, void *);
 
 lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);
