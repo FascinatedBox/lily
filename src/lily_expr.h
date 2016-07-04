@@ -1,5 +1,5 @@
-#ifndef LILY_AST_H
-# define LILY_AST_H
+#ifndef LILY_EXPR_H
+# define LILY_EXPR_H
 
 # include <stdint.h>
 
@@ -46,7 +46,7 @@ typedef enum {
     tree_interp_block, tree_boolean, tree_integer, tree_binary
 } lily_tree_type;
 
-typedef struct lily_es_ {
+typedef struct lily_ast_ {
     lily_sym *result;
 
     lily_tree_type tree_type: 8;
@@ -74,26 +74,26 @@ typedef struct lily_es_ {
         lily_tie *literal;
         lily_prop_entry *property;
         lily_variant_class *variant;
-        struct lily_es_ *left;
+        struct lily_ast_ *left;
         lily_type *type;
     };
 
     union {
         /* For trees with subtrees, this is the first child. */
-        struct lily_es_ *arg_start;
+        struct lily_ast_ *arg_start;
         /* Binary: This is the right side of the operation. */
-        struct lily_es_ *right;
+        struct lily_ast_ *right;
     };
 
     /* If this tree is a subexpression, then this will be set to the calling
        tree. NULL otherwise. */
-    struct lily_es_ *parent;
+    struct lily_ast_ *parent;
 
     /* If this tree is an argument, the next one. NULL otherwise. */
-    struct lily_es_ *next_arg;
+    struct lily_ast_ *next_arg;
 
     /* This links all trees together so the ast can blast them all at the end. */
-    struct lily_es_ *next_tree;
+    struct lily_ast_ *next_tree;
 } lily_ast;
 
 /* Subexpressions are handled by saving the important bits of the ast pool and
