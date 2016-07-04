@@ -1643,8 +1643,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     lily_block *block = emit->block;
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
 
-    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0 ||
-        ast->result->type->cls->id == SYM_CLASS_DYNAMIC) {
+    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Match expression is not an enum value.\n");
     }
