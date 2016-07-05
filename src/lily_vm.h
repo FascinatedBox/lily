@@ -72,7 +72,7 @@ typedef struct lily_vm_state_ {
 
     lily_call_frame *call_chain;
 
-    lily_tie **readonly_table;
+    lily_value **readonly_table;
     lily_class **class_table;
     uint32_t class_count;
     uint32_t readonly_count;
@@ -135,7 +135,8 @@ void lily_vm_raise_fmt(lily_vm_state *, uint8_t, const char *, ...);
 
 lily_vm_state *lily_new_vm_state(struct lily_options_ *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
-void lily_vm_prep(lily_vm_state *, lily_symtab *, struct lily_value_stack_ *);
+void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
+        struct lily_value_stack_ *);
 void lily_vm_execute(lily_vm_state *);
 uint64_t lily_siphash(lily_vm_state *, lily_value *);
 void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *, lily_value *);
