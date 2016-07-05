@@ -490,7 +490,7 @@ lily_function_val *lily_new_native_function_val(char *class_name,
    prelude to closure creation. */
 lily_function_val *lily_new_function_copy(lily_function_val *to_copy)
 {
-    lily_function_val *f = malloc(sizeof(lily_function_val));
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
     *f = *to_copy;
     return f;
