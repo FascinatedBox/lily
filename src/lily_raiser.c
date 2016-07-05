@@ -14,7 +14,7 @@ static const char *lily_error_names[] =
 lily_raiser *lily_new_raiser(void)
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
-    lily_jump_link *first_jump = malloc(sizeof(lily_jump_link));
+    lily_jump_link *first_jump = lily_malloc(sizeof(lily_jump_link));
     first_jump->prev = NULL;
     first_jump->next = NULL;
 
