@@ -27,6 +27,8 @@ ok($"""
 ^(1)
 """ == "\n1\n",                    "Interpolation with a multi-line string.")
 ok($"^(<[1, [2]]>)" == "<[1, [2]]>", "Tuples interpolate correctly.")
+ok($"^(None)" == "None",           "Interpolation of an empty variant.")
+ok($"^(Some(1))" == "Some(1)",     "Interpolation of Some(1).")
 
 define f(a: Integer)
 {

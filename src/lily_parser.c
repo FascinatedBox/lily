@@ -1152,20 +1152,31 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     lily_load_copy_string(parser->lex, lm_no_tags, msgbuf->message);
     lily_lexer(parser->lex);
-    lily_class *result = parse_enum(parser, 1);
-    result->dyna_start = dyna_index + 1;
 
+    int save_next_class_id;
     /* Option and Either have specific ids set aside for them so they don't need
-       to be included in cid tables. */
+       to be included in cid tables.
+       The id must be set -before- parsing the enum, because variant default
+       values rely on the id of an enum. If it's fixed later, they'll have the
+       wrong id, and possibly crash. */
     if (m->parent == parser->package_start) {
-        parser->symtab->next_class_id--;
+        save_next_class_id = parser->symtab->next_class_id;
 
         name = table[dyna_index] + DYNA_NAME_OFFSET;
         if (name[0] == 'O')
-            result->id = SYM_CLASS_OPTION;
+            parser->symtab->next_class_id = SYM_CLASS_OPTION;
         else
-            result->id = SYM_CLASS_EITHER;
+            parser->symtab->next_class_id = SYM_CLASS_EITHER;
     }
+    else
+        save_next_class_id = 0;
+
+    lily_class *result = parse_enum(parser, 1);
+
+    result->dyna_start = dyna_index + 1;
+
+    if (save_next_class_id)
+        parser->symtab->next_class_id = save_next_class_id;
 
     lily_pop_lex_entry(parser->lex);
 
