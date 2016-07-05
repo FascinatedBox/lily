@@ -2,6 +2,7 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
+# include "lily_value_stack.h"
 
 typedef struct lily_symtab_ {
     /* This is where __main__ is. __main__ is a special function which holds
@@ -9,19 +10,7 @@ typedef struct lily_symtab_ {
        vm later to kick things off. */
     lily_var *main_var;
 
-    /* Each literal (integer, double, string, etc) is stored in here.
-       Additionally, variant psuedo-literals are stored here, so that basic
-       variants (which do not have arguments) have a common, non-ref'd literal
-       to represent them. */
-    lily_tie *literals;
-
-    /* Every function, be it foreign or native (that includes lambdas) is linked
-       in here. The vm, during prep, will load these into a table and discard
-       them.
-       Though they're loaded into the same vm table as the literals, they're
-       kept away from literals here so that literal scanning has less clutter to
-       search through. */
-    lily_tie *function_ties;
+    lily_value_stack *literals;
 
     lily_package *first_package;
 
@@ -42,10 +31,7 @@ typedef struct lily_symtab_ {
        which have some special behavior sometimes. */
     uint32_t next_class_id;
 
-    /* This is the spot in the vm's readonly_table where the next 'readonly' var
-       or literal will go. A 'readonly' var is a var that represents a lambda,
-       built-in function, or native (define'd) function. */
-    uint32_t next_readonly_spot;
+    uint32_t pad;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */
@@ -70,14 +56,12 @@ lily_symtab *lily_new_symtab(void);
 void lily_set_first_package(lily_symtab *, lily_package *);
 void lily_free_symtab(lily_symtab *);
 
-lily_tie *lily_get_integer_literal(lily_symtab *, int64_t);
-lily_tie *lily_get_double_literal(lily_symtab *, double);
-lily_tie *lily_get_bytestring_literal(lily_symtab *, const char *, int);
-lily_tie *lily_get_string_literal(lily_symtab *, const char *);
-lily_tie *lily_get_variant_literal(lily_symtab *, lily_type *);
-
-void lily_tie_builtin(lily_symtab *, lily_var *, lily_function_val *);
-void lily_tie_function(lily_symtab *, lily_var *, lily_function_val *);
+lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
+lily_literal *lily_get_double_literal(lily_symtab *, double);
+lily_literal *lily_get_bytestring_literal(lily_symtab *, const char *, int);
+lily_literal *lily_get_string_literal(lily_symtab *, const char *);
+void lily_store_function(lily_symtab *, lily_var *, lily_function_val *);
+void lily_store_builtin(lily_symtab *, lily_var *, lily_function_val *);
 
 lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);

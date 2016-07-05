@@ -145,7 +145,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_var->reg_spot = 0;
     main_var->function_depth = 1;
     main_var->flags |= VAR_IS_READONLY;
-    emit->symtab->next_readonly_spot++;
 
     lily_block *main_block = lily_malloc(sizeof(lily_block));
     lily_function_val *main_function = lily_new_native_function_val(
@@ -159,7 +158,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
        to print. However, __main__ does not, because __main__'s vars are global
        and alive. Because of this, __main__ has a special deref. */
     main_function->refcount++;
-    lily_tie_function(emit->symtab, main_var, main_function);
+    lily_store_function(emit->symtab, main_var, main_function);
 
     /* Everything is set manually because creating a block requires taking info
        from a previous block (for things such as self). */
@@ -259,14 +258,25 @@ lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
 
 /* This creates a new var that will be associated with a 'define'. */
 lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
-        const char *name)
+        lily_class *parent, const char *name)
 {
     lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
 
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
+    new_var->reg_spot = lily_vs_pos(emit->symtab->literals);
     new_var->function_depth = 1;
     new_var->flags |= VAR_IS_READONLY;
+
+    char *class_name;
+    if (parent)
+        class_name = parent->name;
+    else
+        class_name = NULL;
+
+    /* Build a function and store it now, just in case a dynaload fires off
+       before the define is done. */
+    lily_function_val *f = lily_new_native_function_val(class_name,
+            new_var->name);
+    lily_store_function(emit->symtab, new_var, f);
 
     return new_var;
 }
@@ -281,8 +291,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
 
     new_var->function_depth = 1;
     new_var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
-    new_var->reg_spot = emit->symtab->next_readonly_spot;
-    emit->symtab->next_readonly_spot++;
+    new_var->reg_spot = lily_vs_pos(emit->symtab->literals);
 
     lily_function_val *func_val;
 
@@ -306,7 +315,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         func_val->cid_table = ((lily_class *)source)->module->cid_table;
     }
 
-    lily_tie_function(emit->symtab, new_var, func_val);
+    lily_store_function(emit->symtab, new_var, func_val);
     return new_var;
 }
 
@@ -1495,17 +1504,9 @@ static void perform_closure_transform(lily_emit_state *emit,
 static lily_function_val *create_code_block_for(lily_emit_state *emit,
         lily_block *function_block)
 {
-    char *class_name;
-    if (function_block->class_entry)
-        class_name = function_block->class_entry->name;
-    else
-        class_name = NULL;
-
     lily_var *var = function_block->function_var;
-    lily_function_val *f = lily_new_native_function_val(class_name,
-            var->name);
-
-    lily_tie_function(emit->symtab, var, f);
+    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
+    lily_function_val *f = v->value.function;
 
     int code_start, code_size;
     uint16_t *source, *code;
