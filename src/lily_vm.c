@@ -296,7 +296,6 @@ void lily_free_vm(lily_vm_state *vm)
     lily_free(vm->class_table);
     lily_free(vm->vm_list->values);
     lily_free(vm->vm_list);
-    lily_free(vm->readonly_table);
     lily_free(vm);
 }
 
@@ -1244,8 +1243,8 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     lily_value *input_closure_reg = vm_regs[code[1]];
 
-    lily_tie *target_literal = vm->readonly_table[code[2]];
-    lily_function_val *target_func = target_literal->value.function;
+    lily_value *target = vm->readonly_table[code[2]];
+    lily_function_val *target_func = target->value.function;
 
     lily_value *result_reg = vm_regs[code[3]];
     lily_function_val *new_closure = lily_new_function_copy(target_func);
@@ -1872,37 +1871,6 @@ void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     During non-tagged execute, this should happen only once. In tagged mode, it
     happens for each closing ?> tag. **/
 
-static void load_ties_into_readonly(lily_tie **readonly, lily_tie *tie,
-        int stop)
-{
-    while (tie && tie->reg_spot >= stop) {
-        readonly[tie->reg_spot] = tie;
-        tie = tie->next;
-    }
-}
-
-/* This loads the symtab's literals and functions into the giant
-   vm->readonly_table so that lily_vm_execute can find them later. */
-static void setup_readonly_table(lily_vm_state *vm)
-{
-    lily_symtab *symtab = vm->symtab;
-
-    if (vm->readonly_count == symtab->next_readonly_spot)
-        return;
-
-    int count = symtab->next_readonly_spot;
-    lily_tie **new_table = lily_realloc(vm->readonly_table,
-            count * sizeof(lily_tie *));
-
-    int load_stop = vm->readonly_count;
-
-    load_ties_into_readonly(new_table, symtab->literals, load_stop);
-    load_ties_into_readonly(new_table, symtab->function_ties, load_stop);
-
-    vm->readonly_count = symtab->next_readonly_spot;
-    vm->readonly_table = new_table;
-}
-
 void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
 {
     int old_count = vm->class_count;
@@ -1971,8 +1939,8 @@ static void maybe_fix_print(lily_vm_state *vm)
                maybe being closed.
                Now that stdout has been dynaloaded, swap the underlying function
                for print to the safe one. */
-            lily_tie *print_tie = vm->readonly_table[print_var->reg_spot];
-            print_tie->value.function->foreign_func = builtin_stdout_print;
+            lily_value *print_value = vm->readonly_table[print_var->reg_spot];
+            print_value->value.function->foreign_func = builtin_stdout_print;
             lily_value *stdout_reg = vm->regs_from_main[stdout_var->reg_spot];
             vm->stdout_reg = stdout_reg;
         }
@@ -1983,8 +1951,10 @@ static void maybe_fix_print(lily_vm_state *vm)
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
-        lily_value_stack *foreign_values)
+        lily_value **readonly_table, lily_value_stack *foreign_values)
 {
+    vm->readonly_table = readonly_table;
+
     lily_function_val *main_function = symtab->main_function;
 
     if (main_function->reg_count > vm->offset_max_registers) {
@@ -2005,9 +1975,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     }
 
     load_foreign_values(vm, foreign_values);
-
-    if (vm->readonly_count != symtab->next_readonly_spot)
-        setup_readonly_table(vm);
 
     if (vm->stdout_reg == NULL)
         maybe_fix_print(vm);
@@ -2044,7 +2011,6 @@ void lily_vm_execute(lily_vm_state *vm)
        traceback tend to be 'off'. */
     register volatile int code_pos;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
-    register lily_tie *readonly_val;
     lily_function_val *fval;
     lily_value **upvalues = NULL;
 
@@ -2092,13 +2058,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 code_pos += 4;
                 break;
             case o_get_readonly:
-                readonly_val = vm->readonly_table[code[code_pos+2]];
+                rhs_reg = vm->readonly_table[code[code_pos+2]];
                 lhs_reg = vm_regs[code[code_pos+3]];
 
                 lily_deref(lhs_reg);
 
-                lhs_reg->value = readonly_val->value;
-                lhs_reg->flags = readonly_val->move_flags;
+                lhs_reg->value = rhs_reg->value;
+                lhs_reg->flags = rhs_reg->flags;
                 code_pos += 4;
                 break;
             case o_get_integer:

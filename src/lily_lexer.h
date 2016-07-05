@@ -86,7 +86,7 @@ typedef enum {
 typedef struct lily_lex_entry_ {
     struct lily_lex_state_ *lexer;
 
-    lily_tie *saved_last_literal;
+    lily_literal *saved_last_literal;
     char *saved_input;
     uint16_t saved_input_pos;
     uint16_t saved_input_size;
@@ -126,7 +126,7 @@ typedef struct lily_lex_state_ {
 
     /* When the lexer sees a numeric or string literal, it calls the symtab to
        make a literal value. Said value is stored here, for the parser to use. */
-    lily_tie *last_literal;
+    lily_literal *last_literal;
     lily_symtab *symtab;
     lily_raiser *raiser;
     lily_html_sender html_sender;

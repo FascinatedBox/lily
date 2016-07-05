@@ -21,14 +21,12 @@ lily_symtab *lily_new_symtab(void)
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
     symtab->main_function = NULL;
-    symtab->next_readonly_spot = 0;
     symtab->next_class_id = 0;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
-    symtab->literals = NULL;
-    symtab->function_ties = NULL;
     symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
+    symtab->literals = lily_new_value_stack();
 
     return symtab;
 }
@@ -110,34 +108,29 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
     }
 }
 
-static void free_ties(lily_symtab *symtab, lily_tie *tie_iter)
+static void free_literals(lily_value_stack *literals)
 {
-    lily_tie *tie_next;
+    while (lily_vs_pos(literals)) {
+        lily_literal *lit = (lily_literal *)lily_vs_pop(literals);
 
-    while (tie_iter) {
-        tie_next = tie_iter->next;
         /* Literals are marked where their refcount won't be adjusted during
            the vm's run. Any literal that isn't primitive will have 1 ref, and
            can be destroyed by sending it to deref. */
-        if ((tie_iter->move_flags &
+        if ((lit->flags &
             (VAL_IS_BOOLEAN | VAL_IS_INTEGER | VAL_IS_DOUBLE)) == 0) {
-            lily_value v;
-            v.flags = tie_iter->move_flags | VAL_IS_DEREFABLE;
-            v.value = tie_iter->value;
-
-            lily_deref(&v);
+            lit->flags |= VAL_IS_DEREFABLE;
+            lily_deref((lily_value *)lit);
         }
-        lily_free(tie_iter);
-        tie_iter = tie_next;
+
+        lily_free(lit);
     }
+
+    lily_free_value_stack(literals);
 }
 
 void lily_free_symtab(lily_symtab *symtab)
 {
-    /* Ties have to come first because deref functions rely on type and class
-       information. */
-    free_ties(symtab, symtab->literals);
-    free_ties(symtab, symtab->function_ties);
+    free_literals(symtab->literals);
 
     free_classes(symtab, symtab->old_class_chain);
     free_vars(symtab, symtab->old_function_chain);
@@ -175,131 +168,174 @@ void lily_free_symtab(lily_symtab *symtab)
     to get an existing literal of the given value before making a new one.
     The only one of interest is the variant 'literal'. Some variants like the
     None of an Option do not need a unique value. So, instead, they all share
-    a literal tagged as a None (but which is just an integer). **/
+    a literal tagged as a None (but which is just an integer).
+    Storing of (defined) functions is also here, because a function cannot be
+    altered once it's defined. **/
 
-
-static lily_tie *make_new_literal_of_type(lily_symtab *symtab, lily_type *type)
+/* Literals take advantage of lily_value having extra padding in it. That extra
+   padding will have the index of the next literal of that kind. The only
+   trouble is finding the first one with the given flag to start with. */
+static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 {
-    lily_tie *lit = lily_malloc(sizeof(lily_tie));
+    int stop = lily_vs_pos(vs);
+    int i;
 
-    /* Literal values always have a default type, so this is safe. */
-    lit->type = type;
+    for (i = 0;i < stop;i++) {
+        lily_literal *lit = (lily_literal *)lily_vs_nth(vs, i);
+        if (lit->flags & to_find)
+            return lit;
+    }
 
-    lit->item_kind = 0;
-    lit->flags = 0;
-    lit->reg_spot = symtab->next_readonly_spot;
-    lit->move_flags = type->cls->move_flags;
-    symtab->next_readonly_spot++;
-
-    lit->next = symtab->literals;
-    symtab->literals = lit;
-
-    return lit;
+    return NULL;
 }
 
-static lily_tie *make_new_literal(lily_symtab *symtab, lily_class *cls)
+lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
-    /* Non-variant literals always have a default type, so this is safe. */
-    return make_new_literal_of_type(symtab, cls->type);
-}
+    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_INTEGER);
 
-lily_tie *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
-{
-    lily_tie *lit, *ret;
-    ret = NULL;
-    lily_class *integer_cls = symtab->integer_class;
-    lily_type *want_type = integer_cls->type;
+    while (iter) {
+        if (iter->value.integer == int_val)
+            return iter;
 
-    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
-        if (lit->type == want_type && lit->value.integer == int_val) {
-            ret = lit;
+        int next = iter->next_index;
+
+        if (next == 0)
             break;
-        }
+        else
+            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
     }
 
-    if (ret == NULL) {
-        ret = make_new_literal(symtab, integer_cls);
-        ret->value.integer = int_val;
-    }
+    if (iter)
+        iter->next_index = lily_vs_pos(symtab->literals);
 
-    return ret;
+    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    v->flags = VAL_IS_INTEGER;
+    v->reg_spot = lily_vs_pos(symtab->literals);
+    v->next_index = 0;
+    v->value.integer = int_val;
+
+    lily_vs_push(symtab->literals, (lily_value *)v);
+    return (lily_literal *)v;
 }
 
-lily_tie *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
+lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
-    lily_tie *lit, *ret;
-    ret = NULL;
-    lily_class *double_cls = symtab->double_class;
-    lily_type *want_type = double_cls->type;
+    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_DOUBLE);
 
-    for (lit = symtab->literals;lit != NULL;lit = lit->next) {
-        if (lit->type == want_type && lit->value.doubleval == dbl_val) {
-            ret = lit;
+    while (iter) {
+        if (iter->value.doubleval == dbl_val)
+            return iter;
+
+        int next = iter->next_index;
+
+        if (next == 0)
             break;
-        }
+        else
+            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
     }
 
-    if (ret == NULL) {
-        ret = make_new_literal(symtab, double_cls);
-        ret->value.doubleval = dbl_val;
-    }
+    if (iter)
+        iter->next_index = lily_vs_pos(symtab->literals);
 
-    return ret;
+    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    v->flags = VAL_IS_DOUBLE;
+    v->reg_spot = lily_vs_pos(symtab->literals);
+    v->next_index = 0;
+    v->value.doubleval = dbl_val;
+
+    lily_vs_push(symtab->literals, (lily_value *)v);
+    return (lily_literal *)v;
 }
 
-lily_tie *lily_get_string_literal(lily_symtab *symtab, const char *want_string)
-{
-    lily_tie *lit, *ret;
-    ret = NULL;
-    int want_string_len = strlen(want_string);
-
-    for (lit = symtab->literals;lit;lit = lit->next) {
-        if (lit->type->cls->id == SYM_CLASS_STRING) {
-            if (lit->value.string->size == want_string_len &&
-                strcmp(lit->value.string->string, want_string) == 0) {
-                ret = lit;
-                break;
-            }
-        }
-    }
-
-    if (ret == NULL) {
-        lily_class *cls = symtab->string_class;
-
-        ret = make_new_literal(symtab, cls);
-        ret->value.string = lily_new_raw_string(want_string);
-        ret->flags |= VAL_IS_STRING;
-    }
-
-    return ret;
-}
-
-lily_tie *lily_get_bytestring_literal(lily_symtab *symtab,
+lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
         const char *want_string, int len)
 {
-    lily_tie *lit, *ret;
-    ret = NULL;
+    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_BYTESTRING);
 
-    for (lit = symtab->literals;lit;lit = lit->next) {
-        if (lit->type->cls->id == SYM_CLASS_BYTESTRING) {
-            if (lit->value.string->size == len &&
-                memcmp(lit->value.string->string, want_string,
-                        len) == 0) {
-                ret = lit;
-                break;
-            }
-        }
+    while (iter) {
+        if (iter->value.string->size == len &&
+            memcmp(iter->value.string->string, want_string, len) == 0)
+            return iter;
+
+        int next = iter->next_index;
+
+        if (next == 0)
+            break;
+        else
+            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
     }
 
-    if (ret == NULL) {
-        lily_class *cls = symtab->bytestring_class;
+    if (iter)
+        iter->next_index = lily_vs_pos(symtab->literals);
 
-        ret = make_new_literal(symtab, cls);
-        ret->value.string = lily_new_raw_string_sized(want_string, len);
-        ret->flags |= VAL_IS_BYTESTRING;
+    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    v->flags = VAL_IS_BYTESTRING;
+    v->reg_spot = lily_vs_pos(symtab->literals);
+    v->value.string = lily_new_raw_string_sized(want_string, len);
+    v->next_index = 0;
+
+    lily_vs_push(symtab->literals, (lily_value *)v);
+    return (lily_literal *)v;
+}
+
+lily_literal *lily_get_string_literal(lily_symtab *symtab,
+        const char *want_string)
+{
+    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_STRING);
+    int want_string_len = strlen(want_string);
+
+    while (iter) {
+        if (iter->value.string->size == want_string_len &&
+            strcmp(iter->value.string->string, want_string) == 0)
+            return iter;
+
+        int next = iter->next_index;
+
+        if (next == 0)
+            break;
+        else
+            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
     }
 
-    return ret;
+    if (iter)
+        iter->next_index = lily_vs_pos(symtab->literals);
+
+    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    v->flags = VAL_IS_STRING;
+    v->reg_spot = lily_vs_pos(symtab->literals);
+    v->next_index = 0;
+    v->value.string = lily_new_raw_string(want_string);
+
+    lily_vs_push(symtab->literals, (lily_value *)v);
+    return (lily_literal *)v;
+}
+
+/* Literals and defined functions are both immutable, so they occupy the same
+   general. This stores a function in their shared area. */
+static void store_function(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val, lily_module_entry *module)
+{
+    /* This is done so that lily_debug can print line numbers. */
+    func_val->line_num = func_var->line_num;
+    func_val->module = module;
+
+    lily_value *v = lily_new_empty_value();
+    v->flags = VAL_IS_FUNCTION;
+    v->value.function = func_val;
+
+    lily_vs_push(symtab->literals, v);
+}
+
+void lily_store_builtin(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val)
+{
+    store_function(symtab, func_var, func_val, symtab->builtin_module);
+}
+
+void lily_store_function(lily_symtab *symtab, lily_var *func_var,
+        lily_function_val *func_val)
+{
+    store_function(symtab, func_var, func_val, symtab->active_module);
 }
 
 /***
@@ -411,51 +447,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
         var_iter->flags |= VAR_OUT_OF_SCOPE;
         var_iter = var_iter->next;
     }
-}
-
-/***
- *      _____ _
- *     |_   _(_) ___  ___
- *       | | | |/ _ \/ __|
- *       | | | |  __/\__ \
- *       |_| |_|\___||___/
- *
- */
-
-/** Ties are used to associate some piece of data with a register spot. The vm
-    is responsible for loading these ties into somewhere appropriate during the
-    next vm prep phase. **/
-
-static void tie_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val, lily_module_entry *module)
-{
-    lily_tie *tie = lily_malloc(sizeof(lily_tie));
-
-    /* This is done so that lily_debug can print line numbers. */
-    func_val->line_num = func_var->line_num;
-    func_val->module = module;
-
-    tie->type = func_var->type;
-    tie->value.function = func_val;
-    tie->reg_spot = func_var->reg_spot;
-    tie->item_kind = 0;
-    tie->flags = VAL_IS_FUNCTION;
-    tie->move_flags = VAL_IS_FUNCTION;
-
-    tie->next = symtab->function_ties;
-    symtab->function_ties = tie;
-}
-
-void lily_tie_builtin(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val)
-{
-    tie_function(symtab, func_var, func_val, symtab->builtin_module);
-}
-
-void lily_tie_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val)
-{
-    tie_function(symtab, func_var, func_val, symtab->active_module);
 }
 
 /***
@@ -785,26 +776,26 @@ lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
     return ret;
 }
 
-lily_tie *make_variant_default(lily_symtab *symtab,
+lily_literal *make_variant_default(lily_symtab *symtab,
         lily_variant_class *variant)
 {
-    /* This makes it easier to destroy, but makes no other difference. */
-    lily_type *enum_self_type = variant->parent->all_subtypes;
-
     lily_instance_val *iv = lily_new_instance_val();
     iv->instance_id = variant->parent->id;
     iv->variant_id = variant->variant_id;
     iv->num_values = 0;
 
-    lily_tie *ret = make_new_literal_of_type(symtab, enum_self_type);
-    ret->value.instance = iv;
-    ret->move_flags = VAL_IS_ENUM;
-    /* This variant may not be interesting, but it could be swapped out with a
-       variant that is tagged. As a precaution, put it down as retain. */
-    if (variant->parent->generic_count != 0)
-        ret->move_flags |= VAL_IS_GC_SPECULATIVE;
+    lily_literal *v = (lily_literal *)lily_new_empty_value();
 
-    return ret;
+    /* This value isn't interesting, but it might be swapped out with a value
+       that is. */
+    v->flags = VAL_IS_ENUM | VAL_IS_GC_SPECULATIVE;
+    v->next_index = 0;
+    v->reg_spot = lily_vs_pos(symtab->literals);
+    v->value.instance = iv;
+
+    lily_vs_push(symtab->literals, (lily_value *)v);
+
+    return v;
 }
 
 /* This is called when an enum class has finished scanning the variant members.

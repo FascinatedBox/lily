@@ -69,6 +69,16 @@ typedef struct lily_foreign_value_ {
     lily_raw_value value;
 } lily_foreign_value;
 
+/* Literals are stored in an array, and for simplicity, each one of a particular
+   group holds where the next in. So, for example, the Integers all know where
+   the next one is with the last holding a next of 0. */
+typedef struct lily_literal_ {
+    uint32_t flags;
+    uint16_t reg_spot;
+    uint16_t next_index;
+    lily_raw_value value;
+} lily_literal;
+
 typedef struct {
     struct lily_class_ *next;
 
@@ -82,7 +92,7 @@ typedef struct {
 
     union {
         struct lily_type_ *build_type;
-        struct lily_tie_ *default_value;
+        struct lily_literal_ *default_value;
     };
 
     struct lily_class_ *parent;
@@ -207,19 +217,6 @@ typedef struct lily_prop_entry_ {
     uint64_t name_shorthash;
     lily_class *cls;
 } lily_prop_entry;
-
-/* A tie represents an association between some particular spot, and a value
-   given. This struct represents literals, and defined functions. */
-typedef struct lily_tie_ {
-    struct lily_tie_ *next;
-    uint16_t item_kind;
-    uint16_t flags;
-    uint32_t reg_spot;
-    lily_type *type;
-    uint32_t pad;
-    uint32_t move_flags;
-    lily_raw_value value;
-} lily_tie;
 
 /* lily_storage is a struct used by emitter to hold info for intermediate
    values (such as the result of an addition). The emitter will reuse these

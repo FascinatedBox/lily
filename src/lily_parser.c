@@ -547,8 +547,8 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
                 (uint16_t)lex->last_integer);
     }
     else {
-        lily_tie *tie = lily_get_integer_literal(symtab, lex->last_integer);
-        lily_u16_write_2(optarg_stack, o_get_readonly, tie->reg_spot);
+        lily_literal *lit = lily_get_integer_literal(symtab, lex->last_integer);
+        lily_u16_write_2(optarg_stack, o_get_readonly, lit->reg_spot);
     }
 
     lily_lexer(lex);
@@ -892,11 +892,11 @@ static void fini_expr_state(lily_parse_state *);
 /** Lily is a statically-typed language, which carries benefits as well as
     drawbacks. One drawback is that creating a new function or a new var is
     quite costly. A var needs a type, and that type may include subtypes.
-    Binding foreign functions includes creating a tie that the vm can later use
-    to associate 'this foreign function has that value', a type, and a var.
-    This can be rather wasteful if you're not going to use all of that. In fact,
-    it's unlikely that you'll use all API functions, all builtin functions, and
-    all builtin packages in a single program.
+    Binding foreign functions involves creating a lily_value with the contents
+    of the foreign function inside. This can be rather wasteful if you're not
+    going to use all of that. In fact, it's unlikely that you'll use all API
+    functions, all builtin functions, and all builtin packages in a single
+    program.
 
     Consider a call to String.lower. This can be invoked as either "".lower or
     String.lower. Since Lily is a statically-typed language, it's possible to
@@ -1608,9 +1608,23 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
 /* This is a wrapper function that handles pushing the given literal into the
    parser's ast pool. This function exists because literals may, in the future,
    not have a type associated with them (and be just a lily_value). */
-static void push_literal(lily_parse_state *parser, lily_tie *literal)
+static void push_literal(lily_parse_state *parser, lily_literal *lit)
 {
-    lily_es_push_literal(parser->expr, literal->type, literal->reg_spot);
+    lily_class *literal_cls;
+
+    if (lit->flags == VAL_IS_INTEGER)
+        literal_cls = parser->symtab->integer_class;
+    else if (lit->flags == VAL_IS_DOUBLE)
+        literal_cls = parser->symtab->double_class;
+    else if (lit->flags == VAL_IS_STRING)
+        literal_cls = parser->symtab->string_class;
+    else if (lit->flags == VAL_IS_BYTESTRING)
+        literal_cls = parser->symtab->bytestring_class;
+    else
+        /* Impossible, but keeps the compiler from complaining. */
+        literal_cls = parser->symtab->question_class;
+
+    lily_es_push_literal(parser->expr, literal_cls->type, lit->reg_spot);
 }
 
 /* This takes an id that corresponds to some id in the table of magic constants.
@@ -1620,7 +1634,7 @@ static void push_constant(lily_parse_state *parser, int key_id)
 {
     lily_expr_state *es = parser->expr;
     lily_symtab *symtab = parser->symtab;
-    lily_tie *tie;
+    lily_literal *lit;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
@@ -1630,17 +1644,17 @@ static void push_constant(lily_parse_state *parser, int key_id)
         if ((int16_t)num <= INT16_MAX)
             lily_es_push_integer(es, (int16_t)num);
         else {
-            tie = lily_get_integer_literal(symtab, parser->lex->line_num);
-            push_literal(parser, tie);
+            lit = lily_get_integer_literal(symtab, parser->lex->line_num);
+            push_literal(parser, lit);
         }
     }
     else if (key_id == CONST__FILE__) {
-        tie = lily_get_string_literal(symtab, parser->symtab->active_module->path);
-        push_literal(parser, tie);
+        lit = lily_get_string_literal(symtab, parser->symtab->active_module->path);
+        push_literal(parser, lit);
     }
     else if (key_id == CONST__FUNCTION__) {
-        tie = lily_get_string_literal(symtab, parser->emit->top_var->name);
-        push_literal(parser, tie);
+        lit = lily_get_string_literal(symtab, parser->emit->top_var->name);
+        push_literal(parser, lit);
     }
     else if (key_id == CONST_TRUE)
         lily_es_push_boolean(es, 1);
@@ -1851,10 +1865,10 @@ static int maybe_digit_fixup(lily_parse_state *parser)
                 lily_es_push_integer(parser->expr, (int16_t)
                         lex->last_integer);
             else {
-                lily_tie *tie = lily_get_integer_literal(parser->symtab,
+                lily_literal *lit = lily_get_integer_literal(parser->symtab,
                         lex->last_integer);
 
-                push_literal(parser, tie);
+                push_literal(parser, lit);
             }
         }
         else
@@ -1900,8 +1914,8 @@ static void expression_literal(lily_parse_state *parser, int *state)
                         lex->expand_start_line, pile_spot);
             }
             else {
-                lily_tie *tie = lily_get_string_literal(symtab, lex->label);
-                push_literal(parser, tie);
+                lily_literal *lit = lily_get_string_literal(symtab, lex->label);
+                push_literal(parser, lit);
             }
             lily_es_collect_arg(parser->expr);
         } while (*scan_string != '\0');
@@ -1916,9 +1930,9 @@ static void expression_literal(lily_parse_state *parser, int *state)
             lily_es_push_integer(parser->expr, (int16_t)
                     lex->last_integer);
         else {
-            lily_tie *tie = lily_get_integer_literal(parser->symtab,
+            lily_literal *lit = lily_get_integer_literal(parser->symtab,
                     lex->last_integer);
-            push_literal(parser, tie);
+            push_literal(parser, lit);
         }
 
         *state = ST_WANT_OPERATOR;
@@ -2349,7 +2363,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, "(lambda)");
+            parser->default_call_type, NULL, "(lambda)");
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -2637,13 +2651,19 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     ensure_unique_method_name(parser, lex->label);
 
+    lily_class *parent;
+    if (parser->class_self_type)
+        parent = parser->class_self_type->cls;
+    else
+        parent = NULL;
+
     /* The type will be overwritten with the right thing later on. However, it's
        necessary to have some function-like entity there instead of, say, NULL.
        The reason is that a dynaload may be triggered, which may push a block.
        The emitter will attempt to restore the return type via the type of the
        define var here. */
     lily_var *define_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, lex->label);
+            parser->default_call_type, parent, lex->label);
 
     int i = 0;
     int arg_flags = 0;
@@ -3088,7 +3108,7 @@ static void run_loaded_module(lily_parse_state *parser,
 
         /* lily_emit_enter_block will write new code to this special var. */
         lily_var *import_var = lily_emit_new_define_var(parser->emit,
-                parser->default_call_type, "__import__");
+                parser->default_call_type, NULL, "__import__");
 
         lily_emit_enter_block(parser->emit, block_file);
 
@@ -3470,7 +3490,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
     lily_var *call_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, "new");
+            parser->default_call_type, cls, "new");
 
     lily_lexer(lex);
     collect_generics_or(parser, 0);
@@ -4121,7 +4141,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
                 lily_register_classes(parser->symtab, parser->vm);
                 lily_prepare_main(parser->emit);
                 lily_vm_prep(parser->vm, parser->symtab,
-                        parser->foreign_values);
+                        parser->symtab->literals->data, parser->foreign_values);
 
                 update_all_cid_tables(parser);
 
