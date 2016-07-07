@@ -1074,13 +1074,10 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_instance_val *iv = lily_malloc(sizeof(lily_instance_val));
+    lily_instance_val *iv = lily_new_instance_val();
     lily_value **iv_values = lily_malloc(total_entries * sizeof(lily_value *));
 
-    iv->num_values = -1;
-    iv->refcount = 1;
     iv->values = iv_values;
-    iv->gc_entry = NULL;
     iv->instance_id = cls_id;
 
     if (code[0] == o_new_instance_speculative)
@@ -1403,12 +1400,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
-    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+    lily_instance_val *ival = lily_new_instance_val();
 
     ival->values = lily_malloc(2 * sizeof(lily_value *));
-    ival->num_values = -1;
-    ival->refcount = 1;
-    ival->gc_entry = NULL;
     ival->instance_id = raised_cls->id;
 
     lily_value *message_val = lily_new_string(vm->raiser->msgbuf->message);
