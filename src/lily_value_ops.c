@@ -356,12 +356,23 @@ int lily_eq_value(lily_vm_state *vm, lily_value *left, lily_value *right)
  *
  */
 
+#define MOVE_PRIM(name, in_type, field, f) \
+void lily_move_##name(lily_value *v, in_type z) \
+{ \
+    if (v->flags & VAL_IS_DEREFABLE) \
+        lily_deref(v); \
+\
+    v->value.field = z; \
+    v->flags = f; \
+}
+
 #define MOVE_FN(name, in_type, field, f) \
 void lily_move_##name(lily_value *v, in_type z) \
 { \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
+    z->refcount++; \
     v->value.field = z; \
     v->flags = f; \
 }
@@ -372,19 +383,20 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
+    z->refcount++; \
     v->value.field = z; \
     v->flags = (f | type_flag); \
 }
 
-MOVE_FN  (boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
-MOVE_FN  (double,         double,              doubleval, VAL_IS_DOUBLE)
+MOVE_PRIM(boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
+MOVE_PRIM(double,         double,              doubleval, VAL_IS_DOUBLE)
 MOVE_FN  (dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
 MOVE_FN_F(enum,           lily_instance_val *, instance,  VAL_IS_ENUM)
 MOVE_FN  (file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
 MOVE_FN_F(foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)
 MOVE_FN_F(function,       lily_function_val *, function,  VAL_IS_FUNCTION)
 MOVE_FN_F(hash,           lily_hash_val *,     hash,      VAL_IS_HASH)
-MOVE_FN  (integer,        int64_t,             integer,   VAL_IS_INTEGER)
+MOVE_PRIM(integer,        int64_t,             integer,   VAL_IS_INTEGER)
 MOVE_FN_F(instance,       lily_instance_val *, instance,  VAL_IS_INSTANCE)
 MOVE_FN_F(list,           lily_list_val *,     list,      VAL_IS_LIST)
 MOVE_FN  (string,         lily_string_val *,   string,    VAL_IS_STRING   | VAL_IS_DEREFABLE)
@@ -422,7 +434,7 @@ lily_dynamic_val *lily_new_dynamic_val(void)
 
     d->inner_value = lily_new_empty_value();
     d->gc_entry = NULL;
-    d->refcount = 1;
+    d->refcount = 0;
 
     return d;
 }
@@ -437,7 +449,7 @@ lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
 
     int plus = strchr(mode, '+') != NULL;
 
-    filev->refcount = 1;
+    filev->refcount = 0;
     filev->inner_file = inner_file;
     filev->read_ok = (*mode == 'r' || plus);
     filev->write_ok = (*mode == 'w' || plus);
@@ -453,6 +465,8 @@ lily_function_val *lily_new_foreign_function_val(lily_foreign_func func,
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
+    /* This won't get a ref bump from being moved/assigned since all functions
+       are marked as literals. Start at 1 ref, not 0. */
     f->refcount = 1;
     f->class_name = class_name;
     f->trace_name = name;
@@ -473,6 +487,8 @@ lily_function_val *lily_new_native_function_val(char *class_name,
 {
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
+    /* This won't get a ref bump from being moved/assigned since all functions
+       are marked as literals. Start at 1 ref, not 0. */
     f->refcount = 1;
     f->class_name = class_name;
     f->trace_name = name;
@@ -493,7 +509,7 @@ lily_function_val *lily_new_function_copy(lily_function_val *to_copy)
     lily_function_val *f = lily_malloc(sizeof(lily_function_val));
 
     *f = *to_copy;
-    f->refcount = 1;
+    f->refcount = 0;
 
     return f;
 }
@@ -502,7 +518,7 @@ lily_function_val *lily_new_function_copy(lily_function_val *to_copy)
 lily_list_val *lily_new_list_val(void)
 {
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    lv->refcount = 1;
+    lv->refcount = 0;
     lv->elems = NULL;
     lv->num_values = -1;
     lv->extra_space = 0;
@@ -514,7 +530,7 @@ lily_hash_val *lily_new_hash_val(void)
 {
     lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
 
-    h->refcount = 1;
+    h->refcount = 0;
     h->iter_count = 0;
     h->num_elems = 0;
     h->elem_chain = NULL;
@@ -524,7 +540,7 @@ lily_hash_val *lily_new_hash_val(void)
 lily_instance_val *lily_new_instance_val(void)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
-    ival->refcount = 1;
+    ival->refcount = 0;
     ival->gc_entry = NULL;
     ival->values = NULL;
     ival->num_values = -1;
@@ -535,7 +551,7 @@ lily_instance_val *lily_new_instance_val(void)
 static lily_string_val *new_sv(char *buffer, int size)
 {
     lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
-    sv->refcount = 1;
+    sv->refcount = 0;
     sv->string = buffer;
     sv->size = size;
     return sv;
