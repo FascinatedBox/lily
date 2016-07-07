@@ -272,6 +272,8 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     v->flags = VAL_IS_BYTESTRING;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->value.string = lily_new_raw_string_sized(want_string, len);
+    /* Manual ref, because the string isn't being moved/assigned anywhere. */
+    v->value.string->refcount++;
     v->next_index = 0;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
@@ -305,6 +307,8 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
     v->value.string = lily_new_raw_string(want_string);
+    /* Manual ref, because the string isn't being moved/assigned anywhere. */
+    v->value.string->refcount++;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
     return (lily_literal *)v;
