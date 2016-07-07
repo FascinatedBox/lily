@@ -1202,7 +1202,6 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
 
     closure_func->num_upvalues = count;
     closure_func->upvalues = upvalues;
-    closure_func->refcount = 1;
 
     lily_move_function_f(MOVE_DEREF_NO_GC, result, closure_func);
     lily_tag_value(vm, result);
@@ -1245,7 +1244,6 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 
     lily_value *result_reg = vm_regs[code[3]];
     lily_function_val *new_closure = lily_new_function_copy(target_func);
-    new_closure->refcount = 1;
 
     copy_upvalues(new_closure, input_closure_reg->value.function);
 
@@ -1313,7 +1311,6 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
     lily_function_val *input_closure = result_reg->value.function;
 
     lily_function_val *new_closure = lily_new_function_copy(input_closure);
-    new_closure->refcount = 1;
     copy_upvalues(new_closure, input_closure);
 
     lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
