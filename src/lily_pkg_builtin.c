@@ -1386,7 +1386,7 @@ static lily_string_val *make_sv(lily_vm_state *vm, int size)
 
     new_sv->string = new_string;
     new_sv->size = size - 1;
-    new_sv->refcount = 1;
+    new_sv->refcount = 0;
 
     return new_sv;
 }

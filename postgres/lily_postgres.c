@@ -96,11 +96,6 @@ void lily_postgres_Result_each_row(lily_vm_state *vm, uint16_t argc,
     int row;
     for (row = 0;row < boxed_result->row_count;row++) {
         lily_list_val *lv = lily_new_list_val();
-        /* This List will get a ref bump when it is given to lily_foreign_call.
-           If the function given raises an error, then the List will have two
-           refs but only be in a register once (and thus leak). Thus, an offset
-           ref is done here. */
-        lv->refcount--;
 
         lily_value fake_reg;
 
