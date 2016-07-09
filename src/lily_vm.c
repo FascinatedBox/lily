@@ -1825,6 +1825,13 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else if (v->flags & VAL_IS_ENUM) {
         lily_class *enum_cls = vm->class_table[v->value.instance->instance_id];
         int id = v->value.instance->variant_id;
+
+        /* For scoped variants, render them how they're written. */
+        if (enum_cls->flags & CLS_ENUM_IS_SCOPED) {
+            lily_msgbuf_add(msgbuf, enum_cls->name);
+            lily_msgbuf_add_char(msgbuf, '.');
+        }
+
         lily_msgbuf_add(msgbuf, enum_cls->variant_members[id]->name);
         if (v->value.instance->num_values)
             add_list_like(vm, msgbuf, t, v, "(", ")");
