@@ -1064,13 +1064,28 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
        building one that will simply be tossed. */
     if (caller_frame->build_value) {
         lily_value *build_value = caller_frame->build_value;
-        if (build_value->value.instance->instance_id > instance_class->id) {
+        int build_id = build_value->value.instance->instance_id;
 
-            lily_assign_value(result, caller_frame->build_value);
+        if (build_id > cls_id) {
+            /* Ensure that there is an actual lineage here. */
+            int found = 0;
+            lily_class *iter_class = vm->class_table[build_id]->parent;
+            while (iter_class) {
+                if (iter_class->id == cls_id) {
+                    found = 1;
+                    break;
+                }
 
-            /* This causes the 'self' value to bubble upward. */
-            vm->call_chain->build_value = result;
-            return;
+                iter_class = iter_class->parent;
+            }
+
+            if (found) {
+                lily_assign_value(result, caller_frame->build_value);
+
+                /* This causes the 'self' value to bubble upward. */
+                vm->call_chain->build_value = result;
+                return;
+            }
         }
     }
 

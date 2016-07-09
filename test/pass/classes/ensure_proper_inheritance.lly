@@ -1,0 +1,13 @@
+# This ensures that the vm does not try to say that Alpha inherits from Beta
+# because Alpha was first (and there is no lineage).
+class Alpha(s: String) {
+   var @s = s
+   define upper: String {
+      return @s.upper()
+   }
+}
+class Beta(s: String) {
+   var @a = Alpha(s)
+   var @b = @a.upper()
+}
+var b = Beta("hello")
