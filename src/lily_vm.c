@@ -1836,11 +1836,6 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         const char *package_name = "";
         const char *separator = "";
 
-        if (cls->module->loadname && cls->module->loadname[0] != '\0') {
-            package_name = cls->module->parent->name;
-            separator = ".";
-        }
-
         lily_msgbuf_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
                 cls->name, v->value.generic);
     }
