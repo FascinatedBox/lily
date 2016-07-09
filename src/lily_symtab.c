@@ -796,6 +796,8 @@ lily_literal *make_variant_default(lily_symtab *symtab,
     v->next_index = 0;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->value.instance = iv;
+    /* Like with literals, fix the refcount so it's free'd later. */
+    iv->refcount = 1;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
 
