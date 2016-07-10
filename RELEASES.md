@@ -6,17 +6,23 @@ This is huge not because of features, but because Lily turns 5 today.
 What's new:
 
 * Expanded platform support:
+
   Windows, through MSVC (credit: @TyRoXx)
+
   Windows, through mingw (credit: @stevedonovan)
+
   BSD (credit: @alpha123)
 
 * Create a script, garden.py, for doing package installations.
   (credit: joey.clover, @azbshiri)
 
 * Classes in Lily are now grouped into three categories:
+
   Simple, which can never be cyclical.
+
   Speculative, which may hold cyclical values (but cannot be cyclical
   themselves).
+
   Tagged, which should be tagged.
 
   `List`, `Hash`, and `Tuple` are now considered speculative, and no
@@ -37,7 +43,9 @@ What's new:
   the following definitions:
   
   `Tuple.push[A](self: Tuple[~1], value: A): Tuple[~1, A]`
+
   and
+
   `Tuple.merge(self: Tuple[~1], other: Tuple[~2]): Tuple[~1, ~2]`
   
   These definitions work on all `Tuple` values, regardless of arity.
