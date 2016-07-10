@@ -1,3 +1,52 @@
+Version 0.17 (2016-7-10)
+========================
+
+This is huge not because of features, but because Lily turns 5 today.
+
+What's new:
+
+* Expanded platform support:
+  Windows, through MSVC (credit: @TyRoXx)
+  Windows, through mingw (credit: @stevedonovan)
+  BSD (credit: @alpha123)
+
+* Create a script, garden.py, for doing package installations.
+  (credit: joey.clover, @azbshiri)
+
+* Classes in Lily are now grouped into three categories:
+  Simple, which can never be cyclical.
+  Speculative, which may hold cyclical values (but cannot be cyclical
+  themselves).
+  Tagged, which should be tagged.
+
+  `List`, `Hash`, and `Tuple` are now considered speculative, and no
+  longer gc tagged. This makes it easier to write whole programs that
+  do not create gc tagged objects.
+
+* Lily has a new keyword, `use`, which is for loading packages. A
+  package is a collection of different modules. `import` is now
+  relegated to being relative to the root of the current package. This
+  change makes it easier to install a package that might depend on a
+  second package at a particular version.
+
+  Do note that the packaging system is still experimental.
+
+* Created two new types, `~1` and `~2` that are currently restricted
+  to the backend. These types are unique in that they remember what
+  they are matched against, but perform no type checking. This allows
+  the following definitions:
+  
+  `Tuple.push[A](self: Tuple[~1], value: A): Tuple[~1, A]`
+  and
+  `Tuple.merge(self: Tuple[~1], other: Tuple[~2]): Tuple[~1, ~2]`
+  
+  These definitions work on all `Tuple` values, regardless of arity.
+
+* Created `dyna_tools.py`, so that creating packages and documentation
+  for those packages is easier.
+
+* Created `List.join`.
+
 Version 0.16 (2016-4-2)
 =======================
 
