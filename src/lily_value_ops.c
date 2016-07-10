@@ -391,6 +391,7 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
 MOVE_PRIM(boolean,        int64_t,             integer,   VAL_IS_BOOLEAN)
 MOVE_PRIM(double,         double,              doubleval, VAL_IS_DOUBLE)
 MOVE_FN  (dynamic,        lily_dynamic_val *,  dynamic,   VAL_IS_DYNAMIC  | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)
+MOVE_PRIM(empty_variant,  lily_instance_val *, instance,  VAL_IS_ENUM)
 MOVE_FN_F(enum,           lily_instance_val *, instance,  VAL_IS_ENUM)
 MOVE_FN  (file,           lily_file_val *,     file,      VAL_IS_FILE     | VAL_IS_DEREFABLE)
 MOVE_FN_F(foreign,        lily_foreign_val *,  foreign,   VAL_IS_FOREIGN  | VAL_IS_DEREFABLE)

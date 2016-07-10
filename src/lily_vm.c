@@ -1154,7 +1154,7 @@ void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
         lily_move_enum_f(MOVE_DEREF_SPECULATIVE, lhs_reg,
                 lily_new_some(lily_copy_value(inner)));
     else
-        lily_move_enum_f(MOVE_SHARED_SPECULATIVE, lhs_reg, lily_get_none(vm));
+        lily_move_empty_variant(lhs_reg, lily_get_none(vm));
 }
 
 /***

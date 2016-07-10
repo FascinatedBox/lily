@@ -77,12 +77,12 @@ void lily_bytestring_encode(lily_vm_state *vm, uint16_t argc, uint16_t *code)
         int byte_buffer_size = input_bytestring->size;
 
         if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-            lily_move_enum_f(MOVE_SHARED_NO_GC, result, lily_get_none(vm));
+            lily_move_empty_variant(result, lily_get_none(vm));
             return;
         }
     }
     else {
-        lily_move_enum_f(MOVE_SHARED_NO_GC, result, lily_get_none(vm));
+        lily_move_empty_variant(result, lily_get_none(vm));
         return;
     }
 
@@ -171,7 +171,7 @@ static void either_optionize_left_right(lily_vm_state *vm, uint16_t *code, int e
         lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result_reg,
                 lily_new_some(lily_copy_value(iv->values[0])));
     else
-        lily_move_enum_f(MOVE_SHARED_NO_GC, result_reg, lily_get_none(vm));
+        lily_move_empty_variant(result_reg, lily_get_none(vm));
 }
 
 void lily_either_left(lily_vm_state *vm, uint16_t argc, uint16_t *code)
@@ -1489,7 +1489,7 @@ void lily_string_find(lily_vm_state *vm, uint16_t argc, uint16_t *code)
 
     if (find_length > input_length ||
         find_length == 0) {
-        lily_move_enum_f(MOVE_SHARED_NO_GC, result_arg, lily_get_none(vm));
+        lily_move_empty_variant(result_arg, lily_get_none(vm));
         return;
     }
 
@@ -1822,7 +1822,7 @@ void lily_string_parse_i(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
         (rounds == 0 && leading_zeroes == 0)) {
-        lily_move_enum_f(MOVE_SHARED_NO_GC, result_reg, lily_get_none(vm));
+        lily_move_empty_variant(result_reg, lily_get_none(vm));
     }
     else {
         int64_t signed_value;

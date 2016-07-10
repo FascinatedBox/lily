@@ -17,6 +17,7 @@ int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
 void lily_move_boolean(lily_value *, int64_t);
 void lily_move_double(lily_value *, double);
 void lily_move_dynamic(lily_value *, lily_dynamic_val *);
+void lily_move_empty_variant(lily_value *, lily_instance_val *);
 void lily_move_enum_f(uint32_t, lily_value *, lily_instance_val *);
 void lily_move_file(lily_value *, lily_file_val *);
 void lily_move_foreign_f(uint32_t, lily_value *, lily_foreign_val *);

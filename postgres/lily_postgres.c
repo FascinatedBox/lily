@@ -244,7 +244,7 @@ void lily_postgres_Conn_query(lily_vm_state *vm, uint16_t argc, uint16_t *code)
     }
 
     lily_pg_result *new_result = lily_malloc(sizeof(lily_pg_result));
-    new_result->refcount = 1;
+    new_result->refcount = 0;
     new_result->current_row = 0;
     new_result->is_closed = 0;
     new_result->instance_id = CID_CONN;
@@ -300,7 +300,7 @@ void lily_postgres_Conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             new_val = lily_malloc(sizeof(lily_pg_conn_value));
             new_val->instance_id = CID_CONN;
             new_val->destroy_func = destroy_conn;
-            new_val->refcount = 1;
+            new_val->refcount = 0;
             new_val->is_open = 1;
             new_val->conn = conn;
 
@@ -310,7 +310,7 @@ void lily_postgres_Conn_open(lily_vm_state *vm, uint16_t argc, uint16_t *code)
             lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_new_some(v));
             break;
         default:
-            lily_move_enum_f(MOVE_DEREF_NO_GC, result, lily_get_none(vm));
+            lily_move_empty_variant(result, lily_get_none(vm));
             return;
     }
 }
