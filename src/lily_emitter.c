@@ -3322,7 +3322,8 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_ts_scope_restore(emit->ts, &p);
         /* Don't assume it succeeded, because it worsens the error message in
            the case that it didn't. */
-        if (solved_want == solved_result)
+        if (solved_result == solved_want ||
+            lily_ts_type_greater_eq(emit->ts, solved_result, solved_want))
             result_type = solved_result;
     }
 
