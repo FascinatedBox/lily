@@ -4107,16 +4107,6 @@ static void protected_handler(lily_parse_state *parser, int multi)
    one of the lily_parse_* functions that will set it up right. */
 static void parser_loop(lily_parse_state *parser, const char *filename)
 {
-    /* The first pass of the interpreter starts with the current namespace being
-       the builtin namespace. */
-    if (parser->first_pass) {
-        parser->main_module->const_path = filename;
-
-        set_module_names_by_path(parser->main_module, filename);
-
-        parser->first_pass = 0;
-    }
-
     lily_lex_state *lex = parser->lex;
     lily_lexer(lex);
 
@@ -4181,9 +4171,20 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
     }
 }
 
+static void fix_first_file_name(lily_parse_state *parser,
+        const char *filename)
+{
+    parser->main_module->const_path = filename;
+    set_module_names_by_path(parser->main_module, filename);
+    parser->first_pass = 0;
+}
+
 int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
         const char *filename)
 {
+    if (parser->first_pass)
+        fix_first_file_name(parser, filename);
+
     /* It is safe to do this, because the parser will always occupy the first
        jump. All others should use lily_jump_setup instead. */
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
@@ -4205,6 +4206,9 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
 int lily_parse_string(lily_parse_state *parser, const char *name,
         lily_lex_mode mode, char *str)
 {
+    if (parser->first_pass)
+        fix_first_file_name(parser, name);
+
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_str(parser->lex, mode, str);
         parser_loop(parser, name);
