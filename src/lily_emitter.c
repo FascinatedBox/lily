@@ -2031,7 +2031,7 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
         ast = ast->arg_start;
 
     /* This happens when incorrectly calling the result of a call. */
-    if (ast->item == NULL) {
+    if (ast->tree_type == tree_call) {
         *name = "(anonymous)";
         return;
     }
