@@ -593,7 +593,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 
 static lily_class *get_scoop_class(lily_parse_state *parser, int which)
 {
-    if (which > 2)
+    if (which > 2 || which == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Numeric scoop type must be between 0 and 2.");
 
