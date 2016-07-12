@@ -291,7 +291,7 @@ Generate dynaload information based on comment blocks in a given filename.
     result.append(',"Z"')
 
     for r in result:
-        print "    ", r
+        print "   ", r
 
 def gen_loader(filename, prefix):
     """\
@@ -332,7 +332,7 @@ Generate a loader function based upon information within a given filename.
     print("    switch (id) {")
 
     for l in loader_entries:
-        print "        ", l
+        print "       ", l
 
     print("}")
 
