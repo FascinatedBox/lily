@@ -3695,13 +3695,13 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
         lily_variant_class *variant = variant_tree->variant;
-        lily_type *build_type = variant->build_type;
-        lily_type *self_type = variant->parent->all_subtypes;
 
-        if (build_type->subtype_count == 1)
+        if (variant->flags & CLS_EMPTY_VARIANT)
             lily_raise(emit->raiser, lily_SyntaxError,
                     "Variant %s should not get args.\n",
                     variant->name);
+
+        lily_type *self_type = variant->parent->all_subtypes;
 
         lily_emit_call_state *cs;
         lily_ts_save_point p;
