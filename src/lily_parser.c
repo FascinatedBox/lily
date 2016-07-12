@@ -261,6 +261,10 @@ static void set_module_names_by_path(lily_module_entry *module,
         char *dot = strrchr(slash, '.');
         int load_len = dot - slash;
 
+        /* The first filename may not have a dot... */
+        if (dot == NULL)
+            load_len = strlen(path);
+
         module->loadname = lily_malloc(load_len + 1);
         strncpy(module->loadname, slash, load_len);
         module->loadname[load_len] = '\0';
