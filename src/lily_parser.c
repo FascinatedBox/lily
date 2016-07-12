@@ -469,7 +469,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
  *           |___/|_|                                                       
  */
 
-static lily_type *get_type(lily_parse_state *);
+static lily_type *get_type_raw(lily_parse_state *, int);
 static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
 
@@ -631,7 +631,7 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Non-optional argument follows optional argument.\n");
 
-    lily_type *type = get_type(parser);
+    lily_type *type = get_type_raw(parser, *flags);
 
     /* get_type ends with a call to lily_lexer, so don't call that again. */
 
@@ -705,7 +705,7 @@ static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
    optarg/vararg functionality).
    You probably don't want to call this directly, unless you just need a type
    and it cannot be optargs/varargs (ex: `: <type>` of a var decl). */
-static lily_type *get_type(lily_parse_state *parser)
+static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *result;
@@ -713,7 +713,7 @@ static lily_type *get_type(lily_parse_state *parser)
 
     if (lex->token == tk_word)
         cls = resolve_class_name(parser);
-    else if (lex->token == tk_integer)
+    else if (lex->token == tk_integer && (flags & F_SCOOP_OK))
         cls = get_scoop_class(parser, lex->last_integer);
     else {
         NEED_CURRENT_TOK(tk_word)
@@ -730,7 +730,7 @@ static lily_type *get_type(lily_parse_state *parser)
         int i = 0;
         while (1) {
             lily_lexer(lex);
-            lily_tm_add(parser->tm, get_type(parser));
+            lily_tm_add(parser->tm, get_type_raw(parser, flags));
             i++;
 
             if (lex->token == tk_comma)
@@ -770,7 +770,8 @@ static lily_type *get_type(lily_parse_state *parser)
 
         if (lex->token == tk_arrow) {
             lily_lexer(lex);
-            lily_tm_insert(parser->tm, result_pos, get_type(parser));
+            lily_tm_insert(parser->tm, result_pos,
+                    get_type_raw(parser, flags));
         }
 
         NEED_CURRENT_TOK(tk_right_parenth)
@@ -783,6 +784,10 @@ static lily_type *get_type(lily_parse_state *parser)
     lily_lexer(lex);
     return result;
 }
+
+/* Only function dynaload needs scoop types. Everything else can use this define
+   that sends flags as 0. */
+#define get_type(p) get_type_raw(p, 0)
 
 /* Get a type represented by the name given. Largely used by dynaload. */
 static lily_type *type_by_name(lily_parse_state *parser, const char *name)
@@ -1101,7 +1106,8 @@ static lily_var *dynaload_function(lily_parse_state *parser,
 
     if (lex->token == tk_colon) {
         lily_lexer(lex);
-        lily_tm_insert(parser->tm, result_pos, get_type(parser));
+        lily_tm_insert(parser->tm, result_pos,
+                get_type_raw(parser, F_SCOOP_OK));
     }
 
     flags &= ~F_SCOOP_OK;
