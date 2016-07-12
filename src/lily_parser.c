@@ -3571,7 +3571,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class->flags &
              (CLS_IS_ENUM | CLS_IS_VARIANT | CLS_IS_BUILTIN))
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' cannot be inherited from.\n", super_class->name);
+                "'%s' cannot be inherited from.\n", lex->label);
 
     lily_var *class_new = lily_find_method(super_class, "new");
 
@@ -3841,7 +3841,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
             if (cls != NULL && (is_scoped == 0 || cls->parent == enum_cls)) {
                 lily_raise(parser->raiser, lily_SyntaxError,
                         "A class with the name '%s' already exists.\n",
-                        cls->name);
+                        lex->label);
             }
         }
 
