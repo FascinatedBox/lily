@@ -1781,16 +1781,17 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_module == NULL)
         search_module = symtab->builtin_module;
 
-    lily_item *dl_result = try_toplevel_dynaload(parser, search_module,
-            lex->label);
-
-    if (dl_result) {
-        dispatch_dynaload(parser, dl_result, state);
-        return;
+    if (search_module->dynaload_table) {
+        lily_item *dl_result = try_toplevel_dynaload(parser,
+                search_module, lex->label);
+        if (dl_result) {
+            dispatch_dynaload(parser, dl_result, state);
+            return;
+        }
     }
 
-    lily_raise(parser->raiser, lily_SyntaxError, "%s has not been declared.\n",
-            lex->label);
+    lily_raise(parser->raiser, lily_SyntaxError,
+            "%s has not been declared.\n", lex->label);
 }
 
 /* This is called to handle `@<prop>` accesses. */
