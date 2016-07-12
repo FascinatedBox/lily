@@ -1,7 +1,6 @@
 language: cpp
 os:
  - linux
- - osx
 sudo: false
 notifications:
  email:
