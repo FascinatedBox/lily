@@ -3580,6 +3580,11 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' cannot be inherited from.\n", lex->label);
 
+    /* Lineage must be fixed before running the inherited constructor, as the
+       constructor may use 'self'. */
+    cls->parent = super_class;
+    cls->prop_count = super_class->prop_count;
+
     lily_var *class_new = lily_find_method(super_class, "new");
 
     /* There's a small problem here. The idea of being able to pass expressions
@@ -3614,9 +3619,6 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_es_leave_tree(parser->expr);
 
     lily_emit_eval_expr(parser->emit, es);
-
-    cls->parent = super_class;
-    cls->prop_count = super_class->prop_count;
 }
 
 /* This is a helper function that scans 'target' to determine if it will require

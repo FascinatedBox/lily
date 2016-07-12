@@ -1,0 +1,3 @@
+class Parent(x: Parent) { }
+
+class Child < Parent(self) { }
