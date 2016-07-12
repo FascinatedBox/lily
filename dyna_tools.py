@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+#
 # The tools within this file read from /** ... */ comments and use that as their
 # data source. From that source, documentation (among other things) can be
 # generated.
