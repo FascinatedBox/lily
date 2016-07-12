@@ -2030,6 +2030,12 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
     else if (ast->tree_type != tree_variant)
         ast = ast->arg_start;
 
+    /* This happens when incorrectly calling the result of a call. */
+    if (ast->item == NULL) {
+        *name = "(anonymous)";
+        return;
+    }
+
     int item_kind = ast->item->item_kind;
 
     /* Unfortunately, each of these kinds of things stores the name it holds at
