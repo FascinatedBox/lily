@@ -818,10 +818,17 @@ static void collect_generics_or(lily_parse_state *parser, int fallback)
         while (1) {
             NEED_NEXT_TOK(tk_word)
             if (lex->label[0] != ch || lex->label[1] != '\0') {
-                name[0] = ch;
-                lily_raise(parser->raiser, lily_SyntaxError,
-                        "Invalid generic name (wanted %s, got %s).\n",
-                        name, lex->label);
+
+                if (ch == 'Z' + 1) {
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Too many generics.\n");
+                }
+                else {
+                    name[0] = ch;
+                    lily_raise(parser->raiser, lily_SyntaxError,
+                            "Invalid generic name (wanted %s, got %s).\n",
+                            name, lex->label);
+                }
             }
 
             ch++;
