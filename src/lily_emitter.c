@@ -1148,7 +1148,7 @@ static int find_closed_self_spot(lily_emit_state *emit)
 }
 
 /* If 'self' isn't close over, then close over it. */
-static void maybe_close_over_class_self(lily_emit_state *emit)
+ static void maybe_close_over_class_self(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
     while (block->block_type != block_class)
@@ -3418,6 +3418,10 @@ static void push_first_tree_value(lily_emit_state *emit,
     lily_sym *push_value;
 
     if (call_tt == tree_method) {
+        /* This happens when a lambda tries a class method. */
+        if (emit->block->self == NULL)
+            maybe_close_over_class_self(emit);
+
         push_type = emit->block->self->type;
         push_value = (lily_sym *)emit->block->self;
     }
