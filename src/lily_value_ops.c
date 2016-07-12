@@ -22,6 +22,8 @@ extern lily_gc_entry *lily_gc_stopper;
 static void destroy_instance(lily_value *v)
 {
     lily_instance_val *iv = v->value.instance;
+    if (iv->gc_entry == lily_gc_stopper)
+        return;
 
     int full_destroy = 1;
     if (iv->gc_entry) {
@@ -115,6 +117,8 @@ static void destroy_function(lily_value *v)
 static void destroy_dynamic(lily_value *v)
 {
     lily_dynamic_val *dv = v->value.dynamic;
+    if (dv->gc_entry == lily_gc_stopper)
+        return;
 
     int full_destroy = 1;
     if (dv->gc_entry) {
