@@ -2936,26 +2936,41 @@ static void else_handler(lily_parse_state *parser, int multi)
     lily_raise(parser->raiser, lily_SyntaxError, "'else' without 'if'.\n");
     }
 
+static int expecting_return_value(lily_parse_state *parser)
+{
+    return parser->emit->top_function_ret != NULL;
+}
+
 /* Call this to make sure there's no obviously-dead code. */
 static void ensure_no_code_after_exit(lily_parse_state *parser,
         const char *name)
 {
     lily_token token = parser->lex->token;
-    if (token != tk_right_curly && token != tk_eof && token != tk_end_tag) {
-        int key_id;
-        if (token == tk_word)
-            key_id = keyword_by_name(parser->lex->label);
-        else
-            key_id = -1;
 
-        /* These are not part of a statement, but instead the start of a
-           different branch. This is okay. */
-        if (key_id != KEY_ELIF && key_id != KEY_ELSE && key_id != KEY_EXCEPT &&
-            key_id != KEY_CASE) {
-            lily_raise(parser->raiser, lily_SyntaxError,
-                    "Statement(s) after '%s' will not execute.\n", name);
-        }
+    /* It's not dead if this block is being exited. */
+    if (token == tk_right_curly ||
+        token == tk_eof ||
+        token == tk_end_tag)
+        return;
+
+    if (token == tk_word) {
+        int key_id = keyword_by_name(parser->lex->label);
+
+        /* A different branch is starting, and that's okay. */
+        if (key_id == KEY_ELIF ||
+            key_id == KEY_ELSE ||
+            key_id == KEY_EXCEPT ||
+            key_id == KEY_CASE)
+            return;
     }
+
+    if (strcmp(name, "return") != 0 ||
+        expecting_return_value(parser) == 1)
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Statement(s) after '%s' will not execute.\n", name);
+    else
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Statement(s) after 'return' will not execute (no return type given).\n");
 }
 
 static void return_handler(lily_parse_state *parser, int multi)
@@ -2971,7 +2986,7 @@ static void return_handler(lily_parse_state *parser, int multi)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'return' used outside of a function.\n");
 
-    if (parser->emit->top_function_ret)
+    if (expecting_return_value(parser))
         expression(parser);
 
     lily_emit_eval_return(parser->emit, parser->expr);
