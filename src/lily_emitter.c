@@ -3372,7 +3372,7 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
 /* Make sure that the function being called has the right number of
    arguments. SyntaxError is raised if the count is wrong. */
 static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
-        lily_type *call_type, int num_args)
+        lily_type *call_type, int num_args, int count_first)
 {
     /* unsignedness is intentional: It causes -1 to be whatever the signed max
        is without using limits.h. */
@@ -3380,6 +3380,17 @@ static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
     get_func_min_max(call_type, &min, &max);
 
     if (num_args == -1 || num_args < min || num_args > max) {
+        /* Method calls both send and receive at least one argument as an
+           implicit self. Don't count it. Properties are left alone, because
+           they do not get an implicit self. */
+        if (count_first &&
+            target->arg_start->sym->item_kind == ITEM_TYPE_VAR) {
+            min--;
+            num_args--;
+            if (max != -1)
+                max--;
+        }
+
         /* I'd like the error message to be done all at once, instead of one
            piece at a time. Here are the possibilites:
            (# for n)
@@ -3460,7 +3471,8 @@ static void validate_and_prep_call(lily_emit_state *emit,
        tree_oo_access will inject the left of the dot (a.x() adds 'a'). */
     int count_first = (first_tt == tree_oo_access || first_tt == tree_method);
 
-    verify_argument_count(emit, cs->ast, cs->call_type, num_args + count_first);
+    verify_argument_count(emit, cs->ast, cs->call_type, num_args + count_first,
+            count_first);
 
     if (count_first)
         push_first_tree_value(emit, cs);
@@ -3738,7 +3750,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_type *self_type = variant->parent->all_subtypes;
         /* Did this need arguments? It was used incorrectly if so. */
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
-            verify_argument_count(emit, ast, variant->build_type, -1);
+            verify_argument_count(emit, ast, variant->build_type, -1, 0);
 
         lily_u16_write_3(emit->code, o_get_readonly, ast->line_num,
                 variant->default_value->reg_spot);
