@@ -365,6 +365,12 @@ void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
     va_end(var_args);
 }
 
+void lily_msgbuf_remove(lily_msgbuf *msgbuf, int amount)
+{
+    msgbuf->pos -= amount;
+    msgbuf->message[msgbuf->pos] = '\0';
+}
+
 void lily_msgbuf_grow(lily_msgbuf *msgbuf)
 {
     resize_msgbuf(msgbuf, msgbuf->size * 2);

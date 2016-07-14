@@ -19,7 +19,7 @@ define f(a: Integer)
 
 define g
 {
-    raise ValueError("Test\n")
+    raise ValueError("Test")
 }
 
 f(1)

@@ -306,7 +306,7 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
                sent when they attempt to modify headers. */
             if (strncmp(lexer->input_buffer, "<?lily", 5) != 0) {
                 lily_raise(lexer->raiser, lily_Error,
-                        "Files in tagged mode must start with '<?lily'.\n");
+                        "Files in tagged mode must start with '<?lily'.");
             }
             lily_lexer_handle_page_data(lexer);
         }
@@ -389,7 +389,7 @@ if (to_check == against) { \
 #define READER_END \
 if (utf8_check && lily_is_valid_utf8(input_buffer) == 0) { \
     lily_raise(lexer->raiser, lily_Error, \
-            "Invalid utf-8 sequence on line %d.\n", lexer->line_num); \
+            "Invalid utf-8 sequence on line %d.", lexer->line_num); \
 } \
  \
 return i;
@@ -542,7 +542,7 @@ static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
     }
     else {
         lily_raise(lexer->raiser, lily_SyntaxError,
-                "Invalid escape sequence.\n");
+                "Invalid escape sequence.");
         /* Keeps the compiler happy (ret always given a value). */
         ret = 0;
     }
@@ -569,13 +569,13 @@ static void scan_exponent(lily_lex_state *lexer, int *pos, char *new_ch)
 
     if (*new_ch < '0' || *new_ch > '9')
         lily_raise(lexer->raiser, lily_SyntaxError,
-                   "Expected a base 10 number after exponent.\n");
+                   "Expected a base 10 number after exponent.");
 
     while (*new_ch >= '0' && *new_ch <= '9') {
         num_digits++;
         if (num_digits > 3) {
             lily_raise(lexer->raiser, lily_SyntaxError,
-                       "Exponent is too large.\n");
+                       "Exponent is too large.");
         }
         num_pos++;
         new_ch++;
@@ -773,7 +773,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
                 yield_val.integer = (int64_t)integer_value;
             else
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Integer value is too large.\n");
+                           "Integer value is too large.");
         }
         else {
             /* This is negative, and typened min is 1 higher than typened max. This is
@@ -783,7 +783,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
                 yield_val.integer = -(int64_t)integer_value;
             else
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Integer value is too large.\n");
+                           "Integer value is too large.");
         }
 
         lexer->last_integer = yield_val.integer;
@@ -802,7 +802,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         double_result = strtod(lexer->label, NULL);
         if (errno == ERANGE) {
             lily_raise(lexer->raiser, lily_SyntaxError,
-                       "Double value is too large.\n");
+                       "Double value is too large.");
         }
 
         yield_val.doubleval = double_result;
@@ -834,7 +834,7 @@ static void scan_multiline_comment(lily_lex_state *lexer, char **source_ch)
             }
             else {
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Unterminated multi-line comment (started at line %d).\n",
+                           "Unterminated multi-line comment (started at line %d).",
                            start_line);
             }
         }
@@ -887,21 +887,21 @@ static void scan_interpolation(lily_lex_state *lexer, char **source_ch,
             parenth_depth++;
         else if (*ch == '$' && *(ch + 1) == '"')
             lily_raise(lexer->raiser, lily_SyntaxError,
-                    "Nested interpolation is not allowed.\n");
+                    "Nested interpolation is not allowed.");
         else if (*ch == '"') {
             if (*(ch + 1) == '"' && *(ch + 2) == '"')
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                    "Multi-line string not allowed within interpolation.\n");
+                    "Multi-line string not allowed within interpolation.");
 
             scan_quoted_raw(lexer, &ch, &label_pos,
                     SQ_INCLUDE_QUOTES | SQ_SKIP_ESCAPES);
         }
         else if (*ch == '\n')
             lily_raise(lexer->raiser, lily_SyntaxError,
-                    "Newline in interpolated section.\n");
+                    "Newline in interpolated section.");
         else if (*ch == '#')
             lily_raise(lexer->raiser, lily_SyntaxError,
-                    "Comment within interpolated section.\n");
+                    "Comment within interpolated section.");
 
         label[label_pos] = *ch;
 
@@ -969,7 +969,7 @@ static void collect_escape(lily_lex_state *lexer, char **source_ch,
         if ((flags & SQ_IS_BYTESTRING) == 0 &&
             (esc_ch == 0 || (unsigned char)esc_ch > 127))
             lily_raise(lexer->raiser, lily_SyntaxError,
-                    "Invalid escape sequence.\n");
+                    "Invalid escape sequence.");
 
         label[label_pos] = esc_ch;
         label_pos++;
@@ -1027,11 +1027,11 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
         else if (*new_ch == '\n' && (flags & SQ_STOP_ON_INTERP) == 0) {
             if (is_multiline == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                        "Newline in single-line string.\n");
+                        "Newline in single-line string.");
             int line_length = read_line(lexer);
             if (line_length == 0) {
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                           "Unterminated multi-line string (started at line %d).\n",
+                           "Unterminated multi-line string (started at line %d).",
                            multiline_start);
             }
 
@@ -1114,7 +1114,7 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
             int line_length = read_line(lexer);
             if (line_length == 0)
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                        "Unterminated lambda (started at line %d).\n",
+                        "Unterminated lambda (started at line %d).",
                         lexer->expand_start_line);
 
             ensure_label_size(lexer, i + line_length + 3);
@@ -1197,7 +1197,7 @@ void lily_scan_import_path(lily_lex_state *lexer)
 
     if (*(label - 1) == LILY_PATH_CHAR) {
         lily_raise(lexer->raiser, lily_SyntaxError,
-                "Import path cannot end with '/'.\n");
+                "Import path cannot end with '/'.");
     }
 
     *label = '\0';
@@ -1279,7 +1279,7 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
 {
     FILE *load_file = fopen(filename, "r");
     if (load_file == NULL)
-        lily_raise(lexer->raiser, lily_Error, "Failed to open %s: (^R).\n",
+        lily_raise(lexer->raiser, lily_Error, "Failed to open %s: (^R).",
                 filename, errno);
 
     setup_opened_file(lexer, mode, load_file);
@@ -1390,7 +1390,7 @@ void lily_lexer(lily_lex_state *lexer)
             ch++;
             if (*ch != '"')
                 lily_raise(lexer->raiser, lily_SyntaxError,
-                        "Expected '\"' after '$'.\n");
+                        "Expected '\"' after '$'.");
 
             scan_quoted(lexer, &ch,
                     SQ_IS_INTERPOLATED | SQ_SKIP_ESCAPES | SQ_NO_LITERAL);
@@ -1441,7 +1441,7 @@ void lily_lexer(lily_lex_state *lexer)
                     }
                     else
                         lily_raise(lexer->raiser, lily_SyntaxError,
-                                "'..' is not a valid token (expected 1 or 3 dots).\n");
+                                "'..' is not a valid token (expected 1 or 3 dots).");
                 }
             }
         }
@@ -1597,10 +1597,10 @@ void lily_lexer(lily_lex_state *lexer)
             if (*ch == '>') {
                 if (lexer->mode == lm_no_tags)
                     lily_raise(lexer->raiser, lily_SyntaxError,
-                            "Found ?> but not expecting tags.\n");
+                            "Found ?> but not expecting tags.");
                 if (lexer->entry->prev != NULL)
                     lily_raise(lexer->raiser, lily_SyntaxError,
-                            "Tags not allowed in included files.\n");
+                            "Tags not allowed in included files.");
 
                 input_pos++;
                 token = tk_end_tag;

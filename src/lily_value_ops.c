@@ -258,7 +258,7 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
     int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
 
     if (*depth == 100)
-        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.\n");
+        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.");
 
     if (left_tag != right_tag)
         return 0;

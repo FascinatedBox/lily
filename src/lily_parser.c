@@ -20,12 +20,12 @@
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
 if (lex->token != expected) \
-    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.\n", \
+    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.", \
                tokname(expected), tokname(lex->token));
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
-    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.\n", \
+    lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.", \
                tokname(expected), tokname(lex->token));
 
 /***
@@ -443,8 +443,10 @@ static lily_module_entry *load_module(lily_parse_state *parser,
         lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
         for (i = 0;i < 2;i++) {
             module_loader l = builtin_module_loaders[i];
-            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'\n",
+            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'",
                     dirpath, name, l.suffix);
+            if (i != 1)
+                lily_msgbuf_add_char(msgbuf, '\n');
         }
 
         lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
@@ -517,7 +519,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
         int key_id = constant_by_name(lex->label);
         if (key_id != CONST_TRUE && key_id != CONST_FALSE)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%s' is not a valid default value for a Boolean.\n",
+                    "'%s' is not a valid default value for a Boolean.",
                     lex->label);
 
         lily_u16_write_2(optarg_stack, o_get_boolean, key_id == CONST_TRUE);
@@ -532,11 +534,11 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
         lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
         if (variant == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'%s' does not have a variant named '%s'.\n", cls->name, lex->label);
+                    "'%s' does not have a variant named '%s'.", cls->name, lex->label);
 
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Only variants that take no arguments can be default arguments.\n");
+                    "Only variants that take no arguments can be default arguments.");
 
         lily_u16_write_2(optarg_stack, o_get_readonly,
                 variant->default_value->reg_spot);
@@ -577,7 +579,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     if (type->subtype_count != type->cls->generic_count &&
         type->cls->generic_count != -1)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Class %s expects %d type(s), but got %d type(s).\n",
+                "Class %s expects %d type(s), but got %d type(s).",
                 type->cls->name, type->cls->generic_count,
                 type->subtype_count);
 
@@ -587,7 +589,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
             check_type->cls->id != SYM_CLASS_GENERIC)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'^T' is not a valid hash key.\n", check_type);
+                    "'^T' is not a valid hash key.", check_type);
     }
 }
 
@@ -629,7 +631,7 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     }
     else if (*flags & TYPE_HAS_OPTARGS)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Non-optional argument follows optional argument.\n");
+                "Non-optional argument follows optional argument.");
 
     lily_type *type = get_type_raw(parser, *flags);
 
@@ -638,7 +640,7 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     if (*flags & TYPE_HAS_OPTARGS) {
         if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Type '^T' cannot have a default value.\n", type);
+                    "Type '^T' cannot have a default value.", type);
 
         type = make_type_of_class(parser, parser->symtab->optarg_class, type);
     }
@@ -651,14 +653,14 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
            the return type. */
         if (lex->token != tk_arrow && lex->token != tk_right_parenth)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either '=>' or ')' after varargs.\n");
+                    "Expected either '=>' or ')' after varargs.");
 
         *flags |= TYPE_IS_VARARGS;
     }
     else if (type->flags & TYPE_HAS_SCOOP) {
         if ((*flags & F_SCOOP_OK) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Numeric scooping types only available to the backend.\n");
+                    "Numeric scooping types only available to the backend.");
 
         *flags |= TYPE_HAS_SCOOP;
     }
@@ -677,7 +679,7 @@ static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
     lily_var *var = lily_find_var(parser->symtab, NULL, lex->label);
     if (var != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "%s has already been declared.\n", lex->label);
+                   "%s has already been declared.", lex->label);
 
     var = lily_emit_new_scoped_var(parser->emit, NULL, lex->label);
     NEED_NEXT_TOK(tk_colon)
@@ -721,7 +723,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
     if (cls->flags & CLS_IS_VARIANT)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Variant types not allowed in a declaration.\n");
+                "Variant types not allowed in a declaration.");
 
     if (cls->generic_count == 0)
         result = cls->type;
@@ -739,7 +741,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
                 break;
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ']', not '%s'.\n",
+                        "Expected either ',' or ']', not '%s'.",
                         tokname(lex->token));
         }
 
@@ -821,12 +823,12 @@ static void collect_generics_or(lily_parse_state *parser, int fallback)
 
                 if (ch == 'Z' + 1) {
                     lily_raise(parser->raiser, lily_SyntaxError,
-                            "Too many generics.\n");
+                            "Too many generics.");
                 }
                 else {
                     name[0] = ch;
                     lily_raise(parser->raiser, lily_SyntaxError,
-                            "Invalid generic name (wanted %s, got %s).\n",
+                            "Invalid generic name (wanted %s, got %s).",
                             name, lex->label);
                 }
             }
@@ -839,7 +841,7 @@ static void collect_generics_or(lily_parse_state *parser, int fallback)
             }
             else if (lex->token != tk_comma)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ']', not '%s'.\n",
+                        "Expected either ',' or ']', not '%s'.",
                         tokname(lex->token));
         }
         int seen = ch - 'A';
@@ -1031,7 +1033,7 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
 
         if (result == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Class '%s' does not exist.\n", lex->label);
+                    "Class '%s' does not exist.", lex->label);
     }
 
     return result;
@@ -1106,7 +1108,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
             }
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ')', not '%s'.\n",
+                        "Expected either ',' or ')', not '%s'.",
                         tokname(lex->token));
         }
     }
@@ -1573,12 +1575,12 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     if (lex->token != tk_dot) {
         if (cls->flags & CLS_IS_ENUM)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Cannot implicitly use the constructor of an enum.\n");
+                    "Cannot implicitly use the constructor of an enum.");
 
         lily_item *target = lily_find_or_dl_member(parser, cls, "new");
         if (target == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Cannot implicitly use %s.new (it doesn't exist).\n", cls->name);
+                    "Cannot implicitly use %s.new (it doesn't exist).", cls->name);
 
         lily_es_push_static_func(parser->expr, (lily_var *)target);
         *state = ST_FORWARD | ST_WANT_OPERATOR;
@@ -1619,7 +1621,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     }
 
     lily_raise(parser->raiser, lily_SyntaxError,
-            "%s.%s does not exist.\n", cls->name, lex->label);
+            "%s.%s does not exist.", cls->name, lex->label);
 }
 
 /* This is a wrapper function that handles pushing the given literal into the
@@ -1716,7 +1718,7 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
 {
     if (var->flags & SYM_NOT_INITIALIZED)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Attempt to use uninitialized value '%s'.\n",
+                "Attempt to use uninitialized value '%s'.",
                 var->name);
 
     /* Defined functions have a depth of one, so they have to be first. */
@@ -1770,7 +1772,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         if (const_id != -1) {
             if (const_id == CONST_SELF && parser->class_self_type == NULL)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "'self' must be used within a class.\n");
+                        "'self' must be used within a class.");
 
             push_constant(parser, const_id);
             *state = ST_WANT_OPERATOR;
@@ -1808,7 +1810,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
 
     lily_raise(parser->raiser, lily_SyntaxError,
-            "%s has not been declared.\n", lex->label);
+            "%s has not been declared.", lex->label);
 }
 
 /* This is called to handle `@<prop>` accesses. */
@@ -1816,7 +1818,7 @@ static void expression_property(lily_parse_state *parser, int *state)
 {
     if (parser->class_self_type == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Properties cannot be used outside of a class constructor.\n");
+                "Properties cannot be used outside of a class constructor.");
 
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
@@ -1824,7 +1826,7 @@ static void expression_property(lily_parse_state *parser, int *state)
     lily_prop_entry *prop = lily_find_property(current_class, name);
     if (prop == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Property %s is not in class %s.\n", name, current_class->name);
+                "Property %s is not in class %s.", name, current_class->name);
 
     lily_es_push_property(parser->expr, prop);
     *state = ST_WANT_OPERATOR;
@@ -1848,7 +1850,7 @@ static void check_valid_close_tok(lily_parse_state *parser)
 
     if (token != expect)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected closing token '%s', not '%s'.\n", tokname(expect),
+                "Expected closing token '%s', not '%s'.", tokname(expect),
                 tokname(token));
 }
 
@@ -1971,14 +1973,14 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
 
     if (parser->expr->active == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected a value, not ','.\n");
+                    "Expected a value, not ','.");
 
     lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
     if (lex->token == tk_comma) {
         if (last_tree->tree_type == tree_hash &&
             (last_tree->args_collected & 0x1) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected a key => value pair before ','.\n");
+                    "Expected a key => value pair before ','.");
     }
     else if (lex->token == tk_arrow) {
         if (last_tree->tree_type == tree_list) {
@@ -1986,12 +1988,12 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
                 last_tree->tree_type = tree_hash;
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Unexpected token '%s'.\n", tokname(tk_arrow));
+                        "Unexpected token '%s'.", tokname(tk_arrow));
         }
         else if (last_tree->tree_type != tree_hash ||
                  (last_tree->args_collected & 0x1) == 1)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Unexpected token '%s'.\n", tokname(tk_arrow));
+                        "Unexpected token '%s'.", tokname(tk_arrow));
     }
 
     lily_es_collect_arg(parser->expr);
@@ -2179,7 +2181,7 @@ static void expression_raw(lily_parse_state *parser, int state)
             break;
         else if (state == ST_BAD_TOKEN)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Unexpected token '%s'.\n", tokname(lex->token));
+                    "Unexpected token '%s'.", tokname(lex->token));
         else if (state & ST_FORWARD)
             state &= ~ST_FORWARD;
         else
@@ -2299,7 +2301,7 @@ static int collect_lambda_args(lily_parse_state *parser,
 
             if (arg_type == NULL || arg_type->flags & TYPE_IS_INCOMPLETE)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Cannot infer type of '%s'.\n", lex->label);
+                        "Cannot infer type of '%s'.", lex->label);
 
             arg_var->type = arg_type;
         }
@@ -2313,7 +2315,7 @@ static int collect_lambda_args(lily_parse_state *parser,
             break;
         else
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either ',' or '|', not '%s'.\n",
+                    "Expected either ',' or '|', not '%s'.",
                     tokname(lex->token));
     }
 
@@ -2332,7 +2334,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
 
     if (lex->token == tk_eof)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Empty interpolation block.\n");
+                "Empty interpolation block.");
 
     lily_expr_state es;
     init_expr_state(parser, &es);
@@ -2343,12 +2345,12 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
 
     if (lex->token != tk_eof)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Interpolation block must be a single expression.\n",
+                "Interpolation block must be a single expression.",
                 tokname(lex->token));
 
     if (result == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Interpolation command does not return a value.\n");
+                "Interpolation command does not return a value.");
 
     fini_expr_state(parser);
     lily_pop_lex_entry(lex);
@@ -2397,7 +2399,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         NEED_NEXT_TOK(tk_bitwise_or)
     }
     else if (lex->token != tk_logical_or)
-        lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.\n",
+        lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token '%s'.",
                 lex->token);
 
     /* Evaluate the lambda within a new expression state so the old one's stuff
@@ -2447,7 +2449,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
     var = lily_find_var(parser->symtab, NULL, lex->label);
     if (var != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "%s has already been declared.\n", lex->label);
+                   "%s has already been declared.", lex->label);
 
     var = lily_emit_new_scoped_var(parser->emit, var_type, lex->label);
 
@@ -2466,11 +2468,11 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     if (sym) {
         if (sym->item_kind == ITEM_TYPE_VAR)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "A method in class '%s' already has the name '%s'.\n",
+                    "A method in class '%s' already has the name '%s'.",
                     current_class->name, name);
         else
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Property %s already exists in class %s.\n", name,
+                    "Property %s already exists in class %s.", name,
                     current_class->name);
     }
 
@@ -2489,9 +2491,9 @@ static void bad_decl_token(lily_parse_state *parser)
     const char *message;
 
     if (parser->lex->token == tk_word)
-        message = "Class properties must start with @.\n";
+        message = "Class properties must start with @.";
     else
-        message = "Cannot use a class property outside of a constructor.\n";
+        message = "Cannot use a class property outside of a constructor.";
 
     lily_raise(parser->raiser, lily_SyntaxError, message);
 }
@@ -2550,7 +2552,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
         if (lex->token != tk_equal) {
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "An initialization expression is required here.\n");
+                    "An initialization expression is required here.");
         }
 
         lily_es_push_binary_op(parser->expr, expr_assign);
@@ -2566,7 +2568,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
             break;
         else if (token != tk_comma) {
             lily_raise(parser->raiser, lily_SyntaxError,
-                       "Expected ',' or ')', not %s.\n", tokname(lex->token));
+                       "Expected ',' or ')', not %s.", tokname(lex->token));
         }
         /* else it's a comma, so make sure a word is next. */
 
@@ -2649,14 +2651,14 @@ static void ensure_unique_method_name(lily_parse_state *parser,
 {
     if (lily_find_var(parser->symtab, NULL, name) != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "%s has already been declared.\n", name);
+                   "%s has already been declared.", name);
 
     if (parser->class_self_type) {
         lily_class *current_class = parser->class_self_type->cls;
 
         if (lily_find_property(current_class, name)) {
             lily_raise(parser->raiser, lily_SyntaxError,
-                "A property in class '%s' already has the name '%s'.\n",
+                "A property in class '%s' already has the name '%s'.",
                 current_class->name, name);
         }
     }
@@ -2718,7 +2720,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
            any arguments (unless it implicitly takes self). */
         if (lex->token == tk_right_parenth)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Empty () not needed for a define.\n");
+                    "Empty () not needed for a define.");
 
         while (1) {
             NEED_CURRENT_TOK(tk_word)
@@ -2734,7 +2736,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
             }
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ')', not '%s'.\n",
+                        "Expected either ',' or ')', not '%s'.",
                         tokname(lex->token));
         }
     }
@@ -2822,7 +2824,7 @@ static void statement(lily_parse_state *parser, int multi)
            'if 1: }' and 'if 1: ?>'. */
         else
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected a value, not '%s'.\n", tokname(token));
+                    "Expected a value, not '%s'.", tokname(token));
     } while (multi);
 }
 
@@ -2834,7 +2836,7 @@ static void parse_multiline_block_body(lily_parse_state *parser,
 
     if (multi == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "Multi-line block within single-line block.\n");
+                   "Multi-line block within single-line block.");
 
     lily_lexer(lex);
     /* statement expects the token to be ready. */
@@ -2928,12 +2930,12 @@ static void if_handler(lily_parse_state *parser, int multi)
 
 static void elif_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_SyntaxError, "'elif' without 'if'.\n");
+    lily_raise(parser->raiser, lily_SyntaxError, "'elif' without 'if'.");
 }
 
 static void else_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_SyntaxError, "'else' without 'if'.\n");
+    lily_raise(parser->raiser, lily_SyntaxError, "'else' without 'if'.");
     }
 
 static int expecting_return_value(lily_parse_state *parser)
@@ -2967,10 +2969,10 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
     if (strcmp(name, "return") != 0 ||
         expecting_return_value(parser) == 1)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Statement(s) after '%s' will not execute.\n", name);
+                "Statement(s) after '%s' will not execute.", name);
     else
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Statement(s) after 'return' will not execute (no return type given).\n");
+                "Statement(s) after 'return' will not execute (no return type given).");
 }
 
 static void return_handler(lily_parse_state *parser, int multi)
@@ -2978,13 +2980,13 @@ static void return_handler(lily_parse_state *parser, int multi)
     lily_block *block = parser->emit->function_block;
     if (block->block_type == block_class)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'return' not allowed in a class constructor.\n");
+                "'return' not allowed in a class constructor.");
     else if (block->block_type == block_lambda)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'return' not allowed in a lambda.\n");
+                "'return' not allowed in a lambda.");
     else if (block->block_type == block_file || block->prev == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'return' used outside of a function.\n");
+                "'return' used outside of a function.");
 
     if (expecting_return_value(parser))
         expression(parser);
@@ -3020,7 +3022,7 @@ static void continue_handler(lily_parse_state *parser, int multi)
 
     if (multi && parser->lex->token != tk_right_curly)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'continue' not at the end of a multi-line block.\n");
+                "'continue' not at the end of a multi-line block.");
 }
 
 static void break_handler(lily_parse_state *parser, int multi)
@@ -3029,7 +3031,7 @@ static void break_handler(lily_parse_state *parser, int multi)
 
     if (multi && parser->lex->token != tk_right_curly)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'break' not at the end of a multi-line block.\n");
+                "'break' not at the end of a multi-line block.");
 }
 
 static void for_handler(lily_parse_state *parser, int multi)
@@ -3049,13 +3051,13 @@ static void for_handler(lily_parse_state *parser, int multi)
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "Loop var must be type integer, not type '^T'.\n",
+                   "Loop var must be type integer, not type '^T'.",
                    loop_var->type);
     }
 
     NEED_NEXT_TOK(tk_word)
     if (strcmp(lex->label, "in") != 0)
-        lily_raise(parser->raiser, lily_SyntaxError, "Expected 'in', not '%s'.\n",
+        lily_raise(parser->raiser, lily_SyntaxError, "Expected 'in', not '%s'.",
                    lex->label);
 
     lily_lexer(lex);
@@ -3073,7 +3075,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     if (lex->token == tk_word) {
         if (strcmp(lex->label, "by") != 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                       "Expected 'by', not '%s'.\n", lex->label);
+                       "Expected 'by', not '%s'.", lex->label);
 
         lily_lexer(lex);
         for_step = (lily_sym *)parse_for_range_value(parser, "(for step)");
@@ -3112,7 +3114,7 @@ static void do_handler(lily_parse_state *parser, int multi)
        so...nah. */
     if (strcmp(lex->label, "while") != 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "Expected 'while', not '%s'.\n", lex->label);
+                   "Expected 'while', not '%s'.", lex->label);
 
     /* Now prep the token for expression. Save the resulting tree so that
        it can be eval'd specially. */
@@ -3154,11 +3156,11 @@ static void run_loaded_module(lily_parse_state *parser,
            either } or eof. Only one is right. */
         if (lex->token == tk_right_curly)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "'}' outside of a block.\n");
+                    "'}' outside of a block.");
 
         if (parser->emit->block->block_type != block_file)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Unterminated block(s) at end of file.\n");
+                    "Unterminated block(s) at end of file.");
 
         lily_emit_leave_block(parser->emit);
         lily_pop_lex_entry(parser->lex);
@@ -3173,14 +3175,14 @@ static void import_handler(lily_parse_state *parser, int multi)
 {
 #ifdef WITH_EMSCRIPTEN
     lily_raise(parser->raiser, lily_SyntaxError,
-            "'import' not allowed within the sandbox.\n");
+            "'import' not allowed within the sandbox.");
 #else
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot import a file here.\n");
+                "Cannot import a file here.");
 
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
@@ -3202,7 +3204,7 @@ static void import_handler(lily_parse_state *parser, int multi)
 
         if (lily_find_module(symtab, active, search_start))
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "A module named '%s' has already been imported here.\n",
+                    "A module named '%s' has already been imported here.",
                     search_start);
 
         /* Has this path been imported before? */
@@ -3306,8 +3308,10 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
         for (i = 0;i < 2;i++) {
             package_loader l = builtin_package_loaders[i];
             lily_msgbuf_add_fmt(msgbuf,
-                    "    %spackages" LILY_PATH_SLASH "%s%s%s%s\n", dirpath,
+                    "    %spackages" LILY_PATH_SLASH "%s%s%s%s", dirpath,
                     name, l.prefix, name, l.suffix);
+            if (i != 1)
+                lily_msgbuf_add_char(msgbuf, '\n');
         }
 
         lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
@@ -3327,7 +3331,7 @@ static void use_handler(lily_parse_state *parser, int multi)
     if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'use' not allowed inside of a block.\n");
+                "'use' not allowed inside of a block.");
 
     /* All packages that are 'use'-d by the root module of a package are
        available to non-root packages. Forbid use-ing throughout a package, so
@@ -3336,13 +3340,13 @@ static void use_handler(lily_parse_state *parser, int multi)
     lily_module_entry *active = parser->symtab->active_module;
     if (active != active->parent->first_module)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'use' only allowed within the first module of a package.\n");
+                "'use' only allowed within the first module of a package.");
 
     lily_package_link *link_iter = active->parent->linked_packages;
     while (link_iter) {
         if (strcmp(link_iter->package->name, lex->label) == 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Attempt to use '%s' more than once.\n", lex->label);
+                    "Attempt to use '%s' more than once.", lex->label);
 
         link_iter = link_iter->next;
     }
@@ -3380,11 +3384,11 @@ static void process_except(lily_parse_state *parser)
         new_type = block_try_except_all;
     else if (lily_class_greater_eq(base_type->cls, except_type->cls) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a valid exception class.\n",
+                "'%s' is not a valid exception class.",
                 except_type->cls->name);
     else if (except_type->subtypes != 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'except' type cannot have subtypes.\n");
+                "'except' type cannot have subtypes.");
 
     /* The block change has to come before the var is made, or the var will be
        made in the wrong scope. */
@@ -3394,13 +3398,13 @@ static void process_except(lily_parse_state *parser)
     if (lex->token == tk_word) {
         if (strcmp(parser->lex->label, "as") != 0)
             lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected 'as', not '%s'.\n", lex->label);
+                "Expected 'as', not '%s'.", lex->label);
 
         NEED_NEXT_TOK(tk_word)
         exception_var = lily_find_var(parser->symtab, NULL, lex->label);
         if (exception_var != NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                "%s has already been declared.\n", exception_var->name);
+                "%s has already been declared.", exception_var->name);
 
         exception_var = lily_emit_new_local_var(parser->emit,
                 except_type, lex->label);
@@ -3429,7 +3433,7 @@ static void try_handler(lily_parse_state *parser, int multi)
 
     if (multi_this_block && multi == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                   "Multi-line block within single-line block.\n");
+                   "Multi-line block within single-line block.");
 
     if (multi_this_block)
         lily_lexer(lex);
@@ -3472,14 +3476,14 @@ static void try_handler(lily_parse_state *parser, int multi)
 
 static void except_handler(lily_parse_state *parser, int multi)
 {
-    lily_raise(parser->raiser, lily_SyntaxError, "'except' outside 'try'.\n");
+    lily_raise(parser->raiser, lily_SyntaxError, "'except' outside 'try'.");
 }
 
 static void raise_handler(lily_parse_state *parser, int multi)
 {
     if (parser->emit->function_block->block_type == block_lambda)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'raise' not allowed in a lambda.\n");
+                "'raise' not allowed in a lambda.");
 
     expression(parser);
     lily_emit_raise(parser->emit, parser->expr);
@@ -3492,26 +3496,26 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
 {
     if (name[1] == '\0')
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' is not a valid class name (too short).\n", name);
+                "'%s' is not a valid class name (too short).", name);
 
     lily_block *block = parser->emit->block;
 
     if (block->block_type != block_file && block->prev != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot declare a class here.\n");
+                "Cannot declare a class here.");
     }
 
     lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
     if (lookup_class != NULL) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Class '%s' has already been declared.\n", name);
+                "Class '%s' has already been declared.", name);
     }
 
     lily_item *item = try_toplevel_dynaload(parser,
             parser->symtab->builtin_module, name);
     if (item && item->item_kind != ITEM_TYPE_VAR)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "A built-in class named '%s' already exists.\n", name);
+                "A built-in class named '%s' already exists.", name);
 }
 
 /* This handles everything needed to create a class, up until figuring out
@@ -3543,7 +3547,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
         lily_lexer(lex);
         if (lex->token == tk_right_parenth)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Empty () not needed for a class.\n");
+                    "Empty () not needed for a class.");
 
         while (1) {
             lily_tm_add(parser->tm, get_named_arg(parser, &flags));
@@ -3558,7 +3562,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
             }
             else
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected either ',' or ')', not '%s'.\n",
+                        "Expected either ',' or ')', not '%s'.",
                         tokname(lex->token));
         }
     }
@@ -3586,14 +3590,14 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
 
     if (super_class == NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Class '%s' does not exist.\n", lex->label);
+                "Class '%s' does not exist.", lex->label);
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "A class cannot inherit from itself!\n");
+                "A class cannot inherit from itself!");
     else if (super_class->flags &
              (CLS_IS_ENUM | CLS_IS_VARIANT | CLS_IS_BUILTIN))
         lily_raise(parser->raiser, lily_SyntaxError,
-                "'%s' cannot be inherited from.\n", lex->label);
+                "'%s' cannot be inherited from.", lex->label);
 
     /* Lineage must be fixed before running the inherited constructor, as the
        constructor may use 'self'. */
@@ -3624,7 +3628,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
         lily_lexer(lex);
         if (lex->token == tk_right_parenth)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Empty () not needed here for inherited new.\n");
+                    "Empty () not needed here for inherited new.");
 
         expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
 
@@ -3753,7 +3757,7 @@ static void class_handler(lily_parse_state *parser, int multi)
     if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot define a class here.\n");
+                "Cannot define a class here.");
 
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
@@ -3773,7 +3777,7 @@ static void parse_variant_header(lily_parse_state *parser,
     lily_lexer(lex);
     if (lex->token == tk_right_parenth)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Empty () not needed for a variant.\n");
+                "Empty () not needed for a variant.");
 
     int i = 1;
     int flags = 0;
@@ -3788,7 +3792,7 @@ static void parse_variant_header(lily_parse_state *parser,
 
         if (flags & TYPE_HAS_OPTARGS)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Variant types cannot have default values.\n");
+                    "Variant types cannot have default values.");
 
         i++;
         if (lex->token == tk_comma) {
@@ -3799,7 +3803,7 @@ static void parse_variant_header(lily_parse_state *parser,
             break;
         else
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Expected either ',' or ')', not '%s'.\n",
+                    "Expected either ',' or ')', not '%s'.",
                     tokname(lex->token));
     }
 
@@ -3819,7 +3823,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
         block->block_type != block_file &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot define an enum here.\n");
+                "Cannot define an enum here.");
 
     lily_lex_state *lex = parser->lex;
 
@@ -3864,7 +3868,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
                than two in the same scope. */
             if (cls != NULL && (is_scoped == 0 || cls->parent == enum_cls)) {
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "A class with the name '%s' already exists.\n",
+                        "A class with the name '%s' already exists.",
                         lex->label);
             }
         }
@@ -3886,7 +3890,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
 
     if (variant_count < 2) {
         lily_raise(parser->raiser, lily_SyntaxError,
-                "An enum must have at least two variants.\n");
+                "An enum must have at least two variants.");
     }
 
     /* This marks the enum as one (allowing match), and registers the variants
@@ -3903,7 +3907,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
             else if (lex->token != tk_word ||
                 keyword_by_name(lex->label) != KEY_DEFINE)
                 lily_raise(parser->raiser, lily_SyntaxError,
-                        "Expected '}' or 'define', not '%s'.\n",
+                        "Expected '}' or 'define', not '%s'.",
                         tokname(lex->token));
         }
     }
@@ -3942,12 +3946,12 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
 
     if (i == match_class->variant_size)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "%s is not a member of enum %s.\n", lex->label,
+                "%s is not a member of enum %s.", lex->label,
                 match_class->name);
 
     if (lily_emit_add_match_case(parser->emit, i) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Already have a case for variant %s.\n", lex->label);
+                "Already have a case for variant %s.", lex->label);
 
     if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
         lily_type *build_type = variant_case->build_type;
@@ -3990,11 +3994,16 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
 static void ensure_proper_match_block(lily_parse_state *parser,
         lily_sym *match_sym)
 {
-    int error = 0;
+    int counter = 0, error = 0;
     int match_case_start = parser->emit->block->match_case_start;
     int i;
     lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
     lily_class *match_class = match_sym->type->cls;
+
+    for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
+        if (parser->emit->match_cases[i] == 0)
+            counter++;
+    }
 
     for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
         if (parser->emit->match_cases[i] == 0) {
@@ -4004,8 +4013,12 @@ static void ensure_proper_match_block(lily_parse_state *parser,
                 error = 1;
             }
 
-            lily_msgbuf_add_fmt(msgbuf, "* %s\n",
+            lily_msgbuf_add_fmt(msgbuf, "* %s",
                     match_class->variant_members[i]->name);
+            if (counter > 1) {
+                lily_msgbuf_add_char(msgbuf, '\n');
+                counter--;
+            }
         }
     }
 
@@ -4017,7 +4030,7 @@ static void match_handler(lily_parse_state *parser, int multi)
 {
     if (multi == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Match block cannot be in a single-line block.\n");
+                "Match block cannot be in a single-line block.");
 
     lily_lex_state *lex = parser->lex;
 
@@ -4063,7 +4076,7 @@ static void match_handler(lily_parse_state *parser, int multi)
 static void case_handler(lily_parse_state *parser, int multi)
 {
     lily_raise(parser->raiser, lily_SyntaxError,
-            "'case' not allowed outside of 'match'.\n");
+            "'case' not allowed outside of 'match'.");
 }
 
 static void parse_define(lily_parse_state *parser, int modifiers)
@@ -4075,7 +4088,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         block->block_type != block_enum &&
         block->prev != NULL)
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Cannot define a function here.\n");
+                "Cannot define a function here.");
 
     lily_lex_state *lex = parser->lex;
     int save_generics = parser->generic_count;
@@ -4123,7 +4136,7 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
     }
     else
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Expected either 'var' or 'define', but got '%s'.\n",
+                "Expected either 'var' or 'define', but got '%s'.",
                 lex->label);
 }
 
@@ -4155,7 +4168,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             if (parser->emit->block->prev != NULL) {
                 lily_raise(parser->raiser, lily_SyntaxError,
-                           "Unterminated block(s) at end of parsing.\n");
+                           "Unterminated block(s) at end of parsing.");
             }
 
             /* Parser's in the first block now. If __main__'s code_pos is 0,
@@ -4201,7 +4214,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
         else
-            lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token %s.\n",
+            lily_raise(parser->raiser, lily_SyntaxError, "Unexpected token %s.",
                        tokname(lex->token));
     }
 }
@@ -4226,7 +4239,7 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
         char *suffix = strrchr(filename, '.');
         if (suffix == NULL || strcmp(suffix, ".lly") != 0)
             lily_raise(parser->raiser, lily_Error,
-                    "File name must end with '.lly'.\n");
+                    "File name must end with '.lly'.");
 
         lily_load_file(parser->lex, mode, filename);
         parser_loop(parser, filename);
@@ -4280,7 +4293,7 @@ char *lily_build_error_message(lily_parse_state *parser)
 
     lily_msgbuf_add(msgbuf, lily_name_for_error(raiser));
     if (raiser->msgbuf->message[0] != '\0')
-        lily_msgbuf_add_fmt(msgbuf, ": %s", raiser->msgbuf->message);
+        lily_msgbuf_add_fmt(msgbuf, ": %s\n", raiser->msgbuf->message);
     else
         lily_msgbuf_add_char(msgbuf, '\n');
 

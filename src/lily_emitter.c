@@ -494,7 +494,7 @@ void lily_emit_break(lily_emit_state *emit)
 {
     if (emit->block->loop_start == (uint16_t)-1) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "'break' used outside of a loop.\n");
+                "'break' used outside of a loop.");
     }
 
     lily_block *loop_block = find_deepest_loop(emit);
@@ -512,7 +512,7 @@ void lily_emit_continue(lily_emit_state *emit)
 {
     if (emit->block->loop_start == (uint16_t)-1) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "'continue' used outside of a loop.\n");
+                "'continue' used outside of a loop.");
     }
 
     write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
@@ -843,7 +843,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         else if (block->block_type == block_define &&
                  block->last_exit != lily_u16_pos(emit->code)) {
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Missing return statement at end of function.\n");
+                    "Missing return statement at end of function.");
         }
     }
 
@@ -901,7 +901,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     int block_type;
 
     if (emit->block->prev == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.\n");
+        lily_raise(emit->raiser, lily_SyntaxError, "'}' outside of a block.");
 
     block = emit->block;
     block_type = block->block_type;
@@ -1000,13 +1000,13 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
             block_name = "else";
 
         if (current_type == block_if_else)
-            lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.\n",
+            lily_raise(emit->raiser, lily_SyntaxError, "'%s' after 'else'.",
                     block_name);
     }
     else if (new_type == block_try_except || new_type == block_try_except_all) {
         if (current_type == block_try_except_all)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "'except' clause is unreachable.\n");
+                    "'except' clause is unreachable.");
 
         /* If nothing in the 'try' block raises an error, the vm needs to be
            told to unregister the 'try' block since will become unreachable
@@ -1111,7 +1111,7 @@ static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
         emit->function_block->prev->block_type == block_define &&
         var->type->flags & TYPE_IS_UNRESOLVED)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Cannot close over a var of an incomplete type in this scope.\n");
+                "Cannot close over a var of an incomplete type in this scope.");
 
     close_over_sym(emit, (lily_sym *)var);
 }
@@ -1432,7 +1432,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                     break;
                 default:
                     lily_raise(emit->raiser, lily_Error,
-                            "Special value #4 for opcode %d not handled.\n",
+                            "Special value #4 for opcode %d not handled.",
                             op);
             }
         }
@@ -1455,7 +1455,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                     break;
                 default:
                     lily_raise(emit->raiser, lily_Error,
-                            "Special value #6 for opcode %d not handled.\n",
+                            "Special value #6 for opcode %d not handled.",
                             op);
             }
         }
@@ -1642,11 +1642,11 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
     lily_block *block = emit->block;
-    eval_enforce_value(emit, ast, NULL, "Match expression has no value.\n");
+    eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
 
     if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Match expression is not an enum value.\n");
+                "Match expression is not an enum value.");
     }
 
     int match_cases_needed = ast->result->type->cls->variant_size;
@@ -1709,7 +1709,7 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
         cls_id != SYM_CLASS_LIST &&
         cls_id != SYM_CLASS_BOOLEAN)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "^T is not a valid condition type.\n", type);
+                "^T is not a valid condition type.", type);
 }
 
 /* This checks to see if 'index_ast' has a type (and possibly, a value) that is
@@ -1722,7 +1722,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     if (var_cls_id == SYM_CLASS_LIST || var_cls_id == SYM_CLASS_STRING) {
         if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "%s index is not an integer.\n",
+                    lily_SyntaxError, "%s index is not an integer.",
                     var_ast->result->type->cls->name);
     }
     else if (var_cls_id == SYM_CLASS_HASH) {
@@ -1731,27 +1731,27 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 
         if (want_key != have_key) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "hash index should be type '^T', not type '^T'.\n",
+                    "hash index should be type '^T', not type '^T'.",
                     want_key, have_key);
         }
     }
     else if (var_cls_id == SYM_CLASS_TUPLE) {
         if (index_ast->tree_type != tree_integer) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                    "tuple subscripts must be integer literals.\n", "");
+                    "tuple subscripts must be integer literals.", "");
         }
 
         int index_value = index_ast->backing_value;
         lily_type *var_type = var_ast->result->type;
         if (index_value < 0 || index_value >= var_type->subtype_count) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "Index %d is out of range for ^T.\n",
+                    lily_SyntaxError, "Index %d is out of range for ^T.",
                     index_value, var_type);
         }
     }
     else {
         lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
-                "Cannot subscript type '^T'.\n",
+                "Cannot subscript type '^T'.",
                 var_ast->result->type);
     }
 }
@@ -1831,7 +1831,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
              (block_class == NULL || lily_class_greater_eq(parent, block_class) == 0))) {
             char *scope_name = is_private ? "private" : "protected";
             lily_raise(emit->raiser, lily_SyntaxError,
-                       "%s.%s is marked %s, and not available here.\n",
+                       "%s.%s is marked %s, and not available here.",
                        parent->name, name, scope_name);
         }
     }
@@ -1916,7 +1916,7 @@ static void assign_post_check(lily_emit_state *emit, lily_ast *ast)
          (ast->parent->tree_type != tree_binary ||
           ast->parent->op < expr_assign)) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Cannot nest an assignment within an expression.\n");
+                "Cannot nest an assignment within an expression.");
     }
     else if (ast->parent == NULL) {
         /* This prevents conditions from using the result of an assignment. */
@@ -2007,7 +2007,7 @@ static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
     lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
             "%s do not have a consistent type.\n"
             "Expected Type: ^T\n"
-            "Received Type: ^T\n",
+            "Received Type: ^T",
             context, expect, ast->result->type);
 }
 
@@ -2015,7 +2015,7 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
         lily_type *left_type, lily_type *right_type)
 {
     lily_raise_adjusted(emit->raiser, line_num, lily_SyntaxError,
-            "Cannot assign type '^T' to type '^T'.\n",
+            "Cannot assign type '^T' to type '^T'.",
             right_type, left_type);
 }
 
@@ -2082,7 +2082,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_msgbuf_add_fmt(msgbuf,
             "Argument #%d to %s%s%s is invalid:\n"
             "Expected Type: ^T\n"
-            "Received Type: ^T\n",
+            "Received Type: ^T",
             cs->arg_count + 1,
             class_name, separator, name,
             lily_ts_resolve_with(emit->ts, expected, question), got);
@@ -2143,12 +2143,12 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     if (item == NULL)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Class %s has no method or property named %s.\n",
+                "Class %s has no method or property named %s.",
                 lookup_class->name, oo_name);
     else if (item->item_kind == ITEM_TYPE_PROPERTY &&
              ast->arg_start->tree_type == tree_self)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Use @<name> to get/set properties, not self.<name>.\n");
+                "Use @<name> to get/set properties, not self.<name>.");
     else
         ast->item = item;
 
@@ -2210,7 +2210,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
     ensure_valid_scope(emit, ast->left->sym);
     if (ast->left->item->item_kind != ITEM_TYPE_PROPERTY)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Left side of %s is not assignable.\n", opname(ast->op));
+                "Left side of %s is not assignable.", opname(ast->op));
 
     left_type = get_solved_property_type(emit, ast->left);
 
@@ -2278,7 +2278,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                   "Invalid operation: ^T %s ^T.\n", ast->left->result->type,
+                   "Invalid operation: ^T %s ^T.", ast->left->result->type,
                    opname(ast->op), ast->right->result->type);
 
     lily_class *storage_class;
@@ -2350,7 +2350,7 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
     else if (ast->op == expr_right_shift_assign)
         spoof_op = expr_right_shift;
     else {
-        lily_raise(emit->raiser, lily_SyntaxError, "Invalid compound op: %s.\n",
+        lily_raise(emit->raiser, lily_SyntaxError, "Invalid compound op: %s.",
                 opname(ast->op));
         spoof_op = -1;
     }
@@ -2372,7 +2372,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         /* If the left is complex and valid, it would have been sent off to a
            different assign. Ergo, it must be invalid. */
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Left side of %s is not assignable.\n", opname(ast->op));
+                "Left side of %s is not assignable.", opname(ast->op));
     }
 
     eval_tree(emit, ast->right, ast->left->result->type);
@@ -2440,7 +2440,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->property->type == NULL)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Invalid use of uninitialized property '@%s'.\n",
+                "Invalid use of uninitialized property '@%s'.",
                 ast->property->name);
 
     lily_storage *result = get_storage(emit, ast->property->type);
@@ -2529,7 +2529,7 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
             if (result == NULL)
                 lily_raise_adjusted(emit->raiser, tree_iter->line_num,
                         lily_SyntaxError,
-                        "Interpolation expression does not yield a value.\n",
+                        "Interpolation expression does not yield a value.",
                         "");
 
             tree_iter->result = result;
@@ -2734,7 +2734,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
             lily_raise_adjusted(emit->raiser, ast->line_num,
                     lily_SyntaxError,
-                    "Left side of %s is not assignable.\n", opname(ast->op));
+                    "Left side of %s is not assignable.", opname(ast->op));
         }
     }
 
@@ -2744,7 +2744,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
     check_valid_subscript(emit, var_ast, index_ast);
     if (var_ast->result->type->cls->id == SYM_CLASS_STRING)
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Subscript assign not allowed on type string.\n");
+                "Subscript assign not allowed on type string.");
 
     elem_type = get_subscript_result(var_ast->result->type, index_ast);
 
@@ -2795,7 +2795,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
            use subtyping need to be forbidden. */
         if (cast_type->cls->generic_count != 0)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Casts from Dynamic cannot include subtypes.\n");
+                    "Casts from Dynamic cannot include subtypes.");
 
         lily_storage *result = get_storage(emit, boxed_type);
 
@@ -2806,7 +2806,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
     }
     else
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot cast type '^T' to type '^T'.\n", var_type, cast_type);
+                "Cannot cast type '^T' to type '^T'.", var_type, cast_type);
 }
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
@@ -2834,7 +2834,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Invalid operation: %s%s.\n",
+                "Invalid operation: %s%s.",
                 opname(ast->op), lhs_class->name);
 
     storage = get_storage(emit, lhs_class->type);
@@ -2853,7 +2853,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 {
     if (ast->args_collected == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Cannot create an empty tuple.\n");
+                "Cannot create an empty tuple.");
     }
 
     if (expect != NULL &&
@@ -2995,7 +2995,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Type '^T' is not a valid hash key.\n", key_type);
+                "Type '^T' is not a valid hash key.", key_type);
 }
 
 /* Build an empty something. It's an empty hash only if the caller wanted a
@@ -3418,7 +3418,7 @@ static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
         get_error_name(emit, target, &class_name, &separator, &name);
 
         lily_raise_adjusted(emit->raiser, target->line_num, lily_SyntaxError,
-                "Wrong number of arguments to %s%s%s (%s for %s%s%s).\n",
+                "Wrong number of arguments to %s%s%s (%s for %s%s%s).",
                 class_name, separator, name, arg_str,
                 min_str, div_str, max_str);
     }
@@ -3592,7 +3592,7 @@ static lily_emit_call_state *begin_call(lily_emit_state *emit,
     if (call_type->cls->id != SYM_CLASS_FUNCTION &&
         first_tt != tree_variant)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Cannot anonymously call resulting type '^T'.\n",
+                "Cannot anonymously call resulting type '^T'.",
                 call_type);
 
     result->item = call_item;
@@ -3661,7 +3661,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
             ast->result = NULL;
         else {
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Function needed to return a value, but did not.\n", "");
+                    "Function needed to return a value, but did not.", "");
         }
         lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1, 0);
     }
@@ -3720,7 +3720,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
         if (variant->flags & CLS_EMPTY_VARIANT)
             lily_raise(emit->raiser, lily_SyntaxError,
-                    "Variant %s should not get args.\n",
+                    "Variant %s should not get args.",
                     variant->name);
 
         lily_type *self_type = variant->parent->all_subtypes;
@@ -3946,7 +3946,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
 
     if (ast->result->type->cls->id != SYM_CLASS_INTEGER) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                   "Expected type 'integer', but got type '^T'.\n",
+                   "Expected type 'integer', but got type '^T'.",
                    ast->result->type);
     }
 
@@ -3969,7 +3969,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
           ast->tree_type == tree_integer) &&
           ast->backing_value != 0) == 0) {
         eval_enforce_value(emit, ast, NULL,
-                "Conditional expression has no value.\n");
+                "Conditional expression has no value.");
         ensure_valid_condition_type(emit, ast->result->type);
 
         /* For a do...while block, on success the target jumps back up and thus
@@ -4030,12 +4030,12 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
         lily_ast *ast = es->root;
 
         eval_enforce_value(emit, ast, ret_type,
-                "'return' expression has no value.\n");
+                "'return' expression has no value.");
 
         if (ast->result->type != ret_type &&
             type_matchup(emit, ret_type, ast) == 0) {
             lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "return expected type '^T' but got type '^T'.\n", ret_type,
+                    "return expected type '^T' but got type '^T'.", ret_type,
                     ast->result->type);
         }
 
@@ -4077,13 +4077,13 @@ void lily_emit_update_function_block(lily_emit_state *emit,
 void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.\n");
+    eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.");
 
     lily_class *result_cls = ast->result->type->cls;
     lily_class *except_cls = lily_find_class(emit->symtab, NULL, "Exception");
     if (lily_class_greater_eq(except_cls, result_cls) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
-                "Invalid class '%s' given to raise.\n", result_cls->name);
+                "Invalid class '%s' given to raise.", result_cls->name);
     }
 
     lily_u16_write_3(emit->code, o_raise, ast->line_num, ast->result->reg_spot);

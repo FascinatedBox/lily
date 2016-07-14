@@ -9,7 +9,7 @@ Traceback:
 class Example {
     define action {
         if 1: {
-            var k = ValueError("Message.\n")
+            var k = ValueError("Message.")
             raise k
         }
     }
