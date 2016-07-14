@@ -5,6 +5,6 @@ Traceback:
     from ensure_correct_result_solve.lly:10: in __main__
 ]#
 
-define f[A] : A { raise ValueError("Test.\n") }
+define f[A] : A { raise ValueError("Test.") }
 
 var v = [f()]

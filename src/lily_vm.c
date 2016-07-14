@@ -732,10 +732,10 @@ static void key_error(lily_vm_state *vm, int code_pos, lily_value *key)
 
     if (key->flags & VAL_IS_STRING) {
         /* String values are required to be \0 terminated, so this is ok. */
-        lily_msgbuf_add_fmt(msgbuf, "\"^E\"\n", key->value.string->string);
+        lily_msgbuf_add_fmt(msgbuf, "\"^E\"", key->value.string->string);
     }
     else
-        lily_msgbuf_add_fmt(msgbuf, "%d\n", key->value.integer);
+        lily_msgbuf_add_fmt(msgbuf, "%d", key->value.integer);
 
     lily_vm_raise(vm, SYM_CLASS_KEYERROR, msgbuf->message);
 }
@@ -745,7 +745,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 {
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
     lily_msgbuf_flush(msgbuf);
-    lily_msgbuf_add_fmt(msgbuf, "Subscript index %d is out of range.\n",
+    lily_msgbuf_add_fmt(msgbuf, "Subscript index %d is out of range.",
             bad_index);
 
     lily_vm_raise(vm, SYM_CLASS_INDEXERROR, msgbuf->message);
@@ -807,7 +807,7 @@ static void builtin_stdout_print(lily_vm_state *vm, uint16_t argc,
     lily_file_val *stdout_val = vm->stdout_reg->value.file;
     if (stdout_val->inner_file == NULL)
         lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
-                "IO operation on closed file.\n");
+                "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, vm->vm_regs[code[1]]);
 }
@@ -2134,7 +2134,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[code_pos+3]];
                 if (rhs_reg->value.integer == 0)
                     lily_vm_raise(vm, SYM_CLASS_DBZERROR,
-                            "Attempt to divide by zero.\n");
+                            "Attempt to divide by zero.");
                 INTEGER_OP(/)
                 break;
             case o_modulo:
@@ -2142,7 +2142,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[code_pos+3]];
                 if (rhs_reg->value.integer == 0)
                     lily_vm_raise(vm, SYM_CLASS_DBZERROR,
-                            "Attempt to divide by zero.\n");
+                            "Attempt to divide by zero.");
                 INTEGER_OP(%)
                 break;
             case o_left_shift:
@@ -2167,11 +2167,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (rhs_reg->flags & VAL_IS_INTEGER &&
                     rhs_reg->value.integer == 0)
                     lily_vm_raise(vm, SYM_CLASS_DBZERROR,
-                            "Attempt to divide by zero.\n");
+                            "Attempt to divide by zero.");
                 else if (rhs_reg->flags & VAL_IS_DOUBLE &&
                          rhs_reg->value.doubleval == 0)
                     lily_vm_raise(vm, SYM_CLASS_DBZERROR,
-                            "Attempt to divide by zero.\n");
+                            "Attempt to divide by zero.");
 
                 INTDBL_OP(/)
                 break;
@@ -2204,7 +2204,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
                         lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
-                                "Function call recursion limit reached.\n");
+                                "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
 
@@ -2260,7 +2260,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
                         lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
-                                "Function call recursion limit reached.\n");
+                                "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
 
@@ -2549,7 +2549,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (step_reg->value.integer == 0)
                     lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
-                               "for loop step cannot be 0.\n");
+                               "for loop step cannot be 0.");
 
                 /* Do a negative step to offset falling into o_for_loop. */
                 loop_reg->value.integer =
