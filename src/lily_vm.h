@@ -38,20 +38,12 @@ typedef struct lily_vm_catch_entry_ {
     int offset_from_main;
     int code_pos;
     uint32_t call_frame_depth;
-    /* This is where vm->vm_list->pos (position in the temp list) should be
-       restored to. */
-    uint32_t vm_list_pos;
+    uint32_t pad;
     lily_jump_link *jump_entry;
 
     struct lily_vm_catch_entry_ *next;
     struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
-
-typedef struct {
-    lily_value **values;
-    uint32_t pos;
-    uint32_t size;
-} lily_vm_list;
 
 typedef struct lily_vm_state_ {
     lily_value **vm_regs;
@@ -111,9 +103,6 @@ typedef struct lily_vm_state_ {
     /* This buffer is used as an intermediate storage for String values. */
     lily_msgbuf *vm_buffer;
 
-    /* This is used as an intermediate storage for List values. */
-    lily_vm_list *vm_list;
-
     /* This is used to dynaload exceptions when absolutely necessary. */
     struct lily_parse_state_ *parser;
     lily_symtab *symtab;
@@ -149,6 +138,5 @@ void lily_vm_add_class(lily_vm_state *, lily_class *);
 
 lily_value *lily_foreign_call(lily_vm_state *, int *, int, lily_value *,
         int, ...);
-void lily_vm_list_ensure(lily_vm_state *, uint32_t);
 
 #endif

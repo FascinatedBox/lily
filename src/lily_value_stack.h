@@ -1,7 +1,9 @@
 #ifndef LILY_VALUE_STACK_H
 # define LILY_VALUE_STACK_H
 
-# include "lily_core_types.h"
+# include <stdint.h>
+
+typedef struct lily_value_ lily_value;
 
 typedef struct lily_value_stack_ {
     lily_value **data;

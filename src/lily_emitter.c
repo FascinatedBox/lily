@@ -9,7 +9,6 @@
 #include "lily_code_iter.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_value_ops.h"
 
 # define IS_LOOP_BLOCK(b) (b == block_while || \
                            b == block_do_while || \
@@ -32,6 +31,9 @@
 
 static void add_call_state(lily_emit_state *);
 static void add_storage(lily_emit_state *);
+lily_function_val *new_native_function_val(char *, char *);
+lily_function_val *new_foreign_function_val(lily_foreign_func, const char *,
+        const char *);
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
@@ -147,7 +149,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_var->flags |= VAR_IS_READONLY;
 
     lily_block *main_block = lily_malloc(sizeof(lily_block));
-    lily_function_val *main_function = lily_new_native_function_val(
+    lily_function_val *main_function = new_native_function_val(
             NULL, main_var->name);
 
     emit->symtab->main_var = main_var;
@@ -274,7 +276,7 @@ lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
 
     /* Build a function and store it now, just in case a dynaload fires off
        before the define is done. */
-    lily_function_val *f = lily_new_native_function_val(class_name,
+    lily_function_val *f = new_native_function_val(class_name,
             new_var->name);
     lily_store_function(emit->symtab, new_var, f);
 
@@ -301,7 +303,7 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         new_var->next = module->var_chain;
         module->var_chain = new_var;
 
-        func_val = lily_new_foreign_function_val(func, NULL, name);
+        func_val = new_foreign_function_val(func, NULL, name);
         func_val->cid_table = ((lily_module_entry *)source)->cid_table;
     }
     else {
@@ -311,9 +313,13 @@ lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
         cls->members = (lily_named_sym *)new_var;
         new_var->parent = cls;
 
-        func_val = lily_new_foreign_function_val(func, cls->name, name);
+        func_val = new_foreign_function_val(func, cls->name, name);
         func_val->cid_table = ((lily_class *)source)->module->cid_table;
     }
+
+    /* Foreign functions need space for their inputs, and one extra to serve as
+       a reserve inner calls to return to. */
+    func_val->reg_count = type->subtype_count;
 
     lily_store_function(emit->symtab, new_var, func_val);
     return new_var;
@@ -1684,6 +1690,47 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
 /** These are various helping functions collected together. There's no real
     organization other than that. **/
+
+/* This creates a new function value that wraps over a foreign (C) function. */
+lily_function_val *new_foreign_function_val(lily_foreign_func func,
+        const char *class_name, const char *name)
+{
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+
+    /* This won't get a ref bump from being moved/assigned since all functions
+       are marked as literals. Start at 1 ref, not 0. */
+    f->refcount = 1;
+    f->class_name = class_name;
+    f->trace_name = name;
+    f->foreign_func = func;
+    f->code = NULL;
+    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
+    f->num_upvalues = (uint16_t) -1;
+    f->upvalues = NULL;
+    f->gc_entry = NULL;
+    f->reg_count = -1;
+    return f;
+}
+
+/* This creates a new function value representing a native function. */
+lily_function_val *new_native_function_val(char *class_name, char *name)
+{
+    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+
+    /* This won't get a ref bump from being moved/assigned since all functions
+       are marked as literals. Start at 1 ref, not 0. */
+    f->refcount = 1;
+    f->class_name = class_name;
+    f->trace_name = name;
+    f->foreign_func = NULL;
+    f->code = NULL;
+    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
+    f->num_upvalues = (uint16_t)-1;
+    f->upvalues = NULL;
+    f->gc_entry = NULL;
+    f->reg_count = -1;
+    return f;
+}
 
 /* Return a string representation of the given op. */
 static const char *opname(lily_expr_op op)

@@ -8,10 +8,12 @@
 
 #include "lily_parser.h"
 #include "lily_utf8.h"
+#include "lily_move.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
-#include "lily_api_value_ops.h"
+#include "lily_api_value.h"
+#include "lily_api_value_flags.h"
 #include "lily_api_options.h"
 
 struct table_bind_data {
@@ -189,6 +191,9 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
     return v;
 }
 
+extern void lily_string_html_encode(lily_vm_state *);
+extern int lily_maybe_html_encode_to_buffer(lily_vm_state *, lily_value *);
+
 /**
 define escape(text: String): String
 
@@ -196,13 +201,10 @@ This checks self for having "&", "<", or ">". If any are found, then a new
 String is created where those html entities are replaced (& becomes &amp;, <
 becomes &lt;, > becomes &gt;).
 */
-void lily_apache_server_escape(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_apache_server_escape(lily_vm_state *vm)
 {
-    lily_string_html_encode(vm, argc, code);
+    lily_string_html_encode(vm);
 }
-
-extern void lily_string_html_encode(lily_vm_state *, uint16_t, uint16_t *);
-extern int lily_maybe_html_encode_to_buffer(lily_vm_state *, lily_value *);
 
 /**
 define write(text: String)
@@ -211,9 +213,9 @@ This escapes, then writes 'text' to the server. It is equivalent to
 'server.write_raw(server.escape(text))', except faster because it skips building
 an intermediate `String` value.
 */
-void lily_apache_server_write(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_apache_server_write(lily_vm_state *vm)
 {
-    lily_value *input = vm->vm_regs[code[1]];
+    lily_value *input = lily_arg_value(vm, 0);
     const char *source;
 
     /* String.html_encode can't be called directly, for a couple reasons.
@@ -233,10 +235,10 @@ define write_literal(text: String)
 This writes 'text' directly to the server. If 'text' is not a `String` literal,
 then `ValueError` is raised. No escaping is performed.
 */
-void lily_apache_server_write_literal(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_apache_server_write_literal(lily_vm_state *vm)
 {
-    lily_value **vm_regs = vm->vm_regs;
-    lily_value *write_reg = vm_regs[code[1]];
+    lily_value *write_reg = lily_arg_value(vm, 0);
+
     if (write_reg->flags & VAL_IS_DEREFABLE)
         lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
                 "The string passed must be a literal.\n");
@@ -253,10 +255,9 @@ This writes 'text' directly to the server without performing any HTML character
 escaping. Use this only if you are certain that there is no possibility of HTML
 injection.
 */
-void lily_apache_server_write_raw(lily_vm_state *vm, uint16_t argc, uint16_t *code)
+void lily_apache_server_write_raw(lily_vm_state *vm)
 {
-    lily_value **vm_regs = vm->vm_regs;
-    char *value = vm_regs[code[1]]->value.string->string;
+    char *value = lily_arg_string_raw(vm, 0);
 
     ap_rputs(value, (request_rec *)vm->data);
 }
