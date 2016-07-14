@@ -2049,6 +2049,11 @@ static void expression_dot(lily_parse_state *parser, int *state)
         lily_es_enter_typecast(parser->expr, cast_type);
         lily_es_leave_tree(parser->expr);
     }
+    else
+        lily_raise(parser->raiser, lily_SyntaxError,
+                "Expected either '%s' or '%s', not '%s'.",
+                tokname(tk_word), tokname(tk_typecast_parenth),
+                tokname(lex->token));
 
     *state = ST_WANT_OPERATOR;
 }
