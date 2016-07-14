@@ -1947,6 +1947,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
                 result_type = NULL;
         }
     }
+    else if (ast->tree_type == tree_property)
+        result_type = ast->property->type;
     /* All other are either invalid for the left side of an assignment. */
     else
         result_type = NULL;

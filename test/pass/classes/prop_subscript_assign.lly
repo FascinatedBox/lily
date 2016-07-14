@@ -1,0 +1,9 @@
+class Test {
+    var @map = ["one" => ["1"]]
+
+    define add(key: String, val: String) {
+        if ! @map.has_key(key):
+            @map[key] = []
+        @map[key].push(val)
+    }
+}
