@@ -5,7 +5,8 @@
 #include "lily_vm.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_value_ops.h"
+#include "lily_api_value.h"
+#include "lily_api_value_flags.h"
 
 /***
  *      ____       _
