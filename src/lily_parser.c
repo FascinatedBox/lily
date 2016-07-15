@@ -1824,9 +1824,15 @@ static void expression_property(lily_parse_state *parser, int *state)
     lily_class *current_class = parser->class_self_type->cls;
 
     lily_prop_entry *prop = lily_find_property(current_class, name);
-    if (prop == NULL)
+    if (prop == NULL) {
+        const char *extra = "";
+        if (parser->emit->block->block_type == block_class)
+            extra = " ('var' keyword missing?)";
+
         lily_raise(parser->raiser, lily_SyntaxError,
-                "Property %s is not in class %s.", name, current_class->name);
+                "Property %s is not in class %s.%s", name, current_class->name,
+                extra);
+    }
 
     lily_es_push_property(parser->expr, prop);
     *state = ST_WANT_OPERATOR;
