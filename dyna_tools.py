@@ -36,9 +36,60 @@ class CallEntry:
 
         # TODO: Verify prototype
         self.proto = split[0][6:].lstrip()
-        self.name = self.proto.split("(", 1)[0].strip()
+
+        index = self.proto.find("(")
+        if index != -1:
+            brace_index = self.proto.find("[")
+            if brace_index != -1:
+                index = min(brace_index, index)
+        else:
+            index = self.proto.find(":")
+
+        self.name = self.proto[0:index].strip()
+        self.proto = self.proto[index:].strip()
         self.e_type = e_type
-        self.doc = split[2].strip("\r\n ")
+        self.doc = split[2].strip()
+
+class VariantEntry:
+    def __init__(self, source):
+        proto = ""
+
+        parenth_index = source.find("(")
+        # Variants always fall under a parent enum, and thus don't need doc.
+        # A variant may or may not get arguments, so check for that.
+        if parenth_index != -1:
+            proto = source[parenth_index:].strip()
+            name = source[0:parenth_index].strip()
+        else:
+            name = source.strip()
+
+        self.name = name
+        self.proto = proto
+        self.e_type = "variant"
+        self.doc = ""
+
+class EnumEntry:
+    def __init__(self, source):
+        decl = re.search("enum (\\w+)([^\\n]*)", source)
+
+        self.variants = []
+        self.inner_entries = []
+        self.name = decl.group(1).strip()
+        self.proto = decl.group(2).strip()
+        self.e_type = "enum"
+
+        lines = source.split("\n")[1:]
+        start = 0
+
+        for l in lines:
+            start += 1
+            if l == "":
+                break
+            else:
+                self.variants.append(VariantEntry(l))
+
+        lines = lines[start:]
+        self.doc = "\n".join(lines)
 
 class ClassEntry:
     def __init__(self, source):
@@ -121,6 +172,10 @@ of the dynaload generation file (or None).
             package_target = PackageEntry(d, False)
             entries.append(package_target)
 
+        elif d.startswith("enum"):
+            class_target = EnumEntry(d)
+            entries.append(class_target)
+
         elif d.startswith("method"):
             class_target.inner_entries.append(CallEntry(d, "method"))
 
@@ -142,15 +197,15 @@ to html.
     """
 
     # Make sure these are HTML-escaped.
+    doc = doc.replace("&", "&amp;")
     doc = doc.replace("<", "&lt;")
     doc = doc.replace(">", "&gt;")
-    doc = doc.replace("&", "&amp;")
 
     # `X` should be highlighted as a type.
-    doc = re.sub("`(\S+)\`", '<span class="type">\\1</span>', doc)
+    doc = re.sub("`(.+?)`", '<span class="type">\\1</span>', doc)
 
     # 'Y' is a variable name.
-    doc = re.sub("'(\S+)\'", '<span class="varname">\\1</span>', doc)
+    doc = re.sub("'(.+?)'", '<span class="varname">\\1</span>', doc)
 
     # Replace blank lines with breaks to prevent a crammed-in look.
     doc = doc.replace("\n\n", "\n<br />\n")
@@ -163,6 +218,7 @@ Generate html documentation based on comment blocks within the given filename.
     """
     def h1(text):       return "<h1>%s</h1>\n" % (text)
     def h3(text):       return "<h3>%s</h3>\n" % (text)
+    def h5(text):       return "<h5>%s</h5>\n" % (text)
     def p(text):        return "<p>%s</p>\n" % (text)
     def lexplain(text): return '<div class="explain">%s</div>\n' % (text)
     def lfunc(text):    return '<span class="funcname">%s</span>' % (text)
@@ -174,26 +230,27 @@ Generate html documentation based on comment blocks within the given filename.
     doc_string = ""
 
     for e in entries:
-        if e.e_type == "class":
+        if e.e_type != "package": # class or enum, same deal.
             doc_string += h3(e.name)
-        else: # package
+        else:
             doc_string += h1(e.name)
 
-        doc_string += doc_as_html(e.doc)
+        doc_string += p(doc_as_html(e.doc))
 
         for inner in e.inner_entries:
             inner_type = inner.e_type
+            to_add = ""
             if inner_type == "method" or inner_type == "define":
-                doc_string += lfunc(inner.name)
+                to_add = lfunc(inner.name)
                 # TODO: Pretty print argument types and the return type.
                 # For now, settle for making everything bold.
-                doc_string += "<span><strong>(%s</strong></span>\n" % (inner.proto)
-                doc_string += lexplain(inner.doc)
+                to_add += "<span><strong>%s</strong></span>" % (inner.proto)
             else: # var
-                doc_string += lvar(inner.name)
-                doc_string += '<span>:</span>'
-                doc_string += ltype(inner.proto)
-                doc_string += lexplain(inner.doc)
+                to_add = lvar(inner.name)
+                to_add += '<span>:</span>'
+                to_add += ltype(inner.proto)
+
+            doc_string += h5(to_add) + "\n" + lexplain(doc_as_html(inner.doc))
 
         # This ensures that each entry starts on a different line, so that diffs
         # are cleaner.
@@ -202,35 +259,16 @@ Generate html documentation based on comment blocks within the given filename.
     print doc_string.rstrip("\n")
 
 def strip_proto(proto):
-    arg_start = proto.find('(')
-    first_dot = proto.find('.')
-    output = ")"
-
-    # For methods, cut off the class name at the front.
-    if first_dot < arg_start and first_dot != -1:
-        proto = proto[first_dot+1:]
-        arg_start = proto.find('(')
-
-    arg_end = proto.rfind('):')
-
-    if arg_end != -1:
-        output = "):" + proto[arg_end+2:].replace(" ", "")
-
-    args = proto[arg_start+1:arg_end]
-
-    # Remove names from the arguments.
-    args = re.sub("\w+:", "", args)
-
-    args = args.replace(" ", "")
-
+    proto = re.sub('\w+:', "", proto)
+    proto = proto.replace(" ", "")
     # Strip out the values of optional arguments.
-    if args.find("*") != -1:
+    if proto.find("*") != -1:
         # Drop "..."
-        args = re.sub("=\"[^\"]*\"", "", args)
+        proto = re.sub("=\"[^\"]*\"", "", proto)
         # Drop simple digit literals
-        args = re.sub("=\d+", "", args)
+        proto = re.sub("=\d+", "", proto)
 
-    return proto[0:arg_start] + "\\0(" + args + output
+    return proto
 
 def gen_dynaload(entries, package_entry):
     """\
@@ -248,16 +286,28 @@ Generate dynaload information based on comment blocks in a given filename.
         if e.e_type == "class":
             used.append(e.name)
             result.append('    ,"C%s%s"' % (dyencode(len(e.inner_entries)), e.name))
+        elif e.e_type == "enum":
+            used.append(e.name)
+            dylen = dyencode(len(e.inner_entries) + len(e.variants))
+            result.append('    ,"E%s%s\\0%s"' % (dylen, e.name, e.proto))
         # else a package, no-op
 
         for inner in e.inner_entries:
             inner_type = inner.e_type
             if inner_type == "method":
-                result.append('    ,"m:%s"' % (strip_proto(inner.proto)))
+                name = inner.name.split(".")[1]
+                result.append('    ,"m:%s\\0%s"' % (name, strip_proto(inner.proto)))
             elif inner_type == "define":
-                result.append('    ,"F\\0%s"' % (strip_proto(inner.proto)))
+                result.append('    ,"F\\0%s\\0%s"' % (inner.name, strip_proto(inner.proto)))
             else: # var
                 result.append('    ,"R\\0%s\\0%s"' % (inner.name, inner.proto))
+
+        try:
+            for inner in e.variants:
+                result.append('    ,"V\\0%s\\0%s"' % (inner.name, inner.proto))
+        except AttributeError:
+            # package or class, so ignore.
+            pass
 
     if package_entry.is_embedded:
         name = "_" + package_entry.name
@@ -297,15 +347,20 @@ Generate a loader function based upon information within a given filename.
 
         for inner in e.inner_entries:
             inner_type = inner.e_type
+            if inner.name.find("[") != -1:
+                name = inner.name[0:inner.name.find("[")]
+            else:
+                name = inner.name
+
             if inner_type == "method":
                 # Methods have the class name with them, so sanitize that.
-                name = inner.name.replace(".", "_")
+                name = name.replace(".", "_")
                 to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
             elif inner_type == "define":
-                to_append = "case %d: return lily_%s_%s;" % (i, prefix, inner.name)
+                to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
             else: # var
                 # TODO: Check the proto (is that cid table really needed)?
-                to_append = "case %d: return load_var_%s(o, c);" % (i, inner.name)
+                to_append = "case %d: return load_var_%s(o, c);" % (i, name)
 
             loader_entries.append("        " + to_append)
             i += 1
@@ -378,7 +433,7 @@ else:
     action = sys.argv[1]
     if action == "refresh":
         do_refresh(sys.argv[2])
-    elif action == "gen-docs":
+    elif action == "html":
         gen_docs(sys.argv[2])
     else:
         usage()
