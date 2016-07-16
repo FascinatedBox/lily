@@ -677,7 +677,6 @@ static void add_catch_entry(lily_vm_state *vm)
 static const char *names[] = {
     "Exception",
     "IOError",
-    "FormatError",
     "KeyError",
     "RuntimeError",
     "ValueError",
