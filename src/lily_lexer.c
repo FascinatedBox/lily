@@ -1661,7 +1661,11 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
             else {
                 if (htmlp != 0) {
                     lexer->label[htmlp] = '\0';
-                    lexer->html_sender(lexer->label, data);
+                    /* Don't bother with sending just a newline. */
+                    if (htmlp != 1 && lexer->label[0] != '\n')
+                        lexer->html_sender(lexer->label, data);
+                    else
+                        lexer->label[0] = '\0';
                 }
 
                 lexer->token = tk_eof;
