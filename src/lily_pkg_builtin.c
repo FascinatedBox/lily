@@ -2830,8 +2830,8 @@ static lily_value *new_builtin_file(FILE *source, const char *mode)
 #define FILE_OFFSET       65
 #define OPTION_OFFSET     73
 #define EITHER_OFFSET     86
-#define TAINTED_OFFSET   101
-#define MISC_OFFSET      102
+#define TAINTED_OFFSET   100
+#define MISC_OFFSET      101
 
 extern void lily_builtin_calltrace(lily_vm_state *);
 extern void lily_builtin_print(lily_vm_state *);
@@ -3046,7 +3046,6 @@ const char *dynaload_table[] =
     ,"B\000Exception\0(msg:String){ var @message = msg var @traceback: List[String] = [] }"
 
     ,"B\000IOError\0(m:String) < Exception(m) {  }"
-    ,"B\000FormatError\0(m:String) < Exception(m) {  }"
     ,"B\000KeyError\0(m:String) < Exception(m) {  }"
     ,"B\000RuntimeError\0(m:String) < Exception(m) {  }"
     ,"B\000ValueError\0(m:String) < Exception(m) {  }"

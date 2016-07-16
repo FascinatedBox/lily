@@ -9,7 +9,7 @@
    get a name for the error. */
 static const char *lily_error_names[] =
     {"Error", "SyntaxError", "DivisionByZeroError", "IndexError",
-     "ValueError", "RuntimeError", "KeyError", "FormatError", "IOError"};
+     "ValueError", "RuntimeError", "KeyError", "IOError"};
 
 lily_raiser *lily_new_raiser(void)
 {

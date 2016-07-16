@@ -13,8 +13,7 @@
 # define lily_ValueError          4
 # define lily_RuntimeError        5
 # define lily_KeyError            6
-# define lily_FormatError         7
-# define lily_IOError             8
+# define lily_IOError             7
 
 typedef struct lily_jump_link_ {
     struct lily_jump_link_ *prev;
