@@ -305,8 +305,8 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
                first tag, and then having issues with the headers already being
                sent when they attempt to modify headers. */
             if (strncmp(lexer->input_buffer, "<?lily", 5) != 0) {
-                lily_raise(lexer->raiser, lily_Error,
-                        "Files in tagged mode must start with '<?lily'.");
+                lily_raise(lexer->raiser, lily_SyntaxError,
+                        "Files in template mode must start with '<?lily'.");
             }
             lily_lexer_handle_page_data(lexer);
         }
