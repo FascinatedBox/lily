@@ -2490,17 +2490,19 @@ void lily_string_split(lily_vm_state *vm)
 {
     lily_string_val *input_strval = lily_arg_string(vm, 0);
     lily_string_val *split_strval;
-    if (lily_arg_count(vm) == 2)
+    lily_string_val fake_sv;
+
+    if (lily_arg_count(vm) == 2) {
         split_strval = lily_arg_string(vm, 1);
+        if (split_strval->size == 0)
+            lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
+                    "Cannot split by empty string.");
+    }
     else {
-        lily_string_val fake_sv;
         fake_sv.string = " ";
         fake_sv.size = 1;
         split_strval = &fake_sv;
     }
-
-    if (split_strval->size == 0)
-        lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "Cannot split by empty string.");
 
     lily_list_val *lv = string_split_by_val(vm, input_strval->string,
             split_strval->string);
