@@ -3696,8 +3696,27 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
 
-        lily_storage *storage = get_storage(emit, return_type);
-        storage->flags |= SYM_NOT_ASSIGNABLE;
+        int i = (emit->call_values_pos - cs->arg_count);
+        int count = cs->arg_count;
+
+        lily_storage *storage = NULL;
+
+        /* This function is done, so the storages it claimed are no longer
+           needed. Instead of getting a new storage, can one of them be used
+           instead? */
+        for (i = 0;i < count;i++) {
+            lily_sym *sym = emit->call_values[i];
+            if (sym->item_kind == ITEM_TYPE_STORAGE &&
+                sym->type == return_type) {
+                storage = (lily_storage *)sym;
+                break;
+            }
+        }
+
+        if (storage == NULL) {
+            storage = get_storage(emit, return_type);
+            storage->flags |= SYM_NOT_ASSIGNABLE;
+        }
 
         ast->result = (lily_sym *)storage;
         lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1,
