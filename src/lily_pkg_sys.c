@@ -23,7 +23,7 @@ was not invoked from the command-line (ex: mod_lily), then this is empty.
 static void *load_var_argv(lily_options *options, uint16_t *unused)
 {
     lily_value *result = lily_new_empty_value();
-    lily_list_val *lv = lily_new_list_of_n(options->argc);
+    lily_list_val *lv = lily_new_list_val_n(options->argc);
 
     int i;
     for (i = 0;i < options->argc;i++)

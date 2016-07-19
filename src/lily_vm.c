@@ -947,11 +947,8 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int num_elems = code[2];
     lily_value *result = vm_regs[code[3+num_elems]];
 
-    lily_list_val *lv = lily_new_list_val();
-    lily_value **elems = lily_malloc(num_elems * sizeof(lily_value *));
-
-    lv->num_values = num_elems;
-    lv->elems = elems;
+    lily_list_val *lv = lily_new_list_val_n(num_elems);
+    lily_value **elems = lv->elems;
 
     if (code[0] == o_build_list)
         lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
@@ -961,7 +958,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int i;
     for (i = 0;i < num_elems;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
-        elems[i] = lily_copy_value(rhs_reg);
+        lily_assign_value(elems[i], rhs_reg);
     }
 }
 
@@ -1338,10 +1335,7 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code,
    to the caller to move the raw list to somewhere useful. */
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
-    lily_list_val *lv = lily_new_list_val();
-
-    lv->elems = lily_malloc(vm->call_depth * sizeof(lily_value *));
-    lv->num_values = -1;
+    lily_list_val *lv = lily_new_list_val_n(vm->call_depth);
     lily_call_frame *frame_iter;
 
     int i;
@@ -1382,10 +1376,9 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
                 name);
 
-        lv->elems[i - 1] = lily_new_string_take(str);
+        lily_move_string(lv->elems[i - 1], lily_new_raw_string_take(str));
     }
 
-    lv->num_values = vm->call_depth;
     return lv;
 }
 

@@ -769,7 +769,7 @@ void lily_hash_keys(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
 
-    lily_list_val *result_lv = lily_new_list_of_n(hash_val->num_elems);
+    lily_list_val *result_lv = lily_new_list_val_n(hash_val->num_elems);
     int i = 0;
 
     lily_hash_elem *elem_iter = hash_val->elem_chain;
@@ -1172,7 +1172,7 @@ void lily_list_fill(lily_vm_state *vm)
                 "Repeat count must be >= 0 (%d given).", n);
 
     lily_value *to_repeat = lily_arg_value(vm, 1);
-    lily_list_val *lv = lily_new_list_of_n(n);
+    lily_list_val *lv = lily_new_list_val_n(n);
 
     int i;
     for (i = 0;i < n;i++)
@@ -1303,7 +1303,7 @@ void lily_list_map(lily_vm_state *vm)
         lily_push_value(vm, lily_result_get(vm));
     }
 
-    lily_list_val *result_list = lily_new_list_of_n(i);
+    lily_list_val *result_list = lily_new_list_val_n(i);
 
     i--;
     for (;i >= 0;i--) {
@@ -1383,7 +1383,7 @@ static void list_select_reject_common(lily_vm_state *vm, int expect)
         }
     }
 
-    lily_list_val *result_list = lily_new_list_of_n(n);
+    lily_list_val *result_list = lily_new_list_val_n(n);
 
     n--;
     for (;n >= 0;n--) {
@@ -2429,7 +2429,7 @@ static lily_list_val *string_split_by_val(lily_vm_state *vm, char *input,
 
     values_needed++;
     input_ch = &input[0];
-    lily_list_val *list_val = lily_new_list_of_n(values_needed);
+    lily_list_val *list_val = lily_new_list_val_n(values_needed);
     int i = 0;
     char *last_start = input_ch;
 
@@ -2769,7 +2769,7 @@ void lily_tuple_merge(lily_vm_state *vm)
     lily_list_val *right_tuple = lily_arg_list(vm, 1);
 
     int new_count = left_tuple->num_values + right_tuple->num_values;
-    lily_list_val *lv = lily_new_list_of_n(new_count);
+    lily_list_val *lv = lily_new_list_val_n(new_count);
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
@@ -2790,7 +2790,7 @@ void lily_tuple_push(lily_vm_state *vm)
 {
     lily_list_val *left_tuple = lily_arg_list(vm, 0);
     lily_value *right = lily_arg_value(vm, 1);
-    lily_list_val *lv = lily_new_list_of_n(left_tuple->num_values + 1);
+    lily_list_val *lv = lily_new_list_val_n(left_tuple->num_values + 1);
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
