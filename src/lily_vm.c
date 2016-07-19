@@ -160,8 +160,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
     vm->num_registers = 0;
-    vm->offset_max_registers = 0;
-    vm->true_max_registers = 0;
+    vm->max_registers = 0;
     vm->gc_live_entries = NULL;
     vm->gc_spare_entries = NULL;
     vm->gc_live_entry_count = 0;
@@ -228,7 +227,7 @@ void lily_free_vm(lily_vm_state *vm)
         }
     }
 
-    for (i = vm->true_max_registers-1;i >= 0;i--) {
+    for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
         lily_deref(reg);
@@ -239,8 +238,7 @@ void lily_free_vm(lily_vm_state *vm)
     /* This keeps the final gc invoke from touching the now-deleted registers.
        It also ensures the last invoke will get everything. */
     vm->num_registers = 0;
-    vm->offset_max_registers = 0;
-    vm->true_max_registers = 0;
+    vm->max_registers = 0;
 
     lily_free(regs_from_main);
 
@@ -341,7 +339,7 @@ static void invoke_gc(lily_vm_state *vm)
     /* Stage 3: Check registers not currently in use to see if they hold a
                 value that's going to be collected. If so, then mark the
                 register as nil so that the value will be cleared later. */
-    for (i = vm->num_registers;i < vm->true_max_registers;i++) {
+    for (i = vm->num_registers;i < vm->max_registers;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_IS_GC_TAGGED &&
             reg->value.gc_generic->gc_entry == lily_gc_stopper) {
@@ -516,13 +514,8 @@ void lily_tag_value(lily_vm_state *vm, lily_value *v)
    This may resize (and thus invalidate) vm->regs_from_main and vm->vm_regs. */
 static void grow_vm_registers(lily_vm_state *vm, int register_need)
 {
-    /* This is so that there will be a couple of registers after
-       vm->offset_max_registers. The vm uses this when doing foreign function
-       calls. */
-    register_need += 2;
-
     lily_value **new_regs;
-    int i = vm->true_max_registers;
+    int i = vm->max_registers;
 
     ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
 
@@ -550,8 +543,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     for (;i < size;i++)
         new_regs[i] = lily_new_empty_value();
 
-    vm->true_max_registers = size;
-    vm->offset_max_registers = size - 2;
+    vm->max_registers = size;
 }
 
 /* This is called to clear the values that reside in the non-parameter registers
@@ -603,7 +595,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
 
 void lily_push_integer(lily_vm_state *vm, int64_t i)
 {
-    if (vm->num_registers == vm->offset_max_registers)
+    if (vm->num_registers == vm->max_registers)
         grow_vm_registers(vm, vm->num_registers + 1);
 
     lily_move_integer(vm->regs_from_main[vm->num_registers], i);
@@ -612,7 +604,7 @@ void lily_push_integer(lily_vm_state *vm, int64_t i)
 
 void lily_push_list(lily_vm_state *vm, lily_list_val *l)
 {
-    if (vm->num_registers == vm->offset_max_registers)
+    if (vm->num_registers == vm->max_registers)
         grow_vm_registers(vm, vm->num_registers + 1);
 
     lily_move_list_f(MOVE_DEREF_SPECULATIVE,
@@ -622,7 +614,7 @@ void lily_push_list(lily_vm_state *vm, lily_list_val *l)
 
 void lily_push_value(lily_vm_state *vm, lily_value *v)
 {
-    if (vm->num_registers == vm->offset_max_registers)
+    if (vm->num_registers == vm->max_registers)
         grow_vm_registers(vm, vm->num_registers + 1);
 
     lily_assign_value(vm->regs_from_main[vm->num_registers], v);
@@ -1608,7 +1600,7 @@ void lily_vm_exec_prepared_call(lily_vm_state *vm, int count)
         int need = vm->num_registers + target_fn->reg_count;
         int distance = target_fn->reg_count - count;
 
-        if (need > vm->offset_max_registers)
+        if (need > vm->max_registers)
             grow_vm_registers(vm, need);
 
         vm->vm_regs = vm->regs_from_main + vm->num_registers - count;
@@ -1902,7 +1894,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
 
     lily_function_val *main_function = symtab->main_function;
 
-    if (main_function->reg_count > vm->offset_max_registers) {
+    if (main_function->reg_count > vm->max_registers) {
         grow_vm_registers(vm, main_function->reg_count);
         /* grow_vm_registers will move vm->vm_regs (which is supposed to be
            local). That works everywhere...but here. Fix vm_regs back to the
@@ -1950,7 +1942,7 @@ void lily_vm_execute(lily_vm_state *vm)
     uint16_t *code;
     lily_value **regs_from_main;
     lily_value **vm_regs;
-    int i, num_registers, offset_max_registers;
+    int i, num_registers, max_registers;
     register int64_t for_temp;
     /* This unfortunately has to be volatile because otherwise calltrace() and
        traceback tend to be 'off'. */
@@ -1965,7 +1957,7 @@ void lily_vm_execute(lily_vm_state *vm)
     /* Initialize local vars from the vm state's vars. */
     vm_regs = vm->vm_regs;
     regs_from_main = vm->regs_from_main;
-    offset_max_registers = vm->offset_max_registers;
+    max_registers = vm->max_registers;
     code_pos = 0;
 
     lily_jump_link *link = lily_jump_setup(vm->raiser);
@@ -2152,12 +2144,12 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 int register_need = num_registers + fval->reg_count;
 
-                if (register_need > offset_max_registers) {
+                if (register_need > max_registers) {
                     grow_vm_registers(vm, register_need);
                     /* Don't forget to update local info... */
                     regs_from_main       = vm->regs_from_main;
                     vm_regs              = vm->vm_regs;
-                    offset_max_registers = vm->offset_max_registers;
+                    max_registers        = vm->max_registers;
                 }
                 lily_foreign_func func = fval->foreign_func;
 
@@ -2186,9 +2178,9 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 /* This function may have called the vm, thus growing the number
                    of registers. Copy over important data if that's happened. */
-                if (vm->offset_max_registers != offset_max_registers) {
-                    regs_from_main       = vm->regs_from_main;
-                    offset_max_registers = vm->offset_max_registers;
+                if (vm->max_registers != max_registers) {
+                    regs_from_main = vm->regs_from_main;
+                    max_registers  = vm->max_registers;
                 }
 
                 current_frame = current_frame->prev;
@@ -2222,12 +2214,12 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 int register_need = fval->reg_count + num_registers;
 
-                if (register_need > offset_max_registers) {
+                if (register_need > max_registers) {
                     grow_vm_registers(vm, register_need);
                     /* Don't forget to update local info... */
-                    regs_from_main       = vm->regs_from_main;
-                    vm_regs              = vm->vm_regs;
-                    offset_max_registers = vm->offset_max_registers;
+                    regs_from_main = vm->regs_from_main;
+                    vm_regs        = vm->vm_regs;
+                    max_registers  = vm->max_registers;
                 }
 
                 /* Prepare the registers for what the function wants. Afterward,

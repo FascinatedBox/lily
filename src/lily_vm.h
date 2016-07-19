@@ -49,18 +49,15 @@ typedef struct lily_vm_state_ {
     lily_value **vm_regs;
     lily_value **regs_from_main;
 
-    /* The total number of registers available, minus 2. This is used to check
-       for space checks so that there are always 2 registers available for
-       foreign calls without needing to check. */
-    uint32_t offset_max_registers;
+    /* The total number or registers allocated. */
+    uint32_t max_registers;
 
     /* The number of registers currently being used. */
     uint32_t num_registers;
 
-    /* The actual total, for parts like gc collection + register grow. */
-    uint32_t true_max_registers;
-
     uint32_t call_depth;
+
+    uint32_t pad;
 
     lily_call_frame *call_chain;
 
