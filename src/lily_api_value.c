@@ -215,18 +215,7 @@ lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
     return filev;
 }
 
-lily_list_val *lily_new_list_val(void)
-{
-    lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
-    lv->refcount = 0;
-    lv->elems = NULL;
-    lv->num_values = -1;
-    lv->extra_space = 0;
-
-    return lv;
-}
-
-lily_list_val *lily_new_list_of_n(int initial)
+lily_list_val *lily_new_list_val_n(int initial)
 {
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     lv->elems = lily_malloc(initial * sizeof(lily_value *));

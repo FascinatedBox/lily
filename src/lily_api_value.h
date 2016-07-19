@@ -73,16 +73,13 @@ DECLARE_SETTERS(instance_set, lily_instance_val *, int)
 lily_hash_val *lily_new_hash_val(void);
 
 /* List operations */
-/* Deprecated, use list_of_n instead. */
-lily_list_val *lily_new_list_val(void);
-lily_list_val *lily_new_list_of_n(int);
+lily_list_val *lily_new_list_val_n(int);
 DECLARE_SETTERS(list_set, lily_list_val *, int)
 
 /* String operations */
 lily_value *lily_new_string(const char *);
-lily_value *lily_new_string_take(char *);
-lily_string_val *lily_new_raw_string_take(char *);
 lily_string_val *lily_new_raw_string(const char *);
+lily_string_val *lily_new_raw_string_take(char *);
 lily_string_val *lily_new_raw_string_sized(const char *, int);
 char *lily_string_get_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);

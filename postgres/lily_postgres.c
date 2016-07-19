@@ -90,7 +90,7 @@ void lily_postgres_Result_each_row(lily_vm_state *vm)
     int row;
     for (row = 0;row < boxed_result->row_count;row++) {
         int num_cols = boxed_result->column_count;
-        lily_list_val *lv = lily_new_list_of_n(num_cols);
+        lily_list_val *lv = lily_new_list_val_n(num_cols);
 
         int col;
         for (col = 0;col < num_cols;col++) {
