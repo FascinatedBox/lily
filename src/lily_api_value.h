@@ -65,7 +65,7 @@ void lily_dynamic_set_value(lily_dynamic_val *, lily_value *);
 lily_file_val *lily_new_file_val(FILE *, const char *);
 
 /* Instance operations */
-lily_instance_val *lily_new_instance_val(void);
+lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
 lily_value *lily_instance_get(lily_instance_val *, int);
 DECLARE_SETTERS(instance_set, lily_instance_val *, int)
 
@@ -81,6 +81,7 @@ DECLARE_SETTERS(list_set, lily_list_val *, int)
 /* String operations */
 lily_value *lily_new_string(const char *);
 lily_value *lily_new_string_take(char *);
+lily_string_val *lily_new_raw_string_take(char *);
 lily_string_val *lily_new_raw_string(const char *);
 lily_string_val *lily_new_raw_string_sized(const char *, int);
 char *lily_string_get_raw(lily_string_val *);

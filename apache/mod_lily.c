@@ -28,12 +28,10 @@ This package is registered when Lily is run by Apache through mod_lily. This
 package provides Lily with information inside of Apache (such as POST), as well
 as functions for sending data through the Apache server.
 */
-lily_value *bind_tainted_of(lily_value *input)
+lily_value *bind_tainted_of(lily_string_val *input)
 {
-    lily_instance_val *iv = lily_new_instance_val();
-    iv->values = lily_malloc(1 * sizeof(lily_value *));
-    iv->instance_id = SYM_CLASS_TAINTED;
-    iv->values[0] = input;
+    lily_instance_val *iv = lily_new_instance_val_n_of(1, SYM_CLASS_TAINTED);
+    lily_instance_set_string(iv, 0, input);
     lily_value *result = lily_new_empty_value();
     lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
     return result;
@@ -76,7 +74,7 @@ static int bind_table_entry(void *data, const char *key, const char *value)
     struct table_bind_data *d = data;
 
     lily_value *elem_key = lily_new_string(key);
-    lily_value *elem_raw_value = lily_new_string(value);
+    lily_string_val *elem_raw_value = lily_new_raw_string(value);
     lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
     apache_add_unique_hash_entry(d->sipkey, d->hash_val, elem_key, elem_value);
@@ -180,7 +178,7 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
 
             lily_value *elem_key = lily_new_string(pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_value *elem_raw_value = lily_new_string_take(buffer);
+            lily_string_val *elem_raw_value = lily_new_raw_string_take(buffer);
             lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
             apache_add_unique_hash_entry(options->sipkey, hash_val, elem_key,

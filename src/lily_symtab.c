@@ -784,8 +784,7 @@ lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
 lily_literal *make_variant_default(lily_symtab *symtab,
         lily_variant_class *variant)
 {
-    lily_instance_val *iv = lily_new_instance_val();
-    iv->instance_id = variant->parent->id;
+    lily_instance_val *iv = lily_new_instance_val_n_of(0, variant->parent->id);
     iv->variant_id = variant->variant_id;
     iv->num_values = 0;
 
