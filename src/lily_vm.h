@@ -11,7 +11,6 @@ typedef struct lily_call_frame_ {
        stack after a call. */
     int regs_used;
     uint16_t *code;
-    int code_pos;
     int line_num;
 
     uint32_t offset_to_main;
