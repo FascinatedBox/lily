@@ -970,20 +970,17 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     int instance_id = code[2];
     int variant_id = code[3];
-    int num_values = code[4];
+    int count = code[4];
     lily_value *result = vm_regs[code[code[4] + 5]];
 
-    lily_instance_val *ival = lily_new_instance_val();
-    lily_value **slots = lily_malloc(num_values * sizeof(lily_value *));
-    ival->num_values = num_values;
-    ival->values = slots;
+    lily_instance_val *ival = lily_new_instance_val_n_of(count, instance_id);
+    lily_value **slots = ival->values;
     ival->variant_id = variant_id;
-    ival->instance_id = instance_id;
 
     lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result, ival);
 
     int i;
-    for (i = 0;i < num_values;i++) {
+    for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[5+i]];
         slots[i] = lily_copy_value(rhs_reg);
     }
@@ -1034,7 +1031,7 @@ static int do_o_optarg_dispatch(lily_vm_state *vm, uint16_t *code)
    opcode as a way of deducing what to do with the newly-made instance. */
 static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
-    int i, total_entries;
+    int total_entries;
     int cls_id = code[2];
     lily_value **vm_regs = vm->vm_regs;
     lily_value *result = vm_regs[code[3]];
@@ -1074,11 +1071,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_instance_val *iv = lily_new_instance_val();
-    lily_value **iv_values = lily_malloc(total_entries * sizeof(lily_value *));
-
-    iv->values = iv_values;
-    iv->instance_id = cls_id;
+    lily_instance_val *iv = lily_new_instance_val_n_of(total_entries, cls_id);
 
     if (code[0] == o_new_instance_speculative)
         lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, iv);
@@ -1087,11 +1080,6 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         if (code[0] == o_new_instance_tagged)
             lily_tag_value(vm, result);
     }
-
-    for (i = 0;i < total_entries;i++)
-        iv->values[i] = lily_new_empty_value();
-
-    iv->num_values = total_entries;
 
     /* This is set so that a superclass .new can simply pull this instance,
        since this instance will have >= the # of types. */
@@ -1408,22 +1396,12 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
-    lily_instance_val *ival = lily_new_instance_val();
-
-    ival->values = lily_malloc(2 * sizeof(lily_value *));
-    ival->instance_id = raised_cls->id;
-
-    lily_value *message_val = lily_new_string(vm->raiser->msgbuf->message);
-
+    lily_instance_val *ival = lily_new_instance_val_n_of(2, raised_cls->id);
+    lily_string_val *message = lily_new_raw_string(vm->raiser->msgbuf->message);
     lily_msgbuf_flush(vm->raiser->msgbuf);
-    ival->values[0] = message_val;
-    ival->num_values = 1;
 
-    lily_value *traceback = lily_new_empty_value();
-    lily_move_list_f(MOVE_DEREF_NO_GC, traceback, build_traceback_raw(vm));
-
-    ival->values[1] = traceback;
-    ival->num_values = 2;
+    lily_instance_set_string(ival, 0, message);
+    lily_instance_set_list(ival, 1, build_traceback_raw(vm));
 
     lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, ival);
 }

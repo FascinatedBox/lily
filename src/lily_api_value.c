@@ -255,13 +255,22 @@ lily_hash_val *lily_new_hash_val(void)
     return h;
 }
 
-lily_instance_val *lily_new_instance_val(void)
+lily_instance_val *lily_new_instance_val_n_of(int initial, uint16_t instance_id)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+
+    ival->values = lily_malloc(initial * sizeof(lily_value *));
     ival->refcount = 0;
     ival->gc_entry = NULL;
-    ival->values = NULL;
-    ival->num_values = -1;
+    ival->num_values = initial;
+    ival->instance_id = instance_id;
+
+    int i;
+    for (i = 0;i < initial;i++) {
+        lily_value *v = lily_malloc(sizeof(lily_value));
+        v->flags = 0;
+        ival->values[i] = v;
+    }
 
     return ival;
 }
@@ -299,6 +308,12 @@ lily_string_val *lily_new_raw_string(const char *source)
     return new_sv(buffer, len);
 }
 
+/* Create a new raw string that takes ownership of 'source'. */
+lily_string_val *lily_new_raw_string_take(char *source)
+{
+    return new_sv(source, strlen(source));
+}
+
 /* Create a new value holding a string. That string shall contain a copy of what
    is inside 'source'. The source is expected to be \0 terminated. */
 lily_value *lily_new_string(const char *source)
@@ -329,12 +344,8 @@ lily_instance_val *lily_get_none(lily_vm_state *vm)
 
 static lily_instance_val *build_enum_1(uint16_t class_id, uint16_t variant_id)
 {
-    lily_instance_val *iv = lily_new_instance_val();
-    iv->values = lily_malloc(sizeof(lily_value));
-    iv->values[0] = lily_new_empty_value();
-    iv->num_values = 1;
+    lily_instance_val *iv = lily_new_instance_val_n_of(1, class_id);
     iv->variant_id = variant_id;
-    iv->instance_id = class_id;
     return iv;
 }
 
