@@ -14,7 +14,6 @@
 
 #define CID_RESULT cid_table[0]
 #define CID_CONN   cid_table[1]
-#define GET_CID_TABLE vm->call_chain->function->cid_table
 
 /**
 package postgres
@@ -158,7 +157,7 @@ void lily_postgres_Conn_query(lily_vm_state *vm)
 
     int arg_pos = 0, fmt_index = 0, text_start = 0, text_stop = 0;
     lily_msgbuf *msgbuf = lily_vm_msgbuf(vm);
-    uint16_t *cid_table = GET_CID_TABLE;
+    uint16_t *cid_table = lily_vm_cid_table(vm);
 
     int num_values = lily_list_num_values(vararg_lv);
 
@@ -248,7 +247,7 @@ void lily_postgres_Conn_open(lily_vm_state *vm)
     const char *dbname = NULL;
     const char *name = NULL;
     const char *pass = NULL;
-    uint16_t *cid_table = GET_CID_TABLE;
+    uint16_t *cid_table = lily_vm_cid_table(vm);
 
     switch (lily_arg_count(vm)) {
         case 5:

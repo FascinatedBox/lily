@@ -1525,6 +1525,11 @@ lily_msgbuf *lily_vm_msgbuf(lily_vm_state *vm)
     return msgbuf;
 }
 
+uint16_t *lily_vm_cid_table(lily_vm_state *vm)
+{
+    return vm->call_chain->function->cid_table;
+}
+
 /** Foreign functions that are looking to interact with the interpreter can use
     the functions within here. Do be careful with foreign calls, however. **/
 
