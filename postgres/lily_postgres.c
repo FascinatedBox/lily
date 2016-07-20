@@ -8,7 +8,9 @@
 #include "lily_vm.h"
 
 #include "lily_api_alloc.h"
+#include "lily_api_msgbuf.h"
 #include "lily_api_value.h"
+#include "lily_api_vm.h"
 
 #define CID_RESULT cid_table[0]
 #define CID_CONN   cid_table[1]
@@ -155,10 +157,9 @@ void lily_postgres_Conn_query(lily_vm_state *vm)
     lily_list_val *vararg_lv = lily_arg_list(vm, 2);
 
     int arg_pos = 0, fmt_index = 0, text_start = 0, text_stop = 0;
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf *msgbuf = lily_vm_msgbuf(vm);
     uint16_t *cid_table = GET_CID_TABLE;
 
-    lily_msgbuf_flush(vm_buffer);
     int num_values = lily_list_num_values(vararg_lv);
 
     while (1) {
@@ -174,12 +175,12 @@ void lily_postgres_Conn_query(lily_vm_state *vm)
                 return;
             }
 
-            lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
+            lily_mb_add_range(msgbuf, fmt, text_start, text_stop);
             text_start = fmt_index + 1;
             text_stop = text_start;
 
             const char *text = lily_list_string_raw(vararg_lv, arg_pos);
-            lily_msgbuf_add(vm_buffer, text);
+            lily_mb_add(msgbuf, text);
             arg_pos++;
         }
         else {
@@ -192,14 +193,14 @@ void lily_postgres_Conn_query(lily_vm_state *vm)
         fmt_index++;
     }
 
-    char *query_string;
+    const char *query_string;
 
     /* If there are no ?'s in the format string, then it can be used as-is. */
     if (text_start == 0)
         query_string = fmt;
     else {
-        lily_msgbuf_add_text_range(vm_buffer, fmt, text_start, text_stop);
-        query_string = vm_buffer->message;
+        lily_mb_add_range(msgbuf, fmt, text_start, text_stop);
+        query_string = lily_mb_get(msgbuf);
     }
 
     PGresult *raw_result = PQexec(conn_value->conn, query_string);

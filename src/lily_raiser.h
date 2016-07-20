@@ -4,7 +4,8 @@
 # include <setjmp.h>
 
 # include "lily_core_types.h"
-# include "lily_msgbuf.h"
+
+# include "lily_api_msgbuf.h"
 
 # define lily_Error               0
 # define lily_SyntaxError         1

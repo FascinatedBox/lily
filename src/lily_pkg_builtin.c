@@ -11,6 +11,7 @@
 #include "lily_api_alloc.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
+#include "lily_api_vm.h"
 
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy
    from reentering it. The values are useless, but cannot be 0 or this will be
@@ -412,16 +413,9 @@ If 'self' is not open for reading, or is closed, `IOError` is raised.
 void lily_file_read_line(lily_vm_state *vm)
 {
     lily_file_val *filev = lily_arg_file(vm, 0);
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_msgbuf_flush(vm_buffer);
-
-    /* This ensures that the buffer will always have space for the \0 at the
-       very end. */
-    int buffer_size = vm_buffer->size - 1;
-    char *buffer = vm_buffer->message;
-
-    int ch = 0;
-    int pos = 0;
+    lily_msgbuf *vm_buffer = lily_vm_msgbuf(vm);
+    char read_buffer[128];
+    int ch = 0, pos = 0, total_pos = 0;
 
     read_check(vm, filev);
     FILE *f = filev->inner_file;
@@ -434,14 +428,13 @@ void lily_file_read_line(lily_vm_state *vm)
         if (ch == EOF)
             break;
 
-        buffer[pos] = (char)ch;
-
-        if (pos == buffer_size) {
-            lily_msgbuf_grow(vm_buffer);
-            buffer = vm_buffer->message;
-            buffer_size = vm_buffer->size - 1;
+        if (pos == sizeof(read_buffer)) {
+            lily_mb_add_range(vm_buffer, read_buffer, 0, sizeof(read_buffer));
+            total_pos += pos;
+            pos = 0;
         }
 
+        read_buffer[pos] = (char)ch;
         pos++;
 
         /* \r is intentionally not checked for, because it's been a very, very
@@ -450,7 +443,13 @@ void lily_file_read_line(lily_vm_state *vm)
             break;
     }
 
-    lily_return_string(vm, lily_new_raw_string_sized(buffer, pos));
+    if (pos != 0) {
+        lily_mb_add_range(vm_buffer, read_buffer, 0, pos);
+        total_pos += pos;
+    }
+
+    const char *text = lily_mb_get(vm_buffer);
+    lily_return_string(vm, lily_new_raw_string_sized(text, total_pos));
 }
 
 /**
@@ -473,9 +472,9 @@ void lily_file_write(lily_vm_state *vm)
         fputs(to_write->value.string->string, filev->inner_file);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
         lily_vm_add_value_to_msgbuf(vm, msgbuf, to_write);
-        fputs(msgbuf->message, filev->inner_file);
+        fputs(lily_mb_get(msgbuf), filev->inner_file);
     }
 }
 
@@ -1267,20 +1266,20 @@ void lily_list_join(lily_vm_state *vm)
         delim = lily_arg_string_raw(vm, 1);
 
     lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_msgbuf_flush(vm_buffer);
+    lily_mb_flush(vm_buffer);
 
     if (lv->num_values) {
         int i, stop = lv->num_values - 1;
         lily_value **values = lv->elems;
         for (i = 0;i < stop;i++) {
             lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
-            lily_msgbuf_add(vm_buffer, delim);
+            lily_mb_add(vm_buffer, delim);
         }
         if (stop != -1)
             lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
     }
 
-    lily_return_string(vm, lily_new_raw_string(vm_buffer->message));
+    lily_return_string(vm, lily_new_raw_string(lily_mb_get(vm_buffer)));
 }
 
 /**
@@ -1850,8 +1849,7 @@ void lily_string_find(lily_vm_state *vm)
    from vm->vm_buffer->message. */
 int lily_maybe_html_encode_to_buffer(lily_vm_state *vm, lily_value *input)
 {
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_msgbuf_flush(vm_buffer);
+    lily_msgbuf *vm_buffer = lily_vm_msgbuf(vm);
     int start = 0, stop = 0;
     char *input_str = input->value.string->string;
     char *ch = &input_str[0];
@@ -1859,20 +1857,20 @@ int lily_maybe_html_encode_to_buffer(lily_vm_state *vm, lily_value *input)
     while (1) {
         if (*ch == '&') {
             stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&amp;");
+            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add(vm_buffer, "&amp;");
             start = stop + 1;
         }
         else if (*ch == '<') {
             stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&lt;");
+            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add(vm_buffer, "&lt;");
             start = stop + 1;
         }
         else if (*ch == '>') {
             stop = (ch - input_str);
-            lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
-            lily_msgbuf_add(vm_buffer, "&gt;");
+            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add(vm_buffer, "&gt;");
             start = stop + 1;
         }
         else if (*ch == '\0')
@@ -1883,7 +1881,7 @@ int lily_maybe_html_encode_to_buffer(lily_vm_state *vm, lily_value *input)
 
     if (start != 0) {
         stop = (ch - input_str);
-        lily_msgbuf_add_text_range(vm_buffer, input_str, start, stop);
+        lily_mb_add_range(vm_buffer, input_str, start, stop);
     }
 
     return start;
@@ -1907,7 +1905,7 @@ void lily_string_html_encode(lily_vm_state *vm)
     if (lily_maybe_html_encode_to_buffer(vm, input_arg) == 0)
         lily_return_value(vm, input_arg);
     else
-        lily_return_string(vm, lily_new_raw_string(vm->vm_buffer->message));
+        lily_return_string(vm, lily_new_raw_string(lily_mb_get(vm->vm_buffer)));
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \

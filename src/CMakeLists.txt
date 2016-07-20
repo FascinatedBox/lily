@@ -24,5 +24,7 @@ endif()
 
 install(FILES lily_api_alloc.h
               lily_api_options.h
+              lily_api_msgbuf.h
               lily_api_value.h
+              lily_api_vm.h
         DESTINATION "lily")

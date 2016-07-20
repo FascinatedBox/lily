@@ -15,6 +15,7 @@
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
 #include "lily_api_options.h"
+#include "lily_api_vm.h"
 
 struct table_bind_data {
     lily_hash_val *hash_val;
@@ -222,7 +223,7 @@ void lily_server_write(lily_vm_state *vm)
     if (lily_maybe_html_encode_to_buffer(vm, input) == 0)
         source = input->value.string->string;
     else
-        source = vm->vm_buffer->message;
+        source = lily_mb_get(vm->vm_buffer);
 
     ap_rputs(source, (request_rec *)vm->data);
 }

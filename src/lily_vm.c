@@ -702,13 +702,13 @@ void lily_vm_raise_fmt(lily_vm_state *vm, uint8_t id, const char *fmt, ...)
 {
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
-    lily_msgbuf_flush(msgbuf);
+    lily_mb_flush(msgbuf);
     va_list var_args;
     va_start(var_args, fmt);
-    lily_msgbuf_add_fmt_va(msgbuf, fmt, var_args);
+    lily_mb_add_fmt_va(msgbuf, fmt, var_args);
     va_end(var_args);
 
-    lily_vm_raise(vm, id, msgbuf->message);
+    lily_vm_raise(vm, id, lily_mb_get(msgbuf));
 }
 
 /* Raise KeyError with 'key' as the value of the message. */
@@ -720,23 +720,23 @@ static void key_error(lily_vm_state *vm, lily_value *key)
 
     if (key->flags & VAL_IS_STRING) {
         /* String values are required to be \0 terminated, so this is ok. */
-        lily_msgbuf_add_fmt(msgbuf, "\"^E\"", key->value.string->string);
+        lily_mb_add_fmt(msgbuf, "\"^E\"", key->value.string->string);
     }
     else
-        lily_msgbuf_add_fmt(msgbuf, "%d", key->value.integer);
+        lily_mb_add_fmt(msgbuf, "%d", key->value.integer);
 
-    lily_vm_raise(vm, SYM_CLASS_KEYERROR, msgbuf->message);
+    lily_vm_raise(vm, SYM_CLASS_KEYERROR, lily_mb_get(msgbuf));
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
 static void boundary_error(lily_vm_state *vm, int bad_index)
 {
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
-    lily_msgbuf_flush(msgbuf);
-    lily_msgbuf_add_fmt(msgbuf, "Subscript index %d is out of range.",
+    lily_mb_flush(msgbuf);
+    lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
             bad_index);
 
-    lily_vm_raise(vm, SYM_CLASS_INDEXERROR, msgbuf->message);
+    lily_vm_raise(vm, SYM_CLASS_INDEXERROR, lily_mb_get(msgbuf));
 }
 
 /***
@@ -771,9 +771,9 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
         fputs(source->value.string->string, target);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
         lily_vm_add_value_to_msgbuf(vm, msgbuf, source);
-        fputs(msgbuf->message, target);
+        fputs(lily_mb_get(msgbuf), target);
     }
 
     fputc('\n', target);
@@ -1086,7 +1086,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     lily_value **vm_regs = vm->vm_regs;
     int count = code[2];
     lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_msgbuf_flush(vm_buffer);
+    lily_mb_flush(vm_buffer);
 
     int i;
     for (i = 0;i < count;i++) {
@@ -1096,7 +1096,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 
     lily_value *result_reg = vm_regs[code[3 + i]];
 
-    lily_move_string(result_reg, lily_new_raw_string(vm_buffer->message));
+    lily_move_string(result_reg, lily_new_raw_string(lily_mb_get(vm_buffer)));
 }
 
 static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
@@ -1386,9 +1386,10 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
+    const char *raw_message = lily_mb_get(vm->raiser->msgbuf);
     lily_instance_val *ival = lily_new_instance_val_n_of(2, raised_cls->id);
-    lily_string_val *message = lily_new_raw_string(vm->raiser->msgbuf->message);
-    lily_msgbuf_flush(vm->raiser->msgbuf);
+    lily_string_val *message = lily_new_raw_string(raw_message);
+    lily_mb_flush(vm->raiser->msgbuf);
 
     lily_instance_set_string(ival, 0, message);
     lily_instance_set_list(ival, 1, build_traceback_raw(vm));
@@ -1516,6 +1517,14 @@ static int maybe_catch_exception(lily_vm_state *vm)
  *                           |___/
  */
 
+lily_msgbuf *lily_vm_msgbuf(lily_vm_state *vm)
+{
+    lily_msgbuf *msgbuf = vm->vm_buffer;
+    /* Every caller so far wants a fresh buffer, so do that for them. */
+    lily_mb_flush(msgbuf);
+    return msgbuf;
+}
+
 /** Foreign functions that are looking to interact with the interpreter can use
     the functions within here. Do be careful with foreign calls, however. **/
 
@@ -1638,19 +1647,19 @@ static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
         count = v->value.instance->num_values;
     }
 
-    lily_msgbuf_add(msgbuf, prefix);
+    lily_mb_add(msgbuf, prefix);
 
     /* This is necessary because num_values is unsigned. */
     if (count != 0) {
         for (i = 0;i < count - 1;i++) {
             add_value_to_msgbuf(vm, msgbuf, t, values[i]);
-            lily_msgbuf_add(msgbuf, ", ");
+            lily_mb_add(msgbuf, ", ");
         }
         if (i != count)
             add_value_to_msgbuf(vm, msgbuf, t, values[i]);
     }
 
-    lily_msgbuf_add(msgbuf, suffix);
+    lily_mb_add(msgbuf, suffix);
 }
 
 static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
@@ -1662,7 +1671,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             /* Different containers may hold the same underlying values, so make
                sure to NOT test the containers. */
             if (memcmp(&tag_iter->raw, &v->value, sizeof(lily_raw_value)) == 0) {
-                lily_msgbuf_add(msgbuf, "[...]");
+                lily_mb_add(msgbuf, "[...]");
                 return;
             }
 
@@ -1674,15 +1683,15 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     }
 
     if (v->flags & VAL_IS_BOOLEAN)
-        lily_msgbuf_add_boolean(msgbuf, v->value.integer);
+        lily_mb_add_boolean(msgbuf, v->value.integer);
     else if (v->flags & VAL_IS_INTEGER)
-        lily_msgbuf_add_int(msgbuf, v->value.integer);
+        lily_mb_add_int(msgbuf, v->value.integer);
     else if (v->flags & VAL_IS_DOUBLE)
-        lily_msgbuf_add_double(msgbuf, v->value.doubleval);
+        lily_mb_add_double(msgbuf, v->value.doubleval);
     else if (v->flags & VAL_IS_STRING)
-        lily_msgbuf_add_fmt(msgbuf, "\"^E\"", v->value.string->string);
+        lily_mb_add_fmt(msgbuf, "\"^E\"", v->value.string->string);
     else if (v->flags & VAL_IS_BYTESTRING)
-        lily_msgbuf_add_bytestring(msgbuf, v->value.string->string,
+        lily_mb_add_bytestring(msgbuf, v->value.string->string,
                 v->value.string->size);
     else if (v->flags & VAL_IS_FUNCTION) {
         lily_function_val *fv = v->value.function;
@@ -1698,7 +1707,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             separator = ".";
         }
 
-        lily_msgbuf_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
+        lily_mb_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
                 separator, fv->trace_name);
     }
     else if (v->flags & VAL_IS_DYNAMIC)
@@ -1709,23 +1718,23 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         add_list_like(vm, msgbuf, t, v, "<[", "]>");
     else if (v->flags & VAL_IS_HASH) {
         lily_hash_val *hv = v->value.hash;
-        lily_msgbuf_add_char(msgbuf, '[');
+        lily_mb_add_char(msgbuf, '[');
         lily_hash_elem *elem = hv->elem_chain;
         while (elem) {
             add_value_to_msgbuf(vm, msgbuf, t, elem->elem_key);
-            lily_msgbuf_add(msgbuf, " => ");
+            lily_mb_add(msgbuf, " => ");
             add_value_to_msgbuf(vm, msgbuf, t, elem->elem_value);
             if (elem->next != NULL)
-                lily_msgbuf_add(msgbuf, ", ");
+                lily_mb_add(msgbuf, ", ");
 
             elem = elem->next;
         }
-        lily_msgbuf_add_char(msgbuf, ']');
+        lily_mb_add_char(msgbuf, ']');
     }
     else if (v->flags & VAL_IS_FILE) {
         lily_file_val *fv = v->value.file;
         const char *state = fv->inner_file ? "open" : "closed";
-        lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
+        lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
     else if (v->flags & VAL_IS_ENUM) {
         lily_instance_val *variant = v->value.instance;
@@ -1733,11 +1742,11 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 
         /* For scoped variants, render them how they're written. */
         if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
-            lily_msgbuf_add(msgbuf, variant_cls->parent->name);
-            lily_msgbuf_add_char(msgbuf, '.');
+            lily_mb_add(msgbuf, variant_cls->parent->name);
+            lily_mb_add_char(msgbuf, '.');
         }
 
-        lily_msgbuf_add(msgbuf, variant_cls->name);
+        lily_mb_add(msgbuf, variant_cls->name);
         if (variant->num_values)
             add_list_like(vm, msgbuf, t, v, "(", ")");
     }
@@ -1748,7 +1757,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         const char *package_name = "";
         const char *separator = "";
 
-        lily_msgbuf_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
+        lily_mb_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
                 cls->name, v->value.generic);
     }
 }
@@ -1760,7 +1769,7 @@ void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
        as-is. However, Strings that are contained within, say, a List or a
        variant should be escaped and have quoted printed around them. */
     if (value->flags & VAL_IS_STRING)
-        lily_msgbuf_add(msgbuf, value->value.string->string);
+        lily_mb_add(msgbuf, value->value.string->string);
     else
         add_value_to_msgbuf(vm, msgbuf, NULL, value);
 }
