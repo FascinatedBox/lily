@@ -368,6 +368,11 @@ int lily_string_length(lily_string_val *sv)
     return sv->size;
 }
 
+int lily_list_num_values(lily_list_val *lv)
+{
+    return lv->num_values;
+}
+
 /* Operations */
 
 extern void lily_destroy_hash(lily_value *);
