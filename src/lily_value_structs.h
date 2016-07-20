@@ -208,7 +208,7 @@ typedef struct lily_generic_val_ {
 typedef struct lily_foreign_val_ {
     uint32_t refcount;
     uint32_t pad;
-    void (*destroy_func)(lily_value *);
+    void (*destroy_func)(lily_generic_val *);
 } lily_foreign_val;
 
 /* Every value that has a gc entry is a superset of this. */

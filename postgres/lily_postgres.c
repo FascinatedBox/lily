@@ -36,19 +36,19 @@ typedef struct {
     PGresult *pg_result;
 } lily_pg_result;
 
-void close_result(lily_value *v)
+void close_result(lily_generic_val *g)
 {
-    lily_pg_result *result = (lily_pg_result *)v->value.generic;
+    lily_pg_result *result = (lily_pg_result *)g;
     if (result->is_closed == 0)
         PQclear(result->pg_result);
 
     result->is_closed = 1;
 }
 
-void destroy_result(lily_value *v)
+void destroy_result(lily_generic_val *g)
 {
-    close_result(v);
-    lily_free(v->value.generic);
+    close_result(g);
+    lily_free(g);
 }
 
 /**
@@ -60,10 +60,10 @@ either the gc or refcounting.
 */
 void lily_postgres_Result_close(lily_vm_state *vm)
 {
-    lily_value *to_close_reg = lily_arg_value(vm, 0);
-    lily_pg_result *to_close = (lily_pg_result *)to_close_reg->value.generic;
+    lily_generic_val *generic_to_close = lily_arg_generic(vm, 0);
+    lily_pg_result *to_close = (lily_pg_result *)generic_to_close;
 
-    close_result(to_close_reg);
+    close_result(generic_to_close);
     to_close->row_count = 0;
 }
 
@@ -129,9 +129,9 @@ typedef struct lily_pg_conn_value_ {
     PGconn *conn;
 } lily_pg_conn_value;
 
-void destroy_conn(lily_value *v)
+void destroy_conn(lily_generic_val *g)
 {
-    lily_pg_conn_value *conn_value = (lily_pg_conn_value *)v->value.generic;
+    lily_pg_conn_value *conn_value = (lily_pg_conn_value *)g;
 
     PQfinish(conn_value->conn);
     lily_free(conn_value);
