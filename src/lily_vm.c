@@ -1951,13 +1951,13 @@ void lily_vm_execute(lily_vm_state *vm)
     if (setjmp(link->jump) != 0) {
         /* If the current function is a native one, then fix the line
            number of it. Otherwise, leave the line number alone. */
-        if (current_frame->function->code != NULL) {
+        if (vm->call_chain->function->code != NULL) {
             if (vm->pending_line) {
                 current_frame->line_num = vm->pending_line;
                 vm->pending_line = 0;
             }
             else
-                current_frame->line_num = current_frame->code[1];
+                vm->call_chain->line_num = vm->call_chain->code[1];
         }
 
         if (maybe_catch_exception(vm) == 0)
