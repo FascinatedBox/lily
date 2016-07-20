@@ -2113,6 +2113,11 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
     }
     else
         *name = "(anonymous)";
+
+    if (strcmp(*name, "<new>") == 0) {
+        *separator = "";
+        *name = "";
+    }
 }
 
 /* This is called when the call state (more on that later) has an argument that

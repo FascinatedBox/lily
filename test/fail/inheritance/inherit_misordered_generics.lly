@@ -1,5 +1,5 @@
 #[
-SyntaxError: Argument #1 to First.new is invalid:
+SyntaxError: Argument #1 to First is invalid:
 Expected Type: A
 Received Type: B
     from inherit_misordered_generics.lly:10

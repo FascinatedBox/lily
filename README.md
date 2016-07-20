@@ -17,7 +17,6 @@ class Cat(name: String)
 # Types can almost always be inferred. This is List[Cat].
 var cats = [
     Cat("Muffin"),
-    Cat.new("Fuzzy"),
     "Snowball" |> Cat]
 
 # a |> b is the same as b(a)

@@ -1578,10 +1578,10 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Cannot implicitly use the constructor of an enum.");
 
-        lily_item *target = lily_find_or_dl_member(parser, cls, "new");
+        lily_item *target = lily_find_or_dl_member(parser, cls, "<new>");
         if (target == NULL)
             lily_raise(parser->raiser, lily_SyntaxError,
-                    "Cannot implicitly use %s.new (it doesn't exist).", cls->name);
+                    "Class %s does not have a constructor.", cls->name);
 
         lily_es_push_static_func(parser->expr, (lily_var *)target);
         *state = ST_FORWARD | ST_WANT_OPERATOR;
@@ -3539,7 +3539,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
     lily_var *call_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, cls, "new");
+            parser->default_call_type, cls, "<new>");
 
     lily_lexer(lex);
     collect_generics_or(parser, 0);
@@ -3616,7 +3616,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     cls->parent = super_class;
     cls->prop_count = super_class->prop_count;
 
-    lily_var *class_new = lily_find_method(super_class, "new");
+    lily_var *class_new = lily_find_method(super_class, "<new>");
 
     /* There's a small problem here. The idea of being able to pass expressions
        as well as values is great. However, expression cannot be trusted to
@@ -4328,22 +4328,25 @@ const char *lily_build_error_message(lily_parse_state *parser)
         while (frame) {
             lily_function_val *func = frame->function;
             const char *class_name = func->class_name;
-            char *separator;
+            const char *func_name = func->trace_name;
+            char *separator = ".";
             if (class_name == NULL) {
                 class_name = "";
                 separator = "";
             }
-            else
-                separator = ".";
+            else if (strcmp(func_name, "<new>") == 0) {
+                func_name = "";
+                separator = "";
+            }
 
             if (frame->function->code == NULL)
                 lily_mb_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",
-                        class_name, separator, func->trace_name);
+                        class_name, separator, func_name);
             else
                 lily_mb_add_fmt(msgbuf,
                         "    from %s:%d: in %s%s%s\n",
                         func->module->path, frame->line_num, class_name,
-                        separator, func->trace_name);
+                        separator, func_name);
 
             frame = frame->prev;
         }
