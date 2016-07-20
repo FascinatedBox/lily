@@ -221,7 +221,7 @@ static void either_optionize_left_right(lily_vm_state *vm, int expect)
 
     if (iv->instance_id == expect) {
         lily_instance_val *variant = lily_new_some();
-        lily_variant_set_value(variant, 0, lily_instance_get(iv, 0));
+        lily_variant_set_value(variant, 0, lily_instance_value(iv, 0));
         lily_return_filled_variant(vm, variant);
     }
     else
@@ -1530,7 +1530,7 @@ void lily_option_and_then(lily_vm_state *vm)
     if (optval->instance_id == SYM_CLASS_SOME) {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
 
-        lily_push_value(vm, lily_instance_get(optval, 0));
+        lily_push_value(vm, lily_instance_value(optval, 0));
 
         lily_vm_exec_prepared_call(vm, 1);
 
@@ -1584,7 +1584,7 @@ void lily_option_map(lily_vm_state *vm)
     if (optval->instance_id == SYM_CLASS_SOME) {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
 
-        lily_push_value(vm, lily_instance_get(optval, 0));
+        lily_push_value(vm, lily_instance_value(optval, 0));
 
         lily_vm_exec_prepared_call(vm, 1);
 
@@ -1649,7 +1649,7 @@ void lily_option_unwrap(lily_vm_state *vm)
     lily_instance_val *optval = opt_reg->value.instance;
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_value(vm, lily_instance_get(optval, 0));
+        lily_return_value(vm, lily_instance_value(optval, 0));
     else
         lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.");
 }
@@ -1669,7 +1669,7 @@ void lily_option_unwrap_or(lily_vm_state *vm)
     lily_value *source;
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        source = lily_instance_get(optval, 0);
+        source = lily_instance_value(optval, 0);
     else
         source = fallback_reg;
 
@@ -1688,7 +1688,7 @@ void lily_option_unwrap_or_else(lily_vm_state *vm)
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_value(vm, lily_instance_get(optval, 0));
+        lily_return_value(vm, lily_instance_value(optval, 0));
     else {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
         lily_vm_exec_prepared_call(vm, 0);
@@ -2728,7 +2728,7 @@ void lily_tainted_sanitize(lily_vm_state *vm)
 
     lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
 
-    lily_push_value(vm, lily_instance_get(instance_val, 0));
+    lily_push_value(vm, lily_instance_value(instance_val, 0));
 
     lily_vm_exec_prepared_call(vm, 1);
 
