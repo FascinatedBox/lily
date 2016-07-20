@@ -81,12 +81,12 @@ void lily_jump_back(lily_raiser *raiser)
    proper exception for the code (or the raiser will die). */
 void lily_raise(lily_raiser *raiser, int error_code, const char *fmt, ...)
 {
-    lily_msgbuf_flush(raiser->msgbuf);
+    lily_mb_flush(raiser->msgbuf);
     raiser->exception_cls = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
-    lily_msgbuf_add_fmt_va(raiser->msgbuf, fmt, var_args);
+    lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args);
     va_end(var_args);
 
     raiser->error_code = error_code;
@@ -99,8 +99,8 @@ void lily_raise_class(lily_raiser *raiser, lily_class *raise_cls,
         const char *msg)
 {
     raiser->exception_cls = raise_cls;
-    lily_msgbuf_flush(raiser->msgbuf);
-    lily_msgbuf_add(raiser->msgbuf, msg);
+    lily_mb_flush(raiser->msgbuf);
+    lily_mb_add(raiser->msgbuf, msg);
 
     longjmp(raiser->all_jumps->jump, 1);
 }

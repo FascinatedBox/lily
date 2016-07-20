@@ -7,10 +7,11 @@
 # include "lily_emitter.h"
 # include "lily_symtab.h"
 # include "lily_vm.h"
-# include "lily_msgbuf.h"
 # include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
 # include "lily_value_stack.h"
+
+# include "lily_api_msgbuf.h"
 
 typedef struct lily_parse_state_ {
     lily_package *package_start;
@@ -67,6 +68,6 @@ int lily_parse_string(lily_parse_state *, const char *, lily_lex_mode,
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
 void lily_register_package(lily_parse_state *, const char *, const char **,
         lily_loader);
-char *lily_build_error_message(lily_parse_state *);
+const char *lily_build_error_message(lily_parse_state *);
 
 #endif

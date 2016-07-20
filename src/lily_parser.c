@@ -425,31 +425,31 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     lily_module_entry *result;
 
     lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_msgbuf_flush(parser->msgbuf);
+    lily_mb_flush(parser->msgbuf);
     int i;
 
     for (i = 0;i < 2;i++) {
         module_loader l = builtin_module_loaders[i];
 
-        lily_msgbuf_add_fmt(msgbuf, "%s%s%s", dirpath, name, l.suffix);
-        result = l.load_fn(parser, msgbuf->message);
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_add_fmt(msgbuf, "%s%s%s", dirpath, name, l.suffix);
+        result = l.load_fn(parser, lily_mb_get(msgbuf));
+        lily_mb_flush(msgbuf);
 
         if (result)
             break;
     }
 
     if (result == NULL) {
-        lily_msgbuf_add_fmt(msgbuf, "Cannot import '%s':\n", name);
+        lily_mb_add_fmt(msgbuf, "Cannot import '%s':\n", name);
         for (i = 0;i < 2;i++) {
             module_loader l = builtin_module_loaders[i];
-            lily_msgbuf_add_fmt(msgbuf, "    no file '%s%s%s'",
+            lily_mb_add_fmt(msgbuf, "    no file '%s%s%s'",
                     dirpath, name, l.suffix);
             if (i != 1)
-                lily_msgbuf_add_char(msgbuf, '\n');
+                lily_mb_add_char(msgbuf, '\n');
         }
 
-        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
+        lily_raise(parser->raiser, lily_SyntaxError, lily_mb_get(msgbuf));
     }
 
     /* Put this module in the current package. */
@@ -1070,16 +1070,17 @@ static lily_var *dynaload_function(lily_parse_state *parser,
                 dyna_index);
     else {
         lily_msgbuf *msgbuf = parser->msgbuf;
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
 
         char *cls_name = "";
         if (cls)
             cls_name = cls->name;
 
-        lily_msgbuf_add_fmt(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
+        lily_mb_add_fmt(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
                 name);
 
-        func = (lily_foreign_func)lily_library_get(m->handle, msgbuf->message);
+        func = (lily_foreign_func)lily_library_get(m->handle,
+                lily_mb_get(msgbuf));
     }
 
     parser->symtab->active_module = m;
@@ -1147,10 +1148,10 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     int entry_index = dyna_index;
 
     lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_msgbuf_flush(msgbuf);
-    lily_msgbuf_add(msgbuf, name);
-    lily_msgbuf_add(msgbuf, name + strlen(name) + 1);
-    lily_msgbuf_add_char(msgbuf, '{');
+    lily_mb_flush(msgbuf);
+    lily_mb_add(msgbuf, name);
+    lily_mb_add(msgbuf, name + strlen(name) + 1);
+    lily_mb_add_char(msgbuf, '{');
 
     do {
         entry_index++;
@@ -1159,17 +1160,17 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     do {
         name = entry + DYNA_NAME_OFFSET;
-        lily_msgbuf_add(msgbuf, name);
-        lily_msgbuf_add(msgbuf, name + strlen(name) + 1);
-        lily_msgbuf_add_char(msgbuf, ' ');
+        lily_mb_add(msgbuf, name);
+        lily_mb_add(msgbuf, name + strlen(name) + 1);
+        lily_mb_add_char(msgbuf, ' ');
 
         entry_index++;
         entry = table[entry_index];
     } while (entry[0] == 'V');
 
-    lily_msgbuf_add_char(msgbuf, '}');
+    lily_mb_add_char(msgbuf, '}');
 
-    lily_load_copy_string(parser->lex, lm_no_tags, msgbuf->message);
+    lily_load_copy_string(parser->lex, lm_no_tags, lily_mb_get(msgbuf));
     lily_lexer(parser->lex);
 
     int save_next_class_id;
@@ -1924,9 +1925,9 @@ static void expression_literal(lily_parse_state *parser, int *state)
         lily_expr_state *es = parser->expr;
         lily_symtab *symtab = parser->symtab;
         lily_msgbuf *msgbuf = parser->msgbuf;
-        lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add(msgbuf, lex->label);
-        char *scan_string = msgbuf->message;
+        lily_mb_flush(msgbuf);
+        lily_mb_add(msgbuf, lex->label);
+        char *scan_string = (char *)lily_mb_get(msgbuf);
 
         lily_es_enter_tree(es, tree_interp_top);
         do {
@@ -1947,7 +1948,7 @@ static void expression_literal(lily_parse_state *parser, int *state)
         } while (*scan_string != '\0');
 
         lily_es_leave_tree(es);
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
         *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_integer) {
@@ -3198,7 +3199,7 @@ static void import_handler(lily_parse_state *parser, int multi)
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
     lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_msgbuf_flush(msgbuf);
+    lily_mb_flush(msgbuf);
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
@@ -3219,14 +3220,14 @@ static void import_handler(lily_parse_state *parser, int multi)
                     search_start);
 
         /* Has this path been imported before? */
-        lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add(msgbuf, active->dirname);
-        lily_msgbuf_add(msgbuf, lex->label);
+        lily_mb_flush(msgbuf);
+        lily_mb_add(msgbuf, active->dirname);
+        lily_mb_add(msgbuf, lex->label);
 
         lily_module_entry *module = lily_find_module_by_path(active->parent,
-                msgbuf->message);
+                lily_mb_get(msgbuf));
 
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
 
         if (module == NULL) {
             module = load_module(parser, active->dirname, lex->label);
@@ -3301,31 +3302,31 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
 
     for (i = 0;i < 2;i++) {
         package_loader l = builtin_package_loaders[i];
-        lily_msgbuf_flush(msgbuf);
+        lily_mb_flush(msgbuf);
 
-        lily_msgbuf_add_fmt(msgbuf, "%spackages" LILY_PATH_SLASH "%s%s%s%s",
+        lily_mb_add_fmt(msgbuf, "%spackages" LILY_PATH_SLASH "%s%s%s%s",
                 dirpath, name, l.prefix, name, l.suffix);
 
-        module = l.load_fn(parser, msgbuf->message);
+        module = l.load_fn(parser, lily_mb_get(msgbuf));
         if (module != NULL)
             break;
     }
 
     if (module == NULL) {
-        lily_msgbuf_flush(msgbuf);
-        lily_msgbuf_add_fmt(msgbuf, "Cannot load package '%s':\n", name);
-        lily_msgbuf_add_fmt(msgbuf, "    no built-in package '%s'.\n", name);
+        lily_mb_flush(msgbuf);
+        lily_mb_add_fmt(msgbuf, "Cannot load package '%s':\n", name);
+        lily_mb_add_fmt(msgbuf, "    no built-in package '%s'.\n", name);
 
         for (i = 0;i < 2;i++) {
             package_loader l = builtin_package_loaders[i];
-            lily_msgbuf_add_fmt(msgbuf,
+            lily_mb_add_fmt(msgbuf,
                     "    %spackages" LILY_PATH_SLASH "%s%s%s%s", dirpath,
                     name, l.prefix, name, l.suffix);
             if (i != 1)
-                lily_msgbuf_add_char(msgbuf, '\n');
+                lily_mb_add_char(msgbuf, '\n');
         }
 
-        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
+        lily_raise(parser->raiser, lily_SyntaxError, lily_mb_get(msgbuf));
     }
 
     lily_package *new_package = new_empty_package(parser, name);
@@ -4019,22 +4020,22 @@ static void ensure_proper_match_block(lily_parse_state *parser,
     for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
         if (parser->emit->match_cases[i] == 0) {
             if (error == 0) {
-                lily_msgbuf_add(msgbuf,
+                lily_mb_add(msgbuf,
                         "Match pattern not exhaustive. The following case(s) are missing:\n");
                 error = 1;
             }
 
-            lily_msgbuf_add_fmt(msgbuf, "* %s",
+            lily_mb_add_fmt(msgbuf, "* %s",
                     match_class->variant_members[i]->name);
             if (counter > 1) {
-                lily_msgbuf_add_char(msgbuf, '\n');
+                lily_mb_add_char(msgbuf, '\n');
                 counter--;
             }
         }
     }
 
     if (error)
-        lily_raise(parser->raiser, lily_SyntaxError, msgbuf->message);
+        lily_raise(parser->raiser, lily_SyntaxError, lily_mb_get(msgbuf));
 }
 
 static void match_handler(lily_parse_state *parser, int multi)
@@ -4282,16 +4283,16 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
    run directory). This puts together the current error message so that the
    runner is able to use it. The error message (and stack) are returned in full
    in the string.
-   The string returned is a shallow reference (it's really
-   parser->msgbuf->message). If the caller wants to keep the message, then the
-   caller needs to copy it. If the caller does not, the message will get blasted
-   by the next run. */
-char *lily_build_error_message(lily_parse_state *parser)
+   The string returned is a shallow reference (it's really the message of
+   parser's msgbuf). If the caller wants to keep the message, then the caller
+   needs to copy it. If the caller does not, the message will get blasted by the
+   next run. */
+const char *lily_build_error_message(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = parser->msgbuf;
 
-    lily_msgbuf_flush(parser->msgbuf);
+    lily_mb_flush(parser->msgbuf);
 
     if (raiser->exception_cls) {
         /* If this exception came from another package, then print that package
@@ -4299,14 +4300,15 @@ char *lily_build_error_message(lily_parse_state *parser)
            from the builtin module which isn't in a package. */
         lily_package *package = raiser->exception_cls->module->parent;
         if (package->name[0] != '\0')
-            lily_msgbuf_add_fmt(msgbuf, "%s.", package->name);
+            lily_mb_add_fmt(msgbuf, "%s.", package->name);
     }
 
-    lily_msgbuf_add(msgbuf, lily_name_for_error(raiser));
-    if (raiser->msgbuf->message[0] != '\0')
-        lily_msgbuf_add_fmt(msgbuf, ": %s\n", raiser->msgbuf->message);
+    const char *msg = lily_mb_get(raiser->msgbuf);
+    lily_mb_add(msgbuf, lily_name_for_error(raiser));
+    if (msg[0] != '\0')
+        lily_mb_add_fmt(msgbuf, ": %s\n", msg);
     else
-        lily_msgbuf_add_char(msgbuf, '\n');
+        lily_mb_add_char(msgbuf, '\n');
 
     if (parser->executing == 0) {
         lily_lex_entry *iter = parser->lex->entry;
@@ -4314,14 +4316,14 @@ char *lily_build_error_message(lily_parse_state *parser)
             int fixed_line_num = (raiser->line_adjust == 0 ?
                     parser->lex->line_num : raiser->line_adjust);
 
-            lily_msgbuf_add_fmt(msgbuf, "    from %s:%d\n",
+            lily_mb_add_fmt(msgbuf, "    from %s:%d\n",
                     parser->symtab->active_module->path, fixed_line_num);
         }
     }
     else {
         lily_call_frame *frame = parser->vm->call_chain;
 
-        lily_msgbuf_add(msgbuf, "Traceback:\n");
+        lily_mb_add(msgbuf, "Traceback:\n");
 
         while (frame) {
             lily_function_val *func = frame->function;
@@ -4335,10 +4337,10 @@ char *lily_build_error_message(lily_parse_state *parser)
                 separator = ".";
 
             if (frame->function->code == NULL)
-                lily_msgbuf_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",
+                lily_mb_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",
                         class_name, separator, func->trace_name);
             else
-                lily_msgbuf_add_fmt(msgbuf,
+                lily_mb_add_fmt(msgbuf,
                         "    from %s:%d: in %s%s%s\n",
                         func->module->path, frame->line_num, class_name,
                         separator, func->trace_name);
@@ -4347,5 +4349,5 @@ char *lily_build_error_message(lily_parse_state *parser)
         }
     }
 
-    return msgbuf->message;
+    return lily_mb_get(msgbuf);
 }

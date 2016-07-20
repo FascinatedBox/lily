@@ -115,9 +115,6 @@ typedef struct lily_vm_state_ {
 
 struct lily_value_stack_;
 
-void lily_vm_raise(lily_vm_state *, uint8_t, const char *);
-void lily_vm_raise_fmt(lily_vm_state *, uint8_t, const char *, ...);
-
 lily_vm_state *lily_new_vm_state(struct lily_options_ *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,

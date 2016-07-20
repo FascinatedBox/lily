@@ -3,10 +3,23 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#include "lily_msgbuf.h"
 #include "lily_core_types.h"
 
 #include "lily_api_alloc.h"
+#include "lily_api_msgbuf.h"
+
+/* The internals of msgbuf are very simple. Unlike most declarations, this one
+   is intentionally not within a .h file. The reasoning behind that, is that
+   this prevents other parts of the interpreter from grabbing the message field
+   directly. */
+typedef struct lily_msgbuf_ {
+    /* The message being stored. */
+    char *message;
+    /* The size that the message currently takes. */
+    uint32_t pos;
+    /* The buffer space allocated for the message. */
+    uint32_t size;
+} lily_msgbuf;
 
 lily_msgbuf *lily_new_msgbuf(void)
 {
@@ -31,7 +44,7 @@ static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
     char buffer[16];
     sprintf(buffer, "%03d", (unsigned char)ch);
 
-    lily_msgbuf_add(msgbuf, buffer);
+    lily_mb_add(msgbuf, buffer);
 }
 
 /* Add a safe, escaped version of a given string to the msgbuf. A size is given
@@ -70,11 +83,11 @@ static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
 
         if (need_escape) {
             if (i != start)
-                lily_msgbuf_add_text_range(msgbuf, str, start, i);
+                lily_mb_add_range(msgbuf, str, start, i);
 
-            lily_msgbuf_add_char(msgbuf, '\\');
+            lily_mb_add_char(msgbuf, '\\');
             if (escape_char)
-                lily_msgbuf_add_char(msgbuf, escape_char);
+                lily_mb_add_char(msgbuf, escape_char);
             else
                 add_escaped_char(msgbuf, ch);
 
@@ -83,11 +96,11 @@ static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
     }
 
     if (i != start)
-        lily_msgbuf_add_text_range(msgbuf, str, start, i);
+        lily_mb_add_range(msgbuf, str, start, i);
 
     /* Add a terminating \0 so that the msgbuf is always \0 terminated. */
     if (is_bytestring)
-        lily_msgbuf_add_char(msgbuf, '\0');
+        lily_mb_add_char(msgbuf, '\0');
 }
 
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
@@ -96,7 +109,13 @@ void lily_free_msgbuf(lily_msgbuf *msgbuf)
     lily_free(msgbuf);
 }
 
-void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
+/* This allows getting the contents without knowing the struct. */
+const char *lily_mb_get(lily_msgbuf *msgbuf)
+{
+    return msgbuf->message;
+}
+
+void lily_mb_add(lily_msgbuf *msgbuf, const char *str)
 {
     int len = strlen(str);
 
@@ -107,21 +126,21 @@ void lily_msgbuf_add(lily_msgbuf *msgbuf, const char *str)
     msgbuf->pos += len;
 }
 
-void lily_msgbuf_add_bytestring(lily_msgbuf *msgbuf, const char *str,
+void lily_mb_add_bytestring(lily_msgbuf *msgbuf, const char *str,
         int length)
 {
     add_escaped_sized(msgbuf, 1, str, length);
 }
 
 /* Add a safe version of a \0 terminated string to a buffer. */
-void lily_msgbuf_escape_add_str(lily_msgbuf *msgbuf, const char *str)
+void lily_mb_escape_add_str(lily_msgbuf *msgbuf, const char *str)
 {
     add_escaped_sized(msgbuf, 0, str, strlen(str));
 }
 
 /* Add a slice of text (start to stop) to the msgbuf. The slice does not need to
    be \0 terminated. However, the result will be \0 terminated. */
-void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, const char *text,
+void lily_mb_add_range(lily_msgbuf *msgbuf, const char *text,
         int start, int stop)
 {
     int range = (stop - start);
@@ -134,39 +153,39 @@ void lily_msgbuf_add_text_range(lily_msgbuf *msgbuf, const char *text,
     msgbuf->message[msgbuf->pos] = '\0';
 }
 
-void lily_msgbuf_add_char(lily_msgbuf *msgbuf, char c)
+void lily_mb_add_char(lily_msgbuf *msgbuf, char c)
 {
     char ch_buf[2] = {c, '\0'};
 
-    lily_msgbuf_add(msgbuf, ch_buf);
+    lily_mb_add(msgbuf, ch_buf);
 }
 
-void lily_msgbuf_add_boolean(lily_msgbuf *msgbuf, int b)
+void lily_mb_add_boolean(lily_msgbuf *msgbuf, int b)
 {
     if (b == 0)
-        lily_msgbuf_add(msgbuf, "false");
+        lily_mb_add(msgbuf, "false");
     else
-        lily_msgbuf_add(msgbuf, "true");
+        lily_mb_add(msgbuf, "true");
 }
 
-void lily_msgbuf_add_int(lily_msgbuf *msgbuf, int i)
+void lily_mb_add_int(lily_msgbuf *msgbuf, int i)
 {
     char buf[64];
     sprintf(buf, "%d", i);
 
-    lily_msgbuf_add(msgbuf, buf);
+    lily_mb_add(msgbuf, buf);
 }
 
-void lily_msgbuf_add_double(lily_msgbuf *msgbuf, double d)
+void lily_mb_add_double(lily_msgbuf *msgbuf, double d)
 {
     char buf[64];
     sprintf(buf, "%g", d);
 
-    lily_msgbuf_add(msgbuf, buf);
+    lily_mb_add(msgbuf, buf);
 }
 
 /* This erases what the msgbuf currently holds. */
-void lily_msgbuf_flush(lily_msgbuf *msgbuf)
+void lily_mb_flush(lily_msgbuf *msgbuf)
 {
     msgbuf->pos = 0;
     msgbuf->message[0] = '\0';
@@ -174,30 +193,30 @@ void lily_msgbuf_flush(lily_msgbuf *msgbuf)
 
 static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
-    lily_msgbuf_add(msgbuf, type->cls->name);
+    lily_mb_add(msgbuf, type->cls->name);
 
     if (type->cls->id == SYM_CLASS_FUNCTION) {
         if (type->generic_pos) {
             int i;
             char ch = 'A';
-            lily_msgbuf_add(msgbuf, "[");
+            lily_mb_add(msgbuf, "[");
             for (i = 0;i < type->generic_pos - 1;i++, ch++) {
-                lily_msgbuf_add_char(msgbuf, ch);
-                lily_msgbuf_add(msgbuf, ", ");
+                lily_mb_add_char(msgbuf, ch);
+                lily_mb_add(msgbuf, ", ");
             }
 
-            lily_msgbuf_add_char(msgbuf, ch);
-            lily_msgbuf_add(msgbuf, "](");
+            lily_mb_add_char(msgbuf, ch);
+            lily_mb_add(msgbuf, "](");
         }
         else
-            lily_msgbuf_add(msgbuf, " (");
+            lily_mb_add(msgbuf, " (");
 
         if (type->subtype_count > 1) {
             int i;
 
             for (i = 1;i < type->subtype_count - 1;i++) {
                 add_type(msgbuf, type->subtypes[i]);
-                lily_msgbuf_add(msgbuf, ", ");
+                lily_mb_add(msgbuf, ", ");
             }
 
             if (type->flags & TYPE_IS_VARARGS) {
@@ -206,36 +225,36 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
                    have been written in (the extra ->subtypes[0] grabs the type
                    within the list. */
                 add_type(msgbuf, type->subtypes[i]->subtypes[0]);
-                lily_msgbuf_add(msgbuf, "...");
+                lily_mb_add(msgbuf, "...");
             }
             else
                 add_type(msgbuf, type->subtypes[i]);
         }
         if (type->subtypes[0] == NULL)
-            lily_msgbuf_add(msgbuf, ")");
+            lily_mb_add(msgbuf, ")");
         else {
-            lily_msgbuf_add(msgbuf, " => ");
+            lily_mb_add(msgbuf, " => ");
             add_type(msgbuf, type->subtypes[0]);
-            lily_msgbuf_add(msgbuf, ")");
+            lily_mb_add(msgbuf, ")");
         }
     }
     else if (type->cls->id == SYM_CLASS_GENERIC)
-        lily_msgbuf_add_char(msgbuf, 'A' + type->generic_pos);
+        lily_mb_add_char(msgbuf, 'A' + type->generic_pos);
     else if (type->cls->generic_count != 0) {
         int i;
         int is_optarg = type->cls->id == SYM_CLASS_OPTARG;
 
         if (is_optarg == 0)
-            lily_msgbuf_add(msgbuf, "[");
+            lily_mb_add(msgbuf, "[");
 
         for (i = 0;i < type->subtype_count;i++) {
             add_type(msgbuf, type->subtypes[i]);
             if (i != (type->subtype_count - 1))
-                lily_msgbuf_add(msgbuf, ", ");
+                lily_mb_add(msgbuf, ", ");
         }
 
         if (is_optarg == 0)
-            lily_msgbuf_add(msgbuf, "]");
+            lily_mb_add(msgbuf, "]");
     }
 }
 
@@ -243,7 +262,7 @@ static void msgbuf_add_indent(lily_msgbuf *msgbuf, int indent)
 {
     int i;
     for (i = 0;i < indent;i++)
-        lily_msgbuf_add(msgbuf, "|    ");
+        lily_mb_add(msgbuf, "|    ");
 }
 
 static void msgbuf_add_errno_string(lily_msgbuf *msgbuf, int errno_val)
@@ -255,10 +274,10 @@ static void msgbuf_add_errno_string(lily_msgbuf *msgbuf, int errno_val)
 #else
     strerror_r(errno_val, buffer, sizeof(buffer));
 #endif
-    lily_msgbuf_add(msgbuf, buffer);
+    lily_mb_add(msgbuf, buffer);
 }
 
-void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
+void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
         va_list var_args)
 {
     char modifier_buf[5];
@@ -277,7 +296,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
                 break;
 
             if (i != text_start)
-                lily_msgbuf_add_text_range(msgbuf, fmt, text_start, i);
+                lily_mb_add_range(msgbuf, fmt, text_start, i);
 
             i++;
             c = fmt[i];
@@ -300,26 +319,26 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
 
             if (c == 's') {
                 char *str = va_arg(var_args, char *);
-                lily_msgbuf_add(msgbuf, str);
+                lily_mb_add(msgbuf, str);
             }
             else if (c == 'd') {
                 int d = va_arg(var_args, int);
                 if (modifier_buf[1] == '\0')
-                    lily_msgbuf_add_int(msgbuf, d);
+                    lily_mb_add_int(msgbuf, d);
                 else {
                     snprintf(buffer, 128, modifier_buf, d);
-                    lily_msgbuf_add(msgbuf, buffer);
+                    lily_mb_add(msgbuf, buffer);
                     modifier_buf[1] = '\0';
                 }
             }
             else if (c == 'c') {
                 char ch = va_arg(var_args, int);
-                lily_msgbuf_add_char(msgbuf, ch);
+                lily_mb_add_char(msgbuf, ch);
             }
             else if (c == 'p') {
                 void *p = va_arg(var_args, void *);
                 snprintf(buffer, 128, "%p", p);
-                lily_msgbuf_add(msgbuf, buffer);
+                lily_mb_add(msgbuf, buffer);
             }
 
             text_start = i+1;
@@ -328,7 +347,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
            custom ones used by the msgbuf. */
         else if (c == '^') {
             if (i != text_start)
-                lily_msgbuf_add_text_range(msgbuf, fmt, text_start, i);
+                lily_mb_add_range(msgbuf, fmt, text_start, i);
 
             i++;
             c = fmt[i];
@@ -342,7 +361,7 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             }
             else if (c == 'E') {
                 char *str = va_arg(var_args, char *);
-                lily_msgbuf_escape_add_str(msgbuf, str);
+                lily_mb_escape_add_str(msgbuf, str);
             }
             else if (c == 'R') {
                 int errno_val = va_arg(var_args, int);
@@ -354,24 +373,13 @@ void lily_msgbuf_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
     }
 
     if (i != text_start)
-        lily_msgbuf_add_text_range(msgbuf, fmt, text_start, i);
+        lily_mb_add_range(msgbuf, fmt, text_start, i);
 }
 
-void lily_msgbuf_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
+void lily_mb_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
 {
     va_list var_args;
     va_start(var_args, fmt);
-    lily_msgbuf_add_fmt_va(msgbuf, fmt, var_args);
+    lily_mb_add_fmt_va(msgbuf, fmt, var_args);
     va_end(var_args);
-}
-
-void lily_msgbuf_remove(lily_msgbuf *msgbuf, int amount)
-{
-    msgbuf->pos -= amount;
-    msgbuf->message[msgbuf->pos] = '\0';
-}
-
-void lily_msgbuf_grow(lily_msgbuf *msgbuf)
-{
-    resize_msgbuf(msgbuf, msgbuf->size * 2);
 }

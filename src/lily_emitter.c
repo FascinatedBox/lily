@@ -2134,7 +2134,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
 
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
-    lily_msgbuf_add_fmt(msgbuf,
+    lily_mb_add_fmt(msgbuf,
             "Argument #%d to %s%s%s is invalid:\n"
             "Expected Type: ^T\n"
             "Received Type: ^T",
@@ -2142,7 +2142,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
             class_name, separator, name,
             lily_ts_resolve_with(emit->ts, expected, question), got);
 
-    lily_raise(emit->raiser, lily_SyntaxError, msgbuf->message);
+    lily_raise(emit->raiser, lily_SyntaxError, lily_mb_get(msgbuf));
 }
 
 /***
