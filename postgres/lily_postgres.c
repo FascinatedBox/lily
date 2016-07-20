@@ -184,8 +184,8 @@ void lily_postgres_Conn_query(lily_vm_state *vm)
             text_start = fmt_index + 1;
             text_stop = text_start;
 
-            lily_value *arg = vararg_lv->elems[arg_pos];
-            lily_msgbuf_add(vm_buffer, arg->value.string->string);
+            const char *text = lily_list_string_raw(vararg_lv, arg_pos);
+            lily_msgbuf_add(vm_buffer, text);
             arg_pos++;
         }
         else {
