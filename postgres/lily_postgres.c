@@ -32,7 +32,7 @@ typedef struct {
     uint32_t refcount;
     uint16_t instance_id;
     uint16_t is_closed;
-    class_destroy_func destroy_func;
+    lily_destroy_func destroy_func;
     uint64_t column_count;
     uint64_t row_count;
     uint64_t current_row;
@@ -131,7 +131,7 @@ typedef struct lily_pg_conn_value_ {
     uint32_t refcount;
     uint16_t instance_id;
     uint16_t is_open;
-    class_destroy_func destroy_func;
+    lily_destroy_func destroy_func;
     PGconn *conn;
 } lily_pg_conn_value;
 
