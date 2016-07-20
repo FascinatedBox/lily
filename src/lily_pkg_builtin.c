@@ -2969,7 +2969,7 @@ const char *dynaload_table[] =
     ,"!\000Function"
 
     ,"!\001Dynamic"
-    ,"m:new\0[A](A):Dynamic"
+    ,"m:<new>\0[A](A):Dynamic"
 
     ,"!\021List"
     ,"m:clear\0[A](List[A])"
