@@ -8,7 +8,7 @@ is a lot of room for improvement.
 There is currently only one command. Example usage:
 
 ```
-// The default file will be parsed ('.lily')
+// The default file will be parsed ('.garden')
 ./garden.py install
 
 -- or --
