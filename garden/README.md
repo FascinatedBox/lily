@@ -14,14 +14,15 @@ There is currently only one command. Example usage:
 -- or --
 
 // Download directly from a provider (github only at the moment)
-./garden.py install github jesserayadkins/lily = 0.16
+./garden.py install github jesserayadkins/postgres = 0.0.1
 ```
 
 ## Install
 What garden does is create a `packages` directory (if there isn't one), and
 to checkout `jesserayadkins/lily` on github. It will attempt to cmake, then make
 it. From there, supposing you have a script in the origin directory, that
-starting script can do, say, `use lily` and have access to whatever is exported.
+starting script can do, say, `use postgres` and have access to whatever is
+exported.
 
 
 This tool is provided as a minimum effort proof-of concept, and should not be
