@@ -384,7 +384,7 @@ static void invoke_gc(lily_vm_state *vm)
     vm->gc_spare_entries = new_spare_entries;
 }
 
-void dynamic_marker(int pass, lily_value *v)
+static void dynamic_marker(int pass, lily_value *v)
 {
     lily_value *inner_value = v->value.dynamic->inner_value;
 
@@ -392,7 +392,7 @@ void dynamic_marker(int pass, lily_value *v)
         gc_mark(pass, inner_value);
 }
 
-void list_marker(int pass, lily_value *v)
+static void list_marker(int pass, lily_value *v)
 {
     lily_list_val *list_val = v->value.list;
     int i;
@@ -405,7 +405,7 @@ void list_marker(int pass, lily_value *v)
     }
 }
 
-void hash_marker(int pass, lily_value *v)
+static void hash_marker(int pass, lily_value *v)
 {
     lily_hash_val *hash_val = v->value.hash;
     lily_hash_elem *elem_iter = hash_val->elem_chain;
@@ -1083,7 +1083,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     vm->call_chain->build_value = result;
 }
 
-void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
+static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int count = code[2];
@@ -1101,7 +1101,7 @@ void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     lily_move_string(result_reg, lily_new_raw_string(vm_buffer->message));
 }
 
-void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
+static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     lily_class *cast_class = vm->class_table[code[2]];

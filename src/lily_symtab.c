@@ -39,7 +39,7 @@ void lily_set_first_package(lily_symtab *symtab, lily_package *package)
     symtab->first_package = package;
 }
 
-void free_vars(lily_symtab *symtab, lily_var *var)
+static void free_vars(lily_symtab *symtab, lily_var *var)
 {
     lily_var *var_next;
 

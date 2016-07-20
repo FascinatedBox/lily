@@ -1911,7 +1911,7 @@ void lily_string_html_encode(lily_vm_state *vm)
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
-void WRAP_NAME(lily_vm_state *vm) \
+void lily_string_##WRAP_NAME(lily_vm_state *vm) \
 { \
     lily_string_val *input = lily_arg_string(vm, 0); \
     int length = lily_string_length(input); \
@@ -1941,7 +1941,7 @@ method String.is_alnum(self: String):Boolean
 Return 'true' if 'self' has only alphanumeric([a-zA-Z0-9]+) characters, 'false'
 otherwise.
 */
-CTYPE_WRAP(lily_string_is_alnum, isalnum)
+CTYPE_WRAP(is_alnum, isalnum)
 
 /**
 method String.is_alpha(self: String):Boolean
@@ -1949,14 +1949,14 @@ method String.is_alpha(self: String):Boolean
 Return 'true' if 'self' has only alphabetical([a-zA-Z]+) characters, 'false'
 otherwise.
 */
-CTYPE_WRAP(lily_string_is_alpha, isalpha)
+CTYPE_WRAP(is_alpha, isalpha)
 
 /**
 method String.is_digit(self: String):Boolean
 
 Return 'true' if 'self' has only digit([0-9]+) characters, 'false' otherwise.
 */
-CTYPE_WRAP(lily_string_is_digit, isdigit)
+CTYPE_WRAP(is_digit, isdigit)
 
 /**
 method String.is_space(self: String):Boolean
@@ -1964,7 +1964,7 @@ method String.is_space(self: String):Boolean
 Returns 'true' if 'self' has only space(" \t\r\n") characters, 'false'
 otherwise.
 */
-CTYPE_WRAP(lily_string_is_space, isspace)
+CTYPE_WRAP(is_space, isspace)
 
 /**
 method String.lower(self: String):String

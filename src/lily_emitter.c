@@ -566,7 +566,7 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 
 /* This takes all patches that exist in the current block and makes them target
    'pos'. The patches are removed. */
-void write_block_patches(lily_emit_state *emit, int pos)
+static void write_block_patches(lily_emit_state *emit, int pos)
 {
     int from = emit->patches->pos - 1;
     int to = emit->block->patch_start;
@@ -2542,7 +2542,7 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs;
 }
 
-void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
+static void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sym *sym = ast->sym;
 
@@ -3008,7 +3008,7 @@ static void emit_boolean(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-void eval_self(lily_emit_state *emit, lily_ast *ast)
+static void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
     ast->result = (lily_sym *)emit->block->self;
 }
