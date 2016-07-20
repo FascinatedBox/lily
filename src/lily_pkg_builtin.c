@@ -826,7 +826,7 @@ void lily_hash_map_values(lily_vm_state *vm)
 
             lily_vm_exec_prepared_call(vm, 1);
 
-            lily_push_value(vm, lily_result_get(vm));
+            lily_push_value(vm, lily_result_value(vm));
             elem_iter = elem_iter->next;
             count++;
         }
@@ -904,7 +904,7 @@ static void hash_select_reject_common(lily_vm_state *vm, int expect)
             lily_push_value(vm, e_value);
 
             lily_vm_exec_prepared_call(vm, 2);
-            if (lily_result_get_boolean(vm) != expect) {
+            if (lily_result_boolean(vm) != expect) {
                 lily_drop_value(vm);
                 lily_drop_value(vm);
             }
@@ -1043,7 +1043,7 @@ void lily_list_count(lily_vm_state *vm)
         lily_push_value(vm, list_val->elems[i]);
         lily_vm_exec_prepared_call(vm, 1);
 
-        if (lily_result_get_boolean(vm) == 1)
+        if (lily_result_boolean(vm) == 1)
             count++;
     }
 
@@ -1207,7 +1207,7 @@ void lily_list_fold(lily_vm_state *vm)
         while (1) {
             lily_push_value(vm, list_val->elems[i]);
             lily_vm_exec_prepared_call(vm, 2);
-            v = lily_result_get(vm);
+            v = lily_result_value(vm);
 
             if (i == list_val->num_values - 1)
                 break;
@@ -1300,7 +1300,7 @@ void lily_list_map(lily_vm_state *vm)
         lily_value *e = list_val->elems[i];
         lily_push_value(vm, e);
         lily_vm_exec_prepared_call(vm, 1);
-        lily_push_value(vm, lily_result_get(vm));
+        lily_push_value(vm, lily_result_value(vm));
     }
 
     lily_list_val *result_list = lily_new_list_val_n(i);
@@ -1375,7 +1375,7 @@ static void list_select_reject_common(lily_vm_state *vm, int expect)
         lily_push_value(vm, list_val->elems[i]);
         lily_vm_exec_prepared_call(vm, 1);
 
-        int ok = lily_result_get_boolean(vm) == expect;
+        int ok = lily_result_boolean(vm) == expect;
 
         if (ok) {
             lily_push_value(vm, list_val->elems[i]);
@@ -1534,7 +1534,7 @@ void lily_option_and_then(lily_vm_state *vm)
 
         lily_vm_exec_prepared_call(vm, 1);
 
-        lily_return_value(vm, lily_result_get(vm));
+        lily_return_value(vm, lily_result_value(vm));
     }
     else
         lily_return_filled_variant(vm, optval);
@@ -1589,7 +1589,7 @@ void lily_option_map(lily_vm_state *vm)
         lily_vm_exec_prepared_call(vm, 1);
 
         lily_instance_val *variant = lily_new_some();
-        lily_variant_set_value(variant, 0, lily_result_get(vm));
+        lily_variant_set_value(variant, 0, lily_result_value(vm));
         lily_return_filled_variant(vm, variant);
     }
     else
@@ -1692,7 +1692,7 @@ void lily_option_unwrap_or_else(lily_vm_state *vm)
     else {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
         lily_vm_exec_prepared_call(vm, 0);
-        lily_return_value(vm, lily_result_get(vm));
+        lily_return_value(vm, lily_result_value(vm));
     }
 }
 
