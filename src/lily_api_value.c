@@ -68,88 +68,42 @@ void lily_result_return(lily_vm_state *vm)
     vm->num_registers--;
 }
 
-/* Argument handling functions. */
+/* Getter operations. */
+
+#define DEFINE_GETTERS(name, action, ...) \
+int lily_##name##_boolean(__VA_ARGS__) \
+{ return source->action->value.integer; } \
+double lily_##name##_double(__VA_ARGS__) \
+{ return source->action->value.doubleval; } \
+lily_file_val *lily_##name##_file(__VA_ARGS__) \
+{ return source->action->value.file; } \
+FILE *lily_##name##_file_raw(__VA_ARGS__) \
+{ return source->action->value.file->inner_file; } \
+lily_function_val *lily_##name##_function(__VA_ARGS__) \
+{ return source->action->value.function; } \
+lily_hash_val *lily_##name##_hash(__VA_ARGS__) \
+{ return source->action->value.hash; } \
+lily_generic_val *lily_##name##_generic(__VA_ARGS__) \
+{ return source->action->value.generic; } \
+lily_instance_val *lily_##name##_instance(__VA_ARGS__) \
+{ return source->action->value.instance; } \
+int64_t lily_##name##_integer(__VA_ARGS__) \
+{ return source->action->value.integer; } \
+lily_list_val *lily_##name##_list(__VA_ARGS__) \
+{ return source->action->value.list; } \
+lily_string_val *lily_##name##_string(__VA_ARGS__) \
+{ return source->action->value.string; } \
+char *lily_##name##_string_raw(__VA_ARGS__) \
+{ return source->action->value.string->string; } \
+lily_value *lily_##name##_value(__VA_ARGS__) \
+{ return source->action; }
+
+DEFINE_GETTERS(arg, vm_regs[index], lily_vm_state *source, int index)
+DEFINE_GETTERS(result, call_chain->return_target, lily_vm_state *source)
 
 int lily_arg_count(lily_vm_state *vm)
 {
     return vm->call_chain->regs_used;
-}
-
-int lily_arg_boolean(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.integer;
-}
-
-double lily_arg_double(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.doubleval;
-}
-
-lily_file_val *lily_arg_file(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.file;
-}
-
-FILE *lily_arg_file_raw(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.file->inner_file;
-}
-
-lily_function_val *lily_arg_function(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.function;
-}
-
-lily_hash_val *lily_arg_hash(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.hash;
-}
-
-lily_generic_val *lily_arg_generic(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.generic;
-}
-
-lily_instance_val *lily_arg_instance(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.instance;
-}
-
-int64_t lily_arg_integer(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.integer;
-}
-
-lily_list_val *lily_arg_list(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.list;
-}
-
-lily_string_val *lily_arg_string(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.string;
-}
-
-char *lily_arg_string_raw(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index]->value.string->string;
-}
-
-lily_value *lily_arg_value(lily_vm_state *vm, int index)
-{
-    return vm->vm_regs[index];
-}
-
-/* Result operations */
-
-lily_value *lily_result_get(lily_vm_state *vm)
-{
-    return vm->call_chain->return_target;
-}
-
-int lily_result_get_boolean(lily_vm_state *vm)
-{
-    return vm->call_chain->return_target->value.integer;
 }
 
 /* Stack operations

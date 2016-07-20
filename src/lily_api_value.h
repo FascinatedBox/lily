@@ -74,6 +74,7 @@ lily_hash_val *lily_new_hash_val(void);
 
 /* List operations */
 lily_list_val *lily_new_list_val_n(int);
+lily_value *lily_list_get(lily_list_val *, int);
 DECLARE_SETTERS(list_set, lily_list_val *, int)
 int lily_list_num_values(lily_list_val *);
 
@@ -107,26 +108,27 @@ void lily_return_value_noref(lily_vm_state *, lily_value *);
 void lily_vm_prepare_call(lily_vm_state *, lily_function_val *);
 void lily_vm_exec_prepared_call(lily_vm_state *, int);
 
-int                lily_arg_count(lily_vm_state *);
+int lily_arg_count(lily_vm_state *);
+void lily_result_return(lily_vm_state *);
 
-int                lily_arg_boolean(lily_vm_state *, int);
-double             lily_arg_double(lily_vm_state *, int);
-lily_file_val *    lily_arg_file(lily_vm_state *, int);
-FILE *             lily_arg_file_raw(lily_vm_state *, int);
-lily_function_val *lily_arg_function(lily_vm_state *, int);
-lily_hash_val *    lily_arg_hash(lily_vm_state *, int);
-lily_generic_val * lily_arg_generic(lily_vm_state *, int);
-lily_instance_val *lily_arg_instance(lily_vm_state *, int);
-int64_t            lily_arg_integer(lily_vm_state *, int);
-lily_list_val *    lily_arg_list(lily_vm_state *, int);
-lily_string_val *  lily_arg_string(lily_vm_state *, int);
-char *             lily_arg_string_raw(lily_vm_state *, int);
-lily_value *       lily_arg_value(lily_vm_state *, int);
+#define DECLARE_GETTERS(name, ...) \
+int                lily_##name##_boolean(__VA_ARGS__); \
+double             lily_##name##_double(__VA_ARGS__); \
+lily_file_val *    lily_##name##_file(__VA_ARGS__); \
+FILE *             lily_##name##_file_raw(__VA_ARGS__); \
+lily_function_val *lily_##name##_function(__VA_ARGS__); \
+lily_hash_val *    lily_##name##_hash(__VA_ARGS__); \
+lily_generic_val * lily_##name##_generic(__VA_ARGS__); \
+lily_instance_val *lily_##name##_instance(__VA_ARGS__); \
+int64_t            lily_##name##_integer(__VA_ARGS__); \
+lily_list_val *    lily_##name##_list(__VA_ARGS__); \
+lily_string_val *  lily_##name##_string(__VA_ARGS__); \
+char *             lily_##name##_string_raw(__VA_ARGS__); \
+lily_value *       lily_##name##_value(__VA_ARGS__);
 
 /* Result operations */
-void lily_result_return(lily_vm_state *);
-lily_value *lily_result_get(lily_vm_state *);
-int lily_result_get_boolean(lily_vm_state *);
+DECLARE_GETTERS(arg, lily_vm_state *, int)
+DECLARE_GETTERS(result, lily_vm_state *)
 
 /* General operations. Special care should be taken with these. */
 
