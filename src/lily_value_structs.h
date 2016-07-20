@@ -12,7 +12,7 @@ typedef void (*lily_foreign_func)(struct lily_vm_state_ *);
 /* This function is called when a value tagged as refcounted drops to 0 refs.
    This handles a value of a given class (regardless of type) and frees what is
    inside. */
-typedef void (*class_destroy_func)(struct lily_value_ *);
+typedef void (*lily_destroy_func)(struct lily_value_ *);
 
 /* lily_raw_value is a union of all possible values, plus a bit more. This is
    not common, because lily_value (which has flags and a type) is typically
@@ -212,7 +212,7 @@ typedef struct lily_generic_val_ {
 typedef struct lily_foreign_val_ {
     uint32_t refcount;
     uint32_t pad;
-    class_destroy_func destroy_func;
+    lily_destroy_func destroy_func;
 } lily_foreign_val;
 
 /* Every value that has a gc entry is a superset of this. */
