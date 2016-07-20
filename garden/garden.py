@@ -34,11 +34,12 @@ def lily_github(repo, operator="=", version="-1"):
     match the version in the Github release'''
     print("Fetching Repository: " + repo + " - Version " + version)
     cwd = os.getcwd()
+    repo_dir = "packages/" + repo.split("/")[1]
 
     repo_name = "git://github.com/{0}".format(repo)
-    command = ["git", "clone", "--depth", "1", repo_name]
+    command = ["git", "clone", "--depth", "1", repo_name, repo_dir]
     subprocess.call(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    os.chdir(repo.split("/")[1])
+    os.chdir(repo_dir)
 
     if os.path.isfile("CMakeLists.txt"):
         subprocess.call(["cmake", "."], stdout=subprocess.PIPE)
