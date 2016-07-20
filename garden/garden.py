@@ -13,7 +13,7 @@ Options:
   -h --help                 Show this screen.
   --version                 Show version.
   --file=<filename>         The file to use for installing libraries
-                            (relative path) [default: .lily]
+                            (relative path) [default: .garden]
   --absfile=<abs_filename>  The file to use for installing libraries (absolute)
   --recursive               Download dependencies of installed libraries
 """
@@ -25,20 +25,7 @@ import re
 import argparse
 from docopt import docopt
 
-
-def strip_outer_quotes(str_):
-    '''Removes both single and double quotes from a given string'''
-    return str_.strip('\'"')
-
-
-def lily_author(author_name):
-    '''Manages the author of a Lily file'''
-    print("Library Author: " + author_name)
-
-
-def lily_desc(desc):
-    '''Manages the description of a Lily file'''
-    print("Library Description: " + desc)
+fields = ["Author", "Description"]
 
 
 def lily_github(repo, operator="=", version="-1"):
@@ -59,46 +46,51 @@ def lily_github(repo, operator="=", version="-1"):
 
     os.chdir(cwd)
     # @TODO Versioning
-    # @TODO Recursively parse any .lily file that the downloaded repository has
+    # @TODO Recursively parse .garden files from the repository.
 
 
-def generate_function_call(line):
+def parse_field_line(config, line):
     '''Generates a function call from the given line of text. The line
     is matched against a regular expression that looks for text
     separated by spaces'''
-    if line.startswith("#"):
-        return
-    if not line.strip():
-        return
-    args = re.findall("('.*?'|\".*?\"|\S+)", line)
+    global fields
+    line = line.strip()
 
-    functionCall = "lily_{0}(".format(args[0])
-    for idx, arg in enumerate(args[1:]):
-        arg = strip_outer_quotes(arg)
-        functionCall += "\"{0}\",".format(arg)
+    if not line or line.startswith("#"):
+        return
 
-    return functionCall[:-1] + ")"
+    args = re.match("\s*(\w+)\s*:\s*(.+)", line)
+    field_name = args.group(1)
+    if field_name not in fields:
+        if field_name.title() in fields:
+            print("%s must be titlecased." % field_name)
+        else:
+            print("%s is not a valid field." % field_name)
+
+        return
+
+    config[field_name] = args.group(2)
 
 
 def lily_parse_file(lily_file_path):
-    '''Parses a given `.lily` file. Documentation for this file can be
+    '''Parses a given `.garden` file. Documentation for this file can be
     found at @TODO'''
     os.chdir("packages")
+    config = {}
+
     if os.path.isfile(lily_file_path):
         lines = lily_read_file(lily_file_path)
-        lst = map(generate_function_call, lines)
-        lily_eval_literal_list(lst)
+        for l in lines:
+            parse_field_line(config, l)
+
+        for (key, value) in config.items():
+            print("Package %s: %s" % (key, value))
 
 
 def lily_read_file(lily_file_path):
-    '''Reads lines from a given `.lily` file and splits it'''
+    '''Reads lines from a given `.garden` file and splits it'''
     with open(lily_file_path, 'r') as f:
         return f.read().splitlines()
-
-
-def lily_eval_literal_list(lst):
-    '''Evaluates each string literal in a list'''
-    [eval(el) for el in lst if el]
 
 
 def perform_install(args):
