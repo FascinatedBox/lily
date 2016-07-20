@@ -128,14 +128,17 @@ typedef struct lily_hash_val_ {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* Either an instance or an enum. The instance_id tells the id of it either way.
-   This may or may not have a gc_entry set for it. */
+/* Either an instance or an enum. For enums, instance_id is the id of the
+   variant.
+   This structure has extra padding so that it lines up with lists (and thus
+   with tuples). This may be changed in the future, but it won't mater to the
+   API. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
     uint16_t instance_id;
-    uint16_t variant_id;
+    uint16_t pad1;
     uint32_t num_values;
-    uint32_t pad;
+    uint32_t pad2;
     struct lily_value_ **values;
     struct lily_gc_entry_ *gc_entry;
 } lily_instance_val;

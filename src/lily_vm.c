@@ -965,21 +965,19 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
-    int instance_id = code[2];
-    int variant_id = code[3];
-    int count = code[4];
-    lily_value *result = vm_regs[code[code[4] + 5]];
+    int variant_id = code[2];
+    int count = code[3];
+    lily_value *result = vm_regs[code[code[3] + 4]];
 
-    lily_instance_val *ival = lily_new_instance_val_n_of(count, instance_id);
+    lily_instance_val *ival = lily_new_instance_val_n_of(count, variant_id);
     lily_value **slots = ival->values;
-    ival->variant_id = variant_id;
 
     lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result, ival);
 
     int i;
     for (i = 0;i < count;i++) {
-        lily_value *rhs_reg = vm_regs[code[5+i]];
-        slots[i] = lily_copy_value(rhs_reg);
+        lily_value *rhs_reg = vm_regs[code[4+i]];
+        lily_assign_value(slots[i], rhs_reg);
     }
 }
 
@@ -1628,18 +1626,28 @@ static void add_value_to_msgbuf(lily_vm_state *, lily_msgbuf *, tag *,
 static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
         lily_value *v, const char *prefix, const char *suffix)
 {
-    lily_list_val *lv = v->value.list;
+    int count, i;
+    lily_value **values;
+
+    if (v->flags & (VAL_IS_LIST | VAL_IS_TUPLE)) {
+        values = v->value.list->elems;
+        count = v->value.list->num_values;
+    }
+    else {
+        values = v->value.instance->values;
+        count = v->value.instance->num_values;
+    }
+
     lily_msgbuf_add(msgbuf, prefix);
 
     /* This is necessary because num_values is unsigned. */
-    if (lv->num_values != 0) {
-        int i;
-        for (i = 0;i < lv->num_values - 1;i++) {
-            add_value_to_msgbuf(vm, msgbuf, t, lv->elems[i]);
+    if (count != 0) {
+        for (i = 0;i < count - 1;i++) {
+            add_value_to_msgbuf(vm, msgbuf, t, values[i]);
             lily_msgbuf_add(msgbuf, ", ");
         }
-        if (i != lv->num_values)
-            add_value_to_msgbuf(vm, msgbuf, t, lv->elems[i]);
+        if (i != count)
+            add_value_to_msgbuf(vm, msgbuf, t, values[i]);
     }
 
     lily_msgbuf_add(msgbuf, suffix);
@@ -1720,17 +1728,17 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_msgbuf_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
     else if (v->flags & VAL_IS_ENUM) {
-        lily_class *enum_cls = vm->class_table[v->value.instance->instance_id];
-        int id = v->value.instance->variant_id;
+        lily_instance_val *variant = v->value.instance;
+        lily_class *variant_cls = vm->class_table[variant->instance_id];
 
         /* For scoped variants, render them how they're written. */
-        if (enum_cls->flags & CLS_ENUM_IS_SCOPED) {
-            lily_msgbuf_add(msgbuf, enum_cls->name);
+        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+            lily_msgbuf_add(msgbuf, variant_cls->parent->name);
             lily_msgbuf_add_char(msgbuf, '.');
         }
 
-        lily_msgbuf_add(msgbuf, enum_cls->variant_members[id]->name);
-        if (v->value.instance->num_values)
+        lily_msgbuf_add(msgbuf, variant_cls->name);
+        if (variant->num_values)
             add_list_like(vm, msgbuf, t, v, "(", ")");
     }
     else {
@@ -2311,7 +2319,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_build_enum:
                 do_o_build_enum(vm, code);
-                code += code[4] + 6;
+                code += code[3] + 5;
                 break;
             case o_dynamic_cast:
                 do_o_dynamic_cast(vm, code);
@@ -2407,12 +2415,14 @@ void lily_vm_execute(lily_vm_state *vm)
             {
                 /* This opcode is easy because emitter ensures that the match is
                    exhaustive. It also writes down the jumps in order (even if
-                   they came out of order). This becomes a simple matter of
-                   going to the jump that's 'variant_id' slots in. */
+                   they came out of order). What this does is take the class id
+                   of the variant, and drop it so that the first variant is 0,
+                   the second is 1, etc. */
                 lhs_reg = vm_regs[code[2]];
-                int variant_id = lhs_reg->value.instance->variant_id;
+                /* code[3] is the base enum id + 1. */
+                i = lhs_reg->value.instance->instance_id - code[3];
 
-                code = current_frame->function->code + code[4 + variant_id];
+                code = current_frame->function->code + code[5 + i];
                 break;
             }
             case o_variant_decompose:

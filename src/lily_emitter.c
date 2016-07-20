@@ -1650,12 +1650,14 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     lily_block *block = emit->block;
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
 
-    if ((ast->result->type->cls->flags & CLS_IS_ENUM) == 0) {
+    lily_class *match_class = ast->result->type->cls;
+
+    if ((match_class->flags & CLS_IS_ENUM) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Match expression is not an enum value.");
     }
 
-    int match_cases_needed = ast->result->type->cls->variant_size;
+    int match_cases_needed = match_class->variant_size;
     if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
         grow_match_cases(emit);
 
@@ -1668,12 +1670,16 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
     emit->match_case_pos += match_cases_needed;
 
-    block->match_code_start = lily_u16_pos(emit->code) + 4;
+    block->match_code_start = lily_u16_pos(emit->code) + 5;
 
-    lily_u16_write_prep(emit->code, 4 + match_cases_needed);
+    lily_u16_write_prep(emit->code, 5 + match_cases_needed);
 
-    lily_u16_write_4(emit->code, o_match_dispatch, *emit->lex_linenum,
-            ast->result->reg_spot, match_cases_needed);
+    /* o_match_dispatch needs the enum id + 1 because the enum gets a unique
+       id as well as the variants. Adding 1 to the id allows the vm to use
+       'variant id - x' instead of 'variant id - 1 - x' to find the spot to jump
+       to. */
+    lily_u16_write_5(emit->code, o_match_dispatch, *emit->lex_linenum,
+            ast->result->reg_spot, match_class->id + 1, match_cases_needed);
 
     for (i = 0;i < match_cases_needed;i++)
         lily_u16_write_1(emit->code, 0);
@@ -3330,8 +3336,8 @@ static void write_varargs(lily_emit_state *emit, lily_emit_call_state *cs,
 static void write_build_enum(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_variant_class *variant_cls)
 {
-    lily_u16_write_5(emit->code, o_build_enum, cs->ast->line_num,
-            variant_cls->parent->id, variant_cls->variant_id, cs->arg_count);
+    lily_u16_write_4(emit->code, o_build_enum, cs->ast->line_num,
+            variant_cls->cls_id, cs->arg_count);
     write_call_values(emit, cs, 0);
 }
 

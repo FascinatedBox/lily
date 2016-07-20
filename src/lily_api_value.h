@@ -85,13 +85,6 @@ char *lily_string_get_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);
 
 /* Enum operations */
-/* Hardcoded ids here are temporary, and will be removed later. */
-#define SOME_VARIANT_ID 0
-#define NONE_VARIANT_ID 1
-
-#define RIGHT_VARIANT_ID 0
-#define LEFT_VARIANT_ID  1
-
 lily_instance_val *lily_new_left(void);
 lily_instance_val *lily_new_right(void);
 lily_instance_val *lily_new_some(void);
