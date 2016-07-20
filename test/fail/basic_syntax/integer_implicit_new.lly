@@ -1,6 +1,0 @@
-#[
-SyntaxError: Cannot implicitly use Integer.new (it doesn't exist).
-    from integer_implicit_new.lly:6
-]#
-
-var v = Integer(10)
