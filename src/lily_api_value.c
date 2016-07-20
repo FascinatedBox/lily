@@ -36,10 +36,43 @@ void lily_##name##_tuple(__VA_ARGS__, lily_list_val * v) \
 void lily_##name##_value(__VA_ARGS__, lily_value * v) \
 { lily_assign_value(source->action, v); } \
 
-DEFINE_SETTERS(list_set, elems[i], lily_list_val *source, int i)
-DEFINE_SETTERS(instance_set, values[i], lily_instance_val *source, int i)
-DEFINE_SETTERS(variant_set, values[i], lily_instance_val *source, int i)
-DEFINE_SETTERS(dynamic_set, inner_value, lily_dynamic_val *source)
+#define DEFINE_GETTERS(name, action, ...) \
+int lily_##name##_boolean(__VA_ARGS__) \
+{ return source->action->value.integer; } \
+double lily_##name##_double(__VA_ARGS__) \
+{ return source->action->value.doubleval; } \
+lily_file_val *lily_##name##_file(__VA_ARGS__) \
+{ return source->action->value.file; } \
+FILE *lily_##name##_file_raw(__VA_ARGS__) \
+{ return source->action->value.file->inner_file; } \
+lily_function_val *lily_##name##_function(__VA_ARGS__) \
+{ return source->action->value.function; } \
+lily_hash_val *lily_##name##_hash(__VA_ARGS__) \
+{ return source->action->value.hash; } \
+lily_generic_val *lily_##name##_generic(__VA_ARGS__) \
+{ return source->action->value.generic; } \
+lily_instance_val *lily_##name##_instance(__VA_ARGS__) \
+{ return source->action->value.instance; } \
+int64_t lily_##name##_integer(__VA_ARGS__) \
+{ return source->action->value.integer; } \
+lily_list_val *lily_##name##_list(__VA_ARGS__) \
+{ return source->action->value.list; } \
+lily_string_val *lily_##name##_string(__VA_ARGS__) \
+{ return source->action->value.string; } \
+char *lily_##name##_string_raw(__VA_ARGS__) \
+{ return source->action->value.string->string; } \
+lily_value *lily_##name##_value(__VA_ARGS__) \
+{ return source->action; }
+
+#define DEFINE_BOTH(name, action, ...) \
+DEFINE_SETTERS(name##_set, action, __VA_ARGS__) \
+DEFINE_GETTERS(name, action, __VA_ARGS__)
+
+DEFINE_BOTH(instance, values[i], lily_instance_val *source, int i)
+DEFINE_BOTH(dynamic, inner_value, lily_dynamic_val *source)
+DEFINE_BOTH(list, elems[i], lily_list_val *source, int i)
+DEFINE_BOTH(variant, values[i], lily_instance_val *source, int i)
+
 DEFINE_SETTERS(return, call_chain->prev->return_target, lily_vm_state *source)
 
 lily_value *lily_instance_get(lily_instance_val *source, int i)
@@ -68,35 +101,7 @@ void lily_result_return(lily_vm_state *vm)
     vm->num_registers--;
 }
 
-/* Getter operations. */
-
-#define DEFINE_GETTERS(name, action, ...) \
-int lily_##name##_boolean(__VA_ARGS__) \
-{ return source->action->value.integer; } \
-double lily_##name##_double(__VA_ARGS__) \
-{ return source->action->value.doubleval; } \
-lily_file_val *lily_##name##_file(__VA_ARGS__) \
-{ return source->action->value.file; } \
-FILE *lily_##name##_file_raw(__VA_ARGS__) \
-{ return source->action->value.file->inner_file; } \
-lily_function_val *lily_##name##_function(__VA_ARGS__) \
-{ return source->action->value.function; } \
-lily_hash_val *lily_##name##_hash(__VA_ARGS__) \
-{ return source->action->value.hash; } \
-lily_generic_val *lily_##name##_generic(__VA_ARGS__) \
-{ return source->action->value.generic; } \
-lily_instance_val *lily_##name##_instance(__VA_ARGS__) \
-{ return source->action->value.instance; } \
-int64_t lily_##name##_integer(__VA_ARGS__) \
-{ return source->action->value.integer; } \
-lily_list_val *lily_##name##_list(__VA_ARGS__) \
-{ return source->action->value.list; } \
-lily_string_val *lily_##name##_string(__VA_ARGS__) \
-{ return source->action->value.string; } \
-char *lily_##name##_string_raw(__VA_ARGS__) \
-{ return source->action->value.string->string; } \
-lily_value *lily_##name##_value(__VA_ARGS__) \
-{ return source->action; }
+/* Argument and result operations */
 
 DEFINE_GETTERS(arg, vm_regs[index], lily_vm_state *source, int index)
 DEFINE_GETTERS(result, call_chain->return_target, lily_vm_state *source)

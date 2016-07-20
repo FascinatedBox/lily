@@ -50,6 +50,25 @@ void lily_##name##_string(__VA_ARGS__, lily_string_val *); \
 void lily_##name##_tuple(__VA_ARGS__, lily_list_val *); \
 void lily_##name##_value(__VA_ARGS__, lily_value *); \
 
+#define DECLARE_GETTERS(name, ...) \
+int                lily_##name##_boolean(__VA_ARGS__); \
+double             lily_##name##_double(__VA_ARGS__); \
+lily_file_val *    lily_##name##_file(__VA_ARGS__); \
+FILE *             lily_##name##_file_raw(__VA_ARGS__); \
+lily_function_val *lily_##name##_function(__VA_ARGS__); \
+lily_hash_val *    lily_##name##_hash(__VA_ARGS__); \
+lily_generic_val * lily_##name##_generic(__VA_ARGS__); \
+lily_instance_val *lily_##name##_instance(__VA_ARGS__); \
+int64_t            lily_##name##_integer(__VA_ARGS__); \
+lily_list_val *    lily_##name##_list(__VA_ARGS__); \
+lily_string_val *  lily_##name##_string(__VA_ARGS__); \
+char *             lily_##name##_string_raw(__VA_ARGS__); \
+lily_value *       lily_##name##_value(__VA_ARGS__);
+
+#define DECLARE_BOTH(name, ...) \
+DECLARE_SETTERS(name##_set, __VA_ARGS__) \
+DECLARE_GETTERS(name, __VA_ARGS__)
+
 /* Operations for specific kinds of values. */
 lily_value *lily_new_empty_value(void); /* Try to not use this. */
 
@@ -59,23 +78,21 @@ int lily_bytestring_length(lily_string_val *);
 
 /* Dynamic operations */
 lily_dynamic_val *lily_new_dynamic_val(void);
-void lily_dynamic_set_value(lily_dynamic_val *, lily_value *);
+DECLARE_BOTH(dynamic, lily_dynamic_val *)
 
 /* File operations */
 lily_file_val *lily_new_file_val(FILE *, const char *);
 
 /* Instance operations */
 lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
-lily_value *lily_instance_get(lily_instance_val *, int);
-DECLARE_SETTERS(instance_set, lily_instance_val *, int)
+DECLARE_BOTH(instance, lily_instance_val *, int);
 
 /* Hash operations (still a work-in-progress) */
 lily_hash_val *lily_new_hash_val(void);
 
 /* List operations */
 lily_list_val *lily_new_list_val_n(int);
-lily_value *lily_list_get(lily_list_val *, int);
-DECLARE_SETTERS(list_set, lily_list_val *, int)
+DECLARE_BOTH(list, lily_list_val *, int)
 int lily_list_num_values(lily_list_val *);
 
 /* String operations */
@@ -92,7 +109,7 @@ lily_instance_val *lily_new_right(void);
 lily_instance_val *lily_new_some(void);
 lily_instance_val *lily_get_none(lily_vm_state *);
 
-DECLARE_SETTERS(variant_set, lily_instance_val *, int)
+DECLARE_BOTH(variant, lily_instance_val *, int)
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
@@ -110,21 +127,6 @@ void lily_vm_exec_prepared_call(lily_vm_state *, int);
 
 int lily_arg_count(lily_vm_state *);
 void lily_result_return(lily_vm_state *);
-
-#define DECLARE_GETTERS(name, ...) \
-int                lily_##name##_boolean(__VA_ARGS__); \
-double             lily_##name##_double(__VA_ARGS__); \
-lily_file_val *    lily_##name##_file(__VA_ARGS__); \
-FILE *             lily_##name##_file_raw(__VA_ARGS__); \
-lily_function_val *lily_##name##_function(__VA_ARGS__); \
-lily_hash_val *    lily_##name##_hash(__VA_ARGS__); \
-lily_generic_val * lily_##name##_generic(__VA_ARGS__); \
-lily_instance_val *lily_##name##_instance(__VA_ARGS__); \
-int64_t            lily_##name##_integer(__VA_ARGS__); \
-lily_list_val *    lily_##name##_list(__VA_ARGS__); \
-lily_string_val *  lily_##name##_string(__VA_ARGS__); \
-char *             lily_##name##_string_raw(__VA_ARGS__); \
-lily_value *       lily_##name##_value(__VA_ARGS__);
 
 /* Result operations */
 DECLARE_GETTERS(arg, lily_vm_state *, int)
