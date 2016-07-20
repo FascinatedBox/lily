@@ -38,9 +38,13 @@ LILY_FOREIGN_HEADER_NOPAD(header_pad)
    container holding the foreign value, or the foreign value's refcount falling
    to zero.
 
+   The generic value provided is a raw pointer to the foreign struct that was
+   provided to Lily earlier. The destroy function is responsible for destroying
+   the content of the value, as well as the value itself.
+
    Destruction of values in Lily is designed to be atomic. A proper destroy
    function should not have any side-effects. */
-typedef void (*lily_destroy_func)(lily_value *);
+typedef void (*lily_destroy_func)(lily_generic_val *);
 
 #define lily_isa_boolean(v)    (v & VAL_IS_BOOLEAN)
 #define lily_isa_bytestring(v) (v & VAL_IS_BYTESTRING)
