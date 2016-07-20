@@ -155,28 +155,23 @@ On failure, the result is a `Left` containing a `String` describing the error.
 */
 void lily_postgres_Conn_query(lily_vm_state *vm)
 {
-    char *fmt;
-    int arg_pos, fmt_index;
-    lily_list_val *vararg_lv;
+    lily_pg_conn_value *conn_value =
+            (lily_pg_conn_value *)lily_arg_generic(vm, 0);
+    char *fmt = lily_arg_string_raw(vm, 1);
+    lily_list_val *vararg_lv = lily_arg_list(vm, 2);
+
+    int arg_pos = 0, fmt_index = 0, text_start = 0, text_stop = 0;
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     uint16_t *cid_table = GET_CID_TABLE;
 
     lily_msgbuf_flush(vm_buffer);
-
-    lily_pg_conn_value *conn_value =
-            (lily_pg_conn_value *)lily_arg_generic(vm, 0);
-    fmt = lily_arg_string_raw(vm, 1);
-    vararg_lv = lily_arg_list(vm, 2);
-    arg_pos = 0;
-    fmt_index = 0;
-    int text_start = 0;
-    int text_stop = 0;
+    int num_values = lily_list_num_values(vararg_lv);
 
     while (1) {
         char ch = fmt[fmt_index];
 
         if (ch == '?') {
-            if (arg_pos == vararg_lv->num_values) {
+            if (arg_pos == num_values) {
                 lily_instance_val *variant = lily_new_left();
                 lily_string_val *sv = lily_new_raw_string(
                         "Not enough arguments for format.\n");

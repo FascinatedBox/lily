@@ -75,6 +75,7 @@ lily_hash_val *lily_new_hash_val(void);
 /* List operations */
 lily_list_val *lily_new_list_val_n(int);
 DECLARE_SETTERS(list_set, lily_list_val *, int)
+int lily_list_num_values(lily_list_val *);
 
 /* String operations */
 lily_value *lily_new_string(const char *);
