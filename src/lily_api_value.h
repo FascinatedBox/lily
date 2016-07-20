@@ -20,6 +20,28 @@ typedef struct lily_list_val_       lily_list_val;
 typedef struct lily_string_val_     lily_string_val;
 typedef struct lily_value_          lily_value;
 
+/* Use this if you have a structure you want to be a foreign value, and you also
+   want to use that 16 bits of space for a field. */
+#define LILY_FOREIGN_HEADER_WITH_EXTRA(x) \
+uint32_t refcount; \
+uint16_t instance_id; \
+uint16_t x; \
+lily_destroy_func destroy_func;
+
+/* Use this if you have a structure you want to be a foreign value, but you
+   don't have a use for the extra space in the field. */
+#define LILY_FOREIGN_HEADER_PADDED \
+LILY_FOREIGN_HEADER_NOPAD(header_pad)
+
+/* This function is called when Lily wishes to destroy the value that has been
+   provided. This action may have been triggered by the gc destroying a
+   container holding the foreign value, or the foreign value's refcount falling
+   to zero.
+
+   Destruction of values in Lily is designed to be atomic. A proper destroy
+   function should not have any side-effects. */
+typedef void (*lily_destroy_func)(lily_value *);
+
 #define lily_isa_boolean(v)    (v & VAL_IS_BOOLEAN)
 #define lily_isa_bytestring(v) (v & VAL_IS_BYTESTRING)
 #define lily_isa_double(v)     (v & VAL_IS_DOUBLE)
