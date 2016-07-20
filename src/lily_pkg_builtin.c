@@ -1605,16 +1605,12 @@ Otherwise, this returns 'alternate'.
 */
 void lily_option_or(lily_vm_state *vm)
 {
-    lily_value *opt_reg = lily_arg_value(vm, 0);
-    lily_value *or_reg = lily_arg_value(vm, 1);
-    lily_value *source;
+    lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (opt_reg->value.instance->variant_id == SOME_VARIANT_ID)
-        source = opt_reg;
+    if (optval->variant_id == SOME_VARIANT_ID)
+        lily_return_filled_variant(vm, optval);
     else
-        source = or_reg;
-
-    lily_return_value(vm, source);
+        lily_return_value(vm, lily_arg_value(vm, 1));
 }
 
 /**
