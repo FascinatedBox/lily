@@ -81,6 +81,7 @@ else if (lhs_reg->flags & VAL_IS_STRING) { \
            rhs_reg->value.string->string) STRINGOP; \
 } \
 else { \
+    vm->pending_line = code[1]; \
     vm_regs[code[4]]->value.integer = \
     lily_eq_value(vm, lhs_reg, rhs_reg) OP 1; \
 } \
@@ -174,6 +175,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->class_table = NULL;
     vm->stdout_reg = NULL;
     vm->exception_value = NULL;
+    vm->pending_line = 0;
 
     add_call_frame(vm);
 
@@ -712,9 +714,9 @@ void lily_vm_raise_fmt(lily_vm_state *vm, uint8_t id, const char *fmt, ...)
 }
 
 /* Raise KeyError with 'key' as the value of the message. */
-static void key_error(lily_vm_state *vm, lily_value *key)
+static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 {
-    vm->call_chain->line_num = vm->call_chain->code[1];
+    vm->pending_line = line_num;
 
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
@@ -909,7 +911,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
 
         /* Give up if the key doesn't exist. */
         if (hash_elem == NULL)
-            key_error(vm, index_reg);
+            key_error(vm, index_reg, code[1]);
 
         lily_assign_value(result_reg, hash_elem->elem_value);
     }
@@ -1949,8 +1951,14 @@ void lily_vm_execute(lily_vm_state *vm)
     if (setjmp(link->jump) != 0) {
         /* If the current function is a native one, then fix the line
            number of it. Otherwise, leave the line number alone. */
-        if (current_frame->function->code != NULL)
-            current_frame->line_num = code[1];
+        if (current_frame->function->code != NULL) {
+            if (vm->pending_line) {
+                current_frame->line_num = vm->pending_line;
+                vm->pending_line = 0;
+            }
+            else
+                current_frame->line_num = current_frame->code[1];
+        }
 
         if (maybe_catch_exception(vm) == 0)
             /* Couldn't catch it. Jump back into parser, which will jump

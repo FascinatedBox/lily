@@ -56,7 +56,11 @@ typedef struct lily_vm_state_ {
 
     uint32_t call_depth;
 
-    uint32_t pad;
+    /* Compiler optimizations can make lily_vm_execute's code have the wrong
+       value after a jump. This is used in a few cases to fix the value*/
+    uint16_t pending_line;
+
+    uint16_t pad;
 
     lily_call_frame *call_chain;
 
