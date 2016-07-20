@@ -18,7 +18,9 @@ typedef struct {
 
     uint16_t item_kind;
     uint16_t flags;
-    uint16_t variant_id;
+    /* Note: The class id of a variant and of a normal class must have the same
+       offset from each other. */
+    uint16_t cls_id;
     uint16_t pad;
 
     char *name;
@@ -38,7 +40,8 @@ typedef struct lily_class_ {
 
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t move_flags;
+    uint16_t id;
+    uint16_t pad;
 
     char *name;
     /* This holds (up to) the first 8 bytes of the name. This is checked before
@@ -56,7 +59,7 @@ typedef struct lily_class_ {
     /* If it's an enum, then the variants are here. NULL otherwise. */
     lily_variant_class **variant_members;
 
-    uint16_t id;
+    uint16_t move_flags;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
@@ -416,17 +419,21 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_GENERIC        11
 #define SYM_CLASS_QUESTION       12
 #define SYM_CLASS_OPTION         13
-#define SYM_CLASS_EITHER         14
-#define SYM_CLASS_EXCEPTION      15
+#define SYM_CLASS_SOME           14
+#define SYM_CLASS_NONE           15
+#define SYM_CLASS_EITHER         16
+#define SYM_CLASS_LEFT           17
+#define SYM_CLASS_RIGHT          18
+#define SYM_CLASS_EXCEPTION      19
 /* This order must be synced with the dynaload order of these classes. */
-#define SYM_CLASS_IOERROR        16
-#define SYM_CLASS_KEYERROR       17
-#define SYM_CLASS_RUNTIMEERROR   18
-#define SYM_CLASS_VALUEERROR     19
-#define SYM_CLASS_INDEXERROR     20
-#define SYM_CLASS_DBZERROR       21 /* > 9000 */
-#define SYM_CLASS_TAINTED        22
-#define START_CLASS_ID           23
+#define SYM_CLASS_IOERROR        20
+#define SYM_CLASS_KEYERROR       21
+#define SYM_CLASS_RUNTIMEERROR   22
+#define SYM_CLASS_VALUEERROR     23
+#define SYM_CLASS_INDEXERROR     24
+#define SYM_CLASS_DBZERROR       25 /* > 9000 */
+#define SYM_CLASS_TAINTED        26
+#define START_CLASS_ID           27
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_OPTARG      65532

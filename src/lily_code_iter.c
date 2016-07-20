@@ -118,12 +118,12 @@ int lily_ci_next(lily_code_iter *iter)
             break;
         case o_build_enum:
             iter->line = 1;
-            iter->special_1 = 2;
+            iter->special_1 = 1;
             iter->counter_2 = 1;
-            iter->inputs_3 = buffer[4];
+            iter->inputs_3 = buffer[3];
             iter->outputs_5 = 1;
 
-            iter->round_total = buffer[4] + 6;
+            iter->round_total = buffer[3] + 5;
             break;
         case o_dynamic_cast:
             iter->line = 1;
@@ -243,11 +243,11 @@ int lily_ci_next(lily_code_iter *iter)
             break;
         case o_match_dispatch:
             iter->line = 1;
-            iter->special_1 = 1;
+            iter->special_1 = 2;
             iter->counter_2 = 1;
-            iter->jumps_7 = buffer[3];
+            iter->jumps_7 = buffer[4];
 
-            iter->round_total = buffer[3] + 4;
+            iter->round_total = buffer[4] + 5;
             break;
         case o_variant_decompose:
             iter->line = 1;

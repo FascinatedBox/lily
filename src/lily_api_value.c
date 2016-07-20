@@ -326,31 +326,24 @@ lily_value *lily_new_string_take(char *source)
    dives into the vm's class table to get the backing literal of the None. */
 lily_instance_val *lily_get_none(lily_vm_state *vm)
 {
-    lily_class *opt_class = vm->class_table[SYM_CLASS_OPTION];
-    lily_variant_class *none_cls = opt_class->variant_members[NONE_VARIANT_ID];
+    lily_variant_class *none_cls;
+    none_cls = (lily_variant_class *)vm->class_table[SYM_CLASS_NONE];
     return none_cls->default_value->value.instance;
-}
-
-static lily_instance_val *build_enum_1(uint16_t class_id, uint16_t variant_id)
-{
-    lily_instance_val *iv = lily_new_instance_val_n_of(1, class_id);
-    iv->variant_id = variant_id;
-    return iv;
 }
 
 lily_instance_val *lily_new_some(void)
 {
-    return build_enum_1(SYM_CLASS_OPTION, SOME_VARIANT_ID);
+    return lily_new_instance_val_n_of(1, SYM_CLASS_SOME);
 }
 
 lily_instance_val *lily_new_left(void)
 {
-    return build_enum_1(SYM_CLASS_EITHER, LEFT_VARIANT_ID);
+    return lily_new_instance_val_n_of(1, SYM_CLASS_LEFT);
 }
 
 lily_instance_val *lily_new_right(void)
 {
-    return build_enum_1(SYM_CLASS_EITHER, RIGHT_VARIANT_ID);
+    return lily_new_instance_val_n_of(1, SYM_CLASS_RIGHT);
 }
 
 /* Simple per-type operations. */
@@ -693,8 +686,7 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         lily_instance_val *left_i = left->value.instance;
         lily_instance_val *right_i = right->value.instance;
         int ok;
-        if (left_i->instance_id == right_i->instance_id &&
-            left_i->variant_id == right_i->variant_id)
+        if (left_i->instance_id == right_i->instance_id)
             ok = subvalue_eq(vm, depth, left, right);
         else
             ok = 0;

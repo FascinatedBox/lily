@@ -192,7 +192,7 @@ static void either_is_left_right(lily_vm_state *vm, int expect)
 {
     lily_instance_val *iv = lily_arg_instance(vm, 0);
 
-    lily_return_boolean(vm, (iv->variant_id == expect));
+    lily_return_boolean(vm, (iv->instance_id == expect));
 }
 
 /**
@@ -202,7 +202,7 @@ Return 'true' if 'self' contains a 'Left', 'false' otherwise.
 */
 void lily_either_is_left(lily_vm_state *vm)
 {
-    either_is_left_right(vm, LEFT_VARIANT_ID);
+    either_is_left_right(vm, SYM_CLASS_LEFT);
 }
 
 /**
@@ -212,14 +212,14 @@ Return 'true' if 'self' contains a 'Right', 'false' otherwise.
 */
 void lily_either_is_right(lily_vm_state *vm)
 {
-    either_is_left_right(vm, RIGHT_VARIANT_ID);
+    either_is_left_right(vm, SYM_CLASS_RIGHT);
 }
 
 static void either_optionize_left_right(lily_vm_state *vm, int expect)
 {
     lily_instance_val *iv = lily_arg_instance(vm, 0);
 
-    if (iv->variant_id == expect) {
+    if (iv->instance_id == expect) {
         lily_instance_val *variant = lily_new_some();
         lily_variant_set_value(variant, 0, lily_instance_get(iv, 0));
         lily_return_filled_variant(vm, variant);
@@ -237,7 +237,7 @@ If 'self' contains a 'Right', produces 'None'.
 */
 void lily_either_left(lily_vm_state *vm)
 {
-    either_optionize_left_right(vm, LEFT_VARIANT_ID);
+    either_optionize_left_right(vm, SYM_CLASS_LEFT);
 }
 
 /**
@@ -249,7 +249,7 @@ If 'self' contains a 'Right', produces 'Right(B)'.
 */
 void lily_either_right(lily_vm_state *vm)
 {
-    either_optionize_left_right(vm, RIGHT_VARIANT_ID);
+    either_optionize_left_right(vm, SYM_CLASS_RIGHT);
 }
 
 /**
@@ -1509,7 +1509,7 @@ void lily_option_and(lily_vm_state *vm)
 {
     lily_instance_val *input = lily_arg_instance(vm, 0);
 
-    if (input->variant_id == SOME_VARIANT_ID)
+    if (input->instance_id == SYM_CLASS_SOME)
         lily_return_value(vm, lily_arg_value(vm, 1));
     else
         lily_return_value(vm, lily_arg_value(vm, 0));
@@ -1527,7 +1527,7 @@ void lily_option_and_then(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (optval->variant_id == SOME_VARIANT_ID) {
+    if (optval->instance_id == SYM_CLASS_SOME) {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
 
         lily_push_value(vm, lily_instance_get(optval, 0));
@@ -1581,7 +1581,7 @@ void lily_option_map(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (optval->variant_id == SOME_VARIANT_ID) {
+    if (optval->instance_id == SYM_CLASS_SOME) {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
 
         lily_push_value(vm, lily_instance_get(optval, 0));
@@ -1607,7 +1607,7 @@ void lily_option_or(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (optval->variant_id == SOME_VARIANT_ID)
+    if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_filled_variant(vm, optval);
     else
         lily_return_value(vm, lily_arg_value(vm, 1));
@@ -1624,7 +1624,7 @@ void lily_option_or_else(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (optval->variant_id == SOME_VARIANT_ID)
+    if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_filled_variant(vm, optval);
     else {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -1648,7 +1648,7 @@ void lily_option_unwrap(lily_vm_state *vm)
     lily_value *opt_reg = lily_arg_value(vm, 0);
     lily_instance_val *optval = opt_reg->value.instance;
 
-    if (optval->variant_id == SOME_VARIANT_ID)
+    if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_value(vm, lily_instance_get(optval, 0));
     else
         lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.");
@@ -1668,7 +1668,7 @@ void lily_option_unwrap_or(lily_vm_state *vm)
     lily_instance_val *optval = opt_reg->value.instance;
     lily_value *source;
 
-    if (optval->variant_id == SOME_VARIANT_ID)
+    if (optval->instance_id == SYM_CLASS_SOME)
         source = lily_instance_get(optval, 0);
     else
         source = fallback_reg;
@@ -1687,7 +1687,7 @@ void lily_option_unwrap_or_else(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
-    if (optval->variant_id == SOME_VARIANT_ID)
+    if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_value(vm, lily_instance_get(optval, 0));
     else {
         lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -3038,8 +3038,8 @@ const char *dynaload_table[] =
     ,"m:is_right\0[A,B](Either[A,B]):Boolean"
     ,"m:left\0[A,B](Either[A,B]):Option[A]"
     ,"m:right\0[A,B](Either[A,B]):Option[B]"
-    ,"V\000Right\0(B)"
     ,"V\000Left\0(A)"
+    ,"V\000Right\0(B)"
 
     ,"B\000Exception\0(msg:String){ var @message = msg var @traceback: List[String] = [] }"
 

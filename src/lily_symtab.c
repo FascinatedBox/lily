@@ -739,18 +739,20 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
 lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
-        const char *name, int variant_id)
+        const char *name)
 {
     lily_variant_class *variant = lily_malloc(sizeof(lily_variant_class));
 
     variant->item_kind = ITEM_TYPE_VARIANT;
     variant->flags = CLS_IS_VARIANT | CLS_EMPTY_VARIANT;
-    variant->variant_id = variant_id;
     variant->parent = enum_cls;
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
     variant->name = lily_malloc(strlen(name) + 1);
     strcpy(variant->name, name);
+
+    variant->cls_id = symtab->next_class_id;
+    symtab->next_class_id++;
 
     variant->next = symtab->active_module->class_chain;
     symtab->active_module->class_chain = (lily_class *)variant;
@@ -784,8 +786,7 @@ lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
 lily_literal *make_variant_default(lily_symtab *symtab,
         lily_variant_class *variant)
 {
-    lily_instance_val *iv = lily_new_instance_val_n_of(0, variant->parent->id);
-    iv->variant_id = variant->variant_id;
+    lily_instance_val *iv = lily_new_instance_val_n_of(0, variant->cls_id);
     iv->num_values = 0;
 
     lily_literal *v = (lily_literal *)lily_new_empty_value();
@@ -869,9 +870,15 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
         while (module_iter) {
             lily_class *class_iter = module_iter->class_chain;
             while (class_iter) {
-                if ((class_iter->flags & CLS_IS_VARIANT) == 0)
-                    lily_vm_add_class_unchecked(vm, class_iter);
+                lily_vm_add_class_unchecked(vm, class_iter);
 
+                if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
+                    int i;
+                    for (i = 0;i < class_iter->variant_size;i++) {
+                        lily_class *v = (lily_class *)class_iter->variant_members[i];
+                        lily_vm_add_class_unchecked(vm, v);
+                    }
+                }
                 class_iter = class_iter->next;
             }
             module_iter = module_iter->root_next;
