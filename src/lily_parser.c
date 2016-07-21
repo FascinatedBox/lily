@@ -428,6 +428,12 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     lily_mb_flush(parser->msgbuf);
     int i;
 
+    /* If there is no dirpath, then force a relative path. This prevents an
+       issue on Linux where having no prefix defaults to trying system paths.
+       It also gives some clarity as to where the source is coming from. */
+    if (dirpath[0] == '\0')
+        dirpath = "./";
+
     for (i = 0;i < 2;i++) {
         module_loader l = builtin_module_loaders[i];
 
