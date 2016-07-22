@@ -449,7 +449,7 @@ void lily_file_read_line(lily_vm_state *vm)
     }
 
     const char *text = lily_mb_get(vm_buffer);
-    lily_return_string(vm, lily_new_raw_string_sized(text, total_pos));
+    lily_return_bytestring(vm, lily_new_raw_string_sized(text, total_pos));
 }
 
 /**

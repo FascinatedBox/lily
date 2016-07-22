@@ -11,6 +11,8 @@
 #define DEFINE_SETTERS(name, action, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int v) \
 { lily_move_boolean(source->action, v); } \
+void lily_##name##_bytestring(__VA_ARGS__, lily_string_val * v) \
+{ lily_move_bytestring(source->action, v); } \
 void lily_##name##_double(__VA_ARGS__, double v) \
 { lily_move_double(source->action, v); } \
 void lily_##name##_empty_variant(__VA_ARGS__, lily_instance_val * v) \
@@ -39,6 +41,8 @@ void lily_##name##_value(__VA_ARGS__, lily_value * v) \
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
 { return source->action->value.integer; } \
+lily_string_val *lily_##name##_bytestring(__VA_ARGS__) \
+{ return source->action->value.string; } \
 double lily_##name##_double(__VA_ARGS__) \
 { return source->action->value.doubleval; } \
 lily_file_val *lily_##name##_file(__VA_ARGS__) \
