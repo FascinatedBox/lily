@@ -1275,7 +1275,9 @@ static void perform_closure_transform(lily_emit_state *emit,
     else
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
-    int start = emit->block->code_start;
+    int iter_start, iter_offset;
+
+    iter_start = iter_offset = emit->block->code_start;
 
     /* Hold closure information in a storage so it isn't lost. Make sure it's
        a closure not currently used, for the same reason. */
@@ -1292,15 +1294,15 @@ static void perform_closure_transform(lily_emit_state *emit,
             /* It's a fair guess that, yeah, this needs a tag. */
             emit->block->class_entry->flags |= CLS_GC_TAGGED;
 
-            uint16_t linenum = emit->code->data[start + 1];
-            uint16_t cls_id = emit->code->data[start + 2];
-            uint16_t self_reg_spot = emit->code->data[start + 3];
+            uint16_t linenum = emit->code->data[iter_start + 1];
+            uint16_t cls_id = emit->code->data[iter_start + 2];
+            uint16_t self_reg_spot = emit->code->data[iter_start + 3];
 
             /* Write this directly and skip over it to prevent transforming. */
             lily_u16_write_4(emit->closure_aux_code, o_new_instance_tagged,
                     linenum, cls_id, self_reg_spot);
 
-            start += 4;
+            iter_start += 4;
 
             /* The closure only needs to hold self if there was a lambda that
                used self (because the lambda doesn't automatically get self). */
@@ -1373,7 +1375,7 @@ static void perform_closure_transform(lily_emit_state *emit,
         emit->closed_pos = 0;
 
     lily_code_iter ci;
-    lily_ci_init(&ci, emit->code->data, start, lily_u16_pos(emit->code));
+    lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
     uint16_t *transform_table = emit->transform_table;
 
 /* If the input at the position given by 'x' is within the closure, then write
@@ -1490,7 +1492,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                    to be forward. */
                 lily_u16_write_2(emit->patches,
                         lily_u16_pos(emit->closure_aux_code) - 1,
-                        buffer[stop + i] + start);
+                        buffer[stop + i] + iter_offset);
             }
         }
 
