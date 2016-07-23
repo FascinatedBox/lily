@@ -58,7 +58,7 @@ method Boolean.to_i(self: Boolean): Integer
 
 Convert a `Boolean` to an `Integer`. 'true' becomes '1', 'false' becomes '0'.
 */
-void lily_boolean_to_i(lily_vm_state *vm)
+void lily_builtin_Boolean_to_i(lily_vm_state *vm)
 {
     lily_return_integer(vm, lily_arg_boolean(vm, 0));
 }
@@ -68,7 +68,7 @@ method Boolean.to_s(self: Boolean): String
 
 Convert a `Boolean` to a `String`.
 */
-void lily_boolean_to_s(lily_vm_state *vm)
+void lily_builtin_Boolean_to_s(lily_vm_state *vm)
 {
     int input = lily_arg_boolean(vm, 0);
     char *to_copy;
@@ -98,7 +98,7 @@ depends on the value of 'encode'.
 If encode is '"error"', then invalid utf-8 or embedded '\0' values within `self`
 will result in 'None'.
 */
-void lily_bytestring_encode(lily_vm_state *vm)
+void lily_builtin_Bytestring_encode(lily_vm_state *vm)
 {
     lily_string_val *input_bytestring = lily_arg_string(vm, 0);
     const char *encode_method;
@@ -141,7 +141,7 @@ method Double.to_i(self: Double): Integer
 Convert a `Double` to an `Integer`. This is done internally through a cast from
 a C double, to int64_t, the type of `Integer`.
 */
-void lily_double_to_i(lily_vm_state *vm)
+void lily_builtin_Double_to_i(lily_vm_state *vm)
 {
     int64_t integer_val = (int64_t)lily_arg_double(vm, 0);
 
@@ -170,7 +170,7 @@ While it is currently possible to place polymorphic values into `Dynamic`, that
 ability will be removed in the future, as it is not possible to cast polymorphic
 values out of a `Dynamic`.
 */
-void lily_dynamic_new(lily_vm_state *vm)
+void lily_builtin_Dynamic_new(lily_vm_state *vm)
 {
     lily_value *input = lily_arg_value(vm, 0);
 
@@ -201,7 +201,7 @@ method Either.is_left[A, B](self: Either[A, B]): Boolean
 
 Return 'true' if 'self' contains a 'Left', 'false' otherwise.
 */
-void lily_either_is_left(lily_vm_state *vm)
+void lily_builtin_Either_is_left(lily_vm_state *vm)
 {
     either_is_left_right(vm, SYM_CLASS_LEFT);
 }
@@ -211,7 +211,7 @@ method Either.is_right[A, B](self: Either[A, B]): Boolean
 
 Return 'true' if 'self' contains a 'Right', 'false' otherwise.
 */
-void lily_either_is_right(lily_vm_state *vm)
+void lily_builtin_Either_is_right(lily_vm_state *vm)
 {
     either_is_left_right(vm, SYM_CLASS_RIGHT);
 }
@@ -236,7 +236,7 @@ If 'self' contains a 'Left', produces a 'Some(A)'.
 
 If 'self' contains a 'Right', produces 'None'.
 */
-void lily_either_left(lily_vm_state *vm)
+void lily_builtin_Either_left(lily_vm_state *vm)
 {
     either_optionize_left_right(vm, SYM_CLASS_LEFT);
 }
@@ -248,7 +248,7 @@ If 'self' contains a 'Left', produces a 'None'.
 
 If 'self' contains a 'Right', produces 'Right(B)'.
 */
-void lily_either_right(lily_vm_state *vm)
+void lily_builtin_Either_right(lily_vm_state *vm)
 {
     either_optionize_left_right(vm, SYM_CLASS_RIGHT);
 }
@@ -309,7 +309,7 @@ For standard streams, this marks the `File` as closed, but does not actually
 close the stream. Embedders, therefore, do not need to worry about standard
 streams being altered or closed by Lily.
 */
-void lily_file_close(lily_vm_state *vm)
+void lily_builtin_File_close(lily_vm_state *vm)
 {
     lily_file_val *filev = lily_arg_file(vm, 0);
 
@@ -342,7 +342,7 @@ Errors:
 
 If unable to open 'path', or an invalid 'mode' is provided, `IOError` is raised.
 */
-void lily_file_open(lily_vm_state *vm)
+void lily_builtin_File_open(lily_vm_state *vm)
 {
     char *path = lily_arg_string_raw(vm, 0);
     char *mode = lily_arg_string_raw(vm, 1);
@@ -381,7 +381,7 @@ void lily_file_open(lily_vm_state *vm)
     lily_return_file(vm, filev);
 }
 
-void lily_file_write(lily_vm_state *);
+void lily_builtin_File_write(lily_vm_state *);
 
 /**
 method File.print[A](self: File, data: A)
@@ -393,9 +393,9 @@ Errors:
 
 If 'self' is closed or is not open for writing, `IOError` is raised.
 */
-void lily_file_print(lily_vm_state *vm)
+void lily_builtin_File_print(lily_vm_state *vm)
 {
-    lily_file_write(vm);
+    lily_builtin_File_write(vm);
     fputc('\n', lily_arg_file_raw(vm, 0));
 }
 
@@ -410,7 +410,7 @@ Errors:
 
 If 'self' is not open for reading, or is closed, `IOError` is raised.
 */
-void lily_file_read_line(lily_vm_state *vm)
+void lily_builtin_File_read_line(lily_vm_state *vm)
 {
     lily_file_val *filev = lily_arg_file(vm, 0);
     lily_msgbuf *vm_buffer = lily_vm_msgbuf(vm);
@@ -461,7 +461,7 @@ Errors:
 
 If 'self' is closed or is not open for writing, `IOError` is raised.
 */
-void lily_file_write(lily_vm_state *vm)
+void lily_builtin_File_write(lily_vm_state *vm)
 {
     lily_file_val *filev = lily_arg_file(vm, 0);
     lily_value *to_write = lily_arg_value(vm, 1);
@@ -643,7 +643,7 @@ method Hash.clear[A, B](self: Hash[A, B])
 Removes all pairs currently present within 'self'. No error occurs if 'self' is
 currently being iterated over.
 */
-void lily_hash_clear(lily_vm_state *vm)
+void lily_builtin_Hash_clear(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
 
@@ -667,7 +667,7 @@ Errors:
 
 If 'self' is currently being iterated over, `RuntimeError` will be raised.
 */
-void lily_hash_delete(lily_vm_state *vm)
+void lily_builtin_Hash_delete(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
     lily_value *key = lily_arg_value(vm, 1);
@@ -697,7 +697,7 @@ method Hash.each_pair[A, B](self: Hash[A, B], fn: Function(A, B))
 Iterate through each pair that is present within 'self'. For each of the pairs,
 call 'fn' with the key and value of each pair.
 */
-void lily_hash_each_pair(lily_vm_state *vm)
+void lily_builtin_Hash_each_pair(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
     lily_hash_elem *elem_iter = hash_val->elem_chain;
@@ -731,7 +731,7 @@ Attempt to find 'key' within 'self'. If 'key' is present, then the value
 associated with it is returned. If 'key' cannot be found, then 'default' is
 returned instead.
 */
-void lily_hash_get(lily_vm_state *vm)
+void lily_builtin_Hash_get(lily_vm_state *vm)
 {
     lily_value *input = lily_arg_value(vm, 0);
     lily_value *key = lily_arg_value(vm, 1);
@@ -748,7 +748,7 @@ method Hash.has_key[A, B](self: Hash[A, B], key: A):Boolean
 
 Return 'true' if 'key' is present within 'self', 'false' otherwise.
 */
-void lily_hash_has_key(lily_vm_state *vm)
+void lily_builtin_Hash_has_key(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
     lily_value *key = lily_arg_value(vm, 1);
@@ -764,7 +764,7 @@ method Hash.keys[A, B](self: Hash[A, B]): List[A]
 Construct a `List` containing all values that are present within 'self'. There
 is no guarantee of the ordering of the resulting `List`.
 */
-void lily_hash_keys(lily_vm_state *vm)
+void lily_builtin_Hash_keys(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
 
@@ -804,7 +804,7 @@ This iterates through 'self' and calls 'fn' for each element present. The result
 of this function is a newly-made `Hash` where each value is the result of the
 call to 'fn'.
 */
-void lily_hash_map_values(lily_vm_state *vm)
+void lily_builtin_Hash_map_values(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
     lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -849,7 +849,7 @@ within 'others'.
 
 When duplicate elements are found, the value of the right-most `Hash` wins.
 */
-void lily_hash_merge(lily_vm_state *vm)
+void lily_builtin_Hash_merge(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
     lily_list_val *to_merge = lily_arg_list(vm, 1);
@@ -931,7 +931,7 @@ This calls 'fn' for each element present within 'self'. The result of this
 function is a newly-made `Hash` containing all values for which 'fn' returns
 'false'.
 */
-void lily_hash_reject(lily_vm_state *vm)
+void lily_builtin_Hash_reject(lily_vm_state *vm)
 {
     hash_select_reject_common(vm, 0);
 }
@@ -943,7 +943,7 @@ This calls 'fn' for each element present within 'self'. The result of this
 function is a newly-made `Hash` containing all values for which 'fn' returns
 'true'.
 */
-void lily_hash_select(lily_vm_state *vm)
+void lily_builtin_Hash_select(lily_vm_state *vm)
 {
     hash_select_reject_common(vm, 1);
 }
@@ -953,7 +953,7 @@ method Hash.size[A, B](self: Hash[A, B]): Integer
 
 Returns the number of key+value pairs present within 'self'.
 */
-void lily_hash_size(lily_vm_state *vm)
+void lily_builtin_Hash_size(lily_vm_state *vm)
 {
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
 
@@ -974,7 +974,7 @@ method Integer.to_d(self: Integer): Double
 Converts an `Integer` to a `Double`. Internally, this is done by a typecast to
 the `Double` type (a raw C double).
 */
-void lily_integer_to_d(lily_vm_state *vm)
+void lily_builtin_Integer_to_d(lily_vm_state *vm)
 {
     double doubleval = (double)lily_arg_integer(vm, 0);
 
@@ -986,7 +986,7 @@ method Integer.to_s(self: Integer): String
 
 Convert an `Integer` to a `String` using base-10.
 */
-void lily_integer_to_s(lily_vm_state *vm)
+void lily_builtin_Integer_to_s(lily_vm_state *vm)
 {
     int64_t integer_val = lily_arg_integer(vm, 0);
 
@@ -1011,7 +1011,7 @@ method List.clear[A](self: List[A])
 Removes all elements present within 'self'. No error is raised if 'self' is
 being iterated over.
 */
-void lily_list_clear(lily_vm_state *vm)
+void lily_builtin_List_clear(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     int i;
@@ -1031,7 +1031,7 @@ method List.count[A](self: List[A], fn: Function(A => Boolean)): Integer
 This calls 'fn' for each element within 'self'. The result of this function is
 the number of times that 'fn' returns 'true.
 */
-void lily_list_count(lily_vm_state *vm)
+void lily_builtin_List_count(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -1088,7 +1088,7 @@ Errors:
 
 Raises `IndexError` if 'index' (after adjustment) is not a valid index.
 */
-void lily_list_delete_at(lily_vm_state *vm)
+void lily_builtin_List_delete_at(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     int64_t pos = lily_arg_integer(vm, 1);
@@ -1120,7 +1120,7 @@ method List.each[A](self: List[A], fn: Function(A)): List[A]
 Calls 'fn' for each element within 'self'. The result of this function is
 'self', so that this method can be chained with others.
 */
-void lily_list_each(lily_vm_state *vm)
+void lily_builtin_List_each(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -1140,7 +1140,7 @@ method List.each_index[A](self: List[A], fn: Function(Integer)): List[A]
 Calls 'fn' for each element within 'self'. Rather than receive the elements of
 'self', 'fn' instead receives the index of each element.
 */
-void lily_list_each_index(lily_vm_state *vm)
+void lily_builtin_List_each_index(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
@@ -1163,7 +1163,7 @@ Errors:
 
 Raises `ValueError` if 'count' is less than 1.
 */
-void lily_list_fill(lily_vm_state *vm)
+void lily_builtin_List_fill(lily_vm_state *vm)
 {
     int n = lily_arg_integer(vm, 0);
     if (n < 0)
@@ -1190,7 +1190,7 @@ value as it accumulates can be found in the first value sent to 'fn'.
 The result of this function is the result of doing an accumulation on each
 element within 'self'.
 */
-void lily_list_fold(lily_vm_state *vm)
+void lily_builtin_List_fold(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_value *start = lily_arg_value(vm, 1);
@@ -1230,7 +1230,7 @@ Errors:
 
 Raises `IndexError` if 'index' is not within 'self'.
 */
-void lily_list_insert(lily_vm_state *vm)
+void lily_builtin_List_insert(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     int64_t insert_pos = lily_arg_integer(vm, 1);
@@ -1258,7 +1258,7 @@ Create a `String` consisting of the elements of 'self' interleaved with
 'separator'. The elements of self are converted to a `String` as if they were
 interpolated. If 'self' is empty, then the result is an empty `String`.
 */
-void lily_list_join(lily_vm_state *vm)
+void lily_builtin_List_join(lily_vm_state *vm)
 {
     lily_list_val *lv = lily_arg_list(vm, 0);
     const char *delim = "";
@@ -1288,7 +1288,7 @@ method List.map[A,B](self: List[A], fn: Function(A => B)): List[B]
 This calls 'fn' on each element within 'self'. The result of this function is a
 newly-made `List` containing the results of 'fn'.
 */
-void lily_list_map(lily_vm_state *vm)
+void lily_builtin_List_map(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
@@ -1323,7 +1323,7 @@ Errors:
 
 Raises `IndexError` if 'self' is empty.
 */
-void lily_list_pop(lily_vm_state *vm)
+void lily_builtin_List_pop(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
@@ -1348,7 +1348,7 @@ method List.push[A](self: List[A], value: A)
 
 Add 'value' to the end of 'self'.
 */
-void lily_list_push(lily_vm_state *vm)
+void lily_builtin_List_push(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_value *insert_value = lily_arg_value(vm, 1);
@@ -1400,7 +1400,7 @@ method List.reject[A](self: List[A], fn: Function(A => Boolean)): List[A]
 This calls 'fn' for each element within 'self'. The result is a newly-made
 `List` holding each element where 'fn' returns 'false'.
 */
-void lily_list_reject(lily_vm_state *vm)
+void lily_builtin_List_reject(lily_vm_state *vm)
 {
     list_select_reject_common(vm, 0);
 }
@@ -1411,7 +1411,7 @@ method List.select[A](self: List[A], fn: Function(A => Boolean)): List[A]
 This calls 'fn' for each element within 'self'. The result is a newly-made
 `List` holding each element where 'fn' returns 'true'.
 */
-void lily_list_select(lily_vm_state *vm)
+void lily_builtin_List_select(lily_vm_state *vm)
 {
     list_select_reject_common(vm, 1);
 }
@@ -1421,7 +1421,7 @@ method List.size[A](self: List[A]): Integer
 
 Returns the number of elements that are within 'self'.
 */
-void lily_list_size(lily_vm_state *vm)
+void lily_builtin_List_size(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
@@ -1437,7 +1437,7 @@ Errors:
 
 Raises `ValueError` if 'self' is empty.
 */
-void lily_list_shift(lily_vm_state *vm)
+void lily_builtin_List_shift(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
@@ -1468,7 +1468,7 @@ method List.unshift[A](self: List[A], value: A)
 
 Inserts value at the front of self, moving all other elements to the right.
 */
-void lily_list_unshift(lily_vm_state *vm)
+void lily_builtin_List_unshift(lily_vm_state *vm)
 {
     lily_list_val *list_val = lily_arg_list(vm, 0);
     lily_value *input_reg = lily_arg_value(vm, 1);
@@ -1504,7 +1504,7 @@ If 'self' is a 'Some', this returns 'other'.
 
 Otherwise, this returns 'None'.
 */
-void lily_option_and(lily_vm_state *vm)
+void lily_builtin_Option_and(lily_vm_state *vm)
 {
     lily_instance_val *input = lily_arg_instance(vm, 0);
 
@@ -1522,7 +1522,7 @@ result is the result of the `Option` returned by 'fn'.
 
 Otherwise, this returns 'None'.
 */
-void lily_option_and_then(lily_vm_state *vm)
+void lily_builtin_Option_and_then(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
@@ -1552,7 +1552,7 @@ If 'self' is a 'Some', this returns 'false'.
 
 Otherwise, this returns 'true'.
 */
-void lily_option_is_none(lily_vm_state *vm)
+void lily_builtin_Option_is_none(lily_vm_state *vm)
 {
     option_is_some_or_none(vm, 0);
 }
@@ -1564,7 +1564,7 @@ If 'self' is a 'Some', this returns 'true'.
 
 Otherwise, this returns 'false'.
 */
-void lily_option_is_some(lily_vm_state *vm)
+void lily_builtin_Option_is_some(lily_vm_state *vm)
 {
     option_is_some_or_none(vm, 1);
 }
@@ -1576,7 +1576,7 @@ If 'self' is a 'Some', this returns a 'Some' holding the result of 'fn'.
 
 Otherwise, this returns 'None'.
 */
-void lily_option_map(lily_vm_state *vm)
+void lily_builtin_Option_map(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
@@ -1602,7 +1602,7 @@ If 'self' is a 'Some', this returns 'self'.
 
 Otherwise, this returns 'alternate'.
 */
-void lily_option_or(lily_vm_state *vm)
+void lily_builtin_Option_or(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
@@ -1619,7 +1619,7 @@ If 'self' is a 'Some', this returns 'self'.
 
 Otherwise, this returns the result of calling 'fn'.
 */
-void lily_option_or_else(lily_vm_state *vm)
+void lily_builtin_Option_or_else(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
@@ -1642,7 +1642,7 @@ Errors:
 
 Raises `ValueError` if 'self' is a 'None'.
 */
-void lily_option_unwrap(lily_vm_state *vm)
+void lily_builtin_Option_unwrap(lily_vm_state *vm)
 {
     lily_value *opt_reg = lily_arg_value(vm, 0);
     lily_instance_val *optval = opt_reg->value.instance;
@@ -1660,7 +1660,7 @@ If 'self' is a 'Some', this returns the value with 'self'.
 
 Otherwise, this returns 'alternate'.
 */
-void lily_option_unwrap_or(lily_vm_state *vm)
+void lily_builtin_Option_unwrap_or(lily_vm_state *vm)
 {
     lily_value *opt_reg = lily_arg_value(vm, 0);
     lily_value *fallback_reg = lily_arg_value(vm, 1);
@@ -1682,7 +1682,7 @@ If 'self' is a 'Some', this returns the value with 'self'.
 
 Otherwise, this returns the result of calling 'fn'.
 */
-void lily_option_unwrap_or_else(lily_vm_state *vm)
+void lily_builtin_Option_unwrap_or_else(lily_vm_state *vm)
 {
     lily_instance_val *optval = lily_arg_instance(vm, 0);
 
@@ -1748,7 +1748,7 @@ method String.ends_with(self: String, end: String): Boolean
 
 Checks if 'self' ends with 'end'.
 */
-void lily_string_ends_with(lily_vm_state *vm)
+void lily_builtin_String_ends_with(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *suffix_arg = lily_arg_value(vm, 1);
@@ -1786,7 +1786,7 @@ If 'needle' is found, the result is a 'Some' holding the index.
 
 Otherwise, this returns 'None'.
 */
-void lily_string_find(lily_vm_state *vm)
+void lily_builtin_String_find(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *find_arg = lily_arg_value(vm, 1);
@@ -1897,7 +1897,7 @@ replaced by an html-safe value.
 
 If not found, 'self' is returned.
 */
-void lily_string_html_encode(lily_vm_state *vm)
+void lily_builtin_String_html_encode(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
 
@@ -1909,7 +1909,7 @@ void lily_string_html_encode(lily_vm_state *vm)
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
-void lily_string_##WRAP_NAME(lily_vm_state *vm) \
+void lily_builtin_String_##WRAP_NAME(lily_vm_state *vm) \
 { \
     lily_string_val *input = lily_arg_string(vm, 0); \
     int length = lily_string_length(input); \
@@ -1970,7 +1970,7 @@ method String.lower(self: String):String
 Checks if any characters within 'self' are within [A-Z]. If so, it creates a new
 `String` with [A-Z] replaced by [a-z]. Otherwise, 'self' is returned.
 */
-void lily_string_lower(lily_vm_state *vm)
+void lily_builtin_String_lower(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
 
@@ -2122,7 +2122,7 @@ This walks through 'self' from left to right, stopping on the first utf-8 chunk
 that is not found within 'to_strip'. The result is a newly-made copy of self
 without the elements within 'to_strip' at the front.
 */
-void lily_string_lstrip(lily_vm_state *vm)
+void lily_builtin_String_lstrip(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *strip_arg = lily_arg_value(vm, 1);
@@ -2176,7 +2176,7 @@ returned.
 
 Otherwise, 'None' is returned.
 */
-void lily_string_parse_i(lily_vm_state *vm)
+void lily_builtin_String_parse_i(lily_vm_state *vm)
 {
     char *input = lily_arg_string_raw(vm, 0);
     uint64_t value = 0;
@@ -2324,7 +2324,7 @@ This walks through 'self' from right to left, stopping on the first utf-8 chunk
 that is not found within 'to_strip'. The result is a newly-made copy of 'self'
 without the elements of 'to_strip' at the end.
 */
-void lily_string_rstrip(lily_vm_state *vm)
+void lily_builtin_String_rstrip(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *strip_arg = lily_arg_value(vm, 1);
@@ -2480,7 +2480,7 @@ Errors:
 
 Raises `ValueError` if 'split_by' is empty.
 */
-void lily_string_split(lily_vm_state *vm)
+void lily_builtin_String_split(lily_vm_state *vm)
 {
     lily_string_val *input_strval = lily_arg_string(vm, 0);
     lily_string_val *split_strval;
@@ -2509,7 +2509,7 @@ method String.starts_with(self: String, with: String): Boolean
 
 Checks if 'self' starts with 'with'.
 */
-void lily_string_starts_with(lily_vm_state *vm)
+void lily_builtin_String_starts_with(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *prefix_arg = lily_arg_value(vm, 1);
@@ -2541,7 +2541,7 @@ This walks through self from right to left, and then from left to right. The
 result of this is a newly-made `String` without any elements within 'to_strip'
 at either end.
 */
-void lily_string_strip(lily_vm_state *vm)
+void lily_builtin_String_strip(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
     lily_value *strip_arg = lily_arg_value(vm, 1);
@@ -2601,7 +2601,7 @@ Checks if 'self' starts or ends with any of '" \t\r\n"'. If it does, then a new
 `String` is made with spaces removed from both sides. If it does not, then this
 returns 'self'.
 */
-void lily_string_trim(lily_vm_state *vm)
+void lily_builtin_String_trim(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
 
@@ -2637,7 +2637,7 @@ method String.upper(self: String):String
 Checks if any characters within self are within [a-z]. If so, it creates a new
 `String` with [a-z] replaced by [A-Z]. Otherwise, 'self' is returned.
 */
-void lily_string_upper(lily_vm_state *vm)
+void lily_builtin_String_upper(lily_vm_state *vm)
 {
     lily_value *input_arg = lily_arg_value(vm, 0);
 
@@ -2720,7 +2720,7 @@ method Tainted.sanitize[A](self: Tainted[A], fn: Function(A => B)): B
 This calls 'fn' with the value contained within 'self'. 'fn' is assumed to be a
 function that can sanitize the data within 'self'.
 */
-void lily_tainted_sanitize(lily_vm_state *vm)
+void lily_builtin_Tainted_sanitize(lily_vm_state *vm)
 {
     lily_instance_val *instance_val = lily_arg_instance(vm, 0);
 
@@ -2757,7 +2757,7 @@ method Tuple.merge(self: Tuple[1], other: Tuple[2]): Tuple[1, 2]
 Build a new `Tuple` composed of the contents of 'self' and the contents of
 'other'.
 */
-void lily_tuple_merge(lily_vm_state *vm)
+void lily_builtin_Tuple_merge(lily_vm_state *vm)
 {
     lily_list_val *left_tuple = lily_arg_list(vm, 0);
     lily_list_val *right_tuple = lily_arg_list(vm, 1);
@@ -2780,7 +2780,7 @@ method Tuple.push[A](self: Tuple[1], other: A): Tuple[1, A]
 
 Build a new `Tuple` composed of the contents of 'self' and 'other'.
 */
-void lily_tuple_push(lily_vm_state *vm)
+void lily_builtin_Tuple_push(lily_vm_state *vm)
 {
     lily_list_val *left_tuple = lily_arg_list(vm, 0);
     lily_value *right = lily_arg_value(vm, 1);
@@ -2835,91 +2835,91 @@ extern void lily_builtin_print(lily_vm_state *);
 void *lily_builtin_loader(lily_options *options, uint16_t *cid_table, int id)
 {
     switch(id) {
-        case INTEGER_OFFSET + 0:  return lily_integer_to_d;
-        case INTEGER_OFFSET + 1:  return lily_integer_to_s;
+        case INTEGER_OFFSET + 0:  return lily_builtin_Integer_to_d;
+        case INTEGER_OFFSET + 1:  return lily_builtin_Integer_to_s;
 
-        case DOUBLE_OFFSET + 0:  return lily_double_to_i;
+        case DOUBLE_OFFSET + 0:  return lily_builtin_Double_to_i;
 
-        case STRING_OFFSET + 0:  return lily_string_ends_with;
-        case STRING_OFFSET + 1:  return lily_string_find;
-        case STRING_OFFSET + 2:  return lily_string_html_encode;
-        case STRING_OFFSET + 3:  return lily_string_is_alpha;
-        case STRING_OFFSET + 4:  return lily_string_is_digit;
-        case STRING_OFFSET + 5:  return lily_string_is_alnum;
-        case STRING_OFFSET + 6:  return lily_string_is_space;
-        case STRING_OFFSET + 7:  return lily_string_lstrip;
-        case STRING_OFFSET + 8:  return lily_string_lower;
-        case STRING_OFFSET + 9:  return lily_string_parse_i;
-        case STRING_OFFSET + 10: return lily_string_rstrip;
-        case STRING_OFFSET + 11: return lily_string_starts_with;
-        case STRING_OFFSET + 12: return lily_string_split;
-        case STRING_OFFSET + 13: return lily_string_strip;
-        case STRING_OFFSET + 14: return lily_string_trim;
-        case STRING_OFFSET + 15: return lily_string_upper;
+        case STRING_OFFSET + 0:  return lily_builtin_String_ends_with;
+        case STRING_OFFSET + 1:  return lily_builtin_String_find;
+        case STRING_OFFSET + 2:  return lily_builtin_String_html_encode;
+        case STRING_OFFSET + 3:  return lily_builtin_String_is_alpha;
+        case STRING_OFFSET + 4:  return lily_builtin_String_is_digit;
+        case STRING_OFFSET + 5:  return lily_builtin_String_is_alnum;
+        case STRING_OFFSET + 6:  return lily_builtin_String_is_space;
+        case STRING_OFFSET + 7:  return lily_builtin_String_lstrip;
+        case STRING_OFFSET + 8:  return lily_builtin_String_lower;
+        case STRING_OFFSET + 9:  return lily_builtin_String_parse_i;
+        case STRING_OFFSET + 10: return lily_builtin_String_rstrip;
+        case STRING_OFFSET + 11: return lily_builtin_String_starts_with;
+        case STRING_OFFSET + 12: return lily_builtin_String_split;
+        case STRING_OFFSET + 13: return lily_builtin_String_strip;
+        case STRING_OFFSET + 14: return lily_builtin_String_trim;
+        case STRING_OFFSET + 15: return lily_builtin_String_upper;
 
-        case BYTESTRING_OFFSET + 0: return lily_bytestring_encode;
+        case BYTESTRING_OFFSET + 0: return lily_builtin_Bytestring_encode;
 
-        case BOOLEAN_OFFSET + 0: return lily_boolean_to_i;
-        case BOOLEAN_OFFSET + 1: return lily_boolean_to_s;
+        case BOOLEAN_OFFSET + 0: return lily_builtin_Boolean_to_i;
+        case BOOLEAN_OFFSET + 1: return lily_builtin_Boolean_to_s;
         
-        case DYNAMIC_OFFSET + 0: return lily_dynamic_new;
+        case DYNAMIC_OFFSET + 0: return lily_builtin_Dynamic_new;
 
-        case LIST_OFFSET +  0: return lily_list_clear;
-        case LIST_OFFSET +  1: return lily_list_count;
-        case LIST_OFFSET +  2: return lily_list_delete_at;
-        case LIST_OFFSET +  3: return lily_list_each;
-        case LIST_OFFSET +  4: return lily_list_each_index;
-        case LIST_OFFSET +  5: return lily_list_fill;
-        case LIST_OFFSET +  6: return lily_list_fold;
-        case LIST_OFFSET +  7: return lily_list_insert;
-        case LIST_OFFSET +  8: return lily_list_join;
-        case LIST_OFFSET +  9: return lily_list_map;
-        case LIST_OFFSET + 10: return lily_list_pop;
-        case LIST_OFFSET + 11: return lily_list_push;
-        case LIST_OFFSET + 12: return lily_list_reject;
-        case LIST_OFFSET + 13: return lily_list_select;
-        case LIST_OFFSET + 14: return lily_list_size;
-        case LIST_OFFSET + 15: return lily_list_shift;
-        case LIST_OFFSET + 16: return lily_list_unshift;
+        case LIST_OFFSET +  0: return lily_builtin_List_clear;
+        case LIST_OFFSET +  1: return lily_builtin_List_count;
+        case LIST_OFFSET +  2: return lily_builtin_List_delete_at;
+        case LIST_OFFSET +  3: return lily_builtin_List_each;
+        case LIST_OFFSET +  4: return lily_builtin_List_each_index;
+        case LIST_OFFSET +  5: return lily_builtin_List_fill;
+        case LIST_OFFSET +  6: return lily_builtin_List_fold;
+        case LIST_OFFSET +  7: return lily_builtin_List_insert;
+        case LIST_OFFSET +  8: return lily_builtin_List_join;
+        case LIST_OFFSET +  9: return lily_builtin_List_map;
+        case LIST_OFFSET + 10: return lily_builtin_List_pop;
+        case LIST_OFFSET + 11: return lily_builtin_List_push;
+        case LIST_OFFSET + 12: return lily_builtin_List_reject;
+        case LIST_OFFSET + 13: return lily_builtin_List_select;
+        case LIST_OFFSET + 14: return lily_builtin_List_size;
+        case LIST_OFFSET + 15: return lily_builtin_List_shift;
+        case LIST_OFFSET + 16: return lily_builtin_List_unshift;
 
-        case HASH_OFFSET +  0: return lily_hash_clear;
-        case HASH_OFFSET +  1: return lily_hash_delete;
-        case HASH_OFFSET +  2: return lily_hash_each_pair;
-        case HASH_OFFSET +  3: return lily_hash_has_key;
-        case HASH_OFFSET +  4: return lily_hash_keys;
-        case HASH_OFFSET +  5: return lily_hash_get;
-        case HASH_OFFSET +  6: return lily_hash_map_values;
-        case HASH_OFFSET +  7: return lily_hash_merge;
-        case HASH_OFFSET +  8: return lily_hash_reject;
-        case HASH_OFFSET +  9: return lily_hash_select;
-        case HASH_OFFSET + 10: return lily_hash_size;
+        case HASH_OFFSET +  0: return lily_builtin_Hash_clear;
+        case HASH_OFFSET +  1: return lily_builtin_Hash_delete;
+        case HASH_OFFSET +  2: return lily_builtin_Hash_each_pair;
+        case HASH_OFFSET +  3: return lily_builtin_Hash_has_key;
+        case HASH_OFFSET +  4: return lily_builtin_Hash_keys;
+        case HASH_OFFSET +  5: return lily_builtin_Hash_get;
+        case HASH_OFFSET +  6: return lily_builtin_Hash_map_values;
+        case HASH_OFFSET +  7: return lily_builtin_Hash_merge;
+        case HASH_OFFSET +  8: return lily_builtin_Hash_reject;
+        case HASH_OFFSET +  9: return lily_builtin_Hash_select;
+        case HASH_OFFSET + 10: return lily_builtin_Hash_size;
 
-        case TUPLE_OFFSET + 0: return lily_tuple_merge;
-        case TUPLE_OFFSET + 1: return lily_tuple_push;
+        case TUPLE_OFFSET + 0: return lily_builtin_Tuple_merge;
+        case TUPLE_OFFSET + 1: return lily_builtin_Tuple_push;
 
-        case FILE_OFFSET + 0: return lily_file_close;
-        case FILE_OFFSET + 1: return lily_file_open;
-        case FILE_OFFSET + 2: return lily_file_print;
-        case FILE_OFFSET + 3: return lily_file_read_line;
-        case FILE_OFFSET + 4: return lily_file_write;
+        case FILE_OFFSET + 0: return lily_builtin_File_close;
+        case FILE_OFFSET + 1: return lily_builtin_File_open;
+        case FILE_OFFSET + 2: return lily_builtin_File_print;
+        case FILE_OFFSET + 3: return lily_builtin_File_read_line;
+        case FILE_OFFSET + 4: return lily_builtin_File_write;
 
-        case OPTION_OFFSET + 0: return lily_option_and;
-        case OPTION_OFFSET + 1: return lily_option_and_then;
-        case OPTION_OFFSET + 2: return lily_option_is_none;
-        case OPTION_OFFSET + 3: return lily_option_is_some;
-        case OPTION_OFFSET + 4: return lily_option_map;
-        case OPTION_OFFSET + 5: return lily_option_or;
-        case OPTION_OFFSET + 6: return lily_option_or_else;
-        case OPTION_OFFSET + 7: return lily_option_unwrap;
-        case OPTION_OFFSET + 8: return lily_option_unwrap_or;
-        case OPTION_OFFSET + 9: return lily_option_unwrap_or_else;
+        case OPTION_OFFSET + 0: return lily_builtin_Option_and;
+        case OPTION_OFFSET + 1: return lily_builtin_Option_and_then;
+        case OPTION_OFFSET + 2: return lily_builtin_Option_is_none;
+        case OPTION_OFFSET + 3: return lily_builtin_Option_is_some;
+        case OPTION_OFFSET + 4: return lily_builtin_Option_map;
+        case OPTION_OFFSET + 5: return lily_builtin_Option_or;
+        case OPTION_OFFSET + 6: return lily_builtin_Option_or_else;
+        case OPTION_OFFSET + 7: return lily_builtin_Option_unwrap;
+        case OPTION_OFFSET + 8: return lily_builtin_Option_unwrap_or;
+        case OPTION_OFFSET + 9: return lily_builtin_Option_unwrap_or_else;
 
-        case EITHER_OFFSET + 0: return lily_either_is_left;
-        case EITHER_OFFSET + 1: return lily_either_is_right;
-        case EITHER_OFFSET + 2: return lily_either_left;
-        case EITHER_OFFSET + 3: return lily_either_right;
+        case EITHER_OFFSET + 0: return lily_builtin_Either_is_left;
+        case EITHER_OFFSET + 1: return lily_builtin_Either_is_right;
+        case EITHER_OFFSET + 2: return lily_builtin_Either_left;
+        case EITHER_OFFSET + 3: return lily_builtin_Either_right;
 
-        case TAINTED_OFFSET + 0: return lily_tainted_sanitize;
+        case TAINTED_OFFSET + 0: return lily_builtin_Tainted_sanitize;
 
         case MISC_OFFSET + 0: return lily_builtin_calltrace;
         case MISC_OFFSET + 1: return lily_builtin_print;
