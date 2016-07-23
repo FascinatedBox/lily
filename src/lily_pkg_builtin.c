@@ -32,6 +32,26 @@ foundation of Lily.
 */
 
 /**
+var stdin: File
+
+Provides a wrapper around the 'stdin' present within C.
+*/
+
+/**
+var stderr: File
+
+Provides a wrapper around the 'stderr' present within C.
+*/
+
+/**
+var stdout: File
+
+Provides a wrapper around the 'stdin' present within C. The builtin function
+'print' relies on this, and thus might raise `IOError` if 'stdout' is closed or
+set to a read-only stream.
+*/
+
+/**
 define print[A](value: A)
 
 Attempt to write 'value' to 'stdout', including a terminating newline.
@@ -98,7 +118,7 @@ depends on the value of 'encode'.
 If encode is '"error"', then invalid utf-8 or embedded '\0' values within `self`
 will result in 'None'.
 */
-void lily_builtin_Bytestring_encode(lily_vm_state *vm)
+void lily_builtin_ByteString_encode(lily_vm_state *vm)
 {
     lily_string_val *input_bytestring = lily_arg_string(vm, 0);
     const char *encode_method;
@@ -128,6 +148,13 @@ void lily_builtin_Bytestring_encode(lily_vm_state *vm)
     lily_variant_set_string(variant, 0, lily_new_raw_string(byte_buffer));
     lily_return_filled_variant(vm, variant);
 }
+
+/**
+bootstrap DivisionByZeroError(msg: String) < Exception(msg) {}
+
+The `DivisionByZeroError` is a subclass of `Exception` that is raised when
+trying to divide or modulo by zero.
+*/
 
 /**
 class Double
@@ -161,10 +188,9 @@ only holds class information at runtime.
 */
 
 /**
-method Dynamic.new[A](self: A): Dynamic
+constructor Dynamic[A](self: A): Dynamic
 
-Constructs a new `Dynamic` value. This method exists as a convenience to allow
-a shorthand constructor ('Dynamic(<value>)').
+Constructs a new `Dynamic` value.
 
 While it is currently possible to place polymorphic values into `Dynamic`, that
 ability will be removed in the future, as it is not possible to cast polymorphic
@@ -254,25 +280,11 @@ void lily_builtin_Either_right(lily_vm_state *vm)
 }
 
 /**
-class Exception
+bootstrap Exception(m:String){ var @message = m var @traceback: List[String] = [] }
 
-The `Exception` class is the base class of all exceptions. The following
-children are also defined:
-
-`DivisionByZeroError` is raised when trying to divide or modulo by zero.
-
-`IndexError` is raised when an out-of-bounds access is performed on a `List`.
-
-`IOError` is raised when an IO operation fails or does not have permission.
-
-`KeyError` is raised when trying to get an item from a `Hash` that does not
-exist.
-
-`RuntimeError` is raised when the recursion limit is exceeded, or when trying
-to modify a `Hash` while iterating over it.
-
-`ValueError` is raised when sending an improper argument to a function, such as
-trying to call 'List.fill' with a negative amount.
+The `Exception` class is the base class of all exceptions. It defines two
+properties: A 'message' as `String`, and a 'traceback' as `List[String]`. The
+'traceback' field is rewritten whenever an exception instance is raised.
 */
 
 /**
@@ -960,6 +972,12 @@ void lily_builtin_Hash_size(lily_vm_state *vm)
     lily_return_integer(vm, hash_val->num_elems);
 }
 
+/**
+bootstrap IndexError(msg: String) < Exception(msg) {}
+
+`IndexError` is a subclass of `Exception` that is raised when an out-of-bounds
+access is performed on a `List`.
+*/
 
 /**
 class Integer
@@ -995,6 +1013,20 @@ void lily_builtin_Integer_to_s(lily_vm_state *vm)
 
     lily_return_string(vm, lily_new_raw_string(buffer));
 }
+
+/**
+bootstrap IOError(msg: String) < Exception(msg) {}
+
+`IOError` is a subclass of `Exception` that is raised when an IO operation fails
+or does not have permission.
+*/
+
+/**
+bootstrap KeyError(msg: String) < Exception(msg) {}
+
+`KeyError` is a subclass of `Exception` that is raised when trying to get an
+item from a `Hash` that does not exist.
+*/
 
 /**
 class List
@@ -1694,6 +1726,13 @@ void lily_builtin_Option_unwrap_or_else(lily_vm_state *vm)
         lily_return_value(vm, lily_result_value(vm));
     }
 }
+
+/**
+bootstrap RuntimeError(msg: String) < Exception(msg) {}
+
+`RuntimeError` is a subclass of `Exception` that is raised when the recursion
+limit is exceeded, or when trying to modify a `Hash` while iterating over it.
+*/
 
 /**
 class String
@@ -2707,7 +2746,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
 }
 
 /**
-class Tainted
+bootstrap Tainted[A](v:A){ var @value = v }
 
 The `Tainted` type represents a wrapper over some data that is considered
 unsafe. Data, once inside a `Tainted` value can only be retrieved using the
@@ -2715,7 +2754,7 @@ unsafe. Data, once inside a `Tainted` value can only be retrieved using the
 */
 
 /**
-method Tainted.sanitize[A](self: Tainted[A], fn: Function(A => B)): B
+method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
 
 This calls 'fn' with the value contained within 'self'. 'fn' is assumed to be a
 function that can sanitize the data within 'self'.
@@ -2795,6 +2834,14 @@ void lily_builtin_Tuple_push(lily_vm_state *vm)
     lily_return_tuple(vm, lv);
 }
 
+/**
+bootstrap ValueError(msg: String) < Exception(msg) {}
+
+`ValueError` is a subclass of `Exception` that is raised when sending an
+improper argument to a function, such as trying to call 'List.fill' with a
+negative amount.
+*/
+
 /***
  *      ____                    _                 _ 
  *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
@@ -2814,251 +2861,26 @@ static lily_value *new_builtin_file(FILE *source, const char *mode)
     return result;
 }
 
-#define INTEGER_OFFSET     2
-#define DOUBLE_OFFSET      5
-#define STRING_OFFSET      7
-#define BYTESTRING_OFFSET 24
-#define BOOLEAN_OFFSET    26
-#define DYNAMIC_OFFSET    30
-#define LIST_OFFSET       32
-#define HASH_OFFSET       50
-#define TUPLE_OFFSET      62
-#define FILE_OFFSET       65
-#define OPTION_OFFSET     73
-#define EITHER_OFFSET     86
-#define TAINTED_OFFSET   100
-#define MISC_OFFSET      101
+static void *load_var_stdin(lily_options *options, uint16_t *cid_table)
+{
+    return new_builtin_file(stdin, "r");
+}
+
+static void *load_var_stdout(lily_options *options, uint16_t *cid_table)
+{
+    return new_builtin_file(stdout, "w");
+}
+
+static void *load_var_stderr(lily_options *options, uint16_t *cid_table)
+{
+    return new_builtin_file(stderr, "w");
+}
 
 extern void lily_builtin_calltrace(lily_vm_state *);
 extern void lily_builtin_print(lily_vm_state *);
 
-void *lily_builtin_loader(lily_options *options, uint16_t *cid_table, int id)
-{
-    switch(id) {
-        case INTEGER_OFFSET + 0:  return lily_builtin_Integer_to_d;
-        case INTEGER_OFFSET + 1:  return lily_builtin_Integer_to_s;
-
-        case DOUBLE_OFFSET + 0:  return lily_builtin_Double_to_i;
-
-        case STRING_OFFSET + 0:  return lily_builtin_String_ends_with;
-        case STRING_OFFSET + 1:  return lily_builtin_String_find;
-        case STRING_OFFSET + 2:  return lily_builtin_String_html_encode;
-        case STRING_OFFSET + 3:  return lily_builtin_String_is_alpha;
-        case STRING_OFFSET + 4:  return lily_builtin_String_is_digit;
-        case STRING_OFFSET + 5:  return lily_builtin_String_is_alnum;
-        case STRING_OFFSET + 6:  return lily_builtin_String_is_space;
-        case STRING_OFFSET + 7:  return lily_builtin_String_lstrip;
-        case STRING_OFFSET + 8:  return lily_builtin_String_lower;
-        case STRING_OFFSET + 9:  return lily_builtin_String_parse_i;
-        case STRING_OFFSET + 10: return lily_builtin_String_rstrip;
-        case STRING_OFFSET + 11: return lily_builtin_String_starts_with;
-        case STRING_OFFSET + 12: return lily_builtin_String_split;
-        case STRING_OFFSET + 13: return lily_builtin_String_strip;
-        case STRING_OFFSET + 14: return lily_builtin_String_trim;
-        case STRING_OFFSET + 15: return lily_builtin_String_upper;
-
-        case BYTESTRING_OFFSET + 0: return lily_builtin_Bytestring_encode;
-
-        case BOOLEAN_OFFSET + 0: return lily_builtin_Boolean_to_i;
-        case BOOLEAN_OFFSET + 1: return lily_builtin_Boolean_to_s;
-        
-        case DYNAMIC_OFFSET + 0: return lily_builtin_Dynamic_new;
-
-        case LIST_OFFSET +  0: return lily_builtin_List_clear;
-        case LIST_OFFSET +  1: return lily_builtin_List_count;
-        case LIST_OFFSET +  2: return lily_builtin_List_delete_at;
-        case LIST_OFFSET +  3: return lily_builtin_List_each;
-        case LIST_OFFSET +  4: return lily_builtin_List_each_index;
-        case LIST_OFFSET +  5: return lily_builtin_List_fill;
-        case LIST_OFFSET +  6: return lily_builtin_List_fold;
-        case LIST_OFFSET +  7: return lily_builtin_List_insert;
-        case LIST_OFFSET +  8: return lily_builtin_List_join;
-        case LIST_OFFSET +  9: return lily_builtin_List_map;
-        case LIST_OFFSET + 10: return lily_builtin_List_pop;
-        case LIST_OFFSET + 11: return lily_builtin_List_push;
-        case LIST_OFFSET + 12: return lily_builtin_List_reject;
-        case LIST_OFFSET + 13: return lily_builtin_List_select;
-        case LIST_OFFSET + 14: return lily_builtin_List_size;
-        case LIST_OFFSET + 15: return lily_builtin_List_shift;
-        case LIST_OFFSET + 16: return lily_builtin_List_unshift;
-
-        case HASH_OFFSET +  0: return lily_builtin_Hash_clear;
-        case HASH_OFFSET +  1: return lily_builtin_Hash_delete;
-        case HASH_OFFSET +  2: return lily_builtin_Hash_each_pair;
-        case HASH_OFFSET +  3: return lily_builtin_Hash_has_key;
-        case HASH_OFFSET +  4: return lily_builtin_Hash_keys;
-        case HASH_OFFSET +  5: return lily_builtin_Hash_get;
-        case HASH_OFFSET +  6: return lily_builtin_Hash_map_values;
-        case HASH_OFFSET +  7: return lily_builtin_Hash_merge;
-        case HASH_OFFSET +  8: return lily_builtin_Hash_reject;
-        case HASH_OFFSET +  9: return lily_builtin_Hash_select;
-        case HASH_OFFSET + 10: return lily_builtin_Hash_size;
-
-        case TUPLE_OFFSET + 0: return lily_builtin_Tuple_merge;
-        case TUPLE_OFFSET + 1: return lily_builtin_Tuple_push;
-
-        case FILE_OFFSET + 0: return lily_builtin_File_close;
-        case FILE_OFFSET + 1: return lily_builtin_File_open;
-        case FILE_OFFSET + 2: return lily_builtin_File_print;
-        case FILE_OFFSET + 3: return lily_builtin_File_read_line;
-        case FILE_OFFSET + 4: return lily_builtin_File_write;
-
-        case OPTION_OFFSET + 0: return lily_builtin_Option_and;
-        case OPTION_OFFSET + 1: return lily_builtin_Option_and_then;
-        case OPTION_OFFSET + 2: return lily_builtin_Option_is_none;
-        case OPTION_OFFSET + 3: return lily_builtin_Option_is_some;
-        case OPTION_OFFSET + 4: return lily_builtin_Option_map;
-        case OPTION_OFFSET + 5: return lily_builtin_Option_or;
-        case OPTION_OFFSET + 6: return lily_builtin_Option_or_else;
-        case OPTION_OFFSET + 7: return lily_builtin_Option_unwrap;
-        case OPTION_OFFSET + 8: return lily_builtin_Option_unwrap_or;
-        case OPTION_OFFSET + 9: return lily_builtin_Option_unwrap_or_else;
-
-        case EITHER_OFFSET + 0: return lily_builtin_Either_is_left;
-        case EITHER_OFFSET + 1: return lily_builtin_Either_is_right;
-        case EITHER_OFFSET + 2: return lily_builtin_Either_left;
-        case EITHER_OFFSET + 3: return lily_builtin_Either_right;
-
-        case TAINTED_OFFSET + 0: return lily_builtin_Tainted_sanitize;
-
-        case MISC_OFFSET + 0: return lily_builtin_calltrace;
-        case MISC_OFFSET + 1: return lily_builtin_print;
-        case MISC_OFFSET + 2: return new_builtin_file(stdin, "r");
-        case MISC_OFFSET + 3: return new_builtin_file(stdout, "w");
-        case MISC_OFFSET + 4: return new_builtin_file(stderr, "w");
-
-        default: return NULL;
-    }
-}
-
-const char *dynaload_table[] =
-{
-    "\0"
-    ,"!\002Integer"
-    ,"m:to_d\0(Integer):Double"
-    ,"m:to_s\0(Integer):String"
-
-    ,"!\001Double"
-    ,"m:to_i\0(Double):Integer"
-
-    ,"!\020String"
-    ,"m:ends_with\0(String,String):Boolean"
-    ,"m:find\0(String,String):Option[Integer]"
-    ,"m:html_encode\0(String):String"
-    ,"m:is_alpha\0(String):Boolean"
-    ,"m:is_digit\0(String):Boolean"
-    ,"m:is_alnum\0(String):Boolean"
-    ,"m:is_space\0(String):Boolean"
-    ,"m:lstrip\0(String,String):String"
-    ,"m:lower\0(String):String"
-    ,"m:parse_i\0(String):Option[Integer]"
-    ,"m:rstrip\0(String,String):String"
-    ,"m:starts_with\0(String,String):Boolean"
-    ,"m:split\0(String,*String):List[String]"
-    ,"m:strip\0(String,String):String"
-    ,"m:trim\0(String):String"
-    ,"m:upper\0(String):String"
-
-    ,"!\001ByteString"
-    ,"m:encode\0(ByteString, *String):Option[String]"
-
-    ,"!\002Boolean"
-    ,"m:to_i\0(Boolean):Double"
-    ,"m:to_s\0(Boolean):String"
-
-    ,"!\000Function"
-
-    ,"!\001Dynamic"
-    ,"m:<new>\0[A](A):Dynamic"
-
-    ,"!\021List"
-    ,"m:clear\0[A](List[A])"
-    ,"m:count\0[A](List[A], Function(A => Boolean)):Integer"
-    ,"m:delete_at\0[A](List[A], Integer)"
-    ,"m:each\0[A](List[A], Function(A)):List[A]"
-    ,"m:each_index\0[A](List[A], Function(Integer)):List[A]"
-    ,"m:fill\0[A](Integer, A):List[A]"
-    ,"m:fold\0[A](List[A], A, Function(A, A => A)):A"
-    ,"m:insert\0[A](List[A], Integer, A)"
-    ,"m:join\0[A](List[A], *String):String"
-    ,"m:map\0[A,B](List[A], Function(A => B)):List[B]"
-    ,"m:pop\0[A](List[A]):A"
-    ,"m:push\0[A](List[A], A)"
-    ,"m:reject\0[A](List[A], Function(A => Boolean)):List[A]"
-    ,"m:select\0[A](List[A], Function(A => Boolean)):List[A]"
-    ,"m:size\0[A](List[A]):Integer"
-    ,"m:shift\0[A](List[A]):A"
-    ,"m:unshift\0[A](List[A], A)"
-
-    ,"!\013Hash"
-    ,"m:clear\0[A, B](Hash[A, B])"
-    ,"m:delete\0[A, B](Hash[A, B], A)"
-    ,"m:each_pair\0[A, B](Hash[A, B], Function(A, B))"
-    ,"m:has_key\0[A, B](Hash[A, B], A):Boolean"
-    ,"m:keys\0[A, B](Hash[A, B]):List[A]"
-    ,"m:get\0[A, B](Hash[A, B], A, B):B"
-    ,"m:map_values\0[A, B, C](Hash[A, B], Function(B => C)):Hash[A, C]"
-    ,"m:merge\0[A, B](Hash[A, B], Hash[A, B]...):Hash[A, B]"
-    ,"m:reject\0[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]"
-    ,"m:select\0[A, B](Hash[A, B], Function(A, B => Boolean)):Hash[A, B]"
-    ,"m:size\0[A, B](Hash[A, B]):Integer"
-
-    ,"!\002Tuple"
-    ,"m:merge\0(Tuple[1], Tuple[2]):Tuple[1, 2]"
-    ,"m:push\0[A](Tuple[1], A):Tuple[1, A]"
-
-    ,"!\005File"
-    ,"m:close\0(File)"
-    ,"m:open\0(String, String):File"
-    ,"m:print\0[A](File, A)"
-    ,"m:read_line\0(File):ByteString"
-    ,"m:write\0[A](File, A)"
-
-    ,"!\000A"
-    ,"!\000*"
-
-    ,"E\012Option\0[A]\0"
-    ,"m:and\0[A,B](Option[A],Option[B]):Option[B]"
-    ,"m:and_then\0[A,B](Option[A],Function(A => Option[B])):Option[B]"
-    ,"m:is_none\0[A](Option[A]):Boolean"
-    ,"m:is_some\0[A](Option[A]):Boolean"
-    ,"m:map\0[A,B](Option[A],Function(A => B)):Option[B]"
-    ,"m:or\0[A](Option[A],Option[A]):Option[A]"
-    ,"m:or_else\0[A](Option[A],Function( => Option[A])):Option[A]"
-    ,"m:unwrap\0[A](Option[A]):A"
-    ,"m:unwrap_or\0[A](Option[A],A):A"
-    ,"m:unwrap_or_else\0[A](Option[A], Function( => A)):A"
-    ,"V\000Some\0(A)"
-    ,"V\000None\0"
-
-    ,"E\004Either\0[A, B]"
-    ,"m:is_left\0[A,B](Either[A,B]):Boolean"
-    ,"m:is_right\0[A,B](Either[A,B]):Boolean"
-    ,"m:left\0[A,B](Either[A,B]):Option[A]"
-    ,"m:right\0[A,B](Either[A,B]):Option[B]"
-    ,"V\000Left\0(A)"
-    ,"V\000Right\0(B)"
-
-    ,"B\000Exception\0(msg:String){ var @message = msg var @traceback: List[String] = [] }"
-
-    ,"B\000IOError\0(m:String) < Exception(m) {  }"
-    ,"B\000KeyError\0(m:String) < Exception(m) {  }"
-    ,"B\000RuntimeError\0(m:String) < Exception(m) {  }"
-    ,"B\000ValueError\0(m:String) < Exception(m) {  }"
-    ,"B\000IndexError\0(m:String) < Exception(m) {  }"
-    ,"B\000DivisionByZeroError\0(m:String) < Exception(m) {  }"
-
-    ,"B\001Tainted\0[A](v:A){ var @value = v }"
-    ,"m:sanitize\0[A,B](Tainted[A], Function(A => B)):B"
-
-    ,"F\000calltrace\0:List[String]"
-    ,"F\000print\0[A](A)"
-
-    ,"R\000stdin\0File\0"
-    ,"R\000stdout\0File\0"
-    ,"R\000stderr\0File\0"
-    ,"Z"
-};
+#include "extras_builtin.h"
+#include "dyna_builtin.h"
 
 static void make_default_type_for(lily_class *cls)
 {
@@ -3074,17 +2896,16 @@ static void make_default_type_for(lily_class *cls)
 }
 
 static lily_class *build_class(lily_symtab *symtab, const char *name,
-        int *dyna_start, int generic_count)
+        int generic_count, int dyna_start)
 {
     lily_class *result = lily_new_class(symtab, name);
-    result->dyna_start = *dyna_start + 1;
+    result->dyna_start = dyna_start;
     result->generic_count = generic_count;
     result->flags |= CLS_IS_BUILTIN;
 
     if (generic_count == 0)
         make_default_type_for(result);
 
-    *dyna_start += ((unsigned char) dynaload_table[*dyna_start][1]) + 1;
     return result;
 }
 
@@ -3113,27 +2934,25 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
 void lily_register_pkg_builtin(lily_parse_state *parser)
 {
-    lily_register_package(parser, "", dynaload_table,
+    lily_register_package(parser, "", lily_builtin_dynaload_table,
             lily_builtin_loader);
 }
 
 void lily_init_pkg_builtin(lily_symtab *symtab)
 {
-    int i = 1;
-
-    symtab->integer_class    = build_class(symtab, "Integer",    &i,  0);
-    symtab->double_class     = build_class(symtab, "Double",     &i,  0);
-    symtab->string_class     = build_class(symtab, "String",     &i,  0);
-    symtab->bytestring_class = build_class(symtab, "ByteString", &i,  0);
-    symtab->boolean_class    = build_class(symtab, "Boolean",    &i,  0);
-    symtab->function_class   = build_class(symtab, "Function",   &i, -1);
-    symtab->dynamic_class    = build_class(symtab, "Dynamic",    &i,  0);
-    symtab->list_class       = build_class(symtab, "List",       &i,  1);
-    symtab->hash_class       = build_class(symtab, "Hash",       &i,  2);
-    symtab->tuple_class      = build_class(symtab, "Tuple",      &i, -1);
-    lily_class *file_class   = build_class(symtab, "File",       &i,  0);
-    symtab->generic_class    = build_class(symtab, "",           &i,  0);
-    symtab->question_class   = build_class(symtab, "?",          &i,  0);
+    symtab->integer_class    = build_class(symtab, "Integer",     0, INTEGER_OFFSET);
+    symtab->double_class     = build_class(symtab, "Double",      0, DOUBLE_OFFSET);
+    symtab->string_class     = build_class(symtab, "String",      0, STRING_OFFSET);
+    symtab->bytestring_class = build_class(symtab, "ByteString",  0, BYTESTRING_OFFSET);
+    symtab->boolean_class    = build_class(symtab, "Boolean",     0, BOOLEAN_OFFSET);
+    symtab->function_class   = build_class(symtab, "Function",   -1, FUNCTION_OFFSET);
+    symtab->dynamic_class    = build_class(symtab, "Dynamic",     0, DYNAMIC_OFFSET);
+    symtab->list_class       = build_class(symtab, "List",        1, LIST_OFFSET);
+    symtab->hash_class       = build_class(symtab, "Hash",        2, HASH_OFFSET);
+    symtab->tuple_class      = build_class(symtab, "Tuple",      -1, TUPLE_OFFSET);
+    lily_class *file_class   = build_class(symtab, "File",        0, FILE_OFFSET);
+    symtab->generic_class    = build_class(symtab, "",            0, 0);
+    symtab->question_class   = build_class(symtab, "?",           0, 0);
 
     symtab->optarg_class    = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
     lily_class *scoop1 = build_special(symtab, "~1", 0, SYM_CLASS_SCOOP_1);

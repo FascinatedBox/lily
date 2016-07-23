@@ -1241,6 +1241,10 @@ static lily_class *dynaload_class(lily_parse_state *parser,
     return cls;
 }
 
+/* The exception ids need to be fixed. The easiest way to do that is to fix them
+   based off of their dynaload offsets. */
+#include "extras_builtin.h"
+
 static lily_class *dynaload_bootstrap(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
@@ -1252,39 +1256,20 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
     lily_class *cls = lily_new_class(parser->symtab, name);
     cls->dyna_start = dyna_index + 1;
     if (m->parent == parser->package_start) {
-        if (strcmp(name, "Exception") == 0) {
-            parser->symtab->next_class_id--;
-            cls->id = SYM_CLASS_EXCEPTION;
-        }
-        else if (strcmp(name, "Tainted") == 0) {
-            parser->symtab->next_class_id--;
-            cls->id = SYM_CLASS_TAINTED;
-        }
-        else if (strstr(name, "Error")) {
-            /* This is a little hacky. It loads exceptions at specific indexes
-               so that the vm can check by id if the exception exists to raise
-               it during runtime.
-               For the moment, exceptions are strictly after Exception, and all
-               have Error as their suffix. */
-            int ex_index = dyna_index - 1;
-            while (1) {
-                const char *ex_str = m->dynaload_table[ex_index] +
-                        DYNA_NAME_OFFSET;
+        parser->symtab->next_class_id--;
+        int index = dyna_index + 1;
 
-                if (*ex_str == 'E' && strcmp("Exception", ex_str) == 0)
-                    break;
-
-                ex_index--;
-            }
-
-            ex_index++;
-
-            /* This depends on a three things:
-             * Dynaloaded exceptions always come after Exception.
-             * Their ids also come after Exception.
-             * Space is reserved for their ids, in order. */
-            parser->symtab->next_class_id--;
-            cls->id = SYM_CLASS_EXCEPTION + (cls->dyna_start - ex_index);
+        switch (index) {
+            case DIVISIONBYZEROERROR_OFFSET: cls->id = SYM_CLASS_DBZERROR;     break;
+            case EXCEPTION_OFFSET:           cls->id = SYM_CLASS_EXCEPTION;    break;
+            case INDEXERROR_OFFSET:          cls->id = SYM_CLASS_INDEXERROR;   break;
+            case IOERROR_OFFSET:             cls->id = SYM_CLASS_IOERROR;      break;
+            case KEYERROR_OFFSET:            cls->id = SYM_CLASS_KEYERROR;     break;
+            case RUNTIMEERROR_OFFSET:        cls->id = SYM_CLASS_RUNTIMEERROR; break;
+            case TAINTED_OFFSET:             cls->id = SYM_CLASS_TAINTED;      break;
+            case VALUEERROR_OFFSET:          cls->id = SYM_CLASS_VALUEERROR;   break;
+            /* Shouldn't happen, but use an impossible id to make it stand out. */
+            default:                         cls->id = 12345;                  break;
         }
     }
 
