@@ -29,13 +29,27 @@ html <filename>:
     print(message)
     sys.exit(0)
 
+class BootstrapEntry:
+    def __init__(self, source):
+        split = source.split("\n", 1)
+
+        # The format is 'bootstrap $name $proto'
+        header = re.search("bootstrap\s+(\w+)\s*(.+)", split[0])
+
+        self.variants = []
+        self.inner_entries = []
+        self.bootstrap = header.group(2)
+        self.name = header.group(1)
+        self.e_type = "class"
+        self.doc = split[1].strip()
+
 class CallEntry:
     def __init__(self, source, e_type):
-        # The format is 'define/method $name($proto)
+        # The format is 'constructor/define/method $name($proto)
         split = source.split("\n", 2)
 
         # TODO: Verify prototype
-        self.proto = split[0][6:].lstrip()
+        self.proto = split[0][len(e_type):].lstrip()
 
         index = self.proto.find("(")
         if index != -1:
@@ -93,6 +107,7 @@ class EnumEntry:
 
 class ClassEntry:
     def __init__(self, source):
+        self.variants = []
         self.inner_entries = []
         # The format is 'class $name'
         self.name = re.search("class (.+)", source).group(1)
@@ -104,6 +119,7 @@ class PackageEntry:
         self.need_loader = embedded
         self.is_embedded = embedded
 
+        self.variants = []
         self.inner_entries = []
         # Same format as for classes.
         self.name = re.search("\w+ (.+)", source).group(1)
@@ -142,14 +158,19 @@ classes/enums belong.
     # Sorry about that.
     package_target = None
     class_target = None
-    dyna_include = None
+    have_dyna = False
+    have_extra = False
 
     for i in range(len(lines)):
         l = lines[i].strip()
 
-        if l.startswith('#include "dyna_'):
-            # Assume this is the right include file.
-            dyna_include = l[8:].strip('" ')
+        if l.startswith('#include "'):
+            name = l[10:]
+            if name.startswith("dyna_"):
+                # Assume this is the right include file.
+                have_dyna = True
+            elif name.startswith("extras_"):
+                have_extra = True
         elif l == "/**":
             i += 1
             doc = ""
@@ -174,11 +195,18 @@ classes/enums belong.
             class_target = EnumEntry(d)
             entries.append(class_target)
 
+        elif d.startswith("constructor"):
+            class_target.inner_entries.append(CallEntry(d, "constructor"))
+
         elif d.startswith("method"):
             class_target.inner_entries.append(CallEntry(d, "method"))
 
         elif d.startswith("define"):
             package_target.inner_entries.append(CallEntry(d, "define"))
+
+        elif d.startswith("bootstrap"):
+            class_target = BootstrapEntry(d)
+            entries.append(class_target)
 
         elif d.startswith("var"):
             package_target.need_loader = True
@@ -186,7 +214,8 @@ classes/enums belong.
 
         # Perhaps this is a "flower box", or not for us, so ignore it.
 
-    package_target.dyna_include = dyna_include
+    package_target.have_dyna = have_dyna
+    package_target.have_extra = have_extra
 
     return [package_target] + entries
 
@@ -239,12 +268,12 @@ Generate html documentation based on comment blocks within the given filename.
         for inner in e.inner_entries:
             inner_type = inner.e_type
             to_add = ""
-            if inner_type == "method" or inner_type == "define":
+            if inner_type != "var":
                 to_add = lfunc(inner.name)
                 # TODO: Pretty print argument types and the return type.
                 # For now, settle for making everything bold.
                 to_add += "<span><strong>%s</strong></span>" % (inner.proto)
-            else: # var
+            else:
                 to_add = lvar(inner.name)
                 to_add += '<span>:</span>'
                 to_add += ltype(inner.proto)
@@ -281,14 +310,26 @@ Generate dynaload information based on comment blocks in a given filename.
     package_entry = entries[0]
     used = []
     result = []
+    offset = 0
 
     for e in entries:
+        e.offset = offset + 1
+        print e.name, e.offset
+        offset += len(e.inner_entries) + len(e.variants) + 1
+
         if e.e_type == "class":
+            dylen = dyencode(len(e.inner_entries))
             used.append(e.name)
-            result.append('    ,"C%s%s"' % (dyencode(len(e.inner_entries)), e.name))
+            try:
+                e.bootstrap
+                result.append('    ,"B%s%s\\0%s"' % (dylen, e.name, e.bootstrap))
+            except AttributeError:
+                result.append('    ,"C%s%s"' % (dylen, e.name))
         elif e.e_type == "enum":
             used.append(e.name)
-            dylen = dyencode(len(e.inner_entries) + len(e.variants))
+            # Don't include the variants, or they won't be visible.
+            # TODO: Scoped variants, eventually.
+            dylen = dyencode(len(e.inner_entries))
             result.append('    ,"E%s%s\\0%s"' % (dylen, e.name, e.proto))
         # else a package, no-op
 
@@ -299,9 +340,10 @@ Generate dynaload information based on comment blocks in a given filename.
                 result.append('    ,"m:%s\\0%s"' % (name, strip_proto(inner.proto)))
             elif inner_type == "define":
                 result.append('    ,"F\\0%s\\0%s"' % (inner.name, strip_proto(inner.proto)))
-            else: # var
+            elif inner_type == "var":
                 result.append('    ,"R\\0%s\\0%s"' % (inner.name, inner.proto))
-
+            else: # constructor
+                result.append('    ,"m:<new>\\0%s"' % (strip_proto(inner.proto)))
         try:
             for inner in e.variants:
                 result.append('    ,"V\\0%s\\0%s"' % (inner.name, inner.proto))
@@ -313,6 +355,10 @@ Generate dynaload information based on comment blocks in a given filename.
         name = "_" + package_entry.name
     else:
         name = ""
+
+    # Builtin classes have ids manually set, so don't write cid entries.
+    if package_entry.name == "builtin":
+        used = []
 
     header = """\
 const char *lily%s_dynaload_table[] = {
@@ -343,7 +389,7 @@ Generate a loader function based upon information within a given filename.
     for e in entries:
         # The dynaload id is the # of entries from the first one.
         # This has to therefore adjust for classes.
-        if e.e_type == "class":
+        if e.e_type != "package":
             i += 1
 
         for inner in e.inner_entries:
@@ -359,12 +405,17 @@ Generate a loader function based upon information within a given filename.
                 to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
             elif inner_type == "define":
                 to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
-            else: # var
+            elif inner_type == "var":
                 # TODO: Check the proto (is that cid table really needed)?
                 to_append = "case %d: return load_var_%s(o, c);" % (i, name)
+            else: # constructor
+                name += "_new"
+                to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
 
             loader_entries.append("        " + to_append)
             i += 1
+
+        i += len(e.variants)
 
     loader_entries.append("        default: return NULL;\n    }\n}")
 
@@ -390,26 +441,20 @@ def do_refresh(filename):
     entries = scan_file(filename)
 
     package_entry = entries[0]
-    dyna_include = package_entry.dyna_include
-
-    prefix = package_entry.name
     base = os.path.dirname(filename)
     if base != "":
         base += os.sep
 
-    if dyna_include == None:
-        # This only happens the first time, so stick it down at the bottom.
-        # For simple packages, this works out perfectly.
-        # Embedders and those needing to register 
-        dyna_include = "dyna_%s.h" % (prefix)
-        f = open(filename, "a")
-        f.write('#include "%s"\n' % (dyna_include))
-        f.close()
-        dyna_name = base + dyna_include
-    else:
-        dyna_name = base + "dyna_" + prefix + ".h"
+    to_add = []
+    refresh_list = []
 
-    dyna_file = open(dyna_include, "w")
+    dyna_name = "dyna_%s.h" % (package_entry.name)
+    refresh_list.append(base + dyna_name)
+
+    if package_entry.have_dyna == False:
+        to_add.append(dyna_name)
+
+    dyna_file = open(base + dyna_name, "w")
     dyna_file.write("/* Contents autogenerated by dyna_tools.py */\n")
     dyna_file.write(gen_dynaload(entries))
     dyna_file.write("\n")
@@ -423,7 +468,29 @@ def do_refresh(filename):
         dyna_file.write(gen_register_func(package_entry))
 
     dyna_file.close()
-    print("Okay, %s has been refreshed." % (dyna_name))
+
+    if package_entry.name == "builtin":
+        name = "%sextras_%s.h" % (base, package_entry.name)
+        refresh_list.append(name)
+        extras_file = open(name, "w")
+
+        # Most of the other classes need offsets for their dynaload entries,
+        # because the classes are manually loaded.
+        # The slice is to avoid writing an offset for the builtin package.
+        l = lambda x: "#define %-26s %d" % (x.name.upper() + "_OFFSET", x.offset)
+
+        extras_file.write("/* Contents autogenerated by dyna_tools.py */\n")
+        extras_file.write("\n".join(map(l, entries[1:])) + "\n")
+        extras_file.close()
+
+    if to_add != []:
+        f = open(filename, "a")
+        for t in to_add:
+            f.write('#include "%s"\n' % (t))
+        f.close()
+
+    for r in refresh_list:
+        print("dyna_tools.py: Refreshed '%s'." % (r))
 
 if len(sys.argv) < 3:
     usage()
