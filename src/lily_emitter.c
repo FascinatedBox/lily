@@ -576,7 +576,7 @@ static void write_block_patches(lily_emit_state *emit, int pos)
             optimized out. */
         uint16_t patch = lily_u16_pop(emit->patches);
 
-        if (patch != (uint16_t)-1)
+        if (patch != 0)
             lily_u16_insert(emit->code, patch, pos);
     }
 }
@@ -1034,7 +1034,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
        the next branch starts. It's right now. */
     uint16_t patch = lily_u16_pop(emit->patches);
 
-    if (patch != (uint16_t)-1)
+    if (patch != 0)
         lily_u16_insert(emit->code, patch,
                 lily_u16_pos(emit->code) - emit->block->jump_offset);
     /* else it's a fake branch from a condition that was optimized out. */
@@ -4063,7 +4063,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
             /* Code that handles if/elif/else transitions expects each branch to
                write a jump. There's no easy way to tell it that none was made...
                so give it a fake jump. */
-            lily_u16_write_1(emit->patches, (uint16_t)-1);
+            lily_u16_write_1(emit->patches, 0);
         }
         else
             lily_u16_write_2(emit->code, o_jump, emit->block->loop_start);
