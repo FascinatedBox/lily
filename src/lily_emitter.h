@@ -100,9 +100,6 @@ typedef struct lily_block_ {
 } lily_block;
 
 typedef struct lily_emit_call_state_ {
-    struct lily_emit_call_state_ *prev;
-    struct lily_emit_call_state_ *next;
-
     /* This is what is going to be called. It is either:
        * A storage  (ex: x[0]()
        * A var      (ex: a())
@@ -159,8 +156,6 @@ typedef struct {
     int *match_cases;
 
     lily_sym **call_values;
-
-    lily_emit_call_state *call_state;
 
     /* All code is written initially to here. When a function is done, a block
        of the appropriate size is copied from here into the function value. */
