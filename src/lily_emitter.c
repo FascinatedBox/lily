@@ -564,12 +564,11 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
 
-/* This takes all patches that exist in the current block and makes them target
-   'pos'. The patches are removed. */
-static void write_block_patches(lily_emit_state *emit, int pos)
+/* This writes patches down until 'to' is reached. Each patch is rewritten to
+   target 'pos'. */
+static void write_patches_since(lily_emit_state *emit, int to, int pos)
 {
     int from = emit->patches->pos - 1;
-    int to = emit->block->patch_start;
 
     for (;from >= to;from--) {
         /* Skip -1's, which are fake patches from conditions that were
@@ -938,8 +937,8 @@ void lily_emit_leave_block(lily_emit_state *emit)
     v = block->var_start;
 
     if (block_type < block_define) {
-        write_block_patches(emit, lily_u16_pos(emit->code) -
-                block->jump_offset);
+        int patch_pos = lily_u16_pos(emit->code) - block->jump_offset;
+        write_patches_since(emit, block->patch_start, patch_pos  );
 
         lily_hide_block_vars(emit->symtab, v);
     }
@@ -2679,19 +2678,17 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *result;
-    int is_top, jump_on;
+    int andor_start;
+    int jump_on = (ast->op == expr_logical_or);
 
-    jump_on = (ast->op == expr_logical_or);
-
-    /* The top-most and/or creates an ANDOR block so that all of the jumps that
-       get written can be properly folded. */
+    /* The top-most and/or will start writing patches, and then later write down
+       all of those patches. This is okay to do, because the current block
+       cannot exit during this and/or branching. */
     if (ast->parent == NULL ||
-        (ast->parent->tree_type != tree_binary || ast->parent->op != ast->op)) {
-        is_top = 1;
-        lily_emit_enter_block(emit, block_andor);
-    }
+        (ast->parent->tree_type != tree_binary || ast->parent->op != ast->op))
+        andor_start = lily_u16_pos(emit->patches);
     else
-        is_top = 0;
+        andor_start = -1;
 
     if (ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left, NULL);
@@ -2707,7 +2704,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
     emit_jump_if(emit, ast->right, jump_on);
 
-    if (is_top == 1) {
+    if (andor_start != -1) {
         int save_pos;
         lily_symtab *symtab = emit->symtab;
 
@@ -2721,7 +2718,9 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         lily_u16_write_2(emit->code, o_jump, 0);
         save_pos = lily_u16_pos(emit->code) - 1;
 
-        lily_emit_leave_block(emit);
+        write_patches_since(emit, andor_start,
+                lily_u16_pos(emit->code) - emit->block->jump_offset);
+
         lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, !truthy,
                 result->reg_spot);
 

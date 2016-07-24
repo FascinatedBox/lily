@@ -12,7 +12,6 @@ typedef enum {
     block_if,
     block_if_elif,
     block_if_else,
-    block_andor,
     block_while,
     block_do_while,
     block_for_in,
