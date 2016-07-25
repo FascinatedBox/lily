@@ -314,7 +314,6 @@ Generate dynaload information based on comment blocks in a given filename.
 
     for e in entries:
         e.offset = offset + 1
-        print e.name, e.offset
         offset += len(e.inner_entries) + len(e.variants) + 1
 
         if e.e_type == "class":
