@@ -2121,6 +2121,10 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     lily_ts_resolve_as_question(emit->ts);
     lily_type *question = emit->ts->question_class_type;
 
+    /* For now, don't resolve with scoop because that causes a crash. */
+    if ((expected->flags & TYPE_HAS_SCOOP) == 0)
+        expected = lily_ts_resolve_with(emit->ts, expected, question);
+
     /* These names are intentionally the same length and on separate lines so
        that slight naming issues become more apparent. */
     lily_mb_add_fmt(msgbuf,
@@ -2128,8 +2132,7 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
             "Expected Type: ^T\n"
             "Received Type: ^T",
             cs->arg_count + 1,
-            class_name, separator, name,
-            lily_ts_resolve_with(emit->ts, expected, question), got);
+            class_name, separator, name, expected, got);
 
     lily_raise(emit->raiser, lily_SyntaxError, lily_mb_get(msgbuf));
 }
