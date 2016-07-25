@@ -3170,7 +3170,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     if (expect && expect->cls->id == SYM_CLASS_LIST)
         elem_type = expect->subtypes[0];
 
-    if (elem_type == NULL)
+    if (elem_type == NULL || elem_type->cls->id == SYM_CLASS_SCOOP_1)
         elem_type = emit->ts->question_class_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
