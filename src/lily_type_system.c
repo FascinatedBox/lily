@@ -330,6 +330,26 @@ static int check_tuple(lily_type_system *ts, lily_type *left, lily_type *right,
     return 1;
 }
 
+static int collect_scoop(lily_type_system *ts, lily_type *left,
+        lily_type *right, int flags)
+{
+    /* Not yet. Maybe later. */
+    if (flags & T_UNIFY)
+        return 0;
+
+    int start = ts->pos + ts->num_used;
+    int scoop_pos = UINT16_MAX - left->cls->id;
+
+    ENSURE_TYPE_STACK(start + right->subtype_count)
+
+    ts->types[start] = right;
+
+    ts->num_used += 1;
+    ts->scoop_starts[scoop_pos] = ts->pos + ts->num_used;
+
+    return 1;
+}
+
 static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, int flags)
 {
     int ret = 0;
@@ -356,6 +376,10 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
         ret = check_function(ts, left, right, flags);
     else if (left->cls->id == SYM_CLASS_TUPLE)
         ret = check_tuple(ts, left, right, flags);
+    else if (left->cls->id == SYM_CLASS_SCOOP_1)
+        /* This is a match of a raw scoop versus a single argument. Consider
+           this valid and, you know, scoop up the type. */
+        ret = collect_scoop(ts, left, right, flags);
     else
         ret = check_misc(ts, left, right, flags);
 
