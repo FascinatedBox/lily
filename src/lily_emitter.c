@@ -974,11 +974,11 @@ static void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
    is valid, as well as jump patching. */
 void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 {
-    lily_block_type current_type = emit->block->block_type;
-    int save_jump;
+    lily_block *block = emit->block;
+    lily_block_type current_type = block->block_type;
 
-    if (emit->block->last_exit != lily_u16_pos(emit->code))
-        emit->block->all_branches_exit = 0;
+    if (block->last_exit != lily_u16_pos(emit->code))
+        block->all_branches_exit = 0;
 
     if (new_type == block_if_elif || new_type == block_if_else) {
         char *block_name;
@@ -1003,14 +1003,23 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
             lily_u16_write_1(emit->code, o_pop_try);
     }
 
-    lily_var *v = emit->block->var_start;
+    lily_var *v = block->var_start;
     if (v != emit->symtab->active_module->var_chain)
         lily_hide_block_vars(emit->symtab, v);
 
-    /* Transitioning between blocks is simple: First write a jump at the end of
-       the current branch. This will get patched to the if/try's exit. */
-    lily_u16_write_2(emit->code, o_jump, 0);
-    save_jump = lily_u16_pos(emit->code) - 1;
+    int save_jump;
+
+    if (block->last_exit != lily_u16_pos(emit->code)) {
+        /* Write a jump at the end of this branch. It will be patched to target
+           the if/try's exit. */
+        lily_u16_write_2(emit->code, o_jump, 0);
+        save_jump = lily_u16_pos(emit->code) - 1;
+    }
+    else
+        /* This branch has code that is confirmed to return, continue, raise, or
+           do some other action that prevents it from reaching here. Don't
+           bother writing a jump that will never be seen. */
+        save_jump = -1;
 
     /* The last jump of the previous branch wants to know where the check for
        the next branch starts. It's right now. */
@@ -1021,7 +1030,9 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
                 lily_u16_pos(emit->code) - emit->block->jump_offset);
     /* else it's a fake branch from a condition that was optimized out. */
 
-    lily_u16_write_1(emit->patches, save_jump);
+    if (save_jump != -1)
+        lily_u16_write_1(emit->patches, save_jump);
+
     emit->block->block_type = new_type;
 }
 
