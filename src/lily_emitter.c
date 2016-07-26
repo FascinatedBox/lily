@@ -381,26 +381,26 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
             emit->block->next_reg_spot - 1, count);
 
     /* Write a block of zeroes that will be patched later. */
-    for (i = 0;i < count - 1;i++)
+    for (i = 0;i < count;i++)
         lily_u16_write_1(emit->code, 0);
 
-    int jump_target = lily_u16_pos(emit->code);
-
-    /* The last jump is the 'case 2' from above.  */
-    lily_u16_write_1(emit->code, lily_u16_pos(emit->code) + 2);
+    int jump_target = lily_u16_pos(emit->code) - 1;
 
     for (i = start;i != stop;i += 3, jump_target--) {
         int target_reg = stack[i];
         int opcode = stack[i + 1];
         int value = stack[i + 2];
-        lily_u16_insert(emit->code, jump_target, lily_u16_pos(emit->code) -
-                emit->block->jump_offset);
+
+        lily_u16_insert(emit->code, jump_target,
+                lily_u16_pos(emit->code) - emit->block->code_start);
         lily_u16_write_4(emit->code, opcode, line_num, value, target_reg);
     }
 
-    /* The first jump will be cascading down all of the default assigns. */
+    /* The first jump will be cascading down all of the default assigns. The
+       offset this time is where code was originally (and not after the code for
+       the above has been written. */
     lily_u16_insert(emit->code, jump_target, lily_u16_pos(emit->code) -
-            emit->block->jump_offset);
+            emit->block->code_start);
 }
 
 /* This function writes the code necessary to get a for <var> in x...y style
@@ -444,7 +444,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     lily_u16_write_5(emit->code, o_integer_for, line_num, target->reg_spot,
             for_end->reg_spot, for_step->reg_spot);
 
-    lily_u16_write_2(emit->code, for_start->reg_spot, 0);
+    lily_u16_write_2(emit->code, for_start->reg_spot, 6);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
@@ -491,7 +491,7 @@ void lily_emit_break(lily_emit_state *emit)
     write_pop_try_blocks_up_to(emit, loop_block);
 
     /* Write the jump, then figure out where to put it. */
-    lily_u16_write_2(emit->code, o_jump, 0);
+    lily_u16_write_2(emit->code, o_jump, 1);
 
     inject_patch_into_block(emit, loop_block, lily_u16_pos(emit->code) - 1);
 }
@@ -506,13 +506,14 @@ void lily_emit_continue(lily_emit_state *emit)
 
     write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
 
-    lily_u16_write_2(emit->code, o_jump, emit->block->loop_start);
+    int where = emit->block->loop_start - lily_u16_pos(emit->code);
+    lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
 }
 
 /* The parser has a 'try' and wants the emitter to write the code. */
 void lily_emit_try(lily_emit_state *emit, int line_num)
 {
-    lily_u16_write_3(emit->code, o_push_try, line_num, 0);
+    lily_u16_write_3(emit->code, o_push_try, line_num, 2);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
@@ -525,7 +526,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         /* There's a register to dump the result into, so use this opcode to let
            the vm know to copy down the information to this var. */
         lily_u16_write_5(emit->code, o_except_catch, line_num,
-                except_var->type->cls->id, except_var->reg_spot, 0);
+                except_var->type->cls->id, except_var->reg_spot, 4);
     else
         /* It doesn't matter, so the vm shouldn't bother fixing up the exception
            stack. The last 0 is very important, because for both of these
@@ -533,7 +534,7 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
            the register would depend on the next opcode (or a condition check
            would be needed). */
         lily_u16_write_5(emit->code, o_except_ignore, line_num,
-                except_type->cls->id, 0, 0);
+                except_type->cls->id, 0, 4);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
@@ -542,24 +543,32 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
    ast is the thing to test. */
 static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
 {
-    lily_u16_write_4(emit->code, o_jump_if, jump_on, ast->result->reg_spot, 0);
+    lily_u16_write_4(emit->code, o_jump_if, jump_on, ast->result->reg_spot, 3);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
 
-/* This writes patches down until 'to' is reached. Each patch is rewritten to
-   target 'pos'. */
-static void write_patches_since(lily_emit_state *emit, int to, int pos)
+/* This writes patches down until 'to' is reached. The patches are written so
+   they target the current code position. */
+static void write_patches_since(lily_emit_state *emit, int to)
 {
     int from = emit->patches->pos - 1;
+    int pos = lily_u16_pos(emit->code);
 
     for (;from >= to;from--) {
-        /* Skip -1's, which are fake patches from conditions that were
-            optimized out. */
         uint16_t patch = lily_u16_pop(emit->patches);
 
-        if (patch != 0)
-            lily_u16_insert(emit->code, patch, pos);
+        /* Skip 0's (those are patches that have been optimized out.
+           Here's a bit of math: If the vm is at 'x' and wants to get to 'y', it
+           can add 'y - x' to 'x', and have 'y'. Cool, right?
+           The trouble is that jump positions may be +1 or +2 relative to the
+           position of the opcode.
+           This problem is worked around by having jumps write down their offset
+           to the opcode, and including that in the jump. */
+        if (patch != 0) {
+            int adjust = lily_u16_get(emit->code, patch);
+            lily_u16_insert(emit->code, patch, pos + adjust - patch);
+        }
     }
 }
 
@@ -895,9 +904,10 @@ void lily_emit_leave_block(lily_emit_state *emit)
     block_type = block->block_type;
 
     /* These blocks need to jump back up when the bottom is hit. */
-    if (block_type == block_while || block_type == block_for_in)
-        lily_u16_write_2(emit->code, o_jump,
-                block->loop_start - block->jump_offset);
+    if (block_type == block_while || block_type == block_for_in) {
+        int x = block->loop_start - lily_u16_pos(emit->code);
+        lily_u16_write_2(emit->code, o_jump, (uint16_t)x);
+    }
     else if (block_type == block_match)
         emit->match_case_pos = emit->block->match_case_start;
     else if (block_type == block_try ||
@@ -906,7 +916,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
         /* The vm expects that the last except block will have a 'next' of 0 to
            indicate the end of the 'except' chain. Remove the patch that the
            last except block installed so it doesn't get patched. */
-        emit->patches->pos--;
+        lily_u16_insert(emit->code, lily_u16_pop(emit->patches), 0);
     }
 
     if ((block_type == block_if_else ||
@@ -920,8 +930,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     v = block->var_start;
 
     if (block_type < block_define) {
-        int patch_pos = lily_u16_pos(emit->code) - block->jump_offset;
-        write_patches_since(emit, block->patch_start, patch_pos  );
+        write_patches_since(emit, block->patch_start);
 
         lily_hide_block_vars(emit->symtab, v);
     }
@@ -1012,7 +1021,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     if (block->last_exit != lily_u16_pos(emit->code)) {
         /* Write a jump at the end of this branch. It will be patched to target
            the if/try's exit. */
-        lily_u16_write_2(emit->code, o_jump, 0);
+        lily_u16_write_2(emit->code, o_jump, 1);
         save_jump = lily_u16_pos(emit->code) - 1;
     }
     else
@@ -1025,9 +1034,11 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
        the next branch starts. It's right now. */
     uint16_t patch = lily_u16_pop(emit->patches);
 
-    if (patch != 0)
+    if (patch != 0) {
+        int patch_adjust = lily_u16_get(emit->code, patch);
         lily_u16_insert(emit->code, patch,
-                lily_u16_pos(emit->code) - emit->block->jump_offset);
+                lily_u16_pos(emit->code) + patch_adjust - patch);
+    }
     /* else it's a fake branch from a condition that was optimized out. */
 
     if (save_jump != -1)
@@ -1370,17 +1381,19 @@ static void perform_closure_transform(lily_emit_state *emit,
     lily_code_iter ci;
     lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
     uint16_t *transform_table = emit->transform_table;
+    int jump_adjust = 0;
 
 /* If the input at the position given by 'x' is within the closure, then write
    an instruction to fetch it from the closure first. This makes sure that if
    this local is in the closure, it needs to read from the closure first so that
    any assignment to it as an upvalue will be reflected. */
-#define MAYBE_TRANSFORM_INPUT(x, op) \
+#define MAYBE_TRANSFORM_INPUT(x, z) \
 { \
     uint16_t id = transform_table[buffer[x]]; \
     if (id != (uint16_t)-1) { \
-        lily_u16_write_4(emit->closure_aux_code, op, f->line_num, id, \
+        lily_u16_write_4(emit->closure_aux_code, z, f->line_num, id, \
                 buffer[x]); \
+        jump_adjust += 4; \
     } \
 }
 
@@ -1406,7 +1419,6 @@ static void perform_closure_transform(lily_emit_state *emit,
                     break;
                 case o_function_call:
                 case o_match_dispatch:
-                case o_variant_decompose:
                     MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
                 default:
                     pos += ci.special_1;
@@ -1461,11 +1473,14 @@ static void perform_closure_transform(lily_emit_state *emit,
             }
         }
 
-        for (i = patch_start;i != lily_u16_pos(emit->patches);i += 2) {
+        for (i = patch_start;i != lily_u16_pos(emit->patches);i += 3) {
             int where = emit->patches->data[i + 1];
             if (ci.offset == where) {
-                emit->closure_aux_code->data[emit->patches->data[i]] =
-                        lily_u16_pos(emit->closure_aux_code);
+                /* What's written is the relative value that was needed before.
+                   Fix it to include the distance added by any successful
+                   transforms. */
+                emit->closure_aux_code->data[emit->patches->data[i]] +=
+                        jump_adjust - emit->patches->data[i+2];
             }
         }
 
@@ -1476,16 +1491,19 @@ static void perform_closure_transform(lily_emit_state *emit,
         if (ci.jumps_7) {
             int i;
             for (i = 0;i < ci.jumps_7;i++) {
+                int destination = buffer[stop + i];
+
                 /* Bug: This is broken for jumps that go backward. I'll fix that
                    by making jumps relative, later on. */
-                lily_u16_write_1(emit->closure_aux_code, 0);
+                lily_u16_write_1(emit->closure_aux_code, destination);
 
-                /* Insert a pairing of the position just written, and the target
-                   of that position. The target is, for the time being, assumed
-                   to be forward. */
-                lily_u16_write_2(emit->patches,
+                /* To do transformations, 3 values are needed:
+                 * Where's the patch that's being fixed.
+                 * Where is the patch going (absolute)?
+                 * How much of an adjust is there so far? */
+                lily_u16_write_3(emit->patches,
                         lily_u16_pos(emit->closure_aux_code) - 1,
-                        buffer[stop + i] + iter_offset);
+                        ci.offset + destination, jump_adjust);
             }
         }
 
@@ -1611,22 +1629,24 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
            any code. This makes it so the previous branch jumps outside the
            match instead of falling through (very bad, in this case). */
         if (is_first_case == 0) {
-            lily_u16_write_2(emit->code, o_jump, 0);
+            lily_u16_write_2(emit->code, o_jump, 1);
 
             lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
         }
 
-        /* Patch the o_match_dispatch spot the corresponds with this class
-           so that it will jump to the current location.
-           Oh, and make sure to do it AFTER writing the jump, or the dispatch
-           will go to the exit jump. */
-        lily_u16_insert(emit->code, emit->block->match_code_start + pos,
-                lily_u16_pos(emit->code) - emit->block->jump_offset);
+        int target = emit->block->match_code_start + pos;
+        int value = lily_u16_pos(emit->code) - emit->block->match_code_start;
+
+        /* o_match_dispatch is written where the match cases are in an array
+           together. This writes a jump that is relative to where the
+           o_match_dispatch opcode is written. Add 5 because that's the size of
+           the header for o_match_dispatch. */
+        lily_u16_insert(emit->code, target, value + 5);
 
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
         lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_module->var_chain)
+        if (v != emit->symtab->active_module->var_chain) 
             lily_hide_block_vars(emit->symtab, v);
     }
     else
@@ -2712,17 +2732,22 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, truthy,
                 result->reg_spot);
 
+        /* The jump will be patched as soon as patches are written, so don't
+           bother writing a count. */
         lily_u16_write_2(emit->code, o_jump, 0);
         save_pos = lily_u16_pos(emit->code) - 1;
 
-        write_patches_since(emit, andor_start,
-                lily_u16_pos(emit->code) - emit->block->jump_offset);
+        write_patches_since(emit, andor_start);
 
         lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, !truthy,
                 result->reg_spot);
 
-        lily_u16_insert(emit->code, save_pos, lily_u16_pos(emit->code)
-                - emit->block->jump_offset);
+        /* Fix the jump that was written. Normally, patches have an offset in
+           them that accounts for the header. But the jump of o_jump is always
+           1 away from the opcode. So add + 1 to below so the relative jump is
+           written properly. */
+        lily_u16_insert(emit->code, save_pos,
+                lily_u16_pos(emit->code) + 1 - save_pos);
         ast->result = (lily_sym *)result;
     }
     else
@@ -4044,8 +4069,11 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
                so give it a fake jump. */
             lily_u16_write_1(emit->patches, 0);
         }
-        else
-            lily_u16_write_2(emit->code, o_jump, emit->block->loop_start);
+        else {
+            /* A do-while block is negative because it jumps back up. */
+            int location = lily_u16_pos(emit->code) - emit->block->loop_start;
+            lily_u16_write_2(emit->code, o_jump, (uint16_t)-location);
+        }
     }
 }
 
