@@ -143,7 +143,8 @@ int lily_ci_next(lily_code_iter *iter)
             break;
         case o_for_setup:
             iter->line = 1;
-            iter->inputs_3 = 4;
+            iter->inputs_3 = 3;
+            iter->outputs_5 = 1;
 
             iter->round_total = 6;
             break;

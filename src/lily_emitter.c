@@ -429,8 +429,8 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     else
         target = (lily_sym *)user_loop_var;
 
-    lily_u16_write_6(emit->code, o_for_setup, line_num, target->reg_spot,
-            for_start->reg_spot, for_end->reg_spot, for_step->reg_spot);
+    lily_u16_write_6(emit->code, o_for_setup, line_num, for_start->reg_spot,
+            for_end->reg_spot, for_step->reg_spot, target->reg_spot);
 
     if (target != (lily_sym *)user_loop_var) {
         lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
@@ -441,10 +441,10 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
        re-eval those expressions. */
     emit->block->loop_start = lily_u16_pos(emit->code);
 
-    lily_u16_write_5(emit->code, o_integer_for, line_num, target->reg_spot,
+    lily_u16_write_5(emit->code, o_integer_for, line_num, for_start->reg_spot,
             for_end->reg_spot, for_step->reg_spot);
 
-    lily_u16_write_2(emit->code, for_start->reg_spot, 6);
+    lily_u16_write_2(emit->code, target->reg_spot, 6);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 

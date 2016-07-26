@@ -2480,11 +2480,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = current_frame->function->code + (code[2] + 4);
                 break;
             case o_for_setup:
-                loop_reg = vm_regs[code[2]];
                 /* lhs_reg is the start, rhs_reg is the stop. */
-                step_reg = vm_regs[code[5]];
-                lhs_reg = vm_regs[code[3]];
-                rhs_reg = vm_regs[code[4]];
+                lhs_reg = vm_regs[code[2]];
+                rhs_reg = vm_regs[code[3]];
+                step_reg = vm_regs[code[4]];
+                loop_reg = vm_regs[code[5]];
 
                 if (step_reg->value.integer == 0)
                     lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
@@ -2493,6 +2493,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Do a negative step to offset falling into o_for_loop. */
                 loop_reg->value.integer =
                         lhs_reg->value.integer - step_reg->value.integer;
+                lhs_reg->value.integer = loop_reg->value.integer;
                 loop_reg->flags = VAL_IS_INTEGER;
 
                 code += 6;
