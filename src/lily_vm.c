@@ -2373,7 +2373,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_optarg_dispatch:
-                code = current_frame->function->code + do_o_optarg_dispatch(vm, code);
+                code += do_o_optarg_dispatch(vm, code);
                 break;
             case o_integer_for:
                 /* loop_reg is an internal counter, while lhs_reg is an external

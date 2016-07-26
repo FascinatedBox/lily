@@ -375,6 +375,11 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
     int count = ((stop - start) / 3) + 1;
     int i;
 
+    /* Optargs is -almost- always first. But sometimes there's an o_new_instance
+       that comes before it. So the jumps need to be relative, but to take into
+       account that they're not first. */
+    int offset = lily_u16_pos(emit->code);
+
     /* This writes down the most recent register and the count. The count is
        sent because the vm doesn't have an easy way to know how many to scan. */
     lily_u16_write_3(emit->code, o_optarg_dispatch,
@@ -392,15 +397,14 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         int value = stack[i + 2];
 
         lily_u16_insert(emit->code, jump_target,
-                lily_u16_pos(emit->code) - emit->block->code_start);
+                lily_u16_pos(emit->code) - offset);
         lily_u16_write_4(emit->code, opcode, line_num, value, target_reg);
     }
 
     /* The first jump will be cascading down all of the default assigns. The
        offset this time is where code was originally (and not after the code for
        the above has been written. */
-    lily_u16_insert(emit->code, jump_target, lily_u16_pos(emit->code) -
-            emit->block->code_start);
+    lily_u16_insert(emit->code, jump_target, lily_u16_pos(emit->code) - offset);
 }
 
 /* This function writes the code necessary to get a for <var> in x...y style
@@ -1185,21 +1189,17 @@ static void ensure_params_in_closure(lily_emit_state *emit)
     if (local_count == 0)
         return;
 
-    lily_class *optarg_class = emit->symtab->optarg_class;
-    /* The vars themselves aren't marked optargs, because that would be silly.
-       To know if something has optargs, prod the function's types. */
-    lily_type **real_param_types = function_var->type->subtypes;
-
     lily_var *var_iter = emit->symtab->active_module->var_chain;
     while (var_iter != function_var) {
         if (var_iter->flags & SYM_CLOSED_OVER &&
             var_iter->reg_spot < local_count) {
-            lily_type *real_type = real_param_types[var_iter->reg_spot + 1];
-            if (real_type->cls != optarg_class)
-                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
-                        function_var->line_num,
-                        find_closed_sym_spot(emit, (lily_sym *)var_iter),
-                        var_iter->reg_spot);
+            /* Make absolutely sure that a parameter that has been closed over
+               is present in the closure by forcing a write. It might be a
+               useless write, but that's hard to discover. Best to be safe. */
+            lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
+                    function_var->line_num,
+                    find_closed_sym_spot(emit, (lily_sym *)var_iter),
+                    var_iter->reg_spot);
         }
 
         var_iter = var_iter->next;
