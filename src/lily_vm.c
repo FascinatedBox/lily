@@ -1451,10 +1451,10 @@ static int maybe_catch_exception(lily_vm_state *vm)
         uint16_t *code = call_frame->function->code;
         /* A try block is done when the next jump is at 0 (because 0 would
            always be going back, which is illogical otherwise). */
-        jump_location = code[catch_iter->code_pos];
+        jump_location = catch_iter->code_pos + code[catch_iter->code_pos] - 2;
         stack_regs = vm->regs_from_main + catch_iter->offset_from_main;
 
-        while (jump_location != 0) {
+        while (1) {
             lily_class *catch_class = vm->class_table[code[jump_location + 2]];
 
             if (lily_class_greater_eq(catch_class, raised_cls)) {
@@ -1473,8 +1473,13 @@ static int maybe_catch_exception(lily_vm_state *vm)
                 match = 1;
                 break;
             }
-            else
-                jump_location = code[jump_location + 4];
+            else {
+                int move_by = code[jump_location + 4];
+                if (move_by == 0)
+                    break;
+
+                jump_location += move_by;
+            }
         }
 
         if (match)
@@ -2039,7 +2044,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 EQUALITY_COMPARE_OP(!=, != 0)
                 break;
             case o_jump:
-                code = current_frame->function->code + code[1];
+                code += (int16_t)code[1];
                 break;
             case o_integer_mul:
                 INTEGER_OP(*)
@@ -2112,7 +2117,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         result = 1;
 
                     if (result != code[1])
-                        code = current_frame->function->code + code[3];
+                        code += (int16_t)code[3];
                     else
                         code += 4;
                 }
@@ -2396,7 +2401,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     code += 7;
                 }
                 else
-                    code = current_frame->function->code + code[6];
+                    code += code[6];
 
                 break;
             case o_push_try:
@@ -2444,7 +2449,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* code[3] is the base enum id + 1. */
                 i = lhs_reg->value.instance->instance_id - code[3];
 
-                code = current_frame->function->code + code[5 + i];
+                code += code[5 + i];
                 break;
             }
             case o_variant_decompose:
