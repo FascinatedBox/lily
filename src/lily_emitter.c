@@ -1430,7 +1430,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         if (ci.inputs_3) {
             for (i = 0;i < ci.inputs_3;i++) {
-                MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
+                MAYBE_TRANSFORM_INPUT(pos + i, o_get_upvalue)
             }
 
             pos += ci.inputs_3;
