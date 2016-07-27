@@ -86,12 +86,6 @@ lily_value *lily_instance_get(lily_instance_val *source, int i)
 
 /* Special-cased returns */
 
-void lily_return_tag_dynamic(lily_vm_state *vm, lily_dynamic_val *v)
-{
-    lily_move_dynamic(vm->call_chain->prev->return_target, v);
-    lily_tag_value(vm, vm->call_chain->prev->return_target);
-}
-
 void lily_return_value_noref(lily_vm_state *vm, lily_value *v)
 {
     lily_assign_value_noref(vm->call_chain->prev->return_target, v);

@@ -196,15 +196,7 @@ While it is currently possible to place polymorphic values into `Dynamic`, that
 ability will be removed in the future, as it is not possible to cast polymorphic
 values out of a `Dynamic`.
 */
-void lily_builtin_Dynamic_new(lily_vm_state *vm)
-{
-    lily_value *input = lily_arg_value(vm, 0);
-
-    lily_dynamic_val *dynamic_val = lily_new_dynamic_val();
-    lily_dynamic_set_value(dynamic_val, input);
-
-    lily_return_tag_dynamic(vm, dynamic_val);
-}
+extern void lily_builtin_Dynamic_new(lily_vm_state *);
 
 /**
 enum Either[A, B]
