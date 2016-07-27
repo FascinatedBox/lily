@@ -517,3 +517,19 @@ int lily_class_greater_eq(lily_class *left, lily_class *right)
 
     return ret;
 }
+
+int lily_class_greater_eq_id(int left_id, lily_class *right)
+{
+    int ret = 0;
+
+    while (right != NULL) {
+        if (right->id == left_id) {
+            ret = 1;
+            break;
+        }
+
+        right = right->parent;
+    }
+
+    return ret;
+}
