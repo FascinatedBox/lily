@@ -424,19 +424,26 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     }
 
     lily_sym *target;
-    if (user_loop_var->function_depth == 1)
-        /* Don't use a storage, or it will be used again for something else.
-           Don't use a scoped var here or up above either, or this will fail
-           when within __import__ functions. */
+    int need_sync = emit->function_block->prev == NULL;
+
+    if (need_sync) {
+        /* o_integer_for works by writing to both an intermediate, and to a
+           loop target (both being local). If this var is really a global var,
+           (and it's not within __main__ where it can be used as a global), then
+           use an intermediate (because using a global register number where a
+           local one is expected is quite bad.
+           This isn't common, so it's fine if this needs to be fixed up with an
+           extra set of syncing writes. */
         target = (lily_sym *)lily_emit_new_local_var(emit, cls->type,
                 "(for temp)");
+    }
     else
         target = (lily_sym *)user_loop_var;
 
     lily_u16_write_6(emit->code, o_for_setup, line_num, for_start->reg_spot,
             for_end->reg_spot, for_step->reg_spot, target->reg_spot);
 
-    if (target != (lily_sym *)user_loop_var) {
+    if (need_sync) {
         lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
                 user_loop_var->reg_spot);
     }
@@ -452,7 +459,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
-    if (target != (lily_sym *)user_loop_var) {
+    if (need_sync) {
         lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
                 user_loop_var->reg_spot);
     }
