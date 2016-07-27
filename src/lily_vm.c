@@ -388,6 +388,14 @@ static void invoke_gc(lily_vm_state *vm)
 
 static void dynamic_marker(int pass, lily_value *v)
 {
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        lily_gc_entry *e = v->value.dynamic->gc_entry;
+        if (e->last_pass == pass)
+            return;
+
+        e->last_pass = pass;
+    }
+
     lily_value *inner_value = v->value.dynamic->inner_value;
 
     if (inner_value->flags & VAL_IS_GC_SWEEPABLE)
@@ -396,6 +404,15 @@ static void dynamic_marker(int pass, lily_value *v)
 
 static void list_marker(int pass, lily_value *v)
 {
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        /* Only instances/enums that pass through here are tagged. */
+        lily_gc_entry *e = v->value.instance->gc_entry;
+        if (e->last_pass == pass)
+            return;
+
+        e->last_pass = pass;
+    }
+
     lily_list_val *list_val = v->value.list;
     int i;
 
@@ -421,6 +438,15 @@ static void hash_marker(int pass, lily_value *v)
 
 static void function_marker(int pass, lily_value *v)
 {
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        /* Only instances/enums that pass through here are tagged. */
+        lily_gc_entry *e = v->value.function->gc_entry;
+        if (e->last_pass == pass)
+            return;
+
+        e->last_pass = pass;
+    }
+
     lily_function_val *function_val = v->value.function;
 
     lily_value **upvalues = function_val->upvalues;
@@ -436,23 +462,16 @@ static void function_marker(int pass, lily_value *v)
 
 static void gc_mark(int pass, lily_value *v)
 {
-    if (((v->flags & VAL_IS_GC_TAGGED) &&
-         v->value.gc_generic->gc_entry->last_pass != pass) ||
-         v->flags & VAL_IS_GC_SPECULATIVE)
-    {
-        if (v->flags & VAL_IS_GC_TAGGED) {
-            lily_generic_gc_val *gen_val = v->value.gc_generic;
-            gen_val->gc_entry->last_pass = pass;
-        }
-
-        if (v->flags &
+    int flags = v->flags;
+    if (flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
+        if (flags &
             (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_ENUM | VAL_IS_TUPLE))
             list_marker(pass, v);
-        else if (v->flags & VAL_IS_HASH)
+        else if (flags & VAL_IS_HASH)
             hash_marker(pass, v);
-        else if (v->flags & VAL_IS_DYNAMIC)
+        else if (flags & VAL_IS_DYNAMIC)
             dynamic_marker(pass, v);
-        else if (v->flags & VAL_IS_FUNCTION)
+        else if (flags & VAL_IS_FUNCTION)
             function_marker(pass, v);
     }
 }
