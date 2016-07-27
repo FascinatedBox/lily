@@ -93,4 +93,8 @@ void lily_ts_generics_seen(lily_type_system *, int);
    is within the classes themselves. */
 int lily_class_greater_eq(lily_class *, lily_class *);
 
+/* The same as lily_class_greater_eq, except that an id is passed in place of a
+   first class. */
+int lily_class_greater_eq_id(int, lily_class *);
+
 #endif

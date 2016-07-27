@@ -58,7 +58,6 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     parser->generic_count = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
-    parser->exception_type = NULL;
     parser->first_expr = lily_new_expr_state();
     parser->symtab = lily_new_symtab();
 
@@ -3369,27 +3368,17 @@ static void process_except(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_type *except_type = get_type(parser);
-    /* Exception is likely to always be the base exception class. */
-    if (parser->exception_type == NULL) {
-        lily_class *cls = lily_find_class(parser->symtab, NULL, "Exception");
-        if (cls == NULL)
-            cls = find_run_class_dynaload(parser,
-                    parser->symtab->builtin_module, "Exception");
-
-        parser->exception_type = cls->type;
-    }
-
-    lily_type *base_type = parser->exception_type;
+    lily_class *except_cls = get_type(parser)->cls;
     lily_block_type new_type = block_try_except;
 
-    if (except_type == base_type)
+    /* If it's 'except Exception', then all possible cases have been handled. */
+    if (except_cls->id == SYM_CLASS_EXCEPTION)
         new_type = block_try_except_all;
-    else if (lily_class_greater_eq(base_type->cls, except_type->cls) == 0)
+    else if (lily_class_greater_eq_id(SYM_CLASS_EXCEPTION, except_cls) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.",
-                except_type->cls->name);
-    else if (except_type->subtypes != 0)
+                except_cls->name);
+    else if (except_cls->generic_count != 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'except' type cannot have subtypes.");
 
@@ -3409,14 +3398,16 @@ static void process_except(lily_parse_state *parser)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.", exception_var->name);
 
+        /* It's okay to say 'cls->type' here because the class because classes
+           without generics always have a default type. */
         exception_var = lily_emit_new_local_var(parser->emit,
-                except_type, lex->label);
+                except_cls->type, lex->label);
 
         lily_lexer(lex);
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_except(parser->emit, except_type, exception_var,
+    lily_emit_except(parser->emit, except_cls->type, exception_var,
             lex->line_num);
 
     lily_lexer(lex);

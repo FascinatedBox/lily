@@ -41,7 +41,6 @@ typedef struct lily_parse_state_ {
        here until the vm is ready to receive them. */
     lily_value_stack *foreign_values;
 
-    lily_type *exception_type;
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;
