@@ -439,7 +439,6 @@ static void hash_marker(int pass, lily_value *v)
 static void function_marker(int pass, lily_value *v)
 {
     if (v->flags & VAL_IS_GC_TAGGED) {
-        /* Only instances/enums that pass through here are tagged. */
         lily_gc_entry *e = v->value.function->gc_entry;
         if (e->last_pass == pass)
             return;
