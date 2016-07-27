@@ -164,16 +164,23 @@ typedef struct lily_function_val_ {
     uint32_t refcount;
     uint32_t line_num;
 
+    uint32_t pad;
+
+    uint16_t num_upvalues;
+
+    /* This is how many registers that this function uses. */
+    uint16_t reg_count;
+
+    /* The module that this function was created within. */
+    struct lily_module_entry_ *module;
+
+    struct lily_gc_entry_ *gc_entry;
+
     /* The name of the class that this function belongs to OR "". */
     const char *class_name;
 
     /* The name of this function, for use by debug and stack trace. */
     const char *trace_name;
-
-    struct lily_gc_entry_ *gc_entry;
-
-    /* The module that this function was created within. */
-    struct lily_module_entry_ *module;
 
     /* Foreign functions only. To determine if a function is foreign, simply
        check 'foreign_func == NULL'. */
@@ -181,13 +188,6 @@ typedef struct lily_function_val_ {
 
     /* Here's where the function's code is stored. */
     uint16_t *code;
-
-    uint32_t pad;
-
-    uint16_t num_upvalues;
-
-    /* This is how many registers that this function uses. */
-    uint16_t reg_count;
 
     union {
         struct lily_value_ **upvalues;
@@ -216,7 +216,7 @@ typedef struct lily_generic_gc_val_ {
     uint32_t refcount;
     uint32_t pad;
     uint64_t pad2;
-    uint64_t pad3;
+    void *pad3;
     struct lily_gc_entry_ *gc_entry;
 } lily_generic_gc_val;
 
