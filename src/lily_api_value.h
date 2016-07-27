@@ -146,7 +146,6 @@ void lily_drop_value(lily_vm_state *);
 DECLARE_SETTERS(push, lily_vm_state *)
 
 DECLARE_SETTERS(return, lily_vm_state *)
-void lily_return_tag_dynamic(lily_vm_state *, lily_dynamic_val *);
 void lily_return_value_noref(lily_vm_state *, lily_value *);
 
 /* Calling, and argument fetching */

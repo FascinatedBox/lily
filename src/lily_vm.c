@@ -799,6 +799,20 @@ static void builtin_stdout_print(lily_vm_state *vm)
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
 }
 
+void lily_return_tag_dynamic(lily_vm_state *vm, lily_dynamic_val *);
+
+void lily_builtin_Dynamic_new(lily_vm_state *vm)
+{
+    lily_value *input = lily_arg_value(vm, 0);
+
+    lily_dynamic_val *dynamic_val = lily_new_dynamic_val();
+    lily_dynamic_set_value(dynamic_val, input);
+
+    lily_value *target = vm->call_chain->prev->return_target;
+    lily_move_dynamic(target, dynamic_val);
+    lily_tag_value(vm, target);
+}
+
 /***
  *       ___                      _
  *      / _ \ _ __   ___ ___   __| | ___  ___
