@@ -2943,7 +2943,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->hash_class       = build_class(symtab, "Hash",        2, HASH_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, TUPLE_OFFSET);
     lily_class *file_class   = build_class(symtab, "File",        0, FILE_OFFSET);
-    symtab->generic_class    = build_class(symtab, "",            0, 0);
     symtab->question_class   = build_class(symtab, "?",           0, 0);
 
     symtab->optarg_class    = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
@@ -2972,7 +2971,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     file_class->move_flags               = VAL_IS_FILE;
 
     /* These need to be set here so type finalization can bubble them up. */
-    symtab->generic_class->type->flags |= TYPE_IS_UNRESOLVED;
     symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
     symtab->function_class->flags |= CLS_GC_TAGGED;
     symtab->dynamic_class->flags |= CLS_GC_SPECULATIVE;

@@ -17,7 +17,7 @@
  *                          |_|
  */
 
-lily_symtab *lily_new_symtab(void)
+lily_symtab *lily_new_symtab(lily_generic_pool *gp)
 {
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
@@ -25,9 +25,9 @@ lily_symtab *lily_new_symtab(void)
     symtab->next_class_id = 0;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
-    symtab->generic_class = NULL;
     symtab->old_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
+    symtab->generics = gp;
 
     return symtab;
 }
@@ -463,8 +463,6 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
  *
  */
 
-static lily_type *make_new_type(lily_class *);
-
 /* This creates a new class that is returned to the caller. The newly-made class
    is not added to the symtab, and has no id set upon it. */
 lily_class *lily_new_raw_class(const char *name)
@@ -525,41 +523,6 @@ lily_class *lily_new_enum(lily_symtab *symtab, const char *name)
     return new_class;
 }
 
-/* This creates a new type but doesn't add it to the 'all_subtypes' field of the
-   given class (that's left for the caller to do). */
-static lily_type *make_new_type(lily_class *cls)
-{
-    lily_type *new_type = lily_malloc(sizeof(lily_type));
-    new_type->item_kind = ITEM_TYPE_TYPE;
-    new_type->cls = cls;
-    new_type->flags = 0;
-    new_type->generic_pos = 0;
-    new_type->subtype_count = 0;
-    new_type->subtypes = NULL;
-    new_type->next = NULL;
-
-    return new_type;
-}
-
-static lily_type *lookup_generic(lily_symtab *symtab, const char *name)
-{
-    int id = name[0] - 'A';
-    lily_type *type_iter = symtab->generic_class->all_subtypes;
-
-    while (type_iter) {
-        if (type_iter->generic_pos == id) {
-            if (type_iter->flags & TYPE_HIDDEN_GENERIC)
-                type_iter = NULL;
-
-            break;
-        }
-
-        type_iter = type_iter->next;
-    }
-
-    return type_iter;
-}
-
 static lily_class *find_class(lily_class *class_iter, const char *name,
         uint64_t shorthash)
 {
@@ -592,21 +555,8 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
                 result = find_class(symtab->active_module->class_chain, name,
                         shorthash);
         }
-        else {
-            lily_type *generic_type = lookup_generic(symtab, name);
-            if (generic_type) {
-                /* It's rather silly to make a different class for each generic
-                   type. Instead, write out whatever generic type was found as
-                   the default type. The generic class is written to have no
-                   subtypes, so this is okay.
-                   ts and other modules always special case the generic class,
-                   and won't be bothered by this little trick. */
-                result = symtab->generic_class;
-                result->type = generic_type;
-            }
-            else
-                result = NULL;
-        }
+        else
+            result = lily_gp_find(symtab->generics, name);
     }
     else
         result = find_class(module->class_chain, name, shorthash);
@@ -942,38 +892,4 @@ lily_package *lily_find_package(lily_module_entry *module, const char *name)
     }
 
     return result;
-}
-
-/* This...is called to 'fix' how many generics are available in the current
-   class. As a 'neat' side-effect, it also sets how many generics that
-   'decl_class' has. */
-void lily_update_symtab_generics(lily_symtab *symtab, int count)
-{
-    /* The symtab special cases all types holding generic information so
-       that they're unique, together, and in numerical order. */
-    lily_type *type_iter = symtab->generic_class->all_subtypes;
-    int i = 1;
-
-    while (count) {
-        type_iter->flags &= ~TYPE_HIDDEN_GENERIC;
-        count--;
-        if (type_iter->next == NULL && count) {
-            lily_type *new_type = make_new_type(symtab->generic_class);
-            new_type->flags = TYPE_IS_UNRESOLVED;
-            new_type->generic_pos = i;
-
-            /* It's much easier if generics are linked so that the higher number
-               ones come further on. (A => B => C) instead of having the newest
-               one be at the front. In fact, a couple of other modules poke the
-               generics directly and rely on this ordering. */
-            type_iter->next = new_type;
-        }
-        i++;
-        type_iter = type_iter->next;
-    }
-
-    while (type_iter) {
-        type_iter->flags |= TYPE_HIDDEN_GENERIC;
-        type_iter = type_iter->next;
-    }
 }

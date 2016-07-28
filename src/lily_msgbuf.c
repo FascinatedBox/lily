@@ -238,8 +238,6 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
             lily_mb_add(msgbuf, ")");
         }
     }
-    else if (type->cls->id == SYM_CLASS_GENERIC)
-        lily_mb_add_char(msgbuf, 'A' + type->generic_pos);
     else if (type->cls->generic_count != 0) {
         int i;
         int is_optarg = type->cls->id == SYM_CLASS_OPTARG;

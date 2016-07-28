@@ -416,26 +416,26 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_HASH            8
 #define SYM_CLASS_TUPLE           9
 #define SYM_CLASS_FILE           10
-#define SYM_CLASS_GENERIC        11
-#define SYM_CLASS_QUESTION       12
-#define SYM_CLASS_OPTION         13
-#define SYM_CLASS_SOME           14
-#define SYM_CLASS_NONE           15
-#define SYM_CLASS_EITHER         16
-#define SYM_CLASS_LEFT           17
-#define SYM_CLASS_RIGHT          18
-#define SYM_CLASS_EXCEPTION      19
+#define SYM_CLASS_QUESTION       11
+#define SYM_CLASS_OPTION         12
+#define SYM_CLASS_SOME           13
+#define SYM_CLASS_NONE           14
+#define SYM_CLASS_EITHER         15
+#define SYM_CLASS_LEFT           16
+#define SYM_CLASS_RIGHT          17
+#define SYM_CLASS_EXCEPTION      18
 /* This order must be synced with the dynaload order of these classes. */
-#define SYM_CLASS_IOERROR        20
-#define SYM_CLASS_KEYERROR       21
-#define SYM_CLASS_RUNTIMEERROR   22
-#define SYM_CLASS_VALUEERROR     23
-#define SYM_CLASS_INDEXERROR     24
-#define SYM_CLASS_DBZERROR       25 /* > 9000 */
-#define SYM_CLASS_TAINTED        26
-#define START_CLASS_ID           27
+#define SYM_CLASS_IOERROR        19
+#define SYM_CLASS_KEYERROR       20
+#define SYM_CLASS_RUNTIMEERROR   21
+#define SYM_CLASS_VALUEERROR     22
+#define SYM_CLASS_INDEXERROR     23
+#define SYM_CLASS_DBZERROR       24 /* > 9000 */
+#define SYM_CLASS_TAINTED        25
+#define START_CLASS_ID           26
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
+#define SYM_CLASS_GENERIC     65531
 #define SYM_CLASS_OPTARG      65532
 #define SYM_CLASS_SCOOP_2     65533
 #define SYM_CLASS_SCOOP_1     65534

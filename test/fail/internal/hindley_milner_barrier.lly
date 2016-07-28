@@ -18,7 +18,7 @@ SyntaxError: Cannot close over a var of an incomplete type in this scope.
 
 define f[A](f_input: A) {
     define g {
-        define h[A](h_input: A) : A {
+        define h(h_input: A) : A {
             h_input = f_input
             return f_input
         }

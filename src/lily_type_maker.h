@@ -27,4 +27,6 @@ lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *, lily_type *);
 
 void lily_free_type_maker(lily_type_maker *);
 
+lily_type *lily_new_raw_type(lily_class *);
+
 #endif
