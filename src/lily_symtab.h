@@ -2,6 +2,7 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
+# include "lily_generic_pool.h"
 # include "lily_value_structs.h"
 # include "lily_value_stack.h"
 
@@ -28,6 +29,9 @@ typedef struct lily_symtab_ {
     /* The symtab keeps this because __main__ requires a special teardown. */
     lily_function_val *main_function;
 
+    /* Symtab uses this to search for generics. */
+    lily_generic_pool *generics;
+
     /* Each class gets a unique id. This is mostly for the builtin classes
        which have some special behavior sometimes. */
     uint32_t next_class_id;
@@ -47,13 +51,12 @@ typedef struct lily_symtab_ {
     lily_class *hash_class;
     lily_class *tuple_class;
     lily_class *optarg_class;
-    lily_class *generic_class;
     lily_class *question_class;
 
     uint32_t *lex_linenum;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(void);
+lily_symtab *lily_new_symtab(lily_generic_pool *);
 void lily_set_first_package(lily_symtab *, lily_package *);
 void lily_free_symtab(lily_symtab *);
 
@@ -86,7 +89,6 @@ void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, const char *, int);
-void lily_update_symtab_generics(lily_symtab *, int);
 void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);

@@ -2,11 +2,11 @@ enum Test[A] {
     One(A)
     Two
 
-    define with_default[A](a: *Integer = 0) : Test[A] {
+    define with_default(a: *Integer = 0) : Test[A] {
         return self
     }
 
-    define and_then[A](f: Function(A => Test[A])) : Test[A] {
+    define and_then(f: Function(A => Test[A])) : Test[A] {
         match self: {
             case One(s):
                 return f(s)
@@ -14,7 +14,7 @@ enum Test[A] {
                 return Two
         }
     }
-    define force[A] : A {
+    define force: A {
         match self: {
             case One(s):
                 return s

@@ -10,6 +10,7 @@
 # include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
 # include "lily_value_stack.h"
+# include "lily_generic_pool.h"
 
 # include "lily_api_msgbuf.h"
 
@@ -22,8 +23,7 @@ typedef struct lily_parse_state_ {
     lily_buffer_u16 *optarg_stack;
 
     uint16_t executing;
-    uint8_t first_pass;
-    uint8_t generic_count;
+    uint16_t first_pass;
     uint32_t pad;
 
     /* The current expression state. */
@@ -40,6 +40,9 @@ typedef struct lily_parse_state_ {
     /* These are the values of vars that have been dynaloaded. They're stored
        here until the vm is ready to receive them. */
     lily_value_stack *foreign_values;
+
+    /* The parser uses this to hold and register generic classes. */
+    lily_generic_pool *generics;
 
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;

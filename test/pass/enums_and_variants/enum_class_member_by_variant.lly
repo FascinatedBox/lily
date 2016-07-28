@@ -2,13 +2,13 @@ enum Test[A] {
     One(A)
     Two
 
-    define f[A](g: Test[A]) {
+    define f(g: Test[A]) {
     }
 
-    define h[A, B](i: Test[B]) {
+    define h[B](i: Test[B]) {
     }
 
-    define map[A, B](f: Function(A => B)):Test[B] {
+    define map[B](f: Function(A => B)):Test[B] {
         match self: {
             case One(s):
                 return One(f(s))
