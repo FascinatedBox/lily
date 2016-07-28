@@ -2226,14 +2226,18 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
             oo_name);
 
-    if (item == NULL)
-        lily_raise(emit->raiser, lily_SyntaxError,
+    if (item == NULL) {
+        lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
+                lily_SyntaxError,
                 "Class %s has no method or property named %s.",
                 lookup_class->name, oo_name);
+    }
     else if (item->item_kind == ITEM_TYPE_PROPERTY &&
-             ast->arg_start->tree_type == tree_self)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Use @<name> to get/set properties, not self.<name>.");
+             ast->arg_start->tree_type == tree_self) {
+        lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
+                lily_SyntaxError,
+                "Use @<name> to get/set properties, not self.<name>.", "");
+    }
     else
         ast->item = item;
 
