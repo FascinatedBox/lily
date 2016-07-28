@@ -465,28 +465,9 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
 
 static lily_type *make_new_type(lily_class *);
 
-/* This creates a new class based off of a given seed. The name is copied over
-   from the seed given.
-   If the given class does not take generics, this will also set the default
-   type of the newly-made class. */
-lily_class *lily_new_raw_class(lily_symtab *symtab, const char *name)
-{
-    lily_class *new_class = lily_new_class(symtab, name);
-
-    new_class->flags |= CLS_IS_BUILTIN;
-    new_class->id = 0;
-    symtab->next_class_id--;
-
-    return new_class;
-}
-
-/* This creates a new class entity. This entity is used for, well, more than it
-   should be. The entity is going to be either an enum, a variant, or a
-   user-defined class. The class is assumed to be refcounted, because it usually
-   is.
-   The new class is automatically linked up to the current module. No default
-   type is created, in case the newly-made class ends up needing generics. */
-lily_class *lily_new_class(lily_symtab *symtab, const char *name)
+/* This creates a new class that is returned to the caller. The newly-made class
+   is not added to the symtab, and has no id set upon it. */
+lily_class *lily_new_raw_class(const char *name)
 {
     lily_class *new_class = lily_malloc(sizeof(lily_class));
     char *name_copy = lily_malloc(strlen(name) + 1);
@@ -503,10 +484,27 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     new_class->prop_count = 0;
     new_class->variant_members = NULL;
     new_class->members = NULL;
-    new_class->module = symtab->active_module;
+    new_class->module = NULL;
     new_class->all_subtypes = NULL;
-    new_class->move_flags = VAL_IS_INSTANCE;
+    new_class->move_flags = 0;
     new_class->dyna_start = 0;
+
+    return new_class;
+}
+
+/* This creates a new class entity. This entity is used for, well, more than it
+   should be. The entity is going to be either an enum, a variant, or a
+   user-defined class. The class is assumed to be refcounted, because it usually
+   is.
+   The new class is automatically linked up to the current module. No default
+   type is created, in case the newly-made class ends up needing generics. */
+lily_class *lily_new_class(lily_symtab *symtab, const char *name)
+{
+    lily_class *new_class = lily_new_raw_class(name);
+
+    /* Builtin classes will override this. */
+    new_class->move_flags = VAL_IS_INSTANCE;
+    new_class->module = symtab->active_module;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
