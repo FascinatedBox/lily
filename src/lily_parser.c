@@ -727,7 +727,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         NEED_CURRENT_TOK(tk_word)
     }
 
-    if (cls->flags & CLS_IS_VARIANT)
+    if (cls->item_kind == ITEM_TYPE_VARIANT)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "Variant types not allowed in a declaration.");
 
@@ -1681,7 +1681,7 @@ static void push_constant(lily_parse_state *parser, int key_id)
 static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
-    if (cls->flags & CLS_IS_VARIANT) {
+    if (cls->item_kind == ITEM_TYPE_VARIANT) {
         lily_es_push_variant(parser->expr, (lily_variant_class *)cls);
         *state = ST_WANT_OPERATOR;
     }
@@ -3588,8 +3588,8 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
     else if (super_class == cls)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "A class cannot inherit from itself!");
-    else if (super_class->flags &
-             (CLS_IS_ENUM | CLS_IS_VARIANT | CLS_IS_BUILTIN))
+    else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
+             super_class->flags & (CLS_IS_ENUM | CLS_IS_BUILTIN))
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' cannot be inherited from.", lex->label);
 

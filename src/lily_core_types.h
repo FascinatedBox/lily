@@ -312,21 +312,20 @@ typedef struct lily_package_link_ {
 #define CLS_VALID_HASH_KEY 0x001
 #define CLS_VALID_OPTARG   0x002
 #define CLS_IS_ENUM        0x004
-#define CLS_IS_VARIANT     0x008
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x010
-#define CLS_EMPTY_VARIANT  0x020
+#define CLS_ENUM_IS_SCOPED 0x008
+#define CLS_EMPTY_VARIANT  0x010
 /* This class can become circular, so instances must have a gc tag. */
-#define CLS_GC_TAGGED      0x040
+#define CLS_GC_TAGGED      0x020
 /* This class might have circular data inside of it. */
-#define CLS_GC_SPECULATIVE 0x080
+#define CLS_GC_SPECULATIVE 0x040
 /* This class does not have an inheritable representation. */
-#define CLS_IS_BUILTIN     0x100
+#define CLS_IS_BUILTIN     0x080
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
-#define CLS_VISITED        0x200
+#define CLS_VISITED        0x100
 
 /* TYPE_* defines are for lily_type.
    Since types are not usable as values, they do not need to start where
