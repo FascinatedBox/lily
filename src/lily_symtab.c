@@ -72,7 +72,7 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
     while (class_iter) {
         lily_free(class_iter->name);
 
-        if (class_iter->flags & CLS_IS_VARIANT) {
+        if (class_iter->item_kind == ITEM_TYPE_VARIANT) {
             lily_class *class_next = class_iter->next;
             lily_free(class_iter);
             class_iter = class_next;
@@ -692,7 +692,7 @@ lily_variant_class *lily_new_variant(lily_symtab *symtab, lily_class *enum_cls,
     lily_variant_class *variant = lily_malloc(sizeof(lily_variant_class));
 
     variant->item_kind = ITEM_TYPE_VARIANT;
-    variant->flags = CLS_IS_VARIANT | CLS_EMPTY_VARIANT;
+    variant->flags = CLS_EMPTY_VARIANT;
     variant->parent = enum_cls;
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
