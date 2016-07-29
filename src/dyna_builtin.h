@@ -192,4 +192,4 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
     }
 }
 
-#define register_builtin(p) lily_register_package(parser, "builtin", lily_builtin_dynaload_table, lily_builtin_loader);
+#define register_builtin(p) lily_register_package(p, "builtin", lily_builtin_dynaload_table, lily_builtin_loader);
