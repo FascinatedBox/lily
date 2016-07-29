@@ -1,10 +1,9 @@
 #include <string.h>
 
-#include "lily_parser.h"
 #include "lily_move.h"
 
 #include "lily_api_alloc.h"
-#include "lily_api_options.h"
+#include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
 
@@ -35,7 +34,7 @@ static void *load_var_argv(lily_options *options, uint16_t *unused)
 
 #include "dyna_sys.h"
 
-void lily_pkg_sys_init(lily_parse_state *parser, lily_options *options)
+void lily_pkg_sys_init(lily_state *parser, lily_options *options)
 {
     register_sys(parser);
 }

@@ -9,6 +9,7 @@
 #include "lily_move.h"
 
 #include "lily_api_alloc.h"
+#include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
 #include "lily_api_vm.h"
@@ -2924,7 +2925,7 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     return result;
 }
 
-void lily_register_pkg_builtin(lily_parse_state *parser)
+void lily_register_pkg_builtin(lily_state *parser)
 {
     lily_register_package(parser, "", lily_builtin_dynaload_table,
             lily_builtin_loader);

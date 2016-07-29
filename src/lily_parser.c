@@ -45,7 +45,7 @@ static lily_package *new_package(lily_parse_state *, const char *,
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
    when it shouldn't. */
-lily_parse_state *lily_new_parse_state(lily_options *options)
+lily_parse_state *lily_new_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
@@ -119,7 +119,7 @@ lily_parse_state *lily_new_parse_state(lily_options *options)
     return parser;
 }
 
-void lily_free_parse_state(lily_parse_state *parser)
+void lily_free_state(lily_parse_state *parser)
 {
     lily_free_raiser(parser->raiser);
 
@@ -4226,7 +4226,7 @@ static void fix_first_file_name(lily_parse_state *parser,
     parser->first_pass = 0;
 }
 
-int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
+static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
         const char *filename)
 {
     if (parser->first_pass)
@@ -4250,8 +4250,8 @@ int lily_parse_file(lily_parse_state *parser, lily_lex_mode mode,
     return 0;
 }
 
-int lily_parse_string(lily_parse_state *parser, const char *name,
-        lily_lex_mode mode, char *str)
+static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
+        const char *name, char *str)
 {
     if (parser->first_pass)
         fix_first_file_name(parser, name);
@@ -4266,6 +4266,29 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
     return 0;
 }
 
+int lily_parse_file(lily_parse_state *parser, const char *name)
+{
+    return parse_file(parser, lm_no_tags, name);
+}
+
+int lily_parse_string(lily_parse_state *parser, const char *name,
+        char *str)
+{
+    return parse_string(parser, lm_no_tags, name, str);
+}
+
+int lily_exec_template_string(lily_parse_state *parser, const char *name,
+        char *str)
+{
+    return parse_string(parser, lm_tags, name, str);
+}
+
+int lily_exec_template_file(lily_parse_state *parser, const char *filename)
+{
+    return parse_file(parser, lm_tags, filename);
+}
+
+
 /* This is provided for runners (such as the standalone runner provided in the
    run directory). This puts together the current error message so that the
    runner is able to use it. The error message (and stack) are returned in full
@@ -4274,7 +4297,7 @@ int lily_parse_string(lily_parse_state *parser, const char *name,
    parser's msgbuf). If the caller wants to keep the message, then the caller
    needs to copy it. If the caller does not, the message will get blasted by the
    next run. */
-const char *lily_build_error_message(lily_parse_state *parser)
+const char *lily_get_error(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = parser->msgbuf;

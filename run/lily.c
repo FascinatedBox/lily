@@ -3,10 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_parser.h"
-
 #include "lily_api_alloc.h"
 #include "lily_api_options.h"
+#include "lily_api_embed.h"
 
 /*  lily_main.c
     This is THE main runner for Lily. */
@@ -89,21 +88,29 @@ int main(int argc, char **argv)
     options->argc = argc - argc_offset;
     options->argv = argv + argc_offset;
 
-    lily_parse_state *parser = lily_new_parse_state(options);
-    lily_lex_mode mode = (do_tags ? lm_tags : lm_no_tags);
+    lily_state *state = lily_new_state(options);
 
     int result;
-    if (is_file == 1)
-        result = lily_parse_file(parser, mode, to_process);
-    else
-        result = lily_parse_string(parser, "[cli]", mode, to_process);
+
+    if (do_tags) {
+        if (is_file == 1)
+            result = lily_exec_template_file(state, to_process);
+        else
+            result = lily_exec_template_string(state, "[cli]", to_process);
+    }
+    else {
+        if (is_file == 1)
+            result = lily_parse_file(state, to_process);
+        else
+            result = lily_parse_string(state, "[cli]", to_process);
+    }
 
     if (result == 0) {
-        fputs(lily_build_error_message(parser), stderr);
+        fputs(lily_get_error(state), stderr);
         exit(EXIT_FAILURE);
     }
 
-    lily_free_parse_state(parser);
+    lily_free_state(state);
     lily_free_options(options);
     exit(EXIT_SUCCESS);
 }
