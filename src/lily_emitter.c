@@ -29,7 +29,16 @@
  *                          |_|
  */
 
-static void add_storage(lily_emit_state *);
+typedef struct lily_storage_stack_
+{
+    lily_storage **data;
+    uint16_t scope_end;
+    uint16_t size;
+    uint32_t pad;
+} lily_storage_stack;
+
+static lily_storage_stack *new_storage_stack(int);
+static void free_storage_stack(lily_storage_stack *);
 lily_function_val *new_native_function_val(char *, char *);
 lily_function_val *new_foreign_function_val(lily_foreign_func, const char *,
         const char *);
@@ -45,6 +54,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
             symtab->question_class->type);
     emit->code = lily_new_buffer_u16(32);
     emit->closure_aux_code = NULL;
+
+    emit->storages = new_storage_stack(4);
 
     emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
     emit->transform_table = NULL;
@@ -68,9 +79,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->match_case_size = 4;
 
     emit->block = NULL;
-    emit->unused_storage_start = NULL;
-    emit->all_storage_start = NULL;
-    emit->all_storage_top = NULL;
 
     emit->function_depth = 0;
 
@@ -83,7 +91,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_block *current, *temp;
-    lily_storage *current_store, *temp_store;
     current = emit->block;
     while (current && current->prev)
         current = current->prev;
@@ -94,12 +101,7 @@ void lily_free_emit_state(lily_emit_state *emit)
         current = temp;
     }
 
-    current_store = emit->all_storage_start;
-    while (current_store) {
-        temp_store = current_store->next;
-        lily_free(current_store);
-        current_store = temp_store;
-    }
+    free_storage_stack(emit->storages);
 
     lily_free_string_pile(emit->expr_strings);
     lily_free(emit->transform_table);
@@ -118,8 +120,6 @@ void lily_free_emit_state(lily_emit_state *emit)
    enters the block that represents __main__. */
 void lily_emit_enter_main(lily_emit_state *emit)
 {
-    add_storage(emit);
-
     /* This creates the type for __main__. __main__ is a function that takes 0
        arguments and does not return anything. */
     lily_tm_add(emit->tm, NULL);
@@ -151,7 +151,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->next = NULL;
     main_block->block_type = block_file;
     main_block->function_var = main_var;
-    main_block->storage_start = emit->all_storage_start;
     main_block->class_entry = NULL;
     main_block->self = NULL;
     main_block->code_start = 0;
@@ -159,6 +158,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->next_reg_spot = 0;
     main_block->loop_start = -1;
     main_block->make_closure = 0;
+    main_block->storage_start = 0;
     emit->top_var = main_var;
     emit->top_function_ret = NULL;
     emit->block = main_block;
@@ -592,66 +592,107 @@ static void write_patches_since(lily_emit_state *emit, int to)
  *                               |___/
  */
 
+static lily_storage *new_storage(void)
+{
+    lily_storage *result = lily_malloc(sizeof(lily_storage));
+
+    result->type = NULL;
+    result->expr_num = 0;
+    result->flags = 0;
+    result->item_kind = ITEM_TYPE_STORAGE;
+
+    return result;
+}
+
 /** Storages are used to hold intermediate values. The emitter is responsible
     for handing them out, controlling their position, and making new ones.
     Most of that is done in get_storage. **/
-
-static void add_storage(lily_emit_state *emit)
+static lily_storage_stack *new_storage_stack(int initial)
 {
-    lily_storage *storage = lily_malloc(sizeof(lily_storage));
+    lily_storage_stack *result = lily_malloc(sizeof(lily_storage_stack));
+    result->data = lily_malloc(initial * sizeof(lily_storage *));
+    int i;
+    for (i = 0;i < initial;i++) {
+        lily_storage *s = new_storage();
 
-    storage->type = NULL;
-    storage->next = NULL;
-    storage->expr_num = 0;
-    storage->flags = 0;
-    storage->item_kind = ITEM_TYPE_STORAGE;
+        result->data[i] = s;
+    }
 
-    if (emit->all_storage_start == NULL)
-        emit->all_storage_start = storage;
-    else
-        emit->all_storage_top->next = storage;
+    result->scope_end = 0;
+    result->size = initial;
 
-    emit->all_storage_top = storage;
-    emit->unused_storage_start = storage;
+    return result;
+}
+
+static void free_storage_stack(lily_storage_stack *stack)
+{
+    int i;
+    for (i = 0;i < stack->size;i++) {
+        lily_free(stack->data[i]);
+    }
+
+    lily_free(stack->data);
+    lily_free(stack);
+}
+
+static void grow_storages(lily_storage_stack *stack)
+{
+    int i;
+    int new_size = stack->size * 2;
+    lily_storage **new_data = lily_realloc(stack->data,
+            sizeof(lily_storage *) * stack->size * 2);
+
+    /* Storages are taken pretty often, so eagerly initialize them for a little
+       bit more speed. */
+    for (i = stack->size;i < new_size;i++)
+        new_data[i] = new_storage();
+
+    stack->data = new_data;
+    stack->size = new_size;
 }
 
 /* This attempts to grab a storage of the given type. It will first attempt to
    get a used storage, then a new one. */
 static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
 {
-    lily_storage *storage_iter = emit->block->storage_start;
+    lily_storage_stack *stack = emit->storages;
     int expr_num = emit->expr_num;
+    int i;
+    lily_storage *s = NULL;
 
-    while (storage_iter) {
+    for (i = emit->function_block->storage_start;
+         i < stack->size;
+         i++) {
+        s = stack->data[i];
+
         /* A storage with a type of NULL is not in use and can be claimed. */
-        if (storage_iter->type == NULL) {
-            storage_iter->type = type;
+        if (s->type == NULL) {
+            s->type = type;
 
-            storage_iter->reg_spot = emit->function_block->next_reg_spot;
+            s->reg_spot = emit->function_block->next_reg_spot;
             emit->function_block->next_reg_spot++;
 
-            if (storage_iter->next)
-                emit->unused_storage_start = storage_iter->next;
+            i++;
+            if (i == stack->size)
+                grow_storages(emit->storages);
+
+            /* This prevents inner functions from using the storages of outer
+               functions as their own. */
+            stack->scope_end = i;
 
             break;
         }
-        else if (storage_iter->type == type &&
-                 storage_iter->expr_num != expr_num) {
-            storage_iter->expr_num = expr_num;
+        else if (s->type == type &&
+                 s->expr_num != expr_num) {
+            s->expr_num = expr_num;
             break;
         }
-
-        storage_iter = storage_iter->next;
     }
 
-    storage_iter->expr_num = expr_num;
-    /* This ensures that there is always a valid extra storage. It makes setting
-       the storage starting position easier. */
-    if (storage_iter->next == NULL)
-        add_storage(emit);
+    s->expr_num = expr_num;
+    s->flags &= ~SYM_NOT_ASSIGNABLE;
 
-    storage_iter->flags &= ~SYM_NOT_ASSIGNABLE;
-    return storage_iter;
+    return s;
 }
 
 /* This function attempts to get a storage of a particular type that has not
@@ -718,7 +759,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         /* Non-functions will continue using the storages that the parent uses.
            Additionally, the same technique is used to allow loop starts to
            bubble upward until a function gets in the way. */
-        new_block->storage_start = emit->block->storage_start;
         new_block->jump_offset = emit->block->jump_offset;
         new_block->all_branches_exit = 1;
 
@@ -764,7 +804,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         }
         emit->function_block = new_block;
 
-        new_block->storage_start = emit->unused_storage_start;
+        new_block->storage_start = emit->storages->scope_end;
         new_block->function_var = v;
         new_block->code_start = lily_u16_pos(emit->code);
         new_block->jump_offset = lily_u16_pos(emit->code);
@@ -787,7 +827,6 @@ static void finalize_function_block(lily_emit_state *emit,
     lily_function_val *f = create_code_block_for(emit, function_block);
 
     int register_count = emit->function_block->next_reg_spot;
-    lily_storage *storage_iter = function_block->storage_start;
 
     if (emit->function_depth > 1) {
         lily_var *var_stop = function_block->function_var;
@@ -813,14 +852,12 @@ static void finalize_function_block(lily_emit_state *emit,
         }
     }
 
-    storage_iter = function_block->storage_start;
-    while (storage_iter) {
-        storage_iter->type = NULL;
-        storage_iter = storage_iter->next;
+    int i;
+    for (i = function_block->storage_start;i < emit->storages->scope_end;i++) {
+        emit->storages->data[i]->type = NULL;
     }
 
-    emit->unused_storage_start = function_block->storage_start;
-
+    emit->storages->scope_end = function_block->storage_start;
     f->reg_count = register_count;
 }
 

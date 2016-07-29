@@ -29,9 +29,6 @@ typedef enum {
 } lily_block_type;
 
 typedef struct lily_block_ {
-    /* This block can use storages starting from here. */
-    lily_storage *storage_start;
-
     /* Vars declared in this block are at var_start->next. */
     lily_var *var_start;
 
@@ -42,7 +39,7 @@ typedef struct lily_block_ {
     /* An index where the patches for this block start off. */
     uint16_t patch_start;
 
-    uint16_t pad;
+    uint16_t storage_start;
 
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
@@ -139,6 +136,8 @@ typedef struct lily_emit_call_state_ {
     uint32_t pad;
 } lily_emit_call_state;
 
+struct lily_storage_stack_;
+
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
 struct lily_parse_state_t;
 
@@ -191,12 +190,7 @@ typedef struct {
     /* The return type of the current function. */
     lily_type *top_function_ret;
 
-    /* The beginning of the linked list of storages, as well as the top. The
-       middle one, unused_storage_start, is used to make sure that functions
-       do not touch each other's (possibly in-use) storages. */
-    lily_storage *all_storage_start;
-    lily_storage *unused_storage_start;
-    lily_storage *all_storage_top;
+    struct lily_storage_stack_ *storages;
 
     /* The block that __main__ is within. This is always the first block (the
        only one where prev is NULL). New global vars will use this to figure
