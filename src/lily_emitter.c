@@ -3646,16 +3646,15 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1,
                 ast->result->reg_spot);
     }
-    else {
+    else if (ast->parent == NULL) {
         /* It's okay to not push a return value, unless something needs it.
            Assume that if the tree has a parent, something needs a value. */
-        if (ast->parent == NULL)
-            ast->result = NULL;
-        else {
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                    "Function needed to return a value, but did not.", "");
-        }
+        ast->result = NULL;
         lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1, 0);
+    }
+    else {
+        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+                "Function needed to return a value, but did not.", "");
     }
 
     ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
