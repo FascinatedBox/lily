@@ -110,6 +110,9 @@ DECLARE_BOTH(dynamic, lily_dynamic_val *)
 
 /* File operations */
 lily_file_val *lily_new_file_val(FILE *, const char *);
+FILE *lily_file_get_raw(lily_file_val *);
+void lily_file_ensure_readable(lily_vm_state *, lily_file_val *);
+void lily_file_ensure_writeable(lily_vm_state *, lily_file_val *);
 
 /* Instance operations */
 lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);

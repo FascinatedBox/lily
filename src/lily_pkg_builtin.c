@@ -287,23 +287,6 @@ The `File` class provides a wrapper over a C FILE * struct. A `File` is closed
 automatically when a scope exits (though not immediately). However, it is also
 possible to manually close a `File`.
 */
-static void write_check(lily_vm_state *vm, lily_file_val *filev)
-{
-    if (filev->inner_file == NULL)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
-
-    if (filev->write_ok == 0)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for writing.");
-}
-
-static void read_check(lily_vm_state *vm, lily_file_val *filev)
-{
-    if (filev->inner_file == NULL)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
-
-    if (filev->read_ok == 0)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for reading.");
-}
 
 /**
 method File.close(self: File)
@@ -422,7 +405,7 @@ void lily_builtin_File_read_line(lily_vm_state *vm)
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
-    read_check(vm, filev);
+    lily_file_ensure_readable(vm, filev);
     FILE *f = filev->inner_file;
 
     /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
@@ -471,7 +454,7 @@ void lily_builtin_File_write(lily_vm_state *vm)
     lily_file_val *filev = lily_arg_file(vm, 0);
     lily_value *to_write = lily_arg_value(vm, 1);
 
-    write_check(vm, filev);
+    lily_file_ensure_writeable(vm, filev);
 
     if (to_write->flags & VAL_IS_STRING)
         fputs(to_write->value.string->string, filev->inner_file);
