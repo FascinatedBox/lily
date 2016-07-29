@@ -11,19 +11,21 @@ typedef void (*lily_html_sender)(char *, void *);
 typedef struct lily_options_ {
     /* For now, this should be '1'. */
     uint8_t version;
-    /* How much should the current number of allowed gc entries be multiplied by
-       if unable to free anything. */
+    /* When the gc fails to free any values, how much should the allowed # of
+       tags be multiplied by? (Clamped to 16). */
     uint8_t gc_multiplier;
-    uint16_t argc;
-    /* The initial maximum amount of entries allowed to have a gc tag before
-       asking for another causes a sweep. */
-    uint32_t gc_start;
-    /* Should the interpreter allow the sys package to be loaded? Sandboxes and
-       untrusted environments should set this to 0.
-       Default: 1 */
-    uint32_t allow_sys;
 
-    uint32_t pad;
+    /* Should the interpreter allow 'use' of sys? */
+    uint8_t allow_sys;
+
+    uint8_t pad;
+
+    /* How many gc entries should the vm allow before asking for another causes
+       a sweep? */
+    uint32_t gc_start;
+
+    uint32_t pad2;
+    int argc;
     /* This is used by the interpreter to compute hashes of a raw value for
        doing Hash collision checks. This key should be composed of exactly 16
        chars. */
