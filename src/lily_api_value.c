@@ -7,6 +7,7 @@
 #include "lily_api_alloc.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
+#include "lily_api_vm.h"
 
 #define DEFINE_SETTERS(name, action, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int v) \
@@ -313,6 +314,29 @@ char *lily_bytestring_get_raw(lily_string_val *sv)
 int lily_bytestring_length(lily_string_val *sv)
 {
     return sv->size;
+}
+
+FILE *lily_file_get_raw(lily_file_val *fv)
+{
+    return fv->inner_file;
+}
+
+void lily_file_ensure_writeable(lily_vm_state *vm, lily_file_val *filev)
+{
+    if (filev->inner_file == NULL)
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+
+    if (filev->write_ok == 0)
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for writing.");
+}
+
+void lily_file_ensure_readable(lily_vm_state *vm, lily_file_val *filev)
+{
+    if (filev->inner_file == NULL)
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+
+    if (filev->read_ok == 0)
+        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for reading.");
 }
 
 char *lily_string_get_raw(lily_string_val *sv)
