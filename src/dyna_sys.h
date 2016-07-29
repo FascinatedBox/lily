@@ -13,4 +13,4 @@ void *lily_sys_loader(lily_options *o, uint16_t *c, int id)
     }
 }
 
-#define register_sys(p) lily_register_package(parser, "sys", lily_sys_dynaload_table, lily_sys_loader);
+#define register_sys(p) lily_register_package(p, "sys", lily_sys_dynaload_table, lily_sys_loader);

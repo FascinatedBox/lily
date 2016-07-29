@@ -27,4 +27,4 @@ void *lily_server_loader(lily_options *o, uint16_t *c, int id)
     }
 }
 
-#define register_server(p) lily_register_package(parser, "server", lily_server_dynaload_table, lily_server_loader);
+#define register_server(p) lily_register_package(p, "server", lily_server_dynaload_table, lily_server_loader);

@@ -433,7 +433,7 @@ Generate a simple register_X function for the caller.
 
     return """
 #define register_%s(p) \
-lily_register_package(parser, "%s", lily_%s_dynaload_table, %s);
+lily_register_package(p, "%s", lily_%s_dynaload_table, %s);
 """ % (name, name, name, loader_name)
 
 def do_refresh(filename):
