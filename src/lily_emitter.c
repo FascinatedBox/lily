@@ -3619,8 +3619,9 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
 
-        int i = (emit->call_values_pos - cs->arg_count);
+        int offset = (emit->call_values_pos - cs->arg_count);
         int count = cs->arg_count;
+        int i;
 
         lily_storage *storage = NULL;
 
@@ -3628,7 +3629,7 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
            needed. Instead of getting a new storage, can one of them be used
            instead? */
         for (i = 0;i < count;i++) {
-            lily_sym *sym = emit->call_values[i];
+            lily_sym *sym = emit->call_values[offset + i];
             if (sym->item_kind == ITEM_TYPE_STORAGE &&
                 sym->type == return_type) {
                 storage = (lily_storage *)sym;

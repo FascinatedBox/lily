@@ -1,0 +1,10 @@
+define f(a: String, b: String...)
+{
+     if a != "[{}]":
+        stderr.print("Failed.")
+}
+
+# This test makes sure that "[{}]" is not claimed by 's.upper()' as a storage,
+# causing 'HELLO' for both arguments.
+var s = "hello"
+f("[{}]", s.upper())
