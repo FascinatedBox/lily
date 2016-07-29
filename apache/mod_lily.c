@@ -12,9 +12,9 @@
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
+#include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
-#include "lily_api_options.h"
 #include "lily_api_vm.h"
 
 struct table_bind_data {
@@ -275,12 +275,12 @@ static int lily_handler(request_rec *r)
     options->html_sender = (lily_html_sender) ap_rputs;
     options->allow_sys = 0;
 
-    lily_parse_state *parser = lily_new_parse_state(options);
-    register_server(parser);
+    lily_state *state = lily_new_state(options);
+    register_server(state);
 
-    lily_parse_file(parser, lm_tags, r->filename);
+    lily_exec_template_file(state, r->filename);
 
-    lily_free_parse_state(parser);
+    lily_free_state(state);
     lily_free_options(options);
 
     return OK;

@@ -62,14 +62,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *, int, const char *,
 lily_sym *lily_parser_interp_eval(lily_parse_state *, int, const char *);
 lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *,
         const char *);
-void lily_free_parse_state(lily_parse_state *);
-lily_parse_state *lily_new_parse_state(struct lily_options_ *);
-int lily_parse_file(lily_parse_state *, lily_lex_mode, const char *);
-int lily_parse_string(lily_parse_state *, const char *, lily_lex_mode,
-        char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
-void lily_register_package(lily_parse_state *, const char *, const char **,
-        lily_loader);
-const char *lily_build_error_message(lily_parse_state *);
 
 #endif

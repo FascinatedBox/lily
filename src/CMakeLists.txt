@@ -23,6 +23,7 @@ if(NOT MSVC)
 endif()
 
 install(FILES lily_api_alloc.h
+              lily_api_embed.h
               lily_api_options.h
               lily_api_msgbuf.h
               lily_api_value.h
