@@ -128,26 +128,118 @@ void lily_drop_value(lily_vm_state *vm)
     z->flags = 0;
 }
 
-/* Raw value creation functions. */
+/* Value creation functions. */
 
-/* Create a new value with no contents. This is deemed safe from invalid reads
-   because the vm won't touch the data part of a value without first checking
-   the flags. */
-lily_value *lily_new_empty_value(void)
+lily_value *lily_new_value_of_bytestring(lily_string_val *bv)
 {
-    lily_value *result = lily_malloc(sizeof(lily_value));
-    result->flags = 0;
+    lily_value *v = lily_malloc(sizeof(lily_value));
 
-    return result;
+    bv->refcount++;
+    v->flags = VAL_IS_BYTESTRING | VAL_IS_DEREFABLE;
+    v->value.string = bv;
+    return v;
 }
+
+lily_value *lily_new_value_of_double(double d)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    v->flags = VAL_IS_DOUBLE;
+    v->value.doubleval = d;
+    return v;
+}
+
+lily_value *lily_new_value_of_enum(lily_instance_val *iv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    iv->refcount++;
+    v->flags = VAL_IS_ENUM | VAL_IS_DEREFABLE;
+    v->value.instance = iv;
+    return v;
+}
+
+lily_value *lily_new_value_of_file(lily_file_val *fv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    fv->refcount++;
+    v->flags = VAL_IS_DEREFABLE | VAL_IS_FILE;
+    v->value.file = fv;
+    return v;
+}
+
+lily_value *lily_new_value_of_hash(lily_hash_val *hv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    hv->refcount++;
+    v->flags = VAL_IS_HASH | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->value.hash = hv;
+    return v;
+}
+
+lily_value *lily_new_value_of_instance(lily_instance_val *iv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    iv->refcount++;
+    v->flags = VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->value.instance = iv;
+    return v;
+}
+
+lily_value *lily_new_value_of_integer(int64_t i)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    v->flags = VAL_IS_INTEGER;
+    v->value.integer = i;
+    return v;
+}
+
+lily_value *lily_new_value_of_list(lily_list_val *lv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    lv->refcount++;
+    v->flags = VAL_IS_LIST | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->value.list = lv;
+    return v;
+}
+
+lily_value *lily_new_value_of_string(lily_string_val *sv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    sv->refcount++;
+    v->flags = VAL_IS_STRING | VAL_IS_DEREFABLE;
+    v->value.string = sv;
+    return v;
+}
+
+lily_value *lily_new_value_of_string_lit(const char *str)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_string_val *sv = lily_new_raw_string(str);
+
+    sv->refcount++;
+    v->flags = VAL_IS_STRING | VAL_IS_DEREFABLE;
+    v->value.string = sv;
+    return v;
+}
+
+/* Raw value creation functions. */
 
 /* Create a new Dynamic value. The contents of the Dynamic are set to an empty
    raw value that is ready to be moved in. */
 lily_dynamic_val *lily_new_dynamic_val(void)
 {
     lily_dynamic_val *d = lily_malloc(sizeof(lily_dynamic_val));
+    lily_value *v = lily_malloc(sizeof(lily_value));
 
-    d->inner_value = lily_new_empty_value();
+    v->flags = 0;
+    d->inner_value = v;
     d->gc_entry = NULL;
     d->refcount = 0;
 
@@ -261,23 +353,12 @@ lily_string_val *lily_new_raw_string_take(char *source)
     return new_sv(source, strlen(source));
 }
 
-/* Create a new value holding a string. That string shall contain a copy of what
-   is inside 'source'. The source is expected to be \0 terminated. */
-lily_value *lily_new_string(const char *source)
-{
-    lily_value *result = lily_new_empty_value();
-    lily_move_string(result, lily_new_raw_string(source));
-    return result;
-}
-
 /* Create a new value holding a string. That string's source will be exactly
    'source'. The string made assumes that it owns 'source' from here on. The
    source given must be \0 terminated. */
 lily_value *lily_new_string_take(char *source)
 {
-    lily_value *result = lily_new_empty_value();
-    lily_move_string(result, new_sv(source, strlen(source)));
-    return result;
+    return lily_new_value_of_string(new_sv(source, strlen(source)));
 }
 
 /* Since None has no arguments, it has a backing literal to represent it. This

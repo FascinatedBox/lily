@@ -2829,12 +2829,10 @@ negative amount.
 
 static lily_value *new_builtin_file(FILE *source, const char *mode)
 {
-    lily_value *result = lily_new_empty_value();
     lily_file_val *file_val = lily_new_file_val(source, mode);
     file_val->is_builtin = 1;
 
-    lily_move_file(result, file_val);
-    return result;
+    return lily_new_value_of_file(file_val);
 }
 
 static void *load_var_stdin(lily_options *options, uint16_t *cid_table)

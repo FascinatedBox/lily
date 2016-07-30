@@ -560,8 +560,12 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
 
     /* Now create the registers as a bunch of empty values, to be filled in
        whenever they are needed. */
-    for (;i < size;i++)
-        new_regs[i] = lily_new_empty_value();
+    for (;i < size;i++) {
+        lily_value *v = lily_malloc(sizeof(lily_value));
+        v->flags = 0;
+
+        new_regs[i] = v;
+    }
 
     vm->max_registers = size;
 }
