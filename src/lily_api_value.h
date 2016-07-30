@@ -97,8 +97,22 @@ lily_value *       lily_##name##_value(__VA_ARGS__);
 DECLARE_SETTERS(name##_set, __VA_ARGS__) \
 DECLARE_GETTERS(name, __VA_ARGS__)
 
+/* Build operations
+   These operations have been made to help with dynaloading vars. These will
+   wrap over a raw value to provide the lily_value * that the loader expects, so
+   that the embedder need not worry about raw moves. */
+lily_value *lily_new_value_of_bytestring(lily_string_val *);
+lily_value *lily_new_value_of_double(double);
+lily_value *lily_new_value_of_enum(lily_instance_val *);
+lily_value *lily_new_value_of_file(lily_file_val *);
+lily_value *lily_new_value_of_hash(lily_hash_val *);
+lily_value *lily_new_value_of_instance(lily_instance_val *);
+lily_value *lily_new_value_of_integer(int64_t);
+lily_value *lily_new_value_of_list(lily_list_val *);
+lily_value *lily_new_value_of_string(lily_string_val *);
+lily_value *lily_new_value_of_string_lit(const char *);
+
 /* Operations for specific kinds of values. */
-lily_value *lily_new_empty_value(void); /* Try to not use this. */
 
 /* ByteString operations */
 char *lily_bytestring_get_raw(lily_string_val *);
@@ -127,7 +141,6 @@ DECLARE_BOTH(list, lily_list_val *, int)
 int lily_list_num_values(lily_list_val *);
 
 /* String operations */
-lily_value *lily_new_string(const char *);
 lily_string_val *lily_new_raw_string(const char *);
 lily_string_val *lily_new_raw_string_take(char *);
 lily_string_val *lily_new_raw_string_sized(const char *, int);

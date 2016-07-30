@@ -209,11 +209,9 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_empty_value();
-    v->flags = VAL_IS_INTEGER;
+    lily_literal *v = (lily_literal *)lily_new_value_of_integer(int_val);
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
-    v->value.integer = int_val;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
     return (lily_literal *)v;
@@ -238,11 +236,9 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_empty_value();
-    v->flags = VAL_IS_DOUBLE;
+    lily_literal *v = (lily_literal *)lily_new_value_of_double(dbl_val);
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
-    v->value.doubleval = dbl_val;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
     return (lily_literal *)v;
@@ -269,12 +265,12 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    lily_string_val *sv = lily_new_raw_string_sized(want_string, len);
+    lily_literal *v = (lily_literal *)lily_new_value_of_bytestring(sv);
+
+    /* Drop the derefable marker. */
     v->flags = VAL_IS_BYTESTRING;
     v->reg_spot = lily_vs_pos(symtab->literals);
-    v->value.string = lily_new_raw_string_sized(want_string, len);
-    /* Manual ref, because the string isn't being moved/assigned anywhere. */
-    v->value.string->refcount++;
     v->next_index = 0;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
@@ -303,13 +299,13 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    lily_string_val *sv = lily_new_raw_string(want_string);
+    lily_literal *v = (lily_literal *)lily_new_value_of_string(sv);
+
+    /* Drop the derefable marker. */
     v->flags = VAL_IS_STRING;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
-    v->value.string = lily_new_raw_string(want_string);
-    /* Manual ref, because the string isn't being moved/assigned anywhere. */
-    v->value.string->refcount++;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
     return (lily_literal *)v;
@@ -324,7 +320,7 @@ static void store_function(lily_symtab *symtab, lily_var *func_var,
     func_val->line_num = func_var->line_num;
     func_val->module = module;
 
-    lily_value *v = lily_new_empty_value();
+    lily_value *v = lily_malloc(sizeof(lily_value));
     v->flags = VAL_IS_FUNCTION;
     v->value.function = func_val;
 
@@ -737,16 +733,12 @@ lily_literal *make_variant_default(lily_symtab *symtab,
     lily_instance_val *iv = lily_new_instance_val_n_of(0, variant->cls_id);
     iv->num_values = 0;
 
-    lily_literal *v = (lily_literal *)lily_new_empty_value();
+    lily_literal *v = (lily_literal *)lily_new_value_of_enum(iv);
 
-    /* This value isn't interesting, but it might be swapped out with a value
-       that is. */
-    v->flags = VAL_IS_ENUM | VAL_IS_GC_SPECULATIVE;
+    /* Drop derefable marker. */
+    v->flags = VAL_IS_ENUM;
     v->next_index = 0;
     v->reg_spot = lily_vs_pos(symtab->literals);
-    v->value.instance = iv;
-    /* Like with literals, fix the refcount so it's free'd later. */
-    iv->refcount = 1;
 
     lily_vs_push(symtab->literals, (lily_value *)v);
 

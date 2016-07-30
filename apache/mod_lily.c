@@ -8,7 +8,6 @@
 
 #include "lily_parser.h"
 #include "lily_utf8.h"
-#include "lily_move.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
@@ -33,9 +32,7 @@ lily_value *bind_tainted_of(lily_string_val *input)
 {
     lily_instance_val *iv = lily_new_instance_val_n_of(1, SYM_CLASS_TAINTED);
     lily_instance_set_string(iv, 0, input);
-    lily_value *result = lily_new_empty_value();
-    lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
-    return result;
+    return lily_new_value_of_instance(iv);
 }
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
@@ -74,7 +71,7 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     struct table_bind_data *d = data;
 
-    lily_value *elem_key = lily_new_string(key);
+    lily_value *elem_key = lily_new_value_of_string_lit(key);
     lily_string_val *elem_raw_value = lily_new_raw_string(value);
     lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
@@ -85,14 +82,13 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
         char *name)
 {
-    lily_value *v = lily_new_empty_value();
-    lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
+    lily_hash_val *hv = lily_new_hash_val();
 
     struct table_bind_data data;
-    data.hash_val = v->value.hash;
+    data.hash_val = hv;
     data.sipkey = options->sipkey;
     apr_table_do(bind_table_entry, &data, table, NULL);
-    return v;
+    return lily_new_value_of_hash(hv);
 }
 
 /**
@@ -131,11 +127,9 @@ Common values are "GET", and "POST".
 */
 static lily_value *load_var_httpmethod(lily_options *options, uint16_t *unused)
 {
-    lily_value *v = lily_new_empty_value();
     request_rec *r = (request_rec *)options->data;
 
-    lily_move_string(v, lily_new_raw_string(r->method));
-    return v;
+    return lily_new_value_of_string(lily_new_raw_string(r->method));
 }
 
 /**
@@ -146,9 +140,7 @@ Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
 static lily_value *load_var_post(lily_options *options, uint16_t *unused)
 {
-    lily_value *v = lily_new_empty_value();
-    lily_move_hash_f(MOVE_DEREF_NO_GC, v, lily_new_hash_val());
-    lily_hash_val *hash_val = v->value.hash;
+    lily_hash_val *hv = lily_new_hash_val();
     request_rec *r = (request_rec *)options->data;
 
     apr_array_header_t *pairs;
@@ -177,17 +169,17 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
 
-            lily_value *elem_key = lily_new_string(pair->name);
+            lily_value *elem_key = lily_new_value_of_string_lit(pair->name);
             /* Give the buffer to the value to save memory. */
             lily_string_val *elem_raw_value = lily_new_raw_string_take(buffer);
             lily_value *elem_value = bind_tainted_of(elem_raw_value);
 
-            apache_add_unique_hash_entry(options->sipkey, hash_val, elem_key,
+            apache_add_unique_hash_entry(options->sipkey, hv, elem_key,
                     elem_value);
         }
     }
 
-    return v;
+    return lily_new_value_of_hash(hv);
 }
 
 extern void lily_string_html_encode(lily_vm_state *);
