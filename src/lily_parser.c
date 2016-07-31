@@ -14,6 +14,8 @@
 #include "lily_pkg_sys.h"
 
 #include "lily_api_alloc.h"
+/* Ids for Exception + children are in here, and dynaload needs them. */
+#include "lily_api_value.h"
 #include "lily_api_value_flags.h"
 #include "lily_api_options.h"
 

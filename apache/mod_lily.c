@@ -231,7 +231,7 @@ void lily_server_write_literal(lily_vm_state *vm)
     lily_value *write_reg = lily_arg_value(vm, 0);
 
     if (write_reg->flags & VAL_IS_DEREFABLE)
-        lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
+        lily_error(vm, SYM_CLASS_VALUEERROR,
                 "The string passed must be a literal.\n");
 
     char *value = write_reg->value.string->string;

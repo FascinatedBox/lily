@@ -9,6 +9,8 @@
 #include "lily_code_iter.h"
 
 #include "lily_api_alloc.h"
+/* Exception's id is in here. */
+#include "lily_api_value.h"
 
 # define IS_LOOP_BLOCK(b) (b == block_while || \
                            b == block_do_while || \

@@ -355,12 +355,12 @@ void lily_builtin_File_open(lily_vm_state *vm)
     }
 
     if (ok == 0)
-        lily_vm_raise_fmt(vm, SYM_CLASS_IOERROR,
+        lily_error_fmt(vm, SYM_CLASS_IOERROR,
                 "Invalid mode '%s' given.", mode);
 
     FILE *f = fopen(path, mode);
     if (f == NULL) {
-        lily_vm_raise_fmt(vm, SYM_CLASS_IOERROR, "Errno %d: ^R (%s).",
+        lily_error_fmt(vm, SYM_CLASS_IOERROR, "Errno %d: ^R (%s).",
                 errno, errno, path);
     }
 
@@ -537,7 +537,7 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
 static inline void remove_key_check(lily_vm_state *vm, lily_hash_val *hash_val)
 {
     if (hash_val->iter_count)
-        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
+        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.");
 }
 
@@ -636,7 +636,7 @@ void lily_builtin_Hash_clear(lily_vm_state *vm)
     lily_hash_val *hash_val = lily_arg_hash(vm, 0);
 
     if (hash_val->iter_count != 0)
-        lily_vm_raise(vm, SYM_CLASS_RUNTIMEERROR,
+        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.");
 
     destroy_hash_elems(hash_val);
@@ -1074,13 +1074,13 @@ static int64_t get_relative_index(lily_vm_state *vm, lily_list_val *list_val,
     if (pos < 0) {
         uint64_t unsigned_pos = -(int64_t)pos;
         if (unsigned_pos > list_val->num_values)
-            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too small for list (minimum: %d)",
+            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too small for list (minimum: %d)",
                     pos, -(int64_t)list_val->num_values);
 
         pos = list_val->num_values - unsigned_pos;
     }
     else if (pos > list_val->num_values)
-        lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too large for list (maximum: %d)",
+        lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too large for list (maximum: %d)",
                 pos, list_val->num_values);
 
     return pos;
@@ -1102,7 +1102,7 @@ void lily_builtin_List_delete_at(lily_vm_state *vm)
     int64_t pos = lily_arg_integer(vm, 1);
 
     if (list_val->num_values == 0)
-        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Cannot delete from an empty list.");
+        lily_error(vm, SYM_CLASS_INDEXERROR, "Cannot delete from an empty list.");
 
     pos = get_relative_index(vm, list_val, pos);
 
@@ -1175,7 +1175,7 @@ void lily_builtin_List_fill(lily_vm_state *vm)
 {
     int n = lily_arg_integer(vm, 0);
     if (n < 0)
-        lily_vm_raise_fmt(vm, SYM_CLASS_VALUEERROR,
+        lily_error_fmt(vm, SYM_CLASS_VALUEERROR,
                 "Repeat count must be >= 0 (%d given).", n);
 
     lily_value *to_repeat = lily_arg_value(vm, 1);
@@ -1336,7 +1336,7 @@ void lily_builtin_List_pop(lily_vm_state *vm)
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
     if (list_val->num_values == 0)
-        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Pop from an empty list.");
+        lily_error(vm, SYM_CLASS_INDEXERROR, "Pop from an empty list.");
 
     lily_value *source = list_val->elems[list_val->num_values - 1];
 
@@ -1450,7 +1450,7 @@ void lily_builtin_List_shift(lily_vm_state *vm)
     lily_list_val *list_val = lily_arg_list(vm, 0);
 
     if (list_val->num_values == 0)
-        lily_vm_raise(vm, SYM_CLASS_INDEXERROR, "Shift on an empty list.");
+        lily_error(vm, SYM_CLASS_INDEXERROR, "Shift on an empty list.");
 
     lily_value *source = list_val->elems[0];
 
@@ -1658,7 +1658,7 @@ void lily_builtin_Option_unwrap(lily_vm_state *vm)
     if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_value(vm, lily_instance_value(optval, 0));
     else
-        lily_vm_raise(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.");
+        lily_error(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.");
 }
 
 /**
@@ -2504,7 +2504,7 @@ void lily_builtin_String_split(lily_vm_state *vm)
     if (lily_arg_count(vm) == 2) {
         split_strval = lily_arg_string(vm, 1);
         if (split_strval->size == 0)
-            lily_vm_raise(vm, SYM_CLASS_VALUEERROR,
+            lily_error(vm, SYM_CLASS_VALUEERROR,
                     "Cannot split by empty string.");
     }
     else {
@@ -2695,7 +2695,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
             index--;
         }
         if (move_table[(unsigned char)*ch] == 0)
-            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
+            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
                     index_reg->value.integer);
     }
     else {
@@ -2707,7 +2707,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
                 index++;
         }
         if (index != 0)
-            lily_vm_raise_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
+            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
                     index_reg->value.integer);
     }
 
