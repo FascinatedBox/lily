@@ -7,7 +7,6 @@
 #include "lily_api_alloc.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
-#include "lily_api_vm.h"
 
 #define DEFINE_SETTERS(name, action, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int v) \

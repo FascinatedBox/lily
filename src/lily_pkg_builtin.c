@@ -12,7 +12,6 @@
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
-#include "lily_api_vm.h"
 
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy
    from reentering it. The values are useless, but cannot be 0 or this will be
