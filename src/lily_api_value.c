@@ -405,19 +405,19 @@ FILE *lily_file_get_raw(lily_file_val *fv)
 void lily_file_ensure_writeable(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for writing.");
+        lily_error(vm, SYM_CLASS_IOERROR, "File not open for writing.");
 }
 
 void lily_file_ensure_readable(lily_vm_state *vm, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
-        lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for reading.");
+        lily_error(vm, SYM_CLASS_IOERROR, "File not open for reading.");
 }
 
 uint16_t lily_instance_id(lily_instance_val *iv)

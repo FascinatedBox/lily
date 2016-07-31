@@ -397,36 +397,28 @@ typedef struct lily_package_link_ {
    function. */
 #define VAR_IS_FOREIGN_FUNC     0x400
 
-/* SYM_CLASS_* defines are for checking ids of a type's class. These are
-   used very frequently. These must be kept in sync with the class loading
-   order given by lily_pkg_builtin.c */
-#define SYM_CLASS_INTEGER         0
-#define SYM_CLASS_DOUBLE          1
-#define SYM_CLASS_STRING          2
-#define SYM_CLASS_BYTESTRING      3
-#define SYM_CLASS_BOOLEAN         4
-#define SYM_CLASS_FUNCTION        5
-#define SYM_CLASS_DYNAMIC         6
-#define SYM_CLASS_LIST            7
-#define SYM_CLASS_HASH            8
-#define SYM_CLASS_TUPLE           9
-#define SYM_CLASS_FILE           10
-#define SYM_CLASS_QUESTION       11
-#define SYM_CLASS_OPTION         12
-/* The holes here are for None, Some, Left, and Right. They're in
-   lily_api_value.h because those ids aren't special-cased internally. */
-#define SYM_CLASS_EITHER         15
+/* SYM_CLASS_* defines are for checking ids of a type's class, since some
+   classes are special-cased internally. */
+#define SYM_CLASS_INTEGER     0
+#define SYM_CLASS_DOUBLE      1
+#define SYM_CLASS_STRING      2
+#define SYM_CLASS_BYTESTRING  3
+#define SYM_CLASS_BOOLEAN     4
+#define SYM_CLASS_FUNCTION    5
+#define SYM_CLASS_DYNAMIC     6
+#define SYM_CLASS_LIST        7
+#define SYM_CLASS_HASH        8
+#define SYM_CLASS_TUPLE       9
+#define SYM_CLASS_FILE       10
+#define SYM_CLASS_QUESTION   11
+#define SYM_CLASS_OPTION     12
+/* The holes here are for None, Some, Left, Right, and the builtin Exception
+   classes. They're not here because lily_api_value.h needs them for raising
+   errors at runtime and for checking the id of predefined enums. */
+#define SYM_CLASS_EITHER     15
 
-#define SYM_CLASS_EXCEPTION      18
-/* This order must be synced with the dynaload order of these classes. */
-#define SYM_CLASS_IOERROR        19
-#define SYM_CLASS_KEYERROR       20
-#define SYM_CLASS_RUNTIMEERROR   21
-#define SYM_CLASS_VALUEERROR     22
-#define SYM_CLASS_INDEXERROR     23
-#define SYM_CLASS_DBZERROR       24 /* > 9000 */
-#define SYM_CLASS_TAINTED        25
-#define START_CLASS_ID           26
+#define SYM_CLASS_TAINTED    25
+#define START_CLASS_ID       26
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_GENERIC     65531

@@ -119,6 +119,15 @@ lily_value *lily_new_value_of_string_lit(const char *);
 #define SYM_CLASS_LEFT  16
 #define SYM_CLASS_RIGHT 17
 
+/* These are the ids of builtin exceptions, for use with lily_error. */
+#define SYM_CLASS_EXCEPTION    18
+#define SYM_CLASS_IOERROR      19
+#define SYM_CLASS_KEYERROR     20
+#define SYM_CLASS_RUNTIMEERROR 21
+#define SYM_CLASS_VALUEERROR   22
+#define SYM_CLASS_INDEXERROR   23
+#define SYM_CLASS_DBZERROR     24 /* > 9000 */
+
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
@@ -195,5 +204,10 @@ void lily_assign_value(lily_value *, lily_value *);
 void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
+
+/* Raise an exception, with uint_8 being the id of a class deriving from
+   Exception. */
+void lily_error(lily_vm_state *, uint8_t, const char *);
+void lily_error_fmt(lily_vm_state *, uint8_t, const char *, ...);
 
 #endif
