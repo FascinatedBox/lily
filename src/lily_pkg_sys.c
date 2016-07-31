@@ -31,7 +31,7 @@ static void *load_var_argv(lily_options *options, uint16_t *unused)
 
 #include "dyna_sys.h"
 
-void lily_pkg_sys_init(lily_state *parser, lily_options *options)
+void lily_pkg_sys_init(lily_state *s, lily_options *options)
 {
-    register_sys(parser);
+    register_sys(s);
 }

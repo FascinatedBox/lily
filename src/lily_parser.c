@@ -68,7 +68,7 @@ static lily_package *new_package(lily_parse_state *, const char *,
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
    when it shouldn't. */
-lily_vm_state *lily_new_state(lily_options *options)
+lily_state *lily_new_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
@@ -83,14 +83,16 @@ lily_vm_state *lily_new_state(lily_options *options)
     parser->first_expr = lily_new_expr_state();
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
+    parser->vm = lily_new_vm_state(options, raiser);
 
-    lily_register_pkg_builtin(parser);
+    parser->vm->parser = parser;
+
+    lily_register_pkg_builtin(parser->vm);
     lily_set_first_package(parser->symtab, parser->package_top);
     lily_init_pkg_builtin(parser->symtab);
 
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
-    parser->vm = lily_new_vm_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
     parser->optarg_stack = lily_new_buffer_u16(4);
@@ -103,7 +105,6 @@ lily_vm_state *lily_new_state(lily_options *options)
 
     parser->vm->symtab = parser->symtab;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
-    parser->vm->parser = parser;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;
 
@@ -135,14 +136,14 @@ lily_vm_state *lily_new_state(lily_options *options)
     parser->symtab->active_module = parser->main_module;
 
     if (options->allow_sys)
-        lily_pkg_sys_init(parser, options);
+        lily_pkg_sys_init(parser->vm, options);
 
     parser->executing = 0;
 
     return parser->vm;
 }
 
-void lily_free_state(lily_vm_state *vm)
+void lily_free_state(lily_state *vm)
 {
     lily_parse_state *parser = vm->parser;
 
@@ -342,9 +343,10 @@ static lily_module_entry *new_module(const char *path,
    intentionally NOT linked anywhere, even to the first import. The reason for
    this is that it prevents scripts from assuming that a package exists and then
    breaking when another runner doesn't provide it. */
-void lily_register_package(lily_parse_state *parser, const char *name,
+void lily_register_package(lily_state *s, const char *name,
         const char **dynaload_table, lily_loader loader)
 {
+    lily_parse_state *parser = s->parser;
     lily_package *package = new_package(parser, name, NULL, dynaload_table);
     package->first_module->loader = loader;
 }
@@ -4291,26 +4293,26 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
     return 0;
 }
 
-int lily_parse_file(lily_vm_state *vm, const char *name)
+int lily_parse_file(lily_state *s, const char *name)
 {
-    return parse_file(vm->parser, lm_no_tags, name);
+    return parse_file(s->parser, lm_no_tags, name);
 }
 
-int lily_parse_string(lily_vm_state *vm, const char *name,
+int lily_parse_string(lily_state *s, const char *name,
         char *str)
 {
-    return parse_string(vm->parser, lm_no_tags, name, str);
+    return parse_string(s->parser, lm_no_tags, name, str);
 }
 
-int lily_exec_template_string(lily_vm_state *vm, const char *name,
+int lily_exec_template_string(lily_state *s, const char *name,
         char *str)
 {
-    return parse_string(vm->parser, lm_tags, name, str);
+    return parse_string(s->parser, lm_tags, name, str);
 }
 
-int lily_exec_template_file(lily_vm_state *vm, const char *filename)
+int lily_exec_template_file(lily_state *s, const char *filename)
 {
-    return parse_file(vm->parser, lm_tags, filename);
+    return parse_file(s->parser, lm_tags, filename);
 }
 
 /* This is provided for runners (such as the standalone runner provided in the
@@ -4321,9 +4323,9 @@ int lily_exec_template_file(lily_vm_state *vm, const char *filename)
    parser's msgbuf). If the caller wants to keep the message, then the caller
    needs to copy it. If the caller does not, the message will get blasted by the
    next run. */
-const char *lily_get_error(lily_vm_state *vm)
+const char *lily_get_error(lily_state *s)
 {
-    lily_parse_state *parser = vm->parser;
+    lily_parse_state *parser = s->parser;
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = parser->msgbuf;
 

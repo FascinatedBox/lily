@@ -180,8 +180,8 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
     return lily_new_value_of_hash(hv);
 }
 
-extern void lily_string_html_encode(lily_vm_state *);
-extern int lily_maybe_html_encode_to_buffer(lily_vm_state *, lily_value *);
+extern void lily_string_html_encode(lily_state *);
+extern int lily_maybe_html_encode_to_buffer(lily_state *, lily_value *);
 
 /**
 define escape(text: String): String
@@ -190,9 +190,9 @@ This checks self for having "&", "<", or ">". If any are found, then a new
 String is created where those html entities are replaced (& becomes &amp;, <
 becomes &lt;, > becomes &gt;).
 */
-void lily_server_escape(lily_vm_state *vm)
+void lily_server_escape(lily_state *s)
 {
-    lily_string_html_encode(vm);
+    lily_string_html_encode(s);
 }
 
 /**
@@ -202,20 +202,20 @@ This escapes, then writes 'text' to the server. It is equivalent to
 'server.write_raw(server.escape(text))', except faster because it skips building
 an intermediate `String` value.
 */
-void lily_server_write(lily_vm_state *vm)
+void lily_server_write(lily_state *s)
 {
-    lily_value *input = lily_arg_value(vm, 0);
+    lily_value *input = lily_arg_value(s, 0);
     const char *source;
 
     /* String.html_encode can't be called directly, for a couple reasons.
        1: It expects a result register, and there isn't one.
        2: It may create a new String, which is unnecessary. */
-    if (lily_maybe_html_encode_to_buffer(vm, input) == 0)
+    if (lily_maybe_html_encode_to_buffer(s, input) == 0)
         source = input->value.string->string;
     else
-        source = lily_mb_get(vm->vm_buffer);
+        source = lily_mb_get(s->vm_buffer);
 
-    ap_rputs(source, (request_rec *)vm->data);
+    ap_rputs(source, (request_rec *)s->data);
 }
 
 /**
@@ -224,17 +224,17 @@ define write_literal(text: String)
 This writes 'text' directly to the server. If 'text' is not a `String` literal,
 then `ValueError` is raised. No escaping is performed.
 */
-void lily_server_write_literal(lily_vm_state *vm)
+void lily_server_write_literal(lily_state *s)
 {
-    lily_value *write_reg = lily_arg_value(vm, 0);
+    lily_value *write_reg = lily_arg_value(s, 0);
 
     if (lily_value_is_derefable(write_reg) == 0)
-        lily_error(vm, SYM_CLASS_VALUEERROR,
+        lily_error(s, SYM_CLASS_VALUEERROR,
                 "The string passed must be a literal.\n");
 
     char *value = write_reg->value.string->string;
 
-    ap_rputs(value, (request_rec *)vm->data);
+    ap_rputs(value, (request_rec *)s->data);
 }
 
 /**
@@ -244,11 +244,11 @@ This writes 'text' directly to the server without performing any HTML character
 escaping. Use this only if you are certain that there is no possibility of HTML
 injection.
 */
-void lily_server_write_raw(lily_vm_state *vm)
+void lily_server_write_raw(lily_state *s)
 {
-    char *value = lily_arg_string_raw(vm, 0);
+    char *value = lily_arg_string_raw(s, 0);
 
-    ap_rputs(value, (request_rec *)vm->data);
+    ap_rputs(value, (request_rec *)s->data);
 }
 
 #include "dyna_server.h"
