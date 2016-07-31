@@ -112,6 +112,13 @@ lily_value *lily_new_value_of_list(lily_list_val *);
 lily_value *lily_new_value_of_string(lily_string_val *);
 lily_value *lily_new_value_of_string_lit(const char *);
 
+/* These are the ids of the predefined variants of Option and Some. */
+#define SYM_CLASS_SOME  13
+#define SYM_CLASS_NONE  14
+
+#define SYM_CLASS_LEFT  16
+#define SYM_CLASS_RIGHT 17
+
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
@@ -131,6 +138,7 @@ void lily_file_ensure_writeable(lily_vm_state *, lily_file_val *);
 /* Instance operations */
 lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
 DECLARE_BOTH(instance, lily_instance_val *, int);
+uint16_t lily_instance_id(lily_instance_val *);
 
 /* Hash operations (still a work-in-progress) */
 lily_hash_val *lily_new_hash_val(void);
@@ -152,6 +160,11 @@ lily_instance_val *lily_new_left(void);
 lily_instance_val *lily_new_right(void);
 lily_instance_val *lily_new_some(void);
 lily_instance_val *lily_get_none(lily_vm_state *);
+uint16_t lily_variant_id(lily_instance_val *);
+#define lily_variant_is_some(v) (lily_variant_id(v) == SYM_CLASS_SOME)
+#define lily_variant_is_none(v) (lily_variant_id(v) == SYM_CLASS_NONE)
+#define lily_variant_is_left(v) (lily_variant_id(v) == SYM_CLASS_LEFT)
+#define lily_variant_is_right(v) (lily_variant_id(v) == SYM_CLASS_RIGHT)
 
 DECLARE_BOTH(variant, lily_instance_val *, int)
 

@@ -413,11 +413,10 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_FILE           10
 #define SYM_CLASS_QUESTION       11
 #define SYM_CLASS_OPTION         12
-#define SYM_CLASS_SOME           13
-#define SYM_CLASS_NONE           14
+/* The holes here are for None, Some, Left, and Right. They're in
+   lily_api_value.h because those ids aren't special-cased internally. */
 #define SYM_CLASS_EITHER         15
-#define SYM_CLASS_LEFT           16
-#define SYM_CLASS_RIGHT          17
+
 #define SYM_CLASS_EXCEPTION      18
 /* This order must be synced with the dynaload order of these classes. */
 #define SYM_CLASS_IOERROR        19
