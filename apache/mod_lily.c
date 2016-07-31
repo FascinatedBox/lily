@@ -14,7 +14,6 @@
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "lily_api_value_flags.h"
-#include "lily_api_vm.h"
 
 struct table_bind_data {
     lily_hash_val *hash_val;

@@ -210,4 +210,22 @@ int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
 void lily_error(lily_vm_state *, uint8_t, const char *);
 void lily_error_fmt(lily_vm_state *, uint8_t, const char *, ...);
 
+/* Miscellaneous operations. Keep in mind that these (like lily_error) are only
+   valid in a function extending the interpreter. If they are called outside of
+   the interpreter's parsing loop, the interpreter is likely to crash. */
+
+/* This flushes and provides the interpreter's msgbuf. Callers always flush
+   first, so don't worry about flushing when done.
+   The full struct, and methods for it are defined in lily_api_msgbuf.h */
+struct lily_msgbuf_ *lily_vm_msgbuf(lily_vm_state *);
+
+/* If you are not adding a foreign class to Lily, then you can ignore this. This
+   function fetches the class id table for the currently-entered function. From
+   there, you can pick away the class ids.
+   Class ids are stored, 0-indexed, in the same order as the top of your
+   dynaload table.
+   The class id provided is later used by Lily for printing and comparing
+   instances of your class. */
+uint16_t *lily_vm_cid_table(lily_vm_state *);
+
 #endif
