@@ -13,7 +13,6 @@
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
-#include "lily_api_value_flags.h"
 
 struct table_bind_data {
     lily_hash_val *hash_val;
@@ -229,7 +228,7 @@ void lily_server_write_literal(lily_vm_state *vm)
 {
     lily_value *write_reg = lily_arg_value(vm, 0);
 
-    if (write_reg->flags & VAL_IS_DEREFABLE)
+    if (lily_value_is_derefable(write_reg) == 0)
         lily_error(vm, SYM_CLASS_VALUEERROR,
                 "The string passed must be a literal.\n");
 

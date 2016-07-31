@@ -46,21 +46,6 @@ LILY_FOREIGN_HEADER_NOPAD(header_pad)
    function should not have any side-effects. */
 typedef void (*lily_destroy_func)(lily_generic_val *);
 
-#define lily_isa_boolean(v)    (v & VAL_IS_BOOLEAN)
-#define lily_isa_bytestring(v) (v & VAL_IS_BYTESTRING)
-#define lily_isa_double(v)     (v & VAL_IS_DOUBLE)
-#define lily_isa_dynamic(v)    (v & VAL_IS_DYNAMIC)
-#define lily_isa_enum(v)       (v & VAL_IS_ENUM)
-#define lily_isa_file(v)       (v & VAL_IS_FILE)
-#define lily_isa_foreign(v)    (v & VAL_IS_FOREIGN)
-#define lily_isa_function(v)   (v & VAL_IS_FUNCTION)
-#define lily_isa_hash(v)       (v & VAL_IS_HASH)
-#define lily_isa_instance(v)   (v & VAL_IS_INSTANCE)
-#define lily_isa_integer(v)    (v & VAL_IS_INTEGER)
-#define lily_isa_list(v)       (v & VAL_IS_LIST)
-#define lily_isa_string(v)     (v & VAL_IS_STRING)
-#define lily_isa_tuple(v)      (v & VAL_IS_TUPLE)
-
 #define DECLARE_SETTERS(name, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int); \
 void lily_##name##_bytestring(__VA_ARGS__, lily_string_val *); \
@@ -204,6 +189,7 @@ void lily_assign_value(lily_value *, lily_value *);
 void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
+int lily_value_is_derefable(lily_value *);
 
 /* Raise an exception, with uint_8 being the id of a class deriving from
    Exception. */

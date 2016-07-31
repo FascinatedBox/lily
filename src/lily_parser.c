@@ -9,6 +9,7 @@
 #include "lily_keyword_table.h"
 #include "lily_opcode.h"
 #include "lily_string_pile.h"
+#include "lily_value_flags.h"
 
 #include "lily_pkg_builtin.h"
 #include "lily_pkg_sys.h"
@@ -16,7 +17,6 @@
 #include "lily_api_alloc.h"
 /* Ids for Exception + children are in here, and dynaload needs them. */
 #include "lily_api_value.h"
-#include "lily_api_value_flags.h"
 #include "lily_api_options.h"
 
 #define NEED_NEXT_TOK(expected) \

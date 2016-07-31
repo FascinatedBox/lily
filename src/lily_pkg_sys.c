@@ -5,7 +5,6 @@
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
-#include "lily_api_value_flags.h"
 
 /**
 embedded sys

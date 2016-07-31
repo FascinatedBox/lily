@@ -3,10 +3,10 @@
 
 #include "lily_symtab.h"
 #include "lily_vm.h"
+#include "lily_value_flags.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value.h"
-#include "lily_api_value_flags.h"
 
 /***
  *      ____       _

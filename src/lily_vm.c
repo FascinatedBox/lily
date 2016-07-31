@@ -5,12 +5,12 @@
 #include "lily_vm.h"
 #include "lily_parser.h"
 #include "lily_value_stack.h"
+#include "lily_value_flags.h"
 #include "lily_move.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
 #include "lily_api_options.h"
-#include "lily_api_value_flags.h"
 #include "lily_api_value.h"
 
 extern void lily_string_subscript(lily_vm_state *, lily_value *, lily_value *,

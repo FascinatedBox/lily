@@ -3,10 +3,10 @@
 #include "lily_value_structs.h"
 #include "lily_move.h"
 #include "lily_vm.h"
+#include "lily_value_flags.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_value.h"
-#include "lily_api_value_flags.h"
 
 #define DEFINE_SETTERS(name, action, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int v) \
@@ -778,4 +778,9 @@ int lily_eq_value(lily_vm_state *vm, lily_value *left, lily_value *right)
 {
     int depth = 0;
     return lily_eq_value_raw(vm, &depth, left, right);
+}
+
+int lily_value_is_derefable(lily_value *value)
+{
+    return value->flags & VAL_IS_DEREFABLE;
 }

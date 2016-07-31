@@ -1,6 +1,6 @@
 #include "lily_value_structs.h"
+#include "lily_value_flags.h"
 
-#include "lily_api_value_flags.h"
 #include "lily_api_value.h"
 
 #define MOVE_PRIM(name, in_type, field, f) \
