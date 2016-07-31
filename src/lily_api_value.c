@@ -420,6 +420,11 @@ void lily_file_ensure_readable(lily_vm_state *vm, lily_file_val *filev)
         lily_vm_raise(vm, SYM_CLASS_IOERROR, "File not open for reading.");
 }
 
+uint16_t lily_instance_id(lily_instance_val *iv)
+{
+    return iv->instance_id;
+}
+
 char *lily_string_get_raw(lily_string_val *sv)
 {
     return sv->string;
@@ -433,6 +438,11 @@ int lily_string_length(lily_string_val *sv)
 int lily_list_num_values(lily_list_val *lv)
 {
     return lv->num_values;
+}
+
+uint16_t lily_variant_id(lily_instance_val *iv)
+{
+    return iv->instance_id;
 }
 
 /* Operations */
