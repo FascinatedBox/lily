@@ -78,9 +78,9 @@ method Boolean.to_i(self: Boolean): Integer
 
 Convert a `Boolean` to an `Integer`. 'true' becomes '1', 'false' becomes '0'.
 */
-void lily_builtin_Boolean_to_i(lily_vm_state *vm)
+void lily_builtin_Boolean_to_i(lily_state *s)
 {
-    lily_return_integer(vm, lily_arg_boolean(vm, 0));
+    lily_return_integer(s, lily_arg_boolean(s, 0));
 }
 
 /**
@@ -88,9 +88,9 @@ method Boolean.to_s(self: Boolean): String
 
 Convert a `Boolean` to a `String`.
 */
-void lily_builtin_Boolean_to_s(lily_vm_state *vm)
+void lily_builtin_Boolean_to_s(lily_state *s)
 {
-    int input = lily_arg_boolean(vm, 0);
+    int input = lily_arg_boolean(s, 0);
     char *to_copy;
 
     if (input == 0)
@@ -98,7 +98,7 @@ void lily_builtin_Boolean_to_s(lily_vm_state *vm)
     else
         to_copy = "true";
 
-    lily_return_string(vm, lily_new_raw_string(to_copy));
+    lily_return_string(s, lily_new_raw_string(to_copy));
 }
 
 /**
@@ -118,13 +118,13 @@ depends on the value of 'encode'.
 If encode is '"error"', then invalid utf-8 or embedded '\0' values within `self`
 will result in 'None'.
 */
-void lily_builtin_ByteString_encode(lily_vm_state *vm)
+void lily_builtin_ByteString_encode(lily_state *s)
 {
-    lily_string_val *input_bytestring = lily_arg_string(vm, 0);
+    lily_string_val *input_bytestring = lily_arg_string(s, 0);
     const char *encode_method;
 
-    if (lily_arg_count(vm) == 2)
-        encode_method = lily_arg_string_raw(vm, 1);
+    if (lily_arg_count(s) == 2)
+        encode_method = lily_arg_string_raw(s, 1);
     else
         encode_method = "error";
 
@@ -135,18 +135,18 @@ void lily_builtin_ByteString_encode(lily_vm_state *vm)
         int byte_buffer_size = lily_bytestring_length(input_bytestring);
 
         if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-            lily_return_empty_variant(vm, lily_get_none(vm));
+            lily_return_empty_variant(s, lily_get_none(s));
             return;
         }
     }
     else {
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
         return;
     }
 
     lily_instance_val *variant = lily_new_some();
     lily_variant_set_string(variant, 0, lily_new_raw_string(byte_buffer));
-    lily_return_filled_variant(vm, variant);
+    lily_return_filled_variant(s, variant);
 }
 
 /**
@@ -168,11 +168,11 @@ method Double.to_i(self: Double): Integer
 Convert a `Double` to an `Integer`. This is done internally through a cast from
 a C double, to int64_t, the type of `Integer`.
 */
-void lily_builtin_Double_to_i(lily_vm_state *vm)
+void lily_builtin_Double_to_i(lily_state *s)
 {
-    int64_t integer_val = (int64_t)lily_arg_double(vm, 0);
+    int64_t integer_val = (int64_t)lily_arg_double(s, 0);
 
-    lily_return_integer(vm, integer_val);
+    lily_return_integer(s, integer_val);
 }
 
 /**
@@ -196,7 +196,7 @@ While it is currently possible to place polymorphic values into `Dynamic`, that
 ability will be removed in the future, as it is not possible to cast polymorphic
 values out of a `Dynamic`.
 */
-extern void lily_builtin_Dynamic_new(lily_vm_state *);
+extern void lily_builtin_Dynamic_new(lily_state *);
 
 /**
 enum Either[A, B]
@@ -207,11 +207,11 @@ The `Either` enum can be usd to represent an operation that may or may not
 succeed. Unlike `Option`, `Either` provides `Left` which may be used to hold a
 useful error message in the event of a failure.
 */
-static void either_is_left_right(lily_vm_state *vm, int expect)
+static void either_is_left_right(lily_state *s, int expect)
 {
-    lily_instance_val *iv = lily_arg_instance(vm, 0);
+    lily_instance_val *iv = lily_arg_instance(s, 0);
 
-    lily_return_boolean(vm, (iv->instance_id == expect));
+    lily_return_boolean(s, (iv->instance_id == expect));
 }
 
 /**
@@ -219,9 +219,9 @@ method Either.is_left[A, B](self: Either[A, B]): Boolean
 
 Return 'true' if 'self' contains a 'Left', 'false' otherwise.
 */
-void lily_builtin_Either_is_left(lily_vm_state *vm)
+void lily_builtin_Either_is_left(lily_state *s)
 {
-    either_is_left_right(vm, SYM_CLASS_LEFT);
+    either_is_left_right(s, SYM_CLASS_LEFT);
 }
 
 /**
@@ -229,22 +229,22 @@ method Either.is_right[A, B](self: Either[A, B]): Boolean
 
 Return 'true' if 'self' contains a 'Right', 'false' otherwise.
 */
-void lily_builtin_Either_is_right(lily_vm_state *vm)
+void lily_builtin_Either_is_right(lily_state *s)
 {
-    either_is_left_right(vm, SYM_CLASS_RIGHT);
+    either_is_left_right(s, SYM_CLASS_RIGHT);
 }
 
-static void either_optionize_left_right(lily_vm_state *vm, int expect)
+static void either_optionize_left_right(lily_state *s, int expect)
 {
-    lily_instance_val *iv = lily_arg_instance(vm, 0);
+    lily_instance_val *iv = lily_arg_instance(s, 0);
 
     if (iv->instance_id == expect) {
         lily_instance_val *variant = lily_new_some();
         lily_variant_set_value(variant, 0, lily_instance_value(iv, 0));
-        lily_return_filled_variant(vm, variant);
+        lily_return_filled_variant(s, variant);
     }
     else
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
 }
 
 /**
@@ -254,9 +254,9 @@ If 'self' contains a 'Left', produces a 'Some(A)'.
 
 If 'self' contains a 'Right', produces 'None'.
 */
-void lily_builtin_Either_left(lily_vm_state *vm)
+void lily_builtin_Either_left(lily_state *s)
 {
-    either_optionize_left_right(vm, SYM_CLASS_LEFT);
+    either_optionize_left_right(s, SYM_CLASS_LEFT);
 }
 
 /**
@@ -266,9 +266,9 @@ If 'self' contains a 'Left', produces a 'None'.
 
 If 'self' contains a 'Right', produces 'Right(B)'.
 */
-void lily_builtin_Either_right(lily_vm_state *vm)
+void lily_builtin_Either_right(lily_state *s)
 {
-    either_optionize_left_right(vm, SYM_CLASS_RIGHT);
+    either_optionize_left_right(s, SYM_CLASS_RIGHT);
 }
 
 /**
@@ -296,9 +296,9 @@ For standard streams, this marks the `File` as closed, but does not actually
 close the stream. Embedders, therefore, do not need to worry about standard
 streams being altered or closed by Lily.
 */
-void lily_builtin_File_close(lily_vm_state *vm)
+void lily_builtin_File_close(lily_state *s)
 {
-    lily_file_val *filev = lily_arg_file(vm, 0);
+    lily_file_val *filev = lily_arg_file(s, 0);
 
     if (filev->inner_file != NULL) {
         if (filev->is_builtin == 0)
@@ -329,10 +329,10 @@ Errors:
 
 If unable to open 'path', or an invalid 'mode' is provided, `IOError` is raised.
 */
-void lily_builtin_File_open(lily_vm_state *vm)
+void lily_builtin_File_open(lily_state *s)
 {
-    char *path = lily_arg_string_raw(vm, 0);
-    char *mode = lily_arg_string_raw(vm, 1);
+    char *path = lily_arg_string_raw(s, 0);
+    char *mode = lily_arg_string_raw(s, 1);
 
     errno = 0;
     int ok;
@@ -354,21 +354,21 @@ void lily_builtin_File_open(lily_vm_state *vm)
     }
 
     if (ok == 0)
-        lily_error_fmt(vm, SYM_CLASS_IOERROR,
+        lily_error_fmt(s, SYM_CLASS_IOERROR,
                 "Invalid mode '%s' given.", mode);
 
     FILE *f = fopen(path, mode);
     if (f == NULL) {
-        lily_error_fmt(vm, SYM_CLASS_IOERROR, "Errno %d: ^R (%s).",
+        lily_error_fmt(s, SYM_CLASS_IOERROR, "Errno %d: ^R (%s).",
                 errno, errno, path);
     }
 
     lily_file_val *filev = lily_new_file_val(f, mode);
 
-    lily_return_file(vm, filev);
+    lily_return_file(s, filev);
 }
 
-void lily_builtin_File_write(lily_vm_state *);
+void lily_builtin_File_write(lily_state *);
 
 /**
 method File.print[A](self: File, data: A)
@@ -380,10 +380,10 @@ Errors:
 
 If 'self' is closed or is not open for writing, `IOError` is raised.
 */
-void lily_builtin_File_print(lily_vm_state *vm)
+void lily_builtin_File_print(lily_state *s)
 {
-    lily_builtin_File_write(vm);
-    fputc('\n', lily_arg_file_raw(vm, 0));
+    lily_builtin_File_write(s);
+    fputc('\n', lily_arg_file_raw(s, 0));
 }
 
 /**
@@ -397,14 +397,14 @@ Errors:
 
 If 'self' is not open for reading, or is closed, `IOError` is raised.
 */
-void lily_builtin_File_read_line(lily_vm_state *vm)
+void lily_builtin_File_read_line(lily_state *s)
 {
-    lily_file_val *filev = lily_arg_file(vm, 0);
-    lily_msgbuf *vm_buffer = lily_vm_msgbuf(vm);
+    lily_file_val *filev = lily_arg_file(s, 0);
+    lily_msgbuf *vm_buffer = lily_vm_msgbuf(s);
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
-    lily_file_ensure_readable(vm, filev);
+    lily_file_ensure_readable(s, filev);
     FILE *f = filev->inner_file;
 
     /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
@@ -436,7 +436,7 @@ void lily_builtin_File_read_line(lily_vm_state *vm)
     }
 
     const char *text = lily_mb_get(vm_buffer);
-    lily_return_bytestring(vm, lily_new_raw_string_sized(text, total_pos));
+    lily_return_bytestring(s, lily_new_raw_string_sized(text, total_pos));
 }
 
 /**
@@ -448,19 +448,19 @@ Errors:
 
 If 'self' is closed or is not open for writing, `IOError` is raised.
 */
-void lily_builtin_File_write(lily_vm_state *vm)
+void lily_builtin_File_write(lily_state *s)
 {
-    lily_file_val *filev = lily_arg_file(vm, 0);
-    lily_value *to_write = lily_arg_value(vm, 1);
+    lily_file_val *filev = lily_arg_file(s, 0);
+    lily_value *to_write = lily_arg_value(s, 1);
 
-    lily_file_ensure_writeable(vm, filev);
+    lily_file_ensure_writeable(s, filev);
 
     if (to_write->flags & VAL_IS_STRING)
         fputs(to_write->value.string->string, filev->inner_file);
     else {
-        lily_msgbuf *msgbuf = vm->vm_buffer;
+        lily_msgbuf *msgbuf = s->vm_buffer;
         lily_mb_flush(msgbuf);
-        lily_vm_add_value_to_msgbuf(vm, msgbuf, to_write);
+        lily_vm_add_value_to_msgbuf(s, msgbuf, to_write);
         fputs(lily_mb_get(msgbuf), filev->inner_file);
     }
 }
@@ -495,10 +495,10 @@ Currently, only `Integer` and `String` can be used as keys.
 
 /* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
    returned. If no element is found, then NULL is returned. */
-lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
+lily_hash_elem *lily_hash_get_elem(lily_state *s, lily_hash_val *hash_val,
         lily_value *key)
 {
-    uint64_t key_siphash = lily_siphash(vm, key);
+    uint64_t key_siphash = lily_siphash(s, key);
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     lily_raw_value key_value = key->value;
     int flags = key->flags;
@@ -533,22 +533,22 @@ lily_hash_elem *lily_hash_get_elem(lily_vm_state *vm, lily_hash_val *hash_val,
     return elem_iter;
 }
 
-static inline void remove_key_check(lily_vm_state *vm, lily_hash_val *hash_val)
+static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
 {
     if (hash_val->iter_count)
-        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
+        lily_error(s, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.");
 }
 
 /* This adds a new element to the hash, with 'pair_key' and 'pair_value' inside.
    The key and value are not given a refbump, and are not copied over. For that,
    see lily_hash_add_unique. */
-static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
+static void hash_add_unique_nocopy(lily_state *s, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
     lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
 
-    elem->key_siphash = lily_siphash(vm, pair_key);
+    elem->key_siphash = lily_siphash(s, pair_key);
     elem->elem_key = pair_key;
     elem->elem_value = pair_value;
 
@@ -566,26 +566,26 @@ static void hash_add_unique_nocopy(lily_vm_state *vm, lily_hash_val *hash_val,
    'pair_value' as the value. This should only be used in cases where the
    caller is completely certain that 'pair_key' is not within the hash. If the
    caller is unsure, then lily_hash_set_elem should be used instead. */
-void lily_hash_add_unique(lily_vm_state *vm, lily_hash_val *hash_val,
+void lily_hash_add_unique(lily_state *s, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
-    remove_key_check(vm, hash_val);
+    remove_key_check(s, hash_val);
 
     pair_key = lily_copy_value(pair_key);
     pair_value = lily_copy_value(pair_value);
 
-    hash_add_unique_nocopy(vm, hash_val, pair_key, pair_value);
+    hash_add_unique_nocopy(s, hash_val, pair_key, pair_value);
 }
 
 /* This attempts to find 'pair_key' within 'hash_val'. If successful, then the
    element's value is assigned to 'pair_value'. If unable to find an element, a
    new element is created using 'pair_key' and 'pair_value'. */
-void lily_hash_set_elem(lily_vm_state *vm, lily_hash_val *hash_val,
+void lily_hash_set_elem(lily_state *s, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
-    lily_hash_elem *elem = lily_hash_get_elem(vm, hash_val, pair_key);
+    lily_hash_elem *elem = lily_hash_get_elem(s, hash_val, pair_key);
     if (elem == NULL)
-        lily_hash_add_unique(vm, hash_val, pair_key, pair_value);
+        lily_hash_add_unique(s, hash_val, pair_key, pair_value);
     else
         lily_assign_value(elem->elem_value, pair_value);
 }
@@ -630,12 +630,12 @@ method Hash.clear[A, B](self: Hash[A, B])
 Removes all pairs currently present within 'self'. No error occurs if 'self' is
 currently being iterated over.
 */
-void lily_builtin_Hash_clear(lily_vm_state *vm)
+void lily_builtin_Hash_clear(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
     if (hash_val->iter_count != 0)
-        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
+        lily_error(s, SYM_CLASS_RUNTIMEERROR,
                 "Cannot remove key from hash during iteration.");
 
     destroy_hash_elems(hash_val);
@@ -654,14 +654,14 @@ Errors:
 
 If 'self' is currently being iterated over, `RuntimeError` will be raised.
 */
-void lily_builtin_Hash_delete(lily_vm_state *vm)
+void lily_builtin_Hash_delete(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
-    lily_value *key = lily_arg_value(vm, 1);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_value *key = lily_arg_value(s, 1);
 
-    remove_key_check(vm, hash_val);
+    remove_key_check(s, hash_val);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, hash_val, key);
+    lily_hash_elem *hash_elem = lily_hash_get_elem(s, hash_val, key);
 
     if (hash_elem) {
         if (hash_elem->next)
@@ -684,30 +684,30 @@ method Hash.each_pair[A, B](self: Hash[A, B], fn: Function(A, B))
 Iterate through each pair that is present within 'self'. For each of the pairs,
 call 'fn' with the key and value of each pair.
 */
-void lily_builtin_Hash_each_pair(lily_vm_state *vm)
+void lily_builtin_Hash_each_pair(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_hash_elem *elem_iter = hash_val->elem_chain;
 
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
     hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    lily_jump_link *link = lily_jump_setup(s->raiser);
     if (setjmp(link->jump) == 0) {
         while (elem_iter) {
-            lily_push_value(vm, elem_iter->elem_key);
-            lily_push_value(vm, elem_iter->elem_value);
-            lily_vm_exec_prepared_call(vm, 2);
+            lily_push_value(s, elem_iter->elem_key);
+            lily_push_value(s, elem_iter->elem_value);
+            lily_vm_exec_prepared_call(s, 2);
 
             elem_iter = elem_iter->next;
         }
 
         hash_val->iter_count--;
-        lily_release_jump(vm->raiser);
+        lily_release_jump(s->raiser);
     }
     else {
         hash_val->iter_count--;
-        lily_jump_back(vm->raiser);
+        lily_jump_back(s->raiser);
     }
 }
 
@@ -718,16 +718,16 @@ Attempt to find 'key' within 'self'. If 'key' is present, then the value
 associated with it is returned. If 'key' cannot be found, then 'default' is
 returned instead.
 */
-void lily_builtin_Hash_get(lily_vm_state *vm)
+void lily_builtin_Hash_get(lily_state *s)
 {
-    lily_value *input = lily_arg_value(vm, 0);
-    lily_value *key = lily_arg_value(vm, 1);
-    lily_value *default_value = lily_arg_value(vm, 2);
+    lily_value *input = lily_arg_value(s, 0);
+    lily_value *key = lily_arg_value(s, 1);
+    lily_value *default_value = lily_arg_value(s, 2);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, input->value.hash, key);
+    lily_hash_elem *hash_elem = lily_hash_get_elem(s, input->value.hash, key);
     lily_value *new_value = hash_elem ? hash_elem->elem_value : default_value;
 
-    lily_return_value(vm, new_value);
+    lily_return_value(s, new_value);
 }
 
 /**
@@ -735,14 +735,14 @@ method Hash.has_key[A, B](self: Hash[A, B], key: A):Boolean
 
 Return 'true' if 'key' is present within 'self', 'false' otherwise.
 */
-void lily_builtin_Hash_has_key(lily_vm_state *vm)
+void lily_builtin_Hash_has_key(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
-    lily_value *key = lily_arg_value(vm, 1);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_value *key = lily_arg_value(s, 1);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(vm, hash_val, key);
+    lily_hash_elem *hash_elem = lily_hash_get_elem(s, hash_val, key);
 
-    lily_return_boolean(vm, hash_elem != NULL);
+    lily_return_boolean(s, hash_elem != NULL);
 }
 
 /**
@@ -751,9 +751,9 @@ method Hash.keys[A, B](self: Hash[A, B]): List[A]
 Construct a `List` containing all values that are present within 'self'. There
 is no guarantee of the ordering of the resulting `List`.
 */
-void lily_builtin_Hash_keys(lily_vm_state *vm)
+void lily_builtin_Hash_keys(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
     lily_list_val *result_lv = lily_new_list_val_n(hash_val->num_elems);
     int i = 0;
@@ -766,19 +766,19 @@ void lily_builtin_Hash_keys(lily_vm_state *vm)
         elem_iter = elem_iter->next;
     }
 
-    lily_return_list(vm, result_lv);
+    lily_return_list(s, result_lv);
 }
 
-static lily_hash_val *build_hash(lily_vm_state *vm, int count)
+static lily_hash_val *build_hash(lily_state *s, int count)
 {
     int i;
     lily_hash_val *hash_val = lily_new_hash_val();
 
     for (i = 0;i < count;i++) {
-        lily_value *e_value = lily_copy_value(lily_pop_value(vm));
-        lily_value *e_key = lily_copy_value(lily_pop_value(vm));
+        lily_value *e_value = lily_copy_value(lily_pop_value(s));
+        lily_value *e_key = lily_copy_value(lily_pop_value(s));
 
-        hash_add_unique_nocopy(vm, hash_val, e_key, e_value);
+        hash_add_unique_nocopy(s, hash_val, e_key, e_value);
     }
 
     return hash_val;
@@ -791,40 +791,40 @@ This iterates through 'self' and calls 'fn' for each element present. The result
 of this function is a newly-made `Hash` where each value is the result of the
 call to 'fn'.
 */
-void lily_builtin_Hash_map_values(lily_vm_state *vm)
+void lily_builtin_Hash_map_values(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
     lily_hash_elem *elem_iter = hash_val->elem_chain;
 
     int count = 0;
 
     hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    lily_jump_link *link = lily_jump_setup(s->raiser);
 
     if (setjmp(link->jump) == 0) {
         while (elem_iter) {
             lily_value *e_key = elem_iter->elem_key;
             lily_value *e_value = elem_iter->elem_value;
 
-            lily_push_value(vm, e_key);
-            lily_push_value(vm, e_value);
+            lily_push_value(s, e_key);
+            lily_push_value(s, e_value);
 
-            lily_vm_exec_prepared_call(vm, 1);
+            lily_vm_exec_prepared_call(s, 1);
 
-            lily_push_value(vm, lily_result_value(vm));
+            lily_push_value(s, lily_result_value(s));
             elem_iter = elem_iter->next;
             count++;
         }
 
-        lily_hash_val *new_hash = build_hash(vm, count);
+        lily_hash_val *new_hash = build_hash(s, count);
         hash_val->iter_count--;
-        lily_release_jump(vm->raiser);
-        lily_return_hash(vm, new_hash);
+        lily_release_jump(s->raiser);
+        lily_return_hash(s, new_hash);
     }
     else {
         hash_val->iter_count--;
-        lily_jump_back(vm->raiser);
+        lily_jump_back(s->raiser);
     }
 }
 
@@ -836,10 +836,10 @@ within 'others'.
 
 When duplicate elements are found, the value of the right-most `Hash` wins.
 */
-void lily_builtin_Hash_merge(lily_vm_state *vm)
+void lily_builtin_Hash_merge(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
-    lily_list_val *to_merge = lily_arg_list(vm, 1);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_list_val *to_merge = lily_arg_list(s, 1);
 
     lily_hash_val *result_hash = lily_new_hash_val();
 
@@ -847,7 +847,7 @@ void lily_builtin_Hash_merge(lily_vm_state *vm)
        directly. */
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     while (elem_iter) {
-        lily_hash_add_unique(vm, result_hash, elem_iter->elem_key,
+        lily_hash_add_unique(s, result_hash, elem_iter->elem_key,
                 elem_iter->elem_value);
 
         elem_iter = elem_iter->next;
@@ -858,41 +858,41 @@ void lily_builtin_Hash_merge(lily_vm_state *vm)
         lily_hash_val *merging_hash = to_merge->elems[i]->value.hash;
         elem_iter = merging_hash->elem_chain;
         while (elem_iter) {
-            lily_hash_set_elem(vm, result_hash, elem_iter->elem_key,
+            lily_hash_set_elem(s, result_hash, elem_iter->elem_key,
                     elem_iter->elem_value);
 
             elem_iter = elem_iter->next;
         }
     }
 
-    lily_return_hash(vm, result_hash);
+    lily_return_hash(s, result_hash);
 }
 
-static void hash_select_reject_common(lily_vm_state *vm, int expect)
+static void hash_select_reject_common(lily_state *s, int expect)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     int count = 0;
 
     hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(vm->raiser);
+    lily_jump_link *link = lily_jump_setup(s->raiser);
 
     if (setjmp(link->jump) == 0) {
         while (elem_iter) {
             lily_value *e_key = elem_iter->elem_key;
             lily_value *e_value = elem_iter->elem_value;
 
-            lily_push_value(vm, e_key);
-            lily_push_value(vm, e_value);
+            lily_push_value(s, e_key);
+            lily_push_value(s, e_value);
 
-            lily_push_value(vm, e_key);
-            lily_push_value(vm, e_value);
+            lily_push_value(s, e_key);
+            lily_push_value(s, e_value);
 
-            lily_vm_exec_prepared_call(vm, 2);
-            if (lily_result_boolean(vm) != expect) {
-                lily_drop_value(vm);
-                lily_drop_value(vm);
+            lily_vm_exec_prepared_call(s, 2);
+            if (lily_result_boolean(s) != expect) {
+                lily_drop_value(s);
+                lily_drop_value(s);
             }
             else
                 count++;
@@ -900,14 +900,14 @@ static void hash_select_reject_common(lily_vm_state *vm, int expect)
             elem_iter = elem_iter->next;
         }
 
-        lily_hash_val *new_hash = build_hash(vm, count);
+        lily_hash_val *new_hash = build_hash(s, count);
         hash_val->iter_count--;
-        lily_release_jump(vm->raiser);
-        lily_return_hash(vm, new_hash);
+        lily_release_jump(s->raiser);
+        lily_return_hash(s, new_hash);
     }
     else {
         hash_val->iter_count--;
-        lily_jump_back(vm->raiser);
+        lily_jump_back(s->raiser);
     }
 }
 
@@ -918,9 +918,9 @@ This calls 'fn' for each element present within 'self'. The result of this
 function is a newly-made `Hash` containing all values for which 'fn' returns
 'false'.
 */
-void lily_builtin_Hash_reject(lily_vm_state *vm)
+void lily_builtin_Hash_reject(lily_state *s)
 {
-    hash_select_reject_common(vm, 0);
+    hash_select_reject_common(s, 0);
 }
 
 /**
@@ -930,9 +930,9 @@ This calls 'fn' for each element present within 'self'. The result of this
 function is a newly-made `Hash` containing all values for which 'fn' returns
 'true'.
 */
-void lily_builtin_Hash_select(lily_vm_state *vm)
+void lily_builtin_Hash_select(lily_state *s)
 {
-    hash_select_reject_common(vm, 1);
+    hash_select_reject_common(s, 1);
 }
 
 /**
@@ -940,11 +940,11 @@ method Hash.size[A, B](self: Hash[A, B]): Integer
 
 Returns the number of key+value pairs present within 'self'.
 */
-void lily_builtin_Hash_size(lily_vm_state *vm)
+void lily_builtin_Hash_size(lily_state *s)
 {
-    lily_hash_val *hash_val = lily_arg_hash(vm, 0);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
-    lily_return_integer(vm, hash_val->num_elems);
+    lily_return_integer(s, hash_val->num_elems);
 }
 
 /**
@@ -967,11 +967,11 @@ method Integer.to_d(self: Integer): Double
 Converts an `Integer` to a `Double`. Internally, this is done by a typecast to
 the `Double` type (a raw C double).
 */
-void lily_builtin_Integer_to_d(lily_vm_state *vm)
+void lily_builtin_Integer_to_d(lily_state *s)
 {
-    double doubleval = (double)lily_arg_integer(vm, 0);
+    double doubleval = (double)lily_arg_integer(s, 0);
 
-    lily_return_double(vm, doubleval);
+    lily_return_double(s, doubleval);
 }
 
 /**
@@ -979,14 +979,14 @@ method Integer.to_s(self: Integer): String
 
 Convert an `Integer` to a `String` using base-10.
 */
-void lily_builtin_Integer_to_s(lily_vm_state *vm)
+void lily_builtin_Integer_to_s(lily_state *s)
 {
-    int64_t integer_val = lily_arg_integer(vm, 0);
+    int64_t integer_val = lily_arg_integer(s, 0);
 
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_return_string(vm, lily_new_raw_string(buffer));
+    lily_return_string(s, lily_new_raw_string(buffer));
 }
 
 /**
@@ -1018,9 +1018,9 @@ method List.clear[A](self: List[A])
 Removes all elements present within 'self'. No error is raised if 'self' is
 being iterated over.
 */
-void lily_builtin_List_clear(lily_vm_state *vm)
+void lily_builtin_List_clear(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
+    lily_list_val *list_val = lily_arg_list(s, 0);
     int i;
 
     for (i = 0;i < list_val->num_values;i++) {
@@ -1038,22 +1038,22 @@ method List.count[A](self: List[A], fn: Function(A => Boolean)): Integer
 This calls 'fn' for each element within 'self'. The result of this function is
 the number of times that 'fn' returns 'true.
 */
-void lily_builtin_List_count(lily_vm_state *vm)
+void lily_builtin_List_count(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
     int count = 0;
 
     int i;
     for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(vm, list_val->elems[i]);
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_push_value(s, list_val->elems[i]);
+        lily_vm_exec_prepared_call(s, 1);
 
-        if (lily_result_boolean(vm) == 1)
+        if (lily_result_boolean(s) == 1)
             count++;
     }
 
-    lily_return_integer(vm, count);
+    lily_return_integer(s, count);
 }
 
 /* This expands the list value so there's more extra space. Growth is done
@@ -1067,19 +1067,19 @@ static void make_extra_space_in_list(lily_list_val *lv)
     lv->extra_space = extra;
 }
 
-static int64_t get_relative_index(lily_vm_state *vm, lily_list_val *list_val,
+static int64_t get_relative_index(lily_state *s, lily_list_val *list_val,
         int64_t pos)
 {
     if (pos < 0) {
         uint64_t unsigned_pos = -(int64_t)pos;
         if (unsigned_pos > list_val->num_values)
-            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too small for list (minimum: %d)",
+            lily_error_fmt(s, SYM_CLASS_INDEXERROR, "Index %d is too small for list (minimum: %d)",
                     pos, -(int64_t)list_val->num_values);
 
         pos = list_val->num_values - unsigned_pos;
     }
     else if (pos > list_val->num_values)
-        lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is too large for list (maximum: %d)",
+        lily_error_fmt(s, SYM_CLASS_INDEXERROR, "Index %d is too large for list (maximum: %d)",
                 pos, list_val->num_values);
 
     return pos;
@@ -1095,15 +1095,15 @@ Errors:
 
 Raises `IndexError` if 'index' (after adjustment) is not a valid index.
 */
-void lily_builtin_List_delete_at(lily_vm_state *vm)
+void lily_builtin_List_delete_at(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    int64_t pos = lily_arg_integer(vm, 1);
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    int64_t pos = lily_arg_integer(s, 1);
 
     if (list_val->num_values == 0)
-        lily_error(vm, SYM_CLASS_INDEXERROR, "Cannot delete from an empty list.");
+        lily_error(s, SYM_CLASS_INDEXERROR, "Cannot delete from an empty list.");
 
-    pos = get_relative_index(vm, list_val, pos);
+    pos = get_relative_index(s, list_val, pos);
 
     if (list_val->extra_space == 0)
         make_extra_space_in_list(list_val);
@@ -1127,18 +1127,18 @@ method List.each[A](self: List[A], fn: Function(A)): List[A]
 Calls 'fn' for each element within 'self'. The result of this function is
 'self', so that this method can be chained with others.
 */
-void lily_builtin_List_each(lily_vm_state *vm)
+void lily_builtin_List_each(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
     int i;
 
     for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(vm, list_val->elems[i]);
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_push_value(s, list_val->elems[i]);
+        lily_vm_exec_prepared_call(s, 1);
     }
 
-    lily_return_list(vm, list_val);
+    lily_return_list(s, list_val);
 }
 
 /**
@@ -1147,18 +1147,18 @@ method List.each_index[A](self: List[A], fn: Function(Integer)): List[A]
 Calls 'fn' for each element within 'self'. Rather than receive the elements of
 'self', 'fn' instead receives the index of each element.
 */
-void lily_builtin_List_each_index(lily_vm_state *vm)
+void lily_builtin_List_each_index(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
     int i;
     for (i = 0;i < list_val->num_values;i++) {
-        lily_push_integer(vm, i);
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_push_integer(s, i);
+        lily_vm_exec_prepared_call(s, 1);
     }
 
-    lily_return_list(vm, list_val);
+    lily_return_list(s, list_val);
 }
 
 /**
@@ -1170,21 +1170,21 @@ Errors:
 
 Raises `ValueError` if 'count' is less than 1.
 */
-void lily_builtin_List_fill(lily_vm_state *vm)
+void lily_builtin_List_fill(lily_state *s)
 {
-    int n = lily_arg_integer(vm, 0);
+    int n = lily_arg_integer(s, 0);
     if (n < 0)
-        lily_error_fmt(vm, SYM_CLASS_VALUEERROR,
+        lily_error_fmt(s, SYM_CLASS_VALUEERROR,
                 "Repeat count must be >= 0 (%d given).", n);
 
-    lily_value *to_repeat = lily_arg_value(vm, 1);
+    lily_value *to_repeat = lily_arg_value(s, 1);
     lily_list_val *lv = lily_new_list_val_n(n);
 
     int i;
     for (i = 0;i < n;i++)
         lily_assign_value(lv->elems[i], to_repeat);
 
-    lily_return_list(vm, lv);
+    lily_return_list(s, lv);
 }
 
 /**
@@ -1197,33 +1197,33 @@ value as it accumulates can be found in the first value sent to 'fn'.
 The result of this function is the result of doing an accumulation on each
 element within 'self'.
 */
-void lily_builtin_List_fold(lily_vm_state *vm)
+void lily_builtin_List_fold(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_value *start = lily_arg_value(vm, 1);
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_value *start = lily_arg_value(s, 1);
 
     if (list_val->num_values == 0)
-        lily_return_value(vm, start);
+        lily_return_value(s, start);
     else {
         lily_value *v = NULL;
 
-        lily_vm_prepare_call(vm, lily_arg_function(vm, 2));
-        lily_push_value(vm, start);
+        lily_vm_prepare_call(s, lily_arg_function(s, 2));
+        lily_push_value(s, start);
         int i = 0;
         while (1) {
-            lily_push_value(vm, list_val->elems[i]);
-            lily_vm_exec_prepared_call(vm, 2);
-            v = lily_result_value(vm);
+            lily_push_value(s, list_val->elems[i]);
+            lily_vm_exec_prepared_call(s, 2);
+            v = lily_result_value(s);
 
             if (i == list_val->num_values - 1)
                 break;
 
-            lily_push_value(vm, v);
+            lily_push_value(s, v);
 
             i++;
         }
 
-        lily_return_value(vm, v);
+        lily_return_value(s, v);
     }
 }
 
@@ -1237,13 +1237,13 @@ Errors:
 
 Raises `IndexError` if 'index' is not within 'self'.
 */
-void lily_builtin_List_insert(lily_vm_state *vm)
+void lily_builtin_List_insert(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    int64_t insert_pos = lily_arg_integer(vm, 1);
-    lily_value *insert_value = lily_arg_value(vm, 2);
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    int64_t insert_pos = lily_arg_integer(s, 1);
+    lily_value *insert_value = lily_arg_value(s, 2);
 
-    insert_pos = get_relative_index(vm, list_val, insert_pos);
+    insert_pos = get_relative_index(s, list_val, insert_pos);
 
     if (list_val->extra_space == 0)
         make_extra_space_in_list(list_val);
@@ -1265,28 +1265,28 @@ Create a `String` consisting of the elements of 'self' interleaved with
 'separator'. The elements of self are converted to a `String` as if they were
 interpolated. If 'self' is empty, then the result is an empty `String`.
 */
-void lily_builtin_List_join(lily_vm_state *vm)
+void lily_builtin_List_join(lily_state *s)
 {
-    lily_list_val *lv = lily_arg_list(vm, 0);
+    lily_list_val *lv = lily_arg_list(s, 0);
     const char *delim = "";
-    if (lily_arg_count(vm) == 2)
-        delim = lily_arg_string_raw(vm, 1);
+    if (lily_arg_count(s) == 2)
+        delim = lily_arg_string_raw(s, 1);
 
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
+    lily_msgbuf *vm_buffer = s->vm_buffer;
     lily_mb_flush(vm_buffer);
 
     if (lv->num_values) {
         int i, stop = lv->num_values - 1;
         lily_value **values = lv->elems;
         for (i = 0;i < stop;i++) {
-            lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
+            lily_vm_add_value_to_msgbuf(s, vm_buffer, values[i]);
             lily_mb_add(vm_buffer, delim);
         }
         if (stop != -1)
-            lily_vm_add_value_to_msgbuf(vm, vm_buffer, values[i]);
+            lily_vm_add_value_to_msgbuf(s, vm_buffer, values[i]);
     }
 
-    lily_return_string(vm, lily_new_raw_string(lily_mb_get(vm_buffer)));
+    lily_return_string(s, lily_new_raw_string(lily_mb_get(vm_buffer)));
 }
 
 /**
@@ -1295,30 +1295,30 @@ method List.map[A,B](self: List[A], fn: Function(A => B)): List[B]
 This calls 'fn' on each element within 'self'. The result of this function is a
 newly-made `List` containing the results of 'fn'.
 */
-void lily_builtin_List_map(lily_vm_state *vm)
+void lily_builtin_List_map(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
+    lily_list_val *list_val = lily_arg_list(s, 0);
 
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
     int i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *e = list_val->elems[i];
-        lily_push_value(vm, e);
-        lily_vm_exec_prepared_call(vm, 1);
-        lily_push_value(vm, lily_result_value(vm));
+        lily_push_value(s, e);
+        lily_vm_exec_prepared_call(s, 1);
+        lily_push_value(s, lily_result_value(s));
     }
 
     lily_list_val *result_list = lily_new_list_val_n(i);
 
     i--;
     for (;i >= 0;i--) {
-        vm->num_registers--;
+        s->num_registers--;
         lily_assign_value(result_list->elems[i],
-                vm->regs_from_main[vm->num_registers]);
+                s->regs_from_main[s->num_registers]);
     }
 
-    lily_return_list(vm, result_list);
+    lily_return_list(s, result_list);
 }
 
 /**
@@ -1330,18 +1330,18 @@ Errors:
 
 Raises `IndexError` if 'self' is empty.
 */
-void lily_builtin_List_pop(lily_vm_state *vm)
+void lily_builtin_List_pop(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
+    lily_list_val *list_val = lily_arg_list(s, 0);
 
     if (list_val->num_values == 0)
-        lily_error(vm, SYM_CLASS_INDEXERROR, "Pop from an empty list.");
+        lily_error(s, SYM_CLASS_INDEXERROR, "Pop from an empty list.");
 
     lily_value *source = list_val->elems[list_val->num_values - 1];
 
     /* This is a special case because the value is moving out of the list, so
        don't let it get a ref increase. */
-    lily_return_value_noref(vm, source);
+    lily_return_value_noref(s, source);
 
     /* For now, free extra values instead of trying to keep reserves around.
        Not the best course of action, perhaps, but certainly the simplest. */
@@ -1355,10 +1355,10 @@ method List.push[A](self: List[A], value: A)
 
 Add 'value' to the end of 'self'.
 */
-void lily_builtin_List_push(lily_vm_state *vm)
+void lily_builtin_List_push(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_value *insert_value = lily_arg_value(vm, 1);
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_value *insert_value = lily_arg_value(s, 1);
 
     if (list_val->extra_space == 0)
         make_extra_space_in_list(list_val);
@@ -1370,21 +1370,21 @@ void lily_builtin_List_push(lily_vm_state *vm)
     list_val->extra_space--;
 }
 
-static void list_select_reject_common(lily_vm_state *vm, int expect)
+static void list_select_reject_common(lily_state *s, int expect)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
     int n = 0;
     int i;
     for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(vm, list_val->elems[i]);
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_push_value(s, list_val->elems[i]);
+        lily_vm_exec_prepared_call(s, 1);
 
-        int ok = lily_result_boolean(vm) == expect;
+        int ok = lily_result_boolean(s) == expect;
 
         if (ok) {
-            lily_push_value(vm, list_val->elems[i]);
+            lily_push_value(s, list_val->elems[i]);
             n++;
         }
     }
@@ -1393,12 +1393,12 @@ static void list_select_reject_common(lily_vm_state *vm, int expect)
 
     n--;
     for (;n >= 0;n--) {
-        vm->num_registers--;
+        s->num_registers--;
         lily_assign_value(result_list->elems[n],
-                vm->regs_from_main[vm->num_registers]);
+                s->regs_from_main[s->num_registers]);
     }
 
-    lily_return_list(vm, result_list);
+    lily_return_list(s, result_list);
 }
 
 /**
@@ -1407,9 +1407,9 @@ method List.reject[A](self: List[A], fn: Function(A => Boolean)): List[A]
 This calls 'fn' for each element within 'self'. The result is a newly-made
 `List` holding each element where 'fn' returns 'false'.
 */
-void lily_builtin_List_reject(lily_vm_state *vm)
+void lily_builtin_List_reject(lily_state *s)
 {
-    list_select_reject_common(vm, 0);
+    list_select_reject_common(s, 0);
 }
 
 /**
@@ -1418,9 +1418,9 @@ method List.select[A](self: List[A], fn: Function(A => Boolean)): List[A]
 This calls 'fn' for each element within 'self'. The result is a newly-made
 `List` holding each element where 'fn' returns 'true'.
 */
-void lily_builtin_List_select(lily_vm_state *vm)
+void lily_builtin_List_select(lily_state *s)
 {
-    list_select_reject_common(vm, 1);
+    list_select_reject_common(s, 1);
 }
 
 /**
@@ -1428,11 +1428,11 @@ method List.size[A](self: List[A]): Integer
 
 Returns the number of elements that are within 'self'.
 */
-void lily_builtin_List_size(lily_vm_state *vm)
+void lily_builtin_List_size(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
+    lily_list_val *list_val = lily_arg_list(s, 0);
 
-    lily_return_integer(vm, list_val->num_values);
+    lily_return_integer(s, list_val->num_values);
 }
 
 /**
@@ -1444,18 +1444,18 @@ Errors:
 
 Raises `ValueError` if 'self' is empty.
 */
-void lily_builtin_List_shift(lily_vm_state *vm)
+void lily_builtin_List_shift(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
+    lily_list_val *list_val = lily_arg_list(s, 0);
 
     if (list_val->num_values == 0)
-        lily_error(vm, SYM_CLASS_INDEXERROR, "Shift on an empty list.");
+        lily_error(s, SYM_CLASS_INDEXERROR, "Shift on an empty list.");
 
     lily_value *source = list_val->elems[0];
 
     /* Similar to List.pop, the value is being taken out so use this custom
        assign to keep the refcount the same. */
-    lily_return_value_noref(vm, source);
+    lily_return_value_noref(s, source);
 
     /* For now, free extra values instead of trying to keep reserves around.
        Not the best course of action, perhaps, but certainly the simplest. */
@@ -1475,10 +1475,10 @@ method List.unshift[A](self: List[A], value: A)
 
 Inserts value at the front of self, moving all other elements to the right.
 */
-void lily_builtin_List_unshift(lily_vm_state *vm)
+void lily_builtin_List_unshift(lily_state *s)
 {
-    lily_list_val *list_val = lily_arg_list(vm, 0);
-    lily_value *input_reg = lily_arg_value(vm, 1);
+    lily_list_val *list_val = lily_arg_list(s, 0);
+    lily_value *input_reg = lily_arg_value(s, 1);
 
     if (list_val->extra_space == 0)
         make_extra_space_in_list(list_val);
@@ -1511,14 +1511,14 @@ If 'self' is a 'Some', this returns 'other'.
 
 Otherwise, this returns 'None'.
 */
-void lily_builtin_Option_and(lily_vm_state *vm)
+void lily_builtin_Option_and(lily_state *s)
 {
-    lily_instance_val *input = lily_arg_instance(vm, 0);
+    lily_instance_val *input = lily_arg_instance(s, 0);
 
     if (input->instance_id == SYM_CLASS_SOME)
-        lily_return_value(vm, lily_arg_value(vm, 1));
+        lily_return_value(s, lily_arg_value(s, 1));
     else
-        lily_return_value(vm, lily_arg_value(vm, 0));
+        lily_return_value(s, lily_arg_value(s, 0));
 }
 
 /**
@@ -1529,27 +1529,27 @@ result is the result of the `Option` returned by 'fn'.
 
 Otherwise, this returns 'None'.
 */
-void lily_builtin_Option_and_then(lily_vm_state *vm)
+void lily_builtin_Option_and_then(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
+    lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME) {
-        lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+        lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
-        lily_push_value(vm, lily_instance_value(optval, 0));
+        lily_push_value(s, lily_instance_value(optval, 0));
 
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_vm_exec_prepared_call(s, 1);
 
-        lily_return_value(vm, lily_result_value(vm));
+        lily_return_value(s, lily_result_value(s));
     }
     else
-        lily_return_filled_variant(vm, optval);
+        lily_return_filled_variant(s, optval);
 }
 
-static void option_is_some_or_none(lily_vm_state *vm, int num_expected)
+static void option_is_some_or_none(lily_state *s, int num_expected)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
-    lily_return_boolean(vm, (optval->num_values == num_expected));
+    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_return_boolean(s, (optval->num_values == num_expected));
 }
 
 /**
@@ -1559,9 +1559,9 @@ If 'self' is a 'Some', this returns 'false'.
 
 Otherwise, this returns 'true'.
 */
-void lily_builtin_Option_is_none(lily_vm_state *vm)
+void lily_builtin_Option_is_none(lily_state *s)
 {
-    option_is_some_or_none(vm, 0);
+    option_is_some_or_none(s, 0);
 }
 
 /**
@@ -1571,9 +1571,9 @@ If 'self' is a 'Some', this returns 'true'.
 
 Otherwise, this returns 'false'.
 */
-void lily_builtin_Option_is_some(lily_vm_state *vm)
+void lily_builtin_Option_is_some(lily_state *s)
 {
-    option_is_some_or_none(vm, 1);
+    option_is_some_or_none(s, 1);
 }
 
 /**
@@ -1583,23 +1583,23 @@ If 'self' is a 'Some', this returns a 'Some' holding the result of 'fn'.
 
 Otherwise, this returns 'None'.
 */
-void lily_builtin_Option_map(lily_vm_state *vm)
+void lily_builtin_Option_map(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
+    lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME) {
-        lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+        lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
-        lily_push_value(vm, lily_instance_value(optval, 0));
+        lily_push_value(s, lily_instance_value(optval, 0));
 
-        lily_vm_exec_prepared_call(vm, 1);
+        lily_vm_exec_prepared_call(s, 1);
 
         lily_instance_val *variant = lily_new_some();
-        lily_variant_set_value(variant, 0, lily_result_value(vm));
-        lily_return_filled_variant(vm, variant);
+        lily_variant_set_value(variant, 0, lily_result_value(s));
+        lily_return_filled_variant(s, variant);
     }
     else
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
 }
 
 /**
@@ -1609,14 +1609,14 @@ If 'self' is a 'Some', this returns 'self'.
 
 Otherwise, this returns 'alternate'.
 */
-void lily_builtin_Option_or(lily_vm_state *vm)
+void lily_builtin_Option_or(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
+    lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_filled_variant(vm, optval);
+        lily_return_filled_variant(s, optval);
     else
-        lily_return_value(vm, lily_arg_value(vm, 1));
+        lily_return_value(s, lily_arg_value(s, 1));
 }
 
 /**
@@ -1626,17 +1626,17 @@ If 'self' is a 'Some', this returns 'self'.
 
 Otherwise, this returns the result of calling 'fn'.
 */
-void lily_builtin_Option_or_else(lily_vm_state *vm)
+void lily_builtin_Option_or_else(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
+    lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_filled_variant(vm, optval);
+        lily_return_filled_variant(s, optval);
     else {
-        lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
-        lily_vm_exec_prepared_call(vm, 0);
+        lily_vm_prepare_call(s, lily_arg_function(s, 1));
+        lily_vm_exec_prepared_call(s, 0);
 
-        lily_result_return(vm);
+        lily_result_return(s);
     }
 }
 
@@ -1649,15 +1649,15 @@ Errors:
 
 Raises `ValueError` if 'self' is a 'None'.
 */
-void lily_builtin_Option_unwrap(lily_vm_state *vm)
+void lily_builtin_Option_unwrap(lily_state *s)
 {
-    lily_value *opt_reg = lily_arg_value(vm, 0);
+    lily_value *opt_reg = lily_arg_value(s, 0);
     lily_instance_val *optval = opt_reg->value.instance;
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_value(vm, lily_instance_value(optval, 0));
+        lily_return_value(s, lily_instance_value(optval, 0));
     else
-        lily_error(vm, SYM_CLASS_VALUEERROR, "unwrap called on None.");
+        lily_error(s, SYM_CLASS_VALUEERROR, "unwrap called on None.");
 }
 
 /**
@@ -1667,10 +1667,10 @@ If 'self' is a 'Some', this returns the value with 'self'.
 
 Otherwise, this returns 'alternate'.
 */
-void lily_builtin_Option_unwrap_or(lily_vm_state *vm)
+void lily_builtin_Option_unwrap_or(lily_state *s)
 {
-    lily_value *opt_reg = lily_arg_value(vm, 0);
-    lily_value *fallback_reg = lily_arg_value(vm, 1);
+    lily_value *opt_reg = lily_arg_value(s, 0);
+    lily_value *fallback_reg = lily_arg_value(s, 1);
     lily_instance_val *optval = opt_reg->value.instance;
     lily_value *source;
 
@@ -1679,7 +1679,7 @@ void lily_builtin_Option_unwrap_or(lily_vm_state *vm)
     else
         source = fallback_reg;
 
-    lily_return_value(vm, source);
+    lily_return_value(s, source);
 }
 
 /**
@@ -1689,16 +1689,16 @@ If 'self' is a 'Some', this returns the value with 'self'.
 
 Otherwise, this returns the result of calling 'fn'.
 */
-void lily_builtin_Option_unwrap_or_else(lily_vm_state *vm)
+void lily_builtin_Option_unwrap_or_else(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(vm, 0);
+    lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME)
-        lily_return_value(vm, lily_instance_value(optval, 0));
+        lily_return_value(s, lily_instance_value(optval, 0));
     else {
-        lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
-        lily_vm_exec_prepared_call(vm, 0);
-        lily_return_value(vm, lily_result_value(vm));
+        lily_vm_prepare_call(s, lily_arg_function(s, 1));
+        lily_vm_exec_prepared_call(s, 0);
+        lily_return_value(s, lily_result_value(s));
     }
 }
 
@@ -1745,7 +1745,7 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
-static lily_string_val *make_sv(lily_vm_state *vm, int size)
+static lily_string_val *make_sv(lily_state *s, int size)
 {
     lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
     char *new_string = lily_malloc(sizeof(char) * size);
@@ -1762,10 +1762,10 @@ method String.ends_with(self: String, end: String): Boolean
 
 Checks if 'self' ends with 'end'.
 */
-void lily_builtin_String_ends_with(lily_vm_state *vm)
+void lily_builtin_String_ends_with(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *suffix_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *suffix_arg = lily_arg_value(s, 1);
 
     char *input_raw_str = input_arg->value.string->string;
     char *suffix_raw_str = suffix_arg->value.string->string;
@@ -1773,7 +1773,7 @@ void lily_builtin_String_ends_with(lily_vm_state *vm)
     int suffix_size = suffix_arg->value.string->size;
 
     if (suffix_size > input_size) {
-        lily_return_boolean(vm, 0);
+        lily_return_boolean(s, 0);
         return;
     }
 
@@ -1787,7 +1787,7 @@ void lily_builtin_String_ends_with(lily_vm_state *vm)
         }
     }
 
-    lily_return_boolean(vm, ok);
+    lily_return_boolean(s, ok);
 }
 
 
@@ -1800,10 +1800,10 @@ If 'needle' is found, the result is a 'Some' holding the index.
 
 Otherwise, this returns 'None'.
 */
-void lily_builtin_String_find(lily_vm_state *vm)
+void lily_builtin_String_find(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *find_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *find_arg = lily_arg_value(s, 1);
 
     char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
@@ -1813,7 +1813,7 @@ void lily_builtin_String_find(lily_vm_state *vm)
 
     if (find_length > input_length ||
         find_length == 0) {
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
         return;
     }
 
@@ -1847,23 +1847,23 @@ void lily_builtin_String_find(lily_vm_state *vm)
     if (match) {
         lily_instance_val *variant = lily_new_some();
         lily_variant_set_integer(variant, 0, i);
-        lily_return_filled_variant(vm, variant);
+        lily_return_filled_variant(s, variant);
     }
     else
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
 }
 
 
 /* Scan through 'input' in search of html characters to encode. If there are
-   any, then vm->vm_buffer is updated to contain an html-safe version of the
+   any, then s->vm_buffer is updated to contain an html-safe version of the
    input string.
    If no html characters are found, then 0 is returned, and the caller is to use
    the given input buffer directly.
    If html charcters are found, then 1 is returned, and the caller should read
-   from vm->vm_buffer->message. */
-int lily_maybe_html_encode_to_buffer(lily_vm_state *vm, lily_value *input)
+   from s->vm_buffer->message. */
+int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
 {
-    lily_msgbuf *vm_buffer = lily_vm_msgbuf(vm);
+    lily_msgbuf *vm_buffer = lily_vm_msgbuf(s);
     int start = 0, stop = 0;
     char *input_str = input->value.string->string;
     char *ch = &input_str[0];
@@ -1911,25 +1911,25 @@ replaced by an html-safe value.
 
 If not found, 'self' is returned.
 */
-void lily_builtin_String_html_encode(lily_vm_state *vm)
+void lily_builtin_String_html_encode(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
+    lily_value *input_arg = lily_arg_value(s, 0);
 
     /* If nothing was escaped, output what was input. */
-    if (lily_maybe_html_encode_to_buffer(vm, input_arg) == 0)
-        lily_return_value(vm, input_arg);
+    if (lily_maybe_html_encode_to_buffer(s, input_arg) == 0)
+        lily_return_value(s, input_arg);
     else
-        lily_return_string(vm, lily_new_raw_string(lily_mb_get(vm->vm_buffer)));
+        lily_return_string(s, lily_new_raw_string(lily_mb_get(s->vm_buffer)));
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
-void lily_builtin_String_##WRAP_NAME(lily_vm_state *vm) \
+void lily_builtin_String_##WRAP_NAME(lily_state *s) \
 { \
-    lily_string_val *input = lily_arg_string(vm, 0); \
+    lily_string_val *input = lily_arg_string(s, 0); \
     int length = lily_string_length(input); \
 \
     if (length == 0) { \
-        lily_return_boolean(vm, 0); \
+        lily_return_boolean(s, 0); \
         return; \
     } \
 \
@@ -1944,7 +1944,7 @@ void lily_builtin_String_##WRAP_NAME(lily_vm_state *vm) \
         } \
     } \
 \
-    lily_return_boolean(vm, ok); \
+    lily_return_boolean(s, ok); \
 }
 
 /**
@@ -1984,12 +1984,12 @@ method String.lower(self: String):String
 Checks if any characters within 'self' are within [A-Z]. If so, it creates a new
 `String` with [A-Z] replaced by [a-z]. Otherwise, 'self' is returned.
 */
-void lily_builtin_String_lower(lily_vm_state *vm)
+void lily_builtin_String_lower(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
+    lily_value *input_arg = lily_arg_value(s, 0);
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(s, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -2005,7 +2005,7 @@ void lily_builtin_String_lower(lily_vm_state *vm)
     }
     new_str[input_length] = '\0';
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 /* This is a helper for lstrip wherein input_arg has some utf-8 bits inside. */
@@ -2136,10 +2136,10 @@ This walks through 'self' from left to right, stopping on the first utf-8 chunk
 that is not found within 'to_strip'. The result is a newly-made copy of self
 without the elements within 'to_strip' at the front.
 */
-void lily_builtin_String_lstrip(lily_vm_state *vm)
+void lily_builtin_String_lstrip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *strip_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *strip_arg = lily_arg_value(s, 1);
 
     char *strip_str;
     unsigned char ch;
@@ -2149,7 +2149,7 @@ void lily_builtin_String_lstrip(lily_vm_state *vm)
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_return_value(vm, input_arg);
+        lily_return_value(s, input_arg);
         return;
     }
 
@@ -2172,11 +2172,11 @@ void lily_builtin_String_lstrip(lily_vm_state *vm)
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
     int new_size = (input_arg->value.string->size - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(s, new_size);
 
     strcpy(new_sv->string, input_arg->value.string->string + copy_from);
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 /**
@@ -2190,9 +2190,9 @@ returned.
 
 Otherwise, 'None' is returned.
 */
-void lily_builtin_String_parse_i(lily_vm_state *vm)
+void lily_builtin_String_parse_i(lily_state *s)
 {
-    char *input = lily_arg_string_raw(vm, 0);
+    char *input = lily_arg_string_raw(s, 0);
     uint64_t value = 0;
     int is_negative = 0;
     unsigned int rounds = 0;
@@ -2225,7 +2225,7 @@ void lily_builtin_String_parse_i(lily_vm_state *vm)
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
         (rounds == 0 && leading_zeroes == 0)) {
-        lily_return_empty_variant(vm, lily_get_none(vm));
+        lily_return_empty_variant(s, lily_get_none(s));
     }
     else {
         int64_t signed_value;
@@ -2237,7 +2237,7 @@ void lily_builtin_String_parse_i(lily_vm_state *vm)
 
         lily_instance_val *variant = lily_new_some();
         lily_variant_set_integer(variant, 0, signed_value);
-        lily_return_filled_variant(vm, variant);
+        lily_return_filled_variant(s, variant);
     }
 }
 
@@ -2338,10 +2338,10 @@ This walks through 'self' from right to left, stopping on the first utf-8 chunk
 that is not found within 'to_strip'. The result is a newly-made copy of 'self'
 without the elements of 'to_strip' at the end.
 */
-void lily_builtin_String_rstrip(lily_vm_state *vm)
+void lily_builtin_String_rstrip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *strip_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *strip_arg = lily_arg_value(s, 1);
 
     char *strip_str;
     unsigned char ch;
@@ -2351,7 +2351,7 @@ void lily_builtin_String_rstrip(lily_vm_state *vm)
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_return_value(vm, input_arg);
+        lily_return_value(s, input_arg);
         return;
     }
 
@@ -2374,13 +2374,13 @@ void lily_builtin_String_rstrip(lily_vm_state *vm)
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
     int new_size = copy_to + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(s, new_size);
 
     strncpy(new_sv->string, input_arg->value.string->string, copy_to);
     /* This will always copy a partial string, so make sure to add a terminator. */
     new_sv->string[copy_to] = '\0';
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 static const char move_table[256] =
@@ -2404,7 +2404,7 @@ static const char move_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-static lily_list_val *string_split_by_val(lily_vm_state *vm, char *input,
+static lily_list_val *string_split_by_val(lily_state *s, char *input,
         char *splitby)
 {
     char *input_ch = &input[0];
@@ -2494,16 +2494,16 @@ Errors:
 
 Raises `ValueError` if 'split_by' is empty.
 */
-void lily_builtin_String_split(lily_vm_state *vm)
+void lily_builtin_String_split(lily_state *s)
 {
-    lily_string_val *input_strval = lily_arg_string(vm, 0);
+    lily_string_val *input_strval = lily_arg_string(s, 0);
     lily_string_val *split_strval;
     lily_string_val fake_sv;
 
-    if (lily_arg_count(vm) == 2) {
-        split_strval = lily_arg_string(vm, 1);
+    if (lily_arg_count(s) == 2) {
+        split_strval = lily_arg_string(s, 1);
         if (split_strval->size == 0)
-            lily_error(vm, SYM_CLASS_VALUEERROR,
+            lily_error(s, SYM_CLASS_VALUEERROR,
                     "Cannot split by empty string.");
     }
     else {
@@ -2512,10 +2512,10 @@ void lily_builtin_String_split(lily_vm_state *vm)
         split_strval = &fake_sv;
     }
 
-    lily_list_val *lv = string_split_by_val(vm, input_strval->string,
+    lily_list_val *lv = string_split_by_val(s, input_strval->string,
             split_strval->string);
 
-    lily_return_list(vm, lv);
+    lily_return_list(s, lv);
 }
 
 /**
@@ -2523,17 +2523,17 @@ method String.starts_with(self: String, with: String): Boolean
 
 Checks if 'self' starts with 'with'.
 */
-void lily_builtin_String_starts_with(lily_vm_state *vm)
+void lily_builtin_String_starts_with(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *prefix_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *prefix_arg = lily_arg_value(s, 1);
 
     char *input_raw_str = input_arg->value.string->string;
     char *prefix_raw_str = prefix_arg->value.string->string;
     int prefix_size = prefix_arg->value.string->size;
 
     if (input_arg->value.string->size < prefix_size) {
-        lily_return_boolean(vm, 0);
+        lily_return_boolean(s, 0);
         return;
     }
 
@@ -2545,7 +2545,7 @@ void lily_builtin_String_starts_with(lily_vm_state *vm)
         }
     }
 
-    lily_return_boolean(vm, ok);
+    lily_return_boolean(s, ok);
 }
 
 /**
@@ -2555,15 +2555,15 @@ This walks through self from right to left, and then from left to right. The
 result of this is a newly-made `String` without any elements within 'to_strip'
 at either end.
 */
-void lily_builtin_String_strip(lily_vm_state *vm)
+void lily_builtin_String_strip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
-    lily_value *strip_arg = lily_arg_value(vm, 1);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *strip_arg = lily_arg_value(s, 1);
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
-        lily_return_value(vm, input_arg);
+        lily_return_value(s, input_arg);
         return;
     }
 
@@ -2599,13 +2599,13 @@ void lily_builtin_String_strip(lily_vm_state *vm)
         copy_to = copy_from;
 
     int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(s, new_size);
 
     char *new_str = new_sv->string;
     strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
     new_str[new_size - 1] = '\0';
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 /**
@@ -2615,9 +2615,9 @@ Checks if 'self' starts or ends with any of '" \t\r\n"'. If it does, then a new
 `String` is made with spaces removed from both sides. If it does not, then this
 returns 'self'.
 */
-void lily_builtin_String_trim(lily_vm_state *vm)
+void lily_builtin_String_trim(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
+    lily_value *input_arg = lily_arg_value(s, 0);
 
     char fake_buffer[5] = " \t\r\n";
     lily_string_val fake_sv;
@@ -2630,7 +2630,7 @@ void lily_builtin_String_trim(lily_vm_state *vm)
     if (copy_from != input_arg->value.string->size) {
         int copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
         int new_size = (copy_to - copy_from) + 1;
-        new_sv = make_sv(vm, new_size);
+        new_sv = make_sv(s, new_size);
         char *new_str = new_sv->string;
 
         strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
@@ -2638,11 +2638,11 @@ void lily_builtin_String_trim(lily_vm_state *vm)
     }
     else {
         /* It's all space, so make a new empty string. */
-        new_sv = make_sv(vm, 1);
+        new_sv = make_sv(s, 1);
         new_sv->string[0] = '\0';
     }
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 /**
@@ -2651,12 +2651,12 @@ method String.upper(self: String):String
 Checks if any characters within self are within [a-z]. If so, it creates a new
 `String` with [a-z] replaced by [A-Z]. Otherwise, 'self' is returned.
 */
-void lily_builtin_String_upper(lily_vm_state *vm)
+void lily_builtin_String_upper(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(vm, 0);
+    lily_value *input_arg = lily_arg_value(s, 0);
 
     int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(vm, new_size);
+    lily_string_val *new_sv = make_sv(s, new_size);
 
     char *new_str = new_sv->string;
     char *input_str = input_arg->value.string->string;
@@ -2672,7 +2672,7 @@ void lily_builtin_String_upper(lily_vm_state *vm)
     }
     new_str[input_length] = '\0';
 
-    lily_return_string(vm, new_sv);
+    lily_return_string(s, new_sv);
 }
 
 /* This handles a string subscript. The subscript may be negative (in which case
@@ -2680,7 +2680,7 @@ void lily_builtin_String_upper(lily_vm_state *vm)
    'index_reg' is a valid one.
    This moves by utf-8 codepoints, not by bytes. The result is sent to
    'result_reg', unless IndexError is raised. */
-void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
+void lily_string_subscript(lily_state *s, lily_value *input_reg,
         lily_value *index_reg, lily_value *result_reg)
 {
     char *input = input_reg->value.string->string;
@@ -2694,7 +2694,7 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
             index--;
         }
         if (move_table[(unsigned char)*ch] == 0)
-            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
+            lily_error_fmt(s, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
                     index_reg->value.integer);
     }
     else {
@@ -2706,12 +2706,12 @@ void lily_string_subscript(lily_vm_state *vm, lily_value *input_reg,
                 index++;
         }
         if (index != 0)
-            lily_error_fmt(vm, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
+            lily_error_fmt(s, SYM_CLASS_INDEXERROR, "Index %d is out of range.",
                     index_reg->value.integer);
     }
 
     int to_copy = move_table[(unsigned char)*ch];
-    lily_string_val *result = make_sv(vm, to_copy + 1);
+    lily_string_val *result = make_sv(s, to_copy + 1);
     char *dest = &result->string[0];
     dest[to_copy] = '\0';
 
@@ -2734,17 +2734,17 @@ method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
 This calls 'fn' with the value contained within 'self'. 'fn' is assumed to be a
 function that can sanitize the data within 'self'.
 */
-void lily_builtin_Tainted_sanitize(lily_vm_state *vm)
+void lily_builtin_Tainted_sanitize(lily_state *s)
 {
-    lily_instance_val *instance_val = lily_arg_instance(vm, 0);
+    lily_instance_val *instance_val = lily_arg_instance(s, 0);
 
-    lily_vm_prepare_call(vm, lily_arg_function(vm, 1));
+    lily_vm_prepare_call(s, lily_arg_function(s, 1));
 
-    lily_push_value(vm, lily_instance_value(instance_val, 0));
+    lily_push_value(s, lily_instance_value(instance_val, 0));
 
-    lily_vm_exec_prepared_call(vm, 1);
+    lily_vm_exec_prepared_call(s, 1);
 
-    lily_result_return(vm);
+    lily_result_return(s);
 }
 
 /**
@@ -2771,10 +2771,10 @@ method Tuple.merge(self: Tuple[1], other: Tuple[2]): Tuple[1, 2]
 Build a new `Tuple` composed of the contents of 'self' and the contents of
 'other'.
 */
-void lily_builtin_Tuple_merge(lily_vm_state *vm)
+void lily_builtin_Tuple_merge(lily_state *s)
 {
-    lily_list_val *left_tuple = lily_arg_list(vm, 0);
-    lily_list_val *right_tuple = lily_arg_list(vm, 1);
+    lily_list_val *left_tuple = lily_arg_list(s, 0);
+    lily_list_val *right_tuple = lily_arg_list(s, 1);
 
     int new_count = left_tuple->num_values + right_tuple->num_values;
     lily_list_val *lv = lily_new_list_val_n(new_count);
@@ -2786,7 +2786,7 @@ void lily_builtin_Tuple_merge(lily_vm_state *vm)
     for (i = 0;i < right_tuple->num_values;i++, j++)
         lily_assign_value(lv->elems[j], right_tuple->elems[i]);
 
-    lily_return_tuple(vm, lv);
+    lily_return_tuple(s, lv);
 }
 
 /**
@@ -2794,10 +2794,10 @@ method Tuple.push[A](self: Tuple[1], other: A): Tuple[1, A]
 
 Build a new `Tuple` composed of the contents of 'self' and 'other'.
 */
-void lily_builtin_Tuple_push(lily_vm_state *vm)
+void lily_builtin_Tuple_push(lily_state *s)
 {
-    lily_list_val *left_tuple = lily_arg_list(vm, 0);
-    lily_value *right = lily_arg_value(vm, 1);
+    lily_list_val *left_tuple = lily_arg_list(s, 0);
+    lily_value *right = lily_arg_value(s, 1);
     lily_list_val *lv = lily_new_list_val_n(left_tuple->num_values + 1);
 
     int i, j;
@@ -2806,7 +2806,7 @@ void lily_builtin_Tuple_push(lily_vm_state *vm)
 
     lily_assign_value(lv->elems[j], right);
 
-    lily_return_tuple(vm, lv);
+    lily_return_tuple(s, lv);
 }
 
 /**
@@ -2849,8 +2849,8 @@ static void *load_var_stderr(lily_options *options, uint16_t *cid_table)
     return new_builtin_file(stderr, "w");
 }
 
-extern void lily_builtin_calltrace(lily_vm_state *);
-extern void lily_builtin_print(lily_vm_state *);
+extern void lily_builtin_calltrace(lily_state *);
+extern void lily_builtin_print(lily_state *);
 
 #include "extras_builtin.h"
 #include "dyna_builtin.h"
@@ -2905,9 +2905,9 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     return result;
 }
 
-void lily_register_pkg_builtin(lily_state *parser)
+void lily_register_pkg_builtin(lily_state *s)
 {
-    lily_register_package(parser, "", lily_builtin_dynaload_table,
+    lily_register_package(s, "", lily_builtin_dynaload_table,
             lily_builtin_loader);
 }
 

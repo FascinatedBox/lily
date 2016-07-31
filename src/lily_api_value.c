@@ -86,17 +86,17 @@ lily_value *lily_instance_get(lily_instance_val *source, int i)
 
 /* Special-cased returns */
 
-void lily_return_value_noref(lily_vm_state *vm, lily_value *v)
+void lily_return_value_noref(lily_state *s, lily_value *v)
 {
-    lily_assign_value_noref(vm->call_chain->prev->return_target, v);
+    lily_assign_value_noref(s->call_chain->prev->return_target, v);
 }
 
-void lily_result_return(lily_vm_state *vm)
+void lily_result_return(lily_state *s)
 {
-    lily_value *r = vm->regs_from_main[vm->num_registers - 1];
-    lily_assign_value_noref(vm->call_chain->prev->return_target, r);
+    lily_value *r = s->regs_from_main[s->num_registers - 1];
+    lily_assign_value_noref(s->call_chain->prev->return_target, r);
     r->flags = 0;
-    vm->num_registers--;
+    s->num_registers--;
 }
 
 /* Argument and result operations */
@@ -104,25 +104,25 @@ void lily_result_return(lily_vm_state *vm)
 DEFINE_GETTERS(arg, vm_regs[index], lily_vm_state *source, int index)
 DEFINE_GETTERS(result, call_chain->return_target, lily_vm_state *source)
 
-int lily_arg_count(lily_vm_state *vm)
+int lily_arg_count(lily_state *s)
 {
-    return vm->call_chain->regs_used;
+    return s->call_chain->regs_used;
 }
 
 /* Stack operations
-   Push operations are located within the vm, so that stack growing can remain
+   Push operations are located within the s, so that stack growing can remain
    internal to the vm. */
 
-lily_value *lily_pop_value(lily_vm_state *vm)
+lily_value *lily_pop_value(lily_state *s)
 {
-    vm->num_registers--;
-    return vm->regs_from_main[vm->num_registers];
+    s->num_registers--;
+    return s->regs_from_main[s->num_registers];
 }
 
-void lily_drop_value(lily_vm_state *vm)
+void lily_drop_value(lily_state *s)
 {
-    vm->num_registers--;
-    lily_value *z = vm->regs_from_main[vm->num_registers];
+    s->num_registers--;
+    lily_value *z = s->regs_from_main[s->num_registers];
     lily_deref(z);
     z->flags = 0;
 }
@@ -362,10 +362,10 @@ lily_value *lily_new_string_take(char *source)
 
 /* Since None has no arguments, it has a backing literal to represent it. This
    dives into the vm's class table to get the backing literal of the None. */
-lily_instance_val *lily_get_none(lily_vm_state *vm)
+lily_instance_val *lily_get_none(lily_state *s)
 {
     lily_variant_class *none_cls;
-    none_cls = (lily_variant_class *)vm->class_table[SYM_CLASS_NONE];
+    none_cls = (lily_variant_class *)s->class_table[SYM_CLASS_NONE];
     return none_cls->default_value->value.instance;
 }
 
@@ -401,22 +401,22 @@ FILE *lily_file_get_raw(lily_file_val *fv)
     return fv->inner_file;
 }
 
-void lily_file_ensure_writeable(lily_vm_state *vm, lily_file_val *filev)
+void lily_file_ensure_writeable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(s, SYM_CLASS_IOERROR, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
-        lily_error(vm, SYM_CLASS_IOERROR, "File not open for writing.");
+        lily_error(s, SYM_CLASS_IOERROR, "File not open for writing.");
 }
 
-void lily_file_ensure_readable(lily_vm_state *vm, lily_file_val *filev)
+void lily_file_ensure_readable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(vm, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(s, SYM_CLASS_IOERROR, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
-        lily_error(vm, SYM_CLASS_IOERROR, "File not open for reading.");
+        lily_error(s, SYM_CLASS_IOERROR, "File not open for reading.");
 }
 
 uint16_t lily_instance_id(lily_instance_val *iv)
@@ -654,7 +654,7 @@ static int lily_eq_value_raw(lily_vm_state *, int *, lily_value *,
 
 /* This checks of all elements of two (lists, tuples, enums) are equivalent to
    each other. */
-static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
+static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
         lily_value *right)
 {
     lily_list_val *left_list = left->value.list;
@@ -667,7 +667,7 @@ static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
             lily_value *left_item = left_list->elems[i];
             lily_value *right_item = right_list->elems[i];
             (*depth)++;
-            if (lily_eq_value_raw(vm, depth, left_item, right_item) == 0) {
+            if (lily_eq_value_raw(s, depth, left_item, right_item) == 0) {
                 (*depth)--;
                 ok = 0;
                 break;
@@ -682,13 +682,13 @@ static int subvalue_eq(lily_vm_state *vm, int *depth, lily_value *left,
 }
 
 /* Determine if two values are equivalent to each other. */
-int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_value *right)
+int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *right)
 {
     int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
     int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
 
     if (*depth == 100)
-        lily_raise(vm->raiser, lily_RuntimeError, "Infinite loop in comparison.");
+        lily_raise(s->raiser, lily_RuntimeError, "Infinite loop in comparison.");
 
     if (left_tag != right_tag)
         return 0;
@@ -709,7 +709,7 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
                 memcmp(left_s, right_s, left_size) == 0);
     }
     else if (left_tag & (VAL_IS_LIST | VAL_IS_TUPLE)) {
-        return subvalue_eq(vm, depth, left, right);
+        return subvalue_eq(s, depth, left, right);
     }
     else if (left_tag & VAL_IS_HASH) {
         lily_hash_val *left_hash = left->value.hash;
@@ -729,9 +729,9 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
                  right_iter != NULL;
                  right_iter = right_iter->next) {
                 if (left_iter->key_siphash == right_iter->key_siphash) {
-                    ok = lily_eq_value_raw(vm, depth, left_iter->elem_key,
+                    ok = lily_eq_value_raw(s, depth, left_iter->elem_key,
                             right_iter->elem_key);
-                    ok = ok && lily_eq_value_raw(vm, depth,
+                    ok = ok && lily_eq_value_raw(s, depth,
                             left_iter->elem_value, right_iter->elem_value);
 
                     /* Hash keys are unique, so this won't be found again. */
@@ -753,7 +753,7 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         (*depth)++;
         lily_value *left_value = left->value.dynamic->inner_value;
         lily_value *right_value = right->value.dynamic->inner_value;
-        int ok = lily_eq_value_raw(vm, depth, left_value, right_value);
+        int ok = lily_eq_value_raw(s, depth, left_value, right_value);
         (*depth)--;
 
         return ok;
@@ -763,7 +763,7 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         lily_instance_val *right_i = right->value.instance;
         int ok;
         if (left_i->instance_id == right_i->instance_id)
-            ok = subvalue_eq(vm, depth, left, right);
+            ok = subvalue_eq(s, depth, left, right);
         else
             ok = 0;
 
@@ -774,10 +774,10 @@ int lily_eq_value_raw(lily_vm_state *vm, int *depth, lily_value *left, lily_valu
         return left->value.generic == right->value.generic;
 }
 
-int lily_eq_value(lily_vm_state *vm, lily_value *left, lily_value *right)
+int lily_eq_value(lily_state *s, lily_value *left, lily_value *right)
 {
     int depth = 0;
-    return lily_eq_value_raw(vm, &depth, left, right);
+    return lily_eq_value_raw(s, &depth, left, right);
 }
 
 int lily_value_is_derefable(lily_value *value)

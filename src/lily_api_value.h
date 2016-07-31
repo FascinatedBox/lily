@@ -6,7 +6,10 @@
 /* This file contains the structures and API needed by foreign functions to
    communicate with Lily. */
 
-typedef struct lily_vm_state_ lily_vm_state;
+# ifndef LILY_STATE
+#  define LILY_STATE
+typedef struct lily_vm_state_ lily_state;
+# endif
 
 typedef struct lily_dynamic_val_    lily_dynamic_val;
 typedef struct lily_file_val_       lily_file_val;
@@ -126,8 +129,8 @@ DECLARE_BOTH(dynamic, lily_dynamic_val *)
 /* File operations */
 lily_file_val *lily_new_file_val(FILE *, const char *);
 FILE *lily_file_get_raw(lily_file_val *);
-void lily_file_ensure_readable(lily_vm_state *, lily_file_val *);
-void lily_file_ensure_writeable(lily_vm_state *, lily_file_val *);
+void lily_file_ensure_readable(lily_state *, lily_file_val *);
+void lily_file_ensure_writeable(lily_state *, lily_file_val *);
 
 /* Instance operations */
 lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
@@ -153,7 +156,7 @@ int lily_string_length(lily_string_val *);
 lily_instance_val *lily_new_left(void);
 lily_instance_val *lily_new_right(void);
 lily_instance_val *lily_new_some(void);
-lily_instance_val *lily_get_none(lily_vm_state *);
+lily_instance_val *lily_get_none(lily_state *);
 uint16_t lily_variant_id(lily_instance_val *);
 #define lily_variant_is_some(v) (lily_variant_id(v) == SYM_CLASS_SOME)
 #define lily_variant_is_none(v) (lily_variant_id(v) == SYM_CLASS_NONE)
@@ -164,23 +167,23 @@ DECLARE_BOTH(variant, lily_instance_val *, int)
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
-lily_value *lily_pop_value(lily_vm_state *);
-void lily_drop_value(lily_vm_state *);
-DECLARE_SETTERS(push, lily_vm_state *)
+lily_value *lily_pop_value(lily_state *);
+void lily_drop_value(lily_state *);
+DECLARE_SETTERS(push, lily_state *)
 
-DECLARE_SETTERS(return, lily_vm_state *)
-void lily_return_value_noref(lily_vm_state *, lily_value *);
+DECLARE_SETTERS(return, lily_state *)
+void lily_return_value_noref(lily_state *, lily_value *);
 
 /* Calling, and argument fetching */
-void lily_vm_prepare_call(lily_vm_state *, lily_function_val *);
-void lily_vm_exec_prepared_call(lily_vm_state *, int);
+void lily_vm_prepare_call(lily_state *, lily_function_val *);
+void lily_vm_exec_prepared_call(lily_state *, int);
 
-int lily_arg_count(lily_vm_state *);
-void lily_result_return(lily_vm_state *);
+int lily_arg_count(lily_state *);
+void lily_result_return(lily_state *);
 
 /* Result operations */
-DECLARE_GETTERS(arg, lily_vm_state *, int)
-DECLARE_GETTERS(result, lily_vm_state *)
+DECLARE_GETTERS(arg, lily_state *, int)
+DECLARE_GETTERS(result, lily_state *)
 
 /* General operations. Special care should be taken with these. */
 
@@ -188,13 +191,13 @@ void lily_deref(lily_value *);
 void lily_assign_value(lily_value *, lily_value *);
 void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
-int lily_eq_value(struct lily_vm_state_ *, lily_value *, lily_value *);
+int lily_eq_value(lily_state *, lily_value *, lily_value *);
 int lily_value_is_derefable(lily_value *);
 
 /* Raise an exception, with uint_8 being the id of a class deriving from
    Exception. */
-void lily_error(lily_vm_state *, uint8_t, const char *);
-void lily_error_fmt(lily_vm_state *, uint8_t, const char *, ...);
+void lily_error(lily_state *, uint8_t, const char *);
+void lily_error_fmt(lily_state *, uint8_t, const char *, ...);
 
 /* Miscellaneous operations. Keep in mind that these (like lily_error) are only
    valid in a function extending the interpreter. If they are called outside of
@@ -203,7 +206,7 @@ void lily_error_fmt(lily_vm_state *, uint8_t, const char *, ...);
 /* This flushes and provides the interpreter's msgbuf. Callers always flush
    first, so don't worry about flushing when done.
    The full struct, and methods for it are defined in lily_api_msgbuf.h */
-struct lily_msgbuf_ *lily_vm_msgbuf(lily_vm_state *);
+struct lily_msgbuf_ *lily_vm_msgbuf(lily_state *);
 
 /* If you are not adding a foreign class to Lily, then you can ignore this. This
    function fetches the class id table for the currently-entered function. From
@@ -212,6 +215,6 @@ struct lily_msgbuf_ *lily_vm_msgbuf(lily_vm_state *);
    dynaload table.
    The class id provided is later used by Lily for printing and comparing
    instances of your class. */
-uint16_t *lily_vm_cid_table(lily_vm_state *);
+uint16_t *lily_vm_cid_table(lily_state *);
 
 #endif
