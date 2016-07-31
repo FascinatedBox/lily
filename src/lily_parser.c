@@ -39,6 +39,27 @@ if (lex->token != expected) \
  *                          |_|    
  */
 
+/** Parser init and teardown is ugly right now, for how it reaches into
+    different structures more than it should. It's currently broken down into
+    different phases:
+
+    * Create raiser (it won't be used here).
+    * Create symtab to receive builtin classes/methods/etc.
+    * Create the builtin package, to give to symtab.
+    * Load the builtin package.
+    * Initialize other parts of the interpreter.
+    * Link different parts of the interpreter up (sorry).
+    * Enter __main__, which will receive toplevel code from the first package.
+    * Create the first package (parsed files/strings will become the root).
+    * Register sys, unless options say not to.
+
+    What's perhaps more interesting is that different functions within the
+    parser will either take or return the vm. The reason for this is that it
+    allows embedders to use a single lily_state throughout (with the vm state
+    being a typedef for that). That's easier than a parse state here, and a vm
+    state over there.
+
+    API functions can be found at the bottom of this file. **/
 static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_package *new_package(lily_parse_state *, const char *,
@@ -47,7 +68,7 @@ static lily_package *new_package(lily_parse_state *, const char *,
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
    when it shouldn't. */
-lily_parse_state *lily_new_state(lily_options *options)
+lily_vm_state *lily_new_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = options->data;
@@ -118,11 +139,13 @@ lily_parse_state *lily_new_state(lily_options *options)
 
     parser->executing = 0;
 
-    return parser;
+    return parser->vm;
 }
 
-void lily_free_state(lily_parse_state *parser)
+void lily_free_state(lily_vm_state *vm)
 {
+    lily_parse_state *parser = vm->parser;
+
     lily_free_raiser(parser->raiser);
 
     /* The root expression is the only one that is allocated (the rest are on
@@ -4268,28 +4291,27 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
     return 0;
 }
 
-int lily_parse_file(lily_parse_state *parser, const char *name)
+int lily_parse_file(lily_vm_state *vm, const char *name)
 {
-    return parse_file(parser, lm_no_tags, name);
+    return parse_file(vm->parser, lm_no_tags, name);
 }
 
-int lily_parse_string(lily_parse_state *parser, const char *name,
+int lily_parse_string(lily_vm_state *vm, const char *name,
         char *str)
 {
-    return parse_string(parser, lm_no_tags, name, str);
+    return parse_string(vm->parser, lm_no_tags, name, str);
 }
 
-int lily_exec_template_string(lily_parse_state *parser, const char *name,
+int lily_exec_template_string(lily_vm_state *vm, const char *name,
         char *str)
 {
-    return parse_string(parser, lm_tags, name, str);
+    return parse_string(vm->parser, lm_tags, name, str);
 }
 
-int lily_exec_template_file(lily_parse_state *parser, const char *filename)
+int lily_exec_template_file(lily_vm_state *vm, const char *filename)
 {
-    return parse_file(parser, lm_tags, filename);
+    return parse_file(vm->parser, lm_tags, filename);
 }
-
 
 /* This is provided for runners (such as the standalone runner provided in the
    run directory). This puts together the current error message so that the
@@ -4299,8 +4321,9 @@ int lily_exec_template_file(lily_parse_state *parser, const char *filename)
    parser's msgbuf). If the caller wants to keep the message, then the caller
    needs to copy it. If the caller does not, the message will get blasted by the
    next run. */
-const char *lily_get_error(lily_parse_state *parser)
+const char *lily_get_error(lily_vm_state *vm)
 {
+    lily_parse_state *parser = vm->parser;
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = parser->msgbuf;
 

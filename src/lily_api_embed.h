@@ -3,7 +3,7 @@
 
 # include "lily_api_options.h"
 
-typedef struct lily_parse_state_ lily_state;
+typedef struct lily_vm_state_ lily_state;
 
 void lily_free_state(lily_state *);
 lily_state *lily_new_state(lily_options *);
