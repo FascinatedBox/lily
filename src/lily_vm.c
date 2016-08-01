@@ -1576,7 +1576,7 @@ uint16_t *lily_vm_cid_table(lily_vm_state *vm)
 /** Foreign functions that are looking to interact with the interpreter can use
     the functions within here. Do be careful with foreign calls, however. **/
 
-void lily_vm_prepare_call(lily_vm_state *vm, lily_function_val *func)
+void lily_prepare_call(lily_vm_state *vm, lily_function_val *func)
 {
     lily_call_frame *caller_frame = vm->call_chain;
     caller_frame->code = foreign_code;
@@ -1598,7 +1598,7 @@ void lily_vm_prepare_call(lily_vm_state *vm, lily_function_val *func)
     target_frame->regs_used = func->reg_count;
 }
 
-void lily_vm_exec_prepared_call(lily_vm_state *vm, int count)
+void lily_exec_prepared(lily_vm_state *vm, int count)
 {
     lily_call_frame *target_frame = vm->call_chain->next;
     lily_function_val *target_fn = target_frame->function;
@@ -1651,6 +1651,12 @@ void lily_vm_exec_prepared_call(lily_vm_state *vm, int count)
         vm->num_registers = save - count;
         vm->vm_regs = vm->regs_from_main + target_frame->prev->offset_to_main;
     }
+}
+
+void lily_exec_simple(lily_vm_state *vm, lily_function_val *f, int count)
+{
+    lily_prepare_call(vm, f);
+    lily_exec_prepared(vm, count);
 }
 
 /* This calculates a siphash for a given hash value. The siphash is based off of
