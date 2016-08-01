@@ -42,7 +42,7 @@ match maybe_cat: {
 
 * The interpreter's internals are tightly packed, so that it uses very little memory. The interpreter has also been designed to only load builtin methods, functions, variables that are needed. This system, which I have termed dynaload, extends to shared libraries that the interpreter loads as well as being woven in the core itself. dynaload, along with tight packing, allows the interpreter to have a very low overhead.
 
-* Memory is managed by refcounting, with garbage collection for handling cycles. The interpreter uses the type information it has to tag objects that may become circular, so that simple objects to not impose a penalty. This design means there is no heap that must be compacted after garbage collection. More importantly, this design makes it easy to compose whole programs that will never be paused by a garbage collection by avoiding cyclical structures.
+* Memory is managed by refcounting, with garbage collection for handling cycles. The interpreter uses the type information it has to tag objects that may become circular, so that simple objects do not impose a penalty. This design means there is no heap that must be compacted after garbage collection. More importantly, this design makes it easy to compose whole programs that will never be paused by a garbage collection by avoiding cyclical structures.
 
 ### Install
 
