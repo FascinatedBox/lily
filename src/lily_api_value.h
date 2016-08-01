@@ -175,8 +175,9 @@ DECLARE_SETTERS(return, lily_state *)
 void lily_return_value_noref(lily_state *, lily_value *);
 
 /* Calling, and argument fetching */
-void lily_vm_prepare_call(lily_state *, lily_function_val *);
-void lily_vm_exec_prepared_call(lily_state *, int);
+void lily_prepare_call(lily_state *, lily_function_val *);
+void lily_exec_prepared(lily_state *, int);
+void lily_exec_simple(lily_state *, lily_function_val *, int);
 
 int lily_arg_count(lily_state *);
 void lily_result_return(lily_state *);
