@@ -1534,11 +1534,9 @@ void lily_builtin_Option_and_then(lily_state *s)
     lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME) {
-        lily_prepare_call(s, lily_arg_function(s, 1));
-
         lily_push_value(s, lily_instance_value(optval, 0));
 
-        lily_exec_prepared(s, 1);
+        lily_exec_simple(s, lily_arg_function(s, 1), 1);
 
         lily_return_value(s, lily_result_value(s));
     }
@@ -1588,11 +1586,9 @@ void lily_builtin_Option_map(lily_state *s)
     lily_instance_val *optval = lily_arg_instance(s, 0);
 
     if (optval->instance_id == SYM_CLASS_SOME) {
-        lily_prepare_call(s, lily_arg_function(s, 1));
-
         lily_push_value(s, lily_instance_value(optval, 0));
 
-        lily_exec_prepared(s, 1);
+        lily_exec_simple(s, lily_arg_function(s, 1), 1);
 
         lily_instance_val *variant = lily_new_some();
         lily_variant_set_value(variant, 0, lily_result_value(s));
@@ -1633,8 +1629,7 @@ void lily_builtin_Option_or_else(lily_state *s)
     if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_filled_variant(s, optval);
     else {
-        lily_prepare_call(s, lily_arg_function(s, 1));
-        lily_exec_prepared(s, 0);
+        lily_exec_simple(s, lily_arg_function(s, 1), 0);
 
         lily_result_return(s);
     }
@@ -1696,8 +1691,8 @@ void lily_builtin_Option_unwrap_or_else(lily_state *s)
     if (optval->instance_id == SYM_CLASS_SOME)
         lily_return_value(s, lily_instance_value(optval, 0));
     else {
-        lily_prepare_call(s, lily_arg_function(s, 1));
-        lily_exec_prepared(s, 0);
+        lily_exec_simple(s, lily_arg_function(s, 1), 0);
+
         lily_return_value(s, lily_result_value(s));
     }
 }
