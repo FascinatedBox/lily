@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_api_alloc.h"
 #include "lily_api_options.h"
 #include "lily_api_embed.h"
 
