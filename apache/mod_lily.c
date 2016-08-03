@@ -271,7 +271,6 @@ static int lily_handler(request_rec *r)
     lily_exec_template_file(state, r->filename);
 
     lily_free_state(state);
-    lily_free_options(options);
 
     return OK;
 }
