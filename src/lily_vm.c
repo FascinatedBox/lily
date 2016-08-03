@@ -1560,15 +1560,20 @@ static int maybe_catch_exception(lily_vm_state *vm)
  *                           |___/
  */
 
-lily_msgbuf *lily_vm_msgbuf(lily_vm_state *vm)
+lily_msgbuf *lily_get_msgbuf(lily_vm_state *vm)
 {
     lily_msgbuf *msgbuf = vm->vm_buffer;
-    /* Every caller so far wants a fresh buffer, so do that for them. */
+    /* Almost every caller wants a fresh buffer, so do that for them. */
     lily_mb_flush(msgbuf);
     return msgbuf;
 }
 
-uint16_t *lily_vm_cid_table(lily_vm_state *vm)
+lily_msgbuf *lily_get_msgbuf_noflush(lily_vm_state *vm)
+{
+    return vm->vm_buffer;
+}
+
+uint16_t *lily_get_cid_table(lily_vm_state *vm)
 {
     return vm->call_chain->function->cid_table;
 }

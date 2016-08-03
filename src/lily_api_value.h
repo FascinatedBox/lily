@@ -207,7 +207,12 @@ void lily_error_fmt(lily_state *, uint8_t, const char *, ...);
 /* This flushes and provides the interpreter's msgbuf. Callers always flush
    first, so don't worry about flushing when done.
    The full struct, and methods for it are defined in lily_api_msgbuf.h */
-struct lily_msgbuf_ *lily_vm_msgbuf(lily_state *);
+struct lily_msgbuf_ *lily_get_msgbuf(lily_state *);
+
+/* This provides the interpreter's msgbuf, but does not flush it. Most of the
+   time, a caller should use the regular lily_get_msgbuf function, because
+   callers are expected to flush msgbuf before use (instead of after). */
+struct lily_msgbuf_ *lily_get_msgbuf_noflush(lily_state *);
 
 /* If you are not adding a foreign class to Lily, then you can ignore this. This
    function fetches the class id table for the currently-entered function. From
@@ -216,6 +221,6 @@ struct lily_msgbuf_ *lily_vm_msgbuf(lily_state *);
    dynaload table.
    The class id provided is later used by Lily for printing and comparing
    instances of your class. */
-uint16_t *lily_vm_cid_table(lily_state *);
+uint16_t *lily_get_cid_table(lily_state *);
 
 #endif
