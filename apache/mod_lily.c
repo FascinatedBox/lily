@@ -213,7 +213,7 @@ void lily_server_write(lily_state *s)
     if (lily_maybe_html_encode_to_buffer(s, input) == 0)
         source = input->value.string->string;
     else
-        source = lily_mb_get(s->vm_buffer);
+        source = lily_mb_get(lily_get_msgbuf_noflush(s));
 
     ap_rputs(source, (request_rec *)s->data);
 }

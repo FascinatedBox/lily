@@ -400,7 +400,7 @@ If 'self' is not open for reading, or is closed, `IOError` is raised.
 void lily_builtin_File_read_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_vm_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
@@ -1858,7 +1858,7 @@ void lily_builtin_String_find(lily_state *s)
    from s->vm_buffer->message. */
 int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
 {
-    lily_msgbuf *vm_buffer = lily_vm_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
     int start = 0, stop = 0;
     char *input_str = input->value.string->string;
     char *ch = &input_str[0];
