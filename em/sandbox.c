@@ -12,7 +12,6 @@ lily_state *get_parser()
     lily_state *state = lily_new_state(options);
     options->allow_sys = 1;
 
-    lily_free_options(options);
     return parser;
 }
 

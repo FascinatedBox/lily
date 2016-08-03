@@ -110,6 +110,5 @@ int main(int argc, char **argv)
     }
 
     lily_free_state(state);
-    lily_free_options(options);
     exit(EXIT_SUCCESS);
 }

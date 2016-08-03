@@ -215,6 +215,9 @@ void lily_free_state(lily_state *vm)
     lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
     lily_free_type_maker(parser->tm);
+    if (parser->options->free_options)
+        lily_free_options(parser->options);
+
     lily_free(parser);
 }
 

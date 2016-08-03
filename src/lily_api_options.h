@@ -18,7 +18,8 @@ typedef struct lily_options_ {
     /* Should the interpreter allow 'use' of sys? */
     uint8_t allow_sys;
 
-    uint8_t pad;
+    /* Should the interpreter free options when it's done? */
+    uint8_t free_options;
 
     /* How many gc entries should the vm allow before asking for another causes
        a sweep? */
