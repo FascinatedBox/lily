@@ -4197,25 +4197,24 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
                            "Unterminated block(s) at end of parsing.");
             }
 
-            /* Parser's in the first block now. If __main__'s code_pos is 0,
-               then there's literally nothing to do. Maybe the only thing that
-               happened was some builtin dynaloading. Regardless, there's no
-               point in revving up the vm to do nothing. */
-            if (lily_u16_pos(parser->emit->code) != 0) {
-                lily_register_classes(parser->symtab, parser->vm);
-                lily_prepare_main(parser->emit);
-                lily_vm_prep(parser->vm, parser->symtab,
-                        parser->symtab->literals->data, parser->foreign_values);
+            /* For now, update each of these on every pass. This makes sure that
+               embedding functions can depend on the vm being in a proper and
+               consistent state.
+               todo: Some parts, such as cid update and class registration,
+               should be avoided if possible. */
+            lily_register_classes(parser->symtab, parser->vm);
+            lily_prepare_main(parser->emit);
+            lily_vm_prep(parser->vm, parser->symtab,
+                    parser->symtab->literals->data, parser->foreign_values);
 
-                update_all_cid_tables(parser);
+            update_all_cid_tables(parser);
 
-                parser->executing = 1;
-                lily_vm_execute(parser->vm);
-                parser->executing = 0;
+            parser->executing = 1;
+            lily_vm_execute(parser->vm);
+            parser->executing = 0;
 
-                /* Clear __main__ for the next pass. */
-                lily_reset_main(parser->emit);
-            }
+            /* Clear __main__ for the next pass. */
+            lily_reset_main(parser->emit);
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);
