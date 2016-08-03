@@ -4315,6 +4315,22 @@ int lily_exec_template_file(lily_state *s, const char *filename)
     return parse_file(s->parser, lm_tags, filename);
 }
 
+lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
+{
+    /* todo: Handle scope access, class methods, and so forth. Ideally, it can
+       be done without loading any fake files (like dynaloading does), as this
+       may be the base of a preloader. */
+    lily_var *v = lily_find_var(vm->parser->symtab, NULL, name);
+    lily_function_val *result;
+
+    if (v)
+        result = vm->readonly_table[v->reg_spot]->value.function;
+    else
+        result = NULL;
+
+    return result;
+}
+
 /* This is provided for runners (such as the standalone runner provided in the
    run directory). This puts together the current error message so that the
    runner is able to use it. The error message (and stack) are returned in full
