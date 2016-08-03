@@ -19,6 +19,11 @@ int lily_parse_file(lily_state *, const char *);
 int lily_exec_template_string(lily_state *, const char *, char *);
 int lily_exec_template_file(lily_state *, const char *);
 
+/* This searches in the scope of the first file loaded, and attempts to find a
+   global function based on the name given. Returns either a valid, callable
+   function value or NULL. */
+struct lily_function_val_ *lily_get_func(lily_state *, const char *);
+
 void lily_register_package(lily_state *, const char *, const char **, void *);
 
 #endif
