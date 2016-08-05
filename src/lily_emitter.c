@@ -1592,6 +1592,7 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     code = lily_malloc((code_size + 1) * sizeof(uint16_t));
     memcpy(code, source + code_start, sizeof(uint16_t) * code_size);
 
+    f->code_len = code_size;
     f->code = code;
     return f;
 }
@@ -4254,6 +4255,7 @@ void lily_prepare_main(lily_emit_state *emit)
 
     lily_u16_write_1(emit->code, o_return_from_vm);
 
+    f->code_len = lily_u16_pos(emit->code);
     f->code = emit->code->data;
     f->reg_count = register_count;
 }

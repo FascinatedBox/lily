@@ -164,7 +164,9 @@ typedef struct lily_function_val_ {
     uint32_t refcount;
     uint32_t line_num;
 
-    uint32_t pad;
+    uint16_t pad;
+
+    uint16_t code_len;
 
     uint16_t num_upvalues;
 
