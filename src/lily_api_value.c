@@ -419,6 +419,16 @@ void lily_file_ensure_readable(lily_state *s, lily_file_val *filev)
         lily_error(s, SYM_CLASS_IOERROR, "File not open for reading.");
 }
 
+int lily_function_is_foreign(lily_function_val *fv)
+{
+    return fv->code == NULL;
+}
+
+int lily_function_is_native(lily_function_val *fv)
+{
+    return fv->code != NULL;
+}
+
 uint16_t lily_instance_id(lily_instance_val *iv)
 {
     return iv->instance_id;
