@@ -2524,7 +2524,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_load_closure:
                 upvalues = do_o_load_closure(vm, code);
-                code = current_frame->function->code + (code[2] + 4);
+                code += (code[2] + 4);
                 break;
             case o_for_setup:
                 /* lhs_reg is the start, rhs_reg is the stop. */
