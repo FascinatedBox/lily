@@ -132,6 +132,10 @@ FILE *lily_file_get_raw(lily_file_val *);
 void lily_file_ensure_readable(lily_state *, lily_file_val *);
 void lily_file_ensure_writeable(lily_state *, lily_file_val *);
 
+/* Function operations */
+int lily_function_is_foreign(lily_function_val *);
+int lily_function_is_native(lily_function_val *);
+
 /* Instance operations */
 lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
 DECLARE_BOTH(instance, lily_instance_val *, int);
