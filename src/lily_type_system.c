@@ -184,8 +184,16 @@ static int check_function(lily_type_system *ts, lily_type *left,
     if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0)
         ret = 0;
 
-    if (left->subtype_count > right->subtype_count)
+    if (left->subtype_count > right->subtype_count) {
+        /* Special case: This is a temporary special case for when the wanted
+           type is only a scoop. Make it so that it matches anything and
+           everything. */
+        if (left->subtype_count == 2 &&
+            left->subtypes[1]->cls->id >= LOWEST_SCOOP_ID) {
+            return 1;
+        }
         ret = 0;
+    }
 
     if (ret) {
         flags |= T_CONTRAVARIANT;

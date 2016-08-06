@@ -788,7 +788,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
     else if (cls->id == SYM_CLASS_FUNCTION) {
         NEED_NEXT_TOK(tk_left_parenth)
         lily_lexer(lex);
-        int arg_flags = 0;
+        int arg_flags = flags & F_SCOOP_OK;
         int i = 0;
         int result_pos = parser->tm->pos;
 
