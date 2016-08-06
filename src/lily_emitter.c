@@ -6,9 +6,9 @@
 #include "lily_opcode.h"
 #include "lily_emit_table.h"
 #include "lily_parser.h"
-#include "lily_code_iter.h"
 
 #include "lily_api_alloc.h"
+#include "lily_api_code_iter.h"
 /* Exception's id is in here. */
 #include "lily_api_value.h"
 

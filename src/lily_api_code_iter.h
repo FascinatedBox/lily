@@ -1,5 +1,5 @@
-#ifndef LILY_CODE_ITER_H
-# define LILY_CODE_ITER_H
+#ifndef LILY_API_CODE_ITER_H
+# define LILY_API_CODE_ITER_H
 
 # include <stdint.h>
 
@@ -24,5 +24,7 @@ typedef struct {
 
 void lily_ci_init(lily_code_iter *, uint16_t *, uint16_t, uint16_t);
 int lily_ci_next(lily_code_iter *);
+
+void lily_ci_from_native(lily_code_iter *, struct lily_function_val_ *);
 
 #endif
