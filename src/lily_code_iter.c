@@ -2,8 +2,9 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "lily_opcode.h"
 #include "lily_value_structs.h"
+
+#include "lily_int_opcode.h"
 
 #include "lily_api_code_iter.h"
 

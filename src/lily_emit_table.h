@@ -1,7 +1,7 @@
 #ifndef LILY_EMIT_TABLE_H
 # define LILY_EMIT_TABLE_H
 
-# include "lily_opcode.h"
+# include "lily_int_opcode.h"
 
 /* The emitter table is used to get the opcode for 'generic' binary expressions.
    So far, this just means plus.
