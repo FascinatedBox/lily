@@ -281,9 +281,12 @@ typedef struct lily_package_ {
 
     struct lily_package_link_ *linked_packages;
 
-    /* The first module loaded as part of this package, which contains a
-       root_next to all modules loaded within this package. */
-    lily_module_entry *first_module;
+    /* The first module loaded. This module is the only one in this package
+       allowed to have 'use' declarations. */
+    lily_module_entry *module_start;
+
+    /* The most recent module, and the tip of the linked list of entries. */
+    lily_module_entry *module_top;
 } lily_package;
 
 typedef struct lily_package_link_ {

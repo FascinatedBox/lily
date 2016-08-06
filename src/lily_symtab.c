@@ -34,8 +34,8 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
 
 void lily_set_first_package(lily_symtab *symtab, lily_package *package)
 {
-    symtab->builtin_module = package->first_module;
-    symtab->active_module = package->first_module;
+    symtab->builtin_module = package->module_start;
+    symtab->active_module = package->module_start;
     symtab->first_package = package;
 }
 
@@ -800,7 +800,7 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
 
     lily_package *package_iter = symtab->first_package;
     while (package_iter) {
-        lily_module_entry *module_iter = package_iter->first_module;
+        lily_module_entry *module_iter = package_iter->module_start;
         while (module_iter) {
             lily_class *class_iter = module_iter->class_chain;
             while (class_iter) {
@@ -849,7 +849,7 @@ lily_module_entry *lily_find_module_by_path(lily_package *package,
         const char *path)
 {
     int cmp_len = strlen(path);
-    lily_module_entry *module_iter = package->first_module;
+    lily_module_entry *module_iter = package->module_start;
 
     while (module_iter) {
         if (module_iter->cmp_len == cmp_len &&
