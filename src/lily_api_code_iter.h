@@ -22,6 +22,8 @@ typedef struct {
     uint16_t jumps_7;
 } lily_code_iter;
 
+struct lily_function_val_;
+
 void lily_ci_init(lily_code_iter *, uint16_t *, uint16_t, uint16_t);
 int lily_ci_next(lily_code_iter *);
 

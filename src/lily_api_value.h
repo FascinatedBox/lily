@@ -1,7 +1,10 @@
 #ifndef LILY_API_VALUE_H
 # define LILY_API_VALUE_H
 
+/* For uint64_t. */
 # include <stdint.h>
+/* For FILE *. */
+# include <stdio.h>
 
 /* This file contains the structures and API needed by foreign functions to
    communicate with Lily. */
