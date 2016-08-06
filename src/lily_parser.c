@@ -129,7 +129,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->default_call_type = parser->symtab->main_var->type;
 
     lily_package *main_package = new_package(parser, "", NULL, NULL);
-    parser->main_module = main_package->first_module;
+    parser->main_module = main_package->module_start;
 
     /* This puts __main__ into the scope of the first thing to be executed, and
        makes it the context for var/class/etc. searching. */
@@ -166,12 +166,12 @@ void lily_free_state(lily_state *vm)
 
     /* The path for the first module is always a shallow copy of the loadname
        that was sent. Make sure that doesn't get free'd. */
-    parser->package_start->root_next->first_module->path = NULL;
+    parser->package_start->root_next->module_start->path = NULL;
 
     lily_package *package_iter = parser->package_start;
     lily_package *package_next = NULL;
     while (package_iter) {
-        lily_module_entry *module_iter = package_iter->first_module;
+        lily_module_entry *module_iter = package_iter->module_start;
         lily_module_entry *module_next = NULL;
 
         while (module_iter) {
@@ -353,7 +353,7 @@ void lily_register_package(lily_state *s, const char *name,
 {
     lily_parse_state *parser = s->parser;
     lily_package *package = new_package(parser, name, NULL, dynaload_table);
-    package->first_module->loader = loader;
+    package->module_start->loader = loader;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
@@ -407,7 +407,8 @@ static lily_package *new_package(lily_parse_state *parser,
     lily_package *package = new_empty_package(parser, name);
     lily_module_entry *module = new_module(module_path, dynaload_table);
 
-    package->first_module = module;
+    package->module_start = module;
+    package->module_top = module;
     module->parent = package;
 
     return package;
@@ -491,11 +492,12 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     }
 
     /* Put this module in the current package. */
-    lily_module_entry *active = parser->symtab->active_module;
-    result->root_next = active->root_next;
-    active->root_next = result;
+    lily_package *p = parser->symtab->active_module->parent;
 
-    result->parent = active->parent;
+    p->module_top->root_next = result;
+    p->module_top = result;
+
+    result->parent = p;
 
     return result;
 }
@@ -983,7 +985,7 @@ static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
     int stop = cid_entry[-1];
     uint16_t *cid_table = m->cid_table;
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *builtin = parser->package_start->first_module;
+    lily_module_entry *builtin = parser->package_start->module_start;
 
     while (counter < stop) {
         if (cid_table[counter] == 0) {
@@ -1003,7 +1005,7 @@ static void update_all_cid_tables(lily_parse_state *parser)
 {
     lily_package *package_iter = parser->package_start;
     while (package_iter) {
-        lily_module_entry *entry_iter = package_iter->first_module;
+        lily_module_entry *entry_iter = package_iter->module_start;
         while (entry_iter) {
             if (entry_iter->cid_table)
                 update_cid_table(parser, entry_iter);
@@ -1028,7 +1030,7 @@ static lily_module_entry *resolve_module(lily_parse_state *parser)
 
     package = lily_find_package(parser->symtab->active_module, lex->label);
     if (package)
-        search_entry = package->first_module;
+        search_entry = package->module_start;
     else
         search_entry = lily_find_module(symtab, result, lex->label);
 
@@ -1402,7 +1404,7 @@ static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
 
 lily_class *lily_dynaload_exception(lily_parse_state *parser, const char *name)
 {
-    lily_module_entry *m = parser->package_start->first_module;
+    lily_module_entry *m = parser->package_start->module_start;
     return (lily_class *)try_toplevel_dynaload(parser, m, name);
 }
 
@@ -3353,7 +3355,7 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
     }
 
     lily_package *new_package = new_empty_package(parser, name);
-    new_package->first_module = module;
+    new_package->module_start = module;
     module->parent = new_package;
 
     return new_package;
@@ -3373,7 +3375,7 @@ static void use_handler(lily_parse_state *parser, int multi)
        that uses are cleaner (they're just in the root).
        This seems like a good idea. */
     lily_module_entry *active = parser->symtab->active_module;
-    if (active != active->parent->first_module)
+    if (active != active->parent->module_start)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'use' only allowed within the first module of a package.");
 
@@ -3390,7 +3392,7 @@ static void use_handler(lily_parse_state *parser, int multi)
     lily_package *package = load_registered_package(parser, lex->label);
     if (package == NULL) {
         package = load_package(parser, active->dirname, lex->label);
-        run_loaded_module(parser, package->first_module);
+        run_loaded_module(parser, package->module_start);
     }
 
     link_package_to(active->parent, package);
