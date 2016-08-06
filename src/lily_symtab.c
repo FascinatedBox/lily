@@ -39,7 +39,7 @@ void lily_set_first_package(lily_symtab *symtab, lily_package *package)
     symtab->first_package = package;
 }
 
-static void free_vars(lily_symtab *symtab, lily_var *var)
+static void free_vars(lily_var *var)
 {
     lily_var *var_next;
 
@@ -53,7 +53,7 @@ static void free_vars(lily_symtab *symtab, lily_var *var)
     }
 }
 
-static void free_properties(lily_symtab *symtab, lily_class *cls)
+static void free_properties(lily_class *cls)
 {
     lily_named_sym *prop_iter = cls->members;
     lily_named_sym *next_prop;
@@ -67,7 +67,7 @@ static void free_properties(lily_symtab *symtab, lily_class *cls)
     }
 }
 
-static void free_classes(lily_symtab *symtab, lily_class *class_iter)
+static void free_classes(lily_class *class_iter)
 {
     while (class_iter) {
         lily_free(class_iter->name);
@@ -80,7 +80,7 @@ static void free_classes(lily_symtab *symtab, lily_class *class_iter)
         }
 
         if (class_iter->members != NULL)
-            free_properties(symtab, class_iter);
+            free_properties(class_iter);
 
         lily_type *type_iter = class_iter->all_subtypes;
         lily_type *type_next;
@@ -133,15 +133,15 @@ void lily_free_symtab(lily_symtab *symtab)
 {
     free_literals(symtab->literals);
 
-    free_classes(symtab, symtab->old_class_chain);
-    free_vars(symtab, symtab->old_function_chain);
+    free_classes(symtab->old_class_chain);
+    free_vars(symtab->old_function_chain);
 
     lily_package *package_iter = symtab->first_package;
     while (package_iter) {
         lily_module_entry *module_iter = package_iter->first_module;
         while (module_iter) {
-            free_classes(symtab, module_iter->class_chain);
-            free_vars(symtab, module_iter->var_chain);
+            free_classes(module_iter->class_chain);
+            free_vars(module_iter->var_chain);
 
             module_iter = module_iter->root_next;
         }
