@@ -58,6 +58,7 @@ typedef struct lily_symtab_ {
 
 lily_symtab *lily_new_symtab(lily_generic_pool *);
 void lily_set_first_package(lily_symtab *, lily_package *);
+void lily_free_module_symbols(lily_module_entry *);
 void lily_free_symtab(lily_symtab *);
 
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);

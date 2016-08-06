@@ -189,6 +189,7 @@ void lily_free_state(lily_state *vm)
             if (module_iter->handle)
                 lily_library_free(module_iter->handle);
 
+            lily_free_module_symbols(module_iter);
             lily_free(module_iter->path);
             lily_free(module_iter->dirname);
             lily_free(module_iter->loadname);
