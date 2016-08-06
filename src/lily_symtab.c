@@ -129,24 +129,18 @@ static void free_literals(lily_value_stack *literals)
     lily_free_value_stack(literals);
 }
 
+void lily_free_module_symbols(lily_module_entry *entry)
+{
+    free_classes(entry->class_chain);
+    free_vars(entry->var_chain);
+}
+
 void lily_free_symtab(lily_symtab *symtab)
 {
     free_literals(symtab->literals);
 
     free_classes(symtab->old_class_chain);
     free_vars(symtab->old_function_chain);
-
-    lily_package *package_iter = symtab->first_package;
-    while (package_iter) {
-        lily_module_entry *module_iter = package_iter->first_module;
-        while (module_iter) {
-            free_classes(module_iter->class_chain);
-            free_vars(module_iter->var_chain);
-
-            module_iter = module_iter->root_next;
-        }
-        package_iter = package_iter->root_next;
-    }
 
     /* __main__ requires a special teardown because it doesn't allocate names
        for debug, and its code is a shallow copy of emitter's code block. */
