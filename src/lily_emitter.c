@@ -3,9 +3,10 @@
 
 #include "lily_expr.h"
 #include "lily_emitter.h"
-#include "lily_opcode.h"
 #include "lily_emit_table.h"
 #include "lily_parser.h"
+
+#include "lily_int_opcode.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_code_iter.h"

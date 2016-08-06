@@ -7,9 +7,10 @@
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
-#include "lily_opcode.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
+
+#include "lily_int_opcode.h"
 
 #include "lily_pkg_builtin.h"
 #include "lily_pkg_sys.h"

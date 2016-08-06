@@ -1,9 +1,11 @@
-#ifndef LILY_OPCODE_H
-# define LILY_OPCODE_H
+#ifndef LILY_INT_OPCODE_H
+# define LILY_INT_OPCODE_H
 
 /* These are Lily's opcodes. The format is unlikely to change, so the comments
    should thus stay valid. For those wanting to get a better idea of how the
-   opcodes are laid out, lily_code_iter.c is a good reference. */
+   opcodes are laid out, lily_code_iter.c is a good reference.
+   The int prefix of this file means that it is internal, and thus may change
+   (whereas an api file tends to be more stable). */
 
 typedef enum {
     /* Perform an assignment, but do not alter refcount. */

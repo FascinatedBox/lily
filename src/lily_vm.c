@@ -1,12 +1,13 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "lily_opcode.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
 #include "lily_value_stack.h"
 #include "lily_value_flags.h"
 #include "lily_move.h"
+
+#include "lily_int_opcode.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
