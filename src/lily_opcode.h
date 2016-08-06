@@ -1,64 +1,18 @@
 #ifndef LILY_OPCODE_H
 # define LILY_OPCODE_H
 
-/* This file defines the opcodes used by the Lily VM. This file is shared by
-   emitter, debug, and (obviously) the vm. These codes, along with the operands,
-   are written to the code array (uint16_t *). There are a few rules to make
-   sure things run smoothly though.
-   * New opcodes must be showable by debug. There is no exception to this, and
-     there never will be. This is the most important rule.
-   * Most, but not all opcodes will have a line number. This will be written
-     exactly after the opcode, so that code[opcode_pos+1] shall always yield the
-     line number when a line number is needed.
-   * If there is a result that can be the right side of an assignment, it shall
-     always be the last value written.
-   * If what an opcode does is not completely obvious, there will be an
-     explanation of how it works here.
-   Legend:
-   * int: Describes an int value written to the code array.
-   * addr: The given value is an address, rather than an index to something.
-           This is necessary for o_get_const.
-   * reg: An integer index that maps to a local register, unless otherwise
-          specified. Each native function has its own set of registers to work
-          with.
-   * reg(x): Describes an index to a local register that is guaranteed by the
-             emitter to be of a given type. Negative qualifiers are okay (ex:
-             !any), as well as specifying anything of a basic type (ex:
-             list[*] to denote a list that may contain any type).
-   * reg...: Indicates a series of indexes to registers that will be used as
-             arguments. An argument count is provided beforehand.
-   * A: A type that could be anything. This is used to indicate that two syms
-        share a type. Ex:
-        * reg(list[A])
-        * reg(A)
-        In this case, the first registers has a list of some type, and the
-        second register has a value of that same type.
+/* These are Lily's opcodes. The format is unlikely to change, so the comments
+   should thus stay valid. For those wanting to get a better idea of how the
+   opcodes are laid out, lily_code_iter.c is a good reference. */
 
-   Additionally, 'right' is used in place of 'result' where there is no true
-   result.*/
 typedef enum {
-    /* o_fast_assign:
-       * int lineno
-       * reg left
-       * reg right
-       This handles assignments without a ref/deref. */
+    /* Perform an assignment, but do not alter refcount. */
     o_fast_assign,
-    /* o_assign:
-       * int lineno
-       * reg left
-       * reg right
-       This handles any assignment that needs a ref/deref. */
+
+    /* General purpose assign; right refcount increased, left decreased. */
     o_assign,
 
-    /* Integer binary ops:
-       * int lineno
-       * reg(integer) left
-       * reg(integer) right
-       * reg(integer) result
-       Opcodes that start with o_integer_ are integer-only versions of
-       operations for which there is a more flexible numeric version.
-       Those here that don't (like o_modulo, o_left_shift, etc.) do not have
-       numeric versions. */
+    /* Fast-path integer-only operations. */
     o_integer_add,
     o_integer_minus,
     o_modulo,
@@ -70,23 +24,14 @@ typedef enum {
     o_bitwise_or,
     o_bitwise_xor,
 
-    /* Numeric binary ops:
-       * int lineno
-       * reg(double/integer) left
-       * reg(double/integer) right
-       * reg(double) result
-       These are the slower arith ops, because they have to handle different
-       type combinations. */
+    /* Integer/Double ops, that aren't as fast as the above ops. */
     o_double_add,
     o_double_minus,
     o_double_mul,
     o_double_div,
 
-    /* Binary comparison ops:
-       * int lineno
-       * reg(integer/double/string) left
-       * reg(typeof(left)) right
-       * reg(integer) result */
+    /* Comparison operations are general purpose, and work for any two values of
+       the same underlying class. */
     o_is_equal,
     o_not_eq,
     o_less,
@@ -94,227 +39,143 @@ typedef enum {
     o_greater,
     o_greater_eq,
 
-    /* jump:
-       * int jump
-       This specifies a jump to a future position in the code. Emitter is
-       responsible for ensuring the jump is valid. */
-    o_jump,
-
-    /* jump_if:
-       * int jump_on
-       * reg left
-       * int jump
-       If jump_on is 1, move to jump if left is TRUE.
-       If jump_on is 0, move to jump if left is FALSE.
-       This is called 'jump if false' or 'jump if true' by debug depending on
-       if 0 or 1 is set. However, it is implemented as one op.
-       Emitter is responsible for ensuring the jump is valid. */
-    o_jump_if,
-
-    o_foreign_call,
-
-    o_native_call,
-
-    /* Function calls:
-       * int lineno
-       * reg(func *) input
-       * int num_args
-       * reg args...
-       * reg result
-       Input -must- be a reg, or passing functions as arguments will fail. */
-    o_function_call,
-
-    /* return val:
-       * int lineno
-       * reg result
-       Pushes the result to the storage that the caller reserved for it. The
-       lineno is added for debug. */
-    o_return_val,
-
-    /* return noval:
-       * int lineno
-       Returns from the current call but doesn't push a value. Lineno is
-       strictly for debug. */
-    o_return_noval,
-
-    /* Unary operations:
-       * int lineno
-       * int left
-       * int result */
+    /* Simple unary operations. */
     o_unary_not,
     o_unary_minus,
 
-    o_build_list,
+    /* An absolute jump. A motion is done relative to the current position. The
+       value is usually positive, but can be negative for backward jumps. */
+    o_jump,
+    /* Check a condition. If the condition matches the check value, then the
+       jump provided is taken. Otherwise, control moves to after this condition.
+       Like o_jump, this may be a negative jump. */
+    o_jump_if,
 
-    o_build_tuple,
-
-    /* Build hash:
-       * int lineno
-       * int num_values
-       * reg values...
-       * reg result
-       This creates a new hash, and is fairly similar to o_build_list_tuple in
-       that the sig of the result is already set. 'values' is a series of key
-       and value pairs. It should be noted that num_values is the number of
-       values, NOT the number of pairs. So there are (num_values / 2) pairs to
-       create. This was done intentionally to follow calls and
-       o_build_list_tuple in that the count always precedes the exact number of
-       values. */
-    o_build_hash,
-
-    o_build_enum,
-
-    o_dynamic_cast,
-
-    /* for (integer range):
-       * int lineno
-       * reg(integer) user loop var
-       * reg(integer) start
-       * reg(integer) end
-       * reg(integer) step
-       * int jump
-       This implements a for loop over an integer range. This increments start
-       by step until end is reached. This sets user loop var to start on each
-       pass. This is done so that user modifications of user loop var do not
-       cause the loop to exit early.
-       If start == end, then control jumps to the given jump. */
+    /* Perform a single step of a for loop. This may jump out of the loop, or it
+       may only increment and continue on. */
     o_integer_for,
-
-    /* for setup:
-       * int lineno
-       * reg(integer) user loop var
-       * reg(integer) start
-       * reg(integer) end
-       * reg(integer) step
-       * int setup step
-       This is run before entering a for loop, and acts as a quick sanity check
-       before entering the loop. If setup setp is 1, then the step will be
-       calculated as -1 or +1. This sets user loop var to start, so that it has
-       a proper initial value before entering the loop. */
+    /* Prepare a for loop for entry by establishing the starting counter, and
+       verifying that the increment is non-zero. */
     o_for_setup,
 
-    /* Get Item:
-       * int lineno
-       * reg(?) left
-       * reg(?) index
-       * reg(?) right
+    /* Perform a call that has been guaranteed at emit-time to target a foreign
+       function. The function to be called is provided as an index into the vm's
+       readonly table. */
+    o_foreign_call,
+    /* This is a call to a function that is always native. The value of the
+       function is given as an index into the vm's readonly table. */
+    o_native_call,
+    /* Perform a general call: It could be either a native function or a foreign
+       one. The source is a register. This checks which path to use, and follows
+       either o_foreign_call or o_native call. */
+    o_function_call,
 
-       o_get_item handles getting a value at the given index and placing it
-       into 'right'. Any creation and ref/deref are handled automatically.
+    /* Return to the caller and push a value back. */
+    o_return_val,
+    /* Return to the caller, but don't push anything back. */
+    o_return_noval,
 
-       Lists:
-       * left is the list to take a value from.
-       * index is what element to grab. It's always an integer.
-       * right is the value. The type is of the list's value.
-       Hashes:
-       * left is the hash to take a value from.
-       * index is the hash key. The type is the key of the hash.
-       * right is the value. The type is the value of the hash.  */
+    /* Build a new List. This includes a count, and registers to use as source
+       values. */
+    o_build_list,
+    /* Build a new Tuple. This includes a count, and registers to use as source
+       values. */
+    o_build_tuple,
+    /* Build a new Hash. This includes a count, which is the total number of
+       values sent. The values are divided into key, value, key, value pairs. */
+    o_build_hash,
+    /* Build a new enum, which will never be empty. This includes the variant
+       class id, a count, and the values. */
+    o_build_enum,
+
+    /* Try to get a value from one of: (Hash, List, Tuple, String). */
     o_get_item,
-
-    /* Set Item:
-       * int lineno
-       * reg(?) left
-       * reg(?) index
-       * reg(?) right
-       o_set_item handles setting an item for a complex type. Any creation and
-       ref/deref are done as well.
-
-       Lists:
-       * left is the list to take a value from.
-       * index is what element to grab. It's always an integer.
-       * right is the value. The type is of the list's value.
-       Hashes:
-       * left is the hash to take a value from.
-       * index is the hash key. The type is the key of the hash.
-       * right is the value. The type is the value of the hash.  */
+    /* Try to set a value into one of: (Hash, List, Tuple). */
     o_set_item,
 
-    /* get global:
-       * int lineno
-       * reg global_reg
-       * reg local_reg
-       This handles loading a global value from __main__'s registers, and
-       putting it into a local register of the current function. This also
-       handles ref/deref if necessary. */
+    /* Get a value where the target index is an index to __main__'s globals. */
     o_get_global,
-
-    /* set global:
-       * int lineno
-       * reg local_reg
-       * reg global_reg
-       This sets a global value in one of __main__'s registers. Like get global,
-       this will do ref/deref if necessary. */
+    /* Set a value where the target index is an index to __main__'s globals. */
     o_set_global,
 
-    /* get readonly:
-       * int lineno
-       * int index
-       * reg result
-       This loads a value from the vm's table of readonly values at the given
-       index. The value is put into 'result'. This handles both literals and
-       loads of functions. */
+    /* Get an interned value from vm's readonly table (empty variants, String,
+       or ByteString). */
     o_get_readonly,
-
+    /* Load an Integer value that is in the range of a 16-bit SIGNED value. */
     o_get_integer,
-
+    /* Load a boolean value. */
     o_get_boolean,
 
-    /* get property:
-       * int lineno
-       * reg local_reg
-       * int index
-       * reg result
-       This is the same thing as o_get_item, except that the index is an int
-       instead of a register. This seems like a trivial thing, but it saves
-       loading a literal that will only be used as an index.
-       Additionally, since this is only written for classes, there is no need
-       to check the index for validity, another speed win. */
+    /* Create a new class that the gc can completely ignore. */
+    o_new_instance_basic,
+    /* Create a new class that might have tagged values inside. */
+    o_new_instance_speculative,
+    /* Create a new class and tag it. */
+    o_new_instance_tagged,
+    /* This is like o_get_item, except the index is an integer in the bytecode
+       instead of a register pointing to an integer. The index is pre-checked.
+       This is used for class member access. */
     o_get_property,
-
-    /* set property:
-       * int lineno
-       * reg local_reg
-       * int index
-       * reg right
-       This is a complement to o_get_property, again for removing the need to
-       load a literal to use as an index. */
+    /* This is like o_get_item, except the index is an integer in the bytecode
+       instead of a register pointing to an integer. The index is pre-checked.
+       This is used for class member access. */
     o_set_property,
 
+    /* Register the current position as having code that can catch. */
     o_push_try,
+    /* Unregister the last position as having code that can catch. */
     o_pop_try,
-
+    /* Specify a class to attempt to catch. If successful, DO NOT BUILD stack
+       data, because the user does not want it. */
     o_except_ignore,
+    /* Specify a class to attempt to catch. If successful, build a proper
+       exception and store it where the user asked. */
     o_except_catch,
+    /* Raise a value that emit-time has verified to be an exception. */
     o_raise,
 
-    o_new_instance_basic,
-    o_new_instance_speculative,
-    o_new_instance_tagged,
-
-    o_optarg_dispatch,
-
+    /* This provides a series of jumps, and a class identity. The enum given has
+       the given id subtracted from it. The value left determines which jump
+       should be taken. An exhaustive set of jumps is provided. */
     o_match_dispatch,
-
+    /* This takes a variant, a count, and a number of output registers. Each
+       value within the variant is dumped into an output register. */
     o_variant_decompose,
 
+    /* Get a value where the target index is an upvalue index. */
     o_get_upvalue,
-
+    /* Set a value where the target index is an upvalue index. */
     o_set_upvalue,
-
+    /* Create the initial closure that will be handed out to subsequent closure
+       operations at different levels. Termed 'backing closure'. */
     o_create_closure,
-
+    /* This creates a copy of a given function that has upvalues from the
+       backing closure. */
     o_create_function,
-
+    /* This loads a backing closure from a class. */
     o_load_class_closure,
-
+    /* This loads a closure from the calling frame. This includes a series of
+       inputs, which are register positions in the closure that must be wiped.
+       Wiping that data allows closures to recurse without corruption. */
     o_load_closure,
 
+    /* Attempt to extract a value from a Dynamic. The wanted class is given as
+       an id into the vm's class table. Success yields a Some(class), whereas
+       failure provides a None. */
+    o_dynamic_cast,
+    /* This joins a series of values together into a String, eventually
+       returning that String. */
     o_interpolation,
+    /* This gets a stop register, and checks toward the front to find the last
+       register that was given a value. Based on that, a jump is returned for
+       code to go to. The emitter writes code between the jumps so that optional
+       arguments are fixed up in a similar manner to assignments down a switch
+       statement where there are no breaks. */
+    o_optarg_dispatch,
 
-    /* Return from vm:
-       This is a special opcode used to leave the vm. It does not take any
-       values. This is written at the end of __main__. */
+    /* Exit the vm. This is written at the end of __main__ to make it leave the
+       vm exec function. It is also spoofed when entering foreign functions, so
+       that they leave the vm exec function properly. */
     o_return_from_vm
 } lily_opcode;
 
