@@ -413,17 +413,17 @@ typedef struct lily_package_link_ {
 #define SYM_CLASS_HASH        8
 #define SYM_CLASS_TUPLE       9
 #define SYM_CLASS_FILE       10
-#define SYM_CLASS_QUESTION   11
-#define SYM_CLASS_OPTION     12
+#define SYM_CLASS_OPTION     11
 /* The holes here are for None, Some, Left, Right, and the builtin Exception
    classes. They're not here because lily_api_value.h needs them for raising
    errors at runtime and for checking the id of predefined enums. */
-#define SYM_CLASS_EITHER     15
+#define SYM_CLASS_EITHER     14
 
-#define SYM_CLASS_TAINTED    25
-#define START_CLASS_ID       26
+#define SYM_CLASS_TAINTED    24
+#define START_CLASS_ID       25
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
+#define SYM_CLASS_QUESTION    65530
 #define SYM_CLASS_GENERIC     65531
 #define SYM_CLASS_OPTARG      65532
 #define SYM_CLASS_SCOOP_2     65533

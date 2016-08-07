@@ -104,20 +104,20 @@ lily_value *lily_new_value_of_string(lily_string_val *);
 lily_value *lily_new_value_of_string_lit(const char *);
 
 /* These are the ids of the predefined variants of Option and Some. */
-#define SYM_CLASS_SOME  13
-#define SYM_CLASS_NONE  14
+#define SYM_CLASS_SOME  12
+#define SYM_CLASS_NONE  13
 
-#define SYM_CLASS_LEFT  16
-#define SYM_CLASS_RIGHT 17
+#define SYM_CLASS_LEFT  15
+#define SYM_CLASS_RIGHT 16
 
 /* These are the ids of builtin exceptions, for use with lily_error. */
-#define SYM_CLASS_EXCEPTION    18
-#define SYM_CLASS_IOERROR      19
-#define SYM_CLASS_KEYERROR     20
-#define SYM_CLASS_RUNTIMEERROR 21
-#define SYM_CLASS_VALUEERROR   22
-#define SYM_CLASS_INDEXERROR   23
-#define SYM_CLASS_DBZERROR     24 /* > 9000 */
+#define SYM_CLASS_EXCEPTION    17
+#define SYM_CLASS_IOERROR      18
+#define SYM_CLASS_KEYERROR     19
+#define SYM_CLASS_RUNTIMEERROR 20
+#define SYM_CLASS_VALUEERROR   21
+#define SYM_CLASS_INDEXERROR   22
+#define SYM_CLASS_DBZERROR     23 /* > 9000 */
 
 /* Operations for specific kinds of values. */
 

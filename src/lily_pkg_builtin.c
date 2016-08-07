@@ -2917,11 +2917,11 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->hash_class       = build_class(symtab, "Hash",        2, HASH_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, TUPLE_OFFSET);
     lily_class *file_class   = build_class(symtab, "File",        0, FILE_OFFSET);
-    symtab->question_class   = build_class(symtab, "?",           0, 0);
 
-    symtab->optarg_class    = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
-    lily_class *scoop1 = build_special(symtab, "~1", 0, SYM_CLASS_SCOOP_1);
-    lily_class *scoop2 = build_special(symtab, "~2", 0, SYM_CLASS_SCOOP_2);
+    symtab->question_class = build_special(symtab, "?", 0, SYM_CLASS_QUESTION);
+    symtab->optarg_class   = build_special(symtab, "*", 1, SYM_CLASS_OPTARG);
+    lily_class *scoop1     = build_special(symtab, "~1", 0, SYM_CLASS_SCOOP_1);
+    lily_class *scoop2     = build_special(symtab, "~2", 0, SYM_CLASS_SCOOP_2);
 
     scoop1->type->flags |= TYPE_HAS_SCOOP;
     scoop2->type->flags |= TYPE_HAS_SCOOP;
