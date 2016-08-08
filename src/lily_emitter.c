@@ -1308,6 +1308,36 @@ static void write_closure_zap(lily_emit_state *emit)
     lily_u16_insert(emit->closure_aux_code, spot, count);
 }
 
+/* This takes a buffer (it's always the patch buffer) and checks for a record of
+   'dest' inside somewhere. If not found, then 'dest' is added, along with a
+   space after it. These pairings are later used to map from the original
+   destination to the new destination.
+   This function ensures that jumps that are added are kept in order from lowest
+   to highest. The reason for that is it makes it easier for closure transform
+   to step through them.
+   This is a helper for closure transform: Nothing else should use it. */
+static void maybe_add_jump(lily_buffer_u16 *buffer, int i, int dest)
+{
+    int end = lily_u16_pos(buffer);
+
+    for (;i < end;i += 2) {
+        int jump = lily_u16_get(buffer, i);
+
+        /* Make it so jumps are in order from lowest to highest. This allows
+           the transform pass to do a check-free increase of the check position
+           when a spot is found. */
+        if (jump > dest) {
+            lily_u16_inject(buffer, i, 0);
+            lily_u16_inject(buffer, i, dest);
+            return;
+        }
+        else if (jump == dest)
+            return;
+    }
+
+    lily_u16_write_2(buffer, dest, 0);
+}
+
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures.
@@ -1444,16 +1474,43 @@ static void perform_closure_transform(lily_emit_state *emit,
     } \
 }
 
+    uint16_t *buffer = ci.buffer;
     uint16_t patch_start = lily_u16_pos(emit->patches);
+    int i, pos;
 
+    /* Begin by creating a listing of all jump destinations, which is organized
+       from lowest to highest. Each entry has a spot after it to hold where that
+       jump is patched to. The spots will be filled during transformation. */
     while (lily_ci_next(&ci)) {
-        uint16_t *buffer = ci.buffer;
-        int i;
-        int pos = ci.offset + 1;
-        int output_start = 0;
-        lily_opcode op = buffer[ci.offset];
+        if (ci.jumps_7) {
+            int stop = ci.offset + ci.round_total;
 
-        pos += ci.line;
+            for (i = stop - ci.jumps_7;i < stop;i++) {
+                int jump = (int16_t)buffer[i];
+                /* Catching opcodes write a jump to 0 to let vm know that there
+                   is no next catch branch. Do not patch those. */
+                if (jump == 0)
+                    continue;
+
+                maybe_add_jump(emit->patches, patch_start, ci.offset + jump);
+            }
+        }
+    }
+
+    /* Add an impossible jump to act as a terminator. */
+    lily_u16_write_2(emit->patches, UINT16_MAX, 0);
+
+    uint16_t patch_stop = lily_u16_pos(emit->patches);
+    uint16_t patch_iter = patch_start;
+    uint16_t next_jump = lily_u16_get(emit->patches, patch_iter);
+
+    lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
+    while (lily_ci_next(&ci)) {
+        int output_start = 0;
+
+        lily_opcode op = buffer[ci.offset];
+        /* +1 to skip over the opcode itself. */
+        pos = ci.offset + 1 + ci.line;
 
         if (ci.special_1) {
             switch (op) {
@@ -1520,37 +1577,48 @@ static void perform_closure_transform(lily_emit_state *emit,
             }
         }
 
-        for (i = patch_start;i != lily_u16_pos(emit->patches);i += 3) {
-            int where = emit->patches->data[i + 1];
-            if (ci.offset == where) {
-                /* What's written is the relative value that was needed before.
-                   Fix it to include the distance added by any successful
-                   transforms. */
-                emit->closure_aux_code->data[emit->patches->data[i]] +=
-                        jump_adjust - emit->patches->data[i+2];
-            }
+        i = ci.offset;
+        if (i == next_jump) {
+            /* This op is a jump target. Write where it transform put it, and
+               setup to look for the next jump. Remember that there's an
+               impossible jump as the terminator, so there's no need for a
+               length check here. */
+            lily_u16_insert(emit->patches, patch_iter + 1,
+                    lily_u16_pos(emit->closure_aux_code));
+            patch_iter += 2;
+            next_jump = lily_u16_get(emit->patches, patch_iter); 
         }
 
         int stop = ci.offset + ci.round_total - ci.jumps_7;
-        for (i = ci.offset;i < stop;i++)
+        for (;i < stop;i++)
             lily_u16_write_1(emit->closure_aux_code, buffer[i]);
 
         if (ci.jumps_7) {
             int i;
             for (i = 0;i < ci.jumps_7;i++) {
-                int destination = buffer[stop + i];
+                /* This is the absolute position of this jump, but within the
+                   original buffer. */
+                int distance = (int16_t)buffer[stop + i];
 
-                /* Bug: This is broken for jumps that go backward. I'll fix that
-                   by making jumps relative, later on. */
-                lily_u16_write_1(emit->closure_aux_code, destination);
+                /* Exceptions write 0 as their last jump to note that handling
+                   should stop. Don't patch those 0's. */
+                if (distance) {
+                    int destination = ci.offset + distance;
 
-                /* To do transformations, 3 values are needed:
-                 * Where's the patch that's being fixed.
-                 * Where is the patch going (absolute)?
-                 * How much of an adjust is there so far? */
-                lily_u16_write_3(emit->patches,
-                        lily_u16_pos(emit->closure_aux_code) - 1,
-                        ci.offset + destination, jump_adjust);
+                    /* Jumps are recorded in pairs. The next pass will take the
+                       resulting position, and calculate how to get to the
+                       destination.
+                       Do note: Jumps are relative to the position of the
+                       opcode, for the sake of the vm. So include an offset from
+                       the opcode for use in the calculation. */
+                    lily_u16_write_2(emit->patches,
+                            lily_u16_pos(emit->closure_aux_code),
+                            ci.round_total - ci.jumps_7 + i);
+
+                    lily_u16_write_1(emit->closure_aux_code, destination);
+                }
+                else
+                    lily_u16_write_1(emit->closure_aux_code, 0);
             }
         }
 
@@ -1562,6 +1630,36 @@ static void perform_closure_transform(lily_emit_state *emit,
             }
         }
     }
+
+    /* It's time to patch the unfixed jumps, if there are any. The area from
+       patch_stop to the ending position contains jumps to be fixed. */
+    int j;
+    for (j = patch_stop;j < lily_u16_pos(emit->patches);j += 2) {
+        /* This is where, in the new code, that the jump is located. */
+        int aux_pos = lily_u16_get(emit->patches, j);
+        /* This has been set to an absolute destination in old code. */
+        int original = lily_u16_get(emit->closure_aux_code, aux_pos);
+        int k;
+
+        for (k = patch_start;k < patch_stop;k += 2) {
+            if (original == lily_u16_get(emit->patches, k)) {
+                /* Note that this is going to be negative for back jumps. */
+                int new_jump =
+                        /* The new destination */
+                        lily_u16_get(emit->patches, k + 1)
+                        /* The location */
+                        - aux_pos
+                        /* The distance between aux_pos and its opcode. */
+                        + lily_u16_get(emit->patches, j + 1);
+
+                lily_u16_insert(emit->closure_aux_code, aux_pos,
+                        (int16_t)new_jump);
+                break;
+            }
+        }
+    }
+
+    lily_u16_set_pos(emit->patches, patch_start);
 }
 
 /* This makes the function value that will be needed by the current code
