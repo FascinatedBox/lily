@@ -3356,6 +3356,7 @@ static lily_package *load_package(lily_parse_state *parser, const char *dirpath,
 
     lily_package *new_package = new_empty_package(parser, name);
     new_package->module_start = module;
+    new_package->module_top = module;
     module->parent = new_package;
 
     return new_package;
