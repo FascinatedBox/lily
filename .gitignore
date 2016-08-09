@@ -1,5 +1,4 @@
 # Binary junk to ignore.
-
 lib/*
 lily
 
@@ -7,11 +6,9 @@ lily
 CMakeFiles
 CMakeCache.txt
 cmake_install.cmake
-Makefile
 compile_commands.json
 install_manifest.txt
+Makefile
 
-# Stuff from the Codelite IDE to ignore.
-.codelite/
-*.project
-*.workspace
+# Other bits I'm not interested in.
+garden/docopt.pyc
