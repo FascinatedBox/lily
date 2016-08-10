@@ -4338,6 +4338,11 @@ lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
     return result;
 }
 
+void *lily_get_data(lily_vm_state *vm)
+{
+    return vm->data;
+}
+
 /* This is provided for runners (such as the standalone runner provided in the
    run directory). This puts together the current error message so that the
    runner is able to use it. The error message (and stack) are returned in full
