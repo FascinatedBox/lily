@@ -6,8 +6,8 @@
 #include "ap_config.h"
 #include "util_script.h"
 
-#include "lily_parser.h"
 #include "lily_utf8.h"
+#include "lily_parser.h"
 
 #include "lily_api_hash.h"
 #include "lily_api_alloc.h"
@@ -215,7 +215,7 @@ void lily_server_write(lily_state *s)
     else
         source = lily_mb_get(lily_get_msgbuf_noflush(s));
 
-    ap_rputs(source, (request_rec *)s->data);
+    ap_rputs(source, (request_rec *)lily_get_data(s));
 }
 
 /**
