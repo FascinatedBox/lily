@@ -255,7 +255,7 @@ void lily_server_write_raw(lily_state *s)
 
 static int lily_handler(request_rec *r)
 {
-    if (strcmp(r->handler, "lily"))
+    if (r->handler == NULL || strcmp(r->handler, "lily"))
         return DECLINED;
 
     r->content_type = "text/html";
