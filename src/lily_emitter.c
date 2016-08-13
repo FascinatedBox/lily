@@ -1586,7 +1586,7 @@ static void perform_closure_transform(lily_emit_state *emit,
             lily_u16_insert(emit->patches, patch_iter + 1,
                     lily_u16_pos(emit->closure_aux_code));
             patch_iter += 2;
-            next_jump = lily_u16_get(emit->patches, patch_iter); 
+            next_jump = lily_u16_get(emit->patches, patch_iter);
         }
 
         int stop = ci.offset + ci.round_total - ci.jumps_7;
@@ -1792,7 +1792,7 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
         lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_module->var_chain) 
+        if (v != emit->symtab->active_module->var_chain)
             lily_hide_block_vars(emit->symtab, v);
     }
     else
