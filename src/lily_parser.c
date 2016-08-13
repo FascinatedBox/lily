@@ -32,12 +32,12 @@ if (lex->token != expected) \
                tokname(expected), tokname(lex->token));
 
 /***
- *      ____       _               
- *     / ___|  ___| |_ _   _ _ __  
- *     \___ \ / _ \ __| | | | '_ \ 
+ *      ____       _
+ *     / ___|  ___| |_ _   _ _ __
+ *     \___ \ / _ \ __| | | | '_ \
  *      ___) |  __/ |_| |_| | |_) |
- *     |____/ \___|\__|\__,_| .__/ 
- *                          |_|    
+ *     |____/ \___|\__|\__,_| .__/
+ *                          |_|
  */
 
 /** Parser init and teardown is ugly right now, for how it reaches into
@@ -224,12 +224,12 @@ void lily_free_state(lily_state *vm)
 }
 
 /***
- *      ___                            _   
- *     |_ _|_ __ ___  _ __   ___  _ __| |_ 
+ *      ___                            _
+ *     |_ _|_ __ ___  _ __   ___  _ __| |_
  *      | || '_ ` _ \| '_ \ / _ \| '__| __|
- *      | || | | | | | |_) | (_) | |  | |_ 
+ *      | || | | | | | |_) | (_) | |  | |_
  *     |___|_| |_| |_| .__/ \___/|_|   \__|
- *                   |_|                   
+ *                   |_|
  */
 
 /** Lily has two keywords for loading code: `import` and `use`.
@@ -503,12 +503,12 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 }
 
 /***
- *      _____                     ____      _ _           _   _             
- *     |_   _|   _ _ __   ___    / ___|___ | | | ___  ___| |_(_) ___  _ __  
- *       | || | | | '_ \ / _ \  | |   / _ \| | |/ _ \/ __| __| |/ _ \| '_ \ 
+ *      _____                     ____      _ _           _   _
+ *     |_   _|   _ _ __   ___    / ___|___ | | | ___  ___| |_(_) ___  _ __
+ *       | || | | | '_ \ / _ \  | |   / _ \| | |/ _ \/ __| __| |/ _ \| '_ \
  *       | || |_| | |_) |  __/  | |__| (_) | | |  __/ (__| |_| | (_) | | | |
  *       |_| \__, | .__/ \___|   \____\___/|_|_|\___|\___|\__|_|\___/|_| |_|
- *           |___/|_|                                                       
+ *           |___/|_|
  */
 
 static lily_type *get_type_raw(lily_parse_state *, int);
@@ -921,12 +921,12 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
 }
 
 /***
- *      ____                    _                 _ 
+ *      ____                    _                 _
  *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
  *     | | | | | | | '_ \ / _` | |/ _ \ / _` |/ _` |
  *     | |_| | |_| | | | | (_| | | (_) | (_| | (_| |
  *     |____/ \__, |_| |_|\__,_|_|\___/ \__,_|\__,_|
- *            |___/                                 
+ *            |___/
  */
 
 static void parse_class_body(lily_parse_state *, lily_class *);
@@ -1009,7 +1009,7 @@ static void update_all_cid_tables(lily_parse_state *parser)
         while (entry_iter) {
             if (entry_iter->cid_table)
                 update_cid_table(parser, entry_iter);
-            
+
             entry_iter = entry_iter->root_next;
         }
 
@@ -1508,12 +1508,12 @@ static int keyword_by_name(const char *name)
 }
 
 /***
- *      _____                              _                 
- *     | ____|_  ___ __  _ __ ___  ___ ___(_) ___  _ __  ___ 
+ *      _____                              _
+ *     | ____|_  ___ __  _ __ ___  ___ ___(_) ___  _ __  ___
  *     |  _| \ \/ / '_ \| '__/ _ \/ __/ __| |/ _ \| '_ \/ __|
  *     | |___ >  <| |_) | | |  __/\__ \__ \ | (_) | | | \__ \
  *     |_____/_/\_\ .__/|_|  \___||___/___/_|\___/|_| |_|___/
- *                |_|                                        
+ *                |_|
  */
 
 /** Expression handling is hard. It's largely broken up into three different
@@ -2235,12 +2235,12 @@ static void expression(lily_parse_state *parser)
 }
 
 /***
- *      _                    _         _           
- *     | |    __ _ _ __ ___ | |__   __| | __ _ ___ 
+ *      _                    _         _
+ *     | |    __ _ _ __ ___ | |__   __| | __ _ ___
  *     | |   / _` | '_ ` _ \| '_ \ / _` |/ _` / __|
  *     | |__| (_| | | | | | | |_) | (_| | (_| \__ \
  *     |_____\__,_|_| |_| |_|_.__/ \__,_|\__,_|___/
- *                                                 
+ *
  */
 
 static lily_var *get_named_var(lily_parse_state *, lily_type *);
@@ -2465,12 +2465,12 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 }
 
 /***
- *     __     __             
- *     \ \   / /_ _ _ __ ___ 
+ *     __     __
+ *     \ \   / /_ _ _ __ ___
  *      \ \ / / _` | '__/ __|
  *       \ V / (_| | |  \__ \
  *        \_/ \__,_|_|  |___/
- *                           
+ *
  */
 
 /** Var declaration gets a special block because there's a fair amount of
@@ -2614,12 +2614,12 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 }
 
 /***
- *      ____  _        _                            _       
- *     / ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___ 
+ *      ____  _        _                            _
+ *     / ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___
  *     \___ \| __/ _` | __/ _ \ '_ ` _ \ / _ \ '_ \| __/ __|
  *      ___) | || (_| | ||  __/ | | | | |  __/ | | | |_\__ \
  *     |____/ \__\__,_|\__\___|_| |_| |_|\___|_| |_|\__|___/
- *                                                          
+ *
  */
 
 /** The rest of this focuses on handling handling keywords and blocks. Much of
