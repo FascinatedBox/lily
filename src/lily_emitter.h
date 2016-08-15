@@ -136,7 +136,13 @@ typedef struct lily_emit_call_state_ {
     uint32_t pad;
 } lily_emit_call_state;
 
-struct lily_storage_stack_;
+typedef struct lily_storage_stack_
+{
+    lily_storage **data;
+    uint16_t scope_end;
+    uint16_t size;
+    uint32_t pad;
+} lily_storage_stack;
 
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
 struct lily_parse_state_t;
