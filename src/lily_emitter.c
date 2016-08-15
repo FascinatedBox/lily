@@ -32,14 +32,6 @@
  *                          |_|
  */
 
-typedef struct lily_storage_stack_
-{
-    lily_storage **data;
-    uint16_t scope_end;
-    uint16_t size;
-    uint32_t pad;
-} lily_storage_stack;
-
 static lily_storage_stack *new_storage_stack(int);
 static void free_storage_stack(lily_storage_stack *);
 lily_function_val *new_native_function_val(char *, char *);
