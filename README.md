@@ -2,8 +2,6 @@ Linux: [![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=mast
 
 Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
 
-[![](https://img.shields.io/badge/Donate-Bountysource-blue.svg?style=flat)](https://salt.bountysource.com/teams/lily)
-
 ### Sample
 
 ```
