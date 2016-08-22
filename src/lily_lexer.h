@@ -134,6 +134,7 @@ typedef struct lily_lex_state_ {
 } lily_lex_state;
 
 void lily_free_lex_state(lily_lex_state *);
+void lily_rewind_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);

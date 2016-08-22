@@ -78,6 +78,7 @@ lily_state *lily_new_state(lily_options *options)
 
     lily_raiser *raiser = lily_new_raiser();
 
+    parser->old_module_start = NULL;
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
@@ -144,6 +145,19 @@ lily_state *lily_new_state(lily_options *options)
     return parser->vm;
 }
 
+static void free_links_until(lily_module_link *link_iter,
+        lily_module_link *stop)
+{
+    while (link_iter != stop) {
+        lily_module_link *link_next = link_iter->next_module;
+        lily_free(link_iter->as_name);
+        lily_free(link_iter);
+        link_iter = link_next;
+    }
+}
+
+#define free_links(iter) free_links_until(iter, NULL)
+
 void lily_free_state(lily_state *vm)
 {
     lily_parse_state *parser = vm->parser;
@@ -155,8 +169,6 @@ void lily_free_state(lily_state *vm)
     lily_free_expr_state(parser->first_expr);
 
     lily_free_vm(parser->vm);
-
-    lily_free_symtab(parser->symtab);
 
     lily_free_lex_state(parser->lex);
 
@@ -175,21 +187,14 @@ void lily_free_state(lily_state *vm)
         lily_module_entry *module_next = NULL;
 
         while (module_iter) {
-            lily_module_link *link_iter = module_iter->module_chain;
-            lily_module_link *link_next = NULL;
-            while (link_iter) {
-                link_next = link_iter->next_module;
-                lily_free(link_iter->as_name);
-                lily_free(link_iter);
-                link_iter = link_next;
-            }
+            free_links(module_iter->module_chain);
 
             module_next = module_iter->root_next;
 
             if (module_iter->handle)
                 lily_library_free(module_iter->handle);
 
-            lily_free_module_symbols(module_iter);
+            lily_free_module_symbols(parser->symtab, module_iter);
             lily_free(module_iter->path);
             lily_free(module_iter->dirname);
             lily_free(module_iter->loadname);
@@ -213,6 +218,7 @@ void lily_free_state(lily_state *vm)
         package_iter = package_next;
     }
 
+    lily_free_symtab(parser->symtab);
     lily_free_generic_pool(parser->generics);
     lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
@@ -221,6 +227,139 @@ void lily_free_state(lily_state *vm)
         lily_free_options(parser->options);
 
     lily_free(parser);
+}
+
+typedef struct
+{
+    lily_class *main_class_start;
+    lily_var *main_var_start;
+    lily_module_link *main_last_module_link;
+
+    lily_module_entry *main_package_top;
+    lily_package *main_last_package;
+    lily_package_link *main_last_package_link;
+    uint32_t line_num;
+    uint32_t pad;
+} lily_rewind_state;
+
+static void init_rewind(lily_parse_state *parser, lily_rewind_state *rs)
+{
+    lily_module_entry *main_module = parser->main_module;
+    rs->main_class_start = main_module->class_chain;
+    rs->main_var_start = main_module->var_chain;
+
+    rs->main_last_module_link = main_module->module_chain;
+    rs->main_last_package = parser->package_top;
+    rs->main_last_package_link = main_module->parent->linked_packages;
+    rs->main_package_top = main_module->parent->module_top;
+    rs->line_num = parser->lex->line_num;
+}
+
+static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
+{
+    lily_u16_set_pos(parser->optarg_stack, 0);
+
+    /* Rewind generics */
+    lily_generic_pool *gp = parser->generics;
+    gp->scope_start = 0;
+    gp->scope_end = 0;
+
+    /* Rewind expression state */
+    lily_expr_state *es = parser->first_expr;
+    es->root = NULL;
+    es->active = NULL;
+    es->next_available = es->first_tree;
+
+    parser->expr = es;
+
+    lily_ast_save_entry *save_iter = es->save_chain;
+    while (1) {
+        save_iter->entered_tree = NULL;
+        if (save_iter->prev == NULL)
+            break;
+        save_iter = save_iter->prev;
+    }
+    es->save_chain = save_iter;
+    es->save_depth = 0;
+
+    /* Rewind emit state */
+    lily_emit_state *emit = parser->emit;
+    lily_u16_set_pos(emit->patches, 0);
+    lily_u16_set_pos(emit->code, 0);
+    if (emit->closure_aux_code)
+        lily_u16_set_pos(emit->closure_aux_code, 0);
+
+    emit->call_values_pos = 0;
+    emit->closed_pos = 0;
+    emit->match_case_pos = 0;
+    emit->top_var = emit->main_block->var_start;
+    emit->top_function_ret = NULL;
+
+    lily_block *block_stop = emit->block->next;
+    lily_block *block_iter = emit->main_block->next;
+    while (block_iter != block_stop) {
+        if (block_iter->block_type >= block_define) {
+            emit->storages->scope_end = block_iter->storage_start;
+            break;
+        }
+        block_iter = block_iter->next;
+    }
+
+    emit->block = emit->main_block;
+    emit->function_block = emit->main_block;
+    emit->function_depth = 1;
+
+    /* Rewind ts */
+    lily_type_system *ts = parser->emit->ts;
+    /* ts blasts types on entry (instead of cleaning up on exit), so there's no
+       need to alter existing ts state. */
+    ts->num_used = 0;
+    ts->pos = 0;
+
+    /* Rewind lex state */
+    lily_rewind_lex_state(parser->lex);
+    parser->lex->line_num = rs->line_num;
+
+    /* Rewind raiser */
+    lily_raiser *raiser = parser->raiser;
+    lily_mb_flush(raiser->msgbuf);
+    lily_mb_flush(raiser->aux_msgbuf);
+    raiser->line_adjust = 0;
+    raiser->exception_cls = NULL;
+
+    /* Rewind the parts of the vm that can be rewound. */
+    lily_vm_state *vm = parser->vm;
+
+    lily_vm_catch_entry *catch_iter = vm->catch_chain;
+    while (catch_iter->prev)
+        catch_iter = catch_iter->prev;
+
+    vm->catch_chain = catch_iter;
+    vm->exception_value = NULL;
+    vm->pending_line = 0;
+    vm->vm_regs = vm->regs_from_main;
+
+    lily_call_frame *call_iter = vm->call_chain;
+    while (call_iter->prev)
+        call_iter = call_iter->prev;
+
+    vm->call_chain = call_iter;
+    vm->num_registers = call_iter->regs_used; /* todo: verify */
+    vm->call_depth = 0;
+
+    /* todo: This is not correct. It's leaky at best, and broken at worst.
+       Fix it when packages go away. */
+    if (parser->main_module->parent->module_top != rs->main_package_top) {
+        parser->main_module->parent->module_top = rs->main_package_top;
+        parser->main_module->root_next = NULL;
+        parser->main_module->module_chain = rs->main_last_module_link;
+    }
+
+    /* Symtab will choose to hide new classes (if executing) or destroy them (if
+       not executing). New vars are destroyed, and the main module is made
+       active again. */
+    lily_rewind_symtab(parser->symtab, parser->main_module,
+            rs->main_class_start, rs->main_var_start, parser->executing);
 }
 
 /***
@@ -4260,100 +4399,11 @@ static void fix_first_file_name(lily_parse_state *parser,
     parser->first_pass = 0;
 }
 
-static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
-        const char *filename)
+/* This is called when the interpreter encounters an error. This builds an
+   error message that is stored within parser's msgbuf. A runner can later fetch
+   this error with lily_get_error. */
+static void build_error(lily_parse_state *parser)
 {
-    if (parser->first_pass)
-        fix_first_file_name(parser, filename);
-
-    /* It is safe to do this, because the parser will always occupy the first
-       jump. All others should use lily_jump_setup instead. */
-    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        char *suffix = strrchr(filename, '.');
-        if (suffix == NULL || strcmp(suffix, ".lly") != 0)
-            lily_raise(parser->raiser, lily_Error,
-                    "File name must end with '.lly'.");
-
-        lily_load_file(parser->lex, mode, filename);
-        parser_loop(parser, filename);
-        lily_pop_lex_entry(parser->lex);
-
-        return 1;
-    }
-
-    return 0;
-}
-
-static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
-        const char *name, char *str)
-{
-    if (parser->first_pass)
-        fix_first_file_name(parser, name);
-
-    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_load_str(parser->lex, mode, str);
-        parser_loop(parser, name);
-        lily_pop_lex_entry(parser->lex);
-        return 1;
-    }
-
-    return 0;
-}
-
-int lily_parse_file(lily_state *s, const char *name)
-{
-    return parse_file(s->parser, lm_no_tags, name);
-}
-
-int lily_parse_string(lily_state *s, const char *name,
-        char *str)
-{
-    return parse_string(s->parser, lm_no_tags, name, str);
-}
-
-int lily_exec_template_string(lily_state *s, const char *name,
-        char *str)
-{
-    return parse_string(s->parser, lm_tags, name, str);
-}
-
-int lily_exec_template_file(lily_state *s, const char *filename)
-{
-    return parse_file(s->parser, lm_tags, filename);
-}
-
-lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
-{
-    /* todo: Handle scope access, class methods, and so forth. Ideally, it can
-       be done without loading any fake files (like dynaloading does), as this
-       may be the base of a preloader. */
-    lily_var *v = lily_find_var(vm->parser->symtab, NULL, name);
-    lily_function_val *result;
-
-    if (v)
-        result = vm->readonly_table[v->reg_spot]->value.function;
-    else
-        result = NULL;
-
-    return result;
-}
-
-void *lily_get_data(lily_vm_state *vm)
-{
-    return vm->data;
-}
-
-/* This is provided for runners (such as the standalone runner provided in the
-   run directory). This puts together the current error message so that the
-   runner is able to use it. The error message (and stack) are returned in full
-   in the string.
-   The string returned is a shallow reference (it's really the message of
-   parser's msgbuf). If the caller wants to keep the message, then the caller
-   needs to copy it. If the caller does not, the message will get blasted by the
-   next run. */
-const char *lily_get_error(lily_state *s)
-{
-    lily_parse_state *parser = s->parser;
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = parser->msgbuf;
 
@@ -4416,6 +4466,109 @@ const char *lily_get_error(lily_state *s)
             frame = frame->prev;
         }
     }
+}
 
-    return lily_mb_get(msgbuf);
+static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
+        const char *filename)
+{
+    if (parser->first_pass)
+        fix_first_file_name(parser, filename);
+
+    lily_rewind_state rs;
+    init_rewind(parser, &rs);
+
+    /* It is safe to do this, because the parser will always occupy the first
+       jump. All others should use lily_jump_setup instead. */
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        char *suffix = strrchr(filename, '.');
+        if (suffix == NULL || strcmp(suffix, ".lly") != 0)
+            lily_raise(parser->raiser, lily_Error,
+                    "File name must end with '.lly'.");
+
+        lily_load_file(parser->lex, mode, filename);
+        parser_loop(parser, filename);
+        lily_pop_lex_entry(parser->lex);
+
+        return 1;
+    }
+    else {
+        build_error(parser);
+        rewind_parser(parser, &rs);
+    }
+
+    return 0;
+}
+
+static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
+        const char *name, char *str)
+{
+    if (parser->first_pass)
+        fix_first_file_name(parser, name);
+
+    lily_rewind_state rs;
+    init_rewind(parser, &rs);
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_load_str(parser->lex, mode, str);
+        parser_loop(parser, name);
+        lily_pop_lex_entry(parser->lex);
+        return 1;
+    }
+    else {
+        build_error(parser);
+        rewind_parser(parser, &rs);
+    }
+
+    return 0;
+}
+
+int lily_parse_file(lily_state *s, const char *name)
+{
+    return parse_file(s->parser, lm_no_tags, name);
+}
+
+int lily_parse_string(lily_state *s, const char *name,
+        char *str)
+{
+    return parse_string(s->parser, lm_no_tags, name, str);
+}
+
+int lily_exec_template_string(lily_state *s, const char *name,
+        char *str)
+{
+    return parse_string(s->parser, lm_tags, name, str);
+}
+
+int lily_exec_template_file(lily_state *s, const char *filename)
+{
+    return parse_file(s->parser, lm_tags, filename);
+}
+
+lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
+{
+    /* todo: Handle scope access, class methods, and so forth. Ideally, it can
+       be done without loading any fake files (like dynaloading does), as this
+       may be the base of a preloader. */
+    lily_var *v = lily_find_var(vm->parser->symtab, NULL, name);
+    lily_function_val *result;
+
+    if (v)
+        result = vm->readonly_table[v->reg_spot]->value.function;
+    else
+        result = NULL;
+
+    return result;
+}
+
+void *lily_get_data(lily_vm_state *vm)
+{
+    return vm->data;
+}
+
+/* Return a string describing the last error encountered by the interpreter.
+   This string is guaranteed to be valid until the next execution of the
+   interpreter. */
+const char *lily_get_error(lily_state *s)
+{
+    return lily_mb_get(s->parser->msgbuf);
 }

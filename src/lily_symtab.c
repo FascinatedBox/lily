@@ -26,6 +26,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->old_class_chain = NULL;
+    symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
     symtab->generics = gp;
 
@@ -39,11 +40,11 @@ void lily_set_first_package(lily_symtab *symtab, lily_package *package)
     symtab->first_package = package;
 }
 
-static void free_vars(lily_var *var)
+static void free_vars_since(lily_var *var, lily_var *stop)
 {
     lily_var *var_next;
 
-    while (var) {
+    while (var != stop) {
         var_next = var->next;
 
         lily_free(var->name);
@@ -52,6 +53,8 @@ static void free_vars(lily_var *var)
         var = var_next;
     }
 }
+
+#define free_vars(v) free_vars_since(v, NULL)
 
 static void free_properties(lily_class *cls)
 {
@@ -67,9 +70,9 @@ static void free_properties(lily_class *cls)
     }
 }
 
-static void free_classes(lily_class *class_iter)
+static void free_classes_until(lily_class *class_iter, lily_class *stop)
 {
-    while (class_iter) {
+    while (class_iter != stop) {
         lily_free(class_iter->name);
 
         if (class_iter->item_kind == ITEM_TYPE_VARIANT) {
@@ -109,6 +112,25 @@ static void free_classes(lily_class *class_iter)
     }
 }
 
+#define free_classes(iter) free_classes_until(iter, NULL)
+
+static void hide_classes(lily_symtab *symtab, lily_class *class_iter,
+        lily_class *stop)
+{
+    lily_class *hidden_top = symtab->hidden_class_chain;
+
+    while (class_iter != stop) {
+        lily_class *class_next = class_iter->next;
+
+        class_iter->next = hidden_top;
+        hidden_top = class_iter;
+
+        class_iter = class_next;
+    }
+
+    symtab->hidden_class_chain = hidden_top;
+}
+
 static void free_literals(lily_value_stack *literals)
 {
     while (lily_vs_pos(literals)) {
@@ -129,10 +151,37 @@ static void free_literals(lily_value_stack *literals)
     lily_free_value_stack(literals);
 }
 
-void lily_free_module_symbols(lily_module_entry *entry)
+void lily_hide_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
 {
+    hide_classes(symtab, entry->class_chain, NULL);
+    free_vars(entry->var_chain);
+}
+
+void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
+{
+    (void) symtab;
     free_classes(entry->class_chain);
     free_vars(entry->var_chain);
+}
+
+void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
+        lily_class *stop_class, lily_var *stop_var, int hide)
+{
+    symtab->active_module = main_module;
+
+    if (main_module->var_chain != stop_var) {
+        free_vars_since(main_module->var_chain, stop_var);
+        main_module->var_chain = stop_var;
+    }
+
+    if (main_module->class_chain != stop_class) {
+        if (hide)
+            free_classes_until(main_module->class_chain, stop_class);
+        else
+            hide_classes(symtab, main_module->class_chain, stop_class);
+
+        main_module->class_chain = stop_class;
+    }
 }
 
 void lily_free_symtab(lily_symtab *symtab)
@@ -140,6 +189,7 @@ void lily_free_symtab(lily_symtab *symtab)
     free_literals(symtab->literals);
 
     free_classes(symtab->old_class_chain);
+    free_classes(symtab->hidden_class_chain);
     free_vars(symtab->old_function_chain);
 
     /* __main__ requires a special teardown because it doesn't allocate names
