@@ -78,7 +78,6 @@ lily_state *lily_new_state(lily_options *options)
 
     lily_raiser *raiser = lily_new_raiser();
 
-    parser->old_module_start = NULL;
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
