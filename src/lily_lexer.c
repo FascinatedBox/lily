@@ -202,6 +202,33 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     return lexer;
 }
 
+void lily_rewind_lex_state(lily_lex_state *lexer)
+{
+    if (lexer->entry) {
+        lily_lex_entry *entry_iter = lexer->entry;
+        while (entry_iter->prev)
+            entry_iter = entry_iter->prev;
+
+        lexer->entry = entry_iter;
+
+        while (entry_iter) {
+            if (entry_iter->source != NULL) {
+                close_entry(entry_iter);
+                entry_iter->source = NULL;
+            }
+
+            lily_free(entry_iter->saved_input);
+            entry_iter->saved_input = NULL;
+            entry_iter = entry_iter->next;
+        }
+    }
+
+    lexer->last_digit_start = 0;
+    lexer->last_literal = NULL;
+    lexer->last_integer = 0;
+    lexer->input_pos = 0;
+}
+
 void lily_free_lex_state(lily_lex_state *lexer)
 {
     if (lexer->entry) {
