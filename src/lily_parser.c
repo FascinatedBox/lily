@@ -1482,7 +1482,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
         update_cid_table(parser, m);
 
         void *value = m->loader(parser->options, m->cid_table, dyna_pos);
-        lily_foreign_value *foreign = (lily_foreign_value *)value;
+        lily_literal *foreign = (lily_literal *)value;
 
         /* Values are saved in parser space until the vm is ready to receive
            them. Make use of the extra space in a lily_value to write down what

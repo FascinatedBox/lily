@@ -31,22 +31,25 @@ typedef union lily_raw_value_ {
     struct lily_foreign_val_ *foreign;
 } lily_raw_value;
 
-/* This is the var of a value that's being stored in the parser until the vm is
-   ready to receive it. */
-typedef struct lily_foreign_value_ {
-    uint32_t flags;
-    uint16_t pad;
-    uint16_t reg_spot;
-    lily_raw_value value;
-} lily_foreign_value;
+/* A literal represents some value that needs to be stored until the vm is ready
+   to receive it. These come in the following flavors:
+   * Foreign values, which will be consumed by the vm to initialize globals.
+     These don't need to store any additional information.
+   * The common kind of literals: Integers, Strings, and so on. These each use
+     the 'next_index' to store where the next of their group is, so that symtab
+     can search through them faster. The last one will have 'next_index' set to
+     0.
 
-/* Literals are stored in an array, and for simplicity, each one of a particular
-   group holds where the next in. So, for example, the Integers all know where
-   the next one is with the last holding a next of 0. */
+   It is both intentional and important that these are the same size as a real
+   value. This allows them to be manipulated by the vm using value-handling
+   functions, as if they were a real value...even if they aren't. */
 typedef struct lily_literal_ {
     uint32_t flags;
+    union {
+        uint16_t pad;
+        uint16_t next_index;
+    };
     uint16_t reg_spot;
-    uint16_t next_index;
     lily_raw_value value;
 } lily_literal;
 

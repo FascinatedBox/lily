@@ -1895,14 +1895,14 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
 static void load_foreign_values(lily_vm_state *vm, lily_value_stack *values)
 {
     while (lily_vs_pos(values)) {
-        lily_foreign_value *fv = (lily_foreign_value *)lily_vs_pop(values);
-        uint16_t reg_spot = fv->reg_spot;
+        lily_literal *l = (lily_literal *)lily_vs_pop(values);
+        uint16_t reg_spot = l->reg_spot;
 
         /* The value already has a ref from being made, so don't use regular
            assign or it will have two refs. Since this is a transfer of
            ownership, use noref and drop the old container. */
-        lily_assign_value_noref(vm->regs_from_main[reg_spot], (lily_value *)fv);
-        lily_free(fv);
+        lily_assign_value_noref(vm->regs_from_main[reg_spot], (lily_value *)l);
+        lily_free(l);
     }
 }
 
