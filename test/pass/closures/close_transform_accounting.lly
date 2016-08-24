@@ -1,0 +1,25 @@
+# This test makes sure that closure jump patching accounts for o_get_upvalue
+# transformations that are done.
+# If it does not, then the jump to 'short' will not include the o_get_upvalue
+# read. As a result, 'short' will see the stale value of 'ch', instead of the
+# fresh value from the closure.
+
+define parse_line {
+    var ch = "X"
+    var short = ""
+
+    define get: String {
+        ch = "+"
+        return ch
+    }
+
+    if get() == "-": {
+    else:
+        short = ch
+    }
+
+    if short != "+":
+        stderr.print("Failed.")
+}
+
+parse_line()
