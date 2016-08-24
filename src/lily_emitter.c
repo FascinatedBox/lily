@@ -1330,6 +1330,50 @@ static void maybe_add_jump(lily_buffer_u16 *buffer, int i, int dest)
     lily_u16_write_2(buffer, dest, 0);
 }
 
+/* This is an ugly function that creates a code iter to determine how many
+   transforms that an op performed. This information is used when patching the
+   jump to an opcode, so that the jump is pulled back to account for
+   o_get_upvalue transforms. */
+static int count_transforms(lily_emit_state *emit, int start)
+{
+    lily_code_iter ci;
+    lily_ci_init(&ci, emit->code->data, start, lily_u16_pos(emit->code));
+    lily_ci_next(&ci);
+    uint16_t *buffer = ci.buffer;
+    uint16_t *transform_table = emit->transform_table;
+    lily_opcode op = buffer[ci.offset];
+    int pos = ci.offset + 1 + ci.line;
+    int count = 0;
+
+    if ((op == o_function_call || op == o_match_dispatch) &&
+        transform_table[buffer[pos]] != (uint16_t)-1)
+        count++;
+
+    pos += ci.special_1 + ci.counter_2;
+
+    if (ci.inputs_3) {
+        int i;
+        for (i = 0;i < ci.inputs_3;i++) {
+            if (transform_table[buffer[pos + i]] != (uint16_t)-1)
+                count++;
+        }
+    }
+
+    pos += ci.inputs_3 + ci.special_4 + ci.outputs_5;
+
+    if (op == o_native_call ||
+        op == o_foreign_call ||
+        op == o_function_call) {
+        int i;
+        for (i = 0;i < ci.special_6;i++) {
+            if (transform_table[buffer[pos + i]] != (uint16_t)-1)
+                count++;
+        }
+    }
+
+    return count;
+}
+
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures.
@@ -1635,6 +1679,8 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         for (k = patch_start;k < patch_stop;k += 2) {
             if (original == lily_u16_get(emit->patches, k)) {
+                int tx_offset = count_transforms(emit, original) * 4;
+
                 /* Note that this is going to be negative for back jumps. */
                 int new_jump =
                         /* The new destination */
@@ -1642,7 +1688,9 @@ static void perform_closure_transform(lily_emit_state *emit,
                         /* The location */
                         - aux_pos
                         /* The distance between aux_pos and its opcode. */
-                        + lily_u16_get(emit->patches, j + 1);
+                        + lily_u16_get(emit->patches, j + 1)
+                        /* How far to go back to include upvalue reads. */
+                        - tx_offset;
 
                 lily_u16_insert(emit->closure_aux_code, aux_pos,
                         (int16_t)new_jump);
