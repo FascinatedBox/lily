@@ -1,0 +1,15 @@
+I know there are a few of you who are interested in this project, so I wanted to talk about how my feeling toward this project has recently changed.
+
+I have another project that is intented to scratch a more personal itch than this one does. So I've decided to put my time toward that, until it has the features I want. It's a much smaller project than this one. In the meantime, I'll be around for PR's and questions, but I'm unlikely to be actually doing much.
+
+You see, a central reason for starting Lily is that I wanted a job doing programming some day. Nearly three months ago (near the end of April), I left Costco in search of that very job. I have Aspergers, so doing programming is something that I've idolized as a career for many years. I started Lily to have a project to put on my resume, as the rest wasn't exciting. I don't have a programming degree, and thought that having experience would fill the gap.
+
+Hired does not want to work with me. TripleByte tried for a while, and then gave up. Honeypot got me 0 interviews. Cybercoders didn't get me anything either. I've sent more resumes out than I can even count on my own. I'm tired of being told that I'm probably not a good fit but they wish me luck. I've managed a total of 3 interviews in 4 months.
+
+I'm pretty angry and bitter right now, because my 401k is now half gone, and I'm having to go back to Costco.
+
+Now that I don't see a tech job in my future, a huge motivation for me to work on Lily is now gone.
+
+To everyone that's helped out, I apologize. I hope that, when my other project is complete (enough), that I can muster the energy to return to this one.
+
+Sorry.
