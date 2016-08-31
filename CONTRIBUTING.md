@@ -25,6 +25,6 @@ python pre-commit-hook.py
 
 Push to your fork and [submit a pull request][pr].
 
-[pr]: https://github.com/jesserayadkins/lily/compare/
+[pr]: https://github.com/beyondred/lily/compare/
 
 Now you're waiting on me. I'll try to comment on your pull request in a timely manner, hopefully no more than a couple days. I might mention some changes, or have improvements.
