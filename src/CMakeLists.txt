@@ -29,4 +29,4 @@ install(FILES lily_api_alloc.h
               lily_api_msgbuf.h
               lily_api_value.h
               lily_int_opcode.h
-        DESTINATION "lily")
+        DESTINATION "include/lily")
