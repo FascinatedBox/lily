@@ -1,6 +1,6 @@
-Linux: [![Linux Build](https://travis-ci.org/jesserayadkins/lily.svg?branch=master)](https://travis-ci.org/jesserayadkins/lily)
+Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=master)](https://travis-ci.org/FascinatedBox/lily)
 
-Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/jesserayadkins/lily?svg=true)](https://ci.appveyor.com/project/JesseRayAdkins/lily)
+Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
 
 ### Sample
 
@@ -44,7 +44,7 @@ match maybe_cat: {
 
 ### Install
 
-[Want to try it first? Here's a sandbox.](https://jesserayadkins.github.io/lily/sandbox.html)
+[Want to try it first? Here's a sandbox.](https://FascinatedBox.github.io/lily/sandbox.html)
 
 You need `cmake` and a compiler that understands C11.
 
@@ -81,6 +81,6 @@ Lily is a very young language and the community is still growing.
 
 - IRC: You can chat with other Lily users on [freenode #lily](https://webchat.freenode.net/?channels=%23lily).
 
-- Tutorial: https://jesserayadkins.github.io/lily/tutorial.html
+- Tutorial: https://FascinatedBox.github.io/lily/tutorial.html
 
-- Reference: https://jesserayadkins.github.io/lily/reference.html
+- Reference: https://FascinatedBox.github.io/lily/reference.html
