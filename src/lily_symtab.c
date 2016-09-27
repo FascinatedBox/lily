@@ -514,7 +514,13 @@ lily_class *lily_new_raw_class(const char *name)
 
     new_class->item_kind = 0;
     new_class->flags = 0;
-    new_class->type = NULL;
+
+    /* New classes start off as having 0 generics, as well as being their own
+       type. User-defined classes should fix the self type if they fix the
+       generic count. */
+    new_class->self_type = (lily_type *)new_class;
+    new_class->type_subtype_count = 0;
+
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->name = name_copy;

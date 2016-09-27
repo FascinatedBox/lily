@@ -119,40 +119,21 @@ static lily_type *lookup_type(lily_type *input_type)
 
 static lily_type *build_real_type_for(lily_type *fake_type)
 {
+    /* Given a 'fake' type (one made off the stack), create a real type and add
+       it to the types of a class. Don't worry about setting self_type, because
+       parser takes care of it. */
     lily_type *new_type = lily_new_raw_type(fake_type->cls);
-    int count = fake_type->subtype_count;
 
     memcpy(new_type, fake_type, sizeof(lily_type));
 
-    if (count == 0) {
-        new_type->subtypes = NULL;
-        new_type->subtype_count = 0;
-        /* If this type has no subtypes, and it was just created, then it
-            has to be the default type for this class. */
-        fake_type->cls->type = new_type;
-        return new_type;
-    }
-
+    int count = fake_type->subtype_count;
     lily_type **new_subtypes = lily_malloc(count * sizeof(lily_type *));
     memcpy(new_subtypes, fake_type->subtypes, count * sizeof(lily_type *));
     new_type->subtypes = new_subtypes;
     new_type->subtype_count = count;
 
-    lily_type *cls_subtypes = new_type->cls->all_subtypes;
-
-    /* Whenever a class is created, no matter what the origin is, the first type
-       they always make is their 'self' type. The 'self' type needs to be
-       available at various times. To avoid putting a field on classes, instead,
-       this links every subsequent type AFTER the 'self' type, preserving 'self'
-       as always being the first member of the list. */
-    if (cls_subtypes != NULL) {
-        new_type->next = cls_subtypes->next;
-        cls_subtypes->next = new_type;
-    }
-    else {
-        new_type->next = cls_subtypes;
-        new_type->cls->all_subtypes = new_type;
-    }
+    new_type->next = new_type->cls->all_subtypes;
+    new_type->cls->all_subtypes = new_type;
 
     int i;
     for (i = 0;i < new_type->subtype_count;i++) {
@@ -199,15 +180,6 @@ lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
     }
 
     return lily_tm_make(tm, 0, t->cls, j);
-}
-
-lily_type *lily_tm_make_default_for(lily_type_maker *tm, lily_class *cls)
-{
-    lily_type *new_type = lily_new_raw_type(cls);
-    cls->type = new_type;
-    cls->all_subtypes = new_type;
-
-    return new_type;
 }
 
 void lily_free_type_maker(lily_type_maker *tm)

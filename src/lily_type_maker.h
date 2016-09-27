@@ -22,7 +22,6 @@ void lily_tm_reserve(lily_type_maker *, int);
 lily_type *lily_tm_pop(lily_type_maker *);
 lily_type *lily_tm_get(lily_type_maker *, int);
 lily_type *lily_tm_make(lily_type_maker *, int, lily_class *, int);
-lily_type *lily_tm_make_default_for(lily_type_maker *, lily_class *);
 lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *, lily_type *);
 
 void lily_free_type_maker(lily_type_maker *);

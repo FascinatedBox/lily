@@ -23,13 +23,13 @@ typedef struct {
     uint16_t cls_id;
     uint16_t pad;
 
-    char *name;
-    uint64_t shorthash;
-
     union {
         struct lily_type_ *build_type;
         struct lily_literal_ *default_value;
     };
+
+    char *name;
+    uint64_t shorthash;
 
     struct lily_class_ *parent;
 } lily_variant_class;
@@ -41,16 +41,23 @@ typedef struct lily_class_ {
     uint16_t item_kind;
     uint16_t flags;
     uint16_t id;
-    uint16_t pad;
+    /* This aligns with lily_type's subtype_count. It must always be 0, so that
+       the type system sees classes acting as types as being an empty type. */
+    uint16_t type_subtype_count;
+
+    /* In most cases, this is the type that you would expect if the parser were
+       inside of this class and wanted to know what 'self' is.
+       For classes without generics, this is actually the class itself! The
+       class is cleverly laid out so that it can also be a type.
+       For some built-in classes with generics, the second part holds true.
+       That may not be what's expected, but it turns out to be harmless because
+       built-in 'classes' (not enums) are not pattern matched against. */
+    struct lily_type_ *self_type;
 
     char *name;
     /* This holds (up to) the first 8 bytes of the name. This is checked before
        doing a strcmp against the name. */
     uint64_t shorthash;
-
-    /* If a class does not take generics, then this is set and it is a single
-       type that is shared by all. NULL otherwise. */
-    struct lily_type_ *type;
 
     struct lily_class_ *parent;
 
@@ -73,15 +80,17 @@ typedef struct lily_class_ {
        used for establishing a scope when doing dynaloading. */
     struct lily_module_entry_ *module;
 
-    /* Every type that has this as its class can be found here. The type maker
-       (which is responsible for creating new types) will always build the
-       'self' type of any class first, as well as ensuring that it is always
-       first. */
+    /* Classes that need generics will make actual types (with self_type being
+       set to an appropriate 'self'). For those classes, this contains all types
+       that were created within this class.
+       To make it clear: Only -real- types go here. */
     struct lily_type_ *all_subtypes;
 } lily_class;
 
 typedef struct lily_type_ {
-    lily_class *cls;
+    /* All types are stored in a linked list in the symtab so they can be
+       easily destroyed. */
+    struct lily_type_ *next;
 
     uint16_t item_kind;
     uint16_t flags;
@@ -90,15 +99,14 @@ typedef struct lily_type_ {
     uint16_t generic_pos;
     uint16_t subtype_count;
 
-    /* If this type has subtypes (ex: A list has a subtype that explains what
-       type is allowed inside), then this is where those subtypes are.
-       Functions are a special case, where subtypes[0] is either their return
-       type, or NULL. */
-    struct lily_type_ **subtypes;
+    lily_class *cls;
 
-    /* All types are stored in a linked list in the symtab so they can be
-       easily destroyed. */
-    struct lily_type_ *next;
+    /* If this type is -not- a class in disguise, then these are the types that
+       are inside of it. Function is special cased so that [0] is the return,
+       and that return may be NULL.
+       If this type is actually a class, then subtype_count will be set to 0,
+       and that should be checked before using this. */
+    struct lily_type_ **subtypes;
 } lily_type;
 
 
@@ -309,7 +317,9 @@ typedef struct lily_package_link_ {
 #define ITEM_TYPE_TYPE     6
 #define ITEM_TYPE_CLASS    7
 
-/* CLS_* defines are for lily_class. */
+/* CLS_* defines are for lily_class.
+   Since classes without generics can act as their own type, these fields must
+   not conflict with TYPE_* fields. */
 
 
 #define CLS_VALID_HASH_KEY 0x001
@@ -331,25 +341,25 @@ typedef struct lily_package_link_ {
 #define CLS_VISITED        0x100
 
 /* TYPE_* defines are for lily_type.
-   Since types are not usable as values, they do not need to start where
-   the ITEM_* defines leave off. */
+   Since classes without generics can act as their own type, these flags start
+   where class flags leave off. */
 
 
 /* If set, the type is a function that takes a variable number of values. */
-#define TYPE_IS_VARARGS        0x01
+#define TYPE_IS_VARARGS    0x0200
 /* This is set on a type when it is a generic (ex: A, B, ...), or when it
    contains generics at some point. Emitter and vm use this as a fast way of
    checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED     0x02
+#define TYPE_IS_UNRESOLVED 0x0400
 /* This is set on function types that have at least one optional argument. This
    is set so that emitter and ts can easily figure out if the function doesn't
    have to take some arguments. */
-#define TYPE_HAS_OPTARGS       0x04
+#define TYPE_HAS_OPTARGS   0x0800
 /* This is set on a type that either is the ? type, or has a type that contains
    the ? type within it. */
-#define TYPE_IS_INCOMPLETE     0x08
+#define TYPE_IS_INCOMPLETE 0x1000
 /* This is a scoop type, or has one inside somewhere. */
-#define TYPE_HAS_SCOOP         0x10
+#define TYPE_HAS_SCOOP     0x2000
 
 /* SYM_* flags are for things based off of lily_sym. */
 

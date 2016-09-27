@@ -72,7 +72,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
     if (type == NULL ||
         (type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         ;
-    else if (type->subtypes != NULL) {
+    else if (type->cls->generic_count != 0) {
         int i;
         /* Resolve handles solving generics and is thus hit pretty often. So
            it reserves the maximum that could possibly be used at once
@@ -137,7 +137,7 @@ static void simple_unify(lily_type_system *ts, lily_type *left,
         lily_tm_add(ts->tm, lily_tm_make(ts->tm, flags, cls, num_subtypes));
     }
     else
-        lily_tm_add(ts->tm, cls->type);
+        lily_tm_add(ts->tm, cls->self_type);
 }
 
 static int check_raw(lily_type_system *, lily_type *, lily_type *, int);

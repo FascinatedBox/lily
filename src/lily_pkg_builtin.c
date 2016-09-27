@@ -2848,19 +2848,6 @@ extern void lily_builtin_print(lily_state *);
 #include "extras_builtin.h"
 #include "dyna_builtin.h"
 
-static void make_default_type_for(lily_class *cls)
-{
-    lily_type *t = lily_malloc(sizeof(lily_type));
-    t->cls = cls;
-    t->flags = 0;
-    t->generic_pos = 0;
-    t->subtype_count = 0;
-    t->subtypes = NULL;
-    t->next = NULL;
-    cls->type = t;
-    cls->all_subtypes = t;
-}
-
 static lily_class *build_class(lily_symtab *symtab, const char *name,
         int generic_count, int dyna_start)
 {
@@ -2868,9 +2855,6 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
     result->dyna_start = dyna_start;
     result->generic_count = generic_count;
     result->flags |= CLS_IS_BUILTIN;
-
-    if (generic_count == 0)
-        make_default_type_for(result);
 
     return result;
 }
@@ -2891,9 +2875,6 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
     result->next = symtab->old_class_chain;
     symtab->old_class_chain = result;
-
-    if (generic_count == 0)
-        make_default_type_for(result);
 
     return result;
 }
@@ -2923,8 +2904,8 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     lily_class *scoop1     = build_special(symtab, "~1", 0, SYM_CLASS_SCOOP_1);
     lily_class *scoop2     = build_special(symtab, "~2", 0, SYM_CLASS_SCOOP_2);
 
-    scoop1->type->flags |= TYPE_HAS_SCOOP;
-    scoop2->type->flags |= TYPE_HAS_SCOOP;
+    scoop1->self_type->flags |= TYPE_HAS_SCOOP;
+    scoop2->self_type->flags |= TYPE_HAS_SCOOP;
 
     symtab->integer_class->flags    |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
     symtab->double_class->flags     |= CLS_VALID_OPTARG;
@@ -2945,7 +2926,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     file_class->move_flags               = VAL_IS_FILE;
 
     /* These need to be set here so type finalization can bubble them up. */
-    symtab->question_class->type->flags |= TYPE_IS_INCOMPLETE;
+    symtab->question_class->self_type->flags |= TYPE_IS_INCOMPLETE;
     symtab->function_class->flags |= CLS_GC_TAGGED;
     symtab->dynamic_class->flags |= CLS_GC_SPECULATIVE;
     /* HACK: This ensures that there is space to dynaload builtin classes and

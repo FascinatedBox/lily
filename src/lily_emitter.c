@@ -45,8 +45,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->patches = lily_new_buffer_u16(4);
     emit->match_cases = lily_malloc(sizeof(int) * 4);
     emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->type,
-            symtab->question_class->type);
+    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->self_type,
+            symtab->question_class->self_type);
     emit->code = lily_new_buffer_u16(32);
     emit->closure_aux_code = NULL;
 
@@ -59,8 +59,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->expr_strings = lily_new_string_pile();
 
     /* tm uses Dynamic's type as a special default, so it needs that. */
-    emit->tm->dynamic_class_type = symtab->dynamic_class->type;
-    emit->tm->question_class_type = symtab->question_class->type;
+    emit->tm->dynamic_class_type = symtab->dynamic_class->self_type;
+    emit->tm->question_class_type = symtab->question_class->self_type;
 
     emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
 
@@ -412,7 +412,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     /* If no step is provided, provide '1' as a step. */
     if (for_step == NULL) {
-        for_step = (lily_sym *)lily_emit_new_local_var(emit, cls->type,
+        for_step = (lily_sym *)lily_emit_new_local_var(emit, cls->self_type,
                 "(for step)");
         lily_u16_write_4(emit->code, o_get_integer, line_num, 1,
                 for_step->reg_spot);
@@ -429,7 +429,7 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
            local one is expected is quite bad.
            This isn't common, so it's fine if this needs to be fixed up with an
            extra set of syncing writes. */
-        target = (lily_sym *)lily_emit_new_local_var(emit, cls->type,
+        target = (lily_sym *)lily_emit_new_local_var(emit, cls->self_type,
                 "(for temp)");
     }
     else
@@ -2581,7 +2581,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
              rhs_class == storage_class)
         s = (lily_storage *)rhs_sym;
     else {
-        s = get_storage(emit, storage_class->type);
+        s = get_storage(emit, storage_class->self_type);
         s->flags |= SYM_NOT_ASSIGNABLE;
     }
 
@@ -2816,7 +2816,7 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
     for (i = 0, arg = ast->arg_start; arg != NULL; arg = arg->next_arg, i++)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
 
-    lily_storage *s = get_storage(emit, emit->symtab->string_class->type);
+    lily_storage *s = get_storage(emit, emit->symtab->string_class->self_type);
     lily_u16_write_1(emit->code, s->reg_spot);
 
     ast->result = (lily_sym *)s;
@@ -2915,7 +2915,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         int save_pos;
         lily_symtab *symtab = emit->symtab;
 
-        result = get_storage(emit, symtab->boolean_class->type);
+        result = get_storage(emit, symtab->boolean_class->self_type);
 
         int truthy = (ast->op == expr_logical_and);
 
@@ -3110,7 +3110,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
                 "Invalid operation: %s%s.",
                 opname(ast->op), lhs_class->name);
 
-    storage = get_storage(emit, lhs_class->type);
+    storage = get_storage(emit, lhs_class->self_type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
     lily_u16_write_4(emit->code, opcode, ast->line_num,
@@ -3214,7 +3214,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 
 static void emit_integer(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_storage *s = get_storage(emit, emit->symtab->integer_class->type);
+    lily_storage *s = get_storage(emit, emit->symtab->integer_class->self_type);
 
     lily_u16_write_4(emit->code, o_get_integer, ast->line_num,
             ast->backing_value, s->reg_spot);
@@ -3224,7 +3224,7 @@ static void emit_integer(lily_emit_state *emit, lily_ast *ast)
 
 static void emit_boolean(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_storage *s = get_storage(emit, emit->symtab->boolean_class->type);
+    lily_storage *s = get_storage(emit, emit->symtab->boolean_class->self_type);
 
     lily_u16_write_4(emit->code, o_get_boolean, ast->line_num,
             ast->backing_value, s->reg_spot);
@@ -3264,7 +3264,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
     if (key_type == NULL || key_type->cls->id == SYM_CLASS_QUESTION)
-        key_type = emit->symtab->dynamic_class->type;
+        key_type = emit->symtab->dynamic_class->self_type;
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
@@ -3278,7 +3278,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
 static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    lily_type *dynamic_type = emit->symtab->dynamic_class->type;
+    lily_type *dynamic_type = emit->symtab->dynamic_class->self_type;
     lily_class *cls;
     int num, op;
 
@@ -3324,7 +3324,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     lily_ast *tree_iter;
 
     lily_type *key_type, *question_type, *value_type;
-    question_type = emit->symtab->question_class->type;
+    question_type = emit->symtab->question_class->self_type;
 
     if (expect && expect->cls->id == SYM_CLASS_HASH) {
         key_type = expect->subtypes[0];
@@ -4007,7 +4007,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                     "Variant %s should not get args.",
                     variant->name);
 
-        lily_type *self_type = variant->parent->all_subtypes;
+        lily_type *self_type = variant->parent->self_type;
+
         lily_ts_save_point p;
 
         process_call(emit, &p, ast, expect);
@@ -4022,7 +4023,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     }
     else {
         lily_variant_class *variant = ast->variant;
-        lily_type *self_type = variant->parent->all_subtypes;
         /* Did this need arguments? It was used incorrectly if so. */
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             verify_argument_count(emit, ast, variant->build_type, -1, 0);
@@ -4031,6 +4031,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
                 variant->default_value->reg_spot);
 
         if (variant->parent->generic_count) {
+            lily_type *self_type = variant->parent->self_type;
             lily_ts_save_point p;
             lily_ts_scope_save(emit->ts, &p);
 
@@ -4045,7 +4046,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             lily_ts_scope_restore(emit->ts, &p);
         }
         else
-            padded_type = self_type;
+            padded_type = variant->parent->self_type;
     }
 
     ast->maybe_result_pos = lily_u16_pos(emit->code);

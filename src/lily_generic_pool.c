@@ -34,7 +34,7 @@ void lily_free_generic_pool(lily_generic_pool *gp)
         if (c == NULL)
             break;
 
-        lily_free(c->type);
+        lily_free(c->self_type);
         lily_free(c->name);
         lily_free(c);
     }
@@ -75,7 +75,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
         t->generic_pos = generic_pos;
 
         new_generic->id = SYM_CLASS_GENERIC;
-        new_generic->type = t;
+        new_generic->self_type = t;
         new_generic->all_subtypes = t;
 
         result = new_generic;

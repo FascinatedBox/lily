@@ -657,13 +657,9 @@ static int constant_by_name(const char *);
     with general collection of types that either do or don't have a name. The
     other half deals with optional arguments (optargs) and optional argument
     value collection.
-    A common thing you'll see mentioned throughout type-related code is the idea
-    of a default type.
-    Before any type is created, the type maker module checks to see if there is
-    a type that describes what is trying to be made. If so, the existing type is
-    returned.
-    Some types have no subtypes, and thus only need a single type to describe
-    them. This type is their 'default type'. **/
+    There's a small bit that deals with making sure that the self_type of a
+    class is properly set. For enums, self_type is used for solving variants, so
+    it's important that self_type be right. **/
 
 /* Given a var, collect the optional argument that goes with it. This will push
    information to parser's optarg_stack to link the value to the var. The token
@@ -904,7 +900,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
                 "Variant types not allowed in a declaration.");
 
     if (cls->generic_count == 0)
-        result = cls->type;
+        result = cls->self_type;
     else if (cls->id != SYM_CLASS_FUNCTION) {
         NEED_NEXT_TOK(tk_left_bracket)
         int i = 0;
@@ -1035,8 +1031,8 @@ static void collect_generics(lily_parse_state *parser)
    which has all of those generics:
    `class Box[A]` == `Box[A]`
    `enum Either[A, B]` == `Either[A, B]`.
-   If the class doesn't have generics, then the self type will be the default
-   type of a class. */
+   If the class doesn't have generics, the self type is set and there's nothing
+   to do. */
 static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
 {
     int generics_used = lily_gp_num_in_scope(parser->generics);
@@ -1045,15 +1041,16 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
         char name[] = {'A', '\0'};
         while (generics_used) {
             lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
-            lily_tm_add(parser->tm, lookup_cls->type);
+            lily_tm_add(parser->tm, lookup_cls->self_type);
             name[0]++;
             generics_used--;
         }
 
         result = lily_tm_make(parser->tm, 0, cls, (name[0] - 'A'));
+        cls->self_type = result;
     }
     else
-        result = lily_tm_make_default_for(parser->tm, cls);
+        result = cls->self_type;
 
     return result;
 }
@@ -1409,7 +1406,6 @@ static lily_class *dynaload_class(lily_parse_state *parser,
     cls->flags |= CLS_IS_BUILTIN;
     cls->dyna_start = dyna_index;
 
-    lily_tm_make_default_for(parser->tm, cls);
     return cls;
 }
 
@@ -1807,7 +1803,7 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
         /* Impossible, but keeps the compiler from complaining. */
         literal_cls = parser->symtab->question_class;
 
-    lily_es_push_literal(parser->expr, literal_cls->type, lit->reg_spot);
+    lily_es_push_literal(parser->expr, literal_cls->self_type, lit->reg_spot);
 }
 
 /* This takes an id that corresponds to some id in the table of magic constants.
@@ -2954,7 +2950,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_emit_new_local_var(parser->emit, cls->type, name);
+    lily_var *var = lily_emit_new_local_var(parser->emit, cls->self_type, name);
 
     lily_emit_eval_expr_to_var(parser->emit, es, var);
 
@@ -3221,7 +3217,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
-        loop_var = lily_emit_new_local_var(parser->emit, cls->type,
+        loop_var = lily_emit_new_local_var(parser->emit, cls->self_type,
                 lex->label);
     }
     else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
@@ -3572,16 +3568,14 @@ static void process_except(lily_parse_state *parser)
             lily_raise(parser->raiser, lily_SyntaxError,
                 "%s has already been declared.", exception_var->name);
 
-        /* It's okay to say 'cls->type' here because the class because classes
-           without generics always have a default type. */
         exception_var = lily_emit_new_local_var(parser->emit,
-                except_cls->type, lex->label);
+                except_cls->self_type, lex->label);
 
         lily_lexer(lex);
     }
 
     NEED_CURRENT_TOK(tk_colon)
-    lily_emit_except(parser->emit, except_cls->type, exception_var,
+    lily_emit_except(parser->emit, except_cls->self_type, exception_var,
             lex->line_num);
 
     lily_lexer(lex);
