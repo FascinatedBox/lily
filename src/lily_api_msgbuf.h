@@ -17,6 +17,7 @@ void lily_mb_add_double(lily_msgbuf *, double);
 void lily_mb_add_bytestring(lily_msgbuf *,const char *, int);
 void lily_mb_add_fmt(lily_msgbuf *, const char *, ...);
 void lily_mb_add_fmt_va(lily_msgbuf *, const char *, va_list);
+char *lily_mb_sprintf(lily_msgbuf *, const char *, ...);
 void lily_mb_flush(lily_msgbuf *);
 const char *lily_mb_get(lily_msgbuf *);
 

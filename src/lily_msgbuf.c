@@ -381,3 +381,15 @@ void lily_mb_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
     lily_mb_add_fmt_va(msgbuf, fmt, var_args);
     va_end(var_args);
 }
+
+char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *fmt, ...)
+{
+    lily_mb_flush(msgbuf);
+
+    va_list var_args;
+    va_start(var_args, fmt);
+    lily_mb_add_fmt_va(msgbuf, fmt, var_args);
+    va_end(var_args);
+
+    return msgbuf->message;
+}

@@ -608,13 +608,14 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     for (i = 0;i < 2;i++) {
         module_loader l = builtin_module_loaders[i];
 
-        lily_mb_add_fmt(msgbuf, "%s%s%s", dirpath, name, l.suffix);
-        result = l.load_fn(parser, lily_mb_get(msgbuf));
-        lily_mb_flush(msgbuf);
+        result = l.load_fn(parser,
+                lily_mb_sprintf(msgbuf, "%s%s%s", dirpath, name, l.suffix));
 
         if (result)
             break;
     }
+
+    lily_mb_flush(msgbuf);
 
     if (result == NULL) {
         lily_mb_add_fmt(msgbuf, "Cannot import '%s':\n", name);
@@ -1245,11 +1246,9 @@ static lily_var *dynaload_function(lily_parse_state *parser,
         if (cls)
             cls_name = cls->name;
 
-        lily_mb_add_fmt(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
-                name);
-
         func = (lily_foreign_func)lily_library_get(m->handle,
-                lily_mb_get(msgbuf));
+                lily_mb_sprintf(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
+                name));
     }
 
     parser->symtab->active_module = m;
@@ -3379,14 +3378,8 @@ static void import_handler(lily_parse_state *parser, int multi)
                     search_start);
 
         /* Has this path been imported before? */
-        lily_mb_flush(msgbuf);
-        lily_mb_add(msgbuf, active->dirname);
-        lily_mb_add(msgbuf, lex->label);
-
         lily_module_entry *module = lily_find_module_by_path(active->parent,
-                lily_mb_get(msgbuf));
-
-        lily_mb_flush(msgbuf);
+                lily_mb_sprintf(msgbuf, "%s%s", active->dirname, lex->label));
 
         if (module == NULL) {
             module = load_module(parser, active->dirname, lex->label);
