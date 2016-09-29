@@ -1760,30 +1760,17 @@ static void grow_match_cases(lily_emit_state *emit)
         sizeof(int) * emit->match_case_size);
 }
 
-/* This writes a decomposition for a given variant type. As for the values, it
-   pulls from recently-declared vars and assumes those vars should be the
-   targets. */
-void lily_emit_variant_decompose(lily_emit_state *emit, uint16_t match_sym_spot,
-        lily_type *variant_type)
+/* This writes a decomposition for a given variant type. The buffer is written
+   as the match sym spot, the count, and the values. This just needs to write
+   the initial o_variant_decompose and transfer the values over. */
+void lily_emit_variant_decompose(lily_emit_state *emit, lily_buffer_u16 *buffer)
 {
-    int value_count = variant_type->subtype_count - 1;
-    int i;
+    int i = lily_u16_pop(buffer);
+    int stop = lily_u16_pos(buffer);
+    lily_u16_write_2(emit->code, o_variant_decompose, *emit->lex_linenum);
 
-    lily_u16_write_4(emit->code, o_variant_decompose, *emit->lex_linenum,
-            match_sym_spot, value_count);
-
-    /* Since this function is called immediately after declaring the last var
-       that will receive the decompose, it's safe to pull the vars directly
-       from symtab's var chain. */
-    lily_var *var_iter = emit->symtab->active_module->var_chain;
-
-    /* Go down because the vars are linked from newest -> oldest. If this isn't
-       done, then the first var will get the last value in the variant, the
-       second will get the next-to-last value, etc. */
-    for (i = value_count - 1;i >= 0;i--) {
-        lily_u16_write_1(emit->code, var_iter->reg_spot);
-        var_iter = var_iter->next;
-    }
+    for (;i < stop;i++)
+        lily_u16_write_1(emit->code, lily_u16_get(buffer, i));
 }
 
 /* This adds a match case to the current match block. 'pos' is the index of a

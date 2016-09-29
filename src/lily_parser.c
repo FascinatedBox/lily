@@ -4000,8 +4000,14 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
                 "Already have a case for variant %s.", lex->label);
 
     if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
+        lily_buffer_u16 *decompose_data = parser->optarg_stack;
+        int decompose_start = lily_u16_pos(decompose_data);
+
         lily_type *build_type = variant_case->build_type;
         lily_type_system *ts = parser->emit->ts;
+
+        lily_u16_write_2(decompose_data, match_sym->reg_spot,
+                build_type->subtype_count - 1);
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
            variant's creation type.
@@ -4012,11 +4018,9 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
             lily_type *var_type = lily_ts_resolve_by_second(ts,
                     match_input_type, build_type->subtypes[i]);
 
-            /* It doesn't matter what the var is, only that it's unique. The
-               emitter will grab the vars it needs from the symtab when writing
-               the decompose.
-               This function also calls up the next token. */
-            get_named_var(parser, var_type);
+            lily_var *var = get_named_var(parser, var_type);
+            lily_u16_write_1(decompose_data, var->reg_spot);
+
             if (i != build_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
                 NEED_NEXT_TOK(tk_word)
@@ -4024,8 +4028,9 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
         }
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        lily_emit_variant_decompose(parser->emit, match_sym->reg_spot,
-                build_type);
+        lily_u16_write_1(decompose_data, decompose_start);
+        lily_emit_variant_decompose(parser->emit, decompose_data);
+        lily_u16_set_pos(decompose_data, decompose_start);
     }
     /* else the variant does not take arguments, and cannot decompose because
        there is nothing inside to decompose. */

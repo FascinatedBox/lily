@@ -256,7 +256,7 @@ void lily_emit_write_optargs(lily_emit_state *, lily_buffer_u16 *, int);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_add_match_case(lily_emit_state *, int);
-void lily_emit_variant_decompose(lily_emit_state *, uint16_t, lily_type *);
+void lily_emit_variant_decompose(lily_emit_state *, lily_buffer_u16 *);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
