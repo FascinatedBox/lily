@@ -26,7 +26,6 @@ keyword_entry constants[] = {
 keyword_entry keywords[] = {
     {"if",           26217},
     {"do",           28516},
-    {"use",          6648693},
     {"var",          7496054},
     {"for",          7499622},
     {"try",          7959156},
@@ -50,26 +49,25 @@ keyword_entry keywords[] = {
 
 # define KEY_IF            0
 # define KEY_DO            1
-# define KEY_USE           2
-# define KEY_VAR           3
-# define KEY_FOR           4
-# define KEY_TRY           5
-# define KEY_CASE          6
-# define KEY_ELSE          7
-# define KEY_ELIF          8
-# define KEY_ENUM          9
-# define KEY_WHILE        10
-# define KEY_RAISE        11
-# define KEY_MATCH        12
-# define KEY_BREAK        13
-# define KEY_CLASS        14
-# define KEY_DEFINE       15
-# define KEY_RETURN       16
-# define KEY_EXCEPT       17
-# define KEY_IMPORT       18
-# define KEY_PRIVATE      19
-# define KEY_PROTECTED    20
-# define KEY_CONTINUE     21
-# define KEY_LAST_ID      21
+# define KEY_VAR           2
+# define KEY_FOR           3
+# define KEY_TRY           4
+# define KEY_CASE          5
+# define KEY_ELSE          6
+# define KEY_ELIF          7
+# define KEY_ENUM          8
+# define KEY_WHILE         9
+# define KEY_RAISE        10
+# define KEY_MATCH        11
+# define KEY_BREAK        12
+# define KEY_CLASS        13
+# define KEY_DEFINE       14
+# define KEY_RETURN       15
+# define KEY_EXCEPT       16
+# define KEY_IMPORT       17
+# define KEY_PRIVATE      18
+# define KEY_PROTECTED    19
+# define KEY_CONTINUE     20
+# define KEY_LAST_ID      20
 
 #endif

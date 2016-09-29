@@ -1,4 +1,4 @@
-use sys
+import sys
 sys.argv.map(String.parse_i)
         .reject{|r| r.is_none() }
         .map{|m| m.unwrap() }

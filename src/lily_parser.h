@@ -15,8 +15,8 @@
 # include "lily_api_msgbuf.h"
 
 typedef struct lily_parse_state_ {
-    lily_package *package_start;
-    lily_package *package_top;
+    lily_module_entry *module_start;
+    lily_module_entry *module_top;
 
     lily_module_entry *main_module;
 

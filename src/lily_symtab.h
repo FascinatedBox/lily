@@ -14,8 +14,6 @@ typedef struct lily_symtab_ {
 
     lily_value_stack *literals;
 
-    lily_package *first_package;
-
     lily_module_entry *builtin_module;
     lily_module_entry *active_module;
 
@@ -59,7 +57,7 @@ typedef struct lily_symtab_ {
 } lily_symtab;
 
 lily_symtab *lily_new_symtab(lily_generic_pool *);
-void lily_set_first_package(lily_symtab *, lily_package *);
+void lily_set_builtin(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
@@ -101,6 +99,6 @@ void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
 lily_module_entry *lily_find_module(lily_symtab *, lily_module_entry *,
         const char *);
-lily_module_entry *lily_find_module_by_path(lily_package *, const char *);
-lily_package *lily_find_package(lily_module_entry *, const char *);
+lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
+lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
 #endif

@@ -224,8 +224,7 @@ typedef struct {
 /* A module either a single code file, or a single library that has been loaded.
    The contents inside are what the module has exported. */
 typedef struct lily_module_entry_ {
-    /* This links all modules within a package together, so that they can be
-       iterated over and destroyed. */
+    /* All modules are linked together through here. */
     struct lily_module_entry_ *root_next;
 
     /* Modules have 'item_kind' set so that they can be cast to lily_item, for
@@ -264,9 +263,6 @@ typedef struct lily_module_entry_ {
     /* The vars declared within this module. */
     lily_var *var_chain;
 
-    /* The package that this module is contained within. */
-    struct lily_package_ *parent;
-
     /* For modules backed by a shared library, the handle of that library. */
     void *handle;
 
@@ -278,29 +274,6 @@ typedef struct lily_module_entry_ {
 
     uint16_t *cid_table;
 } lily_module_entry;
-
-/* A package is a collection of modules. */
-typedef struct lily_package_ {
-    struct lily_package_ *root_next;
-
-    /* The first module will probably have a standardized name, so this is the
-       real name for this package. */
-    char *name;
-
-    struct lily_package_link_ *linked_packages;
-
-    /* The first module loaded. This module is the only one in this package
-       allowed to have 'use' declarations. */
-    lily_module_entry *module_start;
-
-    /* The most recent module, and the tip of the linked list of entries. */
-    lily_module_entry *module_top;
-} lily_package;
-
-typedef struct lily_package_link_ {
-    lily_package *package;
-    struct lily_package_link_ *next;
-} lily_package_link;
 
 /* Finally, various definitions. */
 
@@ -409,6 +382,12 @@ typedef struct lily_package_link_ {
    emitter to write specialized code when the target is known to be a foreign
    function. */
 #define VAR_IS_FOREIGN_FUNC     0x400
+
+/* This module was added by being registered. */
+#define MODULE_IS_REGISTERED 0x1
+
+/* Parser's import handler needs to execute this module's code. */
+#define MODULE_NOT_EXECUTED  0x2
 
 /* SYM_CLASS_* defines are for checking ids of a type's class, since some
    classes are special-cased internally. */

@@ -33,11 +33,10 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     return symtab;
 }
 
-void lily_set_first_package(lily_symtab *symtab, lily_package *package)
+void lily_set_builtin(lily_symtab *symtab, lily_module_entry *builtin)
 {
-    symtab->builtin_module = package->module_start;
-    symtab->active_module = package->module_start;
-    symtab->first_package = package;
+    symtab->builtin_module = builtin;
+    symtab->active_module = builtin;
 }
 
 static void free_vars_since(lily_var *var, lily_var *stop)
@@ -854,26 +853,22 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
 {
     lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
 
-    lily_package *package_iter = symtab->first_package;
-    while (package_iter) {
-        lily_module_entry *module_iter = package_iter->module_start;
-        while (module_iter) {
-            lily_class *class_iter = module_iter->class_chain;
-            while (class_iter) {
-                lily_vm_add_class_unchecked(vm, class_iter);
+    lily_module_entry *module_iter = symtab->builtin_module;
+    while (module_iter) {
+        lily_class *class_iter = module_iter->class_chain;
+        while (class_iter) {
+            lily_vm_add_class_unchecked(vm, class_iter);
 
-                if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
-                    int i;
-                    for (i = 0;i < class_iter->variant_size;i++) {
-                        lily_class *v = (lily_class *)class_iter->variant_members[i];
-                        lily_vm_add_class_unchecked(vm, v);
-                    }
+            if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
+                int i;
+                for (i = 0;i < class_iter->variant_size;i++) {
+                    lily_class *v = (lily_class *)class_iter->variant_members[i];
+                    lily_vm_add_class_unchecked(vm, v);
                 }
-                class_iter = class_iter->next;
             }
-            module_iter = module_iter->root_next;
+            class_iter = class_iter->next;
         }
-        package_iter = package_iter->root_next;
+        module_iter = module_iter->root_next;
     }
 
     /* Variants have an id of 0 since they don't need to go into the class
@@ -897,41 +892,18 @@ lily_module_entry *lily_find_module(lily_symtab *symtab,
     return result;
 }
 
-/* This checks to see if a module has already been loaded. The path provided
-   includes dirs, and is relative to the root module of the package. However,
-   the path does not include the suffix so that this works regardless of what
-   kind of thing was loaded (library or real file). */
-lily_module_entry *lily_find_module_by_path(lily_package *package,
-        const char *path)
+lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
+        const char *name)
 {
-    int cmp_len = strlen(path);
-    lily_module_entry *module_iter = package->module_start;
+    lily_module_entry *module_iter = symtab->builtin_module;
 
     while (module_iter) {
-        if (module_iter->cmp_len == cmp_len &&
-            strncmp(module_iter->path, path, cmp_len) == 0)
+        if (module_iter->flags & MODULE_IS_REGISTERED &&
+            strcmp(module_iter->loadname, name) == 0)
             break;
 
         module_iter = module_iter->root_next;
     }
 
     return module_iter;
-}
-
-/* Check if a package named 'name' exists within 'module'. */
-lily_package *lily_find_package(lily_module_entry *module, const char *name)
-{
-    lily_package_link *link_iter = module->parent->linked_packages;
-    lily_package *result = NULL;
-
-    while (link_iter) {
-        if (strcmp(link_iter->package->name, name) == 0) {
-            result = link_iter->package;
-            break;
-        }
-
-        link_iter = link_iter->next;
-    }
-
-    return result;
 }
