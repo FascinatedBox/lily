@@ -623,8 +623,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
                     current, name);
             suffix = strrchr(path, '.');
             if (suffix) {
-                suffix++;
-                if (strcmp(suffix, "lly") == 0)
+                if (strcmp(suffix, ".lly") == 0)
                     module = load_file(parser, path);
                 else if (strcmp(suffix, LILY_LIB_SUFFIX) == 0)
                     module = load_library(parser, path);
