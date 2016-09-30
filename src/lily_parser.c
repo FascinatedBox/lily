@@ -4060,6 +4060,13 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
     lily_lexer(lex);
 }
 
+static void process_match_else(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_colon)
+    lily_emit_do_match_else(parser->emit);
+    lily_lexer(lex);
+}
 
 /* This checks that the current match block (which is exiting) is exhaustive. IF
    it is not, then a SyntaxError is raised. */
@@ -4123,6 +4130,10 @@ static void match_handler(lily_parse_state *parser, int multi)
             if (key == KEY_CASE) {
                 lily_lexer(lex);
                 process_match_case(parser, match_sym);
+            }
+            else if (key == KEY_ELSE) {
+                lily_lexer(lex);
+                process_match_else(parser);
             }
             else if (key != -1) {
                 lily_lexer(lex);

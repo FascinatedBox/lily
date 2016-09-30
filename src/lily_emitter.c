@@ -1782,6 +1782,24 @@ void lily_emit_variant_decompose(lily_emit_state *emit, lily_buffer_u16 *buffer)
         lily_u16_write_1(emit->code, lily_u16_get(buffer, i));
 }
 
+static void write_match_exit_jump(lily_emit_state *emit)
+{
+    lily_u16_write_2(emit->code, o_jump, 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+}
+
+static void write_match_jump(lily_emit_state *emit, int pos)
+{
+    int target = emit->block->match_code_start + pos;
+    int value = lily_u16_pos(emit->code) - emit->block->match_code_start;
+
+    /* o_match_dispatch is written where the match cases are in an array
+       together. This writes a jump that is relative to where the
+       o_match_dispatch opcode is written. Add 5 because that's the size of the
+       header for o_match_dispatch. */
+    lily_u16_insert(emit->code, target, value + 5);
+}
+
 /* This adds a match case to the current match block. 'pos' is the index of a
    valid variant within the current match enum type. This will hide the current
    block's vars. If 'pos' has been seen twice, then SyntaxError is raised. */
@@ -1810,20 +1828,10 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         /* Every case added after the first needs to write an exit jump before
            any code. This makes it so the previous branch jumps outside the
            match instead of falling through (very bad, in this case). */
-        if (is_first_case == 0) {
-            lily_u16_write_2(emit->code, o_jump, 1);
+        if (is_first_case == 0)
+            write_match_exit_jump(emit);
 
-            lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-        }
-
-        int target = emit->block->match_code_start + pos;
-        int value = lily_u16_pos(emit->code) - emit->block->match_code_start;
-
-        /* o_match_dispatch is written where the match cases are in an array
-           together. This writes a jump that is relative to where the
-           o_match_dispatch opcode is written. Add 5 because that's the size of
-           the header for o_match_dispatch. */
-        lily_u16_insert(emit->code, target, value + 5);
+        write_match_jump(emit, pos);
 
         /* This is necessary to keep vars created from the decomposition of one
            class from showing up in subsequent cases. */
@@ -1835,6 +1843,39 @@ int lily_emit_add_match_case(lily_emit_state *emit, int pos)
         ret = 0;
 
     return ret;
+}
+
+void lily_emit_do_match_else(lily_emit_state *emit)
+{
+    int offset = emit->block->match_case_start;
+    int first = emit->match_cases[offset];
+    int ok = 0;
+    int i;
+
+    /* This prevents the last branch from falling down into the 'else'. */
+    write_match_exit_jump(emit);
+
+    for (i = offset;i < emit->match_case_pos;i++) {
+        int entry = emit->match_cases[i];
+
+        if (entry != first)
+            ok = 1;
+
+        if (entry == 0) {
+            emit->match_cases[i] = 1;
+            write_match_jump(emit, i - offset);
+        }
+    }
+
+    if (ok == 0) {
+        char *message;
+        if (first == 1)
+            message = "'else' within an exhaustive match.";
+        else
+            message = "'else' cannot be the only clause within a match.";
+
+        lily_raise(emit->raiser, lily_SyntaxError, message);
+    }
 }
 
 /* This evaluates the expression to be sent to 'match' The resulting value is
