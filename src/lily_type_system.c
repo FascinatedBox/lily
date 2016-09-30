@@ -466,7 +466,7 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
             int j;
             for (j = 0;j < t->subtype_count;j++) {
                 lily_type *subtype = t->subtypes[j];
-                if (subtype->flags & TYPE_IS_INCOMPLETE)
+                if (subtype && subtype->flags & TYPE_IS_INCOMPLETE)
                     lily_tm_add(ts->tm, ts->dynamic_class_type);
                 else
                     lily_tm_add(ts->tm, subtype);
