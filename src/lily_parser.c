@@ -31,6 +31,8 @@ if (lex->token != expected) \
     lily_raise(parser->raiser, lily_SyntaxError, "Expected '%s', not '%s'.", \
                tokname(expected), tokname(lex->token));
 
+extern lily_class *lily_self_class;
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -2916,7 +2918,17 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     if (lex->token == tk_colon) {
         lily_lexer(lex);
-        lily_tm_insert(parser->tm, result_pos, get_type(parser));
+        if (strcmp(lex->label, "self") != 0)
+            lily_tm_insert(parser->tm, result_pos, get_type(parser));
+        else {
+            lily_block *block = parser->emit->block->prev;
+            if (block == NULL || block->block_type != block_class)
+                lily_raise(parser->raiser, lily_SyntaxError,
+                        "'self' return type only allowed on class methods.");
+
+            lily_tm_insert(parser->tm, result_pos, lily_self_class->self_type);
+            lily_lexer(lex);
+        }
     }
 
     NEED_CURRENT_TOK(tk_left_curly)

@@ -1,0 +1,9 @@
+class First {
+    define doit: self { }
+}
+
+class Second < First {
+    define amethod {}
+}
+
+Second().doit().amethod()

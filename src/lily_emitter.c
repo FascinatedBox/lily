@@ -23,6 +23,8 @@
     lily_raise(r, error_code, message, __VA_ARGS__); \
 }
 
+extern lily_class *lily_self_class;
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -884,7 +886,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         /* A lambda's return is whatever the last expression returns. */
         if (block->block_type == block_lambda)
             emit->top_function_ret = emit->top_var->type->subtypes[0];
-        if (emit->top_function_ret == NULL)
+        if (emit->top_function_ret == NULL ||
+            emit->top_function_ret == lily_self_class->self_type)
             lily_u16_write_2(emit->code, o_return_noval, *emit->lex_linenum);
         else if (block->block_type == block_define &&
                  block->last_exit != lily_u16_pos(emit->code)) {
@@ -3784,10 +3787,17 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
     /* Calls are unique, because the return is NOT the very last instruction
        written. This is necessary for the vm to be able to easily call foreign
        functions. */
+    lily_type *return_type = cs->call_type->subtypes[0];
 
-    if (cs->call_type->subtypes[0] != NULL) {
-        lily_type *return_type = cs->call_type->subtypes[0];
+    if (return_type == lily_self_class->self_type) {
+        int spot = emit->call_values_pos - cs->arg_count;
+        lily_sym *sym = emit->call_values[spot];
 
+        ast->result = sym;
+        lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1,
+                sym->reg_spot);
+    }
+    else if (return_type != NULL) {
         if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
 

@@ -412,6 +412,7 @@ typedef struct lily_module_entry_ {
 #define START_CLASS_ID       25
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
+#define SYM_CLASS_SELF        65529
 #define SYM_CLASS_QUESTION    65530
 #define SYM_CLASS_GENERIC     65531
 #define SYM_CLASS_OPTARG      65532

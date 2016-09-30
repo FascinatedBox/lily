@@ -24,6 +24,31 @@ const lily_gc_entry lily_gc_stopper =
     NULL
 };
 
+/* This represents a return type of "self", which is special-cased in function
+   returns. */
+static const lily_class raw_self =
+{
+    NULL,
+    ITEM_TYPE_CLASS,
+    0,
+    SYM_CLASS_SELF,
+    0,
+    (lily_type *)&raw_self,
+    "self",
+    0,
+    NULL,
+    NULL,
+    NULL,
+    0,
+    0,
+    {0},
+    0,
+    NULL,
+    NULL,
+};
+
+const lily_class *lily_self_class = &raw_self;
+
 /**
 embedded builtin
 
