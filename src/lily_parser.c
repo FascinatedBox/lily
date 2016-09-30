@@ -4270,7 +4270,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
                  lex->token == tk_left_bracket ||
                  lex->token == tk_bytestring ||
                  lex->token == tk_dollar_string ||
-                 lex->token == tk_tuple_open) {
+                 lex->token == tk_lambda) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
