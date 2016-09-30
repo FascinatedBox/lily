@@ -1,0 +1,5 @@
+var v = Some(1)
+match v: {
+    case Some(_):
+    case None:
+}

@@ -275,6 +275,8 @@ void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 void lily_emit_update_function_block(lily_emit_state *, lily_type *,
         lily_type *);
 
+uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
+
 void lily_prepare_main(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
 

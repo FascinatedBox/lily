@@ -704,6 +704,12 @@ lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
     return s;
 }
 
+uint16_t lily_emit_get_storage_spot(lily_emit_state *emit, lily_type *type)
+{
+    lily_storage *s = get_storage(emit, type);
+    return s->reg_spot;
+}
+
 /***
  *      ____  _            _
  *     | __ )| | ___   ___| | _____

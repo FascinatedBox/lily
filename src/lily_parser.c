@@ -4017,9 +4017,18 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
         for (i = 1;i < build_type->subtype_count;i++) {
             lily_type *var_type = lily_ts_resolve_by_second(ts,
                     match_input_type, build_type->subtypes[i]);
+            uint16_t spot;
 
-            lily_var *var = get_named_var(parser, var_type);
-            lily_u16_write_1(decompose_data, var->reg_spot);
+            if (strcmp(lex->label, "_") == 0) {
+                spot = lily_emit_get_storage_spot(parser->emit, var_type);
+                lily_lexer(lex);
+            }
+            else {
+                lily_var *var = get_named_var(parser, var_type);
+                spot = var->reg_spot;
+            }
+
+            lily_u16_write_1(decompose_data, spot);
 
             if (i != build_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
