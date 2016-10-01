@@ -10,6 +10,10 @@ define ok(b: Boolean, s: String)
     }
 }
 
+ok(0.to_bool() == false,    "Integer.to_bool for 0.")
+ok(1.to_bool() == true,     "Integer.to_bool for 1.")
+ok(-5.to_bool(),            "Integer.to_bool for -5.")
+
 ok(0.to_d() == 0.0,         "Integer.to_d for 0.")
 ok(-200.to_d() == -200.0,   "Integer.to_d for -200.")
 ok(1000.to_d() == 1000,     "Integer.to_d for 1000.")

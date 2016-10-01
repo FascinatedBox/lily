@@ -44,7 +44,8 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m:select\0[A,B](Hash[A,B],Function(A,B=>Boolean)):Hash[A,B]"
     ,"m:size\0[A,B](Hash[A,B]):Integer"
     ,"B\0IndexError\0(msg: String) < Exception(msg) {}"
-    ,"C\02Integer"
+    ,"C\03Integer"
+    ,"m:to_bool\0(Integer):Boolean"
     ,"m:to_d\0(Integer):Double"
     ,"m:to_s\0(Integer):String"
     ,"B\0IOError\0(msg: String) < Exception(msg) {}"
@@ -140,54 +141,55 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 40: return lily_builtin_Hash_reject;
         case 41: return lily_builtin_Hash_select;
         case 42: return lily_builtin_Hash_size;
-        case 45: return lily_builtin_Integer_to_d;
-        case 46: return lily_builtin_Integer_to_s;
-        case 50: return lily_builtin_List_clear;
-        case 51: return lily_builtin_List_count;
-        case 52: return lily_builtin_List_delete_at;
-        case 53: return lily_builtin_List_each;
-        case 54: return lily_builtin_List_each_index;
-        case 55: return lily_builtin_List_fill;
-        case 56: return lily_builtin_List_fold;
-        case 57: return lily_builtin_List_insert;
-        case 58: return lily_builtin_List_join;
-        case 59: return lily_builtin_List_map;
-        case 60: return lily_builtin_List_pop;
-        case 61: return lily_builtin_List_push;
-        case 62: return lily_builtin_List_reject;
-        case 63: return lily_builtin_List_select;
-        case 64: return lily_builtin_List_size;
-        case 65: return lily_builtin_List_shift;
-        case 66: return lily_builtin_List_unshift;
-        case 68: return lily_builtin_Option_and;
-        case 69: return lily_builtin_Option_and_then;
-        case 70: return lily_builtin_Option_is_none;
-        case 71: return lily_builtin_Option_is_some;
-        case 72: return lily_builtin_Option_map;
-        case 73: return lily_builtin_Option_or;
-        case 74: return lily_builtin_Option_or_else;
-        case 75: return lily_builtin_Option_unwrap;
-        case 76: return lily_builtin_Option_unwrap_or;
-        case 77: return lily_builtin_Option_unwrap_or_else;
-        case 82: return lily_builtin_String_ends_with;
-        case 83: return lily_builtin_String_find;
-        case 84: return lily_builtin_String_html_encode;
-        case 85: return lily_builtin_String_is_alnum;
-        case 86: return lily_builtin_String_is_alpha;
-        case 87: return lily_builtin_String_is_digit;
-        case 88: return lily_builtin_String_is_space;
-        case 89: return lily_builtin_String_lower;
-        case 90: return lily_builtin_String_lstrip;
-        case 91: return lily_builtin_String_parse_i;
-        case 92: return lily_builtin_String_rstrip;
-        case 93: return lily_builtin_String_split;
-        case 94: return lily_builtin_String_starts_with;
-        case 95: return lily_builtin_String_strip;
-        case 96: return lily_builtin_String_trim;
-        case 97: return lily_builtin_String_upper;
-        case 99: return lily_builtin_Tainted_sanitize;
-        case 101: return lily_builtin_Tuple_merge;
-        case 102: return lily_builtin_Tuple_push;
+        case 45: return lily_builtin_Integer_to_bool;
+        case 46: return lily_builtin_Integer_to_d;
+        case 47: return lily_builtin_Integer_to_s;
+        case 51: return lily_builtin_List_clear;
+        case 52: return lily_builtin_List_count;
+        case 53: return lily_builtin_List_delete_at;
+        case 54: return lily_builtin_List_each;
+        case 55: return lily_builtin_List_each_index;
+        case 56: return lily_builtin_List_fill;
+        case 57: return lily_builtin_List_fold;
+        case 58: return lily_builtin_List_insert;
+        case 59: return lily_builtin_List_join;
+        case 60: return lily_builtin_List_map;
+        case 61: return lily_builtin_List_pop;
+        case 62: return lily_builtin_List_push;
+        case 63: return lily_builtin_List_reject;
+        case 64: return lily_builtin_List_select;
+        case 65: return lily_builtin_List_size;
+        case 66: return lily_builtin_List_shift;
+        case 67: return lily_builtin_List_unshift;
+        case 69: return lily_builtin_Option_and;
+        case 70: return lily_builtin_Option_and_then;
+        case 71: return lily_builtin_Option_is_none;
+        case 72: return lily_builtin_Option_is_some;
+        case 73: return lily_builtin_Option_map;
+        case 74: return lily_builtin_Option_or;
+        case 75: return lily_builtin_Option_or_else;
+        case 76: return lily_builtin_Option_unwrap;
+        case 77: return lily_builtin_Option_unwrap_or;
+        case 78: return lily_builtin_Option_unwrap_or_else;
+        case 83: return lily_builtin_String_ends_with;
+        case 84: return lily_builtin_String_find;
+        case 85: return lily_builtin_String_html_encode;
+        case 86: return lily_builtin_String_is_alnum;
+        case 87: return lily_builtin_String_is_alpha;
+        case 88: return lily_builtin_String_is_digit;
+        case 89: return lily_builtin_String_is_space;
+        case 90: return lily_builtin_String_lower;
+        case 91: return lily_builtin_String_lstrip;
+        case 92: return lily_builtin_String_parse_i;
+        case 93: return lily_builtin_String_rstrip;
+        case 94: return lily_builtin_String_split;
+        case 95: return lily_builtin_String_starts_with;
+        case 96: return lily_builtin_String_strip;
+        case 97: return lily_builtin_String_trim;
+        case 98: return lily_builtin_String_upper;
+        case 100: return lily_builtin_Tainted_sanitize;
+        case 102: return lily_builtin_Tuple_merge;
+        case 103: return lily_builtin_Tuple_push;
         default: return NULL;
     }
 }

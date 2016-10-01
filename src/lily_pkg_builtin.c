@@ -987,6 +987,17 @@ over a C int64_t.
 */
 
 /**
+method Integer.to_bool(self: Integer): Boolean
+
+Converts an `Integer` to a `Boolean`.
+*/
+void lily_builtin_Integer_to_bool(lily_state *s)
+{
+    /* Use !! or `x == true` will fail. */
+    lily_return_boolean(s, !!lily_arg_integer(s, 0));
+}
+
+/**
 method Integer.to_d(self: Integer): Double
 
 Converts an `Integer` to a `Double`. Internally, this is done by a typecast to
