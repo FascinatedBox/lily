@@ -4,6 +4,8 @@
 #include <ctype.h>
 
 #include "lily_core_types.h"
+#include "lily_value_flags.h"
+#include "lily_vm.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_msgbuf.h"
@@ -392,4 +394,151 @@ char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *fmt, ...)
     va_end(var_args);
 
     return msgbuf->message;
+}
+
+typedef struct tag_ {
+    struct tag_ *prev;
+    lily_raw_value raw;
+} tag;
+
+static void add_value_to_msgbuf(lily_vm_state *, lily_msgbuf *, tag *,
+        lily_value *);
+
+static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
+        lily_value *v, const char *prefix, const char *suffix)
+{
+    int count, i;
+    lily_value **values;
+
+    if (v->flags & (VAL_IS_LIST | VAL_IS_TUPLE)) {
+        values = v->value.list->elems;
+        count = v->value.list->num_values;
+    }
+    else {
+        values = v->value.instance->values;
+        count = v->value.instance->num_values;
+    }
+
+    lily_mb_add(msgbuf, prefix);
+
+    /* This is necessary because num_values is unsigned. */
+    if (count != 0) {
+        for (i = 0;i < count - 1;i++) {
+            add_value_to_msgbuf(vm, msgbuf, t, values[i]);
+            lily_mb_add(msgbuf, ", ");
+        }
+        if (i != count)
+            add_value_to_msgbuf(vm, msgbuf, t, values[i]);
+    }
+
+    lily_mb_add(msgbuf, suffix);
+}
+
+static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
+        tag *t, lily_value *v)
+{
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        tag *tag_iter = t;
+        while (tag_iter) {
+            /* Different containers may hold the same underlying values, so make
+               sure to NOT test the containers. */
+            if (memcmp(&tag_iter->raw, &v->value, sizeof(lily_raw_value)) == 0) {
+                lily_mb_add(msgbuf, "[...]");
+                return;
+            }
+
+            tag_iter = tag_iter->prev;
+        }
+
+        tag new_tag = {.prev = t, .raw = v->value};
+        t = &new_tag;
+    }
+
+    if (v->flags & VAL_IS_BOOLEAN)
+        lily_mb_add_boolean(msgbuf, v->value.integer);
+    else if (v->flags & VAL_IS_INTEGER)
+        lily_mb_add_int(msgbuf, v->value.integer);
+    else if (v->flags & VAL_IS_DOUBLE)
+        lily_mb_add_double(msgbuf, v->value.doubleval);
+    else if (v->flags & VAL_IS_STRING)
+        lily_mb_add_fmt(msgbuf, "\"^E\"", v->value.string->string);
+    else if (v->flags & VAL_IS_BYTESTRING)
+        lily_mb_add_bytestring(msgbuf, v->value.string->string,
+                v->value.string->size);
+    else if (v->flags & VAL_IS_FUNCTION) {
+        lily_function_val *fv = v->value.function;
+        const char *builtin = "";
+        const char *class_name = "";
+        const char *separator = "";
+
+        if (fv->code == NULL)
+            builtin = "built-in ";
+
+        if (fv->class_name) {
+            class_name = fv->class_name;
+            separator = ".";
+        }
+
+        lily_mb_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
+                separator, fv->trace_name);
+    }
+    else if (v->flags & VAL_IS_DYNAMIC)
+        add_value_to_msgbuf(vm, msgbuf, t, v->value.dynamic->inner_value);
+    else if (v->flags & VAL_IS_LIST)
+        add_list_like(vm, msgbuf, t, v, "[", "]");
+    else if (v->flags & VAL_IS_TUPLE)
+        add_list_like(vm, msgbuf, t, v, "<[", "]>");
+    else if (v->flags & VAL_IS_HASH) {
+        lily_hash_val *hv = v->value.hash;
+        lily_mb_add_char(msgbuf, '[');
+        lily_hash_elem *elem = hv->elem_chain;
+        while (elem) {
+            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_key);
+            lily_mb_add(msgbuf, " => ");
+            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_value);
+            if (elem->next != NULL)
+                lily_mb_add(msgbuf, ", ");
+
+            elem = elem->next;
+        }
+        lily_mb_add_char(msgbuf, ']');
+    }
+    else if (v->flags & VAL_IS_FILE) {
+        lily_file_val *fv = v->value.file;
+        const char *state = fv->inner_file ? "open" : "closed";
+        lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
+    }
+    else if (v->flags & VAL_IS_ENUM) {
+        lily_instance_val *variant = v->value.instance;
+        lily_class *variant_cls = vm->class_table[variant->instance_id];
+
+        /* For scoped variants, render them how they're written. */
+        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+            lily_mb_add(msgbuf, variant_cls->parent->name);
+            lily_mb_add_char(msgbuf, '.');
+        }
+
+        lily_mb_add(msgbuf, variant_cls->name);
+        if (variant->num_values)
+            add_list_like(vm, msgbuf, t, v, "(", ")");
+    }
+    else {
+        /* This is an instance or a foreign class. The instance id is at the
+           same spot for both. */
+        lily_class *cls = vm->class_table[v->value.instance->instance_id];
+        const char *package_name = "";
+        const char *separator = "";
+
+        lily_mb_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
+                cls->name, v->value.generic);
+    }
+}
+
+void lily_mb_add_value(lily_msgbuf *msgbuf, lily_vm_state *vm,
+        lily_value *value)
+{
+    if (value->flags & VAL_IS_STRING)
+        lily_mb_add(msgbuf, value->value.string->string);
+    else
+        add_value_to_msgbuf(vm, msgbuf, NULL, value);
 }

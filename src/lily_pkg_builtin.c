@@ -485,7 +485,7 @@ void lily_builtin_File_write(lily_state *s)
     else {
         lily_msgbuf *msgbuf = s->vm_buffer;
         lily_mb_flush(msgbuf);
-        lily_vm_add_value_to_msgbuf(s, msgbuf, to_write);
+        lily_mb_add_value(msgbuf, s, to_write);
         fputs(lily_mb_get(msgbuf), filev->inner_file);
     }
 }
@@ -1315,11 +1315,11 @@ void lily_builtin_List_join(lily_state *s)
         int i, stop = lv->num_values - 1;
         lily_value **values = lv->elems;
         for (i = 0;i < stop;i++) {
-            lily_vm_add_value_to_msgbuf(s, vm_buffer, values[i]);
+            lily_mb_add_value(vm_buffer, s, values[i]);
             lily_mb_add(vm_buffer, delim);
         }
         if (stop != -1)
-            lily_vm_add_value_to_msgbuf(s, vm_buffer, values[i]);
+            lily_mb_add_value(vm_buffer, s, values[i]);
     }
 
     lily_return_string(s, lily_new_raw_string(lily_mb_get(vm_buffer)));

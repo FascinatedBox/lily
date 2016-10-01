@@ -125,7 +125,6 @@ void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
         struct lily_value_stack_ *);
 void lily_vm_execute(lily_vm_state *);
 uint64_t lily_siphash(lily_vm_state *, lily_value *);
-void lily_vm_add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *, lily_value *);
 
 void lily_tag_value(lily_vm_state *, lily_value *);
 
