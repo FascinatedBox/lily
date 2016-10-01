@@ -4234,6 +4234,24 @@ static void protected_handler(lily_parse_state *parser, int multi)
     parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
 }
 
+static void setup_and_exec_vm(lily_parse_state *parser)
+{
+    /* todo: Find a way to do some of this as-needed, instead of always. */
+    lily_register_classes(parser->symtab, parser->vm);
+    lily_prepare_main(parser->emit);
+    lily_vm_prep(parser->vm, parser->symtab,
+            parser->symtab->literals->data, parser->foreign_values);
+
+    update_all_cid_tables(parser);
+
+    parser->executing = 1;
+    lily_vm_execute(parser->vm);
+    parser->executing = 0;
+
+    /* Clear __main__ for the next pass. */
+    lily_reset_main(parser->emit);
+}
+
 /* This is the entry point of the parser. It parses the thing that it was given
    and then runs the code. This shouldn't be called directly, but instead by
    one of the lily_parse_* functions that will set it up right. */
@@ -4255,24 +4273,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
                            "Unterminated block(s) at end of parsing.");
             }
 
-            /* For now, update each of these on every pass. This makes sure that
-               embedding functions can depend on the vm being in a proper and
-               consistent state.
-               todo: Some parts, such as cid update and class registration,
-               should be avoided if possible. */
-            lily_register_classes(parser->symtab, parser->vm);
-            lily_prepare_main(parser->emit);
-            lily_vm_prep(parser->vm, parser->symtab,
-                    parser->symtab->literals->data, parser->foreign_values);
-
-            update_all_cid_tables(parser);
-
-            parser->executing = 1;
-            lily_vm_execute(parser->vm);
-            parser->executing = 0;
-
-            /* Clear __main__ for the next pass. */
-            lily_reset_main(parser->emit);
+            setup_and_exec_vm(parser);
 
             if (lex->token == tk_end_tag) {
                 lily_lexer_handle_page_data(parser->lex);
@@ -4442,6 +4443,45 @@ int lily_parse_string(lily_state *s, const char *name,
         char *str)
 {
     return parse_string(s->parser, lm_no_tags, name, str);
+}
+
+int lily_parse_expr(lily_state *s, const char *name, char *str,
+        lily_value **value)
+{
+    if (value)
+        *value = NULL;
+    lily_parse_state *parser = s->parser;
+    if (parser->first_pass)
+        fix_first_file_name(parser, name);
+
+    lily_rewind_state rs;
+    init_rewind(parser, &rs);
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_lex_state *lex = parser->lex;
+        lily_load_str(lex, lm_no_tags, str);
+        lily_lexer(lex);
+
+        expression(parser);
+        lily_emit_eval_expr(parser->emit, parser->expr);
+        NEED_CURRENT_TOK(tk_eof);
+
+        lily_sym *sym = parser->expr->root->result;
+
+        setup_and_exec_vm(parser);
+        lily_pop_lex_entry(parser->lex);
+
+        if (sym && value)
+            *value = s->regs_from_main[sym->reg_spot];
+
+        return 1;
+    }
+    else {
+        build_error(parser);
+        rewind_parser(parser, &rs);
+    }
+
+    return 0;
 }
 
 int lily_exec_template_string(lily_state *s, const char *name,
