@@ -4446,10 +4446,10 @@ int lily_parse_string(lily_state *s, const char *name,
 }
 
 int lily_parse_expr(lily_state *s, const char *name, char *str,
-        lily_value **value)
+        const char **text)
 {
-    if (value)
-        *value = NULL;
+    if (text)
+        *text = NULL;
     lily_parse_state *parser = s->parser;
     if (parser->first_pass)
         fix_first_file_name(parser, name);
@@ -4471,8 +4471,20 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
         setup_and_exec_vm(parser);
         lily_pop_lex_entry(parser->lex);
 
-        if (sym && value)
-            *value = s->regs_from_main[sym->reg_spot];
+        if (sym && text) {
+            lily_value *reg = s->regs_from_main[sym->reg_spot];
+            lily_msgbuf *msgbuf = parser->msgbuf;
+
+            lily_mb_flush(msgbuf);
+            /* Add value doesn't quote String values, because most callers do
+               not want that. This one does, so bypass that. */
+            if (reg->flags & VAL_IS_STRING)
+                lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
+            else
+                lily_mb_add_value(msgbuf, s, reg);
+
+            *text = lily_mb_get(msgbuf);
+        }
 
         return 1;
     }

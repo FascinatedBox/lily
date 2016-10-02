@@ -8,8 +8,6 @@
 typedef struct lily_vm_state_ lily_state;
 # endif
 
-struct lily_value_;
-
 void lily_free_state(lily_state *);
 lily_state *lily_new_state(lily_options *);
 
@@ -18,7 +16,7 @@ void *lily_get_data(lily_state *);
 
 int lily_parse_string(lily_state *, const char *, char *);
 int lily_parse_file(lily_state *, const char *);
-int lily_parse_expr(lily_state *, const char *, char *, struct lily_value_ **);
+int lily_parse_expr(lily_state *, const char *, char *, const char **);
 
 int lily_exec_template_string(lily_state *, const char *, char *);
 int lily_exec_template_file(lily_state *, const char *);
