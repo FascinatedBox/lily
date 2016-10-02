@@ -1249,12 +1249,18 @@ static lily_var *dynaload_function(lily_parse_state *parser,
         lily_mb_flush(msgbuf);
 
         char *cls_name = "";
+        const char *search_name = name;
+
+        /* Constructors use <new> as their name to hide it. */
+        if (search_name[0] == '<')
+            search_name = "new";
+
         if (cls)
             cls_name = cls->name;
 
         func = (lily_foreign_func)lily_library_get(m->handle,
                 lily_mb_sprintf(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
-                name));
+                search_name));
     }
 
     parser->symtab->active_module = m;
