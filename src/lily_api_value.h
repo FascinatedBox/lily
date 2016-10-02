@@ -37,7 +37,7 @@ lily_destroy_func destroy_func;
 /* Use this if you have a structure you want to be a foreign value, but you
    don't have a use for the extra space in the field. */
 #define LILY_FOREIGN_HEADER_PADDED \
-LILY_FOREIGN_HEADER_NOPAD(header_pad)
+LILY_FOREIGN_HEADER_WITH_EXTRA(header_pad)
 
 /* This function is called when Lily wishes to destroy the value that has been
    provided. This action may have been triggered by the gc destroying a
