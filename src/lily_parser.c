@@ -4406,6 +4406,7 @@ static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
         lily_load_file(parser->lex, mode, filename);
         parser_loop(parser, filename);
         lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
 
         return 1;
     }
@@ -4430,6 +4431,7 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
         lily_load_str(parser->lex, mode, str);
         parser_loop(parser, name);
         lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
         return 1;
     }
     else {
