@@ -66,6 +66,7 @@ void lily_##name##_integer(__VA_ARGS__, int64_t); \
 void lily_##name##_list(__VA_ARGS__, lily_list_val *); \
 void lily_##name##_string(__VA_ARGS__, lily_string_val *); \
 void lily_##name##_tuple(__VA_ARGS__, lily_list_val *); \
+void lily_##name##_unit(__VA_ARGS__); \
 void lily_##name##_value(__VA_ARGS__, lily_value *); \
 
 #define DECLARE_GETTERS(name, ...) \

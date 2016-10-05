@@ -24,6 +24,7 @@
 }
 
 extern lily_class *lily_self_class;
+extern lily_type *lily_unit_type;
 
 /***
  *      ____       _
@@ -119,7 +120,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
 {
     /* This creates the type for __main__. __main__ is a function that takes 0
        arguments and does not return anything. */
-    lily_tm_add(emit->tm, NULL);
+    lily_tm_add(emit->tm, lily_unit_type);
     lily_type *main_type = lily_tm_make(emit->tm, 0,
             emit->symtab->function_class, 1);
 
@@ -157,7 +158,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->make_closure = 0;
     main_block->storage_start = 0;
     emit->top_var = main_var;
-    emit->top_function_ret = NULL;
+    emit->top_function_ret = lily_unit_type;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -341,8 +342,9 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
    a var. The var should always be an __import__ function. */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
+    uint16_t spot = lily_emit_get_storage_spot(emit, lily_unit_type);
     lily_u16_write_5(emit->code, o_native_call, *emit->lex_linenum,
-            var->reg_spot, 0, 0);
+            var->reg_spot, 0, spot);
 }
 
 /* This takes the stack of optional arguments and writes out the jumping
@@ -886,9 +888,9 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
         /* A lambda's return is whatever the last expression returns. */
         if (block->block_type == block_lambda)
             emit->top_function_ret = emit->top_var->type->subtypes[0];
-        if (emit->top_function_ret == NULL ||
+        if (emit->top_function_ret == lily_unit_type ||
             emit->top_function_ret == lily_self_class->self_type)
-            lily_u16_write_2(emit->code, o_return_noval, *emit->lex_linenum);
+            lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
         else if (block->block_type == block_define &&
                  block->last_exit != lily_u16_pos(emit->code)) {
             lily_raise(emit->raiser, lily_SyntaxError,
@@ -1727,6 +1729,7 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
     if (function_block->make_closure == 0) {
         code_start = emit->block->code_start;
         code_size = lily_u16_pos(emit->code) - emit->block->code_start;
+
         source = emit->code->data;
     }
     else {
@@ -2977,12 +2980,6 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
                 lily_u16_pos(emit->code) + 1 - save_pos);
         ast->result = (lily_sym *)result;
     }
-    else
-        /* If is_top is false, then this tree has a parent that's binary and
-           has the same op. The parent won't write a jump_if for this tree,
-           because that would be a double-test.
-           Setting this to NULL anyway as a precaution. */
-        ast->result = NULL;
 }
 
 /* This runs a subscript, including validation of the indexes. */
@@ -3809,36 +3806,23 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
 {
     lily_sym *call_sym = cs->sym;
     lily_ast *ast = cs->ast;
+    uint16_t opcode = 0;
+    lily_type *return_type = cs->call_type->subtypes[0];
 
     if (call_sym->flags & VAR_IS_READONLY) {
-        uint16_t opcode;
         if (call_sym->flags & VAR_IS_FOREIGN_FUNC)
             opcode = o_foreign_call;
         else
             opcode = o_native_call;
-
-        lily_u16_write_4(emit->code, opcode, ast->line_num,
-                call_sym->reg_spot, cs->arg_count);
     }
     else
-        lily_u16_write_4(emit->code, o_function_call, ast->line_num,
-                call_sym->reg_spot, cs->arg_count);
-
-    lily_u16_write_1(emit->code, 0);
-    /* Calls are unique, because the return is NOT the very last instruction
-       written. This is necessary for the vm to be able to easily call foreign
-       functions. */
-    lily_type *return_type = cs->call_type->subtypes[0];
+        opcode = o_function_call;
 
     if (return_type == lily_self_class->self_type) {
         int spot = emit->call_values_pos - cs->arg_count;
-        lily_sym *sym = emit->call_values[spot];
-
-        ast->result = sym;
-        lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1,
-                sym->reg_spot);
+        ast->result = emit->call_values[spot];
     }
-    else if (return_type != NULL) {
+    else {
         if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
 
@@ -3866,20 +3850,10 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         }
 
         ast->result = (lily_sym *)storage;
-        lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1,
-                ast->result->reg_spot);
-    }
-    else if (ast->parent == NULL) {
-        /* It's okay to not push a return value, unless something needs it.
-           Assume that if the tree has a parent, something needs a value. */
-        ast->result = NULL;
-        lily_u16_insert(emit->code, lily_u16_pos(emit->code) - 1, 0);
-    }
-    else {
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
-                "Function needed to return a value, but did not.", "");
     }
 
+    lily_u16_write_5(emit->code, opcode, ast->line_num, call_sym->reg_spot,
+            cs->arg_count, ast->result->reg_spot);
     ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
 
     write_call_values(emit, cs, 0);
@@ -4040,8 +4014,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 
     /* tree_binary is only if the caller is really |>. */
     if (ast->tree_type == tree_call || ast->tree_type == tree_binary) {
-        ast->result = NULL;
-
         /* The first arg is actually the variant. */
         lily_ast *variant_tree = ast->arg_start;
         lily_variant_class *variant = variant_tree->variant;
@@ -4349,7 +4321,7 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_type *ret_type = emit->top_function_ret;
 
-    if (ret_type) {
+    if (ret_type != lily_unit_type) {
         lily_ast *ast = es->root;
 
         eval_enforce_value(emit, ast, ret_type,
@@ -4369,7 +4341,7 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
     }
     else {
         write_pop_try_blocks_up_to(emit, emit->function_block);
-        lily_u16_write_2(emit->code, o_return_noval, *emit->lex_linenum);
+        lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
     }
 }
 

@@ -14,12 +14,13 @@
 #define VAL_IS_INSTANCE         0x00400
 #define VAL_IS_ENUM             0x00800
 #define VAL_IS_FILE             0x01000
-#define VAL_IS_DEREFABLE        0x02000
-#define VAL_IS_FOREIGN          0x04000
+#define VAL_IS_UNIT             0x02000
+#define VAL_IS_DEREFABLE        0x04000
+#define VAL_IS_FOREIGN          0x08000
 /* VAL_IS_GC_TAGGED means it is gc tagged, and must be found during a sweep. */
-#define VAL_IS_GC_TAGGED        0x08000
+#define VAL_IS_GC_TAGGED        0x10000
 /* VAL_IS_GC_SPECULATIVE means it might have tagged data inside. */
-#define VAL_IS_GC_SPECULATIVE   0x10000
+#define VAL_IS_GC_SPECULATIVE   0x20000
 #define VAL_IS_GC_SWEEPABLE     (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
 
 #endif

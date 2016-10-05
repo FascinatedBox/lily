@@ -74,8 +74,8 @@ typedef enum {
 
     /* Return to the caller and push a value back. */
     o_return_val,
-    /* Return to the caller, but don't push anything back. */
-    o_return_noval,
+    /* Return a Unit value to the caller. */
+    o_return_unit,
 
     /* Build a new List. This includes a count, and registers to use as source
        values. */

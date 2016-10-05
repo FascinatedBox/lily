@@ -409,7 +409,8 @@ typedef struct lily_module_entry_ {
 #define SYM_CLASS_EITHER     14
 
 #define SYM_CLASS_TAINTED    24
-#define START_CLASS_ID       25
+#define SYM_CLASS_UNIT       25
+#define START_CLASS_ID       26
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define SYM_CLASS_SELF        65529

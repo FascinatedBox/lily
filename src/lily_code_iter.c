@@ -104,7 +104,7 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 3;
             break;
-        case o_return_noval:
+        case o_return_unit:
             iter->line = 1;
 
             iter->round_total = 2;

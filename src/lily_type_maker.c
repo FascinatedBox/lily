@@ -182,6 +182,16 @@ lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
     return lily_tm_make(tm, 0, t->cls, j);
 }
 
+int lily_tm_pos(lily_type_maker *tm)
+{
+    return tm->pos;
+}
+
+void lily_tm_restore(lily_type_maker *tm, int pos)
+{
+    tm->pos = pos;
+}
+
 void lily_free_type_maker(lily_type_maker *tm)
 {
     lily_free(tm->types);

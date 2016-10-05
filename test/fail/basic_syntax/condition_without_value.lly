@@ -1,8 +1,0 @@
-#[
-SyntaxError: Conditional expression has no value.
-    from condition_without_value.lly:7
-]#
-
-define f {}
-if f():
-    f()

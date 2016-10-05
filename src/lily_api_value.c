@@ -35,6 +35,8 @@ void lily_##name##_string(__VA_ARGS__, lily_string_val * v) \
 { lily_move_string(source->action, v); } \
 void lily_##name##_tuple(__VA_ARGS__, lily_list_val * v) \
 { lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
+void lily_##name##_unit(__VA_ARGS__) \
+{ lily_move_unit(source->action); } \
 void lily_##name##_value(__VA_ARGS__, lily_value * v) \
 { lily_assign_value(source->action, v); } \
 

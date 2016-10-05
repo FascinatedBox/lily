@@ -32,6 +32,7 @@ if (lex->token != expected) \
                tokname(expected), tokname(lex->token));
 
 extern lily_class *lily_self_class;
+extern lily_type *lily_unit_type;
 
 /***
  *      ____       _
@@ -946,7 +947,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         int i = 0;
         int result_pos = parser->tm->pos;
 
-        lily_tm_add(parser->tm, NULL);
+        lily_tm_add(parser->tm, lily_unit_type);
 
         if (lex->token != tk_arrow && lex->token != tk_right_parenth) {
             while (1) {
@@ -1272,9 +1273,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     int i = 1;
     int flags = 0 | F_SCOOP_OK;
 
-    /* This means the function doesn't return anything. This is mostly about
-       reserving a slot to maybe be overwritten later. */
-    lily_tm_add(parser->tm, NULL);
+    lily_tm_add(parser->tm, lily_unit_type);
 
     if (lex->token == tk_left_parenth) {
         lily_lexer(lex);
@@ -2573,7 +2572,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     lily_lexer(lex);
 
-    lily_tm_add(parser->tm, NULL);
+    lily_tm_add(parser->tm, lily_unit_type);
 
     if (lex->token == tk_bitwise_or)
         args_collected = collect_lambda_args(parser, expect_type);
@@ -2594,7 +2593,9 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     NEED_CURRENT_TOK(tk_right_curly)
     lily_lexer(lex);
 
-    lily_tm_insert(parser->tm, tm_return, root_result);
+    if (root_result != NULL)
+        lily_tm_insert(parser->tm, tm_return, root_result);
+
     int flags = 0;
     if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
         expect_type->flags & TYPE_IS_VARARGS)
@@ -2872,7 +2873,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
-    lily_tm_add(parser->tm, NULL);
+    lily_tm_add(parser->tm, lily_unit_type);
 
     lily_lexer(lex);
     collect_generics(parser);
@@ -3130,7 +3131,7 @@ static void else_handler(lily_parse_state *parser, int multi)
 
 static int expecting_return_value(lily_parse_state *parser)
 {
-    return parser->emit->top_function_ret != NULL;
+    return parser->emit->top_function_ret != lily_unit_type;
 }
 
 /* Call this to make sure there's no obviously-dead code. */
@@ -3847,7 +3848,7 @@ static void parse_variant_header(lily_parse_state *parser,
     /* The return of a variant is always written as NULL. Since variants are
        special cased (they emit as tuple-like things), the return of a variant
        is NEVER checked or used. */
-    lily_tm_add(parser->tm, NULL);
+    lily_tm_add(parser->tm, lily_unit_type);
 
     while (1) {
         lily_tm_add(parser->tm, get_nameless_arg(parser, &flags));

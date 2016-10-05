@@ -802,6 +802,7 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
     }
 
     fputc('\n', target);
+    lily_return_unit(vm);
 }
 
 void lily_builtin_print(lily_vm_state *vm)
@@ -2170,15 +2171,17 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code += 4;
                 break;
+            case o_return_unit:
+                lily_move_unit(current_frame->prev->return_target);
+                goto return_common;
+
             case o_return_val:
                 lhs_reg = current_frame->prev->return_target;
                 rhs_reg = vm_regs[code[2]];
                 lily_assign_value(lhs_reg, rhs_reg);
 
-                /* DO NOT BREAK HERE.
-                   These two do the same thing from here on, so fall through to
-                   share code. */
-            case o_return_noval:
+                return_common: ;
+
                 current_frame->build_value = NULL;
 
                 current_frame = current_frame->prev;
@@ -2398,6 +2401,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_return_from_vm:
                 lily_release_jump(vm->raiser);
+                return;
+            default:
                 return;
         }
     }

@@ -10,6 +10,8 @@
 #include "lily_api_alloc.h"
 #include "lily_api_msgbuf.h"
 
+extern lily_type *lily_unit_type;
+
 /* The internals of msgbuf are very simple. Unlike most declarations, this one
    is intentionally not within a .h file. The reasoning behind that, is that
    this prevents other parts of the interpreter from grabbing the message field
@@ -232,7 +234,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
             else
                 add_type(msgbuf, type->subtypes[i]);
         }
-        if (type->subtypes[0] == NULL)
+        if (type->subtypes[0] == lily_unit_type)
             lily_mb_add(msgbuf, ")");
         else {
             lily_mb_add(msgbuf, " => ");
@@ -503,6 +505,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         }
         lily_mb_add_char(msgbuf, ']');
     }
+    else if (v->flags & VAL_IS_UNIT)
+        lily_mb_add(msgbuf, "unit");
     else if (v->flags & VAL_IS_FILE) {
         lily_file_val *fv = v->value.file;
         const char *state = fv->inner_file ? "open" : "closed";

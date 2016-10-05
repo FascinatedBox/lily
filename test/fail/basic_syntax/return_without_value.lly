@@ -1,5 +1,5 @@
 #[
-SyntaxError: 'return' expression has no value.
+SyntaxError: return expected type 'Integer' but got type 'Unit'.
     from return_without_value.lly:6
 ]#
 

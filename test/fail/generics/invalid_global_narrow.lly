@@ -1,8 +1,0 @@
-#[
-SyntaxError: Argument #2 to List.map is invalid:
-Expected Type: Function (Integer => ?)
-Received Type: Function (A)
-    from invalid_global_narrow.lly:8
-]#
-
-[1, 2, 3].map(print)

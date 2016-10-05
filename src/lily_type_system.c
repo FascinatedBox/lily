@@ -6,6 +6,8 @@
 
 #include "lily_api_alloc.h"
 
+extern lily_type *lily_unit_type;
+
 # define ENSURE_TYPE_STACK(new_size) \
 if (new_size >= ts->max) \
     grow_types(ts);
@@ -73,15 +75,15 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
         (type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         ;
     else if (type->cls->generic_count != 0) {
-        int i;
         /* Resolve handles solving generics and is thus hit pretty often. So
            it reserves the maximum that could possibly be used at once
            (including for scoops) to prevent repeated growing checks. */
         lily_tm_reserve(ts->tm, type->subtype_count + ts->num_used);
         lily_type **subtypes = type->subtypes;
         int start = ts->tm->pos;
+        int i = 0;
 
-        for (i = 0;i < type->subtype_count;i++)
+        for (;i < type->subtype_count;i++)
             lily_tm_add_unchecked(ts->tm,
                     lily_ts_resolve_with(ts, subtypes[i], fallback));
 
@@ -178,11 +180,16 @@ static int check_function(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
     int ret = 1;
+    int tm_start = lily_tm_pos(ts->tm);
     flags &= T_DONT_SOLVE | T_UNIFY;
 
     /* Remember that [0] is the return type, and always exists. */
-    if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0)
-        ret = 0;
+    if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0) {
+        if (flags & T_UNIFY) {
+            lily_tm_restore(ts->tm, tm_start);
+            lily_tm_add(ts->tm, lily_unit_type);
+        }
+    }
 
     if (left->subtype_count > right->subtype_count) {
         /* Special case: This is a temporary special case for when the wanted

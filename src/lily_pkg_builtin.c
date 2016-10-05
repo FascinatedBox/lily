@@ -49,6 +49,30 @@ static const lily_class raw_self =
 
 const lily_class *lily_self_class = &raw_self;
 
+/* Similar to the above, this is the read-only class+type of Unit. */
+static const lily_class raw_unit =
+{
+    NULL,
+    ITEM_TYPE_CLASS,
+    0,
+    SYM_CLASS_UNIT,
+    0,
+    (lily_type *)&raw_unit,
+    "Unit",
+    0,
+    NULL,
+    NULL,
+    NULL,
+    0,
+    0,
+    {0},
+    0,
+    NULL,
+    NULL,
+};
+
+const lily_type *lily_unit_type = (lily_type *)&raw_unit;
+
 /**
 embedded builtin
 
@@ -330,6 +354,8 @@ void lily_builtin_File_close(lily_state *s)
             fclose(filev->inner_file);
         filev->inner_file = NULL;
     }
+
+    lily_return_unit(s);
 }
 
 /**
@@ -409,6 +435,7 @@ void lily_builtin_File_print(lily_state *s)
 {
     lily_builtin_File_write(s);
     fputc('\n', lily_arg_file_raw(s, 0));
+    lily_return_unit(s);
 }
 
 /**
@@ -488,6 +515,8 @@ void lily_builtin_File_write(lily_state *s)
         lily_mb_add_value(msgbuf, s, to_write);
         fputs(lily_mb_get(msgbuf), filev->inner_file);
     }
+
+    lily_return_unit(s);
 }
 
 /**
@@ -667,6 +696,8 @@ void lily_builtin_Hash_clear(lily_state *s)
 
     hash_val->elem_chain = NULL;
     hash_val->num_elems = 0;
+
+    lily_return_unit(s);
 }
 
 /**
@@ -701,6 +732,8 @@ void lily_builtin_Hash_delete(lily_state *s)
         destroy_elem(hash_elem);
         hash_val->num_elems--;
     }
+
+    lily_return_unit(s);
 }
 
 /**
@@ -1066,6 +1099,8 @@ void lily_builtin_List_clear(lily_state *s)
 
     list_val->extra_space += list_val->num_values;
     list_val->num_values = 0;
+
+    lily_return_unit(s);
 }
 
 /**
@@ -1292,6 +1327,8 @@ void lily_builtin_List_insert(lily_state *s)
     list_val->elems[insert_pos] = lily_copy_value(insert_value);
     list_val->num_values++;
     list_val->extra_space--;
+
+    lily_return_unit(s);
 }
 
 /**
@@ -1404,6 +1441,8 @@ void lily_builtin_List_push(lily_state *s)
     list_val->elems[value_count] = lily_copy_value(insert_value);
     list_val->num_values++;
     list_val->extra_space--;
+
+    lily_return_unit(s);
 }
 
 static void list_select_reject_common(lily_state *s, int expect)
