@@ -2420,6 +2420,8 @@ static lily_var *get_named_var(lily_parse_state *, lily_type *);
     against being run within a lambda (ex: class decl, import, define, and
     more). Aside from that, lambdas can do much of what typical defines do. **/
 
+static inline void handle_multiline(lily_parse_state *, int);
+
 /* This runs through the body of a lambda, running any statements inside. The
    result of this function is the type of the last expression that was run.
    If the last thing was a block, or did not return a value, then NULL is
@@ -2455,7 +2457,12 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             }
         }
         else {
-            statement(parser, 0);
+            /* Don't call statement(1), or control is taken away from the
+               lambda (and the final expression doesn't get inference). Instead,
+               dispatch directly. */
+            lily_lexer(lex);
+            handle_multiline(parser, key_id);
+
             key_id = -1;
             if (lex->token == tk_right_curly)
                 break;
@@ -2831,6 +2838,13 @@ static keyword_handler *handlers[] = {
     protected_handler,
     continue_handler,
 };
+
+/* This is used by lambda handling so that statements (and the handler
+   declarations) can come after lambdas. */
+static inline void handle_multiline(lily_parse_state *parser, int key_id)
+{
+    handlers[key_id](parser, 1);
+}
 
 static void var_handler(lily_parse_state *parser, int multi)
 {
