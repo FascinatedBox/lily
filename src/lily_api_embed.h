@@ -12,6 +12,7 @@ void lily_free_state(lily_state *);
 lily_state *lily_new_state(lily_options *);
 
 const char *lily_get_error(lily_state *);
+const char *lily_get_error_message(lily_state *);
 void *lily_get_data(lily_state *);
 
 int lily_parse_string(lily_state *, const char *, char *);

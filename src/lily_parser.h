@@ -14,6 +14,8 @@
 
 # include "lily_api_msgbuf.h"
 
+struct lily_rewind_state_;
+
 typedef struct lily_parse_state_ {
     lily_module_entry *module_start;
     lily_module_entry *module_top;
@@ -54,6 +56,7 @@ typedef struct lily_parse_state_ {
     lily_type_maker *tm;
     lily_raiser *raiser;
     struct lily_options_ *options;
+    struct lily_rewind_state_ *rs;
     void *data;
 } lily_parse_state;
 

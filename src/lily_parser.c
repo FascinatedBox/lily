@@ -69,6 +69,16 @@ static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *, const char *,
         const char **);
 
+typedef struct lily_rewind_state_
+{
+    lily_class *main_class_start;
+    lily_var *main_var_start;
+    lily_module_link *main_last_module_link;
+    lily_module_entry *main_last_module;
+    uint32_t line_num;
+    uint32_t pending;
+} lily_rewind_state;
+
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
    when it shouldn't. */
@@ -88,6 +98,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
     parser->vm = lily_new_vm_state(options, raiser);
+    parser->rs = lily_malloc(sizeof(lily_rewind_state));
 
     parser->vm->parser = parser;
 
@@ -208,31 +219,11 @@ void lily_free_state(lily_state *vm)
     lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
     lily_free_type_maker(parser->tm);
+    lily_free(parser->rs);
     if (parser->options->free_options)
         lily_free_options(parser->options);
 
     lily_free(parser);
-}
-
-typedef struct
-{
-    lily_class *main_class_start;
-    lily_var *main_var_start;
-    lily_module_link *main_last_module_link;
-    lily_module_entry *main_last_module;
-    uint32_t line_num;
-    uint32_t pad;
-} lily_rewind_state;
-
-static void init_rewind(lily_parse_state *parser, lily_rewind_state *rs)
-{
-    lily_module_entry *main_module = parser->main_module;
-    rs->main_class_start = main_module->class_chain;
-    rs->main_var_start = main_module->var_chain;
-
-    rs->main_last_module_link = main_module->module_chain;
-    rs->main_last_module = parser->module_top;
-    rs->line_num = parser->lex->line_num;
 }
 
 static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
@@ -332,6 +323,24 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
        active again. */
     lily_rewind_symtab(parser->symtab, parser->main_module,
             rs->main_class_start, rs->main_var_start, parser->executing);
+}
+
+static void handle_rewind(lily_parse_state *parser)
+{
+    lily_rewind_state *rs = parser->rs;
+
+    if (parser->rs->pending) {
+        rewind_parser(parser, rs);
+        parser->rs->pending = 0;
+    }
+
+    lily_module_entry *main_module = parser->main_module;
+    rs->main_class_start = main_module->class_chain;
+    rs->main_var_start = main_module->var_chain;
+
+    rs->main_last_module_link = main_module->module_chain;
+    rs->main_last_module = parser->module_top;
+    rs->line_num = parser->lex->line_num;
 }
 
 /***
@@ -4393,8 +4402,7 @@ static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
     if (parser->first_pass)
         fix_first_file_name(parser, filename);
 
-    lily_rewind_state rs;
-    init_rewind(parser, &rs);
+    handle_rewind(parser);
 
     /* It is safe to do this, because the parser will always occupy the first
        jump. All others should use lily_jump_setup instead. */
@@ -4411,10 +4419,8 @@ static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
 
         return 1;
     }
-    else {
-        build_error(parser);
-        rewind_parser(parser, &rs);
-    }
+    else
+        parser->rs->pending = 1;
 
     return 0;
 }
@@ -4425,8 +4431,7 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
     if (parser->first_pass)
         fix_first_file_name(parser, name);
 
-    lily_rewind_state rs;
-    init_rewind(parser, &rs);
+    handle_rewind(parser);
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_str(parser->lex, mode, str);
@@ -4435,10 +4440,8 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
         lily_mb_flush(parser->msgbuf);
         return 1;
     }
-    else {
-        build_error(parser);
-        rewind_parser(parser, &rs);
-    }
+    else
+        parser->rs->pending = 1;
 
     return 0;
 }
@@ -4463,8 +4466,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
     if (parser->first_pass)
         fix_first_file_name(parser, name);
 
-    lily_rewind_state rs;
-    init_rewind(parser, &rs);
+    handle_rewind(parser);
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
@@ -4497,10 +4499,8 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
         return 1;
     }
-    else {
-        build_error(parser);
-        rewind_parser(parser, &rs);
-    }
+    else
+        parser->rs->pending = 1;
 
     return 0;
 }
@@ -4537,10 +4537,17 @@ void *lily_get_data(lily_vm_state *vm)
     return vm->data;
 }
 
+/* Return the message of the last error encountered by the interpreter. */
+const char *lily_get_error_message(lily_state *s)
+{
+    return lily_mb_get(s->raiser->msgbuf);
+}
+
 /* Return a string describing the last error encountered by the interpreter.
    This string is guaranteed to be valid until the next execution of the
    interpreter. */
 const char *lily_get_error(lily_state *s)
 {
+    build_error(s->parser);
     return lily_mb_get(s->parser->msgbuf);
 }
