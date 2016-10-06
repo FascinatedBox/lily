@@ -99,6 +99,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->symtab = lily_new_symtab(parser->generics);
     parser->vm = lily_new_vm_state(options, raiser);
     parser->rs = lily_malloc(sizeof(lily_rewind_state));
+    parser->rs->pending = 0;
 
     parser->vm->parser = parser;
 
