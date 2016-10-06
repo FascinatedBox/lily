@@ -359,6 +359,63 @@ void lily_builtin_File_close(lily_state *s)
 }
 
 /**
+method File.each_line(self: File, fn: Function(ByteString))
+
+Read each line of text from 'self', passing it down to 'fn' for processing.
+
+Errors:
+
+If 'self' is not open for reading, or is closed, `IOError` is raised.
+*/
+void lily_builtin_File_each_line(lily_state *s)
+{
+    lily_file_val *filev = lily_arg_file(s, 0);
+    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
+    char read_buffer[128];
+    int ch = 0, pos = 0;
+
+    lily_file_ensure_readable(s, filev);
+    FILE *f = filev->inner_file;
+
+    lily_prepare_call(s, lily_arg_function(s, 1));
+
+    /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
+       tell how much was written. */
+    while (1) {
+        ch = fgetc(f);
+
+        if (ch == EOF)
+            break;
+
+        if (pos == sizeof(read_buffer)) {
+            lily_mb_add_range(vm_buffer, read_buffer, 0, sizeof(read_buffer));
+            pos = 0;
+        }
+
+        read_buffer[pos] = (char)ch;
+
+        /* \r is intentionally not checked for, because it's been a very, very
+           long time since any os used \r alone for newlines. */
+        if (ch == '\n') {
+            if (pos != 0) {
+                lily_mb_add_range(vm_buffer, read_buffer, 0, pos);
+                pos = 0;
+            }
+
+            const char *text = lily_mb_get(vm_buffer);
+
+            lily_push_bytestring(s, lily_new_raw_string(text));
+            lily_exec_prepared(s, 1);
+            lily_mb_flush(vm_buffer);
+        }
+        else
+            pos++;
+    }
+
+    lily_return_unit(s);
+}
+
+/**
 method File.open(path: String, mode: String):File
 
 Attempt to open 'path' using the 'mode' given. 'mode' may be one of the
