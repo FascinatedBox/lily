@@ -29,6 +29,25 @@ static void *load_var_argv(lily_options *options, uint16_t *unused)
     return lily_new_value_of_list(lv);
 }
 
+/**
+define getenv(name: String): Option[String]
+
+Search the environment for 'name', returning either a `Some` with the contents,
+or `None`. Internally, this is a wrapper over C's getenv.
+*/
+static void lily_sys_getenv(lily_state *s)
+{
+    char *env = getenv(lily_arg_string_raw(s, 0));
+
+    if (env) {
+        lily_instance_val *variant = lily_new_some();
+        lily_variant_set_string(variant, 0, lily_new_raw_string(env));
+        lily_return_filled_variant(s, variant);
+    }
+    else
+        lily_return_empty_variant(s, lily_get_none(s));
+}
+
 #include "dyna_sys.h"
 
 void lily_pkg_sys_init(lily_state *s, lily_options *options)
