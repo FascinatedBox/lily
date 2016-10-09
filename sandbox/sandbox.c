@@ -12,7 +12,7 @@ lily_state *get_parser()
     lily_state *state = lily_new_state(options);
     options->allow_sys = 1;
 
-    return parser;
+    return state;
 }
 
 int run_parser(lily_state *state, char *to_parse)
@@ -22,7 +22,7 @@ int run_parser(lily_state *state, char *to_parse)
 
 void destroy_parser(lily_state *state)
 {
-    lily_free_state(parser);
+    lily_free_state(state);
 }
 
 char *get_parser_error(lily_state *state)
