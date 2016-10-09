@@ -4502,6 +4502,8 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
             lily_msgbuf *msgbuf = parser->msgbuf;
 
             lily_mb_flush(msgbuf);
+            lily_mb_add_fmt(msgbuf, "(^T): ", sym->type);
+
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
             if (reg->flags & VAL_IS_STRING)
