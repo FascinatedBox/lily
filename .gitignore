@@ -1,6 +1,7 @@
 # Binary junk to ignore.
 lib/*
 lily
+embed_examples/call_lily_from_c
 
 # CMake-related stuff.
 CMakeFiles
