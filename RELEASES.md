@@ -1,3 +1,53 @@
+Version 0.18 (2016-10-9)
+=========================
+
+Neat features and the foundation for 1.0.
+
+What's new:
+
+* The backend now has a proper api. Callers now receive a lily_state,
+  and use lily_arg_* functions with indexes to receive values. Calls
+  back into the interpreter are done through lily_push_* functions.
+  See lily_api_* files, notably lily_api_value.h.
+
+* The api is now complete enough that postgres has been moved outside
+  of Lily's core. The next release will include moving emscripten and
+  apache outside of Lily's core.
+
+* I rewrote a large part of how functions are transformed into
+  closures. This has made closures much more stable.
+
+* The interpreter can now rewind parse state when there is a parse
+  or vm error. This means the interpreter's state is no longer
+  undefined if there is an error. A simple repl has been created by
+  creating rewinding, and creating an interpreter inside of an
+  interpreter.
+
+Syntax:
+
+* `use` is gone now. `import` has been given extra paths to load from,
+  so that it does what `use` did before.
+
+* Functions that previously returned nothing now return a `Unit` type.
+  This distinction allows code such as `[1, 2, 3].map(print)`, because
+  there is no distinction between functions that return a value, and
+  those that return `Unit`.
+
+* `class.new` is now hidden. Use `class()` instead to construct values
+  of classes with a constructor.
+
+* `match` can now use `_` in cases to skip decomposition.
+
+* `match` now allows using an `else` default clause.
+
+* Class methods can now use `self` as a return type. This allows an
+  extended class to use a base class method, but still retain the
+  extended class type.
+
+Credits:
+
+* @a-p- and @stevedonovan, for reporting numerous bugs.
+
 Version 0.17 (2016-7-10)
 ========================
 
