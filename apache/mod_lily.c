@@ -180,7 +180,7 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
     return lily_new_value_of_hash(hv);
 }
 
-extern void lily_string_html_encode(lily_state *);
+extern void lily_builtin_String_html_encode(lily_state *);
 extern int lily_maybe_html_encode_to_buffer(lily_state *, lily_value *);
 
 /**
@@ -192,7 +192,7 @@ becomes &lt;, > becomes &gt;).
 */
 void lily_server_escape(lily_state *s)
 {
-    lily_string_html_encode(s);
+    lily_builtin_String_html_encode(s);
 }
 
 /**
