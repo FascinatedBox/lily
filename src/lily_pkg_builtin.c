@@ -1673,7 +1673,7 @@ void lily_builtin_Option_and_then(lily_state *s)
         lily_return_value(s, lily_result_value(s));
     }
     else
-        lily_return_filled_variant(s, optval);
+        lily_return_empty_variant(s, optval);
 }
 
 static void option_is_some_or_none(lily_state *s, int num_expected)
