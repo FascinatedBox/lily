@@ -789,7 +789,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     if (type->cls == parser->symtab->hash_class) {
         lily_type *check_type = type->subtypes[0];
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
-            check_type->cls->id != SYM_CLASS_GENERIC)
+            check_type->cls->id != LILY_GENERIC_ID)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "'^T' is not a valid hash key.", check_type);
     }
@@ -929,7 +929,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
     if (cls->generic_count == 0)
         result = cls->self_type;
-    else if (cls->id != SYM_CLASS_FUNCTION) {
+    else if (cls->id != LILY_FUNCTION_ID) {
         NEED_NEXT_TOK(tk_left_bracket)
         int i = 0;
         while (1) {
@@ -950,7 +950,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         result = lily_tm_make(parser->tm, 0, cls, i);
         ensure_valid_type(parser, result);
     }
-    else if (cls->id == SYM_CLASS_FUNCTION) {
+    else if (cls->id == LILY_FUNCTION_ID) {
         NEED_NEXT_TOK(tk_left_parenth)
         lily_lexer(lex);
         int arg_flags = flags & F_SCOOP_OK;
@@ -1374,9 +1374,9 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
         name = table[dyna_index] + DYNA_NAME_OFFSET;
         if (name[0] == 'O')
-            parser->symtab->next_class_id = SYM_CLASS_OPTION;
+            parser->symtab->next_class_id = LILY_OPTION_ID;
         else
-            parser->symtab->next_class_id = SYM_CLASS_EITHER;
+            parser->symtab->next_class_id = LILY_EITHER_ID;
     }
     else
         save_next_class_id = 0;
@@ -1448,14 +1448,14 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
         int index = dyna_index + 1;
 
         switch (index) {
-            case DIVISIONBYZEROERROR_OFFSET: cls->id = SYM_CLASS_DBZERROR;     break;
-            case EXCEPTION_OFFSET:           cls->id = SYM_CLASS_EXCEPTION;    break;
-            case INDEXERROR_OFFSET:          cls->id = SYM_CLASS_INDEXERROR;   break;
-            case IOERROR_OFFSET:             cls->id = SYM_CLASS_IOERROR;      break;
-            case KEYERROR_OFFSET:            cls->id = SYM_CLASS_KEYERROR;     break;
-            case RUNTIMEERROR_OFFSET:        cls->id = SYM_CLASS_RUNTIMEERROR; break;
-            case TAINTED_OFFSET:             cls->id = SYM_CLASS_TAINTED;      break;
-            case VALUEERROR_OFFSET:          cls->id = SYM_CLASS_VALUEERROR;   break;
+            case DIVISIONBYZEROERROR_OFFSET: cls->id = LILY_DBZERROR_ID;     break;
+            case EXCEPTION_OFFSET:           cls->id = LILY_EXCEPTION_ID;    break;
+            case INDEXERROR_OFFSET:          cls->id = LILY_INDEXERROR_ID;   break;
+            case IOERROR_OFFSET:             cls->id = LILY_IOERROR_ID;      break;
+            case KEYERROR_OFFSET:            cls->id = LILY_KEYERROR_ID;     break;
+            case RUNTIMEERROR_OFFSET:        cls->id = LILY_RUNTIMEERROR_ID; break;
+            case TAINTED_OFFSET:             cls->id = LILY_TAINTED_ID;      break;
+            case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;   break;
             /* Shouldn't happen, but use an impossible id to make it stand out. */
             default:                         cls->id = 12345;                  break;
         }
@@ -2614,7 +2614,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lily_tm_insert(parser->tm, tm_return, root_result);
 
     int flags = 0;
-    if (expect_type && expect_type->cls->id == SYM_CLASS_FUNCTION &&
+    if (expect_type && expect_type->cls->id == LILY_FUNCTION_ID &&
         expect_type->flags & TYPE_IS_VARARGS)
         flags = TYPE_IS_VARARGS;
 
@@ -3264,7 +3264,7 @@ static void for_handler(lily_parse_state *parser, int multi)
         loop_var = lily_emit_new_local_var(parser->emit, cls->self_type,
                 lex->label);
     }
-    else if (loop_var->type->cls->id != SYM_CLASS_INTEGER) {
+    else if (loop_var->type->cls->id != LILY_INTEGER_ID) {
         lily_raise(parser->raiser, lily_SyntaxError,
                    "Loop var must be type integer, not type '^T'.",
                    loop_var->type);
@@ -3463,9 +3463,9 @@ static void process_except(lily_parse_state *parser)
     lily_block_type new_type = block_try_except;
 
     /* If it's 'except Exception', then all possible cases have been handled. */
-    if (except_cls->id == SYM_CLASS_EXCEPTION)
+    if (except_cls->id == LILY_EXCEPTION_ID)
         new_type = block_try_except_all;
-    else if (lily_class_greater_eq_id(SYM_CLASS_EXCEPTION, except_cls) == 0)
+    else if (lily_class_greater_eq_id(LILY_EXCEPTION_ID, except_cls) == 0)
         lily_raise(parser->raiser, lily_SyntaxError,
                 "'%s' is not a valid exception class.",
                 except_cls->name);
@@ -3732,7 +3732,7 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
 
     int result_flag = 0;
 
-    if (target->cls->id == SYM_CLASS_GENERIC) {
+    if (target->cls->id == LILY_GENERIC_ID) {
         /* If a class has generic types, then it can't be fetched from Dynamic.
            A generic type will always resolve to some bottom, but that bottom
            will not be equal to itself. Based on that assumption, the class does

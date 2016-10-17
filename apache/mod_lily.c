@@ -28,7 +28,7 @@ as functions for sending data through the Apache server.
 */
 lily_value *bind_tainted_of(lily_string_val *input)
 {
-    lily_instance_val *iv = lily_new_instance_val_n_of(1, SYM_CLASS_TAINTED);
+    lily_instance_val *iv = lily_new_instance_val_n_of(1, LILY_TAINTED_ID);
     lily_instance_set_string(iv, 0, input);
     return lily_new_value_of_instance(iv);
 }
@@ -229,7 +229,7 @@ void lily_server_write_literal(lily_state *s)
     lily_value *write_reg = lily_arg_value(s, 0);
 
     if (lily_value_is_derefable(write_reg) == 0)
-        lily_error(s, SYM_CLASS_VALUEERROR,
+        lily_error(s, LILY_VALUEERROR_ID,
                 "The string passed must be a literal.\n");
 
     char *value = write_reg->value.string->string;

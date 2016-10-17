@@ -105,20 +105,20 @@ lily_value *lily_new_value_of_string(lily_string_val *);
 lily_value *lily_new_value_of_string_lit(const char *);
 
 /* These are the ids of the predefined variants of Option and Some. */
-#define SYM_CLASS_SOME  12
-#define SYM_CLASS_NONE  13
+#define LILY_SOME_ID  12
+#define LILY_NONE_ID  13
 
-#define SYM_CLASS_LEFT  15
-#define SYM_CLASS_RIGHT 16
+#define LILY_LEFT_ID  15
+#define LILY_RIGHT_ID 16
 
 /* These are the ids of builtin exceptions, for use with lily_error. */
-#define SYM_CLASS_EXCEPTION    17
-#define SYM_CLASS_IOERROR      18
-#define SYM_CLASS_KEYERROR     19
-#define SYM_CLASS_RUNTIMEERROR 20
-#define SYM_CLASS_VALUEERROR   21
-#define SYM_CLASS_INDEXERROR   22
-#define SYM_CLASS_DBZERROR     23 /* > 9000 */
+#define LILY_EXCEPTION_ID    17
+#define LILY_IOERROR_ID      18
+#define LILY_KEYERROR_ID     19
+#define LILY_RUNTIMEERROR_ID 20
+#define LILY_VALUEERROR_ID   21
+#define LILY_INDEXERROR_ID   22
+#define LILY_DBZERROR_ID     23 /* > 9000 */
 
 /* Operations for specific kinds of values. */
 
@@ -166,10 +166,10 @@ lily_instance_val *lily_new_right(void);
 lily_instance_val *lily_new_some(void);
 lily_instance_val *lily_get_none(lily_state *);
 uint16_t lily_variant_id(lily_instance_val *);
-#define lily_variant_is_some(v) (lily_variant_id(v) == SYM_CLASS_SOME)
-#define lily_variant_is_none(v) (lily_variant_id(v) == SYM_CLASS_NONE)
-#define lily_variant_is_left(v) (lily_variant_id(v) == SYM_CLASS_LEFT)
-#define lily_variant_is_right(v) (lily_variant_id(v) == SYM_CLASS_RIGHT)
+#define lily_variant_is_some(v) (lily_variant_id(v) == LILY_SOME_ID)
+#define lily_variant_is_none(v) (lily_variant_id(v) == LILY_NONE_ID)
+#define lily_variant_is_left(v) (lily_variant_id(v) == LILY_LEFT_ID)
+#define lily_variant_is_right(v) (lily_variant_id(v) == LILY_RIGHT_ID)
 
 DECLARE_BOTH(variant, lily_instance_val *, int)
 

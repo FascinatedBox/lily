@@ -89,11 +89,11 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
 
         ret = lily_tm_make(ts->tm, type->flags, type->cls, ts->tm->pos - start);
     }
-    else if (type->cls->id == SYM_CLASS_GENERIC) {
+    else if (type->cls->id == LILY_GENERIC_ID) {
         ret = ts->types[ts->pos + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use Dynamic because it is the most accepting of values. */
-        if (ret == NULL || ret->cls->id == SYM_CLASS_QUESTION) {
+        if (ret == NULL || ret->cls->id == LILY_QUESTION_ID) {
             ret = fallback;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
@@ -209,8 +209,8 @@ static int check_function(lily_type_system *ts, lily_type *left,
             lily_type *left_type = left->subtypes[i];
             lily_type *right_type = right->subtypes[i];
 
-            if (right_type->cls->id == SYM_CLASS_OPTARG &&
-                left_type->cls->id != SYM_CLASS_OPTARG) {
+            if (right_type->cls->id == LILY_OPTARG_ID &&
+                left_type->cls->id != LILY_OPTARG_ID) {
                 right_type = right_type->subtypes[0];
             }
 
@@ -304,7 +304,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
 static int check_tuple(lily_type_system *ts, lily_type *left, lily_type *right,
         int flags)
 {
-    if (right->cls->id != SYM_CLASS_TUPLE)
+    if (right->cls->id != LILY_TUPLE_ID)
         return 0;
 
     if ((left->flags & TYPE_HAS_SCOOP) == 0) {
@@ -374,24 +374,24 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
         if (ret && flags & T_UNIFY)
             lily_tm_add(ts->tm, left);
     }
-    else if (left->cls->id == SYM_CLASS_QUESTION) {
+    else if (left->cls->id == LILY_QUESTION_ID) {
         ret = 1;
         if (flags & T_UNIFY)
             lily_tm_add(ts->tm, right);
     }
-    else if (right->cls->id == SYM_CLASS_QUESTION) {
+    else if (right->cls->id == LILY_QUESTION_ID) {
         ret = 1;
         if (flags & T_UNIFY)
             lily_tm_add(ts->tm, left);
     }
-    else if (left->cls->id == SYM_CLASS_GENERIC)
+    else if (left->cls->id == LILY_GENERIC_ID)
         ret = check_generic(ts, left, right, flags);
-    else if (left->cls->id == SYM_CLASS_FUNCTION &&
-             right->cls->id == SYM_CLASS_FUNCTION)
+    else if (left->cls->id == LILY_FUNCTION_ID &&
+             right->cls->id == LILY_FUNCTION_ID)
         ret = check_function(ts, left, right, flags);
-    else if (left->cls->id == SYM_CLASS_TUPLE)
+    else if (left->cls->id == LILY_TUPLE_ID)
         ret = check_tuple(ts, left, right, flags);
-    else if (left->cls->id == SYM_CLASS_SCOOP_1)
+    else if (left->cls->id == LILY_SCOOP_1_ID)
         /* This is a match of a raw scoop versus a single argument. Consider
            this valid and, you know, scoop up the type. */
         ret = collect_scoop(ts, left, right, flags);

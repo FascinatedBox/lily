@@ -697,7 +697,7 @@ void lily_error(lily_vm_state *vm, uint8_t id, const char *message)
            unfortunate, but the vm doesn't have a sane and easy way to properly
            build classes here. */
         c = lily_dynaload_exception(vm->parser,
-                names[id - SYM_CLASS_EXCEPTION]);
+                names[id - LILY_EXCEPTION_ID]);
         vm->class_table[id] = c;
     }
 
@@ -734,7 +734,7 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
     else
         lily_mb_add_fmt(msgbuf, "%d", key->value.integer);
 
-    lily_error(vm, SYM_CLASS_KEYERROR, lily_mb_get(msgbuf));
+    lily_error(vm, LILY_KEYERROR_ID, lily_mb_get(msgbuf));
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
@@ -745,7 +745,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
     lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
             bad_index);
 
-    lily_error(vm, SYM_CLASS_INDEXERROR, lily_mb_get(msgbuf));
+    lily_error(vm, LILY_INDEXERROR_ID, lily_mb_get(msgbuf));
 }
 
 /***
@@ -801,7 +801,7 @@ static void builtin_stdout_print(lily_vm_state *vm)
 {
     lily_file_val *stdout_val = vm->stdout_reg->value.file;
     if (stdout_val->inner_file == NULL)
-        lily_error(vm, SYM_CLASS_VALUEERROR,
+        lily_error(vm, LILY_VALUEERROR_ID,
                 "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
@@ -1709,7 +1709,7 @@ void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
        (and relies on holes being set aside for these exceptions). */
     if (old_count == 0) {
         int i;
-        for (i = SYM_CLASS_EXCEPTION;i < START_CLASS_ID;i++)
+        for (i = LILY_EXCEPTION_ID;i < START_CLASS_ID;i++)
             vm->class_table[i] = NULL;
     }
 }
@@ -1942,7 +1942,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    INTEGER_OP for the special case of division. */
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.integer == 0)
-                    lily_error(vm, SYM_CLASS_DBZERROR,
+                    lily_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 INTEGER_OP(/)
                 break;
@@ -1950,7 +1950,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* x % 0 will do the same thing as x / 0... */
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.integer == 0)
-                    lily_error(vm, SYM_CLASS_DBZERROR,
+                    lily_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 INTEGER_OP(%)
                 break;
@@ -1972,7 +1972,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_double_div:
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.doubleval == 0)
-                    lily_error(vm, SYM_CLASS_DBZERROR,
+                    lily_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
 
                 DOUBLE_OP(/)
@@ -2005,7 +2005,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
-                        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
+                        lily_error(vm, LILY_RUNTIMEERROR_ID,
                                 "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
@@ -2075,7 +2075,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
-                        lily_error(vm, SYM_CLASS_RUNTIMEERROR,
+                        lily_error(vm, LILY_RUNTIMEERROR_ID,
                                 "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
@@ -2365,7 +2365,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg = vm_regs[code[5]];
 
                 if (step_reg->value.integer == 0)
-                    lily_error(vm, SYM_CLASS_VALUEERROR,
+                    lily_error(vm, LILY_VALUEERROR_ID,
                                "for loop step cannot be 0.");
 
                 /* Do a negative step to offset falling into o_for_loop. */

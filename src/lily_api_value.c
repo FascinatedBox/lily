@@ -367,23 +367,23 @@ lily_value *lily_new_string_take(char *source)
 lily_instance_val *lily_get_none(lily_state *s)
 {
     lily_variant_class *none_cls;
-    none_cls = (lily_variant_class *)s->class_table[SYM_CLASS_NONE];
+    none_cls = (lily_variant_class *)s->class_table[LILY_NONE_ID];
     return none_cls->default_value->value.instance;
 }
 
 lily_instance_val *lily_new_some(void)
 {
-    return lily_new_instance_val_n_of(1, SYM_CLASS_SOME);
+    return lily_new_instance_val_n_of(1, LILY_SOME_ID);
 }
 
 lily_instance_val *lily_new_left(void)
 {
-    return lily_new_instance_val_n_of(1, SYM_CLASS_LEFT);
+    return lily_new_instance_val_n_of(1, LILY_LEFT_ID);
 }
 
 lily_instance_val *lily_new_right(void)
 {
-    return lily_new_instance_val_n_of(1, SYM_CLASS_RIGHT);
+    return lily_new_instance_val_n_of(1, LILY_RIGHT_ID);
 }
 
 /* Simple per-type operations. */
@@ -406,19 +406,19 @@ FILE *lily_file_get_raw(lily_file_val *fv)
 void lily_file_ensure_writeable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(s, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(s, LILY_IOERROR_ID, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
-        lily_error(s, SYM_CLASS_IOERROR, "File not open for writing.");
+        lily_error(s, LILY_IOERROR_ID, "File not open for writing.");
 }
 
 void lily_file_ensure_readable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(s, SYM_CLASS_IOERROR, "IO operation on closed file.");
+        lily_error(s, LILY_IOERROR_ID, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
-        lily_error(s, SYM_CLASS_IOERROR, "File not open for reading.");
+        lily_error(s, LILY_IOERROR_ID, "File not open for reading.");
 }
 
 int lily_function_is_foreign(lily_function_val *fv)

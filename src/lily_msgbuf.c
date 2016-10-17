@@ -199,7 +199,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
     lily_mb_add(msgbuf, type->cls->name);
 
-    if (type->cls->id == SYM_CLASS_FUNCTION) {
+    if (type->cls->id == LILY_FUNCTION_ID) {
         if (type->generic_pos) {
             int i;
             char ch = 'A';
@@ -244,7 +244,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
     }
     else if (type->cls->generic_count != 0) {
         int i;
-        int is_optarg = type->cls->id == SYM_CLASS_OPTARG;
+        int is_optarg = type->cls->id == LILY_OPTARG_ID;
 
         if (is_optarg == 0)
             lily_mb_add(msgbuf, "[");

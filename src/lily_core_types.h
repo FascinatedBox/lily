@@ -391,33 +391,33 @@ typedef struct lily_module_entry_ {
 
 /* SYM_CLASS_* defines are for checking ids of a type's class, since some
    classes are special-cased internally. */
-#define SYM_CLASS_INTEGER     0
-#define SYM_CLASS_DOUBLE      1
-#define SYM_CLASS_STRING      2
-#define SYM_CLASS_BYTESTRING  3
-#define SYM_CLASS_BOOLEAN     4
-#define SYM_CLASS_FUNCTION    5
-#define SYM_CLASS_DYNAMIC     6
-#define SYM_CLASS_LIST        7
-#define SYM_CLASS_HASH        8
-#define SYM_CLASS_TUPLE       9
-#define SYM_CLASS_FILE       10
-#define SYM_CLASS_OPTION     11
+#define LILY_INTEGER_ID     0
+#define LILY_DOUBLE_ID      1
+#define LILY_STRING_ID      2
+#define LILY_BYTESTRING_ID  3
+#define LILY_BOOLEAN_ID     4
+#define LILY_FUNCTION_ID    5
+#define LILY_DYNAMIC_ID     6
+#define LILY_LIST_ID        7
+#define LILY_HASH_ID        8
+#define LILY_TUPLE_ID       9
+#define LILY_FILE_ID       10
+#define LILY_OPTION_ID     11
 /* The holes here are for None, Some, Left, Right, and the builtin Exception
    classes. They're not here because lily_api_value.h needs them for raising
    errors at runtime and for checking the id of predefined enums. */
-#define SYM_CLASS_EITHER     14
+#define LILY_EITHER_ID     14
 
-#define SYM_CLASS_TAINTED    24
-#define SYM_CLASS_UNIT       25
-#define START_CLASS_ID       26
+#define LILY_TAINTED_ID    24
+#define LILY_UNIT_ID       25
+#define START_CLASS_ID     26
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
-#define SYM_CLASS_SELF        65529
-#define SYM_CLASS_QUESTION    65530
-#define SYM_CLASS_GENERIC     65531
-#define SYM_CLASS_OPTARG      65532
-#define SYM_CLASS_SCOOP_2     65533
-#define SYM_CLASS_SCOOP_1     65534
-#define LOWEST_SCOOP_ID       65533
+#define LILY_SELF_ID       65529
+#define LILY_QUESTION_ID   65530
+#define LILY_GENERIC_ID    65531
+#define LILY_OPTARG_ID     65532
+#define LILY_SCOOP_2_ID    65533
+#define LILY_SCOOP_1_ID    65534
+#define LOWEST_SCOOP_ID    65533
 #endif

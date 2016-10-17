@@ -1996,11 +1996,11 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
 {
     int cls_id = type->cls->id;
 
-    if (cls_id != SYM_CLASS_INTEGER &&
-        cls_id != SYM_CLASS_DOUBLE &&
-        cls_id != SYM_CLASS_STRING &&
-        cls_id != SYM_CLASS_LIST &&
-        cls_id != SYM_CLASS_BOOLEAN)
+    if (cls_id != LILY_INTEGER_ID &&
+        cls_id != LILY_DOUBLE_ID &&
+        cls_id != LILY_STRING_ID &&
+        cls_id != LILY_LIST_ID &&
+        cls_id != LILY_BOOLEAN_ID)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "^T is not a valid condition type.", type);
 }
@@ -2012,13 +2012,13 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast)
 {
     int var_cls_id = var_ast->result->type->cls->id;
-    if (var_cls_id == SYM_CLASS_LIST || var_cls_id == SYM_CLASS_STRING) {
-        if (index_ast->result->type->cls->id != SYM_CLASS_INTEGER)
+    if (var_cls_id == LILY_LIST_ID || var_cls_id == LILY_STRING_ID) {
+        if (index_ast->result->type->cls->id != LILY_INTEGER_ID)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
                     lily_SyntaxError, "%s index is not an integer.",
                     var_ast->result->type->cls->name);
     }
-    else if (var_cls_id == SYM_CLASS_HASH) {
+    else if (var_cls_id == LILY_HASH_ID) {
         lily_type *want_key = var_ast->result->type->subtypes[0];
         lily_type *have_key = index_ast->result->type;
 
@@ -2028,7 +2028,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
                     want_key, have_key);
         }
     }
-    else if (var_cls_id == SYM_CLASS_TUPLE) {
+    else if (var_cls_id == LILY_TUPLE_ID) {
         if (index_ast->tree_type != tree_integer) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
                     "tuple subscripts must be integer literals.", "");
@@ -2056,16 +2056,16 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
 {
     lily_type *result;
-    if (type->cls->id == SYM_CLASS_LIST)
+    if (type->cls->id == LILY_LIST_ID)
         result = type->subtypes[0];
-    else if (type->cls->id == SYM_CLASS_HASH)
+    else if (type->cls->id == LILY_HASH_ID)
         result = type->subtypes[1];
-    else if (type->cls->id == SYM_CLASS_TUPLE) {
+    else if (type->cls->id == LILY_TUPLE_ID) {
         /* check_valid_subscript ensures that this is safe. */
         int literal_index = index_ast->backing_value;
         result = type->subtypes[literal_index];
     }
-    else if (type->cls->id == SYM_CLASS_STRING)
+    else if (type->cls->id == LILY_STRING_ID)
         result = type;
     else
         /* Won't happen, but keeps the compiler from complaining. */
@@ -2153,9 +2153,9 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
         result_type = determine_left_type(emit, var_tree);
 
         if (result_type != NULL) {
-            if (result_type->cls->id == SYM_CLASS_HASH)
+            if (result_type->cls->id == LILY_HASH_ID)
                 result_type = result_type->subtypes[1];
-            else if (result_type->cls->id == SYM_CLASS_TUPLE) {
+            else if (result_type->cls->id == LILY_TUPLE_ID) {
                 if (index_tree->tree_type != tree_integer)
                     result_type = NULL;
                 else {
@@ -2167,7 +2167,7 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
                         result_type = result_type->subtypes[literal_index];
                 }
             }
-            else if (result_type->cls->id == SYM_CLASS_LIST)
+            else if (result_type->cls->id == LILY_LIST_ID)
                 result_type = result_type->subtypes[0];
             /* Strings don't allow for subscript assign, so don't bother
                checking for that here. */
@@ -2569,45 +2569,45 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     if (lhs_sym->type == rhs_sym->type) {
         if (ast->op == expr_plus) {
-            if (lhs_class->id == SYM_CLASS_INTEGER)
+            if (lhs_class->id == LILY_INTEGER_ID)
                 opcode = o_integer_add;
-            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+            else if (lhs_class->id == LILY_DOUBLE_ID)
                 opcode = o_double_add;
         }
         else if (ast->op == expr_minus) {
-            if (lhs_class->id == SYM_CLASS_INTEGER)
+            if (lhs_class->id == LILY_INTEGER_ID)
                 opcode = o_integer_minus;
-            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+            else if (lhs_class->id == LILY_DOUBLE_ID)
                 opcode = o_double_minus;
         }
         else if (ast->op == expr_multiply) {
-            if (lhs_class->id == SYM_CLASS_INTEGER)
+            if (lhs_class->id == LILY_INTEGER_ID)
                 opcode = o_integer_mul;
-            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+            else if (lhs_class->id == LILY_DOUBLE_ID)
                 opcode = o_double_mul;
         }
         else if (ast->op == expr_divide) {
-            if (lhs_class->id == SYM_CLASS_INTEGER)
+            if (lhs_class->id == LILY_INTEGER_ID)
                 opcode = o_integer_div;
-            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+            else if (lhs_class->id == LILY_DOUBLE_ID)
                 opcode = o_double_div;
         }
-        else if (ast->op == expr_modulo && lhs_class->id == SYM_CLASS_INTEGER)
+        else if (ast->op == expr_modulo && lhs_class->id == LILY_INTEGER_ID)
             opcode = o_modulo;
         else if (ast->op == expr_left_shift &&
-                 lhs_class->id == SYM_CLASS_INTEGER)
+                 lhs_class->id == LILY_INTEGER_ID)
             opcode = o_left_shift;
         else if (ast->op == expr_right_shift &&
-                 lhs_class->id == SYM_CLASS_INTEGER)
+                 lhs_class->id == LILY_INTEGER_ID)
             opcode = o_right_shift;
         else if (ast->op == expr_bitwise_and &&
-                 lhs_class->id == SYM_CLASS_INTEGER)
+                 lhs_class->id == LILY_INTEGER_ID)
             opcode = o_bitwise_and;
         else if (ast->op == expr_bitwise_or &&
-                 lhs_class->id == SYM_CLASS_INTEGER)
+                 lhs_class->id == LILY_INTEGER_ID)
             opcode = o_bitwise_or;
         else if (ast->op == expr_bitwise_xor &&
-                 lhs_class->id == SYM_CLASS_INTEGER)
+                 lhs_class->id == LILY_INTEGER_ID)
             opcode = o_bitwise_xor;
         else if (ast->op == expr_eq_eq)
             opcode = o_is_equal;
@@ -2737,8 +2737,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         bad_assign_error(emit, ast->line_num, left_sym->type, right_sym->type);
 
     if (opcode == -1) {
-        if (left_cls_id == SYM_CLASS_INTEGER ||
-            left_cls_id == SYM_CLASS_DOUBLE)
+        if (left_cls_id == LILY_INTEGER_ID ||
+            left_cls_id == LILY_DOUBLE_ID)
             opcode = o_fast_assign;
         else
             opcode = o_assign;
@@ -2908,7 +2908,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
-    if (expect && expect->cls->id != SYM_CLASS_FUNCTION)
+    if (expect && expect->cls->id != LILY_FUNCTION_ID)
         expect = NULL;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
@@ -3086,7 +3086,7 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, index_ast, NULL);
 
     check_valid_subscript(emit, var_ast, index_ast);
-    if (var_ast->result->type->cls->id == SYM_CLASS_STRING)
+    if (var_ast->result->type->cls->id == LILY_STRING_ID)
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Subscript assign not allowed on type string.");
 
@@ -3133,7 +3133,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *var_type = right_tree->result->type;
 
-    if (var_type->cls->id == SYM_CLASS_DYNAMIC) {
+    if (var_type->cls->id == LILY_DYNAMIC_ID) {
         /* Lily's emitter is designed so that it has full type information.
            However, the vm only knows about classes. Because of that, casts that
            use subtyping need to be forbidden. */
@@ -3201,7 +3201,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     }
 
     if (expect != NULL &&
-        (expect->cls->id != SYM_CLASS_TUPLE ||
+        (expect->cls->id != LILY_TUPLE_ID ||
          ast->args_collected > expect->subtype_count))
         expect = NULL;
 
@@ -3334,7 +3334,7 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
-    if (key_type == NULL || key_type->cls->id == SYM_CLASS_QUESTION)
+    if (key_type == NULL || key_type->cls->id == LILY_QUESTION_ID)
         key_type = emit->symtab->dynamic_class->self_type;
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
@@ -3353,12 +3353,12 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     lily_class *cls;
     int num, op;
 
-    if (expect && expect->cls->id == SYM_CLASS_HASH) {
+    if (expect && expect->cls->id == LILY_HASH_ID) {
         lily_type *key_type = expect->subtypes[0];
         lily_type *value_type = expect->subtypes[1];
         ensure_valid_key_type(emit, ast, key_type);
 
-        if (value_type == NULL || value_type->cls->id == SYM_CLASS_QUESTION)
+        if (value_type == NULL || value_type->cls->id == LILY_QUESTION_ID)
             value_type = dynamic_type;
 
         lily_tm_add(emit->tm, key_type);
@@ -3370,8 +3370,8 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     }
     else {
         lily_type *elem_type;
-        if (expect && expect->cls->id == SYM_CLASS_LIST &&
-            expect->subtypes[0]->cls->id != SYM_CLASS_QUESTION) {
+        if (expect && expect->cls->id == LILY_LIST_ID &&
+            expect->subtypes[0]->cls->id != LILY_QUESTION_ID) {
             elem_type = expect->subtypes[0];
         }
         else
@@ -3397,7 +3397,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     lily_type *key_type, *question_type, *value_type;
     question_type = emit->symtab->question_class->self_type;
 
-    if (expect && expect->cls->id == SYM_CLASS_HASH) {
+    if (expect && expect->cls->id == LILY_HASH_ID) {
         key_type = expect->subtypes[0];
         value_type = expect->subtypes[1];
         if (key_type == NULL)
@@ -3467,10 +3467,10 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_type *elem_type = NULL;
     lily_ast *arg;
 
-    if (expect && expect->cls->id == SYM_CLASS_LIST)
+    if (expect && expect->cls->id == LILY_LIST_ID)
         elem_type = expect->subtypes[0];
 
-    if (elem_type == NULL || elem_type->cls->id == SYM_CLASS_SCOOP_1)
+    if (elem_type == NULL || elem_type->cls->id == LILY_SCOOP_1_ID)
         elem_type = emit->ts->question_class_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
@@ -3567,7 +3567,7 @@ static lily_type *get_expected_type(lily_emit_call_state *cs, int pos)
         /* The + 1 is because the return type of a function is the first subtype
            inside of it. */
         result = cs->call_type->subtypes[pos + 1];
-        if (result->cls->id == SYM_CLASS_OPTARG)
+        if (result->cls->id == LILY_OPTARG_ID)
             result = result->subtypes[0];
     }
     else {
@@ -3614,7 +3614,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
 {
     lily_type *want_type = get_expected_type(cs, cs->arg_count);
 
-    if (want_type->cls->id == SYM_CLASS_OPTARG)
+    if (want_type->cls->id == LILY_OPTARG_ID)
         want_type = want_type->subtypes[0];
 
     lily_type *eval_type = want_type;
@@ -3679,7 +3679,7 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
     if (call_type->flags & TYPE_HAS_OPTARGS) {
         int i;
         for (i = 1;i < call_type->subtype_count;i++) {
-            if (call_type->subtypes[i]->cls->id == SYM_CLASS_OPTARG)
+            if (call_type->subtypes[i]->cls->id == LILY_OPTARG_ID)
                 break;
         }
         *min = i - 1;
@@ -3981,7 +3981,7 @@ static void begin_call(lily_emit_state *emit, lily_emit_call_state *cs,
     if (call_type == NULL)
         call_type = ((lily_sym *)call_item)->type;
 
-    if (call_type->cls->id != SYM_CLASS_FUNCTION &&
+    if (call_type->cls->id != LILY_FUNCTION_ID &&
         first_tt != tree_variant)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Cannot anonymously call resulting type '^T'.",
@@ -4273,7 +4273,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
     eval_tree(emit, ast, NULL);
     emit->expr_num++;
 
-    if (ast->result->type->cls->id != SYM_CLASS_INTEGER) {
+    if (ast->result->type->cls->id != LILY_INTEGER_ID) {
         lily_raise(emit->raiser, lily_SyntaxError,
                    "Expected type 'integer', but got type '^T'.",
                    ast->result->type);
@@ -4412,7 +4412,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
     eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.");
 
     lily_class *result_cls = ast->result->type->cls;
-    if (lily_class_greater_eq_id(SYM_CLASS_EXCEPTION, result_cls) == 0) {
+    if (lily_class_greater_eq_id(LILY_EXCEPTION_ID, result_cls) == 0) {
         lily_raise(emit->raiser, lily_SyntaxError,
                 "Invalid class '%s' given to raise.", result_cls->name);
     }
