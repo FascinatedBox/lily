@@ -3,7 +3,6 @@
 
 #include "lily_expr.h"
 #include "lily_emitter.h"
-#include "lily_emit_table.h"
 #include "lily_parser.h"
 
 #include "lily_int_opcode.h"
@@ -2561,28 +2560,70 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
    assumes that both sides have already been evaluated. */
 static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 {
-    int opcode;
-    lily_class *lhs_class, *rhs_class;
-    lily_sym *lhs_sym, *rhs_sym;
+    lily_sym *lhs_sym = ast->left->result;
+    lily_sym *rhs_sym = ast->right->result;
+    lily_class *lhs_class = lhs_sym->type->cls;
+    lily_class *rhs_class = rhs_sym->type->cls;
+    int opcode = -1;
     lily_storage *s;
 
-    lhs_sym = ast->left->result;
-    rhs_sym = ast->right->result;
-    lhs_class = lhs_sym->type->cls;
-    rhs_class = rhs_sym->type->cls;
-
-    if (lhs_class->id <= SYM_CLASS_STRING &&
-        rhs_class->id <= SYM_CLASS_STRING)
-        opcode = generic_binop_table[ast->op][lhs_class->id][rhs_class->id];
-    else if (ast->left->result->type == ast->right->result->type)
-        if (ast->op == expr_eq_eq)
+    if (lhs_sym->type == rhs_sym->type) {
+        if (ast->op == expr_plus) {
+            if (lhs_class->id == SYM_CLASS_INTEGER)
+                opcode = o_integer_add;
+            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+                opcode = o_double_add;
+        }
+        else if (ast->op == expr_minus) {
+            if (lhs_class->id == SYM_CLASS_INTEGER)
+                opcode = o_integer_minus;
+            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+                opcode = o_double_minus;
+        }
+        else if (ast->op == expr_multiply) {
+            if (lhs_class->id == SYM_CLASS_INTEGER)
+                opcode = o_integer_mul;
+            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+                opcode = o_double_mul;
+        }
+        else if (ast->op == expr_divide) {
+            if (lhs_class->id == SYM_CLASS_INTEGER)
+                opcode = o_integer_div;
+            else if (lhs_class->id == SYM_CLASS_DOUBLE)
+                opcode = o_double_div;
+        }
+        else if (ast->op == expr_modulo && lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_modulo;
+        else if (ast->op == expr_left_shift &&
+                 lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_left_shift;
+        else if (ast->op == expr_right_shift &&
+                 lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_right_shift;
+        else if (ast->op == expr_bitwise_and &&
+                 lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_bitwise_and;
+        else if (ast->op == expr_bitwise_or &&
+                 lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_bitwise_or;
+        else if (ast->op == expr_bitwise_xor &&
+                 lhs_class->id == SYM_CLASS_INTEGER)
+            opcode = o_bitwise_xor;
+        else if (ast->op == expr_eq_eq)
+            opcode = o_is_equal;
+        else if (ast->op == expr_lt_eq)
+            opcode = o_less_eq;
+        else if (ast->op == expr_lt)
+            opcode = o_less;
+        else if (ast->op == expr_gr_eq)
+            opcode = o_greater_eq;
+        else if (ast->op == expr_gr)
+            opcode = o_greater;
+        else if (ast->op == expr_eq_eq)
             opcode = o_is_equal;
         else if (ast->op == expr_not_eq)
             opcode = o_not_eq;
-        else
-            opcode = -1;
-    else
-        opcode = -1;
+    }
 
     if (opcode == -1)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
@@ -2595,10 +2636,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         case expr_minus:
         case expr_multiply:
         case expr_divide:
-            if (lhs_class->id >= rhs_class->id)
-                storage_class = lhs_class;
-            else
-                storage_class = rhs_class;
+            storage_class = lhs_sym->type->cls;
             break;
         case expr_eq_eq:
         case expr_lt:
@@ -2625,9 +2663,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         s->flags |= SYM_NOT_ASSIGNABLE;
     }
 
-    lily_u16_write_5(emit->code, opcode, ast->line_num,
-            ast->left->result->reg_spot, ast->right->result->reg_spot,
-            s->reg_spot);
+    lily_u16_write_5(emit->code, opcode, ast->line_num, lhs_sym->reg_spot,
+            rhs_sym->reg_spot, s->reg_spot);
 
     ast->result = (lily_sym *)s;
 }
