@@ -7,8 +7,7 @@ void lily_move_boolean(lily_value *, int64_t);
 void lily_move_bytestring(lily_value *, lily_string_val *);
 void lily_move_double(lily_value *, double);
 void lily_move_dynamic(lily_value *, lily_dynamic_val *);
-void lily_move_empty_variant(lily_value *, lily_instance_val *);
-void lily_move_enum_f(uint32_t, lily_value *, lily_instance_val *);
+void lily_move_empty_variant(uint16_t, lily_value *);
 void lily_move_file(lily_value *, lily_file_val *);
 void lily_move_foreign_f(uint32_t, lily_value *, lily_foreign_val *);
 void lily_move_function_f(uint32_t, lily_value *, lily_function_val *);
@@ -19,6 +18,7 @@ void lily_move_list_f(uint32_t, lily_value *, lily_list_val *);
 void lily_move_string(lily_value *, lily_string_val *);
 void lily_move_tuple_f(uint32_t, lily_value *, lily_list_val *);
 void lily_move_unit(lily_value *);
+void lily_move_variant_f(uint32_t, lily_value *, lily_instance_val *);
 
 /* This value can be ref'd/deref'd, but does not contain any tagged data inside
    of it. */

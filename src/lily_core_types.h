@@ -23,10 +23,7 @@ typedef struct {
     uint16_t cls_id;
     uint16_t pad;
 
-    union {
-        struct lily_type_ *build_type;
-        struct lily_literal_ *default_value;
-    };
+    struct lily_type_ *build_type;
 
     char *name;
     uint64_t shorthash;
@@ -66,7 +63,7 @@ typedef struct lily_class_ {
     /* If it's an enum, then the variants are here. NULL otherwise. */
     lily_variant_class **variant_members;
 
-    uint16_t move_flags;
+    uint16_t pad;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;
@@ -391,26 +388,26 @@ typedef struct lily_module_entry_ {
 
 /* SYM_CLASS_* defines are for checking ids of a type's class, since some
    classes are special-cased internally. */
-#define LILY_INTEGER_ID     0
-#define LILY_DOUBLE_ID      1
-#define LILY_STRING_ID      2
-#define LILY_BYTESTRING_ID  3
-#define LILY_BOOLEAN_ID     4
-#define LILY_FUNCTION_ID    5
-#define LILY_DYNAMIC_ID     6
-#define LILY_LIST_ID        7
-#define LILY_HASH_ID        8
-#define LILY_TUPLE_ID       9
-#define LILY_FILE_ID       10
-#define LILY_OPTION_ID     11
+#define LILY_INTEGER_ID     1
+#define LILY_DOUBLE_ID      2
+#define LILY_STRING_ID      3
+#define LILY_BYTESTRING_ID  4
+#define LILY_BOOLEAN_ID     5
+#define LILY_FUNCTION_ID    6
+#define LILY_DYNAMIC_ID     7
+#define LILY_LIST_ID        8
+#define LILY_HASH_ID        9
+#define LILY_TUPLE_ID      10
+#define LILY_FILE_ID       11
+#define LILY_OPTION_ID     12
 /* The holes here are for None, Some, Left, Right, and the builtin Exception
    classes. They're not here because lily_api_value.h needs them for raising
    errors at runtime and for checking the id of predefined enums. */
-#define LILY_EITHER_ID     14
+#define LILY_EITHER_ID     15
 
-#define LILY_TAINTED_ID    24
-#define LILY_UNIT_ID       25
-#define START_CLASS_ID     26
+#define LILY_TAINTED_ID    25
+#define LILY_UNIT_ID       26
+#define START_CLASS_ID     27
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_SELF_ID       65529

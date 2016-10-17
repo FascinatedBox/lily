@@ -184,18 +184,18 @@ void lily_builtin_ByteString_encode(lily_state *s)
         int byte_buffer_size = lily_bytestring_length(input_bytestring);
 
         if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-            lily_return_empty_variant(s, lily_get_none(s));
+            lily_return_empty_variant(s, LILY_NONE_ID);
             return;
         }
     }
     else {
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
         return;
     }
 
-    lily_instance_val *variant = lily_new_some();
+    lily_instance_val *variant = lily_new_enum_n(1);
     lily_variant_set_string(variant, 0, lily_new_raw_string(byte_buffer));
-    lily_return_filled_variant(s, variant);
+    lily_return_filled_variant(s, LILY_SOME_ID, variant);
 }
 
 /**
@@ -258,9 +258,7 @@ useful error message in the event of a failure.
 */
 static void either_is_left_right(lily_state *s, int expect)
 {
-    lily_instance_val *iv = lily_arg_instance(s, 0);
-
-    lily_return_boolean(s, (iv->instance_id == expect));
+    lily_return_boolean(s, lily_arg_class_id(s, 0) == expect);
 }
 
 /**
@@ -285,15 +283,15 @@ void lily_builtin_Either_is_right(lily_state *s)
 
 static void either_optionize_left_right(lily_state *s, int expect)
 {
-    lily_instance_val *iv = lily_arg_instance(s, 0);
+    lily_instance_val *iv;
 
-    if (iv->instance_id == expect) {
-        lily_instance_val *variant = lily_new_some();
+    if (lily_arg_instance_for_id(s, 0, &iv) == expect) {
+        lily_instance_val *variant = lily_new_enum_n(1);
         lily_variant_set_value(variant, 0, lily_instance_value(iv, 0));
-        lily_return_filled_variant(s, variant);
+        lily_return_filled_variant(s, LILY_SOME_ID, variant);
     }
     else
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
 }
 
 /**
@@ -564,7 +562,7 @@ void lily_builtin_File_write(lily_state *s)
 
     lily_file_ensure_writeable(s, filev);
 
-    if (to_write->flags & VAL_IS_STRING)
+    if (to_write->class_id == LILY_STRING_ID)
         fputs(to_write->value.string->string, filev->inner_file);
     else {
         lily_msgbuf *msgbuf = s->vm_buffer;
@@ -612,17 +610,17 @@ lily_hash_elem *lily_hash_get_elem(lily_state *s, lily_hash_val *hash_val,
     uint64_t key_siphash = lily_siphash(s, key);
     lily_hash_elem *elem_iter = hash_val->elem_chain;
     lily_raw_value key_value = key->value;
-    int flags = key->flags;
+    int class_id = key->class_id;
     int ok = 0;
 
     while (elem_iter) {
         if (elem_iter->key_siphash == key_siphash) {
             lily_raw_value iter_value = elem_iter->elem_key->value;
 
-            if (flags & VAL_IS_INTEGER &&
+            if (class_id == LILY_INTEGER_ID &&
                 iter_value.integer == key_value.integer)
                 ok = 1;
-            else if (flags & VAL_IS_STRING &&
+            else if (class_id == LILY_STRING_ID &&
                     /* strings are immutable, so try a ptr compare first. */
                     ((iter_value.string == key_value.string) ||
                      /* No? Make sure the sizes match, then call for a strcmp.
@@ -1645,9 +1643,7 @@ Otherwise, this returns 'None'.
 */
 void lily_builtin_Option_and(lily_state *s)
 {
-    lily_instance_val *input = lily_arg_instance(s, 0);
-
-    if (input->instance_id == LILY_SOME_ID)
+    if (lily_arg_class_id(s, 0) == LILY_SOME_ID)
         lily_return_value(s, lily_arg_value(s, 1));
     else
         lily_return_value(s, lily_arg_value(s, 0));
@@ -1663,9 +1659,9 @@ Otherwise, this returns 'None'.
 */
 void lily_builtin_Option_and_then(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID) {
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID) {
         lily_push_value(s, lily_instance_value(optval, 0));
 
         lily_exec_simple(s, lily_arg_function(s, 1), 1);
@@ -1673,13 +1669,7 @@ void lily_builtin_Option_and_then(lily_state *s)
         lily_return_value(s, lily_result_value(s));
     }
     else
-        lily_return_empty_variant(s, optval);
-}
-
-static void option_is_some_or_none(lily_state *s, int num_expected)
-{
-    lily_instance_val *optval = lily_arg_instance(s, 0);
-    lily_return_boolean(s, (optval->num_values == num_expected));
+        lily_return_empty_variant(s, LILY_NONE_ID);
 }
 
 /**
@@ -1691,7 +1681,7 @@ Otherwise, this returns 'true'.
 */
 void lily_builtin_Option_is_none(lily_state *s)
 {
-    option_is_some_or_none(s, 0);
+    lily_return_boolean(s, lily_arg_class_id(s, 0) == LILY_NONE_ID);
 }
 
 /**
@@ -1703,7 +1693,7 @@ Otherwise, this returns 'false'.
 */
 void lily_builtin_Option_is_some(lily_state *s)
 {
-    option_is_some_or_none(s, 1);
+    lily_return_boolean(s, lily_arg_class_id(s, 0) == LILY_SOME_ID);
 }
 
 /**
@@ -1715,19 +1705,19 @@ Otherwise, this returns 'None'.
 */
 void lily_builtin_Option_map(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID) {
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID) {
         lily_push_value(s, lily_instance_value(optval, 0));
 
         lily_exec_simple(s, lily_arg_function(s, 1), 1);
 
-        lily_instance_val *variant = lily_new_some();
+        lily_instance_val *variant = lily_new_enum_n(1);
         lily_variant_set_value(variant, 0, lily_result_value(s));
-        lily_return_filled_variant(s, variant);
+        lily_return_filled_variant(s, LILY_SOME_ID, variant);
     }
     else
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
 }
 
 /**
@@ -1739,10 +1729,10 @@ Otherwise, this returns 'alternate'.
 */
 void lily_builtin_Option_or(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID)
-        lily_return_filled_variant(s, optval);
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_filled_variant(s, LILY_SOME_ID, optval);
     else
         lily_return_value(s, lily_arg_value(s, 1));
 }
@@ -1756,10 +1746,10 @@ Otherwise, this returns the result of calling 'fn'.
 */
 void lily_builtin_Option_or_else(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID)
-        lily_return_filled_variant(s, optval);
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_filled_variant(s, LILY_SOME_ID, optval);
     else {
         lily_exec_simple(s, lily_arg_function(s, 1), 0);
 
@@ -1778,10 +1768,9 @@ Raises `ValueError` if 'self' is a 'None'.
 */
 void lily_builtin_Option_unwrap(lily_state *s)
 {
-    lily_value *opt_reg = lily_arg_value(s, 0);
-    lily_instance_val *optval = opt_reg->value.instance;
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID)
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
         lily_return_value(s, lily_instance_value(optval, 0));
     else
         lily_error(s, LILY_VALUEERROR_ID, "unwrap called on None.");
@@ -1796,12 +1785,11 @@ Otherwise, this returns 'alternate'.
 */
 void lily_builtin_Option_unwrap_or(lily_state *s)
 {
-    lily_value *opt_reg = lily_arg_value(s, 0);
     lily_value *fallback_reg = lily_arg_value(s, 1);
-    lily_instance_val *optval = opt_reg->value.instance;
+    lily_instance_val *optval;
     lily_value *source;
 
-    if (optval->instance_id == LILY_SOME_ID)
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
         source = lily_instance_value(optval, 0);
     else
         source = fallback_reg;
@@ -1818,9 +1806,9 @@ Otherwise, this returns the result of calling 'fn'.
 */
 void lily_builtin_Option_unwrap_or_else(lily_state *s)
 {
-    lily_instance_val *optval = lily_arg_instance(s, 0);
+    lily_instance_val *optval;
 
-    if (optval->instance_id == LILY_SOME_ID)
+    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
         lily_return_value(s, lily_instance_value(optval, 0));
     else {
         lily_exec_simple(s, lily_arg_function(s, 1), 0);
@@ -1940,7 +1928,7 @@ void lily_builtin_String_find(lily_state *s)
 
     if (find_length > input_length ||
         find_length == 0) {
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
         return;
     }
 
@@ -1972,12 +1960,12 @@ void lily_builtin_String_find(lily_state *s)
     }
 
     if (match) {
-        lily_instance_val *variant = lily_new_some();
+        lily_instance_val *variant = lily_new_enum_n(1);
         lily_variant_set_integer(variant, 0, i);
-        lily_return_filled_variant(s, variant);
+        lily_return_filled_variant(s, LILY_SOME_ID, variant);
     }
     else
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
 }
 
 
@@ -2352,7 +2340,7 @@ void lily_builtin_String_parse_i(lily_state *s)
     if (value > ((uint64_t)INT64_MAX + is_negative) ||
         *input != '\0' ||
         (rounds == 0 && leading_zeroes == 0)) {
-        lily_return_empty_variant(s, lily_get_none(s));
+        lily_return_empty_variant(s, LILY_NONE_ID);
     }
     else {
         int64_t signed_value;
@@ -2362,9 +2350,9 @@ void lily_builtin_String_parse_i(lily_state *s)
         else
             signed_value = -(int64_t)value;
 
-        lily_instance_val *variant = lily_new_some();
+        lily_instance_val *variant = lily_new_enum_n(1);
         lily_variant_set_integer(variant, 0, signed_value);
-        lily_return_filled_variant(s, variant);
+        lily_return_filled_variant(s, LILY_SOME_ID, variant);
     }
 }
 
@@ -3029,7 +3017,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->list_class       = build_class(symtab, "List",        1, LIST_OFFSET);
     symtab->hash_class       = build_class(symtab, "Hash",        2, HASH_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, TUPLE_OFFSET);
-    lily_class *file_class   = build_class(symtab, "File",        0, FILE_OFFSET);
+                               build_class(symtab, "File",        0, FILE_OFFSET);
 
     symtab->question_class = build_special(symtab, "?", 0, LILY_QUESTION_ID);
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_OPTARG_ID);
@@ -3044,18 +3032,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->string_class->flags     |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
     symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
     symtab->boolean_class->flags    |= CLS_VALID_OPTARG;
-
-    symtab->integer_class->move_flags    = VAL_IS_INTEGER;
-    symtab->double_class->move_flags     = VAL_IS_DOUBLE;
-    symtab->string_class->move_flags     = VAL_IS_STRING;
-    symtab->bytestring_class->move_flags = VAL_IS_BYTESTRING;
-    symtab->boolean_class->move_flags    = VAL_IS_BOOLEAN;
-    symtab->function_class->move_flags   = VAL_IS_FUNCTION;
-    symtab->dynamic_class->move_flags    = VAL_IS_DYNAMIC;
-    symtab->list_class->move_flags       = VAL_IS_LIST;
-    symtab->hash_class->move_flags       = VAL_IS_HASH;
-    symtab->tuple_class->move_flags      = VAL_IS_TUPLE;
-    file_class->move_flags               = VAL_IS_FILE;
 
     /* These need to be set here so type finalization can bubble them up. */
     symtab->question_class->self_type->flags |= TYPE_IS_INCOMPLETE;

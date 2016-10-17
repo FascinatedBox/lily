@@ -4080,8 +4080,8 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
             verify_argument_count(emit, ast, variant->build_type, -1, 0);
 
-        lily_u16_write_3(emit->code, o_get_readonly, ast->line_num,
-                variant->default_value->reg_spot);
+        lily_u16_write_3(emit->code, o_get_empty_variant, ast->line_num,
+                variant->cls_id);
 
         if (variant->parent->generic_count) {
             lily_type *self_type = variant->parent->self_type;

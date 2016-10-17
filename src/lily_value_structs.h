@@ -44,7 +44,10 @@ typedef union lily_raw_value_ {
    value. This allows them to be manipulated by the vm using value-handling
    functions, as if they were a real value...even if they aren't. */
 typedef struct lily_literal_ {
-    uint32_t flags;
+    union {
+        uint16_t class_id;
+        uint32_t flags;
+    };
     union {
         uint16_t pad;
         uint16_t next_index;
@@ -68,10 +71,14 @@ typedef struct lily_gc_entry_ {
     struct lily_gc_entry_ *next;
 } lily_gc_entry;
 
-/* A proper Lily value. The 'flags' field holds gc/deref info, as well as a
-   VAL_IS_* flag to indicate the -kind- of value. */
+/* A proper Lily value. The flags field holds markers for gc and other info in
+   the upper 16 bits. The lower 16 bits are reserved for the class id. The
+   class_id field should only be used for reading, never writing. */
 typedef struct lily_value_ {
-    uint32_t flags;
+    union {
+        uint32_t flags;
+        uint16_t class_id;
+    };
     /* This is only used by closure cells. When a closure cell has a
        cell_refcount of zero, it's deref'd and free'd. */
     uint32_t cell_refcount;
@@ -127,11 +134,9 @@ typedef struct lily_hash_val_ {
     lily_hash_elem *elem_chain;
 } lily_hash_val;
 
-/* Either an instance or an enum. For enums, instance_id is the id of the
-   variant.
-   This structure has extra padding so that it lines up with lists (and thus
-   with tuples). This may be changed in the future, but it won't mater to the
-   API. */
+/* Either an instance or an enum. This structure has extra padding so that it
+   lines up with lists (and thus with tuples). This may be changed in the
+   future, but it won't mater to the API. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
     uint16_t instance_id;

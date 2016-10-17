@@ -26,7 +26,7 @@ lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 vm_regs[code[4]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[4]]->flags = VAL_IS_INTEGER; \
+vm_regs[code[4]]->flags = LILY_INTEGER_ID; \
 code += 5;
 
 #define DOUBLE_OP(OP) \
@@ -34,7 +34,7 @@ lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 vm_regs[code[4]]->value.doubleval = \
 lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
-vm_regs[code[4]]->flags = VAL_IS_DOUBLE; \
+vm_regs[code[4]]->flags = LILY_DOUBLE_ID; \
 code += 5;
 
 /* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
@@ -51,15 +51,15 @@ code += 5;
 #define EQUALITY_COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
-if (lhs_reg->flags & VAL_IS_DOUBLE) { \
+if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
     vm_regs[code[4]]->value.integer = \
     (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->flags & VAL_IS_INTEGER) { \
+else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
     vm_regs[code[4]]->value.integer =  \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->flags & VAL_IS_STRING) { \
+else if (lhs_reg->class_id == LILY_STRING_ID) { \
     vm_regs[code[4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
@@ -69,26 +69,26 @@ else { \
     vm_regs[code[4]]->value.integer = \
     lily_eq_value(vm, lhs_reg, rhs_reg) OP 1; \
 } \
-vm_regs[code[4]]->flags = VAL_IS_BOOLEAN; \
+vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
 
 #define COMPARE_OP(OP, STRINGOP) \
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
-if (lhs_reg->flags & VAL_IS_DOUBLE) { \
+if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
     vm_regs[code[4]]->value.integer = \
     (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->flags & VAL_IS_INTEGER) { \
+else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
     vm_regs[code[4]]->value.integer = \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->flags & VAL_IS_STRING) { \
+else if (lhs_reg->class_id == LILY_STRING_ID) { \
     vm_regs[code[4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) STRINGOP; \
 } \
-vm_regs[code[4]]->flags = VAL_IS_BOOLEAN; \
+vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
 
 /** If you're interested in working on the vm, or having trouble with it, here's
@@ -437,16 +437,17 @@ static void function_marker(int pass, lily_value *v)
 
 static void gc_mark(int pass, lily_value *v)
 {
-    int flags = v->flags;
-    if (flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
-        if (flags &
-            (VAL_IS_LIST | VAL_IS_INSTANCE | VAL_IS_ENUM | VAL_IS_TUPLE))
+    if (v->flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
+        int class_id = v->class_id;
+        if (class_id == LILY_LIST_ID ||
+            class_id == LILY_TUPLE_ID ||
+            v->flags & (VAL_IS_ENUM | VAL_IS_INSTANCE))
             list_marker(pass, v);
-        else if (flags & VAL_IS_HASH)
+        else if (class_id == LILY_HASH_ID)
             hash_marker(pass, v);
-        else if (flags & VAL_IS_DYNAMIC)
+        else if (class_id == LILY_DYNAMIC_ID)
             dynamic_marker(pass, v);
-        else if (flags & VAL_IS_FUNCTION)
+        else if (class_id == LILY_FUNCTION_ID)
             function_marker(pass, v);
     }
 }
@@ -727,7 +728,7 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
-    if (key->flags & VAL_IS_STRING) {
+    if (key->class_id == LILY_STRING_ID) {
         /* String values are required to be \0 terminated, so this is ok. */
         lily_mb_add_fmt(msgbuf, "\"^E\"", key->value.string->string);
     }
@@ -776,7 +777,7 @@ void lily_builtin_calltrace(lily_vm_state *vm)
 
 static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
 {
-    if (source->flags & VAL_IS_STRING)
+    if (source->class_id == LILY_STRING_ID)
         fputs(source->value.string->string, target);
     else {
         lily_msgbuf *msgbuf = vm->vm_buffer;
@@ -875,7 +876,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
     index_reg = vm_regs[code[3]];
     rhs_reg = vm_regs[code[4]];
 
-    if ((lhs_reg->flags & VAL_IS_HASH) == 0) {
+    if (lhs_reg->class_id != LILY_HASH_ID) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -909,9 +910,9 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
     /* list and tuple have the same representation internally. Since list
        stores proper values, lily_assign_value automagically set the type to
        the right thing. */
-    if (lhs_reg->flags & VAL_IS_STRING)
+    if (lhs_reg->class_id == LILY_STRING_ID)
         lily_string_subscript(vm, lhs_reg, index_reg, result_reg);
-    else if (lhs_reg->flags & (VAL_IS_LIST | VAL_IS_TUPLE)) {
+    else if (lhs_reg->class_id != LILY_HASH_ID) {
         lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
@@ -993,10 +994,10 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     int count = code[3];
     lily_value *result = vm_regs[code[code[3] + 4]];
 
-    lily_instance_val *ival = lily_new_instance_val_n_of(count, variant_id);
+    lily_instance_val *ival = lily_new_instance_val(count);
     lily_value **slots = ival->values;
 
-    lily_move_enum_f(MOVE_DEREF_SPECULATIVE, result, ival);
+    lily_move_variant_f(variant_id | MOVE_DEREF_SPECULATIVE, result, ival);
 
     int i;
     for (i = 0;i < count;i++) {
@@ -1014,7 +1015,7 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
 
     lily_instance_val *ival = exception_val->value.instance;
     char *message = ival->values[0]->value.string->string;
-    lily_class *raise_cls = vm->class_table[ival->instance_id];
+    lily_class *raise_cls = vm->class_table[exception_val->class_id];
 
     /* There's no need for a ref/deref here, because the gc cannot trigger
        foreign stack unwind and/or exception capture. */
@@ -1065,7 +1066,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
        building one that will simply be tossed. */
     if (caller_frame->build_value) {
         lily_value *build_value = caller_frame->build_value;
-        int build_id = build_value->value.instance->instance_id;
+        int build_id = build_value->class_id;
 
         if (build_id > cls_id) {
             /* Ensure that there is an actual lineage here. */
@@ -1090,12 +1091,12 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_instance_val *iv = lily_new_instance_val_n_of(total_entries, cls_id);
+    lily_instance_val *iv = lily_new_instance_val(total_entries);
 
     if (code[0] == o_new_instance_speculative)
-        lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, iv);
+        lily_move_instance_f(cls_id | MOVE_DEREF_SPECULATIVE, result, iv);
     else {
-        lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
+        lily_move_instance_f(cls_id | MOVE_DEREF_NO_GC, result, iv);
         if (code[0] == o_new_instance_tagged)
             lily_tag_value(vm, result);
     }
@@ -1132,21 +1133,14 @@ static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
 
     lily_value *inner = rhs_reg->value.dynamic->inner_value;
 
-    int ok = 0;
-    if (inner->flags & (VAL_IS_INSTANCE | VAL_IS_ENUM))
-        ok = (inner->value.instance->instance_id == cast_class->id);
-    else
-        /* Note: This won't work for foreign values, but there are none of those
-           until the postgres module is fixed. */
-        ok = cast_class->move_flags & inner->flags;
-
-    if (ok) {
-        lily_instance_val *variant = lily_new_some();
+    if (inner->class_id == cast_class->id) {
+        lily_instance_val *variant = lily_new_enum_n(1);
         lily_variant_set_value(variant, 0, inner);
-        lily_move_enum_f(MOVE_DEREF_SPECULATIVE, lhs_reg, variant);
+        lily_move_variant_f(LILY_SOME_ID | MOVE_DEREF_SPECULATIVE, lhs_reg,
+                variant);
     }
     else
-        lily_move_empty_variant(lhs_reg, lily_get_none(vm));
+        lily_move_empty_variant(LILY_NONE_ID, lhs_reg);
 }
 
 /***
@@ -1411,14 +1405,14 @@ static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
     const char *raw_message = lily_mb_get(vm->raiser->msgbuf);
-    lily_instance_val *ival = lily_new_instance_val_n_of(2, raised_cls->id);
+    lily_instance_val *ival = lily_new_instance_val(2);
     lily_string_val *message = lily_new_raw_string(raw_message);
     lily_mb_flush(vm->raiser->msgbuf);
 
     lily_instance_set_string(ival, 0, message);
     lily_instance_set_list(ival, 1, build_traceback_raw(vm));
 
-    lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, ival);
+    lily_move_instance_f(raised_cls->id | MOVE_DEREF_SPECULATIVE, result, ival);
 }
 
 /* This is called when 'raise' raises an error. The traceback property is
@@ -1655,13 +1649,13 @@ void lily_exec_simple(lily_vm_state *vm, lily_function_val *f, int count)
    hashable. */
 uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
 {
-    int flags = key->flags;
+    int flags = key->class_id;
     uint64_t key_hash;
 
-    if (flags & VAL_IS_STRING)
+    if (flags == LILY_STRING_ID)
         key_hash = siphash24(key->value.string->string,
                 key->value.string->size, vm->sipkey);
-    else if (flags & VAL_IS_INTEGER)
+    else if (flags == LILY_INTEGER_ID)
         key_hash = key->value.integer;
     else /* Should not happen, because no other classes are valid keys. */
         key_hash = 0;
@@ -1884,16 +1878,25 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->flags = rhs_reg->flags;
                 code += 4;
                 break;
+            case o_get_empty_variant:
+                lhs_reg = vm_regs[code[3]];
+
+                lily_deref(lhs_reg);
+
+                lhs_reg->value.instance = NULL;
+                lhs_reg->flags = VAL_IS_ENUM | code[2];
+                code += 4;
+                break;
             case o_get_integer:
                 lhs_reg = vm_regs[code[3]];
                 lhs_reg->value.integer = (int16_t)code[2];
-                lhs_reg->flags = VAL_IS_INTEGER;
+                lhs_reg->flags = LILY_INTEGER_ID;
                 code += 4;
                 break;
             case o_get_boolean:
                 lhs_reg = vm_regs[code[3]];
                 lhs_reg->value.integer = code[2];
-                lhs_reg->flags = VAL_IS_BOOLEAN;
+                lhs_reg->flags = LILY_BOOLEAN_ID;
                 code += 4;
                 break;
             case o_integer_add:
@@ -1980,14 +1983,14 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_jump_if:
                 lhs_reg = vm_regs[code[2]];
                 {
-                    int flags = lhs_reg->flags;
+                    int id = lhs_reg->class_id;
                     int result;
 
-                    if (flags & (VAL_IS_INTEGER | VAL_IS_BOOLEAN))
+                    if (id == LILY_INTEGER_ID || id == LILY_BOOLEAN_ID)
                         result = (lhs_reg->value.integer == 0);
-                    else if (flags & VAL_IS_STRING)
+                    else if (id == LILY_STRING_ID)
                         result = (lhs_reg->value.string->size == 0);
-                    else if (flags & VAL_IS_LIST)
+                    else if (id == LILY_LIST_ID)
                         result = (lhs_reg->value.list->num_values == 0);
                     else
                         result = 1;
@@ -2144,7 +2147,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[2]];
 
                 rhs_reg = vm_regs[code[3]];
-                rhs_reg->flags = VAL_IS_INTEGER;
+                rhs_reg->flags = LILY_INTEGER_ID;
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code += 4;
                 break;
@@ -2325,7 +2328,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    the second is 1, etc. */
                 lhs_reg = vm_regs[code[2]];
                 /* code[3] is the base enum id + 1. */
-                i = lhs_reg->value.instance->instance_id - code[3];
+                i = lhs_reg->class_id - code[3];
 
                 code += code[5 + i];
                 break;
@@ -2372,7 +2375,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg->value.integer =
                         lhs_reg->value.integer - step_reg->value.integer;
                 lhs_reg->value.integer = loop_reg->value.integer;
-                loop_reg->flags = VAL_IS_INTEGER;
+                loop_reg->flags = LILY_INTEGER_ID;
 
                 code += 6;
                 break;

@@ -22,7 +22,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
 
     symtab->main_function = NULL;
-    symtab->next_class_id = 0;
+    symtab->next_class_id = 1;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->old_class_chain = NULL;
@@ -138,8 +138,9 @@ static void free_literals(lily_value_stack *literals)
         /* Literals are marked where their refcount won't be adjusted during
            the vm's run. Any literal that isn't primitive will have 1 ref, and
            can be destroyed by sending it to deref. */
-        if ((lit->flags &
-            (VAL_IS_BOOLEAN | VAL_IS_INTEGER | VAL_IS_DOUBLE)) == 0) {
+        if (lit->class_id != LILY_BOOLEAN_ID &&
+            lit->class_id != LILY_INTEGER_ID &&
+            lit->class_id != LILY_DOUBLE_ID) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
         }
@@ -226,7 +227,7 @@ static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 
     for (i = 0;i < stop;i++) {
         lily_literal *lit = (lily_literal *)lily_vs_nth(vs, i);
-        if (lit->flags & to_find)
+        if (lit->class_id == to_find)
             return lit;
     }
 
@@ -235,7 +236,7 @@ static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 
 lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_INTEGER);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_INTEGER_ID);
 
     while (iter) {
         if (iter->value.integer == int_val)
@@ -262,7 +263,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 
 lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_DOUBLE);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_DOUBLE_ID);
 
     while (iter) {
         if (iter->value.doubleval == dbl_val)
@@ -290,7 +291,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
         const char *want_string, int len)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_BYTESTRING);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_BYTESTRING_ID);
 
     while (iter) {
         if (iter->value.string->size == len &&
@@ -312,7 +313,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)lily_new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
-    v->flags = VAL_IS_BYTESTRING;
+    v->flags = LILY_BYTESTRING_ID;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -323,7 +324,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
 lily_literal *lily_get_string_literal(lily_symtab *symtab,
         const char *want_string)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, VAL_IS_STRING);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_STRING_ID);
     int want_string_len = strlen(want_string);
 
     while (iter) {
@@ -346,7 +347,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)lily_new_value_of_string(sv);
 
     /* Drop the derefable marker. */
-    v->flags = VAL_IS_STRING;
+    v->flags = LILY_STRING_ID;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -364,7 +365,7 @@ static void store_function(lily_symtab *symtab, lily_var *func_var,
     func_val->module = module;
 
     lily_value *v = lily_malloc(sizeof(lily_value));
-    v->flags = VAL_IS_FUNCTION;
+    v->flags = LILY_FUNCTION_ID;
     v->value.function = func_val;
 
     lily_vs_push(symtab->literals, v);
@@ -529,7 +530,6 @@ lily_class *lily_new_raw_class(const char *name)
     new_class->members = NULL;
     new_class->module = NULL;
     new_class->all_subtypes = NULL;
-    new_class->move_flags = 0;
     new_class->dyna_start = 0;
 
     return new_class;
@@ -546,7 +546,6 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
     lily_class *new_class = lily_new_raw_class(name);
 
     /* Builtin classes will override this. */
-    new_class->move_flags = VAL_IS_INSTANCE;
     new_class->module = symtab->active_module;
 
     new_class->id = symtab->next_class_id;
@@ -563,7 +562,6 @@ lily_class *lily_new_enum(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_new_class(symtab, name);
     new_class->flags |= CLS_IS_ENUM;
-    new_class->move_flags = VAL_IS_ENUM;
 
     return new_class;
 }
@@ -776,24 +774,6 @@ lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
     return ret;
 }
 
-lily_literal *make_variant_default(lily_symtab *symtab,
-        lily_variant_class *variant)
-{
-    lily_instance_val *iv = lily_new_instance_val_n_of(0, variant->cls_id);
-    iv->num_values = 0;
-
-    lily_literal *v = (lily_literal *)lily_new_value_of_enum(iv);
-
-    /* Drop derefable marker. */
-    v->flags = VAL_IS_ENUM;
-    v->next_index = 0;
-    v->reg_spot = lily_vs_pos(symtab->literals);
-
-    lily_vs_push(symtab->literals, (lily_value *)v);
-
-    return v;
-}
-
 /* This is called when an enum class has finished scanning the variant members.
    If the enum is to be scoped, then the enums are bound within it. This is also
    where some callbacks are set on the enum (gc, eq, etc.) */
@@ -818,13 +798,10 @@ void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
         lily_variant_class *variant = (lily_variant_class *)class_iter;
         members[variant_count - 1 - i] = variant;
 
-        if (variant->build_type == NULL) {
-            variant->default_value = make_variant_default(symtab, variant);
+        if (variant->build_type == NULL)
             enum_cls->flags |= CLS_VALID_OPTARG;
-        }
     }
 
-    enum_cls->move_flags = VAL_IS_ENUM;
     enum_cls->variant_members = members;
     enum_cls->variant_size = variant_count;
     enum_cls->flags |= CLS_IS_ENUM;

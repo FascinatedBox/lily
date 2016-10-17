@@ -189,6 +189,13 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 4;
             break;
+        case o_get_empty_variant:
+            iter->line = 1;
+            iter->special_1 = 1;
+            iter->outputs_5 = 1;
+
+            iter->round_total = 4;
+            break;
         case o_get_property:
             iter->line = 1;
             iter->special_1 = 1;

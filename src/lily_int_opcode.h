@@ -107,6 +107,8 @@ typedef enum {
     o_get_integer,
     /* Load a boolean value. */
     o_get_boolean,
+    /* Load an empty variant through the class id. */
+    o_get_empty_variant,
 
     /* Create a new class that the gc can completely ignore. */
     o_new_instance_basic,

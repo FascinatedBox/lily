@@ -28,9 +28,9 @@ as functions for sending data through the Apache server.
 */
 lily_value *bind_tainted_of(lily_string_val *input)
 {
-    lily_instance_val *iv = lily_new_instance_val_n_of(1, LILY_TAINTED_ID);
+    lily_instance_val *iv = lily_new_instance_val(1);
     lily_instance_set_string(iv, 0, input);
-    return lily_new_value_of_instance(iv);
+    return lily_new_value_of_instance(LILY_TAINTED_ID, iv);
 }
 
 extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);

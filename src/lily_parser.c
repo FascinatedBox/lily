@@ -742,8 +742,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.");
 
-        lily_u16_write_2(optarg_stack, o_get_readonly,
-                variant->default_value->reg_spot);
+        lily_u16_write_2(optarg_stack, o_get_empty_variant, variant->cls_id);
     }
     else if (expect != tk_integer) {
         lily_u16_write_2(optarg_stack, o_get_readonly,
@@ -1811,13 +1810,13 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
 {
     lily_class *literal_cls;
 
-    if (lit->flags == VAL_IS_INTEGER)
+    if (lit->class_id == LILY_INTEGER_ID)
         literal_cls = parser->symtab->integer_class;
-    else if (lit->flags == VAL_IS_DOUBLE)
+    else if (lit->class_id == LILY_DOUBLE_ID)
         literal_cls = parser->symtab->double_class;
-    else if (lit->flags == VAL_IS_STRING)
+    else if (lit->class_id == LILY_STRING_ID)
         literal_cls = parser->symtab->string_class;
-    else if (lit->flags == VAL_IS_BYTESTRING)
+    else if (lit->class_id == LILY_BYTESTRING_ID)
         literal_cls = parser->symtab->bytestring_class;
     else
         /* Impossible, but keeps the compiler from complaining. */
@@ -4506,7 +4505,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
-            if (reg->flags & VAL_IS_STRING)
+            if (reg->class_id == LILY_STRING_ID)
                 lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
             else
                 lily_mb_add_value(msgbuf, s, reg);

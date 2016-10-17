@@ -27,11 +27,10 @@ typedef struct lily_string_val_     lily_string_val;
 typedef struct lily_value_          lily_value;
 
 /* Use this if you have a structure you want to be a foreign value, and you also
-   want to use that 16 bits of space for a field. */
+   want to use that 32 bits of space for a field. */
 #define LILY_FOREIGN_HEADER_WITH_EXTRA(x) \
 uint32_t refcount; \
-uint16_t instance_id; \
-uint16_t x; \
+uint32_t x; \
 lily_destroy_func destroy_func;
 
 /* Use this if you have a structure you want to be a foreign value, but you
@@ -56,10 +55,10 @@ typedef void (*lily_destroy_func)(lily_generic_val *);
 void lily_##name##_boolean(__VA_ARGS__, int); \
 void lily_##name##_bytestring(__VA_ARGS__, lily_string_val *); \
 void lily_##name##_double(__VA_ARGS__, double); \
-void lily_##name##_empty_variant(__VA_ARGS__, lily_instance_val *); \
+void lily_##name##_empty_variant(__VA_ARGS__, uint16_t); \
 void lily_##name##_file(__VA_ARGS__, lily_file_val *); \
-void lily_##name##_foreign(__VA_ARGS__, lily_foreign_val *); \
-void lily_##name##_filled_variant(__VA_ARGS__, lily_instance_val *); \
+void lily_##name##_foreign(__VA_ARGS__, uint16_t, lily_foreign_val *); \
+void lily_##name##_filled_variant(__VA_ARGS__, uint16_t, lily_instance_val *); \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val *); \
 void lily_##name##_instance(__VA_ARGS__, lily_instance_val *); \
 void lily_##name##_integer(__VA_ARGS__, int64_t); \
@@ -95,30 +94,30 @@ DECLARE_GETTERS(name, __VA_ARGS__)
    that the embedder need not worry about raw moves. */
 lily_value *lily_new_value_of_bytestring(lily_string_val *);
 lily_value *lily_new_value_of_double(double);
-lily_value *lily_new_value_of_enum(lily_instance_val *);
+lily_value *lily_new_value_of_enum(uint16_t, lily_instance_val *);
 lily_value *lily_new_value_of_file(lily_file_val *);
 lily_value *lily_new_value_of_hash(lily_hash_val *);
-lily_value *lily_new_value_of_instance(lily_instance_val *);
+lily_value *lily_new_value_of_instance(uint16_t, lily_instance_val *);
 lily_value *lily_new_value_of_integer(int64_t);
 lily_value *lily_new_value_of_list(lily_list_val *);
 lily_value *lily_new_value_of_string(lily_string_val *);
 lily_value *lily_new_value_of_string_lit(const char *);
 
 /* These are the ids of the predefined variants of Option and Some. */
-#define LILY_SOME_ID  12
-#define LILY_NONE_ID  13
+#define LILY_SOME_ID  13
+#define LILY_NONE_ID  14
 
-#define LILY_LEFT_ID  15
-#define LILY_RIGHT_ID 16
+#define LILY_LEFT_ID  16
+#define LILY_RIGHT_ID 17
 
 /* These are the ids of builtin exceptions, for use with lily_error. */
-#define LILY_EXCEPTION_ID    17
-#define LILY_IOERROR_ID      18
-#define LILY_KEYERROR_ID     19
-#define LILY_RUNTIMEERROR_ID 20
-#define LILY_VALUEERROR_ID   21
-#define LILY_INDEXERROR_ID   22
-#define LILY_DBZERROR_ID     23 /* > 9000 */
+#define LILY_EXCEPTION_ID    18
+#define LILY_IOERROR_ID      19
+#define LILY_KEYERROR_ID     20
+#define LILY_RUNTIMEERROR_ID 21
+#define LILY_VALUEERROR_ID   22
+#define LILY_INDEXERROR_ID   23
+#define LILY_DBZERROR_ID     24 /* > 9000 */
 
 /* Operations for specific kinds of values. */
 
@@ -141,9 +140,8 @@ int lily_function_is_foreign(lily_function_val *);
 int lily_function_is_native(lily_function_val *);
 
 /* Instance operations */
-lily_instance_val *lily_new_instance_val_n_of(int, uint16_t);
+lily_instance_val *lily_new_instance_val(int);
 DECLARE_BOTH(instance, lily_instance_val *, int);
-uint16_t lily_instance_id(lily_instance_val *);
 
 /* Hash operations (still a work-in-progress) */
 lily_hash_val *lily_new_hash_val(void);
@@ -161,16 +159,7 @@ char *lily_string_get_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);
 
 /* Enum operations */
-lily_instance_val *lily_new_left(void);
-lily_instance_val *lily_new_right(void);
-lily_instance_val *lily_new_some(void);
-lily_instance_val *lily_get_none(lily_state *);
-uint16_t lily_variant_id(lily_instance_val *);
-#define lily_variant_is_some(v) (lily_variant_id(v) == LILY_SOME_ID)
-#define lily_variant_is_none(v) (lily_variant_id(v) == LILY_NONE_ID)
-#define lily_variant_is_left(v) (lily_variant_id(v) == LILY_LEFT_ID)
-#define lily_variant_is_right(v) (lily_variant_id(v) == LILY_RIGHT_ID)
-
+lily_instance_val *lily_new_enum_n(int);
 DECLARE_BOTH(variant, lily_instance_val *, int)
 
 /* Stack operations
@@ -187,7 +176,9 @@ void lily_prepare_call(lily_state *, lily_function_val *);
 void lily_exec_prepared(lily_state *, int);
 void lily_exec_simple(lily_state *, lily_function_val *, int);
 
+int lily_arg_class_id(lily_state *, int);
 int lily_arg_count(lily_state *);
+int lily_arg_instance_for_id(lily_state *, int, lily_instance_val **);
 void lily_result_return(lily_state *);
 
 /* Result operations */
@@ -202,6 +193,7 @@ void lily_assign_value_noref(lily_value *, lily_value *);
 lily_value *lily_copy_value(lily_value *);
 int lily_eq_value(lily_state *, lily_value *, lily_value *);
 int lily_value_is_derefable(lily_value *);
+uint16_t lily_value_class_id(lily_value *);
 
 /* Raise an exception, with uint_8 being the id of a class deriving from
    Exception. */

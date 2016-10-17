@@ -15,14 +15,14 @@ void lily_##name##_bytestring(__VA_ARGS__, lily_string_val * v) \
 { lily_move_bytestring(source->action, v); } \
 void lily_##name##_double(__VA_ARGS__, double v) \
 { lily_move_double(source->action, v); } \
-void lily_##name##_empty_variant(__VA_ARGS__, lily_instance_val * v) \
-{ lily_move_empty_variant(source->action, v); } \
+void lily_##name##_empty_variant(__VA_ARGS__, uint16_t f) \
+{ lily_move_empty_variant(f, source->action); } \
 void lily_##name##_file(__VA_ARGS__, lily_file_val * v) \
 { lily_move_file(source->action, v); } \
-void lily_##name##_foreign(__VA_ARGS__, lily_foreign_val * v) \
-{ lily_move_foreign_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_filled_variant(__VA_ARGS__, lily_instance_val * v) \
-{ lily_move_enum_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
+void lily_##name##_foreign(__VA_ARGS__, uint16_t f, lily_foreign_val * v) \
+{ lily_move_foreign_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
+void lily_##name##_filled_variant(__VA_ARGS__, uint16_t f, lily_instance_val * v) \
+{ lily_move_variant_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val * v) \
 { lily_move_hash_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_instance(__VA_ARGS__, lily_instance_val * v) \
@@ -106,9 +106,21 @@ void lily_result_return(lily_state *s)
 DEFINE_GETTERS(arg, vm_regs[index], lily_vm_state *source, int index)
 DEFINE_GETTERS(result, call_chain->return_target, lily_vm_state *source)
 
+int lily_arg_class_id(lily_state *s, int index)
+{
+    return s->vm_regs[index]->class_id;
+}
+
 int lily_arg_count(lily_state *s)
 {
     return s->call_chain->regs_used;
+}
+
+int lily_arg_instance_for_id(lily_state *s, int index, lily_instance_val **iv)
+{
+    lily_value *v = s->vm_regs[index];
+    *iv = v->value.instance;
+    return v->class_id;
 }
 
 /* Stack operations
@@ -136,7 +148,7 @@ lily_value *lily_new_value_of_bytestring(lily_string_val *bv)
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     bv->refcount++;
-    v->flags = VAL_IS_BYTESTRING | VAL_IS_DEREFABLE;
+    v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
     v->value.string = bv;
     return v;
 }
@@ -145,17 +157,17 @@ lily_value *lily_new_value_of_double(double d)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
 
-    v->flags = VAL_IS_DOUBLE;
+    v->flags = LILY_DOUBLE_ID;
     v->value.doubleval = d;
     return v;
 }
 
-lily_value *lily_new_value_of_enum(lily_instance_val *iv)
+lily_value *lily_new_value_of_enum(uint16_t id, lily_instance_val *iv)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     iv->refcount++;
-    v->flags = VAL_IS_ENUM | VAL_IS_DEREFABLE;
+    v->flags = id | VAL_IS_ENUM | VAL_IS_DEREFABLE;
     v->value.instance = iv;
     return v;
 }
@@ -165,7 +177,7 @@ lily_value *lily_new_value_of_file(lily_file_val *fv)
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     fv->refcount++;
-    v->flags = VAL_IS_DEREFABLE | VAL_IS_FILE;
+    v->flags = LILY_FILE_ID | VAL_IS_DEREFABLE;
     v->value.file = fv;
     return v;
 }
@@ -175,17 +187,17 @@ lily_value *lily_new_value_of_hash(lily_hash_val *hv)
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     hv->refcount++;
-    v->flags = VAL_IS_HASH | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->flags = LILY_HASH_ID | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
     v->value.hash = hv;
     return v;
 }
 
-lily_value *lily_new_value_of_instance(lily_instance_val *iv)
+lily_value *lily_new_value_of_instance(uint16_t id, lily_instance_val *iv)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     iv->refcount++;
-    v->flags = VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->flags = id | VAL_IS_INSTANCE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
     v->value.instance = iv;
     return v;
 }
@@ -194,7 +206,7 @@ lily_value *lily_new_value_of_integer(int64_t i)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
 
-    v->flags = VAL_IS_INTEGER;
+    v->flags = LILY_INTEGER_ID;
     v->value.integer = i;
     return v;
 }
@@ -204,7 +216,7 @@ lily_value *lily_new_value_of_list(lily_list_val *lv)
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     lv->refcount++;
-    v->flags = VAL_IS_LIST | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
+    v->flags = LILY_LIST_ID | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE;
     v->value.list = lv;
     return v;
 }
@@ -214,7 +226,7 @@ lily_value *lily_new_value_of_string(lily_string_val *sv)
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     sv->refcount++;
-    v->flags = VAL_IS_STRING | VAL_IS_DEREFABLE;
+    v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
 }
@@ -225,7 +237,7 @@ lily_value *lily_new_value_of_string_lit(const char *str)
     lily_string_val *sv = lily_new_raw_string(str);
 
     sv->refcount++;
-    v->flags = VAL_IS_STRING | VAL_IS_DEREFABLE;
+    v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
 }
@@ -295,7 +307,7 @@ lily_hash_val *lily_new_hash_val(void)
     return h;
 }
 
-lily_instance_val *lily_new_instance_val_n_of(int initial, uint16_t instance_id)
+lily_instance_val *lily_new_instance_val(int initial)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
@@ -303,7 +315,6 @@ lily_instance_val *lily_new_instance_val_n_of(int initial, uint16_t instance_id)
     ival->refcount = 0;
     ival->gc_entry = NULL;
     ival->num_values = initial;
-    ival->instance_id = instance_id;
 
     int i;
     for (i = 0;i < initial;i++) {
@@ -362,28 +373,23 @@ lily_value *lily_new_string_take(char *source)
     return lily_new_value_of_string(new_sv(source, strlen(source)));
 }
 
-/* Since None has no arguments, it has a backing literal to represent it. This
-   dives into the vm's class table to get the backing literal of the None. */
-lily_instance_val *lily_get_none(lily_state *s)
+lily_instance_val *lily_new_enum_n(int size)
 {
-    lily_variant_class *none_cls;
-    none_cls = (lily_variant_class *)s->class_table[LILY_NONE_ID];
-    return none_cls->default_value->value.instance;
-}
+    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
-lily_instance_val *lily_new_some(void)
-{
-    return lily_new_instance_val_n_of(1, LILY_SOME_ID);
-}
+    ival->values = lily_malloc(size * sizeof(lily_value *));
+    ival->refcount = 0;
+    ival->gc_entry = NULL;
+    ival->num_values = size;
 
-lily_instance_val *lily_new_left(void)
-{
-    return lily_new_instance_val_n_of(1, LILY_LEFT_ID);
-}
+    int i;
+    for (i = 0;i < size;i++) {
+        lily_value *v = lily_malloc(sizeof(lily_value));
+        v->flags = 0;
+        ival->values[i] = v;
+    }
 
-lily_instance_val *lily_new_right(void)
-{
-    return lily_new_instance_val_n_of(1, LILY_RIGHT_ID);
+    return ival;
 }
 
 /* Simple per-type operations. */
@@ -431,11 +437,6 @@ int lily_function_is_native(lily_function_val *fv)
     return fv->code != NULL;
 }
 
-uint16_t lily_instance_id(lily_instance_val *iv)
-{
-    return iv->instance_id;
-}
-
 char *lily_string_get_raw(lily_string_val *sv)
 {
     return sv->string;
@@ -449,11 +450,6 @@ int lily_string_length(lily_string_val *sv)
 int lily_list_num_values(lily_list_val *lv)
 {
     return lv->num_values;
-}
-
-uint16_t lily_variant_id(lily_instance_val *iv)
-{
-    return iv->instance_id;
 }
 
 /* Operations */
@@ -591,22 +587,22 @@ static void destroy_file(lily_value *v)
 
 void lily_destroy_value(lily_value *v)
 {
-    int flags = v->flags;
-    if (flags & (VAL_IS_LIST | VAL_IS_TUPLE))
+    int class_id = v->class_id;
+    if (class_id == LILY_LIST_ID || class_id == LILY_TUPLE_ID)
         destroy_list(v);
-    else if (flags & (VAL_IS_INSTANCE |VAL_IS_ENUM))
+    else if (v->flags & (VAL_IS_INSTANCE | VAL_IS_ENUM))
         destroy_instance(v);
-    else if (flags & (VAL_IS_STRING | VAL_IS_BYTESTRING))
+    else if (class_id == LILY_STRING_ID || class_id == LILY_BYTESTRING_ID)
         destroy_string(v);
-    else if (flags & VAL_IS_FUNCTION)
+    else if (class_id == LILY_FUNCTION_ID)
         destroy_function(v);
-    else if (flags & VAL_IS_HASH)
+    else if (class_id == LILY_HASH_ID)
         lily_destroy_hash(v);
-    else if (flags & VAL_IS_DYNAMIC)
+    else if (class_id == LILY_DYNAMIC_ID)
         destroy_dynamic(v);
-    else if (flags & VAL_IS_FILE)
+    else if (class_id == LILY_FILE_ID)
         destroy_file(v);
-    else if (flags & VAL_IS_FOREIGN)
+    else if (v->flags & VAL_IS_FOREIGN)
         v->value.foreign->destroy_func(v->value.generic);
 }
 
@@ -696,22 +692,22 @@ static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
 /* Determine if two values are equivalent to each other. */
 int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *right)
 {
-    int left_tag = left->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
-    int right_tag = right->flags & ~(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE);
+    int left_tag = left->class_id;
+    int right_tag = right->class_id;
 
     if (*depth == 100)
         lily_raise(s->raiser, lily_RuntimeError, "Infinite loop in comparison.");
 
     if (left_tag != right_tag)
         return 0;
-    else if (left_tag & (VAL_IS_INTEGER | VAL_IS_BOOLEAN))
+    else if (left_tag == LILY_INTEGER_ID || left_tag == LILY_BOOLEAN_ID)
         return left->value.integer == right->value.integer;
-    else if (left_tag & VAL_IS_DOUBLE)
+    else if (left_tag == LILY_DOUBLE_ID)
         return left->value.doubleval == right->value.doubleval;
-    else if (left_tag & VAL_IS_STRING)
+    else if (left_tag == LILY_STRING_ID)
         return strcmp(left->value.string->string,
                 right->value.string->string) == 0;
-    else if (left_tag & VAL_IS_BYTESTRING) {
+    else if (left_tag == LILY_BYTESTRING_ID) {
         lily_string_val *left_sv = left->value.string;
         lily_string_val *right_sv = right->value.string;
         char *left_s = left_sv->string;
@@ -720,10 +716,10 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
         return (left_size == right_sv->size &&
                 memcmp(left_s, right_s, left_size) == 0);
     }
-    else if (left_tag & (VAL_IS_LIST | VAL_IS_TUPLE)) {
+    else if (left_tag == LILY_LIST_ID || left_tag == LILY_TUPLE_ID) {
         return subvalue_eq(s, depth, left, right);
     }
-    else if (left_tag & VAL_IS_HASH) {
+    else if (left_tag == LILY_HASH_ID) {
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
@@ -761,7 +757,7 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
 
         return ok;
     }
-    else if (left_tag & VAL_IS_DYNAMIC) {
+    else if (left_tag == LILY_DYNAMIC_ID) {
         (*depth)++;
         lily_value *left_value = left->value.dynamic->inner_value;
         lily_value *right_value = right->value.dynamic->inner_value;
@@ -770,12 +766,14 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
 
         return ok;
     }
-    else if (left_tag & VAL_IS_ENUM) {
-        lily_instance_val *left_i = left->value.instance;
-        lily_instance_val *right_i = right->value.instance;
+    else if (left->flags & VAL_IS_ENUM) {
         int ok;
-        if (left_i->instance_id == right_i->instance_id)
-            ok = subvalue_eq(s, depth, left, right);
+        if (left_tag == right_tag) {
+            if (left->value.instance == NULL)
+                ok = 1;
+            else
+                ok = subvalue_eq(s, depth, left, right);
+        }
         else
             ok = 0;
 
@@ -795,4 +793,9 @@ int lily_eq_value(lily_state *s, lily_value *left, lily_value *right)
 int lily_value_is_derefable(lily_value *value)
 {
     return value->flags & VAL_IS_DEREFABLE;
+}
+
+uint16_t lily_value_class_id(lily_value *value)
+{
+    return value->class_id;
 }
