@@ -29,20 +29,11 @@ lhs_reg->value.integer OP rhs_reg->value.integer; \
 vm_regs[code[4]]->flags = VAL_IS_INTEGER; \
 code += 5;
 
-#define INTDBL_OP(OP) \
+#define DOUBLE_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
-if (lhs_reg->flags & VAL_IS_DOUBLE) { \
-    if (rhs_reg->flags & VAL_IS_DOUBLE) \
-        vm_regs[code[4]]->value.doubleval = \
-        lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
-    else \
-        vm_regs[code[4]]->value.doubleval = \
-        lhs_reg->value.doubleval OP rhs_reg->value.integer; \
-} \
-else \
-    vm_regs[code[4]]->value.doubleval = \
-    lhs_reg->value.integer OP rhs_reg->value.doubleval; \
+vm_regs[code[4]]->value.doubleval = \
+lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
 vm_regs[code[4]]->flags = VAL_IS_DOUBLE; \
 code += 5;
 
@@ -61,20 +52,12 @@ code += 5;
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 if (lhs_reg->flags & VAL_IS_DOUBLE) { \
-    if (rhs_reg->flags & VAL_IS_DOUBLE) \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-    else \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
+    vm_regs[code[4]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & VAL_IS_INTEGER) { \
-    if (rhs_reg->flags & VAL_IS_INTEGER) \
-        vm_regs[code[4]]->value.integer =  \
-        (lhs_reg->value.integer OP rhs_reg->value.integer); \
-    else \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
+    vm_regs[code[4]]->value.integer =  \
+    (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
 else if (lhs_reg->flags & VAL_IS_STRING) { \
     vm_regs[code[4]]->value.integer = \
@@ -93,20 +76,12 @@ code += 5;
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 if (lhs_reg->flags & VAL_IS_DOUBLE) { \
-    if (rhs_reg->flags & VAL_IS_DOUBLE) \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-    else \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.doubleval OP rhs_reg->value.integer); \
+    vm_regs[code[4]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & VAL_IS_INTEGER) { \
-    if (rhs_reg->flags & VAL_IS_INTEGER) \
-        vm_regs[code[4]]->value.integer =  \
-        (lhs_reg->value.integer OP rhs_reg->value.integer); \
-    else \
-        vm_regs[code[4]]->value.integer = \
-        (lhs_reg->value.integer OP rhs_reg->value.doubleval); \
+    vm_regs[code[4]]->value.integer = \
+    (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
 else if (lhs_reg->flags & VAL_IS_STRING) { \
     vm_regs[code[4]]->value.integer = \
@@ -1928,10 +1903,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 INTEGER_OP(-)
                 break;
             case o_double_add:
-                INTDBL_OP(+)
+                DOUBLE_OP(+)
                 break;
             case o_double_minus:
-                INTDBL_OP(-)
+                DOUBLE_OP(-)
                 break;
             case o_less:
                 COMPARE_OP(<, == -1)
@@ -1958,7 +1933,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 INTEGER_OP(*)
                 break;
             case o_double_mul:
-                INTDBL_OP(*)
+                DOUBLE_OP(*)
                 break;
             case o_integer_div:
                 /* Before doing INTEGER_OP, check for a division by zero. This
@@ -1995,19 +1970,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 INTEGER_OP(^)
                 break;
             case o_double_div:
-                /* This is a little more tricky, because the rhs could be a
-                   number or an integer... */
                 rhs_reg = vm_regs[code[3]];
-                if (rhs_reg->flags & VAL_IS_INTEGER &&
-                    rhs_reg->value.integer == 0)
-                    lily_error(vm, SYM_CLASS_DBZERROR,
-                            "Attempt to divide by zero.");
-                else if (rhs_reg->flags & VAL_IS_DOUBLE &&
-                         rhs_reg->value.doubleval == 0)
+                if (rhs_reg->value.doubleval == 0)
                     lily_error(vm, SYM_CLASS_DBZERROR,
                             "Attempt to divide by zero.");
 
-                INTDBL_OP(/)
+                DOUBLE_OP(/)
                 break;
             case o_jump_if:
                 lhs_reg = vm_regs[code[2]];

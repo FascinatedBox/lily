@@ -89,8 +89,8 @@ ok(0xabcdef == 11259375,        "Hex lowercase.")
 ok(0xABCDEF == 11259375,        "Hex uppercase.")
 
 ok(1e-1 == 0.1,                 "Negative exponent.")
-ok(1e+1 == 10,                  "Positive exponent.")
-ok(1e1 == 10,                   "Inferred exponent.")
+ok(1e+1 == 10.0,                "Positive exponent.")
+ok(1e1 == 10.0,                 "Inferred exponent.")
 ok(.1 == 0.1,                   ".1 == 0.1.")
 
 # Make sure string escapes are working properly.
