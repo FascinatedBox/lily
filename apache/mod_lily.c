@@ -19,6 +19,12 @@ struct table_bind_data {
     const char *sipkey;
 };
 
+typedef struct {
+    int show_traceback;
+} lily_config_rec;
+
+module AP_MODULE_DECLARE_DATA lily_module;
+
 /**
 embedded server
 
@@ -260,6 +266,9 @@ static int lily_handler(request_rec *r)
 
     r->content_type = "text/html";
 
+    lily_config_rec *conf = (lily_config_rec *)ap_get_module_config(
+            r->per_dir_config, &lily_module);
+
     lily_options *options = lily_new_default_options();
     options->data = r;
     options->html_sender = (lily_html_sender) ap_rputs;
@@ -268,12 +277,49 @@ static int lily_handler(request_rec *r)
     lily_state *state = lily_new_state(options);
     register_server(state);
 
-    lily_exec_template_file(state, r->filename);
+    int result = lily_exec_template_file(state, r->filename);
+
+    if (result == 0 && conf->show_traceback)
+        /* !!!: This is unsafe, because it's possible for the error message to
+           have html entities in the message. */
+        ap_rputs(lily_get_error(state), r);
 
     lily_free_state(state);
 
     return OK;
 }
+
+static const char *cmd_showtraceback(cmd_parms *cmd, void *p, int flag)
+{
+    lily_config_rec *conf = (lily_config_rec *)p;
+    conf->show_traceback = flag;
+
+    return NULL;
+}
+
+static void *perdir_create(apr_pool_t *p, char *dummy)
+{
+    lily_config_rec *conf = apr_pcalloc(p, sizeof(lily_config_rec));
+
+    conf->show_traceback = 0;
+    return conf;
+}
+
+static void *perdir_merge(apr_pool_t *pool, void *a, void *b)
+{
+    lily_config_rec *add = (lily_config_rec *)b;
+    lily_config_rec *conf = apr_palloc(pool, sizeof(lily_config_rec));
+
+    conf->show_traceback = add->show_traceback;
+
+    return conf;
+}
+
+static const command_rec command_table[] = {
+    AP_INIT_FLAG("ShowTraceback", cmd_showtraceback, NULL, OR_FILEINFO,
+            "If On, show interpreter exception traceback. Default: Off."),
+    {NULL}
+};
 
 static void lily_register_hooks(apr_pool_t *p)
 {
@@ -283,10 +329,10 @@ static void lily_register_hooks(apr_pool_t *p)
 /* Dispatch list for API hooks */
 module AP_MODULE_DECLARE_DATA lily_module = {
     STANDARD20_MODULE_STUFF,
-    NULL,                  /* create per-dir    config structures */
-    NULL,                  /* merge  per-dir    config structures */
+    perdir_create,         /* create per-dir    config structures */
+    perdir_merge,          /* merge  per-dir    config structures */
     NULL,                  /* create per-server config structures */
     NULL,                  /* merge  per-server config structures */
-    NULL,                  /* table of config file commands       */
+    command_table,         /* table of config file commands       */
     lily_register_hooks    /* register hooks                      */
 };
