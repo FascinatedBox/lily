@@ -755,23 +755,16 @@ static uint64_t scan_hex(int *pos, char *new_ch)
 static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         char *new_ch)
 {
-    int is_negative, is_integer, num_start, num_pos;
-    uint64_t integer_value;
+    char sign = *new_ch;
+    int num_pos = *pos;
+    int num_start = *pos;
+    int is_integer = 1;
+    uint64_t integer_value = 0;
     lily_raw_value yield_val;
 
-    num_pos = *pos;
-    num_start = num_pos;
-    lexer->last_digit_start = num_pos;
-    is_negative = 0;
-    is_integer = 1;
-    integer_value = 0;
+    lexer->last_digit_start = *pos;
 
-    if (*new_ch == '-') {
-        is_negative = 1;
-        num_pos++;
-        new_ch++;
-    }
-    else if (*new_ch == '+') {
+    if (sign == '-' || sign == '+') {
         num_pos++;
         new_ch++;
     }
@@ -795,7 +788,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     if (is_integer) {
         /* This won't be used uninitialized. I promise. */
         yield_val.doubleval = 0.0;
-        if (is_negative == 0) {
+        if (sign != '-') {
             if (integer_value <= INT64_MAX)
                 yield_val.integer = (int64_t)integer_value;
             else
