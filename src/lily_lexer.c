@@ -785,7 +785,26 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     else
         integer_value = scan_decimal(lexer, &num_pos, &is_integer, new_ch);
 
-    if (is_integer) {
+    char suffix = lexer->input_buffer[num_pos];
+
+    if (suffix == 't') {
+        if (is_integer == 0)
+            lily_raise(lexer->raiser, lily_SyntaxError,
+                    "Double value with Byte suffix.");
+
+        if (sign == '-' || sign == '+')
+            lily_raise(lexer->raiser, lily_SyntaxError,
+                    "Byte values cannot have a sign.");
+
+        if (integer_value > 0xFF)
+            lily_raise(lexer->raiser, lily_SyntaxError,
+                    "Byte value is too large.");
+
+        lexer->last_integer = integer_value;
+        *tok = tk_byte;
+        num_pos++;
+    }
+    else if (is_integer) {
         /* This won't be used uninitialized. I promise. */
         yield_val.doubleval = 0.0;
         if (sign != '-') {
@@ -1708,8 +1727,8 @@ char *tokname(lily_token t)
      "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=",
      "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
-     "an integer", "a double", ".", "&", "&&", "|", "||", "@(", "...", "|>",
-     "invalid token", "?>", "end of file"};
+     "a byte", "an integer", "a double", ".", "&", "&&", "|", "||", "@(", "...",
+     "|>", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

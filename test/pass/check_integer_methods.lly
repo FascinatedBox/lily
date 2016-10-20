@@ -14,6 +14,10 @@ ok(0.to_bool() == false,    "Integer.to_bool for 0.")
 ok(1.to_bool() == true,     "Integer.to_bool for 1.")
 ok(-5.to_bool(),            "Integer.to_bool for -5.")
 
+ok(0.to_byte() == 0t,       "Integer.to_byte for 0.")
+ok(255.to_byte() == 255t,   "Integer.to_byte for 255.")
+ok(128.to_byte() == 128t,   "Integer.to_bool for 128.")
+
 ok(0.to_d() == 0.0,         "Integer.to_d for 0.")
 ok(-200.to_d() == -200.0,   "Integer.to_d for -200.")
 ok(1000.to_d() == 1000.0,   "Integer.to_d for 1000.")

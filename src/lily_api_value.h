@@ -53,6 +53,7 @@ typedef void (*lily_destroy_func)(lily_generic_val *);
 
 #define DECLARE_SETTERS(name, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int); \
+void lily_##name##_byte(__VA_ARGS__, uint8_t); \
 void lily_##name##_bytestring(__VA_ARGS__, lily_string_val *); \
 void lily_##name##_double(__VA_ARGS__, double); \
 void lily_##name##_empty_variant(__VA_ARGS__, uint16_t); \
@@ -70,6 +71,7 @@ void lily_##name##_value(__VA_ARGS__, lily_value *); \
 
 #define DECLARE_GETTERS(name, ...) \
 int                lily_##name##_boolean(__VA_ARGS__); \
+uint8_t            lily_##name##_byte(__VA_ARGS__); \
 lily_string_val *  lily_##name##_bytestring(__VA_ARGS__); \
 double             lily_##name##_double(__VA_ARGS__); \
 lily_file_val *    lily_##name##_file(__VA_ARGS__); \
@@ -92,6 +94,7 @@ DECLARE_GETTERS(name, __VA_ARGS__)
    These operations have been made to help with dynaloading vars. These will
    wrap over a raw value to provide the lily_value * that the loader expects, so
    that the embedder need not worry about raw moves. */
+lily_value *lily_new_value_of_byte(uint8_t);
 lily_value *lily_new_value_of_bytestring(lily_string_val *);
 lily_value *lily_new_value_of_double(double);
 lily_value *lily_new_value_of_enum(uint16_t, lily_instance_val *);
@@ -104,20 +107,20 @@ lily_value *lily_new_value_of_string(lily_string_val *);
 lily_value *lily_new_value_of_string_lit(const char *);
 
 /* These are the ids of the predefined variants of Option and Some. */
-#define LILY_SOME_ID  13
-#define LILY_NONE_ID  14
+#define LILY_SOME_ID  14
+#define LILY_NONE_ID  15
 
-#define LILY_LEFT_ID  16
-#define LILY_RIGHT_ID 17
+#define LILY_LEFT_ID  17
+#define LILY_RIGHT_ID 18
 
 /* These are the ids of builtin exceptions, for use with lily_error. */
-#define LILY_EXCEPTION_ID    18
-#define LILY_IOERROR_ID      19
-#define LILY_KEYERROR_ID     20
-#define LILY_RUNTIMEERROR_ID 21
-#define LILY_VALUEERROR_ID   22
-#define LILY_INDEXERROR_ID   23
-#define LILY_DBZERROR_ID     24 /* > 9000 */
+#define LILY_EXCEPTION_ID    19
+#define LILY_IOERROR_ID      20
+#define LILY_KEYERROR_ID     21
+#define LILY_RUNTIMEERROR_ID 22
+#define LILY_VALUEERROR_ID   23
+#define LILY_INDEXERROR_ID   24
+#define LILY_DBZERROR_ID     25 /* > 9000 */
 
 /* Operations for specific kinds of values. */
 

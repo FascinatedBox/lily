@@ -183,6 +183,7 @@ int lily_ci_next(lily_code_iter *iter)
         case o_get_readonly:
         case o_get_integer:
         case o_get_boolean:
+        case o_get_byte:
             iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;

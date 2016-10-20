@@ -107,6 +107,8 @@ typedef enum {
     o_get_integer,
     /* Load a boolean value. */
     o_get_boolean,
+    /* Load a byte value. */
+    o_get_byte,
     /* Load an empty variant through the class id. */
     o_get_empty_variant,
 

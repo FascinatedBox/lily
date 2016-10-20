@@ -151,6 +151,24 @@ void lily_builtin_Boolean_to_s(lily_state *s)
 }
 
 /**
+class Byte
+
+The `Byte` class represents a wrapper over a single `Byte` value. A `Byte` value
+is always unsigned, giving it a range from 0 to 255. `Byte` literals are written
+using 't' as the suffix on an `Integer` value.
+*/
+
+/**
+method Byte.to_i(self: Byte): Integer
+
+Convert a `Byte` to an `Integer`.
+*/
+void lily_builtin_Byte_to_i(lily_state *s)
+{
+    lily_return_integer(s, lily_arg_byte(s, 0));
+}
+
+/**
 class ByteString
 
 The `ByteString` class represents a bag of bytes. A `ByteString` may have '\0'
@@ -1083,6 +1101,16 @@ void lily_builtin_Integer_to_bool(lily_state *s)
 {
     /* Use !! or `x == true` will fail. */
     lily_return_boolean(s, !!lily_arg_integer(s, 0));
+}
+
+/**
+method Integer.to_byte(self: Integer): Byte
+
+Convert an `Integer` to a `Byte`, truncating the value if necessary.
+*/
+void lily_builtin_Integer_to_byte(lily_state *s)
+{
+    lily_return_byte(s, lily_arg_integer(s, 0) & 0xFF);
 }
 
 /**
@@ -3010,6 +3038,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->integer_class    = build_class(symtab, "Integer",     0, INTEGER_OFFSET);
     symtab->double_class     = build_class(symtab, "Double",      0, DOUBLE_OFFSET);
     symtab->string_class     = build_class(symtab, "String",      0, STRING_OFFSET);
+    symtab->byte_class       = build_class(symtab, "Byte",        0, BYTE_OFFSET);
     symtab->bytestring_class = build_class(symtab, "ByteString",  0, BYTESTRING_OFFSET);
     symtab->boolean_class    = build_class(symtab, "Boolean",     0, BOOLEAN_OFFSET);
     symtab->function_class   = build_class(symtab, "Function",   -1, FUNCTION_OFFSET);

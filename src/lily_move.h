@@ -4,6 +4,7 @@
 # include "lily_value_structs.h"
 
 void lily_move_boolean(lily_value *, int64_t);
+void lily_move_byte(lily_value *, uint8_t);
 void lily_move_bytestring(lily_value *, lily_string_val *);
 void lily_move_double(lily_value *, double);
 void lily_move_dynamic(lily_value *, lily_dynamic_val *);

@@ -1899,6 +1899,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->flags = LILY_BOOLEAN_ID;
                 code += 4;
                 break;
+            case o_get_byte:
+                lhs_reg = vm_regs[code[3]];
+                lhs_reg->value.integer = (uint8_t)code[2];
+                lhs_reg->flags = LILY_BYTE_ID;
+                code += 4;
+                break;
             case o_integer_add:
                 INTEGER_OP(+)
                 break;

@@ -47,6 +47,7 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
 }
 
 MOVE_PRIM(boolean,        int64_t,             integer,   LILY_BOOLEAN_ID)
+MOVE_PRIM(byte,           uint8_t,             integer,   LILY_BYTE_ID)
 MOVE_FN  (bytestring,     lily_string_val *,   string,    LILY_BYTESTRING_ID | VAL_IS_DEREFABLE)
 MOVE_PRIM(double,         double,              doubleval, LILY_DOUBLE_ID)
 MOVE_FN  (dynamic,        lily_dynamic_val *,  dynamic,   LILY_DYNAMIC_ID    | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE)

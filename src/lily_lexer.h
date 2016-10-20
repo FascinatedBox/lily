@@ -53,6 +53,7 @@ typedef enum {
     tk_double_quote,
     tk_bytestring,
     tk_dollar_string,
+    tk_byte,
     tk_integer,
     tk_double,
     tk_dot,

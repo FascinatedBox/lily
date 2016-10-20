@@ -391,23 +391,24 @@ typedef struct lily_module_entry_ {
 #define LILY_INTEGER_ID     1
 #define LILY_DOUBLE_ID      2
 #define LILY_STRING_ID      3
-#define LILY_BYTESTRING_ID  4
-#define LILY_BOOLEAN_ID     5
-#define LILY_FUNCTION_ID    6
-#define LILY_DYNAMIC_ID     7
-#define LILY_LIST_ID        8
-#define LILY_HASH_ID        9
-#define LILY_TUPLE_ID      10
-#define LILY_FILE_ID       11
-#define LILY_OPTION_ID     12
+#define LILY_BYTE_ID        4
+#define LILY_BYTESTRING_ID  5
+#define LILY_BOOLEAN_ID     6
+#define LILY_FUNCTION_ID    7
+#define LILY_DYNAMIC_ID     8
+#define LILY_LIST_ID        9
+#define LILY_HASH_ID       10
+#define LILY_TUPLE_ID      11
+#define LILY_FILE_ID       12
+#define LILY_OPTION_ID     13
 /* The holes here are for None, Some, Left, Right, and the builtin Exception
    classes. They're not here because lily_api_value.h needs them for raising
    errors at runtime and for checking the id of predefined enums. */
-#define LILY_EITHER_ID     15
+#define LILY_EITHER_ID     16
 
-#define LILY_TAINTED_ID    25
-#define LILY_UNIT_ID       26
-#define START_CLASS_ID     27
+#define LILY_TAINTED_ID    26
+#define LILY_UNIT_ID       27
+#define START_CLASS_ID     28
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_SELF_ID       65529

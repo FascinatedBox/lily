@@ -11,6 +11,8 @@
 #define DEFINE_SETTERS(name, action, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int v) \
 { lily_move_boolean(source->action, v); } \
+void lily_##name##_byte(__VA_ARGS__, uint8_t v) \
+{ lily_move_byte(source->action, v); } \
 void lily_##name##_bytestring(__VA_ARGS__, lily_string_val * v) \
 { lily_move_bytestring(source->action, v); } \
 void lily_##name##_double(__VA_ARGS__, double v) \
@@ -42,6 +44,8 @@ void lily_##name##_value(__VA_ARGS__, lily_value * v) \
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
+{ return source->action->value.integer; } \
+uint8_t lily_##name##_byte(__VA_ARGS__) \
 { return source->action->value.integer; } \
 lily_string_val *lily_##name##_bytestring(__VA_ARGS__) \
 { return source->action->value.string; } \
@@ -142,6 +146,15 @@ void lily_drop_value(lily_state *s)
 }
 
 /* Value creation functions. */
+
+lily_value *lily_new_value_of_byte(uint8_t byte)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    v->flags = LILY_BYTE_ID | VAL_IS_DEREFABLE;
+    v->value.integer = byte;
+    return v;
+}
 
 lily_value *lily_new_value_of_bytestring(lily_string_val *bv)
 {

@@ -172,6 +172,14 @@ void lily_mb_add_boolean(lily_msgbuf *msgbuf, int b)
         lily_mb_add(msgbuf, "true");
 }
 
+void lily_mb_add_byte(lily_msgbuf *msgbuf, uint8_t i)
+{
+    char buf[64];
+    sprintf(buf, "%dt", i);
+
+    lily_mb_add(msgbuf, buf);
+}
+
 void lily_mb_add_int(lily_msgbuf *msgbuf, int i)
 {
     char buf[64];
@@ -461,6 +469,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add_boolean(msgbuf, v->value.integer);
     else if (v->class_id == LILY_INTEGER_ID)
         lily_mb_add_int(msgbuf, v->value.integer);
+    else if (v->class_id == LILY_BYTE_ID)
+        lily_mb_add_byte(msgbuf, (uint8_t) v->value.integer);
     else if (v->class_id == LILY_DOUBLE_ID)
         lily_mb_add_double(msgbuf, v->value.doubleval);
     else if (v->class_id == LILY_STRING_ID)

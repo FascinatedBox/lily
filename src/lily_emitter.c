@@ -3303,6 +3303,16 @@ static void emit_boolean(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+static void emit_byte(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *s = get_storage(emit, emit->symtab->byte_class->self_type);
+
+    lily_u16_write_4(emit->code, o_get_byte, ast->line_num, ast->backing_value,
+            s->reg_spot);
+
+    ast->result = (lily_sym *)s;
+}
+
 static void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
     ast->result = (lily_sym *)emit->block->self;
@@ -4161,6 +4171,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         emit_literal(emit, ast);
     else if (ast->tree_type == tree_integer)
         emit_integer(emit, ast);
+    else if (ast->tree_type == tree_byte)
+        emit_byte(emit, ast);
     else if (ast->tree_type == tree_boolean)
         emit_boolean(emit, ast);
     else if (ast->tree_type == tree_call)
@@ -4295,6 +4307,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
     lily_block_type current_type = emit->block->block_type;
 
     if (((ast->tree_type == tree_boolean ||
+          ast->tree_type == tree_byte ||
           ast->tree_type == tree_integer) &&
           ast->backing_value != 0) == 0) {
         eval_enforce_value(emit, ast, NULL,

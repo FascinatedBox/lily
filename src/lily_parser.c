@@ -707,6 +707,8 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
         expect = tk_double;
     else if (cls == symtab->string_class)
         expect = tk_double_quote;
+    else if (cls == symtab->byte_class)
+        expect = tk_byte;
     else if (cls == symtab->bytestring_class)
         expect = tk_bytestring;
     else
@@ -744,6 +746,8 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
 
         lily_u16_write_2(optarg_stack, o_get_empty_variant, variant->cls_id);
     }
+    else if (expect == tk_byte)
+        lily_u16_write_2(optarg_stack, o_get_byte, (uint8_t)lex->last_integer);
     else if (expect != tk_integer) {
         lily_u16_write_2(optarg_stack, o_get_readonly,
                 lex->last_literal->reg_spot);
@@ -2142,6 +2146,10 @@ static void expression_literal(lily_parse_state *parser, int *state)
 
         *state = ST_WANT_OPERATOR;
     }
+    else if (lex->token == tk_byte) {
+        lily_es_push_byte(parser->expr, (uint8_t) lex->last_integer);
+        *state = ST_WANT_OPERATOR;
+    }
     else {
         push_literal(parser, lex->last_literal);
         *state = ST_WANT_OPERATOR;
@@ -2330,7 +2338,7 @@ static void expression_raw(lily_parse_state *parser, int state)
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote || lex->token == tk_bytestring ||
-                 lex->token == tk_dollar_string)
+                 lex->token == tk_dollar_string || lex->token == tk_byte)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
@@ -3026,7 +3034,7 @@ static void statement(lily_parse_state *parser, int multi)
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open ||
                  token == tk_prop_word || token == tk_bytestring ||
-                 token == tk_dollar_string) {
+                 token == tk_dollar_string || token == tk_byte) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
@@ -4323,7 +4331,8 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
                  lex->token == tk_left_bracket ||
                  lex->token == tk_bytestring ||
                  lex->token == tk_dollar_string ||
-                 lex->token == tk_lambda) {
+                 lex->token == tk_lambda ||
+                 lex->token == tk_byte) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }

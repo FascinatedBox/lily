@@ -562,6 +562,14 @@ void lily_es_push_boolean(lily_expr_state *es, int16_t value)
     merge_value(es, a);
 }
 
+void lily_es_push_byte(lily_expr_state *es, uint8_t value)
+{
+    AST_COMMON_INIT(a, tree_byte);
+    a->backing_value = value;
+
+    merge_value(es, a);
+}
+
 void lily_es_push_integer(lily_expr_state *es, int16_t value)
 {
     AST_COMMON_INIT(a, tree_integer);

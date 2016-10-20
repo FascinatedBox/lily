@@ -43,7 +43,7 @@ typedef enum {
     tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
     tree_variant, tree_lambda, tree_literal, tree_inherited_new, tree_method,
     tree_static_func, tree_self, tree_upvalue, tree_interp_top,
-    tree_interp_block, tree_boolean, tree_integer, tree_binary
+    tree_interp_block, tree_boolean, tree_byte, tree_integer, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_ {
@@ -172,5 +172,6 @@ void lily_es_push_self(lily_expr_state *);
 void lily_es_push_upvalue(lily_expr_state *, lily_var *);
 void lily_es_push_integer(lily_expr_state *, int16_t);
 void lily_es_push_boolean(lily_expr_state *, int16_t);
+void lily_es_push_byte(lily_expr_state *, uint8_t);
 
 #endif
