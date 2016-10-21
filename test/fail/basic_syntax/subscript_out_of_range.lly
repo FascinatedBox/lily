@@ -1,7 +1,7 @@
 #[
-IndexError: Index -10 is out of range.
+IndexError: Subscript index -50 is out of range.
 Traceback:
     from subscript_out_of_range.lly:7: in __main__
 ]#
 
-"Ā ā Ă ă Ą"[-10]
+B"Ā ā Ă ă Ą"[-50]

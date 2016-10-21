@@ -117,14 +117,6 @@ ok({||
     true}(),                         "utf-8 identifier.")
 ok("á" == "á",                       "utf-8 in strings.")
 
-# Make sure that subscripts are ok. String first, then List.
-
-ok("abc"[0] == "a",       "String subscript for first element (ascii).")
-ok("abc"[2] == "c",       "String subscript for last element (ascii).")
-ok("abc"[-1] == "c",      "String subscript by -1.")
-ok("Ā ā Ă ă Ą"[0] == "Ā", "String subcript for first element (utf-8).")
-ok("Ā ā Ă ă Ą"[8] == "Ą", "String subcript for last element (utf-8).")
-
 # Now lists
 
 ok([1, 2, 3][0] == 1,     "List subscript for first element.")

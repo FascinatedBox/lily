@@ -2818,51 +2818,6 @@ void lily_builtin_String_upper(lily_state *s)
     lily_return_string(s, new_sv);
 }
 
-/* This handles a string subscript. The subscript may be negative (in which case
-   it is an offset against the end). This must check if the index given by
-   'index_reg' is a valid one.
-   This moves by utf-8 codepoints, not by bytes. The result is sent to
-   'result_reg', unless IndexError is raised. */
-void lily_string_subscript(lily_state *s, lily_value *input_reg,
-        lily_value *index_reg, lily_value *result_reg)
-{
-    char *input = input_reg->value.string->string;
-    int index = index_reg->value.integer;
-    char *ch;
-
-    if (index >= 0) {
-        ch = &input[0];
-        while (index && move_table[(unsigned char)*ch] != 0) {
-            ch += move_table[(unsigned char)*ch];
-            index--;
-        }
-        if (move_table[(unsigned char)*ch] == 0)
-            lily_error_fmt(s, LILY_INDEXERROR_ID, "Index %d is out of range.",
-                    index_reg->value.integer);
-    }
-    else {
-        char *stop = &input[0];
-        ch = &input[input_reg->value.string->size];
-        while (stop != ch && index != 0) {
-            ch--;
-            if (move_table[(unsigned char)*ch] != 0)
-                index++;
-        }
-        if (index != 0)
-            lily_error_fmt(s, LILY_INDEXERROR_ID, "Index %d is out of range.",
-                    index_reg->value.integer);
-    }
-
-    int to_copy = move_table[(unsigned char)*ch];
-    lily_string_val *result = make_sv(s, to_copy + 1);
-    char *dest = &result->string[0];
-    dest[to_copy] = '\0';
-
-    strncpy(dest, ch, to_copy);
-
-    lily_move_string(result_reg, result);
-}
-
 /**
 bootstrap Tainted[A](v:A){ var @value = v }
 

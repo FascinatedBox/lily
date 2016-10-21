@@ -2012,7 +2012,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast)
 {
     int var_cls_id = var_ast->result->type->cls->id;
-    if (var_cls_id == LILY_LIST_ID || var_cls_id == LILY_STRING_ID) {
+    if (var_cls_id == LILY_LIST_ID || var_cls_id == LILY_BYTESTRING_ID) {
         if (index_ast->result->type->cls->id != LILY_INTEGER_ID)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
                     lily_SyntaxError, "%s index is not an integer.",
@@ -2053,7 +2053,8 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
    'index_ast'. It should only be called once 'index_ast' has been validated
    with check_valid_subscript.
    This will not fail. */
-static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
+static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
+        lily_ast *index_ast)
 {
     lily_type *result;
     if (type->cls->id == LILY_LIST_ID)
@@ -2065,8 +2066,8 @@ static lily_type *get_subscript_result(lily_type *type, lily_ast *index_ast)
         int literal_index = index_ast->backing_value;
         result = type->subtypes[literal_index];
     }
-    else if (type->cls->id == LILY_STRING_ID)
-        result = type;
+    else if (type->cls->id == LILY_BYTESTRING_ID)
+        result = emit->symtab->byte_class->self_type;
     else
         /* Won't happen, but keeps the compiler from complaining. */
         result = NULL;
@@ -2169,8 +2170,8 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
             }
             else if (result_type->cls->id == LILY_LIST_ID)
                 result_type = result_type->subtypes[0];
-            /* Strings don't allow for subscript assign, so don't bother
-               checking for that here. */
+            else if (result_type->cls->id == LILY_BYTESTRING_ID)
+                result_type = emit->symtab->byte_class->self_type;
         }
     }
     else if (ast->tree_type == tree_oo_access) {
@@ -3034,7 +3035,8 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
     check_valid_subscript(emit, var_ast, index_ast);
 
     lily_type *type_for_result;
-    type_for_result = get_subscript_result(var_ast->result->type, index_ast);
+    type_for_result = get_subscript_result(emit, var_ast->result->type,
+            index_ast);
 
     lily_storage *result = get_storage(emit, type_for_result);
 
@@ -3086,11 +3088,8 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, index_ast, NULL);
 
     check_valid_subscript(emit, var_ast, index_ast);
-    if (var_ast->result->type->cls->id == LILY_STRING_ID)
-        lily_raise(emit->raiser, lily_SyntaxError,
-                "Subscript assign not allowed on type string.");
 
-    elem_type = get_subscript_result(var_ast->result->type, index_ast);
+    elem_type = get_subscript_result(emit, var_ast->result->type, index_ast);
 
     if (type_matchup(emit, elem_type, ast->right) == 0) {
         emit->raiser->line_adjust = ast->line_num;

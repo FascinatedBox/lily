@@ -1,8 +1,0 @@
-#[
-SyntaxError: Subscript assign not allowed on type string.
-    from string_subscript_assign.lly:8
-]#
-
-var v = "abc"
-
-v[0] = "def"

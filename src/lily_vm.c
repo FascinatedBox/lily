@@ -877,20 +877,38 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
     rhs_reg = vm_regs[code[4]];
 
     if (lhs_reg->class_id != LILY_HASH_ID) {
-        lily_list_val *list_val = lhs_reg->value.list;
         int index_int = index_reg->value.integer;
 
-        if (index_int < 0) {
-            int new_index = list_val->num_values + index_int;
-            if (new_index < 0)
+        if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
+            lily_string_val *bytev = lhs_reg->value.string;
+            if (index_int < 0) {
+                int new_index = bytev->size + index_int;
+                if (new_index < 0)
+                    boundary_error(vm, index_int);
+
+                index_int = new_index;
+            }
+            else if (index_int >= bytev->size)
                 boundary_error(vm, index_int);
 
-            index_int = new_index;
+            bytev->string[index_int] = (char)rhs_reg->value.integer;
         }
-        else if (index_int >= list_val->num_values)
-            boundary_error(vm, index_int);
+        else {
+            /* List and Tuple have the same internal representation. */
+            lily_list_val *list_val = lhs_reg->value.list;
 
-        lily_assign_value(list_val->elems[index_int], rhs_reg);
+            if (index_int < 0) {
+                int new_index = list_val->num_values + index_int;
+                if (new_index < 0)
+                    boundary_error(vm, index_int);
+
+                index_int = new_index;
+            }
+            else if (index_int >= list_val->num_values)
+                boundary_error(vm, index_int);
+
+            lily_assign_value(list_val->elems[index_int], rhs_reg);
+        }
     }
     else
         lily_hash_set_elem(vm, lhs_reg->value.hash, index_reg, rhs_reg);
@@ -907,26 +925,39 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
     index_reg = vm_regs[code[3]];
     result_reg = vm_regs[code[4]];
 
-    /* list and tuple have the same representation internally. Since list
-       stores proper values, lily_assign_value automagically set the type to
-       the right thing. */
-    if (lhs_reg->class_id == LILY_STRING_ID)
-        lily_string_subscript(vm, lhs_reg, index_reg, result_reg);
-    else if (lhs_reg->class_id != LILY_HASH_ID) {
-        lily_list_val *list_val = lhs_reg->value.list;
+    if (lhs_reg->class_id != LILY_HASH_ID) {
         int index_int = index_reg->value.integer;
 
-        if (index_int < 0) {
-            int new_index = list_val->num_values + index_int;
-            if (new_index < 0)
+        if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
+            lily_string_val *bytev = lhs_reg->value.string;
+            if (index_int < 0) {
+                int new_index = bytev->size + index_int;
+                if (new_index < 0)
+                    boundary_error(vm, index_int);
+
+                index_int = new_index;
+            }
+            else if (index_int >= bytev->size)
                 boundary_error(vm, index_int);
 
-            index_int = new_index;
+            lily_move_byte(result_reg, (uint8_t) bytev->string[index_int]);
         }
-        else if (index_int >= list_val->num_values)
-            boundary_error(vm, index_int);
+        else {
+            /* List and Tuple have the same internal representation. */
+            lily_list_val *list_val = lhs_reg->value.list;
 
-        lily_assign_value(result_reg, list_val->elems[index_int]);
+            if (index_int < 0) {
+                int new_index = list_val->num_values + index_int;
+                if (new_index < 0)
+                    boundary_error(vm, index_int);
+
+                index_int = new_index;
+            }
+            else if (index_int >= list_val->num_values)
+                boundary_error(vm, index_int);
+
+            lily_assign_value(result_reg, list_val->elems[index_int]);
+        }
     }
     else {
         lily_hash_elem *hash_elem = lily_hash_get_elem(vm, lhs_reg->value.hash,
