@@ -4,7 +4,7 @@
 # data source. From that source, documentation (among other things) can be
 # generated.
 
-import os, re, sys
+import markdown, os, re, sys
 
 def usage():
     message = \
@@ -21,6 +21,10 @@ refresh <filename>:
     include file is generated to hold the information if not already present.
     The name of the generated file is 'dyna_' and the name of the package that
     is mentioned within <filename>
+
+markdown <filename>:
+    Generate markdown documentation based on <filename>. The documentation is
+    written to stdout.
 
 html <filename>:
     Generate html documentation based on <filename>. The documentation is
@@ -180,10 +184,13 @@ classes/enums belong.
 
             doc_blocks.append(doc)
 
+    decls = []
+    toplevel = []
+
     for d in doc_blocks:
         if d.startswith("class"):
             class_target = ClassEntry(d)
-            entries.append(class_target)
+            decls.append(class_target)
 
         elif d.startswith("embedded"):
             package_target = PackageEntry(d, True)
@@ -193,7 +200,7 @@ classes/enums belong.
 
         elif d.startswith("enum"):
             class_target = EnumEntry(d)
-            entries.append(class_target)
+            decls.append(class_target)
 
         elif d.startswith("constructor"):
             class_target.inner_entries.append(CallEntry(d, "constructor"))
@@ -202,89 +209,73 @@ classes/enums belong.
             class_target.inner_entries.append(CallEntry(d, "method"))
 
         elif d.startswith("define"):
-            package_target.inner_entries.append(CallEntry(d, "define"))
+            toplevel.append(CallEntry(d, "define"))
 
         elif d.startswith("bootstrap"):
             class_target = BootstrapEntry(d)
-            entries.append(class_target)
+            decls.append(class_target)
 
         elif d.startswith("var"):
             package_target.need_loader = True
-            package_target.inner_entries.append(VarEntry(d))
+            toplevel.append(VarEntry(d))
 
         # Perhaps this is a "flower box", or not for us, so ignore it.
 
     package_target.have_dyna = have_dyna
     package_target.have_extra = have_extra
+    package_target.toplevel = toplevel
+    package_target.decls = decls
 
-    return [package_target] + entries
+    return package_target
 
-def doc_as_html(doc):
-    """\
-Transform a string given by a comment block to make it look pretty when written
-to html.
-    """
+def gen_markdown(filename):
+    def mark(m):
+        m.doc = m.doc.replace("\n# ", "\n#### ")
 
-    # Make sure these are HTML-escaped.
-    doc = doc.replace("&", "&amp;")
-    doc = doc.replace("<", "&lt;")
-    doc = doc.replace(">", "&gt;")
+        if m.e_type == "var":
+            return "### var %s: `%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
+        elif m.e_type == "define":
+            return "### define %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
+        elif m.e_type == "method":
+            return "### method %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
+        elif m.e_type == "constructor":
+            return "### constructor %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
 
-    # `X` should be highlighted as a type.
-    doc = re.sub("`(.+?)`", '<span class="type">\\1</span>', doc)
-
-    # 'Y' is a variable name.
-    doc = re.sub("'(.+?)'", '<span class="varname">\\1</span>', doc)
-
-    # Replace blank lines with breaks to prevent a crammed-in look.
-    doc = doc.replace("\n\n", "\n<br />\n")
-
-    return doc
-
-def gen_docs(filename):
-    """\
-Generate html documentation based on comment blocks within the given filename.
-    """
-    def h1(text):       return "<h1>%s</h1>\n" % (text)
-    def h3(text):       return "<h3>%s</h3>\n" % (text)
-    def h5(text):       return "<h5>%s</h5>\n" % (text)
-    def p(text):        return "<p>%s</p>\n" % (text)
-    def lexplain(text): return '<div class="explain">%s</div>\n' % (text)
-    def lfunc(text):    return '<span class="funcname">%s</span>' % (text)
-    def ltype(text):    return '<span class="type">%s</span>' % (text)
-    def lvar(text):     return '<span class="varname">%s</span>' % (text)
-
-    entries = scan_file(filename)
+    package = scan_file(filename)
     doc_string = ""
 
-    for e in entries:
-        if e.e_type != "package": # class or enum, same deal.
-            doc_string += h3(e.name)
-        else:
-            doc_string += h1(e.name)
+    doc_string += "# %s\n\n" % package.name
+    doc_string += package.doc + "\n\n"
 
-        doc_string += p(doc_as_html(e.doc))
+    if len(package.toplevel):
+        doc_string += "## toplevel\n\n"
 
-        for inner in e.inner_entries:
-            inner_type = inner.e_type
-            to_add = ""
-            if inner_type != "var":
-                to_add = lfunc(inner.name)
-                # TODO: Pretty print argument types and the return type.
-                # For now, settle for making everything bold.
-                to_add += "<span><strong>%s</strong></span>" % (inner.proto)
-            else:
-                to_add = lvar(inner.name)
-                to_add += '<span>:</span>'
-                to_add += ltype(inner.proto)
+        for t in package.toplevel:
+            t.doc = t.doc.replace("\n# ", "\n#### ")
+            doc_string += mark(t)
 
-            doc_string += h5(to_add) + "\n" + lexplain(doc_as_html(inner.doc))
+    for d in package.decls:
+        d.doc = d.doc.replace("\n# ", "\n#### ")
 
-        # This ensures that each entry starts on a different line, so that diffs
-        # are cleaner.
-        doc_string += "\n"
+        if d.e_type == "class":
+            doc_string += "## class %s\n\n%s\n\n" % (d.name, d.doc)
+        elif d.e_type == "enum":
+            doc_string += "## enum %s\n\n" % (d.name)
+            doc_string += "```\nenum %s%s {\n" % (d.name, d.proto)
+            for v in d.variants:
+                doc_string += "    %s%s\n" % (v.name, v.proto)
 
-    print doc_string.rstrip("\n")
+            doc_string += "}\n```\n\n%s\n" % d.doc
+
+        for e in d.inner_entries:
+            # Method or constructor
+            doc_string += mark(e)
+
+    return doc_string.rstrip()
+
+def gen_html(filename):
+    s = gen_markdown(filename)
+    return markdown.markdown(s, extensions=["markdown.extensions.fenced_code"])
 
 def strip_proto(proto):
     proto = re.sub('\w+:', "", proto)
@@ -298,7 +289,7 @@ def strip_proto(proto):
 
     return proto
 
-def gen_dynaload(entries):
+def gen_dynaload(package_entry):
     """\
 Generate dynaload information based on comment blocks in a given filename.
     """
@@ -307,13 +298,24 @@ Generate dynaload information based on comment blocks in a given filename.
     def dyencode(x):
         return "\\%s" % (oct(x))
 
-    package_entry = entries[0]
     used = []
     result = []
-    offset = 0
+    offset = 1
+
+    entries = package_entry.toplevel + package_entry.decls
 
     for e in entries:
         e.offset = offset + 1
+
+        if e.e_type == "define":
+            offset += 1
+            result.append('    ,"F\\0%s\\0%s"' % (e.name, strip_proto(e.proto)))
+            continue
+        elif e.e_type == "var":
+            offset += 1
+            result.append('    ,"R\\0%s\\0%s"' % (e.name, e.proto))
+            continue
+
         offset += len(e.inner_entries) + len(e.variants) + 1
 
         if e.e_type == "class":
@@ -330,24 +332,19 @@ Generate dynaload information based on comment blocks in a given filename.
             # TODO: Scoped variants, eventually.
             dylen = dyencode(len(e.inner_entries))
             result.append('    ,"E%s%s\\0%s"' % (dylen, e.name, e.proto))
-        # else a package, no-op
 
         for inner in e.inner_entries:
             inner_type = inner.e_type
             if inner_type == "method":
                 name = inner.name.split(".")[1]
                 result.append('    ,"m:%s\\0%s"' % (name, strip_proto(inner.proto)))
-            elif inner_type == "define":
-                result.append('    ,"F\\0%s\\0%s"' % (inner.name, strip_proto(inner.proto)))
-            elif inner_type == "var":
-                result.append('    ,"R\\0%s\\0%s"' % (inner.name, inner.proto))
             else: # constructor
                 result.append('    ,"m:<new>\\0%s"' % (strip_proto(inner.proto)))
         try:
             for inner in e.variants:
                 result.append('    ,"V\\0%s\\0%s"' % (inner.name, inner.proto))
         except AttributeError:
-            # package or class, so ignore.
+            # Class. Ignore it.
             pass
 
     if package_entry.is_embedded:
@@ -370,12 +367,12 @@ const char *lily%s_dynaload_table[] = {
 
     return "\n".join(result)
 
-def gen_loader(entries):
+def gen_loader(package_entry):
     """\
 Generate a loader function based upon information within a given filename.
     """
 
-    package_entry = entries[0]
+    package_entry
     loader_entries = []
     prefix = package_entry.name
     i = 1
@@ -385,36 +382,41 @@ Generate a loader function based upon information within a given filename.
     loader_entries.append(header)
     loader_entries.append("{\n    switch (id) {")
 
+    entries = package_entry.toplevel + package_entry.decls
+    to_append = None
+
     for e in entries:
-        # The dynaload id is the # of entries from the first one.
-        # This has to therefore adjust for classes.
-        if e.e_type != "package":
+        if e.e_type == "class" or e.e_type == "enum":
+            # Add one so there's space for the class marker itself.
             i += 1
+            for inner in e.inner_entries:
+                inner_type = inner.e_type
+                if inner.name.find("[") != -1:
+                    name = inner.name[0:inner.name.find("[")]
+                else:
+                    name = inner.name
 
-        for inner in e.inner_entries:
-            inner_type = inner.e_type
-            if inner.name.find("[") != -1:
-                name = inner.name[0:inner.name.find("[")]
-            else:
-                name = inner.name
+                if inner_type == "method":
+                    # Methods have the class name with them, so sanitize that.
+                    name = name.replace(".", "_")
+                    to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
+                else: # constructor
+                    name += "_new"
+                    to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
 
-            if inner_type == "method":
-                # Methods have the class name with them, so sanitize that.
-                name = name.replace(".", "_")
-                to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
-            elif inner_type == "define":
-                to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
-            elif inner_type == "var":
+                i += 1
+                loader_entries.append("        " + to_append)
+
+            i += len(e.variants)
+        else:
+            if e.e_type == "define":
+                to_append = "case %d: return lily_%s_%s;" % (i, prefix, e.name)
+            elif e.e_type == "var":
                 # TODO: Check the proto (is that cid table really needed)?
-                to_append = "case %d: return load_var_%s(o, c);" % (i, name)
-            else: # constructor
-                name += "_new"
-                to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
+                to_append = "case %d: return load_var_%s(o, c);" % (i, e.name)
 
             loader_entries.append("        " + to_append)
             i += 1
-
-        i += len(e.variants)
 
     loader_entries.append("        default: return NULL;\n    }\n}")
 
@@ -437,9 +439,8 @@ lily_register_package(p, "%s", lily_%s_dynaload_table, %s);
 """ % (name, name, name, loader_name)
 
 def do_refresh(filename):
-    entries = scan_file(filename)
+    package_entry = scan_file(filename)
 
-    package_entry = entries[0]
     base = os.path.dirname(filename)
     if base != "":
         base += os.sep
@@ -455,12 +456,12 @@ def do_refresh(filename):
 
     dyna_file = open(base + dyna_name, "w")
     dyna_file.write("/* Contents autogenerated by dyna_tools.py */\n")
-    dyna_file.write(gen_dynaload(entries))
+    dyna_file.write(gen_dynaload(package_entry))
     dyna_file.write("\n")
 
     if package_entry.need_loader:
         dyna_file.write("\n")
-        dyna_file.write(gen_loader(entries))
+        dyna_file.write(gen_loader(package_entry))
         dyna_file.write("\n")
 
     if package_entry.is_embedded:
@@ -479,7 +480,7 @@ def do_refresh(filename):
         l = lambda x: "#define %-26s %d" % (x.name.upper() + "_OFFSET", x.offset)
 
         extras_file.write("/* Contents autogenerated by dyna_tools.py */\n")
-        extras_file.write("\n".join(map(l, entries[1:])) + "\n")
+        extras_file.write("\n".join(map(l, package_entry.decls)) + "\n")
         extras_file.close()
 
     if to_add != []:
@@ -497,7 +498,9 @@ else:
     action = sys.argv[1]
     if action == "refresh":
         do_refresh(sys.argv[2])
+    elif action == "markdown":
+        print(gen_markdown(sys.argv[2]))
     elif action == "html":
-        gen_docs(sys.argv[2])
+        print(gen_html(sys.argv[2]))
     else:
         usage()

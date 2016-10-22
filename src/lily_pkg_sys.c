@@ -32,7 +32,7 @@ static void *load_var_argv(lily_options *options, uint16_t *unused)
 /**
 define getenv(name: String): Option[String]
 
-Search the environment for 'name', returning either a `Some` with the contents,
+Search the environment for `name`, returning either a `Some` with the contents,
 or `None`. Internally, this is a wrapper over C's getenv.
 */
 static void lily_sys_getenv(lily_state *s)

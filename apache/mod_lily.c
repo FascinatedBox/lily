@@ -192,9 +192,9 @@ extern int lily_maybe_html_encode_to_buffer(lily_state *, lily_value *);
 /**
 define escape(text: String): String
 
-This checks self for having "&", "<", or ">". If any are found, then a new
-String is created where those html entities are replaced (& becomes &amp;, <
-becomes &lt;, > becomes &gt;).
+This checks self for having `"&"`, `"<"`, or `">"`. If any are found, then a new
+String is created where those html entities are replaced (`"&"` becomes
+`"&amp;"`, `"<"` becomes `"&lt;"`, `">"` becomes `"&gt;"`).
 */
 void lily_server_escape(lily_state *s)
 {
@@ -205,7 +205,7 @@ void lily_server_escape(lily_state *s)
 define write(text: String)
 
 This escapes, then writes 'text' to the server. It is equivalent to
-'server.write_raw(server.escape(text))', except faster because it skips building
+`server.write_raw(server.escape(text))`, except faster because it skips building
 an intermediate `String` value.
 */
 void lily_server_write(lily_state *s)
@@ -227,7 +227,7 @@ void lily_server_write(lily_state *s)
 /**
 define write_literal(text: String)
 
-This writes 'text' directly to the server. If 'text' is not a `String` literal,
+This writes `text` directly to the server. If `text` is not a `String` literal,
 then `ValueError` is raised. No escaping is performed.
 */
 void lily_server_write_literal(lily_state *s)
@@ -246,7 +246,7 @@ void lily_server_write_literal(lily_state *s)
 /**
 define write_raw(text: String)
 
-This writes 'text' directly to the server without performing any HTML character
+This writes `text` directly to the server without performing any HTML character
 escaping. Use this only if you are certain that there is no possibility of HTML
 injection.
 */

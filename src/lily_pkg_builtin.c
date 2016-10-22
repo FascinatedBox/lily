@@ -83,31 +83,30 @@ foundation of Lily.
 /**
 var stdin: File
 
-Provides a wrapper around the 'stdin' present within C.
+Provides a wrapper around the `stdin` present within C.
 */
 
 /**
 var stderr: File
 
-Provides a wrapper around the 'stderr' present within C.
+Provides a wrapper around the `stderr` present within C.
 */
 
 /**
 var stdout: File
 
-Provides a wrapper around the 'stdin' present within C. The builtin function
-'print' relies on this, and thus might raise `IOError` if 'stdout' is closed or
-set to a read-only stream.
+Provides a wrapper around the `stdout` present within C.
 */
 
 /**
 define print[A](value: A)
 
-Attempt to write 'value' to 'stdout', including a terminating newline.
+Write `value` to `stdout`, plus a newline (`"\n"`). This is equivalent to
+`stdout.print(value)`.
 
-Errors:
+# Errors:
 
-Raises `IOError` if 'stdout' is closed or not open for writing.
+* `IOError` if `stdout` is closed, or not open for reading.
 */
 
 /**
@@ -119,13 +118,13 @@ Returns a `List` with one `String` for each function that is currently entered.
 /**
 class Boolean
 
-The `Boolean` class represents a value that is either 'true' or 'false'.
+The `Boolean` class represents a value that is either `true` or `false`.
 */
 
 /**
 method Boolean.to_i(self: Boolean): Integer
 
-Convert a `Boolean` to an `Integer`. 'true' becomes '1', 'false' becomes '0'.
+Convert a `Boolean` to an `Integer`. `true` becomes `1`, `false` becomes `0`.
 */
 void lily_builtin_Boolean_to_i(lily_state *s)
 {
@@ -180,10 +179,10 @@ The `ByteString` class currently does not support any primitive operations.
 method ByteString.encode(self: ByteString, encode: *String="error"): Option[String]
 
 Attempt to transform the given `ByteString` into a `String`. The action taken
-depends on the value of 'encode'.
+depends on the value of `encode`.
 
-If encode is '"error"', then invalid utf-8 or embedded '\0' values within `self`
-will result in 'None'.
+If encode is `"error"`, then invalid utf-8 or embedded '\0' values within `self`
+will result in `None`.
 */
 void lily_builtin_ByteString_encode(lily_state *s)
 {
@@ -245,11 +244,10 @@ void lily_builtin_Double_to_i(lily_state *s)
 /**
 class Dynamic
 
-
 The `Dynamic` class allows defering type checking until runtime. Creation of
-`Dynamic` is done through 'Dynamic(<value>)'. Extraction of values is done
-through a cast: '.@(type)'. The result of a cast is `Option[<type>]`, with
-'Some' on success and 'None' on failure. Finally, casts are not allowed to hold
+`Dynamic` is done through `Dynamic(<value>)`. Extraction of values is done
+through a cast: `.@(type)`. The result of a cast is `Option[<type>]`, with
+`Some` on success and `None` on failure. Finally, casts are not allowed to hold
 polymorphic types, such as `List` or `Hash` or `Function`, because Lily's vm
 only holds class information at runtime.
 */
@@ -257,11 +255,7 @@ only holds class information at runtime.
 /**
 constructor Dynamic[A](self: A): Dynamic
 
-Constructs a new `Dynamic` value.
-
-While it is currently possible to place polymorphic values into `Dynamic`, that
-ability will be removed in the future, as it is not possible to cast polymorphic
-values out of a `Dynamic`.
+Constructs a new `Dynamic` value. Call it using `Dynamic(<value>)`.
 */
 extern void lily_builtin_Dynamic_new(lily_state *);
 
@@ -270,9 +264,9 @@ enum Either[A, B]
     Left(A)
     Right(B)
 
-The `Either` enum can be usd to represent an operation that may or may not
-succeed. Unlike `Option`, `Either` provides `Left` which may be used to hold a
-useful error message in the event of a failure.
+`Either` is an enum that holds a `Left` on failure, or `Right` on success. It
+can be used as the return type of an operation that may fail, and have an error
+message to display.
 */
 static void either_is_left_right(lily_state *s, int expect)
 {
@@ -282,7 +276,7 @@ static void either_is_left_right(lily_state *s, int expect)
 /**
 method Either.is_left[A, B](self: Either[A, B]): Boolean
 
-Return 'true' if 'self' contains a 'Left', 'false' otherwise.
+Return `true` if `self` contains a `Left`, `false` otherwise.
 */
 void lily_builtin_Either_is_left(lily_state *s)
 {
@@ -292,7 +286,7 @@ void lily_builtin_Either_is_left(lily_state *s)
 /**
 method Either.is_right[A, B](self: Either[A, B]): Boolean
 
-Return 'true' if 'self' contains a 'Right', 'false' otherwise.
+Return `true` if `self` contains a `Right`, `false` otherwise.
 */
 void lily_builtin_Either_is_right(lily_state *s)
 {
@@ -315,9 +309,9 @@ static void either_optionize_left_right(lily_state *s, int expect)
 /**
 method Either.left[A, B](self: Either[A, B]):Option[A]
 
-If 'self' contains a 'Left', produces a 'Some(A)'.
+If `self` contains a `Left`, produces a `Some(A)`.
 
-If 'self' contains a 'Right', produces 'None'.
+If `self` contains a `Right`, produces `None`.
 */
 void lily_builtin_Either_left(lily_state *s)
 {
@@ -327,9 +321,9 @@ void lily_builtin_Either_left(lily_state *s)
 /**
 method Either.right[A, B](self: Either[A, B]): Option[B]
 
-If 'self' contains a 'Left', produces a 'None'.
+If `self` contains a `Left`, produces a `None`.
 
-If 'self' contains a 'Right', produces 'Right(B)'.
+If `self` contains a `Right`, produces `Right(B)`.
 */
 void lily_builtin_Either_right(lily_state *s)
 {
@@ -340,8 +334,8 @@ void lily_builtin_Either_right(lily_state *s)
 bootstrap Exception(m:String){ var @message = m var @traceback: List[String] = [] }
 
 The `Exception` class is the base class of all exceptions. It defines two
-properties: A 'message' as `String`, and a 'traceback' as `List[String]`. The
-'traceback' field is rewritten whenever an exception instance is raised.
+properties: A `message` as `String`, and a `traceback` as `List[String]`. The
+`traceback` field is rewritten whenever an exception instance is raised.
 */
 
 /**
@@ -355,7 +349,7 @@ possible to manually close a `File`.
 /**
 method File.close(self: File)
 
-Close 'self' if it is open, or do nothing if already closed.
+Close `self` if it is open, or do nothing if already closed.
 
 For standard streams, this marks the `File` as closed, but does not actually
 close the stream. Embedders, therefore, do not need to worry about standard
@@ -377,11 +371,11 @@ void lily_builtin_File_close(lily_state *s)
 /**
 method File.each_line(self: File, fn: Function(ByteString))
 
-Read each line of text from 'self', passing it down to 'fn' for processing.
+Read each line of text from `self`, passing it down to `fn` for processing.
 
-Errors:
+# Errors
 
-If 'self' is not open for reading, or is closed, `IOError` is raised.
+* `IOError` if `self` is not open for reading, or is closed.
 */
 void lily_builtin_File_each_line(lily_state *s)
 {
@@ -434,24 +428,19 @@ void lily_builtin_File_each_line(lily_state *s)
 /**
 method File.open(path: String, mode: String):File
 
-Attempt to open 'path' using the 'mode' given. 'mode' may be one of the
+Attempt to open `path` using the `mode` given. `mode` may be one of the
 following:
 
-'"r"' (readonly, must exist)
+* `"r"` (read only, must exist)
+* `"w"` (write only)
+* `"a"` (append, create if not exist)
+* `"r+"` (read+write, must exist)
+* `"w+"` (read+write, creates an empty file if needed)
+* `"a+"` (read+append)
 
-'"w"' (writeonly)
+# Errors
 
-'"a"' (append, create if not exist)
-
-'"r+"' (read+write, must exist)
-
-'"w+"' (read+write, creates an empty file if needed)
-
-'"a+"' (read+append)
-
-Errors:
-
-If unable to open 'path', or an invalid 'mode' is provided, `IOError` is raised.
+* `IOError` if unable to open `path`, or an invalid `mode` is provided.
 */
 void lily_builtin_File_open(lily_state *s)
 {
@@ -497,12 +486,12 @@ void lily_builtin_File_write(lily_state *);
 /**
 method File.print[A](self: File, data: A)
 
-Attempt to write the contents of 'data' to the file provided. 'data' is written
+Attempt to write the contents of `data` to the file provided. `data` is written
 with a newline at the end.
 
-Errors:
+# Errors
 
-If 'self' is closed or is not open for writing, `IOError` is raised.
+* `IOError` if `self` is closed or is not open for writing.
 */
 void lily_builtin_File_print(lily_state *s)
 {
@@ -514,13 +503,13 @@ void lily_builtin_File_print(lily_state *s)
 /**
 method File.read_line(self: File): ByteString
 
-Attempt to read a line of text from 'self'. Currently, this function does not
+Attempt to read a line of text from `self`. Currently, this function does not
 have a way to signal that the end of the file has been reached. For now, callers
-should check the result against 'B""'. This will be fixed in a future release.
+should check the result against `B""`. This will be fixed in a future release.
 
-Errors:
+# Errors
 
-If 'self' is not open for reading, or is closed, `IOError` is raised.
+* `IOError` if `self` is not open for reading, or is closed.
 */
 void lily_builtin_File_read_line(lily_state *s)
 {
@@ -567,11 +556,11 @@ void lily_builtin_File_read_line(lily_state *s)
 /**
 method File.write[A](self: File, data: A)
 
-Attempt to write the contents of 'data' to the file provided.
+Attempt to write the contents of `data` to the file provided.
 
-Errors:
+# Errors
 
-If 'self' is closed or is not open for writing, `IOError` is raised.
+* If `self` is closed or is not open for writing, `IOError` is raised.
 */
 void lily_builtin_File_write(lily_state *s)
 {
@@ -611,16 +600,16 @@ colon at the end to denote the value returned:
 class Hash
 
 The `Hash` class provides a mapping between a key and a value. `Hash` values can
-be created through '[key1 => value1, key2 => value2, ...]'. When writing a
+be created through `[key1 => value1, key2 => value2, ...]`. When writing a
 `Hash`, the key is the first type, and the value is the second.
 
-'[1 => "a", 2 => "b", 3 => "c"]' would therefore be written as
+`[1 => "a", 2 => "b", 3 => "c"]` would therefore be written as
 `Hash[Integer, String]`.
 
 Currently, only `Integer` and `String` can be used as keys.
 */
 
-/* Attempt to find 'key' within 'hash_val'. If an element is found, then it is
+/* Attempt to find `key` within `hash_val`. If an element is found, then it is
    returned. If no element is found, then NULL is returned. */
 lily_hash_elem *lily_hash_get_elem(lily_state *s, lily_hash_val *hash_val,
         lily_value *key)
@@ -667,7 +656,7 @@ static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
                 "Cannot remove key from hash during iteration.");
 }
 
-/* This adds a new element to the hash, with 'pair_key' and 'pair_value' inside.
+/* This adds a new element to the hash, with `pair_key` and `pair_value` inside.
    The key and value are not given a refbump, and are not copied over. For that,
    see lily_hash_add_unique. */
 static void hash_add_unique_nocopy(lily_state *s, lily_hash_val *hash_val,
@@ -689,9 +678,9 @@ static void hash_add_unique_nocopy(lily_state *s, lily_hash_val *hash_val,
     hash_val->num_elems++;
 }
 
-/* This function will add an element to the hash with 'pair_key' as the key and
-   'pair_value' as the value. This should only be used in cases where the
-   caller is completely certain that 'pair_key' is not within the hash. If the
+/* This function will add an element to the hash with `pair_key` as the key and
+   `pair_value` as the value. This should only be used in cases where the
+   caller is completely certain that `pair_key` is not within the hash. If the
    caller is unsure, then lily_hash_set_elem should be used instead. */
 void lily_hash_add_unique(lily_state *s, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
@@ -704,9 +693,9 @@ void lily_hash_add_unique(lily_state *s, lily_hash_val *hash_val,
     hash_add_unique_nocopy(s, hash_val, pair_key, pair_value);
 }
 
-/* This attempts to find 'pair_key' within 'hash_val'. If successful, then the
-   element's value is assigned to 'pair_value'. If unable to find an element, a
-   new element is created using 'pair_key' and 'pair_value'. */
+/* This attempts to find `pair_key` within `hash_val`. If successful, then the
+   element's value is assigned to `pair_value`. If unable to find an element, a
+   new element is created using `pair_key` and `pair_value`. */
 void lily_hash_set_elem(lily_state *s, lily_hash_val *hash_val,
         lily_value *pair_key, lily_value *pair_value)
 {
@@ -754,8 +743,11 @@ void lily_destroy_hash(lily_value *v)
 /**
 method Hash.clear[A, B](self: Hash[A, B])
 
-Removes all pairs currently present within 'self'. No error occurs if 'self' is
-currently being iterated over.
+Removes all pairs currently present within `self`.
+
+# Errors
+
+* `RuntimeError` if `self` is currently being iterated over.
 */
 void lily_builtin_Hash_clear(lily_state *s)
 {
@@ -776,12 +768,12 @@ void lily_builtin_Hash_clear(lily_state *s)
 /**
 method Hash.delete[A, B](self: Hash[A, B], key: A)
 
-Attempt to remove 'key' from 'self'. If 'key' is not present within 'self', then
+Attempt to remove `key` from `self`. If `key` is not present within `self`, then
 nothing happens.
 
-Errors:
+# Errors
 
-If 'self' is currently being iterated over, `RuntimeError` will be raised.
+* `RuntimeError` if `self` is currently being iterated over.
 */
 void lily_builtin_Hash_delete(lily_state *s)
 {
@@ -812,8 +804,8 @@ void lily_builtin_Hash_delete(lily_state *s)
 /**
 method Hash.each_pair[A, B](self: Hash[A, B], fn: Function(A, B))
 
-Iterate through each pair that is present within 'self'. For each of the pairs,
-call 'fn' with the key and value of each pair.
+Iterate through each pair that is present within `self`. For each of the pairs,
+call `fn` with the key and value of each pair.
 */
 void lily_builtin_Hash_each_pair(lily_state *s)
 {
@@ -845,8 +837,8 @@ void lily_builtin_Hash_each_pair(lily_state *s)
 /**
 method Hash.get[A, B](self: Hash[A, B], key: A, default: B): B
 
-Attempt to find 'key' within 'self'. If 'key' is present, then the value
-associated with it is returned. If 'key' cannot be found, then 'default' is
+Attempt to find `key` within `self`. If `key` is present, then the value
+associated with it is returned. If `key` cannot be found, then `default` is
 returned instead.
 */
 void lily_builtin_Hash_get(lily_state *s)
@@ -864,7 +856,7 @@ void lily_builtin_Hash_get(lily_state *s)
 /**
 method Hash.has_key[A, B](self: Hash[A, B], key: A):Boolean
 
-Return 'true' if 'key' is present within 'self', 'false' otherwise.
+Return `true` if `key` is present within `self`, `false` otherwise.
 */
 void lily_builtin_Hash_has_key(lily_state *s)
 {
@@ -879,7 +871,7 @@ void lily_builtin_Hash_has_key(lily_state *s)
 /**
 method Hash.keys[A, B](self: Hash[A, B]): List[A]
 
-Construct a `List` containing all values that are present within 'self'. There
+Construct a `List` containing all values that are present within `self`. There
 is no guarantee of the ordering of the resulting `List`.
 */
 void lily_builtin_Hash_keys(lily_state *s)
@@ -918,9 +910,9 @@ static lily_hash_val *build_hash(lily_state *s, int count)
 /**
 method Hash.map_values[A, B, C](self: Hash[A, B], Function(B => C)): Hash[A, C]
 
-This iterates through 'self' and calls 'fn' for each element present. The result
+This iterates through `self` and calls `fn` for each element present. The result
 of this function is a newly-made `Hash` where each value is the result of the
-call to 'fn'.
+call to `fn`.
 */
 void lily_builtin_Hash_map_values(lily_state *s)
 {
@@ -962,8 +954,8 @@ void lily_builtin_Hash_map_values(lily_state *s)
 /**
 method Hash.merge[A, B](self: Hash[A, B], others: Hash[A, B]...): Hash[A, B]
 
-Create a new `Hash` that holds the result of 'self' and each `Hash present
-within 'others'.
+Create a new `Hash` that holds the result of `self` and each `Hash present
+within `others`.
 
 When duplicate elements are found, the value of the right-most `Hash` wins.
 */
@@ -1045,9 +1037,9 @@ static void hash_select_reject_common(lily_state *s, int expect)
 /**
 method Hash.reject[A, B](self: Hash[A, B], fn: Function(A, B => Boolean)): Hash[A, B]
 
-This calls 'fn' for each element present within 'self'. The result of this
-function is a newly-made `Hash` containing all values for which 'fn' returns
-'false'.
+This calls `fn` for each element present within `self`. The result of this
+function is a newly-made `Hash` containing all values for which `fn` returns
+`false`.
 */
 void lily_builtin_Hash_reject(lily_state *s)
 {
@@ -1057,9 +1049,9 @@ void lily_builtin_Hash_reject(lily_state *s)
 /**
 method Hash.select[A, B](self: Hash[A, B], fn: Function(A, B => Boolean)): Hash[A, B]
 
-This calls 'fn' for each element present within 'self'. The result of this
-function is a newly-made `Hash` containing all values for which 'fn' returns
-'true'.
+This calls `fn` for each element present within `self`. The result of this
+function is a newly-made `Hash` containing all values for which `fn` returns
+`true`.
 */
 void lily_builtin_Hash_select(lily_state *s)
 {
@@ -1069,7 +1061,7 @@ void lily_builtin_Hash_select(lily_state *s)
 /**
 method Hash.size[A, B](self: Hash[A, B]): Integer
 
-Returns the number of key+value pairs present within 'self'.
+Returns the number of key+value pairs present within `self`.
 */
 void lily_builtin_Hash_size(lily_state *s)
 {
@@ -1167,7 +1159,7 @@ to access an invalid index will produce `IndexError`.
 /**
 method List.clear[A](self: List[A])
 
-Removes all elements present within 'self'. No error is raised if 'self' is
+Removes all elements present within `self`. No error is raised if `self` is
 being iterated over.
 */
 void lily_builtin_List_clear(lily_state *s)
@@ -1189,8 +1181,8 @@ void lily_builtin_List_clear(lily_state *s)
 /**
 method List.count[A](self: List[A], fn: Function(A => Boolean)): Integer
 
-This calls 'fn' for each element within 'self'. The result of this function is
-the number of times that 'fn' returns 'true.
+This calls `fn` for each element within `self`. The result of this function is
+the number of times that `fn` returns `true`.
 */
 void lily_builtin_List_count(lily_state *s)
 {
@@ -1245,9 +1237,9 @@ method List.delete_at[A](self: List[A], index: Integer)
 Attempts to remove index from the List. If index is negative, then it is
 considered an offset from the end of the List.
 
-Errors:
+# Errors
 
-Raises `IndexError` if 'index' (after adjustment) is not a valid index.
+* `IndexError` if `index` is out of range.
 */
 void lily_builtin_List_delete_at(lily_state *s)
 {
@@ -1278,8 +1270,8 @@ void lily_builtin_List_delete_at(lily_state *s)
 /**
 method List.each[A](self: List[A], fn: Function(A)): List[A]
 
-Calls 'fn' for each element within 'self'. The result of this function is
-'self', so that this method can be chained with others.
+Calls `fn` for each element within `self`. The result of this function is
+`self`, so that this method can be chained with others.
 */
 void lily_builtin_List_each(lily_state *s)
 {
@@ -1298,8 +1290,8 @@ void lily_builtin_List_each(lily_state *s)
 /**
 method List.each_index[A](self: List[A], fn: Function(Integer)): List[A]
 
-Calls 'fn' for each element within 'self'. Rather than receive the elements of
-'self', 'fn' instead receives the index of each element.
+Calls `fn` for each element within `self`. Rather than receive the elements of
+`self`, `fn` instead receives the index of each element.
 */
 void lily_builtin_List_each_index(lily_state *s)
 {
@@ -1318,11 +1310,11 @@ void lily_builtin_List_each_index(lily_state *s)
 /**
 method List.fill[A](count: Integer, value: A): List[A]
 
-This createa a new `List` that contains 'value' repeated 'count' times.
+This createa a new `List` that contains `value` repeated `count` times.
 
-Errors:
+# Errors
 
-Raises `ValueError` if 'count' is less than 1.
+* `ValueError` if `count` is less than 1.
 */
 void lily_builtin_List_fill(lily_state *s)
 {
@@ -1344,12 +1336,12 @@ void lily_builtin_List_fill(lily_state *s)
 /**
 method List.fold[A](self: List[A], start: A, fn: Function(A, A => A)): A
 
-This calls 'fn' for each element present within 'self'. The first value sent to
-'fn' is initially 'start', but will later be the result of 'fn'. Therefore, the
-value as it accumulates can be found in the first value sent to 'fn'.
+This calls `fn` for each element present within `self`. The first value sent to
+`fn` is initially `start`, but will later be the result of `fn`. Therefore, the
+value as it accumulates can be found in the first value sent to `fn`.
 
 The result of this function is the result of doing an accumulation on each
-element within 'self'.
+element within `self`.
 */
 void lily_builtin_List_fold(lily_state *s)
 {
@@ -1384,12 +1376,12 @@ void lily_builtin_List_fold(lily_state *s)
 /**
 method List.insert[A](self: List[A], index: Integer, value: A)
 
-Attempt to insert 'value' at 'index' within 'self'. If index is negative, then
-it is treated as an offset from the end of 'self'.
+Attempt to insert `value` at `index` within `self`. If index is negative, then
+it is treated as an offset from the end of `self`.
 
-Errors:
+# Errors
 
-Raises `IndexError` if 'index' is not within 'self'.
+* `IndexError` if `index` is not within `self`.
 */
 void lily_builtin_List_insert(lily_state *s)
 {
@@ -1417,9 +1409,9 @@ void lily_builtin_List_insert(lily_state *s)
 /**
 method List.join[A](self: List[A], separator: *String=""): String
 
-Create a `String` consisting of the elements of 'self' interleaved with
-'separator'. The elements of self are converted to a `String` as if they were
-interpolated. If 'self' is empty, then the result is an empty `String`.
+Create a `String` consisting of the elements of `self` interleaved with
+`separator`. The elements of self are converted to a `String` as if they were
+interpolated. If `self` is empty, then the result is an empty `String`.
 */
 void lily_builtin_List_join(lily_state *s)
 {
@@ -1448,8 +1440,8 @@ void lily_builtin_List_join(lily_state *s)
 /**
 method List.map[A,B](self: List[A], fn: Function(A => B)): List[B]
 
-This calls 'fn' on each element within 'self'. The result of this function is a
-newly-made `List` containing the results of 'fn'.
+This calls `fn` on each element within `self`. The result of this function is a
+newly-made `List` containing the results of `fn`.
 */
 void lily_builtin_List_map(lily_state *s)
 {
@@ -1480,11 +1472,11 @@ void lily_builtin_List_map(lily_state *s)
 /**
 method List.pop[A](self: List[A]): A
 
-Attempt to remove and return the last element within 'self'.
+Attempt to remove and return the last element within `self`.
 
-Errors:
+# Errors
 
-Raises `IndexError` if 'self' is empty.
+* `IndexError` if `self` is empty.
 */
 void lily_builtin_List_pop(lily_state *s)
 {
@@ -1509,7 +1501,7 @@ void lily_builtin_List_pop(lily_state *s)
 /**
 method List.push[A](self: List[A], value: A)
 
-Add 'value' to the end of 'self'.
+Add `value` to the end of `self`.
 */
 void lily_builtin_List_push(lily_state *s)
 {
@@ -1562,8 +1554,8 @@ static void list_select_reject_common(lily_state *s, int expect)
 /**
 method List.reject[A](self: List[A], fn: Function(A => Boolean)): List[A]
 
-This calls 'fn' for each element within 'self'. The result is a newly-made
-`List` holding each element where 'fn' returns 'false'.
+This calls `fn` for each element within `self`. The result is a newly-made
+`List` holding each element where `fn` returns `false`.
 */
 void lily_builtin_List_reject(lily_state *s)
 {
@@ -1573,8 +1565,8 @@ void lily_builtin_List_reject(lily_state *s)
 /**
 method List.select[A](self: List[A], fn: Function(A => Boolean)): List[A]
 
-This calls 'fn' for each element within 'self'. The result is a newly-made
-`List` holding each element where 'fn' returns 'true'.
+This calls `fn` for each element within `self`. The result is a newly-made
+`List` holding each element where `fn` returns `true`.
 */
 void lily_builtin_List_select(lily_state *s)
 {
@@ -1584,7 +1576,7 @@ void lily_builtin_List_select(lily_state *s)
 /**
 method List.size[A](self: List[A]): Integer
 
-Returns the number of elements that are within 'self'.
+Returns the number of elements that are within `self`.
 */
 void lily_builtin_List_size(lily_state *s)
 {
@@ -1596,11 +1588,11 @@ void lily_builtin_List_size(lily_state *s)
 /**
 method List.shift[A](self: List[A]): A
 
-This attempts to remove the last element from 'self' and return it.
+This attempts to remove the last element from `self` and return it.
 
-Errors:
+# Errors
 
-Raises `ValueError` if 'self' is empty.
+* `ValueError` if `self` is empty.
 */
 void lily_builtin_List_shift(lily_state *s)
 {
@@ -1656,18 +1648,17 @@ enum Option[A]
     Some(A)
     None
 
-The `Option` type allows a variable to hold either a value of `A` or to hold
-'None', with 'None' being valid for any `Option`. The `Option` type thus
-presents a way to have a function to fail without raising an exception, among
-many other uses.
+The `Option` type presents a way to hold either a value of `A`, or `None`, with
+`None` being valid for any `Option`. A common use for this is as a return type
+for functions that may fail, but have no meaningful error message.
 */
 
 /**
 method Option.and[A, B](self: Option[A], other: Option[B]): Option[B]
 
-If 'self' is a 'Some', this returns 'other'.
+If `self` is a `Some`, this returns `other`.
 
-Otherwise, this returns 'None'.
+Otherwise, this returns `None`.
 */
 void lily_builtin_Option_and(lily_state *s)
 {
@@ -1680,10 +1671,10 @@ void lily_builtin_Option_and(lily_state *s)
 /**
 method Option.and_then[A, B](self: Option[A], fn: Function(A => Option[B])): Option[B]
 
-If 'self' is a 'Some', this calls 'fn' with the value within the 'Some'. The
-result is the result of the `Option` returned by 'fn'.
+If `self` is a `Some`, this calls `fn` with the value within the `Some`. The
+result is the result of the `Option` returned by `fn`.
 
-Otherwise, this returns 'None'.
+Otherwise, this returns `None`.
 */
 void lily_builtin_Option_and_then(lily_state *s)
 {
@@ -1703,9 +1694,9 @@ void lily_builtin_Option_and_then(lily_state *s)
 /**
 method Option.is_none[A](self: Option[A]): Boolean
 
-If 'self' is a 'Some', this returns 'false'.
+If `self` is a `Some`, this returns `false`.
 
-Otherwise, this returns 'true'.
+Otherwise, this returns `true`.
 */
 void lily_builtin_Option_is_none(lily_state *s)
 {
@@ -1715,9 +1706,9 @@ void lily_builtin_Option_is_none(lily_state *s)
 /**
 method Option.is_some[A](self: Option[A]): Boolean
 
-If 'self' is a 'Some', this returns 'true'.
+If `self` is a `Some`, this returns `true`.
 
-Otherwise, this returns 'false'.
+Otherwise, this returns `false`.
 */
 void lily_builtin_Option_is_some(lily_state *s)
 {
@@ -1727,9 +1718,9 @@ void lily_builtin_Option_is_some(lily_state *s)
 /**
 method Option.map[A, B](self: Option[A], fn: Function(A => B)): Option[B]
 
-If 'self' is a 'Some', this returns a 'Some' holding the result of 'fn'.
+If `self` is a `Some`, this returns a `Some` holding the result of `fn`.
 
-Otherwise, this returns 'None'.
+Otherwise, this returns `None`.
 */
 void lily_builtin_Option_map(lily_state *s)
 {
@@ -1751,9 +1742,9 @@ void lily_builtin_Option_map(lily_state *s)
 /**
 method Option.or[A](self: Option[A], alternate: Option[A]): Option[A]
 
-If 'self' is a 'Some', this returns 'self'.
+If `self` is a `Some`, this returns `self`.
 
-Otherwise, this returns 'alternate'.
+Otherwise, this returns `alternate`.
 */
 void lily_builtin_Option_or(lily_state *s)
 {
@@ -1768,9 +1759,9 @@ void lily_builtin_Option_or(lily_state *s)
 /**
 method Option.or_else[A](self: Option[A], fn: Function( => Option[A])):Option[A]
 
-If 'self' is a 'Some', this returns 'self'.
+If `self` is a `Some`, this returns `self`.
 
-Otherwise, this returns the result of calling 'fn'.
+Otherwise, this returns the result of calling `fn`.
 */
 void lily_builtin_Option_or_else(lily_state *s)
 {
@@ -1788,11 +1779,11 @@ void lily_builtin_Option_or_else(lily_state *s)
 /**
 method Option.unwrap[A](self: Option[A]): A
 
-If 'self' is a 'Some', this returns the value contained within.
+If `self` is a `Some`, this returns the value contained within.
 
-Errors:
+# Errors
 
-Raises `ValueError` if 'self' is a 'None'.
+* `ValueError` if `self` is `None`.
 */
 void lily_builtin_Option_unwrap(lily_state *s)
 {
@@ -1807,9 +1798,9 @@ void lily_builtin_Option_unwrap(lily_state *s)
 /**
 method Option.unwrap_or[A](self: Option[A], alternate: A):A
 
-If 'self' is a 'Some', this returns the value with 'self'.
+If `self` is a `Some`, this returns the value with `self`.
 
-Otherwise, this returns 'alternate'.
+Otherwise, this returns `alternate`.
 */
 void lily_builtin_Option_unwrap_or(lily_state *s)
 {
@@ -1828,9 +1819,9 @@ void lily_builtin_Option_unwrap_or(lily_state *s)
 /**
 method Option.unwrap_or_else[A](self: Option[A], fn: Function( => A)):A
 
-If 'self' is a 'Some', this returns the value with 'self'.
+If `self` is a `Some`, this returns the value with `self`.
 
-Otherwise, this returns the result of calling 'fn'.
+Otherwise, this returns the result of calling `fn`.
 */
 void lily_builtin_Option_unwrap_or_else(lily_state *s)
 {
@@ -1903,7 +1894,7 @@ static lily_string_val *make_sv(lily_state *s, int size)
 /**
 method String.ends_with(self: String, end: String): Boolean
 
-Checks if 'self' ends with 'end'.
+Checks if `self` ends with `end`.
 */
 void lily_builtin_String_ends_with(lily_state *s)
 {
@@ -1937,11 +1928,11 @@ void lily_builtin_String_ends_with(lily_state *s)
 /**
 method String.find(self: String, needle: String): Option[Integer]
 
-Check for 'needle' being within 'self.
+Check for `needle` being within `self`.
 
-If 'needle' is found, the result is a 'Some' holding the index.
+If `needle` is found, the result is a `Some` holding the index.
 
-Otherwise, this returns 'None'.
+Otherwise, this returns `None`.
 */
 void lily_builtin_String_find(lily_state *s)
 {
@@ -1997,7 +1988,7 @@ void lily_builtin_String_find(lily_state *s)
 }
 
 
-/* Scan through 'input' in search of html characters to encode. If there are
+/* Scan through `input` in search of html characters to encode. If there are
    any, then s->vm_buffer is updated to contain an html-safe version of the
    input string.
    If no html characters are found, then 0 is returned, and the caller is to use
@@ -2047,12 +2038,12 @@ int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
 /**
 method String.html_encode(self: String): String
 
-Check for one of '"&"', '"<"', or '">"' being within 'self'.
+Check for one of `"&"`, `"<"`, or `">"` being within `self`.
 
 If found, a new `String` is contained with any instance of the above being
 replaced by an html-safe value.
 
-If not found, 'self' is returned.
+If not found, `self` is returned.
 */
 void lily_builtin_String_html_encode(lily_state *s)
 {
@@ -2093,7 +2084,7 @@ void lily_builtin_String_##WRAP_NAME(lily_state *s) \
 /**
 method String.is_alnum(self: String):Boolean
 
-Return 'true' if 'self' has only alphanumeric([a-zA-Z0-9]+) characters, 'false'
+Return `true` if `self` has only alphanumeric([a-zA-Z0-9]+) characters, `false`
 otherwise.
 */
 CTYPE_WRAP(is_alnum, isalnum)
@@ -2101,7 +2092,7 @@ CTYPE_WRAP(is_alnum, isalnum)
 /**
 method String.is_alpha(self: String):Boolean
 
-Return 'true' if 'self' has only alphabetical([a-zA-Z]+) characters, 'false'
+Return `true` if `self` has only alphabetical([a-zA-Z]+) characters, `false`
 otherwise.
 */
 CTYPE_WRAP(is_alpha, isalpha)
@@ -2109,14 +2100,14 @@ CTYPE_WRAP(is_alpha, isalpha)
 /**
 method String.is_digit(self: String):Boolean
 
-Return 'true' if 'self' has only digit([0-9]+) characters, 'false' otherwise.
+Return `true` if `self` has only digit([0-9]+) characters, `false` otherwise.
 */
 CTYPE_WRAP(is_digit, isdigit)
 
 /**
 method String.is_space(self: String):Boolean
 
-Returns 'true' if 'self' has only space(" \t\r\n") characters, 'false'
+Returns `true` if `self` has only space(" \t\r\n") characters, `false`
 otherwise.
 */
 CTYPE_WRAP(is_space, isspace)
@@ -2124,8 +2115,8 @@ CTYPE_WRAP(is_space, isspace)
 /**
 method String.lower(self: String):String
 
-Checks if any characters within 'self' are within [A-Z]. If so, it creates a new
-`String` with [A-Z] replaced by [a-z]. Otherwise, 'self' is returned.
+Checks if any characters within `self` are within [A-Z]. If so, it creates a new
+`String` with [A-Z] replaced by [a-z]. Otherwise, `self` is returned.
 */
 void lily_builtin_String_lower(lily_state *s)
 {
@@ -2275,9 +2266,9 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 /**
 method String.lstrip(self: String, to_strip: String):String
 
-This walks through 'self' from left to right, stopping on the first utf-8 chunk
-that is not found within 'to_strip'. The result is a newly-made copy of self
-without the elements within 'to_strip' at the front.
+This walks through `self` from left to right, stopping on the first utf-8 chunk
+that is not found within `to_strip`. The result is a newly-made copy of self
+without the elements within `to_strip` at the front.
 */
 void lily_builtin_String_lstrip(lily_state *s)
 {
@@ -2325,13 +2316,13 @@ void lily_builtin_String_lstrip(lily_state *s)
 /**
 method String.parse_i(self: String): Option[Integer]
 
-Attempts to convert 'self' into an `Integer`. Currently, 'self' is parsed as a
+Attempts to convert `self` into an `Integer`. Currently, `self` is parsed as a
 base-10 encoded value.
 
-If the value is a valid `Integer`, then a 'Some' containing the value is
+If the value is a valid `Integer`, then a `Some` containing the value is
 returned.
 
-Otherwise, 'None' is returned.
+Otherwise, `None` is returned.
 */
 void lily_builtin_String_parse_i(lily_state *s)
 {
@@ -2477,9 +2468,9 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 /**
 method String.rstrip(self: String, to_strip: String):String
 
-This walks through 'self' from right to left, stopping on the first utf-8 chunk
-that is not found within 'to_strip'. The result is a newly-made copy of 'self'
-without the elements of 'to_strip' at the end.
+This walks through `self` from right to left, stopping on the first utf-8 chunk
+that is not found within `to_strip`. The result is a newly-made copy of `self`
+without the elements of `to_strip` at the end.
 */
 void lily_builtin_String_rstrip(lily_state *s)
 {
@@ -2630,12 +2621,12 @@ static lily_list_val *string_split_by_val(lily_state *s, char *input,
 /**
 method String.split(self: String, split_by: *String=" "):List[String]
 
-This attempts to split 'self' using 'split_by', with a default value of a single
+This attempts to split `self` using `split_by`, with a default value of a single
 space.
 
-Errors:
+# Errors
 
-Raises `ValueError` if 'split_by' is empty.
+* `ValueError` if `split_by` is empty.
 */
 void lily_builtin_String_split(lily_state *s)
 {
@@ -2664,7 +2655,7 @@ void lily_builtin_String_split(lily_state *s)
 /**
 method String.starts_with(self: String, with: String): Boolean
 
-Checks if 'self' starts with 'with'.
+Checks if `self` starts with `with`.
 */
 void lily_builtin_String_starts_with(lily_state *s)
 {
@@ -2695,7 +2686,7 @@ void lily_builtin_String_starts_with(lily_state *s)
 method String.strip(self: String, to_strip: String):String
 
 This walks through self from right to left, and then from left to right. The
-result of this is a newly-made `String` without any elements within 'to_strip'
+result of this is a newly-made `String` without any elements within `to_strip`
 at either end.
 */
 void lily_builtin_String_strip(lily_state *s)
@@ -2754,9 +2745,9 @@ void lily_builtin_String_strip(lily_state *s)
 /**
 method String.trim(self: String): String
 
-Checks if 'self' starts or ends with any of '" \t\r\n"'. If it does, then a new
+Checks if `self` starts or ends with any of `" \t\r\n"`. If it does, then a new
 `String` is made with spaces removed from both sides. If it does not, then this
-returns 'self'.
+returns `self`.
 */
 void lily_builtin_String_trim(lily_state *s)
 {
@@ -2792,7 +2783,7 @@ void lily_builtin_String_trim(lily_state *s)
 method String.upper(self: String):String
 
 Checks if any characters within self are within [a-z]. If so, it creates a new
-`String` with [a-z] replaced by [A-Z]. Otherwise, 'self' is returned.
+`String` with [a-z] replaced by [A-Z]. Otherwise, `self` is returned.
 */
 void lily_builtin_String_upper(lily_state *s)
 {
@@ -2823,14 +2814,14 @@ bootstrap Tainted[A](v:A){ var @value = v }
 
 The `Tainted` type represents a wrapper over some data that is considered
 unsafe. Data, once inside a `Tainted` value can only be retrieved using the
-'Tainted.sanitize' function.
+`Tainted.sanitize` function.
 */
 
 /**
 method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
 
-This calls 'fn' with the value contained within 'self'. 'fn' is assumed to be a
-function that can sanitize the data within 'self'.
+This calls `fn` with the value contained within `self`. `fn` is assumed to be a
+function that can sanitize the data within `self`.
 */
 void lily_builtin_Tainted_sanitize(lily_state *s)
 {
@@ -2850,7 +2841,7 @@ The `Tuple` class provides a fixed-size container over a set of types. `Tuple`
 is ideal for situations where a variety of data is needed, but a class is too
 complex.
 
-`Tuple` literals are created by '<[value1, value2, ...]>'. Member of the `Tuple`
+`Tuple` literals are created by `<[value1, value2, ...]>`. Member of the `Tuple`
 class can be accessed through subscripts. Unlike `List`, `Tuple` does not
 support negative indexes.
 
@@ -2864,8 +2855,8 @@ work on all `Tuple` instances, regardless of the number of elements within the
 /**
 method Tuple.merge(self: Tuple[1], other: Tuple[2]): Tuple[1, 2]
 
-Build a new `Tuple` composed of the contents of 'self' and the contents of
-'other'.
+Build a new `Tuple` composed of the contents of `self` and the contents of
+`other`.
 */
 void lily_builtin_Tuple_merge(lily_state *s)
 {
@@ -2888,7 +2879,7 @@ void lily_builtin_Tuple_merge(lily_state *s)
 /**
 method Tuple.push[A](self: Tuple[1], other: A): Tuple[1, A]
 
-Build a new `Tuple` composed of the contents of 'self' and 'other'.
+Build a new `Tuple` composed of the contents of `self` and `other`.
 */
 void lily_builtin_Tuple_push(lily_state *s)
 {
@@ -2909,7 +2900,7 @@ void lily_builtin_Tuple_push(lily_state *s)
 bootstrap ValueError(msg: String) < Exception(msg) {}
 
 `ValueError` is a subclass of `Exception` that is raised when sending an
-improper argument to a function, such as trying to call 'List.fill' with a
+improper argument to a function, such as trying to call `List.fill` with a
 negative amount.
 */
 
