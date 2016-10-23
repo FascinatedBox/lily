@@ -2784,7 +2784,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     if (emit->function_block->block_type == block_lambda)
         maybe_close_over_class_self(emit);
 
-    if (ast->property->type == NULL)
+    if (ast->property->flags & SYM_NOT_INITIALIZED)
         lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
                 "Invalid use of uninitialized property '@%s'.",
                 ast->property->name);

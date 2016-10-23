@@ -2665,8 +2665,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
 }
 
 /* The same thing as get_named_var, but with a property instead. */
-static lily_prop_entry *get_named_property(lily_parse_state *parser,
-        lily_type *prop_type, int flags)
+static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
 {
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
@@ -2684,8 +2683,8 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser,
     }
 
     lily_prop_entry *prop;
-    prop = lily_add_class_property(parser->symtab, current_class, prop_type,
-            name, flags & ~SYM_NOT_INITIALIZED);
+    prop = lily_add_class_property(parser->symtab, current_class, NULL, name,
+            flags);
 
     lily_lexer(parser->lex);
     return prop;
@@ -2748,7 +2747,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
                 lily_es_push_local_var(parser->expr, (lily_var *)sym);
         }
         else {
-            sym = (lily_sym *)get_named_property(parser, NULL, flags);
+            sym = (lily_sym *)get_named_property(parser, flags);
             lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
         }
 
