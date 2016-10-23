@@ -111,7 +111,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->lex = lily_new_lex_state(options, raiser);
     parser->msgbuf = lily_new_msgbuf();
     parser->options = options;
-    parser->optarg_stack = lily_new_buffer_u16(4);
+    parser->data_stack = lily_new_buffer_u16(4);
     parser->expr = parser->first_expr;
     parser->foreign_values = lily_new_value_stack();
 
@@ -188,7 +188,7 @@ void lily_free_state(lily_state *vm)
 
     lily_free_emit_state(parser->emit);
 
-    lily_free_buffer_u16(parser->optarg_stack);
+    lily_free_buffer_u16(parser->data_stack);
 
     /* The path for the first module is always a shallow copy of the loadname
        that was sent. Make sure that doesn't get free'd. */
@@ -229,7 +229,7 @@ void lily_free_state(lily_state *vm)
 
 static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 {
-    lily_u16_set_pos(parser->optarg_stack, 0);
+    lily_u16_set_pos(parser->data_stack, 0);
 
     /* Rewind generics */
     lily_generic_pool *gp = parser->generics;
@@ -690,7 +690,7 @@ static int constant_by_name(const char *);
     it's important that self_type be right. **/
 
 /* Given a var, collect the optional argument that goes with it. This will push
-   information to parser's optarg_stack to link the value to the var. The token
+   information to parser's data_stack to link the value to the var. The token
    is expected to start on the '=', and will be set at the token after the
    optional value. */
 static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
@@ -698,7 +698,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
     lily_token expect;
-    lily_buffer_u16 *optarg_stack = parser->optarg_stack;
+    lily_buffer_u16 *data_stack = parser->data_stack;
     lily_class *cls = var->type->cls;
 
     if (cls == symtab->integer_class)
@@ -717,7 +717,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     NEED_CURRENT_TOK(tk_equal)
     NEED_NEXT_TOK(expect)
 
-    lily_u16_write_1(optarg_stack, var->reg_spot);
+    lily_u16_write_1(data_stack, var->reg_spot);
 
     if (cls == symtab->boolean_class) {
         int key_id = constant_by_name(lex->label);
@@ -726,7 +726,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
                     "'%s' is not a valid default value for a Boolean.",
                     lex->label);
 
-        lily_u16_write_2(optarg_stack, o_get_boolean, key_id == CONST_TRUE);
+        lily_u16_write_2(data_stack, o_get_boolean, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
         /* It's an enum. Allow any variant to be a default argument if that
@@ -744,22 +744,22 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
             lily_raise(parser->raiser, lily_SyntaxError,
                     "Only variants that take no arguments can be default arguments.");
 
-        lily_u16_write_2(optarg_stack, o_get_empty_variant, variant->cls_id);
+        lily_u16_write_2(data_stack, o_get_empty_variant, variant->cls_id);
     }
     else if (expect == tk_byte)
-        lily_u16_write_2(optarg_stack, o_get_byte, (uint8_t)lex->last_integer);
+        lily_u16_write_2(data_stack, o_get_byte, (uint8_t)lex->last_integer);
     else if (expect != tk_integer) {
-        lily_u16_write_2(optarg_stack, o_get_readonly,
+        lily_u16_write_2(data_stack, o_get_readonly,
                 lex->last_literal->reg_spot);
     }
     else if (lex->last_integer <= INT16_MAX &&
              lex->last_integer >= INT16_MIN) {
-        lily_u16_write_2(optarg_stack, o_get_integer,
+        lily_u16_write_2(data_stack, o_get_integer,
                 (uint16_t)lex->last_integer);
     }
     else {
         lily_literal *lit = lily_get_integer_literal(symtab, lex->last_integer);
-        lily_u16_write_2(optarg_stack, o_get_readonly, lit->reg_spot);
+        lily_u16_write_2(data_stack, o_get_readonly, lit->reg_spot);
     }
 
     lily_lexer(lex);
@@ -2900,7 +2900,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     int i = 0;
     int arg_flags = 0;
     int result_pos = parser->tm->pos;
-    int optarg_start = parser->optarg_stack->pos;
+    int data_start = parser->data_stack->pos;
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
@@ -2977,8 +2977,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
             define_var->type->subtypes[0]);
 
     if (arg_flags & TYPE_HAS_OPTARGS)
-        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
-                optarg_start);
+        lily_emit_write_optargs(parser->emit, parser->data_stack,
+                data_start);
 }
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
@@ -3629,7 +3629,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     int i = 1;
     int flags = 0;
-    int optarg_start = parser->optarg_stack->pos;
+    int data_start = parser->data_stack->pos;
     lily_tm_add(parser->tm, parser->class_self_type);
 
     if (lex->token == tk_left_parenth) {
@@ -3663,8 +3663,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
             call_var->type->subtypes[0]);
 
     if (flags & TYPE_HAS_OPTARGS)
-        lily_emit_write_optargs(parser->emit, parser->optarg_stack,
-                optarg_start);
+        lily_emit_write_optargs(parser->emit, parser->data_stack,
+                data_start);
 }
 
 /* This is called when one class wants to inherit from another. It makes sure
@@ -4049,7 +4049,7 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
                 "Already have a case for variant %s.", lex->label);
 
     if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
-        lily_buffer_u16 *decompose_data = parser->optarg_stack;
+        lily_buffer_u16 *decompose_data = parser->data_stack;
         int decompose_start = lily_u16_pos(decompose_data);
 
         lily_type *build_type = variant_case->build_type;

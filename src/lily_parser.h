@@ -22,7 +22,7 @@ typedef struct lily_parse_state_ {
 
     lily_module_entry *main_module;
 
-    lily_buffer_u16 *optarg_stack;
+    lily_buffer_u16 *data_stack;
 
     uint16_t executing;
     uint16_t first_pass;
