@@ -348,7 +348,7 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 
 /* This takes the stack of optional arguments and writes out the jumping
    necessary at the top. */
-void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
+static void write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         int start)
 {
     /* Optional arguments are sent in pairs of class id and some data (usually
@@ -4396,10 +4396,10 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
 
 /* This is called after parsing the header of a define or a class. Since blocks
    are entered early, this does adjustments to block data. */
-void lily_emit_update_function_block(lily_emit_state *emit,
-        lily_type *self_type, lily_type *ret_type)
+void lily_emit_setup_call(lily_emit_state *emit, lily_type *self_type,
+        lily_var *target, lily_buffer_u16 *data, int data_start)
 {
-    emit->top_function_ret = ret_type;
+    emit->top_function_ret = target->type->subtypes[0];
 
     if (self_type) {
         /* If there's a type for 'self', then this must be a class constructor.
@@ -4413,6 +4413,9 @@ void lily_emit_update_function_block(lily_emit_state *emit,
         lily_u16_write_4(emit->code, o_new_instance_basic, *emit->lex_linenum,
                 self_type->cls->id, self->reg_spot);
     }
+
+    if (lily_u16_pos(data) != data_start)
+        write_optargs(emit, data, data_start);
 }
 
 /* Evaluate the given tree, then try to write instructions that will raise the

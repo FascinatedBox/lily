@@ -252,7 +252,6 @@ void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_sym *, int);
 void lily_emit_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
-void lily_emit_write_optargs(lily_emit_state *, lily_buffer_u16 *, int);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_add_match_case(lily_emit_state *, int);
@@ -273,8 +272,8 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
-void lily_emit_update_function_block(lily_emit_state *, lily_type *,
-        lily_type *);
+void lily_emit_setup_call(lily_emit_state *, lily_type *, lily_var *,
+        lily_buffer_u16 *, int);
 
 uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
 

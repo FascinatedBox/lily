@@ -2972,12 +2972,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     define_var->type = lily_tm_make(parser->tm, arg_flags,
             parser->symtab->function_class, i + 1);
 
-    lily_emit_update_function_block(parser->emit, NULL,
-            define_var->type->subtypes[0]);
-
-    if (arg_flags & TYPE_HAS_OPTARGS)
-        lily_emit_write_optargs(parser->emit, parser->data_stack,
-                data_start);
+    lily_emit_setup_call(parser->emit, NULL, define_var, parser->data_stack,
+            data_start);
 }
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
@@ -3658,12 +3654,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     call_var->type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 
-    lily_emit_update_function_block(parser->emit, parser->class_self_type,
-            call_var->type->subtypes[0]);
-
-    if (flags & TYPE_HAS_OPTARGS)
-        lily_emit_write_optargs(parser->emit, parser->data_stack,
-                data_start);
+    lily_emit_setup_call(parser->emit, parser->class_self_type, call_var,
+            parser->data_stack, data_start);
 }
 
 /* This is called when one class wants to inherit from another. It makes sure
