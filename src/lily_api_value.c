@@ -425,19 +425,19 @@ FILE *lily_file_get_raw(lily_file_val *fv)
 void lily_file_ensure_writeable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(s, LILY_IOERROR_ID, "IO operation on closed file.");
+        lily_IOError(s, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
-        lily_error(s, LILY_IOERROR_ID, "File not open for writing.");
+        lily_IOError(s, "File not open for writing.");
 }
 
 void lily_file_ensure_readable(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
-        lily_error(s, LILY_IOERROR_ID, "IO operation on closed file.");
+        lily_IOError(s, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
-        lily_error(s, LILY_IOERROR_ID, "File not open for reading.");
+        lily_IOError(s, "File not open for reading.");
 }
 
 int lily_function_is_foreign(lily_function_val *fv)
@@ -709,7 +709,7 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
     int right_tag = right->class_id;
 
     if (*depth == 100)
-        lily_error_fmt(s, LILY_RUNTIMEERROR_ID, "Infinite loop in comparison.");
+        lily_RuntimeError(s, "Infinite loop in comparison.");
 
     if (left_tag != right_tag)
         return 0;

@@ -689,7 +689,7 @@ static const char *names[] = {
 /* This raises an error in the vm that won't have a proper value backing it. The
    id should be the id of some exception class. This may run a faux dynaload of
    the error, so that printing has a class name to go by. */
-void lily_error(lily_vm_state *vm, uint8_t id, const char *message)
+static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 {
     lily_class *c = vm->class_table[id];
     if (c == NULL) {
@@ -705,21 +705,26 @@ void lily_error(lily_vm_state *vm, uint8_t id, const char *message)
     lily_raise_class(vm->raiser, c, message);
 }
 
-/* Similar to lily_error, except this accept a format string and extra
-   arguments. This is kept apart from lily_error because many callers do not
-   have format strings. */
-void lily_error_fmt(lily_vm_state *vm, uint8_t id, const char *fmt, ...)
-{
-    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
-
-    lily_mb_flush(msgbuf);
-    va_list var_args;
-    va_start(var_args, fmt);
-    lily_mb_add_fmt_va(msgbuf, fmt, var_args);
-    va_end(var_args);
-
-    lily_error(vm, id, lily_mb_get(msgbuf));
+#define LILY_ERROR(err, id) \
+void lily_##err##Error(lily_vm_state *vm, const char *fmt, ...) \
+{ \
+    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf; \
+ \
+    lily_mb_flush(msgbuf); \
+    va_list var_args; \
+    va_start(var_args, fmt); \
+    lily_mb_add_fmt_va(msgbuf, fmt, var_args); \
+    va_end(var_args); \
+ \
+    vm_error(vm, id, lily_mb_get(msgbuf)); \
 }
+
+LILY_ERROR(DivisionByZero, LILY_DBZERROR_ID)
+LILY_ERROR(Index,          LILY_INDEXERROR_ID)
+LILY_ERROR(IO,             LILY_IOERROR_ID)
+LILY_ERROR(Key,            LILY_KEYERROR_ID)
+LILY_ERROR(Runtime,        LILY_RUNTIMEERROR_ID)
+LILY_ERROR(Value,          LILY_VALUEERROR_ID)
 
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
@@ -735,7 +740,7 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
     else
         lily_mb_add_fmt(msgbuf, "%d", key->value.integer);
 
-    lily_error(vm, LILY_KEYERROR_ID, lily_mb_get(msgbuf));
+    vm_error(vm, LILY_KEYERROR_ID, lily_mb_get(msgbuf));
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
@@ -746,7 +751,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
     lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
             bad_index);
 
-    lily_error(vm, LILY_INDEXERROR_ID, lily_mb_get(msgbuf));
+    vm_error(vm, LILY_INDEXERROR_ID, lily_mb_get(msgbuf));
 }
 
 /***
@@ -802,8 +807,7 @@ static void builtin_stdout_print(lily_vm_state *vm)
 {
     lily_file_val *stdout_val = vm->stdout_reg->value.file;
     if (stdout_val->inner_file == NULL)
-        lily_error(vm, LILY_VALUEERROR_ID,
-                "IO operation on closed file.");
+        vm_error(vm, LILY_VALUEERROR_ID, "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
 }
@@ -1729,7 +1733,7 @@ void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
     }
 
     /* For the first pass, make sure the spots for Exception and its built-in
-       children are zero'ed out. This allows lily_error to safely check if an
+       children are zero'ed out. This allows vm_error to safely check if an
        exception class has been loaded by testing the class field for being NULL
        (and relies on holes being set aside for these exceptions). */
     if (old_count == 0) {
@@ -1982,7 +1986,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    INTEGER_OP for the special case of division. */
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.integer == 0)
-                    lily_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 INTEGER_OP(/)
                 break;
@@ -1990,7 +1994,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* x % 0 will do the same thing as x / 0... */
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.integer == 0)
-                    lily_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 INTEGER_OP(%)
                 break;
@@ -2012,7 +2016,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_double_div:
                 rhs_reg = vm_regs[code[3]];
                 if (rhs_reg->value.doubleval == 0)
-                    lily_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
 
                 DOUBLE_OP(/)
@@ -2045,7 +2049,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
-                        lily_error(vm, LILY_RUNTIMEERROR_ID,
+                        vm_error(vm, LILY_RUNTIMEERROR_ID,
                                 "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
@@ -2115,7 +2119,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 if (current_frame->next == NULL) {
                     if (vm->call_depth > 100)
-                        lily_error(vm, LILY_RUNTIMEERROR_ID,
+                        vm_error(vm, LILY_RUNTIMEERROR_ID,
                                 "Function call recursion limit reached.");
                     add_call_frame(vm);
                 }
@@ -2405,7 +2409,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg = vm_regs[code[5]];
 
                 if (step_reg->value.integer == 0)
-                    lily_error(vm, LILY_VALUEERROR_ID,
+                    vm_error(vm, LILY_VALUEERROR_ID,
                                "for loop step cannot be 0.");
 
                 /* Do a negative step to offset falling into o_for_loop. */

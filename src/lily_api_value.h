@@ -113,15 +113,6 @@ lily_value *lily_new_value_of_string_lit(const char *);
 #define LILY_LEFT_ID  17
 #define LILY_RIGHT_ID 18
 
-/* These are the ids of builtin exceptions, for use with lily_error. */
-#define LILY_EXCEPTION_ID    19
-#define LILY_IOERROR_ID      20
-#define LILY_KEYERROR_ID     21
-#define LILY_RUNTIMEERROR_ID 22
-#define LILY_VALUEERROR_ID   23
-#define LILY_INDEXERROR_ID   24
-#define LILY_DBZERROR_ID     25 /* > 9000 */
-
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
@@ -198,10 +189,13 @@ int lily_eq_value(lily_state *, lily_value *, lily_value *);
 int lily_value_is_derefable(lily_value *);
 uint16_t lily_value_class_id(lily_value *);
 
-/* Raise an exception, with uint_8 being the id of a class deriving from
-   Exception. */
-void lily_error(lily_state *, uint8_t, const char *);
-void lily_error_fmt(lily_state *, uint8_t, const char *, ...);
+/* Raise an exception within the interpreter. */
+void lily_DivisionByZeroError(lily_state *, const char *, ...);
+void lily_IndexError(lily_state *, const char *, ...);
+void lily_IOError(lily_state *, const char *, ...);
+void lily_KeyError(lily_state *, const char *, ...);
+void lily_RuntimeError(lily_state *, const char *, ...);
+void lily_ValueError(lily_state *, const char *, ...);
 
 /* Miscellaneous operations. Keep in mind that these (like lily_error) are only
    valid in a function extending the interpreter. If they are called outside of

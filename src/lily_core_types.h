@@ -401,10 +401,17 @@ typedef struct lily_module_entry_ {
 #define LILY_TUPLE_ID      11
 #define LILY_FILE_ID       12
 #define LILY_OPTION_ID     13
-/* The holes here are for None, Some, Left, Right, and the builtin Exception
-   classes. They're not here because lily_api_value.h needs them for raising
-   errors at runtime and for checking the id of predefined enums. */
+/* The holes here are for None, Some, Left, and Right. Those aren't here because
+   lily_api_value.h needs them for raising runtime errors. */
 #define LILY_EITHER_ID     16
+
+#define LILY_EXCEPTION_ID    19
+#define LILY_IOERROR_ID      20
+#define LILY_KEYERROR_ID     21
+#define LILY_RUNTIMEERROR_ID 22
+#define LILY_VALUEERROR_ID   23
+#define LILY_INDEXERROR_ID   24
+#define LILY_DBZERROR_ID     25 /* > 9000 */
 
 #define LILY_TAINTED_ID    26
 #define LILY_UNIT_ID       27

@@ -467,14 +467,11 @@ void lily_builtin_File_open(lily_state *s)
     }
 
     if (ok == 0)
-        lily_error_fmt(s, LILY_IOERROR_ID,
-                "Invalid mode '%s' given.", mode);
+        lily_IOError(s, "Invalid mode '%s' given.", mode);
 
     FILE *f = fopen(path, mode);
-    if (f == NULL) {
-        lily_error_fmt(s, LILY_IOERROR_ID, "Errno %d: ^R (%s).",
-                errno, errno, path);
-    }
+    if (f == NULL)
+        lily_IOError(s, "Errno %d: ^R (%s).", errno, errno, path);
 
     lily_file_val *filev = lily_new_file_val(f, mode);
 
@@ -652,8 +649,7 @@ lily_hash_elem *lily_hash_get_elem(lily_state *s, lily_hash_val *hash_val,
 static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
 {
     if (hash_val->iter_count)
-        lily_error(s, LILY_RUNTIMEERROR_ID,
-                "Cannot remove key from hash during iteration.");
+        lily_RuntimeError(s, "Cannot remove key from hash during iteration.");
 }
 
 /* This adds a new element to the hash, with `pair_key` and `pair_value` inside.
@@ -754,8 +750,7 @@ void lily_builtin_Hash_clear(lily_state *s)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
     if (hash_val->iter_count != 0)
-        lily_error(s, LILY_RUNTIMEERROR_ID,
-                "Cannot remove key from hash during iteration.");
+        lily_RuntimeError(s, "Cannot remove key from hash during iteration.");
 
     destroy_hash_elems(hash_val);
 
@@ -1219,14 +1214,14 @@ static int64_t get_relative_index(lily_state *s, lily_list_val *list_val,
     if (pos < 0) {
         uint64_t unsigned_pos = -(int64_t)pos;
         if (unsigned_pos > list_val->num_values)
-            lily_error_fmt(s, LILY_INDEXERROR_ID, "Index %d is too small for list (minimum: %d)",
+            lily_IndexError(s, "Index %d is too small for list (minimum: %d)",
                     pos, -(int64_t)list_val->num_values);
 
         pos = list_val->num_values - unsigned_pos;
     }
     else if (pos > list_val->num_values)
-        lily_error_fmt(s, LILY_INDEXERROR_ID, "Index %d is too large for list (maximum: %d)",
-                pos, list_val->num_values);
+        lily_IndexError(s, "Index %d is too large for list (maximum: %d)", pos,
+                list_val->num_values);
 
     return pos;
 }
@@ -1247,7 +1242,7 @@ void lily_builtin_List_delete_at(lily_state *s)
     int64_t pos = lily_arg_integer(s, 1);
 
     if (list_val->num_values == 0)
-        lily_error(s, LILY_INDEXERROR_ID, "Cannot delete from an empty list.");
+        lily_IndexError(s, "Cannot delete from an empty list.");
 
     pos = get_relative_index(s, list_val, pos);
 
@@ -1320,8 +1315,7 @@ void lily_builtin_List_fill(lily_state *s)
 {
     int n = lily_arg_integer(s, 0);
     if (n < 0)
-        lily_error_fmt(s, LILY_VALUEERROR_ID,
-                "Repeat count must be >= 0 (%d given).", n);
+        lily_ValueError(s, "Repeat count must be >= 0 (%d given).", n);
 
     lily_value *to_repeat = lily_arg_value(s, 1);
     lily_list_val *lv = lily_new_list_val_n(n);
@@ -1483,7 +1477,7 @@ void lily_builtin_List_pop(lily_state *s)
     lily_list_val *list_val = lily_arg_list(s, 0);
 
     if (list_val->num_values == 0)
-        lily_error(s, LILY_INDEXERROR_ID, "Pop from an empty list.");
+        lily_IndexError(s, "Pop from an empty list.");
 
     lily_value *source = list_val->elems[list_val->num_values - 1];
 
@@ -1599,7 +1593,7 @@ void lily_builtin_List_shift(lily_state *s)
     lily_list_val *list_val = lily_arg_list(s, 0);
 
     if (list_val->num_values == 0)
-        lily_error(s, LILY_INDEXERROR_ID, "Shift on an empty list.");
+        lily_IndexError(s, "Shift on an empty list.");
 
     lily_value *source = list_val->elems[0];
 
@@ -1792,7 +1786,7 @@ void lily_builtin_Option_unwrap(lily_state *s)
     if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
         lily_return_value(s, lily_instance_value(optval, 0));
     else
-        lily_error(s, LILY_VALUEERROR_ID, "unwrap called on None.");
+        lily_ValueError(s, "unwrap called on None.");
 }
 
 /**
@@ -2637,8 +2631,7 @@ void lily_builtin_String_split(lily_state *s)
     if (lily_arg_count(s) == 2) {
         split_strval = lily_arg_string(s, 1);
         if (split_strval->size == 0)
-            lily_error(s, LILY_VALUEERROR_ID,
-                    "Cannot split by empty string.");
+            lily_ValueError(s, "Cannot split by empty string.");
     }
     else {
         fake_sv.string = " ";
