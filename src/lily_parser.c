@@ -680,6 +680,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 static lily_type *get_type_raw(lily_parse_state *, int);
 static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
+static lily_prop_entry *get_named_property(lily_parse_state *, int);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -869,6 +870,32 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 
         *flags |= TYPE_HAS_SCOOP;
     }
+
+    return type;
+}
+
+static lily_type *get_prop_arg(lily_parse_state *parser, int *flags)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *var = lily_emit_new_scoped_var(parser->emit, NULL, "");
+
+    NEED_NEXT_TOK(tk_prop_word)
+    lily_prop_entry *prop = get_named_property(parser, 0);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_lexer(lex);
+    lily_type *type = get_nameless_arg(parser, flags);
+
+    if (*flags & TYPE_HAS_OPTARGS) {
+        /* Optional arguments are created by making an optarg type which holds
+           a type that is supposed to be optional. For simplicity, give the
+           var the concrete underlying type, and the caller the true optarg
+           containing type. */
+        prop->type = type->subtypes[0];
+        collect_optarg_for(parser, var);
+    }
+    else
+        prop->type = type;
 
     return type;
 }
@@ -3634,7 +3661,13 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
                     "Empty () not needed for a class.");
 
         while (1) {
-            lily_tm_add(parser->tm, get_named_arg(parser, &flags));
+            NEED_CURRENT_TOK(tk_word)
+            char ch = lex->label[0];
+            if (ch != 'v' || strcmp(lex->label, "var") != 0)
+                lily_tm_add(parser->tm, get_named_arg(parser, &flags));
+            else
+                lily_tm_add(parser->tm, get_prop_arg(parser, &flags));
+
             i++;
             if (lex->token == tk_comma) {
                 lily_lexer(lex);

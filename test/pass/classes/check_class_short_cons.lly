@@ -1,0 +1,5 @@
+class Test1(var @x: Integer, y: Integer, var @z: Integer) {}
+
+var t1 = Test1(10, 20, 30)
+if t1.x != 10 || t1.z != 30:
+    stderr.print("Failed.")

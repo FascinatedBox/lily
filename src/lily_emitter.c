@@ -4416,6 +4416,25 @@ void lily_emit_setup_call(lily_emit_state *emit, lily_type *self_type,
 
     if (lily_u16_pos(data) != data_start)
         write_optargs(emit, data, data_start);
+
+    if (self_type && self_type->cls->members) {
+        /* These are all properties, because this call happens right after the
+           class header is parsed. */
+        lily_named_sym *prop_iter = self_type->cls->members;
+        lily_var *var_iter = emit->symtab->active_module->var_chain;
+        uint16_t self_reg_spot = emit->block->self->reg_spot;
+
+        while (prop_iter) {
+            while (strcmp(var_iter->name, "") != 0)
+                var_iter = var_iter->next;
+
+            lily_u16_write_5(emit->code, o_set_property, *emit->lex_linenum,
+                    prop_iter->reg_spot, self_reg_spot, var_iter->reg_spot);
+
+            var_iter = var_iter->next;
+            prop_iter = prop_iter->next;
+        }
+    }
 }
 
 /* Evaluate the given tree, then try to write instructions that will raise the
