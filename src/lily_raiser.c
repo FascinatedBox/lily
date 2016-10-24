@@ -5,12 +5,6 @@
 
 #include "lily_api_alloc.h"
 
-/* If the error raised is a code (and not a proper error), then this is used to
-   get a name for the error. */
-static const char *lily_error_names[] =
-    {"Error", "SyntaxError", "DivisionByZeroError", "IndexError",
-     "ValueError", "RuntimeError", "KeyError", "IOError"};
-
 lily_raiser *lily_new_raiser(void)
 {
     lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
@@ -77,9 +71,7 @@ void lily_jump_back(lily_raiser *raiser)
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-/* This raises an error for the given 'error_code'. The vm will need to load a
-   proper exception for the code (or the raiser will die). */
-void lily_raise(lily_raiser *raiser, int error_code, const char *fmt, ...)
+void lily_raise_syn(lily_raiser *raiser, const char *fmt, ...)
 {
     lily_mb_flush(raiser->msgbuf);
     raiser->exception_cls = NULL;
@@ -89,7 +81,21 @@ void lily_raise(lily_raiser *raiser, int error_code, const char *fmt, ...)
     lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args);
     va_end(var_args);
 
-    raiser->error_code = error_code;
+    raiser->is_syn_error = 1;
+    longjmp(raiser->all_jumps->jump, 1);
+}
+
+void lily_raise_err(lily_raiser *raiser, const char *fmt, ...)
+{
+    lily_mb_flush(raiser->msgbuf);
+    raiser->exception_cls = NULL;
+
+    va_list var_args;
+    va_start(var_args, fmt);
+    lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args);
+    va_end(var_args);
+
+    raiser->is_syn_error = 0;
     longjmp(raiser->all_jumps->jump, 1);
 }
 
@@ -112,8 +118,10 @@ const char *lily_name_for_error(lily_raiser *raiser)
 
     if (raiser->exception_cls)
         result = raiser->exception_cls->name;
+    else if (raiser->is_syn_error)
+        result = "SyntaxError";
     else
-        result = lily_error_names[raiser->error_code];
+        result = "Error";
 
     return result;
 }

@@ -709,7 +709,7 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
     int right_tag = right->class_id;
 
     if (*depth == 100)
-        lily_raise(s->raiser, lily_RuntimeError, "Infinite loop in comparison.");
+        lily_error_fmt(s, LILY_RUNTIMEERROR_ID, "Infinite loop in comparison.");
 
     if (left_tag != right_tag)
         return 0;
