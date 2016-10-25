@@ -26,17 +26,12 @@ typedef struct lily_list_val_       lily_list_val;
 typedef struct lily_string_val_     lily_string_val;
 typedef struct lily_value_          lily_value;
 
-/* Use this if you have a structure you want to be a foreign value, and you also
-   want to use that 32 bits of space for a field. */
-#define LILY_FOREIGN_HEADER_WITH_EXTRA(x) \
+/* Put this macro at the top of any struct that you'll send to Lily as a foreign
+   value. Don't rely on 'do_not_use', in case it changes in the future. */
+#define LILY_FOREIGN_HEADER \
 uint32_t refcount; \
-uint32_t x; \
+uint32_t do_not_use; \
 lily_destroy_func destroy_func;
-
-/* Use this if you have a structure you want to be a foreign value, but you
-   don't have a use for the extra space in the field. */
-#define LILY_FOREIGN_HEADER_PADDED \
-LILY_FOREIGN_HEADER_WITH_EXTRA(header_pad)
 
 /* This function is called when Lily wishes to destroy the value that has been
    provided. This action may have been triggered by the gc destroying a
