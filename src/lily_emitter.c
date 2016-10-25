@@ -2801,10 +2801,12 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     eval_tree(emit, ast->right, left_type);
 
     lily_type *right_type = ast->right->result->type;
+    lily_prop_entry *left_prop = ast->left->property;
+
     /* For 'var @<name> = ...', fix the type of the property. */
-    if (left_type == NULL) {
-        ast->left->property->type = right_type;
-        ast->left->property->flags &= ~SYM_NOT_INITIALIZED;
+    if (left_prop->flags & SYM_NOT_INITIALIZED) {
+        left_prop->type = right_type;
+        left_prop->flags &= ~SYM_NOT_INITIALIZED;
         left_type = right_type;
     }
 

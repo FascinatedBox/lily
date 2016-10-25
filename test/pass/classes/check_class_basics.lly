@@ -7,6 +7,14 @@ class One(a: Integer) { var @a = a  f() }
 class Two(a: Integer, b: String) < One(a) { var @b = b }
 class Three(a: Integer, b: String, c: List[Integer]) < Two(a, b) { var @c = c }
 
+class Four {
+    var @a: Integer = 10
+    @a = 11
+
+    var @b = 12
+    @b = 13
+}
+
 class AccessCheck {
     define g {
         AccessCheck.g(self)
