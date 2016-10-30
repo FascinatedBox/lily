@@ -192,9 +192,9 @@ void lily_KeyError(lily_state *, const char *, ...);
 void lily_RuntimeError(lily_state *, const char *, ...);
 void lily_ValueError(lily_state *, const char *, ...);
 
-/* Miscellaneous operations. Keep in mind that these (like lily_error) are only
-   valid in a function extending the interpreter. If they are called outside of
-   the interpreter's parsing loop, the interpreter is likely to crash. */
+/* Miscellaneous operations. These are only valid in a function extending the
+   interpreter. If they are called outside of the interpreter's parsing loop,
+   the interpreter is likely to crash. */
 
 /* This flushes and provides the interpreter's msgbuf. Callers always flush
    first, so don't worry about flushing when done.
