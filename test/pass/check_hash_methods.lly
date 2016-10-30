@@ -99,7 +99,7 @@ ok({||
     }(),                            "Hash.merge being right-biased.")
 
 ok({||
-    [1 => 1, 2 => 2, 3 => 3].reject{|k, v| (k % 2) == 1} == [2 => 2, 4 => 4]
+    [1 => 1, 2 => 2, 3 => 3].reject{|k, v| (k % 2) == 1} == [2 => 2]
     }(),                            "Hash.reject removing odd keys.")
 
 ok({||
