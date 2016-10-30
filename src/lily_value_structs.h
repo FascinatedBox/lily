@@ -114,24 +114,22 @@ typedef struct lily_list_val_ {
     struct lily_value_ **elems;
 } lily_list_val;
 
-/* Lily's hashes are in two parts: The hash value, and the hash element. The
-   hash element represents one key + value pair. */
-typedef struct lily_hash_elem_ {
-    /* Lily uses siphash2-4 to calculate the hash of given keys. This is the
-       siphash for elem_key.*/
-    uint64_t key_siphash;
-    struct lily_value_ *elem_key;
-    struct lily_value_ *elem_value;
-    struct lily_hash_elem_ *next;
-    struct lily_hash_elem_ *prev;
-} lily_hash_elem;
+typedef struct lily_hash_entry_ {
+    unsigned int hash;
+    char *raw_key;
+    lily_value *boxed_key;
+    lily_value *record;
+    struct lily_hash_entry_ *next;
+} lily_hash_entry;
 
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
-    uint32_t num_elems;
-    uint32_t pad;
-    lily_hash_elem *elem_chain;
+    int (*compare_fn)();
+    int (*hash_fn)();
+    int num_bins;
+    int num_entries;
+    lily_hash_entry **bins;
 } lily_hash_val;
 
 /* Either an instance or an enum. This structure has extra padding so that it

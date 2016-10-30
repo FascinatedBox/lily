@@ -9,15 +9,9 @@
 #include "lily_utf8.h"
 #include "lily_parser.h"
 
-#include "lily_api_hash.h"
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
-
-struct table_bind_data {
-    lily_hash_val *hash_val;
-    const char *sipkey;
-};
 
 typedef struct {
     int show_traceback;
@@ -39,30 +33,18 @@ lily_value *bind_tainted_of(lily_string_val *input)
     return lily_new_value_of_instance(LILY_TAINTED_ID, iv);
 }
 
-extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
-
-/* This is temporary. I've added this because I don't want to 'fix' the hash api
-   when it's going to be removed soon. */
-static void apache_add_unique_hash_entry(const char *sipkey,
-        lily_hash_val *hash_val, lily_value *pair_key, lily_value *pair_value)
+static void add_hash_entry(lily_hash_val *hash_val, lily_string_val *key,
+        lily_string_val *record)
 {
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
+    lily_instance_val *tainted_rec = lily_new_instance_val(1);
+    lily_instance_set_string(tainted_rec, 0, record);
+    lily_value *boxed_rec = lily_new_value_of_instance(LILY_TAINTED_ID,
+            tainted_rec);
 
-    uint64_t key_siphash = siphash24(pair_key->value.string->string,
-            pair_key->value.string->size, sipkey);
+    lily_hash_insert_str(hash_val, key, boxed_rec);
 
-    elem->key_siphash = key_siphash;
-    elem->elem_key = pair_key;
-    elem->elem_value = pair_value;
-
-    if (hash_val->elem_chain)
-        hash_val->elem_chain->prev = elem;
-
-    elem->prev = NULL;
-    elem->next = hash_val->elem_chain;
-    hash_val->elem_chain = elem;
-
-    hash_val->num_elems++;
+    /* new_value and insert both add a ref, which is one too many. Fix that. */
+    lily_deref(boxed_rec);
 }
 
 static int bind_table_entry(void *data, const char *key, const char *value)
@@ -73,25 +55,20 @@ static int bind_table_entry(void *data, const char *key, const char *value)
         lily_is_valid_utf8(value) == 0)
         return TRUE;
 
-    struct table_bind_data *d = data;
+    lily_hash_val *hash_val = (lily_hash_val *)data;
 
-    lily_value *elem_key = lily_new_value_of_string_lit(key);
-    lily_string_val *elem_raw_value = lily_new_raw_string(value);
-    lily_value *elem_value = bind_tainted_of(elem_raw_value);
+    lily_string_val *string_key = lily_new_raw_string(key);
+    lily_string_val *record = lily_new_raw_string(value);
 
-    apache_add_unique_hash_entry(d->sipkey, d->hash_val, elem_key, elem_value);
+    add_hash_entry(hash_val, string_key, record);
     return TRUE;
 }
 
 static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
         char *name)
 {
-    lily_hash_val *hv = lily_new_hash_val();
-
-    struct table_bind_data data;
-    data.hash_val = hv;
-    data.sipkey = options->sipkey;
-    apr_table_do(bind_table_entry, &data, table, NULL);
+    lily_hash_val *hv = lily_new_hash_strtable();
+    apr_table_do(bind_table_entry, hv, table, NULL);
     return lily_new_value_of_hash(hv);
 }
 
@@ -144,7 +121,7 @@ Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
 static lily_value *load_var_post(lily_options *options, uint16_t *unused)
 {
-    lily_hash_val *hv = lily_new_hash_val();
+    lily_hash_val *hv = lily_new_hash_strtable();
     request_rec *r = (request_rec *)options->data;
 
     apr_array_header_t *pairs;
@@ -173,13 +150,11 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
 
-            lily_value *elem_key = lily_new_value_of_string_lit(pair->name);
+            lily_string_val *key = lily_new_raw_string(pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_string_val *elem_raw_value = lily_new_raw_string_take(buffer);
-            lily_value *elem_value = bind_tainted_of(elem_raw_value);
+            lily_string_val *record = lily_new_raw_string_take(buffer);
 
-            apache_add_unique_hash_entry(options->sipkey, hv, elem_key,
-                    elem_value);
+            add_hash_entry(hv, key, record);
         }
     }
 

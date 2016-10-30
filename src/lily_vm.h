@@ -90,8 +90,6 @@ typedef struct lily_vm_state_ {
        the threshold is multiplied by to increase it. */
     uint32_t gc_multiplier;
 
-    char *sipkey;
-
     lily_vm_catch_entry *catch_chain;
 
     /* If a proper value is being raised (currently only the `raise` keyword),

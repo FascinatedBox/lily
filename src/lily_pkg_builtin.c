@@ -8,6 +8,7 @@
 #include "lily_utf8.h"
 #include "lily_move.h"
 #include "lily_value_flags.h"
+#include "lily_value_structs.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
@@ -606,124 +607,27 @@ be created through `[key1 => value1, key2 => value2, ...]`. When writing a
 Currently, only `Integer` and `String` can be used as keys.
 */
 
-/* Attempt to find `key` within `hash_val`. If an element is found, then it is
-   returned. If no element is found, then NULL is returned. */
-lily_hash_elem *lily_hash_get_elem(lily_state *s, lily_hash_val *hash_val,
-        lily_value *key)
-{
-    uint64_t key_siphash = lily_siphash(s, key);
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    lily_raw_value key_value = key->value;
-    int class_id = key->class_id;
-    int ok = 0;
-
-    while (elem_iter) {
-        if (elem_iter->key_siphash == key_siphash) {
-            lily_raw_value iter_value = elem_iter->elem_key->value;
-
-            if (class_id == LILY_INTEGER_ID &&
-                iter_value.integer == key_value.integer)
-                ok = 1;
-            else if (class_id == LILY_STRING_ID &&
-                    /* strings are immutable, so try a ptr compare first. */
-                    ((iter_value.string == key_value.string) ||
-                     /* No? Make sure the sizes match, then call for a strcmp.
-                        The size check is an easy way to potentially skip a
-                        strcmp in case of hash collision. */
-                      (iter_value.string->size == key_value.string->size &&
-                       strcmp(iter_value.string->string,
-                              key_value.string->string) == 0)))
-                ok = 1;
-            else
-                ok = 0;
-
-            if (ok)
-                break;
-        }
-        elem_iter = elem_iter->next;
-    }
-
-    return elem_iter;
-}
-
 static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
 {
     if (hash_val->iter_count)
         lily_RuntimeError(s, "Cannot remove key from hash during iteration.");
 }
 
-/* This adds a new element to the hash, with `pair_key` and `pair_value` inside.
-   The key and value are not given a refbump, and are not copied over. For that,
-   see lily_hash_add_unique. */
-static void hash_add_unique_nocopy(lily_state *s, lily_hash_val *hash_val,
-        lily_value *pair_key, lily_value *pair_value)
-{
-    lily_hash_elem *elem = lily_malloc(sizeof(lily_hash_elem));
-
-    elem->key_siphash = lily_siphash(s, pair_key);
-    elem->elem_key = pair_key;
-    elem->elem_value = pair_value;
-
-    if (hash_val->elem_chain)
-        hash_val->elem_chain->prev = elem;
-
-    elem->prev = NULL;
-    elem->next = hash_val->elem_chain;
-    hash_val->elem_chain = elem;
-
-    hash_val->num_elems++;
-}
-
-/* This function will add an element to the hash with `pair_key` as the key and
-   `pair_value` as the value. This should only be used in cases where the
-   caller is completely certain that `pair_key` is not within the hash. If the
-   caller is unsure, then lily_hash_set_elem should be used instead. */
-void lily_hash_add_unique(lily_state *s, lily_hash_val *hash_val,
-        lily_value *pair_key, lily_value *pair_value)
-{
-    remove_key_check(s, hash_val);
-
-    pair_key = lily_copy_value(pair_key);
-    pair_value = lily_copy_value(pair_value);
-
-    hash_add_unique_nocopy(s, hash_val, pair_key, pair_value);
-}
-
-/* This attempts to find `pair_key` within `hash_val`. If successful, then the
-   element's value is assigned to `pair_value`. If unable to find an element, a
-   new element is created using `pair_key` and `pair_value`. */
-void lily_hash_set_elem(lily_state *s, lily_hash_val *hash_val,
-        lily_value *pair_key, lily_value *pair_value)
-{
-    lily_hash_elem *elem = lily_hash_get_elem(s, hash_val, pair_key);
-    if (elem == NULL)
-        lily_hash_add_unique(s, hash_val, pair_key, pair_value);
-    else
-        lily_assign_value(elem->elem_value, pair_value);
-}
-
-static void destroy_elem(lily_hash_elem *elem)
-{
-    lily_deref(elem->elem_key);
-    lily_free(elem->elem_key);
-
-    lily_deref(elem->elem_value);
-    lily_free(elem->elem_value);
-
-    lily_free(elem);
-}
-
 static void destroy_hash_elems(lily_hash_val *hash_val)
 {
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    lily_hash_elem *elem_next;
+    int i;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        if (entry) {
+            lily_deref(entry->boxed_key);
+            lily_free(entry->boxed_key);
 
-    while (elem_iter) {
-        elem_next = elem_iter->next;
+            lily_deref(entry->record);
+            lily_free(entry->record);
 
-        destroy_elem(elem_iter);
-
-        elem_iter = elem_next;
+            lily_free(entry);
+            hash_val->bins[i] = NULL;
+        }
     }
 }
 
@@ -733,6 +637,7 @@ void lily_destroy_hash(lily_value *v)
 
     destroy_hash_elems(hv);
 
+    lily_free(hv->bins);
     lily_free(hv);
 }
 
@@ -754,8 +659,7 @@ void lily_builtin_Hash_clear(lily_state *s)
 
     destroy_hash_elems(hash_val);
 
-    hash_val->elem_chain = NULL;
-    hash_val->num_elems = 0;
+    hash_val->num_entries = 0;
 
     lily_return_unit(s);
 }
@@ -773,24 +677,22 @@ nothing happens.
 void lily_builtin_Hash_delete(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_value *key = lily_arg_value(s, 1);
 
     remove_key_check(s, hash_val);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(s, hash_val, key);
+    lily_value *key = lily_arg_value(s, 1);
+    lily_value *v;
 
-    if (hash_elem) {
-        if (hash_elem->next)
-            hash_elem->next->prev = hash_elem->prev;
+    if (lily_hash_delete(hash_val, &key, &v)) {
+        if (key->flags & VAL_IS_DEREFABLE)
+            lily_deref(key);
 
-        if (hash_elem->prev)
-            hash_elem->prev->next = hash_elem->next;
+        lily_free(key);
 
-        if (hash_elem == hash_val->elem_chain)
-            hash_val->elem_chain = hash_elem->next;
+        if (v->flags & VAL_IS_DEREFABLE)
+            lily_deref(v);
 
-        destroy_elem(hash_elem);
-        hash_val->num_elems--;
+        lily_free(v);
     }
 
     lily_return_unit(s);
@@ -805,19 +707,20 @@ call `fn` with the key and value of each pair.
 void lily_builtin_Hash_each_pair(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
 
     lily_prepare_call(s, lily_arg_function(s, 1));
 
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
     if (setjmp(link->jump) == 0) {
-        while (elem_iter) {
-            lily_push_value(s, elem_iter->elem_key);
-            lily_push_value(s, elem_iter->elem_value);
-            lily_exec_prepared(s, 2);
-
-            elem_iter = elem_iter->next;
+        int i;
+        for (i = 0;i < hash_val->num_bins;i++) {
+            lily_hash_entry *entry = hash_val->bins[i];
+            if (entry) {
+                lily_push_value(s, entry->boxed_key);
+                lily_push_value(s, entry->record);
+                lily_exec_prepared(s, 2);
+            }
         }
 
         hash_val->iter_count--;
@@ -838,14 +741,15 @@ returned instead.
 */
 void lily_builtin_Hash_get(lily_state *s)
 {
-    lily_value *input = lily_arg_value(s, 0);
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
     lily_value *default_value = lily_arg_value(s, 2);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(s, input->value.hash, key);
-    lily_value *new_value = hash_elem ? hash_elem->elem_value : default_value;
+    lily_value *v = lily_hash_find_value(hash_val, key);
+    if (v == NULL)
+        v = default_value;
 
-    lily_return_value(s, new_value);
+    lily_return_value(s, v);
 }
 
 /**
@@ -858,9 +762,9 @@ void lily_builtin_Hash_has_key(lily_state *s)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
 
-    lily_hash_elem *hash_elem = lily_hash_get_elem(s, hash_val, key);
+    lily_value *entry = lily_hash_find_value(hash_val, key);
 
-    lily_return_boolean(s, hash_elem != NULL);
+    lily_return_boolean(s, entry != NULL);
 }
 
 /**
@@ -872,31 +776,30 @@ is no guarantee of the ordering of the resulting `List`.
 void lily_builtin_Hash_keys(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_list_val *result_lv = lily_new_list_val_n(hash_val->num_entries);
+    int i, list_i;
 
-    lily_list_val *result_lv = lily_new_list_val_n(hash_val->num_elems);
-    int i = 0;
-
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    while (elem_iter) {
-        lily_assign_value(result_lv->elems[i], elem_iter->elem_key);
-
-        i++;
-        elem_iter = elem_iter->next;
+    for (i = 0, list_i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        if (entry) {
+            lily_assign_value(result_lv->elems[list_i], entry->boxed_key);
+            list_i++;
+        }
     }
 
     lily_return_list(s, result_lv);
 }
 
-static lily_hash_val *build_hash(lily_state *s, int count)
+static lily_hash_val *build_hash(lily_state *s, lily_hash_val *hash_val,
+        int count)
 {
     int i;
-    lily_hash_val *hash_val = lily_new_hash_val();
 
     for (i = 0;i < count;i++) {
-        lily_value *e_value = lily_copy_value(lily_pop_value(s));
-        lily_value *e_key = lily_copy_value(lily_pop_value(s));
+        lily_value *record = lily_pop_value(s);
+        lily_value *key = lily_pop_value(s);
 
-        hash_add_unique_nocopy(s, hash_val, e_key, e_value);
+        lily_hash_insert_value(hash_val, key, record);
     }
 
     return hash_val;
@@ -912,33 +815,32 @@ call to `fn`.
 void lily_builtin_Hash_map_values(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_prepare_call(s, lily_arg_function(s, 1));
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-
     int count = 0;
 
+    lily_prepare_call(s, lily_arg_function(s, 1));
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
 
     if (setjmp(link->jump) == 0) {
-        while (elem_iter) {
-            lily_value *e_key = elem_iter->elem_key;
-            lily_value *e_value = elem_iter->elem_value;
+        int i;
+        for (i = 0;i < hash_val->num_bins;i++) {
+            lily_hash_entry *entry = hash_val->bins[i];
+            if (entry) {
+                lily_push_value(s, entry->boxed_key);
+                lily_push_value(s, entry->record);
 
-            lily_push_value(s, e_key);
-            lily_push_value(s, e_value);
+                lily_exec_prepared(s, 1);
 
-            lily_exec_prepared(s, 1);
-
-            lily_push_value(s, lily_result_value(s));
-            elem_iter = elem_iter->next;
-            count++;
+                lily_push_value(s, lily_result_value(s));
+                count++;
+            }
         }
 
-        lily_hash_val *new_hash = build_hash(s, count);
+        lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val, count);
+        build_hash(s, result_hash, count);
         hash_val->iter_count--;
         lily_release_jump(s->raiser);
-        lily_return_hash(s, new_hash);
+        lily_return_hash(s, result_hash);
     }
     else {
         hash_val->iter_count--;
@@ -957,29 +859,27 @@ When duplicate elements are found, the value of the right-most `Hash` wins.
 void lily_builtin_Hash_merge(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_list_val *to_merge = lily_arg_list(s, 1);
 
-    lily_hash_val *result_hash = lily_new_hash_val();
+    lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val,
+            hash_val->num_entries);
 
-    /* The existing hash should be entirely unique, so just add the pairs in
-       directly. */
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    while (elem_iter) {
-        lily_hash_add_unique(s, result_hash, elem_iter->elem_key,
-                elem_iter->elem_value);
+    int i, j;
 
-        elem_iter = elem_iter->next;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        if (entry)
+            lily_hash_insert_value(result_hash, entry->boxed_key,
+                    entry->record);
     }
 
-    int i;
+    lily_list_val *to_merge = lily_arg_list(s, 1);
     for (i = 0;i < to_merge->num_values;i++) {
         lily_hash_val *merging_hash = to_merge->elems[i]->value.hash;
-        elem_iter = merging_hash->elem_chain;
-        while (elem_iter) {
-            lily_hash_set_elem(s, result_hash, elem_iter->elem_key,
-                    elem_iter->elem_value);
-
-            elem_iter = elem_iter->next;
+        for (j = 0;j < merging_hash->num_bins;j++) {
+            lily_hash_entry *entry = merging_hash->bins[j];
+            if (entry)
+                lily_hash_insert_value(result_hash, entry->boxed_key,
+                        entry->record);
         }
     }
 
@@ -990,38 +890,37 @@ static void hash_select_reject_common(lily_state *s, int expect)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_prepare_call(s, lily_arg_function(s, 1));
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
     int count = 0;
 
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
 
     if (setjmp(link->jump) == 0) {
-        while (elem_iter) {
-            lily_value *e_key = elem_iter->elem_key;
-            lily_value *e_value = elem_iter->elem_value;
+        int i;
+        for (i = 0;i < hash_val->num_bins;i++) {
+            lily_hash_entry *entry = hash_val->bins[i];
+            if (entry) {
+                lily_push_value(s, entry->boxed_key);
+                lily_push_value(s, entry->record);
 
-            lily_push_value(s, e_key);
-            lily_push_value(s, e_value);
+                lily_push_value(s, entry->boxed_key);
+                lily_push_value(s, entry->record);
 
-            lily_push_value(s, e_key);
-            lily_push_value(s, e_value);
-
-            lily_exec_prepared(s, 2);
-            if (lily_result_boolean(s) != expect) {
-                lily_drop_value(s);
-                lily_drop_value(s);
+                lily_exec_prepared(s, 2);
+                if (lily_result_boolean(s) != expect) {
+                    lily_drop_value(s);
+                    lily_drop_value(s);
+                }
+                else
+                    count++;
             }
-            else
-                count++;
-
-            elem_iter = elem_iter->next;
         }
 
-        lily_hash_val *new_hash = build_hash(s, count);
+        lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val, count);
+        build_hash(s, result_hash, count);
         hash_val->iter_count--;
         lily_release_jump(s->raiser);
-        lily_return_hash(s, new_hash);
+        lily_return_hash(s, result_hash);
     }
     else {
         hash_val->iter_count--;
@@ -1062,7 +961,7 @@ void lily_builtin_Hash_size(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
-    lily_return_integer(s, hash_val->num_elems);
+    lily_return_integer(s, hash_val->num_entries);
 }
 
 /**

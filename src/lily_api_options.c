@@ -22,16 +22,10 @@ lily_options *lily_new_default_options(void)
     options->allow_sys = 1;
     options->free_options = 1;
 
-    /* todo: This key sucks. Get a better one. */
-    char key[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    options->sipkey = lily_malloc(16);
-    memcpy(options->sipkey, key, 16);
-
     return options;
 }
 
 void lily_free_options(lily_options *o)
 {
-    lily_free(o->sipkey);
     lily_free(o);
 }

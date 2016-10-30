@@ -309,17 +309,6 @@ lily_list_val *lily_new_list_val_n(int initial)
     return lv;
 }
 
-lily_hash_val *lily_new_hash_val(void)
-{
-    lily_hash_val *h = lily_malloc(sizeof(lily_hash_val));
-
-    h->refcount = 0;
-    h->iter_count = 0;
-    h->num_elems = 0;
-    h->elem_chain = NULL;
-    return h;
-}
-
 lily_instance_val *lily_new_instance_val(int initial)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
@@ -736,38 +725,28 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
-        lily_hash_elem *left_iter = left_hash->elem_chain;
-        lily_hash_elem *right_iter;
-        lily_hash_elem *right_start = right_hash->elem_chain;
-        /* Assume success, in case the hash is empty. */
         int ok = 1;
-        for (left_iter = left_hash->elem_chain;
-             left_iter != NULL;
-             left_iter = left_iter->next) {
-            (*depth)++;
+        if (left_hash->num_entries != right_hash->num_entries)
             ok = 0;
-            for (right_iter = right_start;
-                 right_iter != NULL;
-                 right_iter = right_iter->next) {
-                if (left_iter->key_siphash == right_iter->key_siphash) {
-                    ok = lily_eq_value_raw(s, depth, left_iter->elem_key,
-                            right_iter->elem_key);
-                    ok = ok && lily_eq_value_raw(s, depth,
-                            left_iter->elem_value, right_iter->elem_value);
 
-                    /* Hash keys are unique, so this won't be found again. */
-                    if (right_iter == right_start)
-                        right_start = right_start->next;
+        if (ok) {
+            (*depth)++;
+            int i;
+            for (i = 0;i < left_hash->num_bins;i++) {
+                lily_hash_entry *left = left_hash->bins[i];
+                if (left) {
+                    lily_value *right = lily_hash_find_value(right_hash,
+                            left->boxed_key);
 
-                    break;
+                    if (right == NULL ||
+                        lily_eq_value_raw(s, depth, left->record, right) == 0) {
+                        ok = 0;
+                        break;
+                    }
                 }
             }
             (*depth)--;
-
-            if (ok == 0)
-                break;
         }
-
         return ok;
     }
     else if (left_tag == LILY_DYNAMIC_ID) {

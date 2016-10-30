@@ -2074,18 +2074,24 @@ static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
    provide a storage of the appropriate type. Said storage should have a spot
    that is 'reg_spot'. */
 static void write_build_op(lily_emit_state *emit, int opcode,
-        lily_ast *first_arg, int line_num, int num_values, int reg_spot)
+        lily_ast *first_arg, int line_num, int num_values, lily_storage *s)
 {
     int i;
     lily_ast *arg;
-    lily_u16_write_prep(emit->code, 4 + num_values);
+    lily_u16_write_prep(emit->code, 5 + num_values);
 
-    lily_u16_write_3(emit->code, opcode, line_num, num_values);
+    lily_u16_write_2(emit->code, opcode, line_num);
+
+    if (opcode == o_build_hash)
+        /* The vm the key's id to decide what hashing functions to use. */
+        lily_u16_write_1(emit->code, s->type->subtypes[0]->cls->id);
+
+    lily_u16_write_1(emit->code, num_values);
 
     for (i = 0, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
 
-    lily_u16_write_1(emit->code, reg_spot);
+    lily_u16_write_1(emit->code, s->reg_spot);
 }
 
 
@@ -3227,7 +3233,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
-            ast->args_collected, s->reg_spot);
+            ast->args_collected, s);
     ast->result = (lily_sym *)s;
 }
 
@@ -3384,7 +3390,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     }
 
     lily_storage *s = get_storage(emit, lily_tm_make(emit->tm, 0, cls, num));
-    write_build_op(emit, op, ast->arg_start, ast->line_num, 0, s->reg_spot);
+    write_build_op(emit, op, ast->arg_start, ast->line_num, 0, s);
     ast->result = (lily_sym *)s;
 }
 
@@ -3451,7 +3457,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_hash, ast->arg_start, ast->line_num,
-            ast->args_collected, s->reg_spot);
+            ast->args_collected, s);
     ast->result = (lily_sym *)s;
 }
 
@@ -3493,7 +3499,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_list, ast->arg_start, ast->line_num,
-            ast->args_collected, s->reg_spot);
+            ast->args_collected, s);
     ast->result = (lily_sym *)s;
 }
 

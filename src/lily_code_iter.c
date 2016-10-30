@@ -119,13 +119,21 @@ int lily_ci_next(lily_code_iter *iter)
             break;
         case o_build_list:
         case o_build_tuple:
-        case o_build_hash:
             iter->line = 1;
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[2];
             iter->outputs_5 = 1;
 
             iter->round_total = buffer[2] + 4;
+            break;
+        case o_build_hash:
+            iter->line = 1;
+            iter->special_1 = 1;
+            iter->counter_2 = 1;
+            iter->inputs_3 = buffer[3];
+            iter->outputs_5 = 1;
+
+            iter->round_total = buffer[3] + 5;
             break;
         case o_build_enum:
             iter->line = 1;

@@ -504,15 +504,19 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else if (v->class_id == LILY_HASH_ID) {
         lily_hash_val *hv = v->value.hash;
         lily_mb_add_char(msgbuf, '[');
-        lily_hash_elem *elem = hv->elem_chain;
-        while (elem) {
-            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_key);
-            lily_mb_add(msgbuf, " => ");
-            add_value_to_msgbuf(vm, msgbuf, t, elem->elem_value);
-            if (elem->next != NULL)
-                lily_mb_add(msgbuf, ", ");
+        int i, j;
+        for (i = 0, j = 0;i < hv->num_bins;i++) {
+            lily_hash_entry *entry = hv->bins[i];
 
-            elem = elem->next;
+            if (entry) {
+                add_value_to_msgbuf(vm, msgbuf, t, entry->boxed_key);
+                lily_mb_add(msgbuf, " => ");
+                add_value_to_msgbuf(vm, msgbuf, t, entry->record);
+                if (j != hv->num_entries - 1)
+                    lily_mb_add(msgbuf, ", ");
+
+                j++;
+            }
         }
         lily_mb_add_char(msgbuf, ']');
     }

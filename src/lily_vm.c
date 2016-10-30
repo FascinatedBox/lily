@@ -9,12 +9,10 @@
 
 #include "lily_int_opcode.h"
 
-#include "lily_api_hash.h"
 #include "lily_api_alloc.h"
 #include "lily_api_options.h"
 #include "lily_api_value.h"
 
-extern uint64_t siphash24(const void *src, unsigned long src_sz, const char key[16]);
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */
 void lily_destroy_value(lily_value *);
@@ -129,7 +127,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     if (vm->gc_multiplier > 16)
         vm->gc_multiplier = 16;
 
-    vm->sipkey = options->sipkey;
     vm->call_depth = 0;
     vm->raiser = raiser;
     vm->vm_regs = NULL;
@@ -400,13 +397,13 @@ static void list_marker(int pass, lily_value *v)
 
 static void hash_marker(int pass, lily_value *v)
 {
-    lily_hash_val *hash_val = v->value.hash;
-    lily_hash_elem *elem_iter = hash_val->elem_chain;
-    while (elem_iter) {
-        lily_value *elem_value = elem_iter->elem_value;
-        gc_mark(pass, elem_value);
+    lily_hash_val *hv = v->value.hash;
+    int i;
 
-        elem_iter = elem_iter->next;
+    for (i = 0;i < hv->num_bins;i++) {
+        lily_hash_entry *entry = hv->bins[i];
+        if (entry)
+            gc_mark(pass, entry->record);
     }
 }
 
@@ -913,7 +910,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
         }
     }
     else
-        lily_hash_set_elem(vm, lhs_reg->value.hash, index_reg, rhs_reg);
+        lily_hash_insert_value(lhs_reg->value.hash, index_reg, rhs_reg);
 }
 
 /* This handles subscript access. The index is a register, and needs to be
@@ -962,37 +959,41 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
         }
     }
     else {
-        lily_hash_elem *hash_elem = lily_hash_get_elem(vm, lhs_reg->value.hash,
-                index_reg);
+        lily_value *elem = lily_hash_find_value(lhs_reg->value.hash, index_reg);
 
         /* Give up if the key doesn't exist. */
-        if (hash_elem == NULL)
+        if (elem == NULL)
             key_error(vm, index_reg, code[1]);
 
-        lily_assign_value(result_reg, hash_elem->elem_value);
+        lily_assign_value(result_reg, elem);
     }
 }
 
-/* This builds a hash. It's written like '#pairs, key, value, key, value...'. */
 static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->vm_regs;
     int i, num_values;
     lily_value *result, *key_reg, *value_reg;
 
-    num_values = code[2];
-    result = vm_regs[code[3 + num_values]];
+    int id = code[2];
+    num_values = code[3];
+    result = vm_regs[code[4 + num_values]];
 
-    lily_hash_val *hash_val = lily_new_hash_val();
+    lily_hash_val *hash_val;
+    if (id == LILY_STRING_ID)
+        hash_val = lily_new_hash_strtable_sized(num_values / 2);
+    else
+        hash_val = lily_new_hash_numtable_sized(num_values / 2);
+
     lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
 
     for (i = 0;
          i < num_values;
          i += 2) {
-        key_reg = vm_regs[code[3 + i]];
-        value_reg = vm_regs[code[3 + i + 1]];
+        key_reg = vm_regs[code[4 + i]];
+        value_reg = vm_regs[code[4 + i + 1]];
 
-        lily_hash_set_elem(vm, hash_val, key_reg, value_reg);
+        lily_hash_insert_value(hash_val, key_reg, value_reg);
     }
 }
 
@@ -1677,25 +1678,6 @@ void lily_exec_simple(lily_vm_state *vm, lily_function_val *f, int count)
     lily_exec_prepared(vm, count);
 }
 
-/* This calculates a siphash for a given hash value. The siphash is based off of
-   the vm's sipkey. The caller is expected to only call this for keys that are
-   hashable. */
-uint64_t lily_siphash(lily_vm_state *vm, lily_value *key)
-{
-    int flags = key->class_id;
-    uint64_t key_hash;
-
-    if (flags == LILY_STRING_ID)
-        key_hash = siphash24(key->value.string->string,
-                key->value.string->size, vm->sipkey);
-    else if (flags == LILY_INTEGER_ID)
-        key_hash = key->value.integer;
-    else /* Should not happen, because no other classes are valid keys. */
-        key_hash = 0;
-
-    return key_hash;
-}
-
 /***
  *      ____
  *     |  _ \ _ __ ___ _ __
@@ -2257,7 +2239,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_build_hash:
                 do_o_build_hash(vm, code);
-                code += code[2] + 4;
+                code += code[3] + 5;
                 break;
             case o_build_list:
             case o_build_tuple:

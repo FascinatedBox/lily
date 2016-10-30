@@ -19,7 +19,6 @@ typedef struct lily_file_val_       lily_file_val;
 typedef struct lily_foreign_val_    lily_foreign_val;
 typedef struct lily_function_val_   lily_function_val;
 typedef struct lily_generic_val_    lily_generic_val;
-typedef struct lily_hash_elem_      lily_hash_elem;
 typedef struct lily_hash_val_       lily_hash_val;
 typedef struct lily_instance_val_   lily_instance_val;
 typedef struct lily_list_val_       lily_list_val;
@@ -132,8 +131,16 @@ int lily_function_is_native(lily_function_val *);
 lily_instance_val *lily_new_instance_val(int);
 DECLARE_BOTH(instance, lily_instance_val *, int);
 
-/* Hash operations (still a work-in-progress) */
-lily_hash_val *lily_new_hash_val(void);
+/* Hash operations */
+lily_hash_val *lily_new_hash_numtable(void);
+lily_hash_val *lily_new_hash_numtable_sized(int);
+lily_hash_val *lily_new_hash_strtable(void);
+lily_hash_val *lily_new_hash_strtable_sized(int);
+lily_hash_val *lily_new_hash_like_sized(lily_hash_val *, int);
+lily_value *lily_hash_find_value(lily_hash_val *, lily_value *);
+void lily_hash_insert_value(lily_hash_val *, lily_value *, lily_value *);
+void lily_hash_insert_str(lily_hash_val *, lily_string_val *, lily_value *);
+int lily_hash_delete(lily_hash_val *, lily_value **, lily_value **);
 
 /* List operations */
 lily_list_val *lily_new_list_val_n(int);

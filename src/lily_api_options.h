@@ -27,10 +27,6 @@ typedef struct lily_options_ {
 
     uint32_t pad2;
     int argc;
-    /* This is used by the interpreter to compute hashes of a raw value for
-       doing Hash collision checks. This key should be composed of exactly 16
-       chars. */
-    char *sipkey;
     /* This is made available as sys.argv when sys is imported. By default,
        this is NULL and sys.argv is empty. */
     char **argv;
