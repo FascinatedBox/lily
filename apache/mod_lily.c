@@ -6,11 +6,11 @@
 #include "ap_config.h"
 #include "util_script.h"
 
-#include "lily_utf8.h"
 #include "lily_parser.h"
 
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
+#include "lily_api_msgbuf.h"
 #include "lily_api_value.h"
 
 typedef struct {
@@ -192,7 +192,7 @@ void lily_server_write(lily_state *s)
        1: It expects a result register, and there isn't one.
        2: It may create a new String, which is unnecessary. */
     if (lily_maybe_html_encode_to_buffer(s, input) == 0)
-        source = input->value.string->string;
+        source = lily_arg_string_raw(s, 0);
     else
         source = lily_mb_get(lily_get_msgbuf_noflush(s));
 
@@ -212,9 +212,9 @@ void lily_server_write_literal(lily_state *s)
     if (lily_value_is_derefable(write_reg) == 0)
         lily_ValueError(s, "The string passed must be a literal.\n");
 
-    char *value = write_reg->value.string->string;
+    char *value = lily_arg_string_raw(s, 0);
 
-    ap_rputs(value, (request_rec *)s->data);
+    ap_rputs(value, (request_rec *)lily_get_data(s));
 }
 
 /**
@@ -228,7 +228,7 @@ void lily_server_write_raw(lily_state *s)
 {
     char *value = lily_arg_string_raw(s, 0);
 
-    ap_rputs(value, (request_rec *)s->data);
+    ap_rputs(value, (request_rec *)lily_get_data(s));
 }
 
 #include "dyna_server.h"

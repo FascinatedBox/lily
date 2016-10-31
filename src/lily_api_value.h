@@ -222,4 +222,6 @@ struct lily_msgbuf_ *lily_get_msgbuf_noflush(lily_state *);
    instances of your class. */
 uint16_t *lily_get_cid_table(lily_state *);
 
+int lily_is_valid_utf8(const char *);
+
 #endif
