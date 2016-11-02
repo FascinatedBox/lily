@@ -33,6 +33,18 @@ html <filename>:
     print(message)
     sys.exit(0)
 
+def strip_proto(proto):
+    proto = re.sub('\w+:', "", proto)
+    proto = proto.replace(" ", "")
+    # Strip out the values of optional arguments.
+    if proto.find("*") != -1:
+        # Drop "..."
+        proto = re.sub("=\"[^\"]*\"", "", proto)
+        # Drop simple digit literals
+        proto = re.sub("=\d+", "", proto)
+
+    return proto
+
 class BootstrapEntry:
     def __init__(self, source):
         split = source.split("\n", 1)
@@ -40,12 +52,13 @@ class BootstrapEntry:
         # The format is 'bootstrap $name $proto'
         header = re.search("bootstrap\s+(\w+)\s*(.+)", split[0])
 
-        self.variants = []
         self.inner_entries = []
         self.bootstrap = header.group(2)
         self.name = header.group(1)
-        self.e_type = "class"
+        self.e_type = "bootstrap"
         self.doc = split[1].strip()
+        self.dyna_len = 0
+        self.dyna_letter = 'B'
 
 class CallEntry:
     def __init__(self, source, e_type):
@@ -65,8 +78,11 @@ class CallEntry:
 
         self.name = self.proto[0:index].strip()
         self.proto = self.proto[index:].strip()
+        self.clean_proto = strip_proto(self.proto)
         self.e_type = e_type
         self.doc = split[2].strip()
+        self.dyna_len = 0
+        self.dyna_letter = "F" if e_type == 'define' else "m"
 
 class VariantEntry:
     def __init__(self, source):
@@ -85,6 +101,8 @@ class VariantEntry:
         self.proto = proto
         self.e_type = "variant"
         self.doc = ""
+        self.dyna_len = 0
+        self.dyna_letter = 'V'
 
 class EnumEntry:
     def __init__(self, source):
@@ -108,23 +126,24 @@ class EnumEntry:
 
         lines = lines[start:]
         self.doc = "\n".join(lines)
+        self.dyna_len = 0
+        self.dyna_letter = 'E'
 
 class ClassEntry:
     def __init__(self, source):
-        self.variants = []
         self.inner_entries = []
         # The format is 'class $name'
         self.name = re.search("class (.+)", source).group(1)
         self.e_type = "class"
         self.doc = source.split("\n", 2)[2].strip("\r\n ")
+        self.dyna_len = 0
+        self.dyna_letter = 'C'
 
 class PackageEntry:
     def __init__(self, source, embedded):
         self.need_loader = embedded
         self.is_embedded = embedded
 
-        self.variants = []
-        self.inner_entries = []
         # Same format as for classes.
         self.name = re.search("\w+ (.+)", source).group(1)
         self.e_type = "package"
@@ -132,19 +151,15 @@ class PackageEntry:
 
 class VarEntry:
     def __init__(self, source):
-        # The format is 'var $name: $type'
-        first_line_pos = source.index("\n")
+        decl = re.search("var (\\w+): (.+)\\n\n(.+)", source)
 
-        # Start at 4 to remove the 'var ' prefix.
-
-        # TODO: Verify prototype
-        decl = source[4:first_line_pos]
-        decl = decl.split(":", 1)
-
-        self.proto = decl[1].strip()
-        self.name = decl[0].strip()
+        self.name = decl.group(1).strip()
+        self.proto = decl.group(2).strip()
+        self.clean_proto = self.proto
+        self.doc = decl.group(3).strip()
         self.e_type = "var"
-        self.doc = source[first_line_pos:].strip()
+        self.dyna_len = 0
+        self.dyna_letter = 'R'
 
 def scan_file(filename):
     """\
@@ -204,9 +219,11 @@ classes/enums belong.
 
         elif d.startswith("constructor"):
             class_target.inner_entries.append(CallEntry(d, "constructor"))
+            class_target.dyna_len += 1
 
         elif d.startswith("method"):
             class_target.inner_entries.append(CallEntry(d, "method"))
+            class_target.dyna_len += 1
 
         elif d.startswith("define"):
             toplevel.append(CallEntry(d, "define"))
@@ -234,12 +251,8 @@ def gen_markdown(filename):
 
         if m.e_type == "var":
             return "### var %s: `%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
-        elif m.e_type == "define":
-            return "### define %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
-        elif m.e_type == "method":
-            return "### method %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
-        elif m.e_type == "constructor":
-            return "### constructor %s`%s`\n\n%s\n\n" % (m.name, m.proto, m.doc)
+        else:
+            return "### %s %s`%s`\n\n%s\n\n" % (m.e_type, m.name, m.proto, m.doc)
 
     package = scan_file(filename)
     doc_string = ""
@@ -257,7 +270,7 @@ def gen_markdown(filename):
     for d in package.decls:
         d.doc = d.doc.replace("\n# ", "\n#### ")
 
-        if d.e_type == "class":
+        if d.e_type == "class" or d.e_type == "bootstrap":
             doc_string += "## class %s\n\n%s\n\n" % (d.name, d.doc)
         elif d.e_type == "enum":
             doc_string += "## enum %s\n\n" % (d.name)
@@ -267,9 +280,12 @@ def gen_markdown(filename):
 
             doc_string += "}\n```\n\n%s\n" % d.doc
 
-        for e in d.inner_entries:
-            # Method or constructor
-            doc_string += mark(e)
+        try:
+            for e in d.inner_entries:
+                # Method or constructor
+                doc_string += mark(e)
+        except AttributeError:
+            pass
 
     return doc_string.rstrip()
 
@@ -277,26 +293,53 @@ def gen_html(filename):
     s = gen_markdown(filename)
     return markdown.markdown(s, extensions=["markdown.extensions.fenced_code"])
 
-def strip_proto(proto):
-    proto = re.sub('\w+:', "", proto)
-    proto = proto.replace(" ", "")
-    # Strip out the values of optional arguments.
-    if proto.find("*") != -1:
-        # Drop "..."
-        proto = re.sub("=\"[^\"]*\"", "", proto)
-        # Drop simple digit literals
-        proto = re.sub("=\d+", "", proto)
+def run_dyna_entry(e, accum):
+    increase = 1
 
-    return proto
+    letter = e.dyna_letter
+    dyna_len = e.dyna_len
+    name = e.name
+
+    if e.e_type in ["define", "var"]:
+        suffix = e.clean_proto
+    elif e.e_type == "method":
+        name = name.split(".")[1]
+        suffix = e.clean_proto
+    elif e.e_type == "constructor":
+        name = "<new>"
+        suffix = e.clean_proto
+    elif e.e_type in ["enum", "variant"]:
+        suffix = e.proto
+    elif e.e_type == "class":
+        suffix = ""
+    elif e.e_type == "bootstrap":
+        suffix = e.bootstrap
+
+    if suffix:
+        suffix = "\\0" + suffix
+
+    accum.append('    ,"%s\\%d%s%s"' % (letter, dyna_len, name, suffix))
+
+    try:
+        for inner in e.inner_entries:
+            run_dyna_entry(inner, accum)
+            increase += 1
+    except AttributeError:
+        pass
+
+    try:
+        for inner in e.variants:
+            run_dyna_entry(inner, accum)
+            increase += 1
+    except AttributeError:
+        pass
+
+    return increase
 
 def gen_dynaload(package_entry):
     """\
 Generate dynaload information based on comment blocks in a given filename.
     """
-
-    # Write a numeric value into the dynaload table.
-    def dyencode(x):
-        return "\\%s" % (oct(x))
 
     used = []
     result = []
@@ -305,47 +348,11 @@ Generate dynaload information based on comment blocks in a given filename.
     entries = package_entry.toplevel + package_entry.decls
 
     for e in entries:
-        e.offset = offset + 1
-
-        if e.e_type == "define":
-            offset += 1
-            result.append('    ,"F\\0%s\\0%s"' % (e.name, strip_proto(e.proto)))
-            continue
-        elif e.e_type == "var":
-            offset += 1
-            result.append('    ,"R\\0%s\\0%s"' % (e.name, e.proto))
-            continue
-
-        offset += len(e.inner_entries) + len(e.variants) + 1
-
-        if e.e_type == "class":
-            dylen = dyencode(len(e.inner_entries))
+        if e.e_type in ["class", "bootstrap", "enum"]:
+            e.offset = offset + 1
             used.append(e.name)
-            try:
-                e.bootstrap
-                result.append('    ,"B%s%s\\0%s"' % (dylen, e.name, e.bootstrap))
-            except AttributeError:
-                result.append('    ,"C%s%s"' % (dylen, e.name))
-        elif e.e_type == "enum":
-            used.append(e.name)
-            # Don't include the variants, or they won't be visible.
-            # TODO: Scoped variants, eventually.
-            dylen = dyencode(len(e.inner_entries))
-            result.append('    ,"E%s%s\\0%s"' % (dylen, e.name, e.proto))
 
-        for inner in e.inner_entries:
-            inner_type = inner.e_type
-            if inner_type == "method":
-                name = inner.name.split(".")[1]
-                result.append('    ,"m:%s\\0%s"' % (name, strip_proto(inner.proto)))
-            else: # constructor
-                result.append('    ,"m:<new>\\0%s"' % (strip_proto(inner.proto)))
-        try:
-            for inner in e.variants:
-                result.append('    ,"V\\0%s\\0%s"' % (inner.name, inner.proto))
-        except AttributeError:
-            # Class. Ignore it.
-            pass
+        offset += run_dyna_entry(e, result)
 
     if package_entry.is_embedded:
         name = "_" + package_entry.name
@@ -358,8 +365,8 @@ Generate dynaload information based on comment blocks in a given filename.
 
     header = """\
 const char *lily%s_dynaload_table[] = {
-    "%s%s\\0"\
-""" % (name, dyencode(len(used)), "\\0".join(used))
+    "\\%d%s\\0"\
+""" % (name, len(used), "\\0".join(used))
 
     result = [header] + result
     result.append('    ,"Z"')
@@ -367,17 +374,50 @@ const char *lily%s_dynaload_table[] = {
 
     return "\n".join(result)
 
+def run_loader_entry(e, i, accum, package_name):
+    increase = 1
+
+    name = e.name
+    what = "lily_"
+
+    if e.e_type == "method":
+        name = name.replace(".", "_")
+    elif e.e_type == "constructor":
+        name += "_new"
+    elif e.e_type in ["class", "bootstrap", "enum"]:
+        what = ""
+    elif e.e_type == "var":
+        what = "load_var_"
+        package_name = ""
+        name += "(o, c)"
+
+    if what:
+        accum.append("        case %d: return %s%s%s;" % (i, what, package_name, name))
+
+    try:
+        for inner in e.inner_entries:
+            run_loader_entry(inner, i + increase, accum, package_name)
+            increase += 1
+    except AttributeError:
+        pass
+
+    try:
+        increase += len(e.variants)
+    except AttributeError:
+        pass
+
+    return increase
+
 def gen_loader(package_entry):
     """\
 Generate a loader function based upon information within a given filename.
     """
 
-    package_entry
     loader_entries = []
-    prefix = package_entry.name
+    pname = package_entry.name + "_"
     i = 1
 
-    header = "void *lily_%s_loader(lily_options *o, uint16_t *c, int id)" % (prefix)
+    header = "void *lily_%sloader(lily_options *o, uint16_t *c, int id)" % (pname)
 
     loader_entries.append(header)
     loader_entries.append("{\n    switch (id) {")
@@ -386,37 +426,7 @@ Generate a loader function based upon information within a given filename.
     to_append = None
 
     for e in entries:
-        if e.e_type == "class" or e.e_type == "enum":
-            # Add one so there's space for the class marker itself.
-            i += 1
-            for inner in e.inner_entries:
-                inner_type = inner.e_type
-                if inner.name.find("[") != -1:
-                    name = inner.name[0:inner.name.find("[")]
-                else:
-                    name = inner.name
-
-                if inner_type == "method":
-                    # Methods have the class name with them, so sanitize that.
-                    name = name.replace(".", "_")
-                    to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
-                else: # constructor
-                    name += "_new"
-                    to_append = "case %d: return lily_%s_%s;" % (i, prefix, name)
-
-                i += 1
-                loader_entries.append("        " + to_append)
-
-            i += len(e.variants)
-        else:
-            if e.e_type == "define":
-                to_append = "case %d: return lily_%s_%s;" % (i, prefix, e.name)
-            elif e.e_type == "var":
-                # TODO: Check the proto (is that cid table really needed)?
-                to_append = "case %d: return load_var_%s(o, c);" % (i, e.name)
-
-            loader_entries.append("        " + to_append)
-            i += 1
+        i += run_loader_entry(e, i, loader_entries, pname)
 
     loader_entries.append("        default: return NULL;\n    }\n}")
 
