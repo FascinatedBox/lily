@@ -27,8 +27,8 @@ void lily_##name##_filled_variant(__VA_ARGS__, uint16_t f, lily_instance_val * v
 { lily_move_variant_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val * v) \
 { lily_move_hash_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_instance(__VA_ARGS__, lily_instance_val * v) \
-{ lily_move_instance_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
+void lily_##name##_instance(__VA_ARGS__, uint16_t f, lily_instance_val * v) \
+{ lily_move_instance_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_integer(__VA_ARGS__, int64_t v) \
 { lily_move_integer(source->action, v); } \
 void lily_##name##_list(__VA_ARGS__, lily_list_val * v) \

@@ -55,7 +55,7 @@ void lily_##name##_file(__VA_ARGS__, lily_file_val *); \
 void lily_##name##_foreign(__VA_ARGS__, uint16_t, lily_foreign_val *); \
 void lily_##name##_filled_variant(__VA_ARGS__, uint16_t, lily_instance_val *); \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val *); \
-void lily_##name##_instance(__VA_ARGS__, lily_instance_val *); \
+void lily_##name##_instance(__VA_ARGS__, uint16_t, lily_instance_val *); \
 void lily_##name##_integer(__VA_ARGS__, int64_t); \
 void lily_##name##_list(__VA_ARGS__, lily_list_val *); \
 void lily_##name##_string(__VA_ARGS__, lily_string_val *); \
