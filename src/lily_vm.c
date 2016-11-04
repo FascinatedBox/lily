@@ -645,7 +645,6 @@ static void add_call_frame(lily_vm_state *vm)
     new_frame->prev = vm->call_chain;
     new_frame->next = NULL;
     new_frame->return_target = NULL;
-    new_frame->build_value = NULL;
 
     if (vm->call_chain != NULL)
         vm->call_chain->next = new_frame;
@@ -1093,21 +1092,14 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     total_entries = instance_class->prop_count;
 
-    lily_call_frame *caller_frame = vm->call_chain->prev;
-
-    /* Check to see if the caller is in the process of building a subclass
-       of this value. If that is the case, then use that instance instead of
-       building one that will simply be tossed. */
-    if (caller_frame->build_value) {
-        lily_value *build_value = caller_frame->build_value;
-        lily_instance_val *iv = build_value->value.instance;
+    /* Is the caller a superclass building an instance already? */
+    lily_value *pending_value = vm->call_chain->prev->return_target;
+    if (pending_value->flags & VAL_IS_INSTANCE) {
+        lily_instance_val *iv = pending_value->value.instance;
 
         if (iv->ctor_need) {
             iv->ctor_need--;
-            lily_assign_value(result, caller_frame->build_value);
-
-            /* This causes the 'self' value to bubble upward. */
-            vm->call_chain->build_value = result;
+            lily_assign_value(result, pending_value);
             return;
         }
     }
@@ -1122,10 +1114,6 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         if (code[0] == o_new_instance_tagged)
             lily_tag_value(vm, result);
     }
-
-    /* This is set so that a superclass .new can simply pull this instance,
-       since this instance will have >= the # of types. */
-    vm->call_chain->build_value = result;
 }
 
 static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
@@ -1800,7 +1788,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     first_frame->code = main_function->code;
     first_frame->regs_used = main_function->reg_count;
     first_frame->return_target = NULL;
-    first_frame->build_value = NULL;
     vm->call_depth = 1;
 }
 
@@ -2054,7 +2041,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 current_frame->function = fval;
                 current_frame->line_num = -1;
                 current_frame->code = NULL;
-                current_frame->build_value = NULL;
                 current_frame->upvalues = NULL;
                 current_frame->regs_used = i;
 
@@ -2170,8 +2156,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_assign_value(lhs_reg, rhs_reg);
 
                 return_common: ;
-
-                current_frame->build_value = NULL;
 
                 current_frame = current_frame->prev;
                 vm->call_chain = current_frame;
