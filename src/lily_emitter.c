@@ -4468,15 +4468,6 @@ void lily_prepare_main(lily_emit_state *emit)
     lily_function_val *f = emit->symtab->main_function;
     int register_count = emit->main_block->next_reg_spot;
 
-    /* Hack: This exists because of a two decisions.
-       * One: __main__'s code is a shallow copy of emit->code.
-       * Two: Parser's exception dynaload causes an expression to run, and then
-         slices away code (like anything else that dynaloads). Except that this
-         may happen at vm-time.
-         If there is not enough space, then emit->code may be realloc'd, and
-         thus invalidate __main__'s code...during vm exec. */
-    lily_u16_write_prep(emit->code, 32);
-
     lily_u16_write_1(emit->code, o_return_from_vm);
 
     f->code_len = lily_u16_pos(emit->code);
