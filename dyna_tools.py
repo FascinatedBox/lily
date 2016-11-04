@@ -310,6 +310,8 @@ def run_dyna_entry(e, accum):
         suffix = e.clean_proto
     elif e.e_type in ["enum", "variant"]:
         suffix = e.proto
+        if suffix == "":
+            name += "\\0"
     elif e.e_type == "class":
         suffix = ""
     elif e.e_type == "bootstrap":

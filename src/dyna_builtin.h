@@ -84,7 +84,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0unwrap_or\0[A](Option[A],A):A"
     ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)):A"
     ,"V\0Some\0(A)"
-    ,"V\0None"
+    ,"V\0None\0"
     ,"B\0RuntimeError\0(msg: String) < Exception(msg) {}"
     ,"C\16String"
     ,"m\0ends_with\0(String,String):Boolean"
