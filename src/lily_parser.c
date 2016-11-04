@@ -1458,19 +1458,69 @@ static lily_class *dynaload_class(lily_parse_state *parser,
     return cls;
 }
 
+lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
+        const char *name)
+{
+    int index = cls->dyna_start;
+    lily_module_entry *m = cls->module;
+    const char **table = m->dynaload_table;
+    const char *entry = table[index];
+
+    do {
+        if (strcmp(name, entry + 2) == 0)
+            break;
+        index++;
+        entry = table[index];
+    } while (entry[0] == 'm');
+
+    lily_item *result;
+
+    if (entry[0] == 'm')
+        result = (lily_item *)dynaload_function(parser, m, cls, index);
+    else
+        result = NULL;
+
+    return result;
+}
+
 /* The exception ids need to be fixed. The easiest way to do that is to fix them
    based off of their dynaload offsets. */
 #include "extras_builtin.h"
 
-static lily_class *dynaload_bootstrap(lily_parse_state *parser,
+static lily_class *dynaload_native(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
+    const char **table = m->dynaload_table;
     const char *entry = m->dynaload_table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
-    const char *body = name + strlen(name) + 1;
 
-    lily_load_str(parser->lex, lm_no_tags, body);
+    const char *body = name + strlen(name) + 1;
+    int entry_index = dyna_index;
+    lily_lex_state *lex = parser->lex;
+
+    lily_load_str(lex, lm_no_tags, body);
+    lily_lexer(lex);
+
     lily_class *cls = lily_new_class(parser->symtab, name);
+
+    int save_generic_start;
+    lily_gp_save_and_hide(parser->generics, &save_generic_start);
+    collect_generics(parser);
+    cls->generic_count = lily_gp_num_in_scope(parser->generics);
+
+    if (lex->token == tk_lt) {
+        lily_lexer(lex);
+        lily_class *parent = lily_find_class(parser->symtab, m, lex->label);
+
+        if (parent == NULL)
+            parent = (lily_class *)try_toplevel_dynaload(parser, m, lex->label);
+
+        cls->parent = parent;
+        cls->prop_count = parent->prop_count;
+    }
+
+    lily_pop_lex_entry(parser->lex);
+
     cls->dyna_start = dyna_index + 1;
     if (m == parser->module_start) {
         parser->symtab->next_class_id--;
@@ -1486,17 +1536,47 @@ static lily_class *dynaload_bootstrap(lily_parse_state *parser,
             case TAINTED_OFFSET:             cls->id = LILY_TAINTED_ID;      break;
             case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;   break;
             /* Shouldn't happen, but use an impossible id to make it stand out. */
-            default:                         cls->id = 12345;                  break;
+            default:                         cls->id = 12345;                break;
         }
     }
 
-    lily_expr_state es;
+    do {
+        entry_index++;
+        entry = table[entry_index];
+    } while (entry[0] == 'm');
 
-    init_expr_state(parser, &es);
-    parse_class_body(parser, cls);
-    fini_expr_state(parser);
+    do {
+        int flags;
+        char ch = entry[0];
 
-    lily_pop_lex_entry(parser->lex);
+        if (ch == '1')
+            flags = SYM_SCOPE_PRIVATE;
+        else if (ch == '2')
+            flags = SYM_SCOPE_PROTECTED;
+        else if (ch == '3')
+            flags = 0;
+        else
+            break;
+
+        const char *prop_name = entry + DYNA_NAME_OFFSET;
+        const char *prop_body = prop_name + strlen(prop_name) + 1;
+
+        lily_load_str(lex, lm_no_tags, prop_body);
+        lily_lexer(lex);
+        lily_add_class_property(parser->symtab, cls, get_type(parser),
+                prop_name, flags);
+        lily_pop_lex_entry(lex);
+
+        entry_index++;
+        entry = table[entry_index];
+    } while (1);
+
+    /* Properties may use generics, so this must be after them. */
+    lily_gp_restore_and_unhide(parser->generics, save_generic_start);
+
+    /* Make sure the constructor loads too. Parts like inheritance will call for
+       the class to dynaload, but (reasonably) expect <new> to be visible. */
+    try_method_dynaload(parser, cls, "<new>");
 
     return cls;
 }
@@ -1545,16 +1625,16 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
         lily_class *new_cls = dynaload_class(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
-    else if (letter == 'B') {
-        lily_class *new_cls = dynaload_bootstrap(parser, m, dyna_pos);
-        result = (lily_item *)new_cls;
-    }
     else if (letter == 'V') {
         lily_class *new_cls = dynaload_variant(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
     else if (letter == 'E') {
         lily_class *new_cls = dynaload_enum(parser, m, dyna_pos);
+        result = (lily_item *)new_cls;
+    }
+    else if (letter == 'N') {
+        lily_class *new_cls = dynaload_native(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
     else
@@ -1622,22 +1702,8 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
     if (member)
         return (lily_item *)member;
 
-    if (cls->dyna_start) {
-        int index = cls->dyna_start;
-        lily_module_entry *m = cls->module;
-        const char **table = m->dynaload_table;
-        const char *entry = table[index];
-
-        do {
-            if (strcmp(name, entry + 2) == 0)
-                break;
-            index++;
-            entry = table[index];
-        } while (entry[0] == 'm');
-
-        if (entry[0] == 'm')
-            return (lily_item *)dynaload_function(parser, m, cls, index);
-    }
+    if (cls->dyna_start)
+        return try_method_dynaload(parser, cls, name);
 
     return NULL;
 }

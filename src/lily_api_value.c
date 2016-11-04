@@ -792,3 +792,22 @@ uint16_t lily_value_class_id(lily_value *value)
 {
     return value->class_id;
 }
+
+void lily_ctor_setup(lily_state *s, lily_instance_val **iv, uint16_t id,
+        int initial)
+{
+    lily_value *v = s->call_chain->prev->return_target;
+
+    if (v->flags & VAL_IS_INSTANCE) {
+        lily_instance_val *pending_instance = v->value.instance;
+        if (pending_instance->ctor_need != 0) {
+            pending_instance->ctor_need = 0;
+            *iv = pending_instance;
+            return;
+        }
+    }
+
+    lily_instance_val *new_iv = lily_new_instance_val(initial);
+    lily_return_instance(s, id, new_iv);
+    *iv = new_iv;
+}

@@ -80,7 +80,11 @@ class CallEntry:
         self.proto = self.proto[index:].strip()
         self.clean_proto = strip_proto(self.proto)
         self.e_type = e_type
-        self.doc = split[2].strip()
+        try:
+            self.doc = split[2].strip()
+        except IndexError:
+            self.doc = ""
+
         self.dyna_len = 0
         self.dyna_letter = "F" if e_type == 'define' else "m"
 
@@ -124,8 +128,7 @@ class EnumEntry:
             else:
                 self.variants.append(VariantEntry(l))
 
-        lines = lines[start:]
-        self.doc = "\n".join(lines)
+        self.doc = "\n".join(lines[start:])
         self.dyna_len = 0
         self.dyna_letter = 'E'
 
@@ -138,6 +141,48 @@ class ClassEntry:
         self.doc = source.split("\n", 2)[2].strip("\r\n ")
         self.dyna_len = 0
         self.dyna_letter = 'C'
+
+class PropertyEntry:
+    def __init__(self, data):
+        self.scope = ("%s %s" % (data.group(1) or "", data.group(2))).lstrip()
+        self.name = data.group(3).strip()
+        self.proto = data.group(4).strip()
+        self.e_type = "property"
+        self.dyna_len = 0
+
+        if data.group(1) == "private":
+            self.dyna_letter = '1'
+        elif data.group(1) == "protected":
+            self.dyna_letter = '2'
+        else:
+            self.dyna_letter = '3'
+
+class NativeEntry:
+    def __init__(self, source):
+        self.inner_entries = []
+        self.properties = []
+        lines = source.split("\n")[1:]
+        start = 0
+
+        for l in lines:
+            start += 1
+            if l == "":
+                break
+
+            prop_data = re.search(
+                    "    (?:(private|protected)\\s+)?(var)\\s+@(\\w+)\\s*:\\s(.+)", l)
+
+            self.properties.append(PropertyEntry(prop_data))
+
+        data = re.search("native (\\w+)(\\[.+\\])?(?: <? (\\w+))?", source)
+        self.name = data.group(1)
+        self.proto = data.group(2) or ""
+        self.parent = data.group(3) or ""
+        self.e_type = "native"
+        self.doc = "\n".join(lines[start:])
+        # Class properties (unlike variants) shouldn't be outwardly visible.
+        self.dyna_len = len(self.properties)
+        self.dyna_letter = 'N'
 
 class PackageEntry:
     def __init__(self, source, embedded):
@@ -228,6 +273,10 @@ classes/enums belong.
         elif d.startswith("define"):
             toplevel.append(CallEntry(d, "define"))
 
+        elif d.startswith("native"):
+            class_target = NativeEntry(d)
+            decls.append(class_target)
+
         elif d.startswith("bootstrap"):
             class_target = BootstrapEntry(d)
             decls.append(class_target)
@@ -279,7 +328,20 @@ def gen_markdown(filename):
                 doc_string += "    %s%s\n" % (v.name, v.proto)
 
             doc_string += "}\n```\n\n%s\n" % d.doc
+        elif d.e_type == "native":
+            doc_string += "## class %s\n\n" % (d.name)
+            doc_string += "```\nclass %s%s" % (d.name, d.proto)
+            if d.parent:
+                doc_string += " < %s" % (d.parent)
 
+            doc_string += " {\n"
+            if d.properties:
+                for p in d.properties:
+                    doc_string += "    %s @%s: %s\n" % (p.scope, p.name, p.proto)
+            else:
+                doc_string += "\n"
+
+            doc_string += "}\n```\n\n%s\n" % d.doc
         try:
             for e in d.inner_entries:
                 # Method or constructor
@@ -308,7 +370,7 @@ def run_dyna_entry(e, accum):
     elif e.e_type == "constructor":
         name = "<new>"
         suffix = e.clean_proto
-    elif e.e_type in ["enum", "variant"]:
+    elif e.e_type in ["enum", "variant", "property"]:
         suffix = e.proto
         if suffix == "":
             name += "\\0"
@@ -316,6 +378,13 @@ def run_dyna_entry(e, accum):
         suffix = ""
     elif e.e_type == "bootstrap":
         suffix = e.bootstrap
+    elif e.e_type == "native":
+        suffix = e.proto
+        if e.parent:
+            suffix += "< " + e.parent
+
+        if suffix == "":
+            name += "\\0"
 
     if suffix:
         suffix = "\\0" + suffix
@@ -324,6 +393,13 @@ def run_dyna_entry(e, accum):
 
     try:
         for inner in e.inner_entries:
+            run_dyna_entry(inner, accum)
+            increase += 1
+    except AttributeError:
+        pass
+
+    try:
+        for inner in e.properties:
             run_dyna_entry(inner, accum)
             increase += 1
     except AttributeError:
@@ -350,7 +426,7 @@ Generate dynaload information based on comment blocks in a given filename.
     entries = package_entry.toplevel + package_entry.decls
 
     for e in entries:
-        if e.e_type in ["class", "bootstrap", "enum"]:
+        if e.e_type in ["class", "bootstrap", "enum", "native"]:
             e.offset = offset + 1
             used.append(e.name)
 
@@ -386,7 +462,7 @@ def run_loader_entry(e, i, accum, package_name):
         name = name.replace(".", "_")
     elif e.e_type == "constructor":
         name += "_new"
-    elif e.e_type in ["class", "bootstrap", "enum"]:
+    elif e.e_type in ["class", "bootstrap", "enum", "native"]:
         what = ""
     elif e.e_type == "var":
         what = "load_var_"
@@ -400,6 +476,11 @@ def run_loader_entry(e, i, accum, package_name):
         for inner in e.inner_entries:
             run_loader_entry(inner, i + increase, accum, package_name)
             increase += 1
+    except AttributeError:
+        pass
+
+    try:
+        increase += len(e.properties)
     except AttributeError:
         pass
 

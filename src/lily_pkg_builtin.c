@@ -216,12 +216,29 @@ void lily_builtin_ByteString_encode(lily_state *s)
     lily_return_filled_variant(s, LILY_SOME_ID, variant);
 }
 
+static void return_exception(lily_state *s, uint16_t id)
+{
+    lily_instance_val *result;
+    lily_ctor_setup(s, &result, id, 2);
+
+    lily_instance_set_value(result, 0, lily_arg_value(s, 0));
+    lily_instance_set_list(result, 1, lily_new_list_val_n(0));
+}
+
 /**
-bootstrap DivisionByZeroError(msg: String) < Exception(msg) {}
+native DivisionByZeroError < Exception
 
 The `DivisionByZeroError` is a subclass of `Exception` that is raised when
 trying to divide or modulo by zero.
 */
+
+/**
+constructor DivisionByZeroError(m: String): DivisionByZeroError
+*/
+void lily_builtin_DivisionByZeroError_new(lily_state *s)
+{
+    return_exception(s, LILY_DBZERROR_ID);
+}
 
 /**
 class Double
@@ -332,12 +349,22 @@ void lily_builtin_Either_right(lily_state *s)
 }
 
 /**
-bootstrap Exception(m:String){ var @message = m var @traceback: List[String] = [] }
+native Exception
+    var @message: String
+    var @traceback: List[String]
 
 The `Exception` class is the base class of all exceptions. It defines two
 properties: A `message` as `String`, and a `traceback` as `List[String]`. The
 `traceback` field is rewritten whenever an exception instance is raised.
 */
+
+/**
+constructor Exception(m: String): Exception
+*/
+void lily_builtin_Exception_new(lily_state *s)
+{
+    return_exception(s, LILY_EXCEPTION_ID);
+}
 
 /**
 class File
@@ -965,11 +992,19 @@ void lily_builtin_Hash_size(lily_state *s)
 }
 
 /**
-bootstrap IndexError(msg: String) < Exception(msg) {}
+native IndexError < Exception
 
-`IndexError` is a subclass of `Exception` that is raised when an out-of-bounds
-access is performed on a `List`.
+The `DivisionByZeroError` is a subclass of `Exception` that is raised when
+trying to divide or modulo by zero.
 */
+
+/**
+constructor IndexError(m: String): IndexError
+*/
+void lily_builtin_IndexError_new(lily_state *s)
+{
+    return_exception(s, LILY_INDEXERROR_ID);
+}
 
 /**
 class Integer
@@ -1028,18 +1063,34 @@ void lily_builtin_Integer_to_s(lily_state *s)
 }
 
 /**
-bootstrap IOError(msg: String) < Exception(msg) {}
+native IOError < Exception
 
 `IOError` is a subclass of `Exception` that is raised when an IO operation fails
 or does not have permission.
 */
 
 /**
-bootstrap KeyError(msg: String) < Exception(msg) {}
+constructor IOError(m: String): IOError
+*/
+void lily_builtin_IOError_new(lily_state *s)
+{
+    return_exception(s, LILY_IOERROR_ID);
+}
+
+/**
+native KeyError < Exception
 
 `KeyError` is a subclass of `Exception` that is raised when trying to get an
 item from a `Hash` that does not exist.
 */
+
+/**
+constructor KeyError(m: String): KeyError
+*/
+void lily_builtin_KeyError_new(lily_state *s)
+{
+    return_exception(s, LILY_KEYERROR_ID);
+}
 
 /**
 class List
@@ -1730,11 +1781,19 @@ void lily_builtin_Option_unwrap_or_else(lily_state *s)
 }
 
 /**
-bootstrap RuntimeError(msg: String) < Exception(msg) {}
+native RuntimeError < Exception
 
 `RuntimeError` is a subclass of `Exception` that is raised when the recursion
 limit is exceeded, or when trying to modify a `Hash` while iterating over it.
 */
+
+/**
+constructor RuntimeError(m: String): RuntimeError
+*/
+void lily_builtin_RuntimeError_new(lily_state *s)
+{
+    return_exception(s, LILY_RUNTIMEERROR_ID);
+}
 
 /**
 class String
@@ -2702,12 +2761,25 @@ void lily_builtin_String_upper(lily_state *s)
 }
 
 /**
-bootstrap Tainted[A](v:A){ var @value = v }
+native Tainted[A]
+    private var @value: A
 
 The `Tainted` type represents a wrapper over some data that is considered
 unsafe. Data, once inside a `Tainted` value can only be retrieved using the
 `Tainted.sanitize` function.
 */
+
+/**
+constructor Tainted[A](self: A): Tainted[A]
+*/
+void lily_builtin_Tainted_new(lily_state *s)
+{
+    lily_instance_val *result = lily_new_instance_val(1);
+
+    lily_instance_set_value(result, 0, lily_arg_value(s, 0));
+
+    lily_return_instance(s, LILY_TAINTED_ID, result);
+}
 
 /**
 method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
@@ -2789,12 +2861,20 @@ void lily_builtin_Tuple_push(lily_state *s)
 }
 
 /**
-bootstrap ValueError(msg: String) < Exception(msg) {}
+native ValueError < Exception
 
 `ValueError` is a subclass of `Exception` that is raised when sending an
 improper argument to a function, such as trying to call `List.fill` with a
 negative amount.
 */
+
+/**
+constructor ValueError(m: String): ValueError
+*/
+void lily_builtin_ValueError_new(lily_state *s)
+{
+    return_exception(s, LILY_VALUEERROR_ID);
+}
 
 /***
  *      ____                    _                 _

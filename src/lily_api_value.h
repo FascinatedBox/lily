@@ -224,4 +224,13 @@ uint16_t *lily_get_cid_table(lily_state *);
 
 int lily_is_valid_utf8(const char *);
 
+/* Call this if your function is acting as the constructor for a native class.
+   If your class is being inherited from, it will provide the class and set the
+   properties for you.
+   If your class constructor is being called directly, it will create a new
+   instance with the id and # of values provided.
+   In both cases, the instance is setup for being returned. The function should
+   then plug in the properties it needs to. */
+void lily_ctor_setup(lily_state *, lily_instance_val **, uint16_t, int);
+
 #endif
