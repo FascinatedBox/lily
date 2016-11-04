@@ -3864,6 +3864,8 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         int spot = emit->call_values_pos - cs->arg_count;
         ast->result = emit->call_values[spot];
     }
+    else if (cs->ast->arg_start->tree_type == tree_inherited_new)
+        ast->result = (lily_sym *)emit->block->self;
     else {
         if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP))
             return_type = lily_ts_resolve(emit->ts, return_type);
