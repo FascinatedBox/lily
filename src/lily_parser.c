@@ -3694,6 +3694,7 @@ static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
        constructor may use 'self'. */
     cls->parent = super_class;
     cls->prop_count = super_class->prop_count;
+    cls->inherit_depth = super_class->inherit_depth + 1;
 
     lily_var *class_new = lily_find_method(super_class, "<new>");
 

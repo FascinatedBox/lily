@@ -531,6 +531,7 @@ lily_class *lily_new_raw_class(const char *name)
     new_class->module = NULL;
     new_class->all_subtypes = NULL;
     new_class->dyna_start = 0;
+    new_class->inherit_depth = 0;
 
     return new_class;
 }

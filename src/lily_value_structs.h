@@ -137,8 +137,9 @@ typedef struct lily_hash_val_ {
    future, but it won't mater to the API. */
 typedef struct lily_instance_val_ {
     uint32_t refcount;
-    uint16_t instance_id;
     uint16_t pad1;
+    /* How many constructors need to visit this value before it's done? */
+    uint16_t ctor_need;
     uint32_t num_values;
     uint32_t pad2;
     struct lily_value_ **values;

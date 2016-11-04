@@ -317,6 +317,7 @@ lily_instance_val *lily_new_instance_val(int initial)
     ival->refcount = 0;
     ival->gc_entry = NULL;
     ival->num_values = initial;
+    ival->ctor_need = 0;
 
     int i;
     for (i = 0;i < initial;i++) {

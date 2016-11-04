@@ -63,7 +63,7 @@ typedef struct lily_class_ {
     /* If it's an enum, then the variants are here. NULL otherwise. */
     lily_variant_class **variant_members;
 
-    uint16_t pad;
+    uint16_t inherit_depth;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
     int16_t generic_count;

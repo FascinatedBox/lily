@@ -1100,32 +1100,20 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
        building one that will simply be tossed. */
     if (caller_frame->build_value) {
         lily_value *build_value = caller_frame->build_value;
-        int build_id = build_value->class_id;
+        lily_instance_val *iv = build_value->value.instance;
 
-        if (build_id > cls_id) {
-            /* Ensure that there is an actual lineage here. */
-            int found = 0;
-            lily_class *iter_class = vm->class_table[build_id]->parent;
-            while (iter_class) {
-                if (iter_class->id == cls_id) {
-                    found = 1;
-                    break;
-                }
+        if (iv->ctor_need) {
+            iv->ctor_need--;
+            lily_assign_value(result, caller_frame->build_value);
 
-                iter_class = iter_class->parent;
-            }
-
-            if (found) {
-                lily_assign_value(result, caller_frame->build_value);
-
-                /* This causes the 'self' value to bubble upward. */
-                vm->call_chain->build_value = result;
-                return;
-            }
+            /* This causes the 'self' value to bubble upward. */
+            vm->call_chain->build_value = result;
+            return;
         }
     }
 
     lily_instance_val *iv = lily_new_instance_val(total_entries);
+    iv->ctor_need = instance_class->inherit_depth;
 
     if (code[0] == o_new_instance_speculative)
         lily_move_instance_f(cls_id | MOVE_DEREF_SPECULATIVE, result, iv);
