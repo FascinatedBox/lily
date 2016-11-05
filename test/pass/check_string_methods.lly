@@ -87,6 +87,8 @@ ok({||
     }(),                                       "String.split raises ValueError for empty string.")
 ok("1 2 3".split(" ")[0].is_digit(),           "String.split doesn't generate a broken first string.")
 
+ok("abc".to_bytestring() == B"abc",            "String.to_bytestring basic success case.")
+
 ok("abc".trim() == "abc",                      "String.trim ignores non-spaces.")
 ok(" \t\r\nabc\t\r\n ".trim() == "abc",        "String.trim spectrum removal.")
 ok("    ".trim() == "",                        "String.trim removing everything.")

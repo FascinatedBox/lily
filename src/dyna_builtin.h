@@ -94,7 +94,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"V\0None\0"
     ,"N\1RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
-    ,"C\16String"
+    ,"C\17String"
     ,"m\0ends_with\0(String,String):Boolean"
     ,"m\0find\0(String,String):Option[Integer]"
     ,"m\0html_encode\0(String):String"
@@ -109,6 +109,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0split\0(String,*String):List[String]"
     ,"m\0starts_with\0(String,String):Boolean"
     ,"m\0strip\0(String,String):String"
+    ,"m\0to_bytestring\0(String):ByteString"
     ,"m\0trim\0(String):String"
     ,"m\0upper\0(String):String"
     ,"N\3Tainted\0[A]"
@@ -209,13 +210,14 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 106: return lily_builtin_String_split;
         case 107: return lily_builtin_String_starts_with;
         case 108: return lily_builtin_String_strip;
-        case 109: return lily_builtin_String_trim;
-        case 110: return lily_builtin_String_upper;
-        case 112: return lily_builtin_Tainted_new;
-        case 113: return lily_builtin_Tainted_sanitize;
-        case 116: return lily_builtin_Tuple_merge;
-        case 117: return lily_builtin_Tuple_push;
-        case 119: return lily_builtin_ValueError_new;
+        case 109: return lily_builtin_String_to_bytestring;
+        case 110: return lily_builtin_String_trim;
+        case 111: return lily_builtin_String_upper;
+        case 113: return lily_builtin_Tainted_new;
+        case 114: return lily_builtin_Tainted_sanitize;
+        case 117: return lily_builtin_Tuple_merge;
+        case 118: return lily_builtin_Tuple_push;
+        case 120: return lily_builtin_ValueError_new;
         default: return NULL;
     }
 }

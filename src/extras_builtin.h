@@ -18,6 +18,6 @@
 #define OPTION_OFFSET              80
 #define RUNTIMEERROR_OFFSET        93
 #define STRING_OFFSET              95
-#define TAINTED_OFFSET             112
-#define TUPLE_OFFSET               116
-#define VALUEERROR_OFFSET          119
+#define TAINTED_OFFSET             113
+#define TUPLE_OFFSET               117
+#define VALUEERROR_OFFSET          120

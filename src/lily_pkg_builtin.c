@@ -2694,6 +2694,19 @@ void lily_builtin_String_strip(lily_state *s)
 }
 
 /**
+method String.to_bytestring(self: String): ByteString
+
+Produce a copy of `self`, as a `ByteString`. This allows per-`Byte` operations
+to be performed.
+*/
+void lily_builtin_String_to_bytestring(lily_state *s)
+{
+    /* They currently have the same internal representation. This method is
+       provided for the type system. */
+    lily_return_bytestring(s, lily_arg_string(s, 0));
+}
+
+/**
 method String.trim(self: String): String
 
 Checks if `self` starts or ends with any of `" \t\r\n"`. If it does, then a new
