@@ -51,6 +51,30 @@ static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
     lily_mb_add(msgbuf, buffer);
 }
 
+static char get_escape(char ch)
+{
+    if (ch == '\n')
+        ch = 'n';
+    else if (ch == '\r')
+        ch = 'r';
+    else if (ch == '\t')
+        ch = 't';
+    else if (ch == '\'')
+        ch = '\'';
+    else if (ch == '"')
+        ch = '"';
+    else if (ch == '\\')
+        ch = '\\';
+    else if (ch == '\b')
+        ch = 'b';
+    else if (ch == '\a')
+        ch = 'a';
+    else
+        ch = 0;
+
+    return ch;
+}
+
 /* Add a safe, escaped version of a given string to the msgbuf. A size is given
    as well so that bytestrings may be sent. */
 static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
@@ -63,27 +87,13 @@ static void add_escaped_sized(lily_msgbuf *msgbuf, int is_bytestring,
         char ch = str[i];
         int need_escape = 1;
 
-        if (ch == '\n')
-            escape_char = 'n';
-        else if (ch == '\r')
-            escape_char = 'r';
-        else if (ch == '\t')
-            escape_char = 't';
-        else if (ch == '\'')
-            escape_char = '\'';
-        else if (ch == '"')
-            escape_char = '"';
-        else if (ch == '\\')
-            escape_char = '\\';
-        else if (ch == '\b')
-            escape_char = 'b';
-        else if (ch == '\a')
-            escape_char = 'a';
-        else if (isprint(ch) ||
+        if (isprint(ch) ||
             ((unsigned char)ch > 127 && is_bytestring == 0)) {
             need_escape = 0;
             escape_char = 0;
         }
+        else
+            escape_char = get_escape(ch);
 
         if (need_escape) {
             if (i != start)
@@ -175,7 +185,15 @@ void lily_mb_add_boolean(lily_msgbuf *msgbuf, int b)
 void lily_mb_add_byte(lily_msgbuf *msgbuf, uint8_t i)
 {
     char buf[64];
-    sprintf(buf, "%dt", i);
+    char ch = (char)i;
+    char esc_ch = get_escape(ch);
+
+    if (esc_ch)
+        sprintf(buf, "'\\%c'", esc_ch);
+    else if (isprint(ch))
+        sprintf(buf, "'%c'", ch);
+    else
+        sprintf(buf, "'\\%03d'", ch);
 
     lily_mb_add(msgbuf, buf);
 }

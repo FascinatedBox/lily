@@ -78,7 +78,8 @@
 #define CC_QUESTION      27
 #define CC_B             28
 #define CC_DOLLAR        29
-#define CC_INVALID       30
+#define CC_SINGLE_QUOTE  30
+#define CC_INVALID       31
 
 static int read_line(lily_lex_state *);
 static void close_entry(lily_lex_entry *);
@@ -169,6 +170,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
     ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
     ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
+    ch_class[(unsigned char)'\''] = CC_SINGLE_QUOTE;
     ch_class[(unsigned char)'@'] = CC_AT;
     ch_class[(unsigned char)'?'] = CC_QUESTION;
     ch_class[(unsigned char)'#'] = CC_SHARP;
@@ -1129,6 +1131,28 @@ static void scan_quoted(lily_lex_state *lexer, char **source_ch, int flags)
     scan_quoted_raw(lexer, source_ch, &dummy, flags);
 }
 
+static void scan_single_quote(lily_lex_state *lexer, char **source_ch)
+{
+    char *new_ch = *source_ch + 1;
+    char ch = *new_ch;
+
+    if (ch == '\\') {
+        int adjust;
+        ch = scan_escape(lexer, new_ch, &adjust);
+        new_ch += adjust;
+    }
+    else {
+        ch = *new_ch;
+        new_ch += 1;
+    }
+
+    if (*new_ch != '\'')
+        lily_raise_syn(lexer->raiser, "Multi-character byte literal.");
+
+    *source_ch = new_ch + 1;
+    lexer->last_integer = (unsigned char)ch;
+}
+
 static void scan_lambda(lily_lex_state *lexer, char **source_ch)
 {
     char *label = lexer->label, *ch = *source_ch;
@@ -1177,6 +1201,10 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
             scan_quoted_raw(lexer, &ch, &i, SQ_LAMBDA_STRING_FLAGS);
             /* Don't ensure check: scan_quoted already did it if that was
                necessary. */
+            continue;
+        }
+        else if (*ch == '\'') {
+            scan_single_quote(lexer, &ch);
             continue;
         }
         else if (*ch == '{')
@@ -1429,6 +1457,11 @@ void lily_lexer(lily_lex_state *lexer)
             scan_quoted(lexer, &ch, 0);
             input_pos = ch - lexer->input_buffer;
             token = tk_double_quote;
+        }
+        else if (group == CC_SINGLE_QUOTE) {
+            scan_single_quote(lexer, &ch);
+            input_pos = ch - lexer->input_buffer;
+            token = tk_byte;
         }
         else if (group == CC_B) {
             if (*(ch + 1) == '"') {

@@ -29,6 +29,9 @@ ok($"""
 ok($"^(<[1, [2]]>)" == "<[1, [2]]>", "Tuples interpolate correctly.")
 ok($"^(None)" == "None",           "Interpolation of an empty variant.")
 ok($"^(Some(1))" == "Some(1)",     "Interpolation of Some(1).")
+ok($"^('1')" == "'1'",             "Interpolation of a byte ('1').")
+ok($"^('\n')" == "'\\n'",          "Interpolation of a byte ('\\n').")
+ok($"^(0x61t)" == "'a'",           "Interpolation of a byte ('0x61t' as 'a').")
 
 define f(a: Integer)
 {
