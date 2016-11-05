@@ -532,6 +532,8 @@ static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
     char ret;
     ch++;
 
+    *adjust = 2;
+
     if (*ch == 'n')
         ret = '\n';
     else if (*ch == 'r')
@@ -991,7 +993,7 @@ static void collect_escape(lily_lex_state *lexer, char **source_ch,
 
     if ((flags & SQ_SKIP_ESCAPES) == 0) {
         /* Most escape codes are only one letter long. */
-        int adjust_ch = 2;
+        int adjust_ch;
         char esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
         /* Forbid \0 from non-bytestrings so that string is guaranteed
             to be a valid C string. Additionally, the second case
