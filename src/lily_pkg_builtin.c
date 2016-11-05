@@ -216,6 +216,16 @@ void lily_builtin_ByteString_encode(lily_state *s)
     lily_return_filled_variant(s, LILY_SOME_ID, variant);
 }
 
+/**
+method ByteString.size(self: ByteString): Integer
+
+Return the number of `Byte` values within `self`.
+*/
+void lily_builtin_ByteString_size(lily_state *s)
+{
+    lily_return_integer(s, lily_arg_bytestring(s, 0)->size);
+}
+
 static void return_exception(lily_state *s, uint16_t id)
 {
     lily_instance_val *result;

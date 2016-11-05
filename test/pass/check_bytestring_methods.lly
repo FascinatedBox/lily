@@ -17,6 +17,9 @@ ok(B"".encode("error").unwrap() == "",          "ByteString.encode(error) allows
 ok(B"asdf".encode("error").unwrap() == "asdf",  "ByteString.encode(error) allows plain ascii.")
 ok(B"\255\255\255".encode("error").is_none(),   "ByteString.encode(error) forbids invalid utf-8 (255 * 3).")
 
+ok(B"abc".size() == 3,                "ByteString.size basic success case.")
+ok("abc".to_bytestring().size() == 3, "ByteString.size for converted String.")
+
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")
 else:
