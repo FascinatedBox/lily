@@ -45,21 +45,6 @@ def strip_proto(proto):
 
     return proto
 
-class BootstrapEntry:
-    def __init__(self, source):
-        split = source.split("\n", 1)
-
-        # The format is 'bootstrap $name $proto'
-        header = re.search("bootstrap\s+(\w+)\s*(.+)", split[0])
-
-        self.inner_entries = []
-        self.bootstrap = header.group(2)
-        self.name = header.group(1)
-        self.e_type = "bootstrap"
-        self.doc = split[1].strip()
-        self.dyna_len = 0
-        self.dyna_letter = 'B'
-
 class CallEntry:
     def __init__(self, source, e_type):
         # The format is 'constructor/define/method $name($proto)
@@ -277,10 +262,6 @@ classes/enums belong.
             class_target = NativeEntry(d)
             decls.append(class_target)
 
-        elif d.startswith("bootstrap"):
-            class_target = BootstrapEntry(d)
-            decls.append(class_target)
-
         elif d.startswith("var"):
             package_target.need_loader = True
             toplevel.append(VarEntry(d))
@@ -319,7 +300,7 @@ def gen_markdown(filename):
     for d in package.decls:
         d.doc = d.doc.replace("\n# ", "\n#### ")
 
-        if d.e_type == "class" or d.e_type == "bootstrap":
+        if d.e_type == "class":
             doc_string += "## class %s\n\n%s\n\n" % (d.name, d.doc)
         elif d.e_type == "enum":
             doc_string += "## enum %s\n\n" % (d.name)
@@ -376,8 +357,6 @@ def run_dyna_entry(e, accum):
             name += "\\0"
     elif e.e_type == "class":
         suffix = ""
-    elif e.e_type == "bootstrap":
-        suffix = e.bootstrap
     elif e.e_type == "native":
         suffix = e.proto
         if e.parent:
@@ -426,7 +405,7 @@ Generate dynaload information based on comment blocks in a given filename.
     entries = package_entry.toplevel + package_entry.decls
 
     for e in entries:
-        if e.e_type in ["class", "bootstrap", "enum", "native"]:
+        if e.e_type in ["class", "enum", "native"]:
             e.offset = offset + 1
             used.append(e.name)
 
@@ -462,7 +441,7 @@ def run_loader_entry(e, i, accum, package_name):
         name = name.replace(".", "_")
     elif e.e_type == "constructor":
         name += "_new"
-    elif e.e_type in ["class", "bootstrap", "enum", "native"]:
+    elif e.e_type in ["class", "enum", "native"]:
         what = ""
     elif e.e_type == "var":
         what = "load_var_"
