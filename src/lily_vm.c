@@ -1563,9 +1563,9 @@ lily_msgbuf *lily_get_msgbuf_noflush(lily_vm_state *vm)
     return vm->vm_buffer;
 }
 
-uint16_t *lily_get_cid_table(lily_vm_state *vm)
+uint16_t lily_cid_at(lily_vm_state *vm, int n)
 {
-    return vm->call_chain->function->cid_table;
+    return vm->call_chain->function->cid_table[n];
 }
 
 /** Foreign functions that are looking to interact with the interpreter can use

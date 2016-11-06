@@ -213,14 +213,11 @@ struct lily_msgbuf_ *lily_get_msgbuf(lily_state *);
    callers are expected to flush msgbuf before use (instead of after). */
 struct lily_msgbuf_ *lily_get_msgbuf_noflush(lily_state *);
 
-/* If you are not adding a foreign class to Lily, then you can ignore this. This
-   function fetches the class id table for the currently-entered function. From
-   there, you can pick away the class ids.
-   Class ids are stored, 0-indexed, in the same order as the top of your
-   dynaload table.
-   The class id provided is later used by Lily for printing and comparing
-   instances of your class. */
-uint16_t *lily_get_cid_table(lily_state *);
+/* The id of a class is important to Lily's internals. Dynaload means that there
+   is no guaranteed spot for a class id to go. dyna_tools.py generates ID_*
+   defines which call this under the hood, so calling this directly is both
+   unnecessary and unwise. */
+uint16_t lily_cid_at(lily_state *, int);
 
 int lily_is_valid_utf8(const char *);
 
