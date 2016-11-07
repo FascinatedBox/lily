@@ -7,7 +7,7 @@ STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
 # The reason I've called this liblily but removed the prefix is so that I can
 # use liblily to build the lily executable.
 # -fPIC is vital: Apache's mod_lily will not build properly without it.
-add_library(liblily STATIC ${lily_SOURCES})
+add_library(liblily SHARED ${lily_SOURCES})
 if(NOT MSVC)
     if(IS_BSD OR MINGW)
         target_link_libraries(liblily)
@@ -30,3 +30,6 @@ install(FILES lily_api_alloc.h
               lily_api_value.h
               lily_int_opcode.h
         DESTINATION "include/lily")
+
+install(TARGETS liblily
+        LIBRARY DESTINATION lib)
