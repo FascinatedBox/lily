@@ -2784,44 +2784,6 @@ void lily_builtin_String_upper(lily_state *s)
 }
 
 /**
-native Tainted[A]
-    private var @value: A
-
-The `Tainted` type represents a wrapper over some data that is considered
-unsafe. Data, once inside a `Tainted` value can only be retrieved using the
-`Tainted.sanitize` function.
-*/
-
-/**
-constructor Tainted[A](self: A): Tainted[A]
-*/
-void lily_builtin_Tainted_new(lily_state *s)
-{
-    lily_instance_val *result = lily_new_instance_val(1);
-
-    lily_instance_set_value(result, 0, lily_arg_value(s, 0));
-
-    lily_return_instance(s, LILY_TAINTED_ID, result);
-}
-
-/**
-method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
-
-This calls `fn` with the value contained within `self`. `fn` is assumed to be a
-function that can sanitize the data within `self`.
-*/
-void lily_builtin_Tainted_sanitize(lily_state *s)
-{
-    lily_instance_val *instance_val = lily_arg_instance(s, 0);
-
-    lily_push_value(s, lily_instance_value(instance_val, 0));
-
-    lily_exec_simple(s, lily_arg_function(s, 1), 1);
-
-    lily_result_return(s);
-}
-
-/**
 class Tuple
 
 The `Tuple` class provides a fixed-size container over a set of types. `Tuple`

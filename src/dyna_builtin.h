@@ -113,10 +113,6 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0to_bytestring\0(String):ByteString"
     ,"m\0trim\0(String):String"
     ,"m\0upper\0(String):String"
-    ,"N\3Tainted\0[A]"
-    ,"m\0<new>\0[A](A):Tainted[A]"
-    ,"m\0sanitize\0[A,B](Tainted[A],Function(A=>B)):B"
-    ,"1\0value\0A"
     ,"C\2Tuple"
     ,"m\0merge\0(Tuple[1],Tuple[2]):Tuple[1,2]"
     ,"m\0push\0[A](Tuple[1],A):Tuple[1,A]"
@@ -215,11 +211,9 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 110: return lily_builtin_String_to_bytestring;
         case 111: return lily_builtin_String_trim;
         case 112: return lily_builtin_String_upper;
-        case 114: return lily_builtin_Tainted_new;
-        case 115: return lily_builtin_Tainted_sanitize;
-        case 118: return lily_builtin_Tuple_merge;
-        case 119: return lily_builtin_Tuple_push;
-        case 121: return lily_builtin_ValueError_new;
+        case 114: return lily_builtin_Tuple_merge;
+        case 115: return lily_builtin_Tuple_push;
+        case 117: return lily_builtin_ValueError_new;
         default: return NULL;
     }
 }

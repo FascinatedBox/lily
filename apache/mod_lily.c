@@ -6,18 +6,25 @@
 #include "ap_config.h"
 #include "util_script.h"
 
-#include "lily_parser.h"
-
 #include "lily_api_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_msgbuf.h"
 #include "lily_api_value.h"
+
+#include "extras_server.h"
 
 typedef struct {
     int show_traceback;
 } lily_config_rec;
 
 module AP_MODULE_DECLARE_DATA lily_module;
+
+typedef struct {
+    lily_hash_val *hash;
+    uint16_t tainted_id;
+    uint16_t pad;
+    uint32_t pad2;
+} bind_table_data;
 
 /**
 embedded server
@@ -26,22 +33,61 @@ This package is registered when Lily is run by Apache through mod_lily. This
 package provides Lily with information inside of Apache (such as POST), as well
 as functions for sending data through the Apache server.
 */
-lily_value *bind_tainted_of(lily_string_val *input)
+
+/**
+native Tainted[A]
+    private var @value: A
+
+The `Tainted` type represents a wrapper over some data that is considered
+unsafe. Data, once inside a `Tainted` value can only be retrieved using the
+`Tainted.sanitize` function.
+*/
+
+/**
+constructor Tainted[A](self: A): Tainted[A]
+*/
+void lily_server_Tainted_new(lily_state *s)
+{
+    lily_instance_val *result = lily_new_instance_val(1);
+
+    lily_instance_set_value(result, 0, lily_arg_value(s, 0));
+
+    lily_return_instance(s, ID_Tainted(s), result);
+}
+
+/**
+method Tainted.sanitize[A, B](self: Tainted[A], fn: Function(A => B)): B
+
+This calls `fn` with the value contained within `self`. `fn` is assumed to be a
+function that can sanitize the data within `self`.
+*/
+void lily_server_Tainted_sanitize(lily_state *s)
+{
+    lily_instance_val *instance_val = lily_arg_instance(s, 0);
+
+    lily_push_value(s, lily_instance_value(instance_val, 0));
+
+    lily_exec_simple(s, lily_arg_function(s, 1), 1);
+
+    lily_result_return(s);
+}
+
+lily_value *bind_tainted_of(lily_string_val *input, uint16_t tainted_id)
 {
     lily_instance_val *iv = lily_new_instance_val(1);
     lily_instance_set_string(iv, 0, input);
-    return lily_new_value_of_instance(LILY_TAINTED_ID, iv);
+    return lily_new_value_of_instance(tainted_id, iv);
 }
 
-static void add_hash_entry(lily_hash_val *hash_val, lily_string_val *key,
+static void add_hash_entry(bind_table_data *table_data, lily_string_val *key,
         lily_string_val *record)
 {
     lily_instance_val *tainted_rec = lily_new_instance_val(1);
     lily_instance_set_string(tainted_rec, 0, record);
-    lily_value *boxed_rec = lily_new_value_of_instance(LILY_TAINTED_ID,
+    lily_value *boxed_rec = lily_new_value_of_instance(table_data->tainted_id,
             tainted_rec);
 
-    lily_hash_insert_str(hash_val, key, boxed_rec);
+    lily_hash_insert_str(table_data->hash, key, boxed_rec);
 
     /* new_value and insert both add a ref, which is one too many. Fix that. */
     lily_deref(boxed_rec);
@@ -55,21 +101,24 @@ static int bind_table_entry(void *data, const char *key, const char *value)
         lily_is_valid_utf8(value) == 0)
         return TRUE;
 
-    lily_hash_val *hash_val = (lily_hash_val *)data;
+    bind_table_data *table_data = (bind_table_data *)data;
 
     lily_string_val *string_key = lily_new_raw_string(key);
     lily_string_val *record = lily_new_raw_string(value);
 
-    add_hash_entry(hash_val, string_key, record);
+    add_hash_entry(table_data, string_key, record);
     return TRUE;
 }
 
-static lily_value *bind_table_as(lily_options *options, apr_table_t *table,
-        char *name)
+static lily_value *bind_table_as(apr_table_t *table, char *name,
+        uint16_t tainted_id)
 {
-    lily_hash_val *hv = lily_new_hash_strtable();
-    apr_table_do(bind_table_entry, hv, table, NULL);
-    return lily_new_value_of_hash(hv);
+    bind_table_data table_data;
+    table_data.hash = lily_new_hash_strtable();
+    table_data.tainted_id = tainted_id;
+
+    apr_table_do(bind_table_entry, &table_data, table, NULL);
+    return lily_new_value_of_hash(table_data.hash);
 }
 
 /**
@@ -77,13 +126,13 @@ var env: Hash[String, Tainted[String]]
 
 This contains key+value pairs containing the current environment of the server.
 */
-static lily_value *load_var_env(lily_options *options, uint16_t *unused)
+static lily_value *load_var_env(lily_options *options, uint16_t *dyna_ids)
 {
     request_rec *r = (request_rec *)options->data;
     ap_add_cgi_vars(r);
     ap_add_common_vars(r);
 
-    return bind_table_as(options, r->subprocess_env, "env");
+    return bind_table_as(r->subprocess_env, "env", DYNA_ID_Tainted(dyna_ids));
 }
 
 /**
@@ -92,12 +141,12 @@ var get: Hash[String, Tainted[String]]
 This contains key+value pairs that were sent to the server as GET variables.
 Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
-static lily_value *load_var_get(lily_options *options, uint16_t *unused)
+static lily_value *load_var_get(lily_options *options, uint16_t *dyna_ids)
 {
     apr_table_t *http_get_args;
     ap_args_to_table((request_rec *)options->data, &http_get_args);
 
-    return bind_table_as(options, http_get_args, "get");
+    return bind_table_as(http_get_args, "get", DYNA_ID_Tainted(dyna_ids));
 }
 
 /**
@@ -119,15 +168,18 @@ var post: Hash[String, Tainted[String]]
 This contains key+value pairs that were sent to the server as POST variables.
 Any pair that has a key or a value that is not valid utf-8 will not be present.
 */
-static lily_value *load_var_post(lily_options *options, uint16_t *unused)
+static lily_value *load_var_post(lily_options *options, uint16_t *dyna_ids)
 {
-    lily_hash_val *hv = lily_new_hash_strtable();
     request_rec *r = (request_rec *)options->data;
 
     apr_array_header_t *pairs;
     apr_off_t len;
     apr_size_t size;
     char *buffer;
+
+    bind_table_data table_data;
+    table_data.hash = lily_new_hash_strtable();
+    table_data.tainted_id = DYNA_ID_Tainted(dyna_ids);
 
     /* Credit: I found out how to use this by reading httpd 2.4's mod_lua
        (specifically req_parsebody of lua_request.c). */
@@ -154,11 +206,11 @@ static lily_value *load_var_post(lily_options *options, uint16_t *unused)
             /* Give the buffer to the value to save memory. */
             lily_string_val *record = lily_new_raw_string_take(buffer);
 
-            add_hash_entry(hv, key, record);
+            add_hash_entry(&table_data, key, record);
         }
     }
 
-    return lily_new_value_of_hash(hv);
+    return lily_new_value_of_hash(table_data.hash);
 }
 
 extern void lily_builtin_String_html_encode(lily_state *);

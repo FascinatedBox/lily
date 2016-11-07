@@ -1533,7 +1533,6 @@ static lily_class *dynaload_native(lily_parse_state *parser,
             case IOERROR_OFFSET:             cls->id = LILY_IOERROR_ID;      break;
             case KEYERROR_OFFSET:            cls->id = LILY_KEYERROR_ID;     break;
             case RUNTIMEERROR_OFFSET:        cls->id = LILY_RUNTIMEERROR_ID; break;
-            case TAINTED_OFFSET:             cls->id = LILY_TAINTED_ID;      break;
             case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;   break;
             /* Shouldn't happen, but use an impossible id to make it stand out. */
             default:                         cls->id = 12345;                break;
@@ -1602,8 +1601,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
                 name);
 
         /* Vars should not be uncommon, and they may need cid information.
-           mod_lily (Apache) for example, uses Tainted which ends up being
-           dynaloaded. Make sure that cid information is up-to-date. */
+           Make sure that cid information is up-to-date. */
         update_cid_table(parser, m);
 
         void *value = m->loader(parser->options, m->cid_table, dyna_pos);

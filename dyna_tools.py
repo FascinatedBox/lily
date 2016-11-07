@@ -519,7 +519,8 @@ def gen_class_extras(package_entry):
         if i != 0:
             result += "\n\n"
 
-        result += """\
+        if d.e_type != "native":
+            result += """\
 #define ARG_{1}(state, index) \\
 (lily_{0}_{1} *) lily_arg_generic(s, index)
 
@@ -530,6 +531,12 @@ target = lily_malloc(sizeof(lily_{0}_{1})); \\
 target->refcount = 0; \\
 target->destroy_func = destroy_{1};
 """.format(package_entry.name, d.name, i)
+        else:
+            result += """\
+#define DYNA_ID_{0}(ids) ids[{1}]
+
+#define ID_{0}(state) lily_cid_at(state, {1})
+""".format(d.name, i)
 
     return result
 
