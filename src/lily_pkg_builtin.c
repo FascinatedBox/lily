@@ -819,7 +819,7 @@ void lily_builtin_Hash_keys(lily_state *s)
     for (i = 0, list_i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         if (entry) {
-            lily_assign_value(result_lv->elems[list_i], entry->boxed_key);
+            lily_value_assign(result_lv->elems[list_i], entry->boxed_key);
             list_i++;
         }
     }
@@ -1282,7 +1282,7 @@ void lily_builtin_List_fill(lily_state *s)
 
     int i;
     for (i = 0;i < n;i++)
-        lily_assign_value(lv->elems[i], to_repeat);
+        lily_value_assign(lv->elems[i], to_repeat);
 
     lily_return_list(s, lv);
 }
@@ -1353,7 +1353,7 @@ void lily_builtin_List_insert(lily_state *s)
         memmove(list_val->elems + insert_pos + 1, list_val->elems + insert_pos,
                 (list_val->num_values - insert_pos) * sizeof(lily_value *));
 
-    list_val->elems[insert_pos] = lily_copy_value(insert_value);
+    list_val->elems[insert_pos] = lily_value_copy(insert_value);
     list_val->num_values++;
     list_val->extra_space--;
 
@@ -1416,7 +1416,7 @@ void lily_builtin_List_map(lily_state *s)
     i--;
     for (;i >= 0;i--) {
         s->num_registers--;
-        lily_assign_value(result_list->elems[i],
+        lily_value_assign(result_list->elems[i],
                 s->regs_from_main[s->num_registers]);
     }
 
@@ -1467,7 +1467,7 @@ void lily_builtin_List_push(lily_state *s)
 
     int value_count = list_val->num_values;
 
-    list_val->elems[value_count] = lily_copy_value(insert_value);
+    list_val->elems[value_count] = lily_value_copy(insert_value);
     list_val->num_values++;
     list_val->extra_space--;
 
@@ -1498,7 +1498,7 @@ static void list_select_reject_common(lily_state *s, int expect)
     n--;
     for (;n >= 0;n--) {
         s->num_registers--;
-        lily_assign_value(result_list->elems[n],
+        lily_value_assign(result_list->elems[n],
                 s->regs_from_main[s->num_registers]);
     }
 
@@ -1591,7 +1591,7 @@ void lily_builtin_List_unshift(lily_state *s)
         memmove(list_val->elems + 1, list_val->elems,
                 list_val->num_values * sizeof(lily_value *));
 
-    list_val->elems[0] = lily_copy_value(input_reg);
+    list_val->elems[0] = lily_value_copy(input_reg);
 
     list_val->num_values++;
     list_val->extra_space--;
@@ -2817,10 +2817,10 @@ void lily_builtin_Tuple_merge(lily_state *s)
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
-        lily_assign_value(lv->elems[j], left_tuple->elems[i]);
+        lily_value_assign(lv->elems[j], left_tuple->elems[i]);
 
     for (i = 0;i < right_tuple->num_values;i++, j++)
-        lily_assign_value(lv->elems[j], right_tuple->elems[i]);
+        lily_value_assign(lv->elems[j], right_tuple->elems[i]);
 
     lily_return_tuple(s, lv);
 }
@@ -2838,9 +2838,9 @@ void lily_builtin_Tuple_push(lily_state *s)
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
-        lily_assign_value(lv->elems[j], left_tuple->elems[i]);
+        lily_value_assign(lv->elems[j], left_tuple->elems[i]);
 
-    lily_assign_value(lv->elems[j], right);
+    lily_value_assign(lv->elems[j], right);
 
     lily_return_tuple(s, lv);
 }

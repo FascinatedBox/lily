@@ -181,13 +181,12 @@ void lily_result_return(lily_state *);
 DECLARE_GETTERS(arg, lily_state *, int)
 DECLARE_GETTERS(result, lily_state *)
 
-/* General operations. Special care should be taken with these. */
-
+/* Do an action to a proper value. */
 void lily_deref(lily_value *);
-void lily_assign_value(lily_value *, lily_value *);
-void lily_assign_value_noref(lily_value *, lily_value *);
-lily_value *lily_copy_value(lily_value *);
-int lily_eq_value(lily_state *, lily_value *, lily_value *);
+void lily_value_assign(lily_value *, lily_value *);
+void lily_value_assign_noref(lily_value *, lily_value *);
+lily_value *lily_value_copy(lily_value *);
+int lily_value_compare(lily_state *, lily_value *, lily_value *);
 int lily_value_is_derefable(lily_value *);
 uint16_t lily_value_class_id(lily_value *);
 

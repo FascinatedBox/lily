@@ -15,7 +15,7 @@
 
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */
-void lily_destroy_value(lily_value *);
+void lily_value_destroy(lily_value *);
 
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
@@ -63,7 +63,7 @@ else if (lhs_reg->class_id == LILY_STRING_ID) { \
 else { \
     vm->pending_line = code[1]; \
     vm_regs[code[4]]->value.integer = \
-    lily_eq_value(vm, lhs_reg, rhs_reg) OP 1; \
+    lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
 } \
 vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
@@ -260,7 +260,7 @@ static void gc_mark(int, lily_value *);
       * Some gc_entries may have their value set to 0/NULL. This happens when
         a possibly-circular value has been deleted through typical ref/deref
         means.
-      * lily_destroy_value will collect everything inside a non-circular value,
+      * lily_value_destroy will collect everything inside a non-circular value,
         but not the value itself. It will set last_pass to -1 when it does that.
         This is necessary because it's possible that a value may be visited
         multiple times. If it's deleted during this step, then extra visits will
@@ -305,7 +305,7 @@ static void invoke_gc(lily_vm_state *vm)
             /* This tells value destroy to just hollow the value since it may be
                visited multiple times. */
             gc_iter->last_pass = -1;
-            lily_destroy_value((lily_value *)gc_iter);
+            lily_value_destroy((lily_value *)gc_iter);
         }
     }
 
@@ -622,7 +622,7 @@ void lily_push_value(lily_vm_state *vm, lily_value *v)
     if (vm->num_registers == vm->max_registers)
         grow_vm_registers(vm, vm->num_registers + 1);
 
-    lily_assign_value(vm->regs_from_main[vm->num_registers], v);
+    lily_value_assign(vm->regs_from_main[vm->num_registers], v);
     vm->num_registers++;
 }
 
@@ -846,7 +846,7 @@ static void do_o_set_property(lily_vm_state *vm, uint16_t *code)
     ival = vm_regs[code[3]]->value.instance;
     rhs_reg = vm_regs[code[4]];
 
-    lily_assign_value(ival->values[index], rhs_reg);
+    lily_value_assign(ival->values[index], rhs_reg);
 }
 
 static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
@@ -860,7 +860,7 @@ static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
     ival = vm_regs[code[3]]->value.instance;
     result_reg = vm_regs[code[4]];
 
-    lily_assign_value(result_reg, ival->values[index]);
+    lily_value_assign(result_reg, ival->values[index]);
 }
 
 /* This handles subscript assignment. The index is a register, and needs to be
@@ -905,7 +905,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
             else if (index_int >= list_val->num_values)
                 boundary_error(vm, index_int);
 
-            lily_assign_value(list_val->elems[index_int], rhs_reg);
+            lily_value_assign(list_val->elems[index_int], rhs_reg);
         }
     }
     else
@@ -954,7 +954,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
             else if (index_int >= list_val->num_values)
                 boundary_error(vm, index_int);
 
-            lily_assign_value(result_reg, list_val->elems[index_int]);
+            lily_value_assign(result_reg, list_val->elems[index_int]);
         }
     }
     else {
@@ -964,7 +964,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
         if (elem == NULL)
             key_error(vm, index_reg, code[1]);
 
-        lily_assign_value(result_reg, elem);
+        lily_value_assign(result_reg, elem);
     }
 }
 
@@ -1016,7 +1016,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int i;
     for (i = 0;i < num_elems;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
-        lily_assign_value(elems[i], rhs_reg);
+        lily_value_assign(elems[i], rhs_reg);
     }
 }
 
@@ -1035,7 +1035,7 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     int i;
     for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[4+i]];
-        lily_assign_value(slots[i], rhs_reg);
+        lily_value_assign(slots[i], rhs_reg);
     }
 }
 
@@ -1099,7 +1099,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
         if (iv->ctor_need) {
             iv->ctor_need--;
-            lily_assign_value(result, pending_value);
+            lily_value_assign(result, pending_value);
             return;
         }
     }
@@ -1430,7 +1430,7 @@ static void make_proper_exception_val(lily_vm_state *vm,
    intact, however. */
 static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
 {
-    lily_assign_value(result, vm->exception_value);
+    lily_value_assign(result, vm->exception_value);
     lily_list_val *raw_trace = build_traceback_raw(vm);
     lily_instance_val *iv = result->value.instance;
 
@@ -1721,7 +1721,7 @@ static void load_foreign_values(lily_vm_state *vm, lily_value_stack *values)
         /* The value already has a ref from being made, so don't use regular
            assign or it will have two refs. Since this is a transfer of
            ownership, use noref and drop the old container. */
-        lily_assign_value_noref(vm->regs_from_main[reg_spot], (lily_value *)l);
+        lily_value_assign_noref(vm->regs_from_main[reg_spot], (lily_value *)l);
         lily_free(l);
     }
 }
@@ -2153,7 +2153,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_return_val:
                 lhs_reg = current_frame->prev->return_target;
                 rhs_reg = vm_regs[code[2]];
-                lily_assign_value(lhs_reg, rhs_reg);
+                lily_value_assign(lhs_reg, rhs_reg);
 
                 return_common: ;
 
@@ -2176,21 +2176,21 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = regs_from_main[code[2]];
                 lhs_reg = vm_regs[code[3]];
 
-                lily_assign_value(lhs_reg, rhs_reg);
+                lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
             case o_set_global:
                 rhs_reg = vm_regs[code[2]];
                 lhs_reg = regs_from_main[code[3]];
 
-                lily_assign_value(lhs_reg, rhs_reg);
+                lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
             case o_assign:
                 rhs_reg = vm_regs[code[2]];
                 lhs_reg = vm_regs[code[3]];
 
-                lily_assign_value(lhs_reg, rhs_reg);
+                lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
             case o_get_item:
@@ -2236,14 +2236,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 if (lhs_reg == NULL)
                     upvalues[code[2]] = make_cell_from(rhs_reg);
                 else
-                    lily_assign_value(lhs_reg, rhs_reg);
+                    lily_value_assign(lhs_reg, rhs_reg);
 
                 code += 4;
                 break;
             case o_get_upvalue:
                 lhs_reg = vm_regs[code[3]];
                 rhs_reg = upvalues[code[2]];
-                lily_assign_value(lhs_reg, rhs_reg);
+                lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
             case o_optarg_dispatch:
@@ -2335,7 +2335,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    emitter ensures that the decomposition won't go too far. */
                 for (i = 0;i < code[3];i++) {
                     lhs_reg = vm_regs[code[4 + i]];
-                    lily_assign_value(lhs_reg, decompose_values[i]);
+                    lily_value_assign(lhs_reg, decompose_values[i]);
                 }
 
                 code += 4 + i;

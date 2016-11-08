@@ -40,7 +40,7 @@ void lily_##name##_tuple(__VA_ARGS__, lily_list_val * v) \
 void lily_##name##_unit(__VA_ARGS__) \
 { lily_move_unit(source->action); } \
 void lily_##name##_value(__VA_ARGS__, lily_value * v) \
-{ lily_assign_value(source->action, v); } \
+{ lily_value_assign(source->action, v); } \
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
@@ -94,13 +94,13 @@ lily_value *lily_instance_get(lily_instance_val *source, int i)
 
 void lily_return_value_noref(lily_state *s, lily_value *v)
 {
-    lily_assign_value_noref(s->call_chain->prev->return_target, v);
+    lily_value_assign_noref(s->call_chain->prev->return_target, v);
 }
 
 void lily_result_return(lily_state *s)
 {
     lily_value *r = s->regs_from_main[s->num_registers - 1];
-    lily_assign_value_noref(s->call_chain->prev->return_target, r);
+    lily_value_assign_noref(s->call_chain->prev->return_target, r);
     r->flags = 0;
     s->num_registers--;
 }
@@ -588,7 +588,7 @@ static void destroy_file(lily_value *v)
     lily_free(filev);
 }
 
-void lily_destroy_value(lily_value *v)
+void lily_value_destroy(lily_value *v)
 {
     int class_id = v->class_id;
     if (class_id == LILY_LIST_ID || class_id == LILY_TUPLE_ID)
@@ -615,14 +615,14 @@ void lily_deref(lily_value *value)
     if (value->flags & VAL_IS_DEREFABLE) {
         value->value.generic->refcount--;
         if (value->value.generic->refcount == 0)
-            lily_destroy_value(value);
+            lily_value_destroy(value);
     }
 }
 
 /* Assign one value to another. The right may get a ref, and the left may get a
    deref. Both sides are assumed to be equivalent type-wise (only value and
    flags move over). */
-void lily_assign_value(lily_value *left, lily_value *right)
+void lily_value_assign(lily_value *left, lily_value *right)
 {
     if (right->flags & VAL_IS_DEREFABLE)
         right->value.generic->refcount++;
@@ -638,7 +638,7 @@ void lily_assign_value(lily_value *left, lily_value *right)
    ref increase. One use case for this is List.pop, which takes the element out
    of the List and places it into the result. The value has been assigned over,
    (so all flags carry), but still has the same # of refs. */
-void lily_assign_value_noref(lily_value *left, lily_value *right)
+void lily_value_assign_noref(lily_value *left, lily_value *right)
 {
     if (left->flags & VAL_IS_DEREFABLE)
         lily_deref(left);
@@ -648,7 +648,7 @@ void lily_assign_value_noref(lily_value *left, lily_value *right)
 }
 
 /* Create a copy of a value. It may get a ref. */
-lily_value *lily_copy_value(lily_value *input)
+lily_value *lily_value_copy(lily_value *input)
 {
     if (input->flags & VAL_IS_DEREFABLE)
         input->value.generic->refcount++;
@@ -660,7 +660,7 @@ lily_value *lily_copy_value(lily_value *input)
     return result;
 }
 
-static int lily_eq_value_raw(lily_vm_state *, int *, lily_value *,
+static int lily_value_compare_raw(lily_vm_state *, int *, lily_value *,
         lily_value *);
 
 /* This checks of all elements of two (lists, tuples, enums) are equivalent to
@@ -678,7 +678,7 @@ static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
             lily_value *left_item = left_list->elems[i];
             lily_value *right_item = right_list->elems[i];
             (*depth)++;
-            if (lily_eq_value_raw(s, depth, left_item, right_item) == 0) {
+            if (lily_value_compare_raw(s, depth, left_item, right_item) == 0) {
                 (*depth)--;
                 ok = 0;
                 break;
@@ -693,7 +693,8 @@ static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
 }
 
 /* Determine if two values are equivalent to each other. */
-int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *right)
+int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
+        lily_value *right)
 {
     int left_tag = left->class_id;
     int right_tag = right->class_id;
@@ -740,7 +741,8 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
                             left->boxed_key);
 
                     if (right == NULL ||
-                        lily_eq_value_raw(s, depth, left->record, right) == 0) {
+                        lily_value_compare_raw(s, depth, left->record,
+                                right) == 0) {
                         ok = 0;
                         break;
                     }
@@ -754,7 +756,7 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
         (*depth)++;
         lily_value *left_value = left->value.dynamic->inner_value;
         lily_value *right_value = right->value.dynamic->inner_value;
-        int ok = lily_eq_value_raw(s, depth, left_value, right_value);
+        int ok = lily_value_compare_raw(s, depth, left_value, right_value);
         (*depth)--;
 
         return ok;
@@ -777,10 +779,10 @@ int lily_eq_value_raw(lily_state *s, int *depth, lily_value *left, lily_value *r
         return left->value.generic == right->value.generic;
 }
 
-int lily_eq_value(lily_state *s, lily_value *left, lily_value *right)
+int lily_value_compare(lily_state *s, lily_value *left, lily_value *right)
 {
     int depth = 0;
-    return lily_eq_value_raw(s, &depth, left, right);
+    return lily_value_compare_raw(s, &depth, left, right);
 }
 
 int lily_value_is_derefable(lily_value *value)

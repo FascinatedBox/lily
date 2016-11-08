@@ -63,10 +63,10 @@ static long primes[] =
     \
     entry = lily_malloc(sizeof(lily_hash_entry));\
     \
-    entry->boxed_key = lily_copy_value(key_box); \
+    entry->boxed_key = lily_value_copy(key_box); \
     entry->raw_key = key_raw; \
     entry->hash = hash_val;\
-    entry->record = lily_copy_value(value);\
+    entry->record = lily_value_copy(value);\
     entry->next = table->bins[bin_pos];\
     table->bins[bin_pos] = entry;\
     table->num_entries++;\
@@ -263,8 +263,8 @@ void lily_hash_insert_value(register lily_hash_val *table,
         ADD_DIRECT(table, boxed_key, key, record, hash_val, bin_pos);
     }
     else {
-        lily_assign_value(ptr->record, record);
-        lily_assign_value(ptr->boxed_key, boxed_key);
+        lily_value_assign(ptr->record, record);
+        lily_value_assign(ptr->boxed_key, boxed_key);
     }
 }
 
