@@ -812,7 +812,7 @@ void lily_builtin_Dynamic_new(lily_vm_state *vm)
 {
     lily_value *input = lily_arg_value(vm, 0);
 
-    lily_dynamic_val *dynamic_val = lily_new_dynamic_val();
+    lily_dynamic_val *dynamic_val = lily_new_dynamic();
     lily_dynamic_set_value(dynamic_val, input);
 
     lily_value *target = vm->call_chain->prev->return_target;
@@ -1005,7 +1005,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     int num_elems = code[2];
     lily_value *result = vm_regs[code[3+num_elems]];
 
-    lily_list_val *lv = lily_new_list_val_n(num_elems);
+    lily_list_val *lv = lily_new_list(num_elems);
     lily_value **elems = lv->elems;
 
     if (code[0] == o_build_list)
@@ -1027,7 +1027,7 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     int count = code[3];
     lily_value *result = vm_regs[code[code[3] + 4]];
 
-    lily_instance_val *ival = lily_new_instance_val(count);
+    lily_instance_val *ival = lily_new_instance(count);
     lily_value **slots = ival->values;
 
     lily_move_variant_f(variant_id | MOVE_DEREF_SPECULATIVE, result, ival);
@@ -1104,7 +1104,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_instance_val *iv = lily_new_instance_val(total_entries);
+    lily_instance_val *iv = lily_new_instance(total_entries);
     iv->ctor_need = instance_class->inherit_depth;
 
     if (code[0] == o_new_instance_speculative)
@@ -1131,7 +1131,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 
     lily_value *result_reg = vm_regs[code[3 + i]];
 
-    lily_move_string(result_reg, lily_new_raw_string(lily_mb_get(vm_buffer)));
+    lily_move_string(result_reg, lily_new_string(lily_mb_get(vm_buffer)));
 }
 
 static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
@@ -1144,7 +1144,7 @@ static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
     lily_value *inner = rhs_reg->value.dynamic->inner_value;
 
     if (inner->class_id == cast_class->id) {
-        lily_instance_val *variant = lily_new_enum_n(1);
+        lily_instance_val *variant = lily_new_enum(1);
         lily_variant_set_value(variant, 0, inner);
         lily_move_variant_f(LILY_SOME_ID | MOVE_DEREF_SPECULATIVE, lhs_reg,
                 variant);
@@ -1360,7 +1360,7 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code)
    to the caller to move the raw list to somewhere useful. */
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
-    lily_list_val *lv = lily_new_list_val_n(vm->call_depth);
+    lily_list_val *lv = lily_new_list(vm->call_depth);
     lily_call_frame *frame_iter;
 
     int i;
@@ -1401,7 +1401,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
                 name);
 
-        lily_move_string(lv->elems[i - 1], lily_new_raw_string_take(str));
+        lily_move_string(lv->elems[i - 1], lily_new_string_take(str));
     }
 
     return lv;
@@ -1415,8 +1415,8 @@ static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
     const char *raw_message = lily_mb_get(vm->raiser->msgbuf);
-    lily_instance_val *ival = lily_new_instance_val(2);
-    lily_string_val *message = lily_new_raw_string(raw_message);
+    lily_instance_val *ival = lily_new_instance(2);
+    lily_string_val *message = lily_new_string(raw_message);
     lily_mb_flush(vm->raiser->msgbuf);
 
     lily_instance_set_string(ival, 0, message);
@@ -1571,7 +1571,7 @@ uint16_t lily_cid_at(lily_vm_state *vm, int n)
 /** Foreign functions that are looking to interact with the interpreter can use
     the functions within here. Do be careful with foreign calls, however. **/
 
-void lily_prepare_call(lily_vm_state *vm, lily_function_val *func)
+void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
 {
     lily_call_frame *caller_frame = vm->call_chain;
     caller_frame->code = foreign_code;
@@ -1593,7 +1593,7 @@ void lily_prepare_call(lily_vm_state *vm, lily_function_val *func)
     target_frame->regs_used = func->reg_count;
 }
 
-void lily_exec_prepared(lily_vm_state *vm, int count)
+void lily_call_exec_prepared(lily_vm_state *vm, int count)
 {
     lily_call_frame *target_frame = vm->call_chain->next;
     lily_function_val *target_fn = target_frame->function;
@@ -1648,10 +1648,10 @@ void lily_exec_prepared(lily_vm_state *vm, int count)
     }
 }
 
-void lily_exec_simple(lily_vm_state *vm, lily_function_val *f, int count)
+void lily_call_simple(lily_vm_state *vm, lily_function_val *f, int count)
 {
-    lily_prepare_call(vm, f);
-    lily_exec_prepared(vm, count);
+    lily_call_prepare(vm, f);
+    lily_call_exec_prepared(vm, count);
 }
 
 /***

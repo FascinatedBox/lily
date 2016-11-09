@@ -20,11 +20,11 @@ was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
 static void *load_var_argv(lily_options *options, uint16_t *unused)
 {
-    lily_list_val *lv = lily_new_list_val_n(options->argc);
+    lily_list_val *lv = lily_new_list(options->argc);
 
     int i;
     for (i = 0;i < options->argc;i++)
-        lily_list_set_string(lv, i, lily_new_raw_string(options->argv[i]));
+        lily_list_set_string(lv, i, lily_new_string(options->argv[i]));
 
     return lily_new_value_of_list(lv);
 }
@@ -40,8 +40,8 @@ static void lily_sys_getenv(lily_state *s)
     char *env = getenv(lily_arg_string_raw(s, 0));
 
     if (env) {
-        lily_instance_val *variant = lily_new_enum_n(1);
-        lily_variant_set_string(variant, 0, lily_new_raw_string(env));
+        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_set_string(variant, 0, lily_new_string(env));
         lily_return_filled_variant(s, LILY_SOME_ID, variant);
     }
     else

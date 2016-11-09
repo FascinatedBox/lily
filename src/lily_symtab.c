@@ -309,7 +309,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_string_val *sv = lily_new_raw_string_sized(want_string, len);
+    lily_string_val *sv = lily_new_string_sized(want_string, len);
     lily_literal *v = (lily_literal *)lily_new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
@@ -343,7 +343,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_string_val *sv = lily_new_raw_string(want_string);
+    lily_string_val *sv = lily_new_string(want_string);
     lily_literal *v = (lily_literal *)lily_new_value_of_string(sv);
 
     /* Drop the derefable marker. */
@@ -559,7 +559,7 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 }
 
 /* Use this to create a new class that represents an enum. */
-lily_class *lily_new_enum(lily_symtab *symtab, const char *name)
+lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_new_class(symtab, name);
     new_class->flags |= CLS_IS_ENUM;

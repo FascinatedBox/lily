@@ -48,7 +48,7 @@ constructor Tainted[A](self: A): Tainted[A]
 */
 void lily_server_Tainted_new(lily_state *s)
 {
-    lily_instance_val *result = lily_new_instance_val(1);
+    lily_instance_val *result = lily_new_instance(1);
 
     lily_instance_set_value(result, 0, lily_arg_value(s, 0));
 
@@ -67,14 +67,14 @@ void lily_server_Tainted_sanitize(lily_state *s)
 
     lily_push_value(s, lily_instance_value(instance_val, 0));
 
-    lily_exec_simple(s, lily_arg_function(s, 1), 1);
+    lily_call_simple(s, lily_arg_function(s, 1), 1);
 
     lily_result_return(s);
 }
 
 lily_value *bind_tainted_of(lily_string_val *input, uint16_t tainted_id)
 {
-    lily_instance_val *iv = lily_new_instance_val(1);
+    lily_instance_val *iv = lily_new_instance(1);
     lily_instance_set_string(iv, 0, input);
     return lily_new_value_of_instance(tainted_id, iv);
 }
@@ -82,7 +82,7 @@ lily_value *bind_tainted_of(lily_string_val *input, uint16_t tainted_id)
 static void add_hash_entry(bind_table_data *table_data, lily_string_val *key,
         lily_string_val *record)
 {
-    lily_instance_val *tainted_rec = lily_new_instance_val(1);
+    lily_instance_val *tainted_rec = lily_new_instance(1);
     lily_instance_set_string(tainted_rec, 0, record);
     lily_value *boxed_rec = lily_new_value_of_instance(table_data->tainted_id,
             tainted_rec);
@@ -103,8 +103,8 @@ static int bind_table_entry(void *data, const char *key, const char *value)
 
     bind_table_data *table_data = (bind_table_data *)data;
 
-    lily_string_val *string_key = lily_new_raw_string(key);
-    lily_string_val *record = lily_new_raw_string(value);
+    lily_string_val *string_key = lily_new_string(key);
+    lily_string_val *record = lily_new_string(value);
 
     add_hash_entry(table_data, string_key, record);
     return TRUE;
@@ -159,7 +159,7 @@ static lily_value *load_var_httpmethod(lily_options *options, uint16_t *unused)
 {
     request_rec *r = (request_rec *)options->data;
 
-    return lily_new_value_of_string(lily_new_raw_string(r->method));
+    return lily_new_value_of_string(lily_new_string(r->method));
 }
 
 /**
@@ -202,9 +202,9 @@ static lily_value *load_var_post(lily_options *options, uint16_t *dyna_ids)
             apr_brigade_flatten(pair->value, buffer, &size);
             buffer[len] = 0;
 
-            lily_string_val *key = lily_new_raw_string(pair->name);
+            lily_string_val *key = lily_new_string(pair->name);
             /* Give the buffer to the value to save memory. */
-            lily_string_val *record = lily_new_raw_string_take(buffer);
+            lily_string_val *record = lily_new_string_take(buffer);
 
             add_hash_entry(&table_data, key, record);
         }

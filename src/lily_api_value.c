@@ -85,11 +85,6 @@ DEFINE_BOTH(variant, values[i], lily_instance_val *source, int i)
 
 DEFINE_SETTERS(return, call_chain->prev->return_target, lily_vm_state *source)
 
-lily_value *lily_instance_get(lily_instance_val *source, int i)
-{
-    return source->values[i];
-}
-
 /* Special-cased returns */
 
 void lily_return_value_noref(lily_state *s, lily_value *v)
@@ -131,13 +126,13 @@ int lily_arg_instance_for_id(lily_state *s, int index, lily_instance_val **iv)
    Push operations are located within the s, so that stack growing can remain
    internal to the vm. */
 
-lily_value *lily_pop_value(lily_state *s)
+lily_value *lily_result_pop(lily_state *s)
 {
     s->num_registers--;
     return s->regs_from_main[s->num_registers];
 }
 
-void lily_drop_value(lily_state *s)
+void lily_result_drop(lily_state *s)
 {
     s->num_registers--;
     lily_value *z = s->regs_from_main[s->num_registers];
@@ -244,10 +239,10 @@ lily_value *lily_new_value_of_string(lily_string_val *sv)
     return v;
 }
 
-lily_value *lily_new_value_of_string_lit(const char *str)
+lily_value *lily_new_value_of_string_raw(const char *str)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
-    lily_string_val *sv = lily_new_raw_string(str);
+    lily_string_val *sv = lily_new_string(str);
 
     sv->refcount++;
     v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
@@ -259,7 +254,7 @@ lily_value *lily_new_value_of_string_lit(const char *str)
 
 /* Create a new Dynamic value. The contents of the Dynamic are set to an empty
    raw value that is ready to be moved in. */
-lily_dynamic_val *lily_new_dynamic_val(void)
+lily_dynamic_val *lily_new_dynamic(void)
 {
     lily_dynamic_val *d = lily_malloc(sizeof(lily_dynamic_val));
     lily_value *v = lily_malloc(sizeof(lily_value));
@@ -276,7 +271,7 @@ lily_dynamic_val *lily_new_dynamic_val(void)
    already-opened C file. 'mode' should be a valid mode according to what fopen
    expects. The read/write bits on the File are set based on parsing 'mode'.
    Lily will close the File when it is deref'd/collected if it is open. */
-lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
+lily_file_val *lily_new_file(FILE *inner_file, const char *mode)
 {
     lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
 
@@ -291,7 +286,7 @@ lily_file_val *lily_new_file_val(FILE *inner_file, const char *mode)
     return filev;
 }
 
-lily_list_val *lily_new_list_val_n(int initial)
+lily_list_val *lily_new_list(int initial)
 {
     lily_list_val *lv = lily_malloc(sizeof(lily_list_val));
     lv->elems = lily_malloc(initial * sizeof(lily_value *));
@@ -309,7 +304,7 @@ lily_list_val *lily_new_list_val_n(int initial)
     return lv;
 }
 
-lily_instance_val *lily_new_instance_val(int initial)
+lily_instance_val *lily_new_instance(int initial)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
@@ -342,7 +337,7 @@ static lily_string_val *new_sv(char *buffer, int size)
    bytes of 'source'. 'source' is expected to NOT be \0 terminated, and thus
    'size' SHOULD NOT include any \0 termination. Instead, the \0 termination
    will */
-lily_string_val *lily_new_raw_string_sized(const char *source, int len)
+lily_string_val *lily_new_string_sized(const char *source, int len)
 {
     char *buffer = lily_malloc(len + 1);
     memcpy(buffer, source, len);
@@ -353,7 +348,7 @@ lily_string_val *lily_new_raw_string_sized(const char *source, int len)
 
 /* Create a new RAW lily_string_val. The newly-made string shall contain a copy
    of what is inside 'source'. The source is expected to be \0 terminated. */
-lily_string_val *lily_new_raw_string(const char *source)
+lily_string_val *lily_new_string(const char *source)
 {
     int len = strlen(source);
     char *buffer = lily_malloc(len + 1);
@@ -363,20 +358,12 @@ lily_string_val *lily_new_raw_string(const char *source)
 }
 
 /* Create a new raw string that takes ownership of 'source'. */
-lily_string_val *lily_new_raw_string_take(char *source)
+lily_string_val *lily_new_string_take(char *source)
 {
     return new_sv(source, strlen(source));
 }
 
-/* Create a new value holding a string. That string's source will be exactly
-   'source'. The string made assumes that it owns 'source' from here on. The
-   source given must be \0 terminated. */
-lily_value *lily_new_string_take(char *source)
-{
-    return lily_new_value_of_string(new_sv(source, strlen(source)));
-}
-
-lily_instance_val *lily_new_enum_n(int size)
+lily_instance_val *lily_new_enum(int size)
 {
     lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
 
@@ -397,7 +384,7 @@ lily_instance_val *lily_new_enum_n(int size)
 
 /* Simple per-type operations. */
 
-char *lily_bytestring_get_raw(lily_string_val *sv)
+char *lily_bytestring_raw(lily_string_val *sv)
 {
     return sv->string;
 }
@@ -407,7 +394,7 @@ int lily_bytestring_length(lily_string_val *sv)
     return sv->size;
 }
 
-FILE *lily_file_get_raw(lily_file_val *fv)
+FILE *lily_file_raw(lily_file_val *fv)
 {
     return fv->inner_file;
 }
@@ -440,7 +427,7 @@ int lily_function_is_native(lily_function_val *fv)
     return fv->code != NULL;
 }
 
-char *lily_string_get_raw(lily_string_val *sv)
+char *lily_string_raw(lily_string_val *sv)
 {
     return sv->string;
 }
@@ -809,7 +796,7 @@ void lily_ctor_setup(lily_state *s, lily_instance_val **iv, uint16_t id,
         }
     }
 
-    lily_instance_val *new_iv = lily_new_instance_val(initial);
+    lily_instance_val *new_iv = lily_new_instance(initial);
     lily_return_instance(s, id, new_iv);
     *iv = new_iv;
 }

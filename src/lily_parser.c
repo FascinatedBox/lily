@@ -3989,7 +3989,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
     if (is_dynaload == 0)
         ensure_valid_class(parser, lex->label);
 
-    lily_class *enum_cls = lily_new_enum(parser->symtab, lex->label);
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label);
 
     lily_lexer(lex);
 

@@ -98,7 +98,7 @@ lily_value *lily_new_value_of_instance(uint16_t, lily_instance_val *);
 lily_value *lily_new_value_of_integer(int64_t);
 lily_value *lily_new_value_of_list(lily_list_val *);
 lily_value *lily_new_value_of_string(lily_string_val *);
-lily_value *lily_new_value_of_string_lit(const char *);
+lily_value *lily_new_value_of_string_raw(const char *);
 
 /* These are the ids of the predefined variants of Option and Some. */
 #define LILY_SOME_ID  14
@@ -110,16 +110,16 @@ lily_value *lily_new_value_of_string_lit(const char *);
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
-char *lily_bytestring_get_raw(lily_string_val *);
+char *lily_bytestring_raw(lily_string_val *);
 int lily_bytestring_length(lily_string_val *);
 
 /* Dynamic operations */
-lily_dynamic_val *lily_new_dynamic_val(void);
+lily_dynamic_val *lily_new_dynamic(void);
 DECLARE_BOTH(dynamic, lily_dynamic_val *)
 
 /* File operations */
-lily_file_val *lily_new_file_val(FILE *, const char *);
-FILE *lily_file_get_raw(lily_file_val *);
+lily_file_val *lily_new_file(FILE *, const char *);
+FILE *lily_file_raw(lily_file_val *);
 void lily_file_ensure_readable(lily_state *, lily_file_val *);
 void lily_file_ensure_writeable(lily_state *, lily_file_val *);
 
@@ -128,7 +128,7 @@ int lily_function_is_foreign(lily_function_val *);
 int lily_function_is_native(lily_function_val *);
 
 /* Instance operations */
-lily_instance_val *lily_new_instance_val(int);
+lily_instance_val *lily_new_instance(int);
 DECLARE_BOTH(instance, lily_instance_val *, int);
 
 /* Hash operations */
@@ -143,34 +143,34 @@ void lily_hash_insert_str(lily_hash_val *, lily_string_val *, lily_value *);
 int lily_hash_delete(lily_hash_val *, lily_value **, lily_value **);
 
 /* List operations */
-lily_list_val *lily_new_list_val_n(int);
+lily_list_val *lily_new_list(int);
 DECLARE_BOTH(list, lily_list_val *, int)
 int lily_list_num_values(lily_list_val *);
 
 /* String operations */
-lily_string_val *lily_new_raw_string(const char *);
-lily_string_val *lily_new_raw_string_take(char *);
-lily_string_val *lily_new_raw_string_sized(const char *, int);
-char *lily_string_get_raw(lily_string_val *);
+lily_string_val *lily_new_string(const char *);
+lily_string_val *lily_new_string_take(char *);
+lily_string_val *lily_new_string_sized(const char *, int);
+char *lily_string_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);
 
 /* Enum operations */
-lily_instance_val *lily_new_enum_n(int);
+lily_instance_val *lily_new_enum(int);
 DECLARE_BOTH(variant, lily_instance_val *, int)
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
-lily_value *lily_pop_value(lily_state *);
-void lily_drop_value(lily_state *);
+lily_value *lily_result_pop(lily_state *);
+void lily_result_drop(lily_state *);
 DECLARE_SETTERS(push, lily_state *)
 
 DECLARE_SETTERS(return, lily_state *)
 void lily_return_value_noref(lily_state *, lily_value *);
 
 /* Calling, and argument fetching */
-void lily_prepare_call(lily_state *, lily_function_val *);
-void lily_exec_prepared(lily_state *, int);
-void lily_exec_simple(lily_state *, lily_function_val *, int);
+void lily_call_prepare(lily_state *, lily_function_val *);
+void lily_call_exec_prepared(lily_state *, int);
+void lily_call_simple(lily_state *, lily_function_val *, int);
 
 int lily_arg_class_id(lily_state *, int);
 int lily_arg_count(lily_state *);

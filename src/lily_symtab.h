@@ -88,7 +88,7 @@ void lily_hide_block_vars(lily_symtab *, lily_var *);
 
 lily_class *lily_new_raw_class(const char *);
 lily_class *lily_new_class(lily_symtab *, const char *);
-lily_class *lily_new_enum(lily_symtab *, const char *);
+lily_class *lily_new_enum_class(lily_symtab *, const char *);
 lily_variant_class *lily_new_variant(lily_symtab *, lily_class *, const char *);
 void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
