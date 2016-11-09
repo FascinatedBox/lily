@@ -17,9 +17,9 @@ void lily_move_instance_f(uint32_t, lily_value *, lily_instance_val *);
 void lily_move_integer(lily_value *, int64_t);
 void lily_move_list_f(uint32_t, lily_value *, lily_list_val *);
 void lily_move_string(lily_value *, lily_string_val *);
-void lily_move_tuple_f(uint32_t, lily_value *, lily_list_val *);
+void lily_move_tuple_f(uint32_t, lily_value *, lily_tuple_val *);
 void lily_move_unit(lily_value *);
-void lily_move_variant_f(uint32_t, lily_value *, lily_instance_val *);
+void lily_move_variant_f(uint32_t, lily_value *, lily_variant_val *);
 
 /* This value can be ref'd/deref'd, but does not contain any tagged data inside
    of it. */

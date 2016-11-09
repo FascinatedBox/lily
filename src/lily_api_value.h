@@ -23,7 +23,9 @@ typedef struct lily_hash_val_       lily_hash_val;
 typedef struct lily_instance_val_   lily_instance_val;
 typedef struct lily_list_val_       lily_list_val;
 typedef struct lily_string_val_     lily_string_val;
+typedef struct lily_tuple_val_      lily_tuple_val;
 typedef struct lily_value_          lily_value;
+typedef struct lily_variant_val_    lily_variant_val;
 
 /* Put this macro at the top of any struct that you'll send to Lily as a foreign
    value. Don't rely on 'do_not_use', in case it changes in the future. */
@@ -53,15 +55,15 @@ void lily_##name##_double(__VA_ARGS__, double); \
 void lily_##name##_empty_variant(__VA_ARGS__, uint16_t); \
 void lily_##name##_file(__VA_ARGS__, lily_file_val *); \
 void lily_##name##_foreign(__VA_ARGS__, uint16_t, lily_foreign_val *); \
-void lily_##name##_filled_variant(__VA_ARGS__, uint16_t, lily_instance_val *); \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val *); \
 void lily_##name##_instance(__VA_ARGS__, uint16_t, lily_instance_val *); \
 void lily_##name##_integer(__VA_ARGS__, int64_t); \
 void lily_##name##_list(__VA_ARGS__, lily_list_val *); \
 void lily_##name##_string(__VA_ARGS__, lily_string_val *); \
-void lily_##name##_tuple(__VA_ARGS__, lily_list_val *); \
+void lily_##name##_tuple(__VA_ARGS__, lily_tuple_val *); \
 void lily_##name##_unit(__VA_ARGS__); \
 void lily_##name##_value(__VA_ARGS__, lily_value *); \
+void lily_##name##_variant(__VA_ARGS__, uint16_t, lily_variant_val *); \
 
 #define DECLARE_GETTERS(name, ...) \
 int                lily_##name##_boolean(__VA_ARGS__); \
@@ -78,6 +80,7 @@ int64_t            lily_##name##_integer(__VA_ARGS__); \
 lily_list_val *    lily_##name##_list(__VA_ARGS__); \
 lily_string_val *  lily_##name##_string(__VA_ARGS__); \
 char *             lily_##name##_string_raw(__VA_ARGS__); \
+lily_tuple_val *   lily_##name##_tuple(__VA_ARGS__); \
 lily_value *       lily_##name##_value(__VA_ARGS__);
 
 #define DECLARE_BOTH(name, ...) \
@@ -154,9 +157,14 @@ lily_string_val *lily_new_string_sized(const char *, int);
 char *lily_string_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);
 
+/* Tuple operations */
+lily_tuple_val *lily_new_tuple(int);
+DECLARE_BOTH(tuple, lily_tuple_val *, int)
+int lily_tuple_num_values(lily_tuple_val *);
+
 /* Enum operations */
-lily_instance_val *lily_new_enum(int);
-DECLARE_BOTH(variant, lily_instance_val *, int)
+lily_variant_val *lily_new_variant(int);
+DECLARE_BOTH(variant, lily_variant_val *, int)
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
@@ -175,6 +183,7 @@ void lily_call_simple(lily_state *, lily_function_val *, int);
 int lily_arg_class_id(lily_state *, int);
 int lily_arg_count(lily_state *);
 int lily_arg_instance_for_id(lily_state *, int, lily_instance_val **);
+int lily_arg_variant_for_id(lily_state *, int, lily_variant_val **);
 void lily_result_return(lily_state *);
 
 /* Result operations */

@@ -23,8 +23,6 @@ void lily_##name##_file(__VA_ARGS__, lily_file_val * v) \
 { lily_move_file(source->action, v); } \
 void lily_##name##_foreign(__VA_ARGS__, uint16_t f, lily_foreign_val * v) \
 { lily_move_foreign_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_filled_variant(__VA_ARGS__, uint16_t f, lily_instance_val * v) \
-{ lily_move_variant_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_hash(__VA_ARGS__, lily_hash_val * v) \
 { lily_move_hash_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_instance(__VA_ARGS__, uint16_t f, lily_instance_val * v) \
@@ -35,12 +33,14 @@ void lily_##name##_list(__VA_ARGS__, lily_list_val * v) \
 { lily_move_list_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_string(__VA_ARGS__, lily_string_val * v) \
 { lily_move_string(source->action, v); } \
-void lily_##name##_tuple(__VA_ARGS__, lily_list_val * v) \
+void lily_##name##_tuple(__VA_ARGS__, lily_tuple_val * v) \
 { lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
 void lily_##name##_unit(__VA_ARGS__) \
 { lily_move_unit(source->action); } \
 void lily_##name##_value(__VA_ARGS__, lily_value * v) \
 { lily_value_assign(source->action, v); } \
+void lily_##name##_variant(__VA_ARGS__, uint16_t f, lily_variant_val * v) \
+{ lily_move_variant_f(f | MOVE_DEREF_SPECULATIVE, source->action, v); } \
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
@@ -71,8 +71,12 @@ lily_string_val *lily_##name##_string(__VA_ARGS__) \
 { return source->action->value.string; } \
 char *lily_##name##_string_raw(__VA_ARGS__) \
 { return source->action->value.string->string; } \
+lily_tuple_val *lily_##name##_tuple(__VA_ARGS__) \
+{ return (lily_tuple_val *)source->action->value.list; } \
 lily_value *lily_##name##_value(__VA_ARGS__) \
-{ return source->action; }
+{ return source->action; } \
+lily_variant_val *lily_##name##_variant(__VA_ARGS__) \
+{ return (lily_variant_val *)source->action->value.instance; } \
 
 #define DEFINE_BOTH(name, action, ...) \
 DEFINE_SETTERS(name##_set, action, __VA_ARGS__) \
@@ -81,7 +85,8 @@ DEFINE_GETTERS(name, action, __VA_ARGS__)
 DEFINE_BOTH(instance, values[i], lily_instance_val *source, int i)
 DEFINE_BOTH(dynamic, inner_value, lily_dynamic_val *source)
 DEFINE_BOTH(list, elems[i], lily_list_val *source, int i)
-DEFINE_BOTH(variant, values[i], lily_instance_val *source, int i)
+DEFINE_BOTH(tuple, elems[i], lily_tuple_val *source, int i)
+DEFINE_BOTH(variant, values[i], lily_variant_val *source, int i)
 
 DEFINE_SETTERS(return, call_chain->prev->return_target, lily_vm_state *source)
 
@@ -119,6 +124,13 @@ int lily_arg_instance_for_id(lily_state *s, int index, lily_instance_val **iv)
 {
     lily_value *v = s->vm_regs[index];
     *iv = v->value.instance;
+    return v->class_id;
+}
+
+int lily_arg_variant_for_id(lily_state *s, int index, lily_variant_val **iv)
+{
+    lily_value *v = s->vm_regs[index];
+    *iv = (lily_variant_val *)v->value.instance;
     return v->class_id;
 }
 
@@ -363,9 +375,14 @@ lily_string_val *lily_new_string_take(char *source)
     return new_sv(source, strlen(source));
 }
 
-lily_instance_val *lily_new_enum(int size)
+lily_tuple_val *lily_new_tuple(int initial)
 {
-    lily_instance_val *ival = lily_malloc(sizeof(lily_instance_val));
+    return (lily_tuple_val *)lily_new_list(initial);
+}
+
+lily_variant_val *lily_new_variant(int size)
+{
+    lily_variant_val *ival = lily_malloc(sizeof(lily_variant_val));
 
     ival->values = lily_malloc(size * sizeof(lily_value *));
     ival->refcount = 0;

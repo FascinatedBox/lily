@@ -102,10 +102,18 @@ typedef struct lily_dynamic_val_ {
     struct lily_gc_entry_ *gc_entry;
 } lily_dynamic_val;
 
-/* This handles both List and Tuple. The restrictions about what can be put in
-   are handled entirely at parse-time (vm just assumes correctness). There is no
-   marker for this because Dynamic can't 'lose' either of those types inside of
-   itself. */
+/* Internally, (non-empty) variants have the same layout as instances. This is
+   provided so that API can't make the same assumption, in case that changes. */
+typedef struct lily_variant_val_ {
+    uint32_t refcount;
+    uint16_t pad1;
+    uint16_t pad2;
+    uint32_t num_values;
+    uint32_t pad3;
+    struct lily_value_ **values;
+    struct lily_gc_entry_ *gc_entry;
+} lily_variant_val;
+
 typedef struct lily_list_val_ {
     uint32_t refcount;
     uint32_t extra_space;
@@ -205,6 +213,16 @@ typedef struct lily_function_val_ {
         uint16_t *cid_table;
     };
 } lily_function_val;
+
+/* Internally, Tuple has the same layout as List. This is provided so that API
+   can't make the same assumption, in case that changes. */
+typedef struct lily_tuple_val_ {
+    uint32_t refcount;
+    uint32_t extra_space;
+    uint32_t num_values;
+    uint32_t pad;
+    struct lily_value_ **elems;
+} lily_tuple_val;
 
 /* Every value that is refcounted is a superset of this. */
 typedef struct lily_generic_val_ {

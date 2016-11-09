@@ -40,9 +40,9 @@ static void lily_sys_getenv(lily_state *s)
     char *env = getenv(lily_arg_string_raw(s, 0));
 
     if (env) {
-        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_val *variant = lily_new_variant(1);
         lily_variant_set_string(variant, 0, lily_new_string(env));
-        lily_return_filled_variant(s, LILY_SOME_ID, variant);
+        lily_return_variant(s, LILY_SOME_ID, variant);
     }
     else
         lily_return_empty_variant(s, LILY_NONE_ID);

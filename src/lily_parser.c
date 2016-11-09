@@ -4033,7 +4033,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
             }
         }
 
-        lily_variant_class *variant_cls = lily_new_variant(parser->symtab,
+        lily_variant_class *variant_cls = lily_new_variant_class(parser->symtab,
                 enum_cls, lex->label);
         variant_count++;
 

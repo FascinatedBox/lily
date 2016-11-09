@@ -1011,7 +1011,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     if (code[0] == o_build_list)
         lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
     else
-        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, lv);
+        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, (lily_tuple_val *)lv);
 
     int i;
     for (i = 0;i < num_elems;i++) {
@@ -1027,7 +1027,7 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
     int count = code[3];
     lily_value *result = vm_regs[code[code[3] + 4]];
 
-    lily_instance_val *ival = lily_new_instance(count);
+    lily_variant_val *ival = lily_new_variant(count);
     lily_value **slots = ival->values;
 
     lily_move_variant_f(variant_id | MOVE_DEREF_SPECULATIVE, result, ival);
@@ -1144,7 +1144,7 @@ static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
     lily_value *inner = rhs_reg->value.dynamic->inner_value;
 
     if (inner->class_id == cast_class->id) {
-        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_val *variant = lily_new_variant(1);
         lily_variant_set_value(variant, 0, inner);
         lily_move_variant_f(LILY_SOME_ID | MOVE_DEREF_SPECULATIVE, lhs_reg,
                 variant);

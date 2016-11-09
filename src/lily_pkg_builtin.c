@@ -211,9 +211,9 @@ void lily_builtin_ByteString_encode(lily_state *s)
         return;
     }
 
-    lily_instance_val *variant = lily_new_enum(1);
+    lily_variant_val *variant = lily_new_variant(1);
     lily_variant_set_string(variant, 0, lily_new_string(byte_buffer));
-    lily_return_filled_variant(s, LILY_SOME_ID, variant);
+    lily_return_variant(s, LILY_SOME_ID, variant);
 }
 
 /**
@@ -323,12 +323,12 @@ void lily_builtin_Either_is_right(lily_state *s)
 
 static void either_optionize_left_right(lily_state *s, int expect)
 {
-    lily_instance_val *iv;
+    lily_variant_val *either_val;
 
-    if (lily_arg_instance_for_id(s, 0, &iv) == expect) {
-        lily_instance_val *variant = lily_new_enum(1);
-        lily_variant_set_value(variant, 0, lily_instance_value(iv, 0));
-        lily_return_filled_variant(s, LILY_SOME_ID, variant);
+    if (lily_arg_variant_for_id(s, 0, &either_val) == expect) {
+        lily_variant_val *variant = lily_new_variant(1);
+        lily_variant_set_value(variant, 0, lily_variant_value(either_val, 0));
+        lily_return_variant(s, LILY_SOME_ID, variant);
     }
     else
         lily_return_empty_variant(s, LILY_NONE_ID);
@@ -1632,10 +1632,10 @@ Otherwise, this returns `None`.
 */
 void lily_builtin_Option_and_then(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID) {
-        lily_push_value(s, lily_instance_value(optval, 0));
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID) {
+        lily_push_value(s, lily_variant_value(optval, 0));
 
         lily_call_simple(s, lily_arg_function(s, 1), 1);
 
@@ -1678,16 +1678,16 @@ Otherwise, this returns `None`.
 */
 void lily_builtin_Option_map(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID) {
-        lily_push_value(s, lily_instance_value(optval, 0));
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID) {
+        lily_push_value(s, lily_variant_value(optval, 0));
 
         lily_call_simple(s, lily_arg_function(s, 1), 1);
 
-        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_val *variant = lily_new_variant(1);
         lily_variant_set_value(variant, 0, lily_result_value(s));
-        lily_return_filled_variant(s, LILY_SOME_ID, variant);
+        lily_return_variant(s, LILY_SOME_ID, variant);
     }
     else
         lily_return_empty_variant(s, LILY_NONE_ID);
@@ -1702,10 +1702,10 @@ Otherwise, this returns `alternate`.
 */
 void lily_builtin_Option_or(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
-        lily_return_filled_variant(s, LILY_SOME_ID, optval);
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_variant(s, LILY_SOME_ID, optval);
     else
         lily_return_value(s, lily_arg_value(s, 1));
 }
@@ -1719,10 +1719,10 @@ Otherwise, this returns the result of calling `fn`.
 */
 void lily_builtin_Option_or_else(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
-        lily_return_filled_variant(s, LILY_SOME_ID, optval);
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_variant(s, LILY_SOME_ID, optval);
     else {
         lily_call_simple(s, lily_arg_function(s, 1), 0);
 
@@ -1741,10 +1741,10 @@ If `self` is a `Some`, this returns the value contained within.
 */
 void lily_builtin_Option_unwrap(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
-        lily_return_value(s, lily_instance_value(optval, 0));
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_value(s, lily_variant_value(optval, 0));
     else
         lily_ValueError(s, "unwrap called on None.");
 }
@@ -1759,11 +1759,11 @@ Otherwise, this returns `alternate`.
 void lily_builtin_Option_unwrap_or(lily_state *s)
 {
     lily_value *fallback_reg = lily_arg_value(s, 1);
-    lily_instance_val *optval;
+    lily_variant_val *optval;
     lily_value *source;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
-        source = lily_instance_value(optval, 0);
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID)
+        source = lily_variant_value(optval, 0);
     else
         source = fallback_reg;
 
@@ -1779,10 +1779,10 @@ Otherwise, this returns the result of calling `fn`.
 */
 void lily_builtin_Option_unwrap_or_else(lily_state *s)
 {
-    lily_instance_val *optval;
+    lily_variant_val *optval;
 
-    if (lily_arg_instance_for_id(s, 0, &optval) == LILY_SOME_ID)
-        lily_return_value(s, lily_instance_value(optval, 0));
+    if (lily_arg_variant_for_id(s, 0, &optval) == LILY_SOME_ID)
+        lily_return_value(s, lily_variant_value(optval, 0));
     else {
         lily_call_simple(s, lily_arg_function(s, 1), 0);
 
@@ -1941,9 +1941,9 @@ void lily_builtin_String_find(lily_state *s)
     }
 
     if (match) {
-        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_val *variant = lily_new_variant(1);
         lily_variant_set_integer(variant, 0, i);
-        lily_return_filled_variant(s, LILY_SOME_ID, variant);
+        lily_return_variant(s, LILY_SOME_ID, variant);
     }
     else
         lily_return_empty_variant(s, LILY_NONE_ID);
@@ -2331,9 +2331,9 @@ void lily_builtin_String_parse_i(lily_state *s)
         else
             signed_value = -(int64_t)value;
 
-        lily_instance_val *variant = lily_new_enum(1);
+        lily_variant_val *variant = lily_new_variant(1);
         lily_variant_set_integer(variant, 0, signed_value);
-        lily_return_filled_variant(s, LILY_SOME_ID, variant);
+        lily_return_variant(s, LILY_SOME_ID, variant);
     }
 }
 
@@ -2809,11 +2809,11 @@ Build a new `Tuple` composed of the contents of `self` and the contents of
 */
 void lily_builtin_Tuple_merge(lily_state *s)
 {
-    lily_list_val *left_tuple = lily_arg_list(s, 0);
-    lily_list_val *right_tuple = lily_arg_list(s, 1);
+    lily_tuple_val *left_tuple = lily_arg_tuple(s, 0);
+    lily_tuple_val *right_tuple = lily_arg_tuple(s, 1);
 
     int new_count = left_tuple->num_values + right_tuple->num_values;
-    lily_list_val *lv = lily_new_list(new_count);
+    lily_tuple_val *lv = lily_new_tuple(new_count);
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
@@ -2832,9 +2832,9 @@ Build a new `Tuple` composed of the contents of `self` and `other`.
 */
 void lily_builtin_Tuple_push(lily_state *s)
 {
-    lily_list_val *left_tuple = lily_arg_list(s, 0);
+    lily_tuple_val *left_tuple = lily_arg_tuple(s, 0);
     lily_value *right = lily_arg_value(s, 1);
-    lily_list_val *lv = lily_new_list(left_tuple->num_values + 1);
+    lily_tuple_val *lv = lily_new_tuple(left_tuple->num_values + 1);
 
     int i, j;
     for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
