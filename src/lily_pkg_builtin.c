@@ -2337,6 +2337,60 @@ void lily_builtin_String_parse_i(lily_state *s)
     }
 }
 
+/**
+method String.replace(self: String, needle: String, new: String): String
+
+Create a new `String` consisting of every `needle` replaced with `new`.
+*/
+void lily_builtin_String_replace(lily_state *s)
+{
+    lily_string_val *source_sv = lily_arg_string(s, 0);
+    lily_string_val *needle_sv = lily_arg_string(s, 1);
+    int source_len = lily_string_length(source_sv);
+    int needle_len = lily_string_length(needle_sv);
+
+    if (needle_len > source_len) {
+        lily_return_string(s, source_sv);
+        return;
+    }
+
+    lily_msgbuf *msgbuf = lily_get_msgbuf(s);
+    char *source = lily_string_raw(source_sv);
+    char *needle = lily_string_raw(needle_sv);
+    char *replace_with = lily_arg_string_raw(s, 2);
+    char needle_first = *needle;
+    char ch;
+    int start = 0;
+    int i;
+
+    for (i = 0;i < source_len;i++) {
+        ch = source[i];
+        if (ch == needle_first &&
+            (i + needle_len) <= source_len) {
+            int match = 1;
+            int j;
+            for (j = 1;j < needle_len;j++) {
+                if (needle[j] != source[i + j])
+                    match = 0;
+            }
+
+            if (match) {
+                if (i != start)
+                    lily_mb_add_range(msgbuf, source, start, i);
+
+                lily_mb_add(msgbuf, replace_with);
+                i += needle_len - 1;
+                start = i + 1;
+            }
+        }
+    }
+
+    if (i != start)
+        lily_mb_add_range(msgbuf, source, start, i);
+
+    lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
+}
+
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
 static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
 {

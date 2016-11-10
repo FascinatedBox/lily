@@ -95,7 +95,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"V\0None\0"
     ,"N\1RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
-    ,"C\17String"
+    ,"C\18String"
     ,"m\0ends_with\0(String,String):Boolean"
     ,"m\0find\0(String,String):Option[Integer]"
     ,"m\0html_encode\0(String):String"
@@ -106,6 +106,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0lower\0(String):String"
     ,"m\0lstrip\0(String,String):String"
     ,"m\0parse_i\0(String):Option[Integer]"
+    ,"m\0replace\0(String,String,String):String"
     ,"m\0rstrip\0(String,String):String"
     ,"m\0split\0(String,*String):List[String]"
     ,"m\0starts_with\0(String,String):Boolean"
@@ -204,16 +205,17 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 103: return lily_builtin_String_lower;
         case 104: return lily_builtin_String_lstrip;
         case 105: return lily_builtin_String_parse_i;
-        case 106: return lily_builtin_String_rstrip;
-        case 107: return lily_builtin_String_split;
-        case 108: return lily_builtin_String_starts_with;
-        case 109: return lily_builtin_String_strip;
-        case 110: return lily_builtin_String_to_bytestring;
-        case 111: return lily_builtin_String_trim;
-        case 112: return lily_builtin_String_upper;
-        case 114: return lily_builtin_Tuple_merge;
-        case 115: return lily_builtin_Tuple_push;
-        case 117: return lily_builtin_ValueError_new;
+        case 106: return lily_builtin_String_replace;
+        case 107: return lily_builtin_String_rstrip;
+        case 108: return lily_builtin_String_split;
+        case 109: return lily_builtin_String_starts_with;
+        case 110: return lily_builtin_String_strip;
+        case 111: return lily_builtin_String_to_bytestring;
+        case 112: return lily_builtin_String_trim;
+        case 113: return lily_builtin_String_upper;
+        case 115: return lily_builtin_Tuple_merge;
+        case 116: return lily_builtin_Tuple_push;
+        case 118: return lily_builtin_ValueError_new;
         default: return NULL;
     }
 }
