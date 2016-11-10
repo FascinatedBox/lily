@@ -1691,6 +1691,15 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
     c = lexer->input_buffer[lbp];
     htmlp = 0;
 
+    /* For `?>\n`, don't render the newline (it's annoying). */
+    if (c == '\n' &&
+        lbp > 2 &&
+        lexer->input_buffer[lbp - 1] == '>' &&
+        lexer->input_buffer[lbp - 2] == '?') {
+
+        goto next_line;
+    }
+
     /* Send html to the server either when unable to hold more or the lily tag
        is found. */
     while (1) {
@@ -1717,6 +1726,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         }
 
         if (c == '\n') {
+next_line:
             if (read_line(lexer))
                 lbp = 0;
             else {
