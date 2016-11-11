@@ -48,46 +48,6 @@ lily_destroy_func destroy_func;
    function should not have any side-effects. */
 typedef void (*lily_destroy_func)(lily_generic_val *);
 
-#define DECLARE_SETTERS(name, ...) \
-void lily_##name##_boolean(__VA_ARGS__, int); \
-void lily_##name##_byte(__VA_ARGS__, uint8_t); \
-void lily_##name##_bytestring(__VA_ARGS__, lily_bytestring_val *); \
-void lily_##name##_double(__VA_ARGS__, double); \
-void lily_##name##_empty_variant(__VA_ARGS__, uint16_t); \
-void lily_##name##_file(__VA_ARGS__, lily_file_val *); \
-void lily_##name##_foreign(__VA_ARGS__, uint16_t, lily_foreign_val *); \
-void lily_##name##_hash(__VA_ARGS__, lily_hash_val *); \
-void lily_##name##_instance(__VA_ARGS__, uint16_t, lily_instance_val *); \
-void lily_##name##_integer(__VA_ARGS__, int64_t); \
-void lily_##name##_list(__VA_ARGS__, lily_list_val *); \
-void lily_##name##_string(__VA_ARGS__, lily_string_val *); \
-void lily_##name##_tuple(__VA_ARGS__, lily_tuple_val *); \
-void lily_##name##_unit(__VA_ARGS__); \
-void lily_##name##_value(__VA_ARGS__, lily_value *); \
-void lily_##name##_variant(__VA_ARGS__, uint16_t, lily_variant_val *); \
-
-#define DECLARE_GETTERS(name, ...) \
-int                lily_##name##_boolean(__VA_ARGS__); \
-uint8_t            lily_##name##_byte(__VA_ARGS__); \
-lily_bytestring_val *lily_##name##_bytestring(__VA_ARGS__); \
-double             lily_##name##_double(__VA_ARGS__); \
-lily_file_val *    lily_##name##_file(__VA_ARGS__); \
-FILE *             lily_##name##_file_raw(__VA_ARGS__); \
-lily_function_val *lily_##name##_function(__VA_ARGS__); \
-lily_hash_val *    lily_##name##_hash(__VA_ARGS__); \
-lily_generic_val * lily_##name##_generic(__VA_ARGS__); \
-lily_instance_val *lily_##name##_instance(__VA_ARGS__); \
-int64_t            lily_##name##_integer(__VA_ARGS__); \
-lily_list_val *    lily_##name##_list(__VA_ARGS__); \
-lily_string_val *  lily_##name##_string(__VA_ARGS__); \
-char *             lily_##name##_string_raw(__VA_ARGS__); \
-lily_tuple_val *   lily_##name##_tuple(__VA_ARGS__); \
-lily_value *       lily_##name##_value(__VA_ARGS__);
-
-#define DECLARE_BOTH(name, ...) \
-DECLARE_SETTERS(name##_set, __VA_ARGS__) \
-DECLARE_GETTERS(name, __VA_ARGS__)
-
 /* Build operations
    These operations have been made to help with dynaloading vars. These will
    wrap over a raw value to provide the lily_value * that the loader expects, so
@@ -122,7 +82,38 @@ int lily_bytestring_length(lily_string_val *);
 
 /* Dynamic operations */
 lily_dynamic_val *lily_new_dynamic(void);
-DECLARE_BOTH(dynamic, lily_dynamic_val *)
+int                  lily_dynamic_boolean   (lily_dynamic_val *);
+uint8_t              lily_dynamic_byte      (lily_dynamic_val *);
+lily_bytestring_val *lily_dynamic_bytestring(lily_dynamic_val *);
+double               lily_dynamic_double    (lily_dynamic_val *);
+lily_file_val *      lily_dynamic_file      (lily_dynamic_val *);
+FILE *               lily_dynamic_file_raw  (lily_dynamic_val *);
+lily_function_val *  lily_dynamic_function  (lily_dynamic_val *);
+lily_hash_val *      lily_dynamic_hash      (lily_dynamic_val *);
+lily_generic_val *   lily_dynamic_generic   (lily_dynamic_val *);
+lily_instance_val *  lily_dynamic_instance  (lily_dynamic_val *);
+int64_t              lily_dynamic_integer   (lily_dynamic_val *);
+lily_list_val *      lily_dynamic_list      (lily_dynamic_val *);
+lily_string_val *    lily_dynamic_string    (lily_dynamic_val *);
+char *               lily_dynamic_string_raw(lily_dynamic_val *);
+lily_tuple_val *     lily_dynamic_tuple     (lily_dynamic_val *);
+lily_value *         lily_dynamic_value     (lily_dynamic_val *);
+void lily_dynamic_set_boolean      (lily_dynamic_val *, int);
+void lily_dynamic_set_byte         (lily_dynamic_val *, uint8_t);
+void lily_dynamic_set_bytestring   (lily_dynamic_val *, lily_bytestring_val *);
+void lily_dynamic_set_double       (lily_dynamic_val *, double);
+void lily_dynamic_set_empty_variant(lily_dynamic_val *, uint16_t);
+void lily_dynamic_set_file         (lily_dynamic_val *, lily_file_val *);
+void lily_dynamic_set_foreign      (lily_dynamic_val *, uint16_t, lily_foreign_val *);
+void lily_dynamic_set_hash         (lily_dynamic_val *, lily_hash_val *);
+void lily_dynamic_set_instance     (lily_dynamic_val *, uint16_t, lily_instance_val *);
+void lily_dynamic_set_integer      (lily_dynamic_val *, int64_t);
+void lily_dynamic_set_list         (lily_dynamic_val *, lily_list_val *);
+void lily_dynamic_set_string       (lily_dynamic_val *, lily_string_val *);
+void lily_dynamic_set_tuple        (lily_dynamic_val *, lily_tuple_val *);
+void lily_dynamic_set_unit         (lily_dynamic_val *);
+void lily_dynamic_set_value        (lily_dynamic_val *, lily_value *);
+void lily_dynamic_set_variant      (lily_dynamic_val *, uint16_t, lily_variant_val *);
 
 /* File operations */
 lily_file_val *lily_new_file(FILE *, const char *);
@@ -136,7 +127,38 @@ int lily_function_is_native(lily_function_val *);
 
 /* Instance operations */
 lily_instance_val *lily_new_instance(int);
-DECLARE_BOTH(instance, lily_instance_val *, int);
+int                  lily_instance_boolean   (lily_instance_val *, int);
+uint8_t              lily_instance_byte      (lily_instance_val *, int);
+lily_bytestring_val *lily_instance_bytestring(lily_instance_val *, int);
+double               lily_instance_double    (lily_instance_val *, int);
+lily_file_val *      lily_instance_file      (lily_instance_val *, int);
+FILE *               lily_instance_file_raw  (lily_instance_val *, int);
+lily_function_val *  lily_instance_function  (lily_instance_val *, int);
+lily_hash_val *      lily_instance_hash      (lily_instance_val *, int);
+lily_generic_val *   lily_instance_generic   (lily_instance_val *, int);
+lily_instance_val *  lily_instance_instance  (lily_instance_val *, int);
+int64_t              lily_instance_integer   (lily_instance_val *, int);
+lily_list_val *      lily_instance_list      (lily_instance_val *, int);
+lily_string_val *    lily_instance_string    (lily_instance_val *, int);
+char *               lily_instance_string_raw(lily_instance_val *, int);
+lily_tuple_val *     lily_instance_tuple     (lily_instance_val *, int);
+lily_value *         lily_instance_value     (lily_instance_val *, int);
+void lily_instance_set_boolean      (lily_instance_val *, int, int);
+void lily_instance_set_byte         (lily_instance_val *, int, uint8_t);
+void lily_instance_set_bytestring   (lily_instance_val *, int, lily_bytestring_val *);
+void lily_instance_set_double       (lily_instance_val *, int, double);
+void lily_instance_set_empty_variant(lily_instance_val *, int, uint16_t);
+void lily_instance_set_file         (lily_instance_val *, int, lily_file_val *);
+void lily_instance_set_foreign      (lily_instance_val *, int, uint16_t, lily_foreign_val *);
+void lily_instance_set_hash         (lily_instance_val *, int, lily_hash_val *);
+void lily_instance_set_instance     (lily_instance_val *, int, uint16_t, lily_instance_val *);
+void lily_instance_set_integer      (lily_instance_val *, int, int64_t);
+void lily_instance_set_list         (lily_instance_val *, int, lily_list_val *);
+void lily_instance_set_string       (lily_instance_val *, int, lily_string_val *);
+void lily_instance_set_tuple        (lily_instance_val *, int, lily_tuple_val *);
+void lily_instance_set_unit         (lily_instance_val *, int);
+void lily_instance_set_value        (lily_instance_val *, int, lily_value *);
+void lily_instance_set_variant      (lily_instance_val *, int, uint16_t, lily_variant_val *);
 
 /* Hash operations */
 lily_hash_val *lily_new_hash_numtable(void);
@@ -151,8 +173,39 @@ int lily_hash_delete(lily_hash_val *, lily_value **, lily_value **);
 
 /* List operations */
 lily_list_val *lily_new_list(int);
-DECLARE_BOTH(list, lily_list_val *, int)
 int lily_list_num_values(lily_list_val *);
+int                  lily_list_boolean   (lily_list_val *, int);
+uint8_t              lily_list_byte      (lily_list_val *, int);
+lily_bytestring_val *lily_list_bytestring(lily_list_val *, int);
+double               lily_list_double    (lily_list_val *, int);
+lily_file_val *      lily_list_file      (lily_list_val *, int);
+FILE *               lily_list_file_raw  (lily_list_val *, int);
+lily_function_val *  lily_list_function  (lily_list_val *, int);
+lily_hash_val *      lily_list_hash      (lily_list_val *, int);
+lily_generic_val *   lily_list_generic   (lily_list_val *, int);
+lily_instance_val *  lily_list_instance  (lily_list_val *, int);
+int64_t              lily_list_integer   (lily_list_val *, int);
+lily_list_val *      lily_list_list      (lily_list_val *, int);
+lily_string_val *    lily_list_string    (lily_list_val *, int);
+char *               lily_list_string_raw(lily_list_val *, int);
+lily_tuple_val *     lily_list_tuple     (lily_list_val *, int);
+lily_value *         lily_list_value     (lily_list_val *, int);
+void lily_list_set_boolean      (lily_list_val *, int, int);
+void lily_list_set_byte         (lily_list_val *, int, uint8_t);
+void lily_list_set_bytestring   (lily_list_val *, int, lily_bytestring_val *);
+void lily_list_set_double       (lily_list_val *, int, double);
+void lily_list_set_empty_variant(lily_list_val *, int, uint16_t);
+void lily_list_set_file         (lily_list_val *, int, lily_file_val *);
+void lily_list_set_foreign      (lily_list_val *, int, uint16_t, lily_foreign_val *);
+void lily_list_set_hash         (lily_list_val *, int, lily_hash_val *);
+void lily_list_set_instance     (lily_list_val *, int, uint16_t, lily_instance_val *);
+void lily_list_set_integer      (lily_list_val *, int, int64_t);
+void lily_list_set_list         (lily_list_val *, int, lily_list_val *);
+void lily_list_set_string       (lily_list_val *, int, lily_string_val *);
+void lily_list_set_tuple        (lily_list_val *, int, lily_tuple_val *);
+void lily_list_set_unit         (lily_list_val *, int);
+void lily_list_set_value        (lily_list_val *, int, lily_value *);
+void lily_list_set_variant      (lily_list_val *, int, uint16_t, lily_variant_val *);
 
 /* String operations */
 lily_string_val *lily_new_string(const char *);
@@ -163,20 +216,112 @@ int lily_string_length(lily_string_val *);
 
 /* Tuple operations */
 lily_tuple_val *lily_new_tuple(int);
-DECLARE_BOTH(tuple, lily_tuple_val *, int)
 int lily_tuple_num_values(lily_tuple_val *);
+int                  lily_tuple_boolean   (lily_tuple_val *, int);
+uint8_t              lily_tuple_byte      (lily_tuple_val *, int);
+lily_bytestring_val *lily_tuple_bytestring(lily_tuple_val *, int);
+double               lily_tuple_double    (lily_tuple_val *, int);
+lily_file_val *      lily_tuple_file      (lily_tuple_val *, int);
+FILE *               lily_tuple_file_raw  (lily_tuple_val *, int);
+lily_function_val *  lily_tuple_function  (lily_tuple_val *, int);
+lily_hash_val *      lily_tuple_hash      (lily_tuple_val *, int);
+lily_generic_val *   lily_tuple_generic   (lily_tuple_val *, int);
+lily_instance_val *  lily_tuple_instance  (lily_tuple_val *, int);
+int64_t              lily_tuple_integer   (lily_tuple_val *, int);
+lily_list_val *      lily_tuple_list      (lily_tuple_val *, int);
+lily_string_val *    lily_tuple_string    (lily_tuple_val *, int);
+char *               lily_tuple_string_raw(lily_tuple_val *, int);
+lily_tuple_val *     lily_tuple_tuple     (lily_tuple_val *, int);
+lily_value *         lily_tuple_value     (lily_tuple_val *, int);
+void lily_tuple_set_boolean      (lily_tuple_val *, int, int);
+void lily_tuple_set_byte         (lily_tuple_val *, int, uint8_t);
+void lily_tuple_set_bytestring   (lily_tuple_val *, int, lily_bytestring_val *);
+void lily_tuple_set_double       (lily_tuple_val *, int, double);
+void lily_tuple_set_empty_variant(lily_tuple_val *, int, uint16_t);
+void lily_tuple_set_file         (lily_tuple_val *, int, lily_file_val *);
+void lily_tuple_set_foreign      (lily_tuple_val *, int, uint16_t, lily_foreign_val *);
+void lily_tuple_set_hash         (lily_tuple_val *, int, lily_hash_val *);
+void lily_tuple_set_instance     (lily_tuple_val *, int, uint16_t, lily_instance_val *);
+void lily_tuple_set_integer      (lily_tuple_val *, int, int64_t);
+void lily_tuple_set_list         (lily_tuple_val *, int, lily_list_val *);
+void lily_tuple_set_string       (lily_tuple_val *, int, lily_string_val *);
+void lily_tuple_set_tuple        (lily_tuple_val *, int, lily_tuple_val *);
+void lily_tuple_set_unit         (lily_tuple_val *, int);
+void lily_tuple_set_value        (lily_tuple_val *, int, lily_value *);
+void lily_tuple_set_variant      (lily_tuple_val *, int, uint16_t, lily_variant_val *);
 
 /* Enum operations */
 lily_variant_val *lily_new_variant(int);
-DECLARE_BOTH(variant, lily_variant_val *, int)
+int                  lily_variant_boolean   (lily_variant_val *, int);
+uint8_t              lily_variant_byte      (lily_variant_val *, int);
+lily_bytestring_val *lily_variant_bytestring(lily_variant_val *, int);
+double               lily_variant_double    (lily_variant_val *, int);
+lily_file_val *      lily_variant_file      (lily_variant_val *, int);
+FILE *               lily_variant_file_raw  (lily_variant_val *, int);
+lily_function_val *  lily_variant_function  (lily_variant_val *, int);
+lily_hash_val *      lily_variant_hash      (lily_variant_val *, int);
+lily_generic_val *   lily_variant_generic   (lily_variant_val *, int);
+lily_instance_val *  lily_variant_instance  (lily_variant_val *, int);
+int64_t              lily_variant_integer   (lily_variant_val *, int);
+lily_list_val *      lily_variant_list      (lily_variant_val *, int);
+lily_string_val *    lily_variant_string    (lily_variant_val *, int);
+char *               lily_variant_string_raw(lily_variant_val *, int);
+lily_tuple_val *     lily_variant_tuple     (lily_variant_val *, int);
+lily_value *         lily_variant_value     (lily_variant_val *, int);
+void lily_variant_set_boolean      (lily_variant_val *, int, int);
+void lily_variant_set_byte         (lily_variant_val *, int, uint8_t);
+void lily_variant_set_bytestring   (lily_variant_val *, int, lily_bytestring_val *);
+void lily_variant_set_double       (lily_variant_val *, int, double);
+void lily_variant_set_empty_variant(lily_variant_val *, int, uint16_t);
+void lily_variant_set_file         (lily_variant_val *, int, lily_file_val *);
+void lily_variant_set_foreign      (lily_variant_val *, int, uint16_t, lily_foreign_val *);
+void lily_variant_set_hash         (lily_variant_val *, int, lily_hash_val *);
+void lily_variant_set_instance     (lily_variant_val *, int, uint16_t, lily_instance_val *);
+void lily_variant_set_integer      (lily_variant_val *, int, int64_t);
+void lily_variant_set_list         (lily_variant_val *, int, lily_list_val *);
+void lily_variant_set_string       (lily_variant_val *, int, lily_string_val *);
+void lily_variant_set_tuple        (lily_variant_val *, int, lily_tuple_val *);
+void lily_variant_set_unit         (lily_variant_val *, int);
+void lily_variant_set_value        (lily_variant_val *, int, lily_value *);
+void lily_variant_set_variant      (lily_variant_val *, int, uint16_t, lily_variant_val *);
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
 lily_value *lily_result_pop(lily_state *);
 void lily_result_drop(lily_state *);
-DECLARE_SETTERS(push, lily_state *)
+void lily_push_boolean      (lily_state *, int);
+void lily_push_byte         (lily_state *, uint8_t);
+void lily_push_bytestring   (lily_state *, lily_bytestring_val *);
+void lily_push_double       (lily_state *, double);
+void lily_push_empty_variant(lily_state *, uint16_t);
+void lily_push_file         (lily_state *, lily_file_val *);
+void lily_push_foreign      (lily_state *, lily_foreign_val *, uint16_t);
+void lily_push_hash         (lily_state *, lily_hash_val *);
+void lily_push_instance     (lily_state *, lily_instance_val *, uint16_t);
+void lily_push_integer      (lily_state *, int64_t);
+void lily_push_list         (lily_state *, lily_list_val *);
+void lily_push_string       (lily_state *, lily_string_val *);
+void lily_push_tuple        (lily_state *, lily_tuple_val *);
+void lily_push_unit         (lily_state *);
+void lily_push_value        (lily_state *, lily_value *);
+void lily_push_variant      (lily_state *, lily_variant_val *, uint16_t);
 
-DECLARE_SETTERS(return, lily_state *)
+void lily_return_boolean      (lily_state *, int);
+void lily_return_byte         (lily_state *, uint8_t);
+void lily_return_bytestring   (lily_state *, lily_bytestring_val *);
+void lily_return_double       (lily_state *, double);
+void lily_return_empty_variant(lily_state *, uint16_t);
+void lily_return_file         (lily_state *, lily_file_val *);
+void lily_return_foreign      (lily_state *, uint16_t, lily_foreign_val *);
+void lily_return_hash         (lily_state *, lily_hash_val *);
+void lily_return_instance     (lily_state *, uint16_t, lily_instance_val *);
+void lily_return_integer      (lily_state *, int64_t);
+void lily_return_list         (lily_state *, lily_list_val *);
+void lily_return_string       (lily_state *, lily_string_val *);
+void lily_return_tuple        (lily_state *, lily_tuple_val *);
+void lily_return_unit         (lily_state *);
+void lily_return_value        (lily_state *, lily_value *);
+void lily_return_variant      (lily_state *, uint16_t, lily_variant_val *);
 void lily_return_value_noref(lily_state *, lily_value *);
 
 /* Calling, and argument fetching */
@@ -191,8 +336,38 @@ int lily_arg_variant_for_id(lily_state *, int, lily_variant_val **);
 void lily_result_return(lily_state *);
 
 /* Result operations */
-DECLARE_GETTERS(arg, lily_state *, int)
-DECLARE_GETTERS(result, lily_state *)
+int                  lily_arg_boolean   (lily_state *, int);
+uint8_t              lily_arg_byte      (lily_state *, int);
+lily_bytestring_val *lily_arg_bytestring(lily_state *, int);
+double               lily_arg_double    (lily_state *, int);
+lily_file_val *      lily_arg_file      (lily_state *, int);
+FILE *               lily_arg_file_raw  (lily_state *, int);
+lily_function_val *  lily_arg_function  (lily_state *, int);
+lily_hash_val *      lily_arg_hash      (lily_state *, int);
+lily_generic_val *   lily_arg_generic   (lily_state *, int);
+lily_instance_val *  lily_arg_instance  (lily_state *, int);
+int64_t              lily_arg_integer   (lily_state *, int);
+lily_list_val *      lily_arg_list      (lily_state *, int);
+lily_string_val *    lily_arg_string    (lily_state *, int);
+char *               lily_arg_string_raw(lily_state *, int);
+lily_tuple_val *     lily_arg_tuple     (lily_state *, int);
+lily_value *         lily_arg_value     (lily_state *, int);
+int                  lily_result_boolean   (lily_state *);
+uint8_t              lily_result_byte      (lily_state *);
+lily_bytestring_val *lily_result_bytestring(lily_state *);
+double               lily_result_double    (lily_state *);
+lily_file_val *      lily_result_file      (lily_state *);
+FILE *               lily_result_file_raw  (lily_state *);
+lily_function_val *  lily_result_function  (lily_state *);
+lily_hash_val *      lily_result_hash      (lily_state *);
+lily_generic_val *   lily_result_generic   (lily_state *);
+lily_instance_val *  lily_result_instance  (lily_state *);
+int64_t              lily_result_integer   (lily_state *);
+lily_list_val *      lily_result_list      (lily_state *);
+lily_string_val *    lily_result_string    (lily_state *);
+char *               lily_result_string_raw(lily_state *);
+lily_tuple_val *     lily_result_tuple     (lily_state *);
+lily_value *         lily_result_value     (lily_state *);
 
 /* Do an action to a proper value. */
 void lily_deref(lily_value *);
