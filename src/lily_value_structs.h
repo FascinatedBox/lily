@@ -92,6 +92,15 @@ typedef struct lily_string_val_ {
     char *string;
 } lily_string_val;
 
+/* Internally, ByteString values are represented by strings. This exists apart
+   from lily_string_val so that API can't assume they're the same (in case they
+   diverge). */
+typedef struct lily_bytestring_val_ {
+    uint32_t refcount;
+    uint32_t size;
+    char *string;
+} lily_bytestring_val;
+
 /* Instances of the Dynamic class act as a wrapper around some singular value.
    Their padding exists so that their gc entry aligns with that of instances. */
 typedef struct lily_dynamic_val_ {

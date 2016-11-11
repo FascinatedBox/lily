@@ -309,7 +309,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_string_val *sv = lily_new_string_sized(want_string, len);
+    lily_bytestring_val *sv = lily_new_bytestring_sized(want_string, len);
     lily_literal *v = (lily_literal *)lily_new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */

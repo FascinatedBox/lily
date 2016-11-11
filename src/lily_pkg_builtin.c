@@ -452,7 +452,7 @@ void lily_builtin_File_each_line(lily_state *s)
 
             const char *text = lily_mb_get(vm_buffer);
 
-            lily_push_bytestring(s, lily_new_string(text));
+            lily_push_bytestring(s, lily_new_bytestring(text));
             lily_call_exec_prepared(s, 1);
             lily_mb_flush(vm_buffer);
         }
@@ -585,7 +585,7 @@ void lily_builtin_File_read_line(lily_state *s)
     }
 
     const char *text = lily_mb_get(vm_buffer);
-    lily_return_bytestring(s, lily_new_string_sized(text, total_pos));
+    lily_return_bytestring(s, lily_new_bytestring_sized(text, total_pos));
 }
 
 /**
@@ -2767,7 +2767,7 @@ void lily_builtin_String_to_bytestring(lily_state *s)
 {
     /* They currently have the same internal representation. This method is
        provided for the type system. */
-    lily_return_bytestring(s, lily_arg_string(s, 0));
+    lily_return_bytestring(s, (lily_bytestring_val *)lily_arg_string(s, 0));
 }
 
 /**

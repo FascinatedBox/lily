@@ -589,7 +589,7 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
     vm->num_registers = register_need;
 }
 
-void lily_push_bytestring(lily_vm_state *vm, lily_string_val *sv)
+void lily_push_bytestring(lily_vm_state *vm, lily_bytestring_val *sv)
 {
     if (vm->num_registers == vm->max_registers)
         grow_vm_registers(vm, vm->num_registers + 1);

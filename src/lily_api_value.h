@@ -14,6 +14,7 @@
 typedef struct lily_vm_state_ lily_state;
 # endif
 
+typedef struct lily_bytestring_val_ lily_bytestring_val;
 typedef struct lily_dynamic_val_    lily_dynamic_val;
 typedef struct lily_file_val_       lily_file_val;
 typedef struct lily_foreign_val_    lily_foreign_val;
@@ -50,7 +51,7 @@ typedef void (*lily_destroy_func)(lily_generic_val *);
 #define DECLARE_SETTERS(name, ...) \
 void lily_##name##_boolean(__VA_ARGS__, int); \
 void lily_##name##_byte(__VA_ARGS__, uint8_t); \
-void lily_##name##_bytestring(__VA_ARGS__, lily_string_val *); \
+void lily_##name##_bytestring(__VA_ARGS__, lily_bytestring_val *); \
 void lily_##name##_double(__VA_ARGS__, double); \
 void lily_##name##_empty_variant(__VA_ARGS__, uint16_t); \
 void lily_##name##_file(__VA_ARGS__, lily_file_val *); \
@@ -68,7 +69,7 @@ void lily_##name##_variant(__VA_ARGS__, uint16_t, lily_variant_val *); \
 #define DECLARE_GETTERS(name, ...) \
 int                lily_##name##_boolean(__VA_ARGS__); \
 uint8_t            lily_##name##_byte(__VA_ARGS__); \
-lily_string_val *  lily_##name##_bytestring(__VA_ARGS__); \
+lily_bytestring_val *lily_##name##_bytestring(__VA_ARGS__); \
 double             lily_##name##_double(__VA_ARGS__); \
 lily_file_val *    lily_##name##_file(__VA_ARGS__); \
 FILE *             lily_##name##_file_raw(__VA_ARGS__); \
@@ -92,7 +93,7 @@ DECLARE_GETTERS(name, __VA_ARGS__)
    wrap over a raw value to provide the lily_value * that the loader expects, so
    that the embedder need not worry about raw moves. */
 lily_value *lily_new_value_of_byte(uint8_t);
-lily_value *lily_new_value_of_bytestring(lily_string_val *);
+lily_value *lily_new_value_of_bytestring(lily_bytestring_val *);
 lily_value *lily_new_value_of_double(double);
 lily_value *lily_new_value_of_enum(uint16_t, lily_instance_val *);
 lily_value *lily_new_value_of_file(lily_file_val *);
@@ -113,6 +114,9 @@ lily_value *lily_new_value_of_string_raw(const char *);
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
+lily_bytestring_val *lily_new_bytestring(const char *);
+lily_bytestring_val *lily_new_bytestring_take(char *);
+lily_bytestring_val *lily_new_bytestring_sized(const char *, int);
 char *lily_bytestring_raw(lily_string_val *);
 int lily_bytestring_length(lily_string_val *);
 

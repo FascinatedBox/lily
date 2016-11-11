@@ -13,7 +13,7 @@ void lily_##name##_boolean(__VA_ARGS__, int v) \
 { lily_move_boolean(source->action, v); } \
 void lily_##name##_byte(__VA_ARGS__, uint8_t v) \
 { lily_move_byte(source->action, v); } \
-void lily_##name##_bytestring(__VA_ARGS__, lily_string_val * v) \
+void lily_##name##_bytestring(__VA_ARGS__, lily_bytestring_val * v) \
 { lily_move_bytestring(source->action, v); } \
 void lily_##name##_double(__VA_ARGS__, double v) \
 { lily_move_double(source->action, v); } \
@@ -47,8 +47,8 @@ int lily_##name##_boolean(__VA_ARGS__) \
 { return source->action->value.integer; } \
 uint8_t lily_##name##_byte(__VA_ARGS__) \
 { return source->action->value.integer; } \
-lily_string_val *lily_##name##_bytestring(__VA_ARGS__) \
-{ return source->action->value.string; } \
+lily_bytestring_val *lily_##name##_bytestring(__VA_ARGS__) \
+{ return (lily_bytestring_val *)source->action->value.string; } \
 double lily_##name##_double(__VA_ARGS__) \
 { return source->action->value.doubleval; } \
 lily_file_val *lily_##name##_file(__VA_ARGS__) \
@@ -163,13 +163,13 @@ lily_value *lily_new_value_of_byte(uint8_t byte)
     return v;
 }
 
-lily_value *lily_new_value_of_bytestring(lily_string_val *bv)
+lily_value *lily_new_value_of_bytestring(lily_bytestring_val *bv)
 {
     lily_value *v = lily_malloc(sizeof(lily_value));
 
     bv->refcount++;
     v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
-    v->value.string = bv;
+    v->value.string = (lily_string_val *)bv;
     return v;
 }
 
@@ -400,6 +400,21 @@ lily_variant_val *lily_new_variant(int size)
 }
 
 /* Simple per-type operations. */
+
+lily_bytestring_val *lily_new_bytestring_sized(const char *source, int len)
+{
+    return (lily_bytestring_val *)lily_new_string_sized(source, len);
+}
+
+lily_bytestring_val *lily_new_bytestring_take(char *source)
+{
+    return (lily_bytestring_val *)lily_new_string_take;
+}
+
+lily_bytestring_val *lily_new_bytestring(const char *source)
+{
+    return (lily_bytestring_val *)lily_new_string(source);
+}
 
 char *lily_bytestring_raw(lily_string_val *sv)
 {
