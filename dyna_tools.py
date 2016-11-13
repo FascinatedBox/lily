@@ -529,7 +529,7 @@ def gen_class_extras(package_entry):
 #define INIT_{1}(state, target) \\
 target = lily_malloc(sizeof(lily_{0}_{1})); \\
 target->refcount = 0; \\
-target->destroy_func = destroy_{1};
+target->destroy_func = (lily_destroy_func)destroy_{1};
 """.format(package_entry.name, d.name, i)
         else:
             result += """\
