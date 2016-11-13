@@ -536,9 +536,17 @@ target->destroy_func = (lily_destroy_func)destroy_{1};\
 #define DYNA_ID_{0}(ids) ids[{1}]\
 """.format(package_entry.name, i))
 
-        ids.append("""\
+            ids.append("""\
 #define ID_{0}(state) lily_cid_at(state, {1})\
 """.format(d.name, i))
+        elif d.e_type == "enum":
+            for j in range(len(d.variants)):
+                dynas.append("""\
+#define DYNA_ID_{0}(ids) (ids[{1}] + {2})\
+""".format(d.variants[j].name, i, j + 1))
+                ids.append("""\
+#define ID_{0}(state) (lily_cid_at(state, {1}) + {2})\
+""".format(d.variants[j].name, i, j + 1))
 
     x = [args, dynas, ids, inits]
     s = ""
