@@ -512,33 +512,44 @@ lily_register_package(p, "%s", lily_%s_dynaload_table, %s);
 
 def gen_class_extras(package_entry):
     result = ""
+    args = []
+    ids = []
+    inits = []
+    dynas = []
 
     for i in range(0, len(package_entry.decls)):
         d = package_entry.decls[i]
 
-        if i != 0:
-            result += "\n\n"
-
-        if d.e_type != "native":
-            result += """\
+        if d.e_type == "class":
+            args.append("""\
 #define ARG_{1}(state, index) \\
-(lily_{0}_{1} *) lily_arg_generic(s, index)
-
-#define ID_{1}(state) lily_cid_at(state, {2})
-
+(lily_{0}_{1} *)lily_arg_generic(s, index)\
+""".format(package_entry.name, d.name, i))
+            inits.append("""\
 #define INIT_{1}(state, target) \\
 target = lily_malloc(sizeof(lily_{0}_{1})); \\
 target->refcount = 0; \\
-target->destroy_func = (lily_destroy_func)destroy_{1};
-""".format(package_entry.name, d.name, i)
-        else:
-            result += """\
-#define DYNA_ID_{0}(ids) ids[{1}]
+target->destroy_func = (lily_destroy_func)destroy_{1};\
+""".format(package_entry.name, d.name, i))
+        elif d.e_type == "native":
+            dynas.append("""\
+#define DYNA_ID_{0}(ids) ids[{1}]\
+""".format(package_entry.name, i))
 
-#define ID_{0}(state) lily_cid_at(state, {1})
-""".format(d.name, i)
+        ids.append("""\
+#define ID_{0}(state) lily_cid_at(state, {1})\
+""".format(d.name, i))
 
-    return result
+    x = [args, dynas, ids, inits]
+    s = ""
+
+    for i in range(len(x)):
+        if i != 0 and len(x[i - 1]) and len(x[i]):
+            s += "\n\n"
+
+        s += "\n".join(sorted(x[i]))
+
+    return s + "\n"
 
 def do_refresh(filename):
     package_entry = scan_file(filename)
