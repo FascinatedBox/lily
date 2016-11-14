@@ -436,7 +436,7 @@ void lily_builtin_File_each_line(lily_state *s)
             break;
 
         if (pos == sizeof(read_buffer)) {
-            lily_mb_add_range(vm_buffer, read_buffer, 0, sizeof(read_buffer));
+            lily_mb_add_slice(vm_buffer, read_buffer, 0, sizeof(read_buffer));
             pos = 0;
         }
 
@@ -446,7 +446,7 @@ void lily_builtin_File_each_line(lily_state *s)
            long time since any os used \r alone for newlines. */
         if (ch == '\n') {
             if (pos != 0) {
-                lily_mb_add_range(vm_buffer, read_buffer, 0, pos);
+                lily_mb_add_slice(vm_buffer, read_buffer, 0, pos);
                 pos = 0;
             }
 
@@ -508,8 +508,16 @@ void lily_builtin_File_open(lily_state *s)
         lily_IOError(s, "Invalid mode '%s' given.", mode);
 
     FILE *f = fopen(path, mode);
-    if (f == NULL)
-        lily_IOError(s, "Errno %d: ^R (%s).", errno, errno, path);
+    if (f == NULL) {
+        /* Assume that the message is of a reasonable sort of size. */
+        char buffer[128];
+#ifdef _WIN32
+        strerror_s(buffer, sizeof(buffer), errno);
+#else
+        strerror_r(errno, buffer, sizeof(buffer));
+#endif
+        lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
+    }
 
     lily_file_val *filev = lily_new_file(f, mode);
 
@@ -565,7 +573,7 @@ void lily_builtin_File_read_line(lily_state *s)
             break;
 
         if (pos == sizeof(read_buffer)) {
-            lily_mb_add_range(vm_buffer, read_buffer, 0, sizeof(read_buffer));
+            lily_mb_add_slice(vm_buffer, read_buffer, 0, sizeof(read_buffer));
             total_pos += pos;
             pos = 0;
         }
@@ -580,7 +588,7 @@ void lily_builtin_File_read_line(lily_state *s)
     }
 
     if (pos != 0) {
-        lily_mb_add_range(vm_buffer, read_buffer, 0, pos);
+        lily_mb_add_slice(vm_buffer, read_buffer, 0, pos);
         total_pos += pos;
     }
 
@@ -1967,19 +1975,19 @@ int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
     while (1) {
         if (*ch == '&') {
             stop = (ch - input_str);
-            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add_slice(vm_buffer, input_str, start, stop);
             lily_mb_add(vm_buffer, "&amp;");
             start = stop + 1;
         }
         else if (*ch == '<') {
             stop = (ch - input_str);
-            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add_slice(vm_buffer, input_str, start, stop);
             lily_mb_add(vm_buffer, "&lt;");
             start = stop + 1;
         }
         else if (*ch == '>') {
             stop = (ch - input_str);
-            lily_mb_add_range(vm_buffer, input_str, start, stop);
+            lily_mb_add_slice(vm_buffer, input_str, start, stop);
             lily_mb_add(vm_buffer, "&gt;");
             start = stop + 1;
         }
@@ -1991,7 +1999,7 @@ int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
 
     if (start != 0) {
         stop = (ch - input_str);
-        lily_mb_add_range(vm_buffer, input_str, start, stop);
+        lily_mb_add_slice(vm_buffer, input_str, start, stop);
     }
 
     return start;
@@ -2376,7 +2384,7 @@ void lily_builtin_String_replace(lily_state *s)
 
             if (match) {
                 if (i != start)
-                    lily_mb_add_range(msgbuf, source, start, i);
+                    lily_mb_add_slice(msgbuf, source, start, i);
 
                 lily_mb_add(msgbuf, replace_with);
                 i += needle_len - 1;
@@ -2386,7 +2394,7 @@ void lily_builtin_String_replace(lily_state *s)
     }
 
     if (i != start)
-        lily_mb_add_range(msgbuf, source, start, i);
+        lily_mb_add_slice(msgbuf, source, start, i);
 
     lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
 }

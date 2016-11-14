@@ -390,16 +390,6 @@ void lily_ValueError(lily_state *, const char *, ...);
    interpreter. If they are called outside of the interpreter's parsing loop,
    the interpreter is likely to crash. */
 
-/* This flushes and provides the interpreter's msgbuf. Callers always flush
-   first, so don't worry about flushing when done.
-   The full struct, and methods for it are defined in lily_api_msgbuf.h */
-struct lily_msgbuf_ *lily_get_msgbuf(lily_state *);
-
-/* This provides the interpreter's msgbuf, but does not flush it. Most of the
-   time, a caller should use the regular lily_get_msgbuf function, because
-   callers are expected to flush msgbuf before use (instead of after). */
-struct lily_msgbuf_ *lily_get_msgbuf_noflush(lily_state *);
-
 /* The id of a class is important to Lily's internals. Dynaload means that there
    is no guaranteed spot for a class id to go. dyna_tools.py generates ID_*
    defines which call this under the hood, so calling this directly is both

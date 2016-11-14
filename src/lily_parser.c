@@ -109,7 +109,7 @@ lily_state *lily_new_state(lily_options *options)
 
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(options, raiser);
-    parser->msgbuf = lily_new_msgbuf();
+    parser->msgbuf = lily_new_msgbuf(64);
     parser->options = options;
     parser->data_stack = lily_new_buffer_u16(4);
     parser->expr = parser->first_expr;
@@ -559,7 +559,7 @@ static const char *parse_path(lily_parse_state *parser, const char *fmt,
 
         if (to_insert) {
             if (i != text_start)
-                lily_mb_add_range(msgbuf, fmt, text_start, i);
+                lily_mb_add_slice(msgbuf, fmt, text_start, i);
 
             lily_mb_add(msgbuf, to_insert);
             text_start = i + 1;
@@ -568,7 +568,7 @@ static const char *parse_path(lily_parse_state *parser, const char *fmt,
     }
 
     if (i != text_start)
-        lily_mb_add_range(msgbuf, fmt, text_start, i);
+        lily_mb_add_slice(msgbuf, fmt, text_start, i);
 
     return lily_mb_get(msgbuf);
 }

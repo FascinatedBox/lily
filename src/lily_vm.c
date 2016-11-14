@@ -16,6 +16,8 @@
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */
 void lily_value_destroy(lily_value *);
+/* Same here: Safely escape string values for `KeyError`. */
+void lily_mb_escape_add_str(lily_msgbuf *, const char *);
 
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
@@ -727,10 +729,8 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
-    if (key->class_id == LILY_STRING_ID) {
-        /* String values are required to be \0 terminated, so this is ok. */
-        lily_mb_add_fmt(msgbuf, "\"^E\"", key->value.string->string);
-    }
+    if (key->class_id == LILY_STRING_ID)
+        lily_mb_escape_add_str(msgbuf, key->value.string->string);
     else
         lily_mb_add_fmt(msgbuf, "%d", key->value.integer);
 

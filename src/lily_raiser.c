@@ -12,8 +12,8 @@ lily_raiser *lily_new_raiser(void)
     first_jump->prev = NULL;
     first_jump->next = NULL;
 
-    raiser->msgbuf = lily_new_msgbuf();
-    raiser->aux_msgbuf = lily_new_msgbuf();
+    raiser->msgbuf = lily_new_msgbuf(64);
+    raiser->aux_msgbuf = lily_new_msgbuf(64);
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
     raiser->exception_cls = NULL;

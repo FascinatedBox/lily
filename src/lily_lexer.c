@@ -1335,9 +1335,17 @@ void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
         const char *filename)
 {
     FILE *load_file = fopen(filename, "r");
-    if (load_file == NULL)
-        lily_raise_err(lexer->raiser, "Failed to open %s: (^R).", filename,
-                errno);
+    if (load_file == NULL) {
+        /* Assume that the message is of a reasonable sort of size. */
+        char buffer[128];
+#ifdef _WIN32
+        strerror_s(buffer, sizeof(buffer), errno);
+#else
+        strerror_r(errno, buffer, sizeof(buffer));
+#endif
+        lily_raise_err(lexer->raiser, "Failed to open %s: (%s).", filename,
+                buffer);
+    }
 
     setup_opened_file(lexer, mode, load_file);
 }
