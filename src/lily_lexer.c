@@ -1434,21 +1434,19 @@ void lily_lexer(lily_lex_state *lexer)
             }
         }
         else if (group == CC_SHARP) {
-            if (*ch       == '#' &&
-                *(ch + 1) == '[') {
+            if (*(ch + 1) == '[') {
                 scan_multiline_comment(lexer, &ch);
                 input_pos = ch - lexer->input_buffer;
                 continue;
             }
+            else if (read_line(lexer)) {
+                input_pos = 0;
+                continue;
+            }
+            /* read_line has no more data to offer. */
             else {
-                if (read_line(lexer)) {
-                    input_pos = 0;
-                    continue;
-                }
-                else {
-                    token = tk_eof;
-                    input_pos = 0;
-                }
+                token = tk_eof;
+                input_pos = 0;
             }
         }
         else if (group == CC_DOLLAR) {
