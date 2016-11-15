@@ -39,8 +39,10 @@ lily_msgbuf *lily_new_msgbuf(uint32_t initial)
 
 static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
 {
-    msgbuf->message = lily_realloc(msgbuf->message, new_size);
-    msgbuf->size = new_size;
+    while (msgbuf->size < new_size)
+        msgbuf->size *= 2;
+
+    msgbuf->message = lily_realloc(msgbuf->message, msgbuf->size);
 }
 
 static void add_escaped_char(lily_msgbuf *msgbuf, char ch)
