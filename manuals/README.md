@@ -1,6 +1,8 @@
 This directory contains manuals that explain different parts of Lily. These are
 primarily centered around embedding and extending the language in C.
 
+## Basic manuals
+
 **lily_overview.md** gives a brief overview of Lily's features, and how they
 translate to its workings in C.
 
@@ -8,3 +10,9 @@ translate to its workings in C.
 tables that Lily needs. It shows how to add custom classes, methods, vars, and
 so on. It also goes into how dynaload works in a little more detail than the
 overview.
+
+## API manuals
+
+**api_msgbuf.md** explains `lily_msgbuf`, a buffer with insertion functions that
+do size checks under the hood. Functions that manipulate text are likely to use
+the interpreter's shared buffer (or want one of their own), and may need this.
