@@ -10,7 +10,9 @@ struct lily_options_ {
     uint8_t gc_multiplier;
     /* Should the sys package be registered? */
     uint8_t allow_sys;
-    uint16_t pad;
+    /* Parser freezes the options it takes to keep other parts from modifying
+       them during execution. */
+    uint16_t frozen;
     /* How many tagged values before the gc needs to sweep? */
     uint32_t gc_start;
 
@@ -34,6 +36,7 @@ lily_options *lily_new_options(void)
     options->gc_multiplier = 4;
     options->argc = 0;
     options->argv = NULL;
+    options->frozen = 0;
 
     options->html_sender = (lily_html_sender) fputs;
     options->data = stdout;
@@ -44,22 +47,39 @@ lily_options *lily_new_options(void)
 
 void lily_op_allow_sys(lily_options *opt, int allow_sys)
 {
+    if (opt->frozen)
+        return;
+
     opt->allow_sys = allow_sys;
 }
 
 void lily_op_argv(lily_options *opt, int opt_argc, char **opt_argv)
 {
+    if (opt->frozen)
+        return;
+
     opt->argc = opt_argc;
     opt->argv = opt_argv;
 }
 
 void lily_op_data(lily_options *opt, void *data)
 {
+    if (opt->frozen)
+        return;
+
     opt->data = data;
+}
+
+void lily_op_freeze(lily_options *opt)
+{
+    opt->frozen = 1;
 }
 
 void lily_op_gc_multiplier(lily_options *opt, int gc_multiplier)
 {
+    if (opt->frozen)
+        return;
+
     if (gc_multiplier > 16)
         gc_multiplier = 16;
 
@@ -68,11 +88,17 @@ void lily_op_gc_multiplier(lily_options *opt, int gc_multiplier)
 
 void lily_op_gc_start(lily_options *opt, int gc_start)
 {
+    if (opt->frozen)
+        return;
+
     opt->gc_start = (uint16_t)gc_start;
 }
 
 void lily_op_html_sender(lily_options *opt, lily_html_sender html_sender)
 {
+    if (opt->frozen)
+        return;
+
     opt->html_sender = html_sender;
 }
 

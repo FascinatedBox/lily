@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     if (gc_multiplier != -1)
         lily_op_gc_multiplier(options, gc_multiplier);
 
-    lily_op_argv(options, argc - argc_offset, argv - argc_offset);
+    lily_op_argv(options, argc - argc_offset, argv + argc_offset);
 
     lily_state *state = lily_new_state(options);
 

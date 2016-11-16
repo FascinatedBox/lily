@@ -10,6 +10,7 @@ void lily_free_options(lily_options *);
 void lily_op_allow_sys(lily_options *, int);
 void lily_op_argv(lily_options *, int, char **);
 void lily_op_data(lily_options *, void *);
+void lily_op_freeze(lily_options *);
 void lily_op_gc_start(lily_options *, int);
 void lily_op_gc_multiplier(lily_options *, int);
 void lily_op_html_sender(lily_options *, lily_html_sender);
