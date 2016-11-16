@@ -1,5 +1,5 @@
-#include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "lily_api_alloc.h"
 #include "lily_api_options.h"
@@ -47,19 +47,15 @@ void lily_op_allow_sys(lily_options *opt, int allow_sys)
     opt->allow_sys = allow_sys;
 }
 
+void lily_op_argv(lily_options *opt, int opt_argc, char **opt_argv)
+{
+    opt->argc = opt_argc;
+    opt->argv = opt_argv;
+}
+
 void lily_op_data(lily_options *opt, void *data)
 {
     opt->data = data;
-}
-
-void lily_op_html_sender(lily_options *opt, lily_html_sender html_sender)
-{
-    opt->html_sender = html_sender;
-}
-
-void lily_op_gc_start(lily_options *opt, int gc_start)
-{
-    opt->gc_start = (uint16_t)gc_start;
 }
 
 void lily_op_gc_multiplier(lily_options *opt, int gc_multiplier)
@@ -70,21 +66,25 @@ void lily_op_gc_multiplier(lily_options *opt, int gc_multiplier)
     opt->gc_multiplier = (uint8_t)gc_multiplier;
 }
 
-void lily_op_argv(lily_options *opt, int opt_argc, char **opt_argv)
+void lily_op_gc_start(lily_options *opt, int gc_start)
 {
-    opt->argc = opt_argc;
-    opt->argv = opt_argv;
+    opt->gc_start = (uint16_t)gc_start;
+}
+
+void lily_op_html_sender(lily_options *opt, lily_html_sender html_sender)
+{
+    opt->html_sender = html_sender;
 }
 
 int lily_op_get_allow_sys(lily_options *opt) { return opt->allow_sys; }
-void *lily_op_get_data(lily_options *opt) { return opt->data; }
 char **lily_op_get_argv(lily_options *opt, int *argc)
 {
     *argc = opt->argc;
     return opt->argv;
 }
-int lily_op_get_gc_start(lily_options *opt) { return opt->gc_start; }
+void *lily_op_get_data(lily_options *opt) { return opt->data; }
 int lily_op_get_gc_multiplier(lily_options *opt) { return opt->gc_multiplier; }
+int lily_op_get_gc_start(lily_options *opt) { return opt->gc_start; }
 lily_html_sender lily_op_get_html_sender(lily_options *opt) { return opt->html_sender; }
 
 void lily_free_options(lily_options *o)
