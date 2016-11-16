@@ -20,11 +20,13 @@ was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
 static void *load_var_argv(lily_options *options, uint16_t *unused)
 {
-    lily_list_val *lv = lily_new_list(options->argc);
+    int opt_argc;
+    char **opt_argv = lily_op_get_argv(options, &opt_argc);
+    lily_list_val *lv = lily_new_list(opt_argc);
 
     int i;
-    for (i = 0;i < options->argc;i++)
-        lily_list_set_string(lv, i, lily_new_string(options->argv[i]));
+    for (i = 0;i < opt_argc;i++)
+        lily_list_set_string(lv, i, lily_new_string(opt_argv[i]));
 
     return lily_new_value_of_list(lv);
 }

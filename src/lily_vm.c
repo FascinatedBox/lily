@@ -123,11 +123,9 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
-    vm->data = options->data;
-    vm->gc_threshold = options->gc_start;
-    vm->gc_multiplier = options->gc_multiplier;
-    if (vm->gc_multiplier > 16)
-        vm->gc_multiplier = 16;
+    vm->data = lily_op_get_data(options);
+    vm->gc_threshold = lily_op_get_gc_start(options);
+    vm->gc_multiplier = lily_op_get_gc_multiplier(options);
 
     vm->call_depth = 0;
     vm->raiser = raiser;

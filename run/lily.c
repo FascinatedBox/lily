@@ -78,14 +78,13 @@ int main(int argc, char **argv)
     if (to_process == NULL)
         usage();
 
-    lily_options *options = lily_new_default_options();
+    lily_options *options = lily_new_options();
     if (gc_start != -1)
-        options->gc_start = gc_start;
+        lily_op_gc_start(options, gc_start);
     if (gc_multiplier != -1)
-        options->gc_multiplier = gc_multiplier;
+        lily_op_gc_multiplier(options, gc_multiplier);
 
-    options->argc = argc - argc_offset;
-    options->argv = argv + argc_offset;
+    lily_op_argv(options, argc - argc_offset, argv - argc_offset);
 
     lily_state *state = lily_new_state(options);
 

@@ -126,8 +126,8 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
-    lexer->data = options->data;
-    lexer->html_sender = options->html_sender;
+    lexer->data = lily_op_get_data(options);
+    lexer->html_sender = lily_op_get_html_sender(options);
 
     char *ch_class;
 

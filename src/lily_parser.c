@@ -85,7 +85,7 @@ typedef struct lily_rewind_state_
 lily_state *lily_new_state(lily_options *options)
 {
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
-    parser->data = options->data;
+    parser->data = lily_op_get_data(options);
     parser->module_top = NULL;
     parser->module_start = NULL;
 
@@ -151,7 +151,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->symtab->main_function->module = parser->main_module;
     parser->symtab->active_module = parser->main_module;
 
-    if (options->allow_sys)
+    if (lily_op_get_allow_sys(options))
         lily_pkg_sys_init(parser->vm, options);
 
     parser->executing = 0;
@@ -221,8 +221,7 @@ void lily_free_state(lily_state *vm)
     lily_free_msgbuf(parser->msgbuf);
     lily_free_type_maker(parser->tm);
     lily_free(parser->rs);
-    if (parser->options->free_options)
-        lily_free_options(parser->options);
+    lily_free_options(parser->options);
 
     lily_free(parser);
 }
