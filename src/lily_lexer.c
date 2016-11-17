@@ -882,6 +882,9 @@ static void scan_multiline_comment(lily_lex_state *lexer, char **source_ch)
 
 static void ensure_label_size(lily_lex_state *lexer, int at_least)
 {
+    if (lexer->label_size > at_least)
+        return;
+
     int new_size = lexer->label_size;
     while (new_size < at_least)
         new_size *= 2;
