@@ -2806,7 +2806,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     /* This prevents variables from being used to initialize themselves. */
     int flags = SYM_NOT_INITIALIZED | modifiers;
 
-    lily_token token, want_token, other_token;
+    lily_token want_token, other_token;
     if (parser->emit->block->block_type == block_class) {
         want_token = tk_prop_word;
         other_token = tk_word;
@@ -2853,17 +2853,8 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         expression_raw(parser, ST_DEMAND_VALUE);
         lily_emit_eval_expr(parser->emit, parser->expr);
 
-        token = lex->token;
-        /* This is the start of the next statement (or, for 'var', only allow
-           one decl at a time to discourage excessive use of 'var'). */
-        if (token == tk_word || token == tk_prop_word || token == tk_end_tag ||
-            token == tk_eof || token == tk_right_curly)
+        if (lex->token != tk_comma)
             break;
-        else if (token != tk_comma) {
-            lily_raise_syn(parser->raiser, "Expected ',' or ')', not %s.",
-                    tokname(lex->token));
-        }
-        /* else it's a comma, so make sure a word is next. */
 
         lily_lexer(lex);
     }
