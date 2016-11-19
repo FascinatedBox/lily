@@ -77,8 +77,8 @@ lily_value *lily_new_value_of_string_raw(const char *);
 lily_bytestring_val *lily_new_bytestring(const char *);
 lily_bytestring_val *lily_new_bytestring_take(char *);
 lily_bytestring_val *lily_new_bytestring_sized(const char *, int);
-char *lily_bytestring_raw(lily_string_val *);
-int lily_bytestring_length(lily_string_val *);
+char *lily_bytestring_raw(lily_bytestring_val *);
+int lily_bytestring_length(lily_bytestring_val *);
 
 /* Dynamic operations */
 lily_dynamic_val *lily_new_dynamic(void);

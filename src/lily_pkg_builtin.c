@@ -187,7 +187,7 @@ will result in `None`.
 */
 void lily_builtin_ByteString_encode(lily_state *s)
 {
-    lily_string_val *input_bytestring = lily_arg_string(s, 0);
+    lily_bytestring_val *input_bytestring = lily_arg_bytestring(s, 0);
     const char *encode_method;
 
     if (lily_arg_count(s) == 2)
