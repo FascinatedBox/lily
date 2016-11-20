@@ -8,9 +8,9 @@
 
 lily_state *get_parser()
 {
-    lily_options *options = lily_new_default_options();
+    lily_options *options = lily_new_options();
     lily_state *state = lily_new_state(options);
-    options->allow_sys = 1;
+    lily_op_allow_sys(options, 1);
 
     return state;
 }
