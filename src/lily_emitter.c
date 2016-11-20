@@ -238,7 +238,7 @@ lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
 
 /* This creates a new var that will be associated with a 'define'. */
 lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
-        lily_class *parent, const char *name)
+        lily_class *parent, const char *name, char *docstring)
 {
     lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
 
@@ -256,6 +256,7 @@ lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
        before the define is done. */
     lily_function_val *f = new_native_function_val(class_name,
             new_var->name);
+    f->docstring = docstring;
     lily_store_function(emit->symtab, new_var, f);
 
     return new_var;
@@ -1944,6 +1945,7 @@ lily_function_val *new_foreign_function_val(lily_foreign_func func,
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
+    f->docstring = NULL;
     return f;
 }
 
@@ -1964,6 +1966,7 @@ lily_function_val *new_native_function_val(char *class_name, char *name)
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
+    f->docstring = NULL;
     return f;
 }
 

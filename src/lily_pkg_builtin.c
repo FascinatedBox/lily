@@ -640,12 +640,29 @@ colon at the end to denote the value returned:
 */
 
 /**
+method Function.doc(self: Function(1)): String
+
+If `self` has a docstring, then the docstring is returned. Otherwise, an empty
+`String` is returned instead.
+*/
+void lily_builtin_Function_doc(lily_state *s)
+{
+    lily_function_val *f = lily_arg_function(s, 0);
+    const char *doc = "";
+
+    if (f->docstring)
+        doc = f->docstring;
+
+    lily_return_string(s, lily_new_string(doc));
+}
+
+/**
 class Hash
 
 The `Hash` class provides a mapping between a key and a value. `Hash` values can
 be created through `[key1 => value1, key2 => value2, ...]`. When writing a
 `Hash`, the key is the first type, and the value is the second.
-
+/
 `[1 => "a", 2 => "b", 3 => "c"]` would therefore be written as
 `Hash[Integer, String]`.
 

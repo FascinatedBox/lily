@@ -56,6 +56,7 @@ typedef enum {
     tk_byte,
     tk_integer,
     tk_double,
+    tk_docstring,
     tk_dot,
     tk_bitwise_and,
     tk_logical_and,
@@ -109,6 +110,8 @@ typedef struct lily_lex_state_ {
     char *ch_class;
     char *input_buffer;
     char *label;
+
+    char *docstring;
 
     uint32_t line_num;
     uint32_t expand_start_line;

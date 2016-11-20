@@ -2676,7 +2676,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "(lambda)");
+            parser->default_call_type, NULL, "(lambda)", NULL);
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -2971,7 +2971,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
        The emitter will attempt to restore the return type via the type of the
        define var here. */
     lily_var *define_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, parent, lex->label);
+            parser->default_call_type, parent, lex->label, lex->docstring);
+    lex->docstring = NULL;
 
     int i = 0;
     int arg_flags = 0;
@@ -3079,6 +3080,29 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
     return var;
 }
 
+static void process_docstring(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_lexer(lex);
+
+    int key_id;
+    if (lex->token == tk_word)
+        key_id = keyword_by_name(lex->label);
+    else
+        key_id = -1;
+
+    if (key_id == KEY_PRIVATE ||
+        key_id == KEY_PROTECTED ||
+        key_id == KEY_DEFINE ||
+        key_id == KEY_CLASS) {
+        lily_lexer(lex);
+        handlers[key_id](parser, 1);
+    }
+    else
+        lily_raise_syn(parser->raiser,
+                "Docstring must be followed by a function or class definition.");
+}
+
 /* This is a magic function that will either run one expression or multiple
    ones. If it's going to run multiple ones, then it stops on eof or '}'. */
 static void statement(lily_parse_state *parser, int multi)
@@ -3109,6 +3133,8 @@ static void statement(lily_parse_state *parser, int multi)
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
+        else if (token == tk_docstring)
+            process_docstring(parser);
         /* The caller will be expecting '}' or maybe ?> / EOF if it's the main
            parse loop. */
         else if (multi)
@@ -3432,7 +3458,7 @@ static void run_loaded_module(lily_parse_state *parser,
 
     /* lily_emit_enter_block will write new code to this special var. */
     lily_var *import_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "__import__");
+            parser->default_call_type, NULL, "__import__", NULL);
 
     lily_emit_enter_block(parser->emit, block_file);
 
@@ -3677,7 +3703,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
     lily_var *call_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, cls, "<new>");
+            parser->default_call_type, cls, "<new>", lex->docstring);
+    lex->docstring = NULL;
 
     lily_lexer(lex);
     collect_generics(parser);
@@ -4376,6 +4403,9 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
             }
             else
                 break;
+        }
+        else if (lex->token == tk_docstring) {
+            process_docstring(parser);
         }
         /* This makes it possible to have expressions that don't start with a
            var. This may be useful later for building a repl. */

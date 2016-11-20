@@ -139,6 +139,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
+    lexer->docstring = NULL;
     ch_class = lily_malloc(256 * sizeof(char));
 
     lexer->input_pos = 0;
@@ -229,6 +230,9 @@ void lily_rewind_lex_state(lily_lex_state *lexer)
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
     lexer->input_pos = 0;
+
+    lily_free(lexer->docstring);
+    lexer->docstring = NULL;
 }
 
 void lily_free_lex_state(lily_lex_state *lexer)
@@ -250,6 +254,7 @@ void lily_free_lex_state(lily_lex_state *lexer)
         }
     }
 
+    lily_free(lexer->docstring);
     lily_free(lexer->input_buffer);
     lily_free(lexer->ch_class);
     lily_free(lexer->label);
@@ -895,6 +900,63 @@ static void ensure_label_size(lily_lex_state *lexer, int at_least)
     lexer->label_size = new_size;
 }
 
+static void scan_docstring(lily_lex_state *lexer, char **ch)
+{
+    int offset = (int)(*ch - lexer->input_buffer);
+    int label_pos = 0;
+    char *buffer = lexer->input_buffer;
+
+    while (1) {
+        int i = 0;
+
+        while (buffer[i] == ' ' || buffer[i] == '\t')
+            i++;
+
+        if (buffer[i] != '#') {
+            /* This removes the \n at the end of the last line. */
+            lexer->label[label_pos - 1] = '\0';
+
+            /* No checking needs to be done for a prior docstring because parser
+               makes sure docstrings are always followed by a function
+               definition. */
+            lexer->docstring = lily_malloc(sizeof(char) * label_pos);
+            strcpy(lexer->docstring, lexer->label);
+
+            *ch = lexer->input_buffer + i;
+            break;
+        }
+        else if (buffer[i] == '#') {
+            if (buffer[i + 1] != '#' ||
+                buffer[i + 2] != '#')
+                lily_raise_syn(lexer->raiser,
+                        "Docstring line does not start with full '###'.");
+            else if (i != offset)
+                lily_raise_syn(lexer->raiser,
+                        "Docstring has inconsistent indentation.");
+        }
+
+        i += 3;
+
+        while (1) {
+            if (buffer[i] != ' ' && buffer[i] != '\t')
+                break;
+
+            i++;
+        }
+
+        int len = strlen(buffer) - i;
+        ensure_label_size(lexer, label_pos + len);
+        strcpy(lexer->label + label_pos, lexer->input_buffer + i);
+        label_pos += len;
+
+        if (read_line(lexer))
+            /* Must reassign, in case input_buffer was moved. */
+            buffer = lexer->input_buffer;
+        else
+            break;
+    }
+}
+
 static void scan_quoted_raw(lily_lex_state *, char **, int *, int);
 
 #define SQ_IS_BYTESTRING   0x01
@@ -1442,6 +1504,12 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos = ch - lexer->input_buffer;
                 continue;
             }
+            else if (*(ch + 1) == '#' &&
+                     *(ch + 2) == '#') {
+                scan_docstring(lexer, &ch);
+                input_pos = ch - lexer->input_buffer;
+                token = tk_docstring;
+            }
             else if (read_line(lexer)) {
                 input_pos = 0;
                 continue;
@@ -1768,8 +1836,8 @@ char *tokname(lily_token t)
      "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=",
      "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
-     "a byte", "an integer", "a double", ".", "&", "&&", "|", "||", "@(", "...",
-     "|>", "invalid token", "?>", "end of file"};
+     "a byte", "an integer", "a double", "a docstring", ".", "&", "&&", "|",
+     "||", "@(", "...", "|>", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
