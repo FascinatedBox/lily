@@ -1270,6 +1270,12 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
         }
         else if (*ch == '\'') {
             scan_single_quote(lexer, &ch);
+            ensure_label_size(lexer, i + 7);
+
+            char buffer[8];
+            sprintf(buffer, "'\\%d'", (uint8_t)lexer->last_integer);
+            strcpy(lexer->label + i, buffer);
+            i += strlen(buffer);
             continue;
         }
         else if (*ch == '{')
