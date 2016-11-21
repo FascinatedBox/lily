@@ -177,6 +177,27 @@ The `ByteString` class currently does not support any primitive operations.
 */
 
 /**
+method ByteString.each_byte(self: ByteString, fn: Function(Byte))
+
+Call `fn` for each `Byte` within the given `ByteString`.
+*/
+void lily_builtin_ByteString_each_byte(lily_state *s)
+{
+    lily_bytestring_val *sv = lily_arg_bytestring(s, 0);
+    const char *input = lily_bytestring_raw(sv);
+    int len = lily_bytestring_length(sv);
+    int i;
+
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    for (i = 0;i < len;i++) {
+        lily_push_byte(s, (uint8_t)input[i]);
+        lily_call_exec_prepared(s, 1);
+        lily_result_drop(s);
+    }
+}
+
+/**
 method ByteString.encode(self: ByteString, encode: *String="error"): Option[String]
 
 Attempt to transform the given `ByteString` into a `String`. The action taken
