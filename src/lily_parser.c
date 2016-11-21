@@ -2185,14 +2185,17 @@ static void expression_literal(lily_parse_state *parser, int *state)
     lily_lex_state *lex = parser->lex;
     lily_token token = parser->lex->token;
 
-    if (*state == ST_WANT_OPERATOR &&
-         (token == tk_integer || token == tk_double)) {
-        if (maybe_digit_fixup(parser) == 0)
+    if (*state == ST_WANT_OPERATOR) {
+        if ((token == tk_integer || token == tk_double) &&
+            maybe_digit_fixup(parser))
+            /* The number unrolled to -/+(value), so an operator is still
+               wanted. */
+            ;
+        else if (parser->expr->save_depth == 0)
             *state = ST_DONE;
+        else
+            *state = ST_BAD_TOKEN;
     }
-    else if (*state == ST_WANT_OPERATOR)
-        /* Disable multiple strings without dividing commas. */
-        *state = ST_BAD_TOKEN;
     else if (token == tk_dollar_string) {
         lily_expr_state *es = parser->expr;
         lily_symtab *symtab = parser->symtab;
