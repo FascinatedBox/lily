@@ -219,6 +219,11 @@ static int check_function(lily_type_system *ts, lily_type *left,
                 break;
             }
         }
+
+        if (right->subtype_count > left->subtype_count &&
+            right->subtypes[i]->cls->id != LILY_OPTARG_ID) {
+            ret = 0;
+        }
     }
 
     if (ret && flags & T_UNIFY)
