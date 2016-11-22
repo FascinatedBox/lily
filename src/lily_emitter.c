@@ -3668,7 +3668,7 @@ static void eval_call_arg(lily_emit_state *emit, lily_emit_call_state *cs,
           lily_ts_check(emit->ts, want_type, result_type))
         ||
         (((want_type->flags & TYPE_IS_UNRESOLVED) == 0) &&
-         type_matchup(emit, want_type, arg)))
+         lily_ts_type_greater_eq(emit->ts, want_type, result_type)))
         add_value(emit, cs, arg->result);
     else
         bad_arg_error(emit, cs, want_type, result_type);
