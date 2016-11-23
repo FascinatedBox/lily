@@ -1013,7 +1013,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        result = lily_tm_make(parser->tm, arg_flags, cls, i + 1);
+        result = lily_tm_make(parser->tm, arg_flags & ~F_SCOOP_OK, cls, i + 1);
     }
     else
         result = NULL;
