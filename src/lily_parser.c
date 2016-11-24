@@ -2266,6 +2266,9 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
             (last_tree->args_collected & 0x1) == 0)
             lily_raise_syn(parser->raiser,
                     "Expected a key => value pair before ','.");
+        if (last_tree->tree_type == tree_subscript)
+            lily_raise_syn(parser->raiser,
+                    "Subscripts cannot contain ','.");
     }
     else if (lex->token == tk_arrow) {
         if (last_tree->tree_type == tree_list) {
