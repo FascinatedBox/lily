@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.0.0)
 project("Lily")
 
 if(MSVC)
@@ -23,6 +23,16 @@ set(LILY_MINOR             "18")
 set(LILY_VERSION_DIR       "${LILY_MAJOR}_${LILY_MINOR}")
 
 add_definitions(-DLILY_VERSION_DIR="${LILY_MAJOR}_${LILY_MINOR}")
+
+# BSD libc includes the dl* functions and there's no libdl on them.
+# Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
+STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
+
+if(IS_BSD OR MINGW OR MSVC)
+    set(LILY_NEED_DL 0)
+else()
+    set(LILY_NEED_DL 1)
+endif()
 
 add_subdirectory(src)
 add_subdirectory(run)

@@ -7,6 +7,16 @@ notifications:
   on_success: change # [always|never|change] # default: change
   on_failure: always # [always|never|change] # default: always
 
+addons:
+  apt:
+    sources:
+      # The cmake Travis has doesn't like the add_executable line.
+      # This is the fix I found.
+      - george-edison55-precise-backports # cmake 3.2.3 / doxygen 1.8.3
+    packages:
+      - cmake
+      - cmake-data
+
 script:
  - mkdir build
  - pushd build

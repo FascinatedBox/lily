@@ -1,26 +1,24 @@
 file(GLOB lily_SOURCES *.c *.h)
 
-# BSD libc includes the dl* functions and there's no libdl on them.
-# Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
-STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
+# The goal is to have a lily executable that's standalone, and a shared liblily
+# library. The two use the same sources, put together in an object library.
+add_library(liblily_obj OBJECT ${lily_SOURCES})
+add_library(liblily SHARED $<TARGET_OBJECTS:liblily_obj>)
 
-# The reason I've called this liblily but removed the prefix is so that I can
-# use liblily to build the lily executable.
-# -fPIC is vital: Apache's mod_lily will not build properly without it.
-add_library(liblily STATIC ${lily_SOURCES})
 if(NOT MSVC)
-    if(IS_BSD OR MINGW)
-        target_link_libraries(liblily)
-    else()
+    if(LILY_NEED_DL)
         target_link_libraries(liblily dl)
     endif()
-    set_target_properties(
-        liblily
-        PROPERTIES
-            COMPILE_FLAGS "-fPIC"
-            PREFIX ""
-    )
+    # -fPIC is needed for it to work properly as a shared library.
+    set_target_properties(liblily_obj PROPERTIES COMPILE_FLAGS "-fPIC")
+    # This prevents the shared library being named libliblily
+    set_target_properties(liblily PROPERTIES PREFIX "")
 endif()
+
+install(TARGETS liblily
+	ARCHIVE DESTINATION lib
+	LIBRARY DESTINATION lib
+	COMPONENT library)
 
 install(FILES lily_api_alloc.h
               lily_api_code_iter.h
