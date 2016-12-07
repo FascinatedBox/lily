@@ -2261,6 +2261,11 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
         lily_raise_syn(parser->raiser, "Expected a value, not ','.");
 
     lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
+	if (last_tree == NULL) {
+		*state = ST_BAD_TOKEN;
+		return;
+	}
+
     if (lex->token == tk_comma) {
         if (last_tree->tree_type == tree_hash &&
             (last_tree->args_collected & 0x1) == 0)
