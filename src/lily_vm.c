@@ -147,6 +147,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->stdout_reg = NULL;
     vm->exception_value = NULL;
     vm->pending_line = 0;
+    vm->include_last_frame_in_trace = 1;
 
     add_call_frame(vm);
 
@@ -686,7 +687,8 @@ static const char *names[] = {
     "RuntimeError",
     "ValueError",
     "IndexError",
-    "DivisionByZeroError"
+    "DivisionByZeroError",
+    "AssertionError"
 };
 
 /* This raises an error in the vm that won't have a proper value backing it. The
@@ -768,15 +770,8 @@ static lily_list_val *build_traceback_raw(lily_vm_state *);
 
 void lily_builtin_calltrace(lily_vm_state *vm)
 {
-    /* Nobody is going to care that the most recent function is calltrace, so
-       omit that. */
-    vm->call_chain = vm->call_chain->prev;
-    vm->call_depth--;
-
+    vm->include_last_frame_in_trace = 0;
     lily_list_val *traceback_val = build_traceback_raw(vm);
-
-    vm->call_chain = vm->call_chain->next;
-    vm->call_depth++;
 
     lily_return_list(vm, traceback_val);
 }
@@ -794,6 +789,19 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
 
     fputc('\n', target);
     lily_return_unit(vm);
+}
+
+void lily_builtin_assert(lily_vm_state *vm)
+{
+    int condition = lily_arg_boolean(vm, 0);
+    if (condition == 0) {
+        char *message = "";
+        if (lily_arg_count(vm) == 2)
+            message = lily_arg_string_raw(vm, 1);
+
+        vm->include_last_frame_in_trace = 0;
+        vm_error(vm, LILY_ASSERTIONERROR_ID, message);
+    }
 }
 
 void lily_builtin_print(lily_vm_state *vm)
@@ -1367,15 +1375,22 @@ static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code)
    to the caller to move the raw list to somewhere useful. */
 static lily_list_val *build_traceback_raw(lily_vm_state *vm)
 {
-    lily_list_val *lv = lily_new_list(vm->call_depth);
-    lily_call_frame *frame_iter;
-
+    lily_call_frame *frame_iter = vm->call_chain;
+    int depth = vm->call_depth;
     int i;
+
+    if (vm->include_last_frame_in_trace == 0) {
+        depth--;
+        frame_iter = frame_iter->prev;
+        vm->include_last_frame_in_trace = 1;
+    }
+
+    lily_list_val *lv = lily_new_list(depth);
 
     /* The call chain goes from the most recent to least. Work around that by
        allocating elements in reverse order. It's safe to do this because
        nothing in this loop can trigger the gc. */
-    for (i = vm->call_depth, frame_iter = vm->call_chain;
+    for (i = depth;
          i >= 1;
          i--, frame_iter = frame_iter->prev) {
         lily_function_val *func_val = frame_iter->function;

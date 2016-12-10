@@ -313,6 +313,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     vm->exception_value = NULL;
     vm->pending_line = 0;
     vm->vm_regs = vm->regs_from_main;
+    vm->include_last_frame_in_trace = 1;
 
     lily_call_frame *call_iter = vm->call_chain;
     while (call_iter->prev)
@@ -1530,15 +1531,16 @@ static lily_class *dynaload_native(lily_parse_state *parser,
         int index = dyna_index + 1;
 
         switch (index) {
-            case DIVISIONBYZEROERROR_OFFSET: cls->id = LILY_DBZERROR_ID;     break;
-            case EXCEPTION_OFFSET:           cls->id = LILY_EXCEPTION_ID;    break;
-            case INDEXERROR_OFFSET:          cls->id = LILY_INDEXERROR_ID;   break;
-            case IOERROR_OFFSET:             cls->id = LILY_IOERROR_ID;      break;
-            case KEYERROR_OFFSET:            cls->id = LILY_KEYERROR_ID;     break;
-            case RUNTIMEERROR_OFFSET:        cls->id = LILY_RUNTIMEERROR_ID; break;
-            case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;   break;
+            case DIVISIONBYZEROERROR_OFFSET: cls->id = LILY_DBZERROR_ID;       break;
+            case EXCEPTION_OFFSET:           cls->id = LILY_EXCEPTION_ID;      break;
+            case INDEXERROR_OFFSET:          cls->id = LILY_INDEXERROR_ID;     break;
+            case IOERROR_OFFSET:             cls->id = LILY_IOERROR_ID;        break;
+            case KEYERROR_OFFSET:            cls->id = LILY_KEYERROR_ID;       break;
+            case RUNTIMEERROR_OFFSET:        cls->id = LILY_RUNTIMEERROR_ID;   break;
+            case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;     break;
+            case ASSERTIONERROR_OFFSET:      cls->id = LILY_ASSERTIONERROR_ID; break;
             /* Shouldn't happen, but use an impossible id to make it stand out. */
-            default:                         cls->id = 12345;                break;
+            default:                         cls->id = 12345;                  break;
         }
     }
 
@@ -2261,10 +2263,10 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
         lily_raise_syn(parser->raiser, "Expected a value, not ','.");
 
     lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
-	if (last_tree == NULL) {
-		*state = ST_BAD_TOKEN;
-		return;
-	}
+    if (last_tree == NULL) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
 
     if (lex->token == tk_comma) {
         if (last_tree->tree_type == tree_hash &&
@@ -4485,6 +4487,9 @@ static void build_error(lily_parse_state *parser)
         lily_call_frame *frame = parser->vm->call_chain;
 
         lily_mb_add(msgbuf, "Traceback:\n");
+
+        if (parser->vm->include_last_frame_in_trace == 0)
+            frame = frame->prev;
 
         while (frame) {
             lily_function_val *func = frame->function;

@@ -117,6 +117,19 @@ Returns a `List` with one `String` for each function that is currently entered.
 */
 
 /**
+define assert(condition: Boolean, message: *String="")
+
+If `condition` is `false`, raise `AssertionError` using `message`.
+*/
+
+/**
+native AssertionError < Exception
+
+This is a subclass of `Exception` that is raised when an `assert` is passed
+`false` as the first argument.
+*/
+
+/**
 class Boolean
 
 The `Boolean` class represents a value that is either `true` or `false`.
@@ -2993,6 +3006,7 @@ static void *load_var_stderr(lily_options *options, uint16_t *cid_table)
     return new_builtin_file(stderr, "w");
 }
 
+extern void lily_builtin_assert(lily_state *);
 extern void lily_builtin_calltrace(lily_state *);
 extern void lily_builtin_print(lily_state *);
 

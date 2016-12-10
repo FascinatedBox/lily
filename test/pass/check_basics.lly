@@ -295,6 +295,40 @@ ok({||
     var v = 1 +1
     v == 2}(),                            "1 +1 is seen as 1 + 1 when binop needed.")
 
+# Is assert okay?
+
+ok({||
+    var v = false
+    try:
+        assert(false)
+    except AssertionError:
+        v = true
+
+    v}(), "Check assert(false) raises AssertionError.")
+
+ok({||
+    var v = false
+    try:
+        assert(false)
+    except AssertionError as e:
+        v = (e.message == "")
+
+    v}(), "Check assert(false) doesn't have an error message.")
+
+ok({||
+    var v = false
+    try:
+        assert(false, "Message")
+    except AssertionError as e:
+        v = (e.message == "Message")
+
+    v}(), "Check assert(false, message) has the message.")
+
+ok({||
+    assert(true)
+    true
+    }(), "Check assert(true) does nothing.")
+
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")
 else:

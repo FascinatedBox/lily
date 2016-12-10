@@ -405,16 +405,17 @@ typedef struct lily_module_entry_ {
    lily_api_value.h needs them for raising runtime errors. */
 #define LILY_EITHER_ID     16
 
-#define LILY_EXCEPTION_ID    19
-#define LILY_IOERROR_ID      20
-#define LILY_KEYERROR_ID     21
-#define LILY_RUNTIMEERROR_ID 22
-#define LILY_VALUEERROR_ID   23
-#define LILY_INDEXERROR_ID   24
-#define LILY_DBZERROR_ID     25 /* > 9000 */
+#define LILY_EXCEPTION_ID      19
+#define LILY_IOERROR_ID        20
+#define LILY_KEYERROR_ID       21
+#define LILY_RUNTIMEERROR_ID   22
+#define LILY_VALUEERROR_ID     23
+#define LILY_INDEXERROR_ID     24
+#define LILY_DBZERROR_ID       25 /* > 9000 */
+#define LILY_ASSERTIONERROR_ID 26
 
-#define LILY_UNIT_ID       26
-#define START_CLASS_ID     27
+#define LILY_UNIT_ID       27
+#define START_CLASS_ID     28
 
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_SELF_ID       65529
