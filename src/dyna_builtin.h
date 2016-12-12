@@ -99,7 +99,8 @@ const char *lily_builtin_dynaload_table[] = {
     ,"V\0None\0"
     ,"N\1RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
-    ,"C\18String"
+    ,"C\19String"
+    ,"m\0format\0(String,1...):String"
     ,"m\0ends_with\0(String,String):Boolean"
     ,"m\0find\0(String,String):Option[Integer]"
     ,"m\0html_encode\0(String):String"
@@ -202,27 +203,28 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 93: return lily_builtin_Option_unwrap_or;
         case 94: return lily_builtin_Option_unwrap_or_else;
         case 98: return lily_builtin_RuntimeError_new;
-        case 100: return lily_builtin_String_ends_with;
-        case 101: return lily_builtin_String_find;
-        case 102: return lily_builtin_String_html_encode;
-        case 103: return lily_builtin_String_is_alnum;
-        case 104: return lily_builtin_String_is_alpha;
-        case 105: return lily_builtin_String_is_digit;
-        case 106: return lily_builtin_String_is_space;
-        case 107: return lily_builtin_String_lower;
-        case 108: return lily_builtin_String_lstrip;
-        case 109: return lily_builtin_String_parse_i;
-        case 110: return lily_builtin_String_replace;
-        case 111: return lily_builtin_String_rstrip;
-        case 112: return lily_builtin_String_split;
-        case 113: return lily_builtin_String_starts_with;
-        case 114: return lily_builtin_String_strip;
-        case 115: return lily_builtin_String_to_bytestring;
-        case 116: return lily_builtin_String_trim;
-        case 117: return lily_builtin_String_upper;
-        case 119: return lily_builtin_Tuple_merge;
-        case 120: return lily_builtin_Tuple_push;
-        case 122: return lily_builtin_ValueError_new;
+        case 100: return lily_builtin_String_format;
+        case 101: return lily_builtin_String_ends_with;
+        case 102: return lily_builtin_String_find;
+        case 103: return lily_builtin_String_html_encode;
+        case 104: return lily_builtin_String_is_alnum;
+        case 105: return lily_builtin_String_is_alpha;
+        case 106: return lily_builtin_String_is_digit;
+        case 107: return lily_builtin_String_is_space;
+        case 108: return lily_builtin_String_lower;
+        case 109: return lily_builtin_String_lstrip;
+        case 110: return lily_builtin_String_parse_i;
+        case 111: return lily_builtin_String_replace;
+        case 112: return lily_builtin_String_rstrip;
+        case 113: return lily_builtin_String_split;
+        case 114: return lily_builtin_String_starts_with;
+        case 115: return lily_builtin_String_strip;
+        case 116: return lily_builtin_String_to_bytestring;
+        case 117: return lily_builtin_String_trim;
+        case 118: return lily_builtin_String_upper;
+        case 120: return lily_builtin_Tuple_merge;
+        case 121: return lily_builtin_Tuple_push;
+        case 123: return lily_builtin_ValueError_new;
         default: return NULL;
     }
 }

@@ -19,5 +19,5 @@
 #define OPTION_OFFSET              85
 #define RUNTIMEERROR_OFFSET        98
 #define STRING_OFFSET              100
-#define TUPLE_OFFSET               119
-#define VALUEERROR_OFFSET          122
+#define TUPLE_OFFSET               120
+#define VALUEERROR_OFFSET          123

@@ -21,6 +21,56 @@ ok("1".find("12345").is_none(),    "String.find where needle exceeds haystack.")
 ok("".find("").is_none(),          "String.find where haystack is empty.")
 ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
 
+ok({||
+    var result = false
+    try:
+        "{".format(0)
+    except ValueError:
+        result = true
+
+    result}(),                       "String.format fails on unterminated specifier.")
+
+ok({||
+    var result = false
+    try:
+        "{a}".format(0)
+    except ValueError:
+        result = true
+
+    result}(),                       "String.format fails on {a}.")
+
+ok({||
+    var result = false
+    try:
+        "{100}".format(0)
+    except ValueError:
+        result = true
+
+    result}(),                       "String.format fails on {100}.")
+
+ok({||
+    var result = false
+    try:
+        "{}".format(0)
+    except ValueError:
+        result = true
+
+    result}(),                       "String.format fails on {}.")
+
+ok({||
+    var result = false
+    try:
+        "{5}".format(0)
+    except IndexError:
+        result = true
+
+    result}(),                       "String.format fails on an index that's too large.")
+
+ok("{0}{0}".format(0) == "00",       "String.format works for {0}{0}.")
+ok("{00000000}".format(0) == "0",    "String.format works on leading zeroes.")
+ok("{1}a{2}".format(0,1,2) == "1a2", "String.format works for {1}a{2}.")
+ok("abc".format(0,1,2) == "abc",     "String.format for unformatted input.")
+
 ok("<&>".html_encode() == "&lt;&amp;&gt;",     "String.html_encode full spectrum.")
 ok("+<&>+".html_encode() == "+&lt;&amp;&gt;+", "String.html_encode without replacing start + end.")
 ok("<+&+>".html_encode() == "&lt;+&amp;+&gt;", "String.html_encode with text interleaving replacements.")

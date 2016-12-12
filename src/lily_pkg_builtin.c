@@ -1912,6 +1912,92 @@ static lily_string_val *make_sv(lily_state *s, int size)
     return new_sv;
 }
 
+static int char_index(const char *s, int idx, char ch)
+{
+    const char *P = strchr(s + idx,ch);
+    if (P == NULL)
+        return -1;
+    else
+        return (int)((uintptr_t)P - (uintptr_t)s);
+}
+
+/**
+method String.format(self: String, args: 1...): String
+
+This creates a new `String` by processing `self` as a format. Format specifiers
+must be between braces (`{}`), and must be between `0` and `99`. Each format
+specifier is replaced with the according argument, with the first argument being
+at 0, the second at 1, and so on.
+
+This function is a useful alternative to interpolation for situations where the
+value is a long expression, or where a single value is to be repeated several
+times.
+
+# Errors
+
+* `ValueError` if a format specifier is malformed or has too many digits.
+
+* `IndexError` if the format specifier specifies an out-of-range argument.
+*/
+void lily_builtin_String_format(lily_state *s)
+{
+    const char *fmt = lily_arg_string_raw(s, 0);
+    lily_list_val *lv = lily_arg_list(s, 1);
+
+    int lsize = lily_list_num_values(lv);
+    lily_msgbuf *msgbuf = lily_get_msgbuf(s);
+
+    int idx, last_idx = 0;
+
+    while (1) {
+        idx = char_index(fmt, last_idx, '{');
+        if (idx > -1) {
+            if (idx > last_idx)
+                lily_mb_add_slice(msgbuf, fmt, last_idx, idx);
+
+            char ch;
+            int i, total = 0;
+            int start = idx + 1;
+
+            /* Ignore any leading zeroes, but cap at 2 digits. */
+            do {
+                idx++;
+                ch = fmt[idx];
+            } while (ch == '0');
+
+            for (i = 0;i < 2;i++) {
+                if (isdigit(ch) == 0)
+                    break;
+
+                total = (total * 10) + (ch - '0');
+                idx++;
+                ch = fmt[idx];
+            }
+
+            if (isdigit(ch))
+                lily_ValueError(s, "Format must be between 0...99.");
+            else if (start == idx)
+                lily_ValueError(s, "Format specifier is empty.");
+            else if (ch != '}')
+                lily_ValueError(s, "Format specifier is not numeric.");
+            else if (total >= lsize)
+                lily_IndexError(s, "Format specifier is too large.");
+
+            idx++;
+            last_idx = idx;
+
+            lily_value *v = lily_list_value(lv, total);
+            lily_mb_add_value(msgbuf, s, v);
+        }
+        else {
+            lily_mb_add_slice(msgbuf, fmt, last_idx, strlen(fmt));
+            break;
+        }
+    }
+
+    lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
+}
+
 /**
 method String.ends_with(self: String, end: String): Boolean
 
