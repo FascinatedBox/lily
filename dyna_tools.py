@@ -41,7 +41,7 @@ def strip_proto(proto):
         # Drop "..."
         proto = re.sub("=\"[^\"]*\"", "", proto)
         # Drop simple digit literals
-        proto = re.sub("=\d+", "", proto)
+        proto = re.sub("=\-?\d+", "", proto)
 
     return proto
 
