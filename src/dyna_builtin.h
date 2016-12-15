@@ -102,7 +102,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"C\19String"
     ,"m\0format\0(String,1...):String"
     ,"m\0ends_with\0(String,String):Boolean"
-    ,"m\0find\0(String,String):Option[Integer]"
+    ,"m\0find\0(String,String,*Integer):Option[Integer]"
     ,"m\0html_encode\0(String):String"
     ,"m\0is_alnum\0(String):Boolean"
     ,"m\0is_alpha\0(String):Boolean"

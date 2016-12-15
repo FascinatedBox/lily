@@ -2033,9 +2033,12 @@ void lily_builtin_String_ends_with(lily_state *s)
 
 
 /**
-method String.find(self: String, needle: String): Option[Integer]
+method String.find(self: String, needle: String, start: *Integer=0): Option[Integer]
 
-Check for `needle` being within `self`.
+Check for `needle` being within `self`. By default, this begins at the start of
+`self`. If `start` is non-zero, then the search begins `start` bytes away from
+the beginning of `self`. If `start` lies within the middle of a utf-8 codepoint,
+then `None` is automatically returned.
 
 If `needle` is found, the result is a `Some` holding the index.
 
@@ -2045,6 +2048,9 @@ void lily_builtin_String_find(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
     lily_value *find_arg = lily_arg_value(s, 1);
+    int start = 0;
+    if (lily_arg_count(s) == 3)
+        start = lily_arg_integer(s, 2);
 
     char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
@@ -2053,7 +2059,9 @@ void lily_builtin_String_find(lily_state *s)
     int find_length = find_arg->value.string->size;
 
     if (find_length > input_length ||
-        find_length == 0) {
+        find_length == 0 ||
+        start > input_length ||
+        follower_table[(unsigned char)input_str[start]] == -1) {
         lily_return_empty_variant(s, LILY_NONE_ID);
         return;
     }
@@ -2069,7 +2077,7 @@ void lily_builtin_String_find(lily_state *s)
        * The inner loop won't have to do a boundary check.
        * Search will stop if there isn't enough length left for a match
          (ex: "abcdef".find("defg")) */
-    for (i = 0;i <= length_diff;i++) {
+    for (i = start;i <= length_diff;i++) {
         if (input_str[i] == find_ch) {
             match = 1;
             /* j starts at i + 1 to skip the first match.

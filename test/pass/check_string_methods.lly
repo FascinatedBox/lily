@@ -20,6 +20,8 @@ ok("ÀÈaÌÒÜ".find("ÈaÌ").is_some(), "String.find utf-8 success case.")
 ok("1".find("12345").is_none(),    "String.find where needle exceeds haystack.")
 ok("".find("").is_none(),          "String.find where haystack is empty.")
 ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
+ok("1234".find("1", 9).is_none(),  "String.find where start is past end.")
+ok("1234".find("3", 2).is_some(),  "String.find where match begins at the start.")
 
 ok({||
     var result = false
