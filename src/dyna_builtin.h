@@ -99,7 +99,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"V\0None\0"
     ,"N\1RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
-    ,"C\19String"
+    ,"C\20String"
     ,"m\0format\0(String,1...):String"
     ,"m\0ends_with\0(String,String):Boolean"
     ,"m\0find\0(String,String,*Integer):Option[Integer]"
@@ -113,6 +113,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0parse_i\0(String):Option[Integer]"
     ,"m\0replace\0(String,String,String):String"
     ,"m\0rstrip\0(String,String):String"
+    ,"m\0slice\0(String,*Integer,*Integer):String"
     ,"m\0split\0(String,*String):List[String]"
     ,"m\0starts_with\0(String,String):Boolean"
     ,"m\0strip\0(String,String):String"
@@ -216,15 +217,16 @@ void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
         case 110: return lily_builtin_String_parse_i;
         case 111: return lily_builtin_String_replace;
         case 112: return lily_builtin_String_rstrip;
-        case 113: return lily_builtin_String_split;
-        case 114: return lily_builtin_String_starts_with;
-        case 115: return lily_builtin_String_strip;
-        case 116: return lily_builtin_String_to_bytestring;
-        case 117: return lily_builtin_String_trim;
-        case 118: return lily_builtin_String_upper;
-        case 120: return lily_builtin_Tuple_merge;
-        case 121: return lily_builtin_Tuple_push;
-        case 123: return lily_builtin_ValueError_new;
+        case 113: return lily_builtin_String_slice;
+        case 114: return lily_builtin_String_split;
+        case 115: return lily_builtin_String_starts_with;
+        case 116: return lily_builtin_String_strip;
+        case 117: return lily_builtin_String_to_bytestring;
+        case 118: return lily_builtin_String_trim;
+        case 119: return lily_builtin_String_upper;
+        case 121: return lily_builtin_Tuple_merge;
+        case 122: return lily_builtin_Tuple_push;
+        case 124: return lily_builtin_ValueError_new;
         default: return NULL;
     }
 }

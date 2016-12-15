@@ -125,6 +125,17 @@ ok("12aabbab".rstrip("ab") == "12",            "String.rstrip multi remove.")
 ok("aaaaa".rstrip("a") == "",                  "String.rstrip removing all.")
 ok("ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa",            "String.rstrip with utf-8 chunk.")
 
+ok("abc".slice() == "abc",                     "String.slice defaults copy the string.")
+ok("abc".slice(0, -1) == "abc",                "String.slice basic 0...-1 works.")
+ok("abc".slice(1, 2) == "b",                   "String.slice basic 1...2 works (b).")
+ok("abc".slice(2, 1) == "",                    "String.slice gives empty string for reversed indexes.")
+ok("abc".slice(1, 5) == "",                    "String.slice gives empty string for too big indexes.")
+ok("À".slice(0, 1) == "",                      "String.slice gives empty string instead of broken utf-8.")
+
+ok("123".starts_with("12345") == false,        "String.starts_with '123' and '12345'.")
+ok("1".starts_with("1"),                       "String.starts_with '1' and '1'.")
+ok("ÀÈÌaÒÜ".starts_with("ÀÈ"),                 "String.starts_with utf-8 success case.")
+
 ok("1".starts_with("2") == false,              "String.starts_with '1' and '2'.")
 ok("123".starts_with("12345") == false,        "String.starts_with '123' and '12345'.")
 ok("1".starts_with("1"),                       "String.starts_with '1' and '1'.")

@@ -2788,6 +2788,61 @@ static lily_list_val *string_split_by_val(lily_state *s, char *input,
 }
 
 /**
+method String.slice(self: String, start: *Integer=0, stop: *Integer=-1): String
+
+Create a new `String` copying a section of `self` from `start` to `stop`. This
+function works using byte indexes into the `String` value.
+
+If a negative index is given, it is treated as an offset from the end of `self`,
+with `-1` being considered the last element.
+
+On error, this generates an empty `String`. Error conditions are:
+
+* Either `start` or `stop` is out of range.
+* The resulting slice would not be valid utf-8.
+* The `start` is larger than the `stop` (reversed).
+*/
+void lily_builtin_String_slice(lily_state *s)
+{
+    lily_string_val *sv = lily_arg_string(s, 0);
+    int start = 0;
+    int stop = sv->size;
+
+    switch (lily_arg_count(s)) {
+        case 3: stop = lily_arg_integer(s, 2);
+        case 2: start = lily_arg_integer(s, 1);
+    }
+
+    if (stop < 0)
+        stop = sv->size + 1 + stop;
+    if (start < 0)
+        start = sv->size + 1 + start;
+
+    if (stop > sv->size ||
+        start > sv->size ||
+        start > stop) {
+        lily_return_string(s, lily_new_string(""));
+        return;
+    }
+
+    char *raw = lily_string_raw(sv);
+    if (follower_table[(unsigned char)raw[start]] == -1 ||
+        follower_table[(unsigned char)raw[stop]] == -1) {
+        lily_return_string(s, lily_new_string(""));
+        return;
+    }
+
+    int new_size = (stop - start) + 1;
+    lily_string_val *new_sv = make_sv(s, new_size);
+
+    char *new_str = new_sv->string;
+    strncpy(new_str, raw + start, new_size - 1);
+    new_str[new_size - 1] = '\0';
+
+    lily_return_string(s, new_sv);
+}
+
+/**
 method String.split(self: String, split_by: *String=" "):List[String]
 
 This attempts to split `self` using `split_by`, with a default value of a single
