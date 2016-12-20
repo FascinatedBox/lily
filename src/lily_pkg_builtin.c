@@ -681,6 +681,64 @@ void lily_builtin_File_print(lily_state *s)
 }
 
 /**
+method File.read(self: File, size: *Integer=-1): ByteString
+
+Read `size` bytes from `self`. If `size` is negative, then the full contents of
+`self` are read. This stops if either `size` bytes are read, or the end of
+`self` is reached.
+
+# Errors:
+
+* `IOError` if `self` is not open for reading, or is closed.
+*/
+void lily_builtin_File_read(lily_state *s)
+{
+    lily_file_val *filev = lily_arg_file(s,0);
+    lily_file_ensure_readable(s, filev);
+    int need = -1;
+    if (lily_arg_count(s) == 2)
+        need = lily_arg_integer(s, 1);
+
+    /* For simplicity, reduce all negative arguments to -1. */
+    if (need < -1)
+        need = -1;
+
+    FILE *raw_file = lily_file_raw(filev);
+    size_t bufsize = 64;
+    char *buffer = lily_malloc(bufsize);
+    int pos = 0, nread;
+    int nbuf = bufsize/2;
+
+    while (1) {
+        int to_read;
+        /* Read either the max possible, or the rest that's needed. */
+        if (need == -1 || need > nbuf)
+            to_read = nbuf;
+        else
+            to_read = need;
+
+        nread = fread(buffer+pos, 1, to_read, raw_file);
+        pos += nread;
+
+        if (pos >= bufsize) {
+            nbuf = bufsize;
+            bufsize *= 2;
+            buffer = lily_realloc(buffer, bufsize);
+        }
+
+        /* Done if EOF hit (first), or got what was wanted (second). */
+        if (nread < to_read || (pos >= need && need != -1)) {
+            buffer[pos] = '\0';
+            break;
+        }
+        else if (to_read != -1)
+            to_read -= nread;
+    }
+
+    lily_return_bytestring(s, lily_new_bytestring_take(buffer));
+}
+
+/**
 method File.read_line(self: File): ByteString
 
 Attempt to read a line of text from `self`. Currently, this function does not

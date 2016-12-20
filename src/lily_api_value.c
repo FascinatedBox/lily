@@ -408,7 +408,7 @@ lily_bytestring_val *lily_new_bytestring_sized(const char *source, int len)
 
 lily_bytestring_val *lily_new_bytestring_take(char *source)
 {
-    return (lily_bytestring_val *)lily_new_string_take;
+    return (lily_bytestring_val *)lily_new_string_take(source);
 }
 
 lily_bytestring_val *lily_new_bytestring(const char *source)
