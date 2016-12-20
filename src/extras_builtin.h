@@ -16,8 +16,8 @@
 #define IOERROR_OFFSET             63
 #define KEYERROR_OFFSET            65
 #define LIST_OFFSET                67
-#define OPTION_OFFSET              85
-#define RUNTIMEERROR_OFFSET        98
-#define STRING_OFFSET              100
-#define TUPLE_OFFSET               121
-#define VALUEERROR_OFFSET          124
+#define OPTION_OFFSET              86
+#define RUNTIMEERROR_OFFSET        99
+#define STRING_OFFSET              101
+#define TUPLE_OFFSET               122
+#define VALUEERROR_OFFSET          125

@@ -260,6 +260,12 @@ ok({||
     result
     }(),                                "List.shift raises IndexError for an empty list.")
 
+ok([1, 2, 3].slice() == [1, 2, 3],      "List.slice defaults copy the list.")
+ok([1, 2, 3].slice(0, -1) == [1, 2],    "List.slice basic 0...-1 works.")
+ok([1, 2, 3].slice(1, 2) == [2],        "List.slice basic 1...2 works (b).")
+ok([1, 2, 3].slice(2, 1) == [],         "List.slice gives empty string for reversed indexes.")
+ok([1, 2, 3].slice(1, 5) == [],         "List.slice gives empty string for too big indexes.")
+
 ok({||
     var v = [1]
     v.unshift(0)

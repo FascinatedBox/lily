@@ -1634,6 +1634,54 @@ void lily_builtin_List_shift(lily_state *s)
 }
 
 /**
+method List.slice[A](self: List[A], start: *Integer=0, stop: *Integer=-1): List[A]
+
+Create a new `List` copying a section of `self` from `start` to `stop`.
+
+If a negative index is given, it is treated as an offset from the end of `self`,
+with `-1` being considered the last element.
+
+On error, this generates an empty `List`. Error conditions are:
+
+* Either `start` or `stop` is out of range.
+* The `start` is larger than the `stop` (reversed).
+*/
+void lily_builtin_List_slice(lily_state *s)
+{
+    lily_list_val *lv = lily_arg_list(s, 0);
+    int start = 0;
+    int size = lily_list_num_values(lv);
+    int stop = size;
+
+    switch (lily_arg_count(s)) {
+        case 3: stop = lily_arg_integer(s, 2);
+        case 2: start = lily_arg_integer(s, 1);
+    }
+
+    if (stop < 0)
+        stop = size + stop;
+    if (start < 0)
+        start = size + start;
+
+    if (stop > size ||
+        start > size ||
+        start > stop) {
+        lily_return_list(s, lily_new_list(0));
+        return;
+    }
+
+    int new_size = (stop - start);
+    lily_list_val *new_lv = lily_new_list(new_size);
+    int i, j;
+
+    for (i = 0, j = start;i < new_size;i++, j++) {
+        lily_list_set_value(new_lv, i, lily_list_value(lv, j));
+    }
+
+    lily_return_list(s, new_lv);
+}
+
+/**
 method List.unshift[A](self: List[A], value: A)
 
 Inserts value at the front of self, moving all other elements to the right.
