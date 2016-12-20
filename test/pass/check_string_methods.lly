@@ -126,7 +126,7 @@ ok("aaaaa".rstrip("a") == "",                  "String.rstrip removing all.")
 ok("ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa",            "String.rstrip with utf-8 chunk.")
 
 ok("abc".slice() == "abc",                     "String.slice defaults copy the string.")
-ok("abc".slice(0, -1) == "abc",                "String.slice basic 0...-1 works.")
+ok("abc".slice(0, -1) == "ab",                 "String.slice basic 0...-1 works.")
 ok("abc".slice(1, 2) == "b",                   "String.slice basic 1...2 works (b).")
 ok("abc".slice(2, 1) == "",                    "String.slice gives empty string for reversed indexes.")
 ok("abc".slice(1, 5) == "",                    "String.slice gives empty string for too big indexes.")

@@ -2814,9 +2814,9 @@ void lily_builtin_String_slice(lily_state *s)
     }
 
     if (stop < 0)
-        stop = sv->size + 1 + stop;
+        stop = sv->size  + stop;
     if (start < 0)
-        start = sv->size + 1 + start;
+        start = sv->size + start;
 
     if (stop > sv->size ||
         start > sv->size ||
