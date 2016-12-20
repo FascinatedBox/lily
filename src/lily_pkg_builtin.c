@@ -260,6 +260,109 @@ void lily_builtin_ByteString_size(lily_state *s)
     lily_return_integer(s, lily_arg_bytestring(s, 0)->size);
 }
 
+/* This table indicates how many more bytes need to be successfully read after
+   that particular byte for proper utf-8. -1 = invalid.
+   Table copied from lily_lexer.c */
+static const char follower_table[256] =
+{
+     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+/* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 8 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* 9 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* A */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* B */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+/* C */-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+/* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+};
+
+static lily_string_val *make_sv(lily_state *s, int size)
+{
+    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
+    char *new_string = lily_malloc(sizeof(char) * size);
+
+    new_sv->string = new_string;
+    new_sv->size = size - 1;
+    new_sv->refcount = 0;
+
+    return new_sv;
+}
+
+void do_str_slice(lily_state *s, int is_bytestring)
+{
+    lily_string_val *sv = lily_arg_string(s, 0);
+    int start = 0;
+    int stop = sv->size;
+
+    switch (lily_arg_count(s)) {
+        case 3: stop = lily_arg_integer(s, 2);
+        case 2: start = lily_arg_integer(s, 1);
+    }
+
+    if (stop < 0)
+        stop = sv->size + stop;
+    if (start < 0)
+        start = sv->size + start;
+
+    if (stop > sv->size ||
+        start > sv->size ||
+        start > stop) {
+        if (is_bytestring == 0)
+            lily_return_string(s, lily_new_string(""));
+        else
+            lily_return_bytestring(s, lily_new_bytestring(""));
+
+        return;
+    }
+
+    char *raw = lily_string_raw(sv);
+    if (is_bytestring == 0) {
+        if (follower_table[(unsigned char)raw[start]] == -1 ||
+            follower_table[(unsigned char)raw[stop]] == -1) {
+            lily_return_string(s, lily_new_string(""));
+            return;
+        }
+    }
+
+    int new_size = (stop - start) + 1;
+    lily_string_val *new_sv = make_sv(s, new_size);
+
+    char *new_str = new_sv->string;
+    strncpy(new_str, raw + start, new_size - 1);
+    new_str[new_size - 1] = '\0';
+
+    if (is_bytestring == 0)
+        lily_return_string(s, new_sv);
+    else
+        lily_return_bytestring(s, (lily_bytestring_val *)new_sv);
+}
+
+/**
+method ByteString.slice(self: ByteString, start: *Integer=0, stop: *Integer=-1): ByteString
+
+Create a new `ByteString` copying a section of `self` from `start` to `stop`.
+
+If a negative index is given, it is treated as an offset from the end of `self`,
+with `-1` being considered the last element.
+
+On error, this generates an empty `ByteString`. Error conditions are:
+
+* Either `start` or `stop` is out of range.
+* The `start` is larger than the `stop` (reversed).
+*/
+void lily_builtin_ByteString_slice(lily_state *s)
+{
+    do_str_slice(s, 1);
+}
+
 static void return_exception(lily_state *s, uint16_t id)
 {
     lily_instance_val *result;
@@ -1924,42 +2027,6 @@ immutable, and thus always create a new `String` instead of modifying the
 existing one.
 */
 
-/* This table indicates how many more bytes need to be successfully read after
-   that particular byte for proper utf-8. -1 = invalid.
-   Table copied from lily_lexer.c */
-static const char follower_table[256] =
-{
-     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-/* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 8 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* 9 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* A */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* B */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* C */-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-/* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
-};
-
-static lily_string_val *make_sv(lily_state *s, int size)
-{
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *new_string = lily_malloc(sizeof(char) * size);
-
-    new_sv->string = new_string;
-    new_sv->size = size - 1;
-    new_sv->refcount = 0;
-
-    return new_sv;
-}
-
 static int char_index(const char *s, int idx, char ch)
 {
     const char *P = strchr(s + idx,ch);
@@ -2852,42 +2919,7 @@ On error, this generates an empty `String`. Error conditions are:
 */
 void lily_builtin_String_slice(lily_state *s)
 {
-    lily_string_val *sv = lily_arg_string(s, 0);
-    int start = 0;
-    int stop = sv->size;
-
-    switch (lily_arg_count(s)) {
-        case 3: stop = lily_arg_integer(s, 2);
-        case 2: start = lily_arg_integer(s, 1);
-    }
-
-    if (stop < 0)
-        stop = sv->size  + stop;
-    if (start < 0)
-        start = sv->size + start;
-
-    if (stop > sv->size ||
-        start > sv->size ||
-        start > stop) {
-        lily_return_string(s, lily_new_string(""));
-        return;
-    }
-
-    char *raw = lily_string_raw(sv);
-    if (follower_table[(unsigned char)raw[start]] == -1 ||
-        follower_table[(unsigned char)raw[stop]] == -1) {
-        lily_return_string(s, lily_new_string(""));
-        return;
-    }
-
-    int new_size = (stop - start) + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
-
-    char *new_str = new_sv->string;
-    strncpy(new_str, raw + start, new_size - 1);
-    new_str[new_size - 1] = '\0';
-
-    lily_return_string(s, new_sv);
+    do_str_slice(s, 0);
 }
 
 /**

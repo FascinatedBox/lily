@@ -20,6 +20,12 @@ ok(B"\255\255\255".encode("error").is_none(),   "ByteString.encode(error) forbid
 ok(B"abc".size() == 3,                "ByteString.size basic success case.")
 ok("abc".to_bytestring().size() == 3, "ByteString.size for converted String.")
 
+ok(B"abc".slice() == B"abc",                    "ByteString.slice defaults copy the string.")
+ok(B"abc".slice(0, -1) == B"ab",                "ByteString.slice basic 0...-1 works.")
+ok(B"abc".slice(1, 2) == B"b",                  "ByteString.slice basic 1...2 works (b).")
+ok(B"abc".slice(2, 1) == B"",                   "ByteString.slice gives empty string for reversed indexes.")
+ok(B"abc".slice(1, 5) == B"",                   "ByteString.slice gives empty string for too big indexes.")
+
 ok({||
     var success = true
     var i = 0
