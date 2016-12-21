@@ -531,6 +531,9 @@ target = lily_malloc(sizeof(lily_{0}_{1})); \\
 target->refcount = 0; \\
 target->destroy_func = (lily_destroy_func)destroy_{1};\
 """.format(package_entry.name, d.name, i))
+            ids.append("""\
+#define ID_{0}(state) lily_cid_at(state, {1})\
+""".format(d.name, i))
         elif d.e_type == "native":
             dynas.append("""\
 #define DYNA_ID_{0}(ids) ids[{1}]\
@@ -552,7 +555,7 @@ target->destroy_func = (lily_destroy_func)destroy_{1};\
     s = ""
 
     for i in range(len(x)):
-        if i != 0 and len(x[i - 1]) and len(x[i]):
+        if i != 0 and len(x[i - 1]):
             s += "\n\n"
 
         s += "\n".join(sorted(x[i]))
