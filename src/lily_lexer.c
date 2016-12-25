@@ -43,12 +43,12 @@
 /* CC_LEFT_CURLY isn't here because {| opens a lambda. */
 #define CC_RIGHT_CURLY   3
 #define CC_LEFT_BRACKET  4
-#define CC_CARET         5
-#define CC_COLON         6
-#define CC_G_ONE_LAST    6
+#define CC_COLON         5
+#define CC_G_ONE_LAST    5
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  7
+#define CC_G_TWO_OFFSET  6
+#define CC_CARET         6
 #define CC_NOT           7
 #define CC_PERCENT       8
 #define CC_MULTIPLY      9
@@ -112,12 +112,12 @@ static const char ident_table[256] =
 /* Group 1 doesn't need a table because the token is just ch_class[ch]. */
 static const lily_token grp_two_table[] =
 {
-    tk_not, tk_modulo, tk_multiply, tk_divide
+    tk_bitwise_xor, tk_not, tk_modulo, tk_multiply, tk_divide
 };
 
 static const lily_token grp_two_eq_table[] =
 {
-    tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
+    tk_bitwise_xor_eq, tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
 };
 
 
@@ -191,6 +191,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     ch_class[(unsigned char)'&'] = CC_AMPERSAND;
     ch_class[(unsigned char)'%'] = CC_PERCENT;
     ch_class[(unsigned char)'|'] = CC_VBAR;
+    ch_class[(unsigned char)'^'] = CC_CARET;
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
     ch_class[(unsigned char)'$'] = CC_DOLLAR;
@@ -1848,9 +1849,9 @@ next_line:
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "}", "[", "^", ":", "!", "!=", "%", "%=", "*", "*=", "/",
-     "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=",
-     "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
+    {"(", ")", ",", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
+     "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
+     ">>=", "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
      "a byte", "an integer", "a double", "a docstring", ".", "&", "&=", "&&",
      "|", "|=", "||", "@(", "...", "|>", "invalid token", "?>", "end of file"};

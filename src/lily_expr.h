@@ -36,7 +36,8 @@ typedef enum {
     expr_left_shift_assign,
     expr_right_shift_assign,
     expr_bitwise_and_assign,
-    expr_bitwise_or_assign
+    expr_bitwise_or_assign,
+    expr_bitwise_xor_assign
 } lily_expr_op;
 
 typedef enum {
