@@ -1976,7 +1976,7 @@ static const char *opname(lily_expr_op op)
     static const char *opnames[] =
     {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
      "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
-     "<<=", ">>="};
+     "<<=", ">>=", "&=", "|="};
 
     return opnames[op];
 }
@@ -2692,6 +2692,10 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
         spoof_op = expr_left_shift;
     else if (ast->op == expr_right_shift_assign)
         spoof_op = expr_right_shift;
+    else if (ast->op == expr_bitwise_and_assign)
+        spoof_op = expr_bitwise_and;
+    else if (ast->op == expr_bitwise_or_assign)
+        spoof_op = expr_bitwise_or;
     else {
         lily_raise_syn(emit->raiser, "Invalid compound op: %s.",
                 opname(ast->op));

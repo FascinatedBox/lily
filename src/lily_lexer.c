@@ -1637,6 +1637,11 @@ void lily_lexer(lily_lex_state *lexer)
                 ch++;
                 token = tk_logical_and;
             }
+            else if (*ch == '=') {
+                input_pos++;
+                ch++;
+                token = tk_bitwise_and_eq;
+            }
             else
                 token = tk_bitwise_and;
         }
@@ -1653,6 +1658,11 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos++;
                 ch++;
                 token = tk_func_pipe;
+            }
+            else if (*ch == '=') {
+                input_pos++;
+                ch++;
+                token = tk_bitwise_or_eq;
             }
             else
                 token = tk_bitwise_or;
@@ -1842,8 +1852,8 @@ char *tokname(lily_token t)
      "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>", ">>=",
      "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
-     "a byte", "an integer", "a double", "a docstring", ".", "&", "&&", "|",
-     "||", "@(", "...", "|>", "invalid token", "?>", "end of file"};
+     "a byte", "an integer", "a double", "a docstring", ".", "&", "&=", "&&",
+     "|", "|=", "||", "@(", "...", "|>", "invalid token", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];
