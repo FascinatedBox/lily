@@ -15,6 +15,7 @@
 #include "lily_pkg_builtin.h"
 #include "lily_pkg_sys.h"
 #include "lily_pkg_random.h"
+#include "lily_pkg_time.h"
 
 #include "lily_api_alloc.h"
 /* Ids for Exception + children are in here, and dynaload needs them. */
@@ -160,6 +161,7 @@ lily_state *lily_new_state(lily_options *options)
         lily_pkg_sys_init(parser->vm, options);
 
     lily_pkg_random_init(parser->vm, options);
+    lily_pkg_time_init(parser->vm, options);
 
     parser->executing = 0;
 
