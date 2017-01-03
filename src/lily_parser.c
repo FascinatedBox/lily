@@ -86,9 +86,12 @@ typedef struct lily_rewind_state_
    when it shouldn't. */
 lily_state *lily_new_state(lily_options *options)
 {
-    /* "Prevent" caller from changing options during exec and fouling up the
-       internal state. */
-    lily_op_freeze(options);
+    if (options == NULL)
+        options = lily_new_options();
+    else
+        /* "Prevent" caller from changing options during exec and fouling up the
+           internal state. */
+        lily_op_freeze(options);
 
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
     parser->data = lily_op_get_data(options);
