@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "lily_core_types.h"
 #include "lily_value_flags.h"
@@ -203,10 +204,10 @@ void lily_mb_add_byte(lily_msgbuf *msgbuf, uint8_t i)
     lily_mb_add(msgbuf, buf);
 }
 
-void lily_mb_add_int(lily_msgbuf *msgbuf, int i)
+void lily_mb_add_int(lily_msgbuf *msgbuf, int64_t i)
 {
     char buf[64];
-    sprintf(buf, "%d", i);
+    sprintf(buf, "%" PRId64, i);
 
     lily_mb_add(msgbuf, buf);
 }
