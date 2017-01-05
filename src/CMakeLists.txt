@@ -22,6 +22,7 @@ install(TARGETS liblily
 
 install(FILES lily_api_alloc.h
               lily_api_code_iter.h
+              lily_api_dyna.h
               lily_api_embed.h
               lily_api_options.h
               lily_api_msgbuf.h

@@ -27,6 +27,4 @@ int lily_exec_template_file(lily_state *, const char *);
    function value or NULL. */
 struct lily_function_val_ *lily_get_func(lily_state *, const char *);
 
-void lily_register_package(lily_state *, const char *, const char **, void *);
-
 #endif

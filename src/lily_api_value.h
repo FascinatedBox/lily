@@ -390,12 +390,6 @@ void lily_ValueError(lily_state *, const char *, ...);
    interpreter. If they are called outside of the interpreter's parsing loop,
    the interpreter is likely to crash. */
 
-/* The id of a class is important to Lily's internals. Dynaload means that there
-   is no guaranteed spot for a class id to go. dyna_tools.py generates ID_*
-   defines which call this under the hood, so calling this directly is both
-   unnecessary and unwise. */
-uint16_t lily_cid_at(lily_state *, int);
-
 int lily_is_valid_utf8(const char *);
 
 /* Call this if your function is acting as the constructor for a native class.

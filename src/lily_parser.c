@@ -492,11 +492,11 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path,
 /* This adds a preloaded module using the data provided. It's intentionally not
    linked anywhere to prevent assumptions about its existence. */
 void lily_register_package(lily_state *s, const char *name,
-        const char **dynaload_table, lily_loader loader)
+        const char **dynaload_table, void *loader)
 {
     lily_parse_state *parser = s->parser;
     lily_module_entry *entry = new_module(parser, name, dynaload_table);
-    entry->loader = loader;
+    entry->loader = (lily_loader)loader;
     entry->flags |= MODULE_IS_REGISTERED;
 }
 
