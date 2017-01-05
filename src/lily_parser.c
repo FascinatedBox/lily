@@ -2722,9 +2722,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     root_result = parse_lambda_body(parser, expect_type);
     fini_expr_state(parser);
 
-    NEED_CURRENT_TOK(tk_right_curly)
-    lily_lexer(lex);
-
     if (root_result != NULL)
         lily_tm_insert(parser->tm, tm_return, root_result);
 
