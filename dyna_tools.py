@@ -537,7 +537,7 @@ target->destroy_func = (lily_destroy_func)destroy_{1};\
         elif d.e_type == "native":
             dynas.append("""\
 #define DYNA_ID_{0}(ids) ids[{1}]\
-""".format(package_entry.name, i))
+""".format(d.name, i))
 
             ids.append("""\
 #define ID_{0}(state) lily_cid_at(state, {1})\
