@@ -328,14 +328,12 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
 
 /* This reads the first line of 'new_entry'. If the mode given is tagged mode,
    then it is checked for starting with '<?lily' here. */
-static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry,
-        lily_lex_mode mode)
+static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry)
 {
     if (new_entry->prev == NULL) {
-        lexer->mode = mode;
         read_line(lexer);
 
-        if (mode == lm_tags) {
+        if (lexer->in_template) {
             /* This prevents a user from accidentally having space before the
                first tag, and then having issues with the headers already being
                sent when they attempt to modify headers. */
@@ -1380,15 +1378,14 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
    Subsequent loads can only be in code mode. This prevents including something
    that accidentally sends data, and lots of other problems. */
 
-static void setup_opened_file(lily_lex_state *lexer, lily_lex_mode mode,
-        FILE *f)
+static void setup_opened_file(lily_lex_state *lexer, FILE *f)
 {
     lily_lex_entry *new_entry = get_entry(lexer);
 
     new_entry->source = f;
     new_entry->entry_type = et_file;
 
-    setup_entry(lexer, new_entry, mode);
+    setup_entry(lexer, new_entry);
 }
 
 int lily_try_load_file(lily_lex_state *lexer, const char *filename)
@@ -1397,57 +1394,58 @@ int lily_try_load_file(lily_lex_state *lexer, const char *filename)
     if (load_file == NULL)
         return 0;
 
-    setup_opened_file(lexer, lm_no_tags, load_file);
+    setup_opened_file(lexer, load_file);
     return 1;
 }
 
-/* This loads an initial file. If unable to open the path given, an error is
-   raised. */
-void lily_load_file(lily_lex_state *lexer, lily_lex_mode mode,
-        const char *filename)
+void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
+        const char *name)
 {
-    FILE *load_file = fopen(filename, "r");
-    if (load_file == NULL) {
-        /* Assume that the message is of a reasonable sort of size. */
-        char buffer[128];
+    if (mode == et_file) {
+        FILE *load_file = fopen(name, "r");
+        if (load_file == NULL) {
+            /* Assume that the message is of a reasonable sort of size. */
+            char buffer[128];
 #ifdef _WIN32
-        strerror_s(buffer, sizeof(buffer), errno);
+            strerror_s(buffer, sizeof(buffer), errno);
 #else
-        strerror_r(errno, buffer, sizeof(buffer));
+            strerror_r(errno, buffer, sizeof(buffer));
 #endif
-        lily_raise_err(lexer->raiser, "Failed to open %s: (%s).", filename,
-                buffer);
+            lily_raise_err(lexer->raiser, "Failed to open %s: (%s).", name,
+                    buffer);
+        }
+
+        setup_opened_file(lexer, load_file);
     }
+    else if (mode == et_shallow_string) {
+        lily_lex_entry *new_entry = get_entry(lexer);
 
-    setup_opened_file(lexer, mode, load_file);
+        new_entry->source = (char *)&name[0];
+        new_entry->entry_type = et_shallow_string;
+
+        setup_entry(lexer, new_entry);
+    }
+    else if (mode == et_copied_string) {
+        lily_lex_entry *new_entry = get_entry(lexer);
+
+        char *copy = lily_malloc(strlen(name) + 1);
+
+        strcpy(copy, name);
+
+        new_entry->source = &copy[0];
+        new_entry->extra = copy;
+        new_entry->entry_type = et_copied_string;
+
+        setup_entry(lexer, new_entry);
+    }
 }
 
-/* This loads a string as an initial entry. A shallow copy of 'str' is kept. */
-void lily_load_str(lily_lex_state *lexer, lily_lex_mode mode, const char *str)
+/* Toplevel parsing functions call this to say if the first source is a template
+   or not. Only template mode allows `?>` tags. It's called before loading the
+   first source, to make sure the mode is right. */
+void lily_set_in_template(lily_lex_state *lexer, int in)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
-
-    new_entry->source = (char*)&str[0];
-    new_entry->entry_type = et_shallow_string;
-
-    setup_entry(lexer, new_entry, mode);
-}
-
-/* This loads a string as an entry, but does a deep copy of the string. */
-void lily_load_copy_string(lily_lex_state *lexer, lily_lex_mode mode,
-        const char *str)
-{
-    lily_lex_entry *new_entry = get_entry(lexer);
-
-    char *copy = lily_malloc(strlen(str) + 1);
-
-    strcpy(copy, str);
-
-    new_entry->source = &copy[0];
-    new_entry->extra = copy;
-    new_entry->entry_type = et_copied_string;
-
-    setup_entry(lexer, new_entry, mode);
+    lexer->in_template = in;
 }
 
 /* Magic scanning function. */
@@ -1750,7 +1748,7 @@ void lily_lexer(lily_lex_state *lexer)
             ch++;
             input_pos++;
             if (*ch == '>') {
-                if (lexer->mode == lm_no_tags)
+                if (lexer->in_template == 0)
                     lily_raise_syn(lexer->raiser,
                             "Found ?> but not expecting tags.");
                 if (lexer->entry->prev != NULL)

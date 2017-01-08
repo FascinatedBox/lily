@@ -74,15 +74,6 @@ typedef enum {
 } lily_token;
 
 typedef enum {
-    /* Code is the data between '<?lily' and '?>'. Everything else is html and
-       written as-is. Multiple runs are possible, and eof should be reached
-       within html handling. */
-    lm_tags,
-    /* Everything is code, and code terminates with eof. */
-    lm_no_tags
-} lily_lex_mode;
-
-typedef enum {
     et_file,
     et_shallow_string,
     et_copied_string
@@ -129,7 +120,7 @@ typedef struct lily_lex_state_ {
     int64_t last_integer;
 
     lily_token token;
-    lily_lex_mode mode;
+    int in_template;
 
     /* When the lexer sees a numeric or string literal, it calls the symtab to
        make a literal value. Said value is stored here, for the parser to use. */
@@ -146,9 +137,8 @@ void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_handle_page_data(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
-void lily_load_file(lily_lex_state *, lily_lex_mode, const char *);
-void lily_load_str(lily_lex_state *, lily_lex_mode, const char *);
-void lily_load_copy_string(lily_lex_state *, lily_lex_mode, const char *);
+void lily_set_in_template(lily_lex_state *, int);
+void lily_load_source(lily_lex_state *, lily_lex_entry_type, const char *);
 int lily_try_load_file(lily_lex_state *, const char *);
 int lily_scan_interpolation_piece(lily_lex_state *, char **);
 void lily_scan_import_path(lily_lex_state *);

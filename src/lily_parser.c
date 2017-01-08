@@ -1038,7 +1038,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 /* Get a type represented by the name given. Largely used by dynaload. */
 static lily_type *type_by_name(lily_parse_state *parser, const char *name)
 {
-    lily_load_copy_string(parser->lex, lm_no_tags, name);
+    lily_load_source(parser->lex, et_copied_string, name);
     lily_lexer(parser->lex);
     lily_type *result = get_type(parser);
     lily_pop_lex_entry(parser->lex);
@@ -1282,7 +1282,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
 
     lily_module_entry *save_active = parser->symtab->active_module;
 
-    lily_load_str(lex, lm_no_tags, body);
+    lily_load_source(lex, et_shallow_string, body);
     lily_lexer(lex);
 
     lily_item *source;
@@ -1401,7 +1401,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     lily_mb_add_char(msgbuf, '}');
 
-    lily_load_copy_string(parser->lex, lm_no_tags, lily_mb_get(msgbuf));
+    lily_load_source(parser->lex, et_copied_string, lily_mb_get(msgbuf));
     lily_lexer(parser->lex);
 
     int save_next_class_id;
@@ -1510,7 +1510,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     int entry_index = dyna_index;
     lily_lex_state *lex = parser->lex;
 
-    lily_load_str(lex, lm_no_tags, body);
+    lily_load_source(lex, et_shallow_string, body);
     lily_lexer(lex);
 
     lily_class *cls = lily_new_class(parser->symtab, name);
@@ -1573,7 +1573,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
         const char *prop_name = entry + DYNA_NAME_OFFSET;
         const char *prop_body = prop_name + strlen(prop_name) + 1;
 
-        lily_load_str(lex, lm_no_tags, prop_body);
+        lily_load_source(lex, et_shallow_string, prop_body);
         lily_lexer(lex);
         lily_add_class_property(parser->symtab, cls, get_type(parser),
                 prop_name, flags);
@@ -2643,7 +2643,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         const char *text)
 {
     lily_lex_state *lex = parser->lex;
-    lily_load_copy_string(lex, lm_no_tags, text);
+    lily_load_source(lex, et_copied_string, text);
     lex->line_num = start_line;
     lily_lexer(parser->lex);
 
@@ -2689,7 +2689,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_copy_string(lex, lm_no_tags, lambda_body);
+    lily_load_source(lex, et_copied_string, lambda_body);
     lex->line_num = lambda_start_line;
 
     /* Block entry assumes that the most recent var added is the var to bind
@@ -4524,8 +4524,7 @@ static void build_error(lily_parse_state *parser)
     }
 }
 
-static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
-        const char *filename)
+static int parse_file(lily_parse_state *parser, const char *filename)
 {
     if (parser->first_pass)
         fix_first_file_name(parser, filename);
@@ -4539,7 +4538,7 @@ static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
         if (suffix == NULL || strcmp(suffix, ".lly") != 0)
             lily_raise_err(parser->raiser, "File name must end with '.lly'.");
 
-        lily_load_file(parser->lex, mode, filename);
+        lily_load_source(parser->lex, et_file, filename);
         parser_loop(parser, filename);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -4552,8 +4551,7 @@ static int parse_file(lily_parse_state *parser, lily_lex_mode mode,
     return 0;
 }
 
-static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
-        const char *name, char *str)
+static int parse_string(lily_parse_state *parser, const char *name, char *str)
 {
     if (parser->first_pass)
         fix_first_file_name(parser, name);
@@ -4561,7 +4559,7 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
     handle_rewind(parser);
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_load_str(parser->lex, mode, str);
+        lily_load_source(parser->lex, et_shallow_string, str);
         parser_loop(parser, name);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -4575,13 +4573,15 @@ static int parse_string(lily_parse_state *parser, lily_lex_mode mode,
 
 int lily_parse_file(lily_state *s, const char *name)
 {
-    return parse_file(s->parser, lm_no_tags, name);
+    lily_set_in_template(s->parser->lex, 0);
+    return parse_file(s->parser, name);
 }
 
 int lily_parse_string(lily_state *s, const char *name,
         char *str)
 {
-    return parse_string(s->parser, lm_no_tags, name, str);
+    lily_set_in_template(s->parser->lex, 0);
+    return parse_string(s->parser, name, str);
 }
 
 int lily_parse_expr(lily_state *s, const char *name, char *str,
@@ -4589,6 +4589,9 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 {
     if (text)
         *text = NULL;
+
+    lily_set_in_template(s->parser->lex, 0);
+
     lily_parse_state *parser = s->parser;
     if (parser->first_pass)
         fix_first_file_name(parser, name);
@@ -4597,7 +4600,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
-        lily_load_str(lex, lm_no_tags, str);
+        lily_load_source(lex, et_shallow_string, str);
         lily_lexer(lex);
 
         expression(parser);
@@ -4637,12 +4640,14 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 int lily_exec_template_string(lily_state *s, const char *name,
         char *str)
 {
-    return parse_string(s->parser, lm_tags, name, str);
+    lily_set_in_template(s->parser->lex, 1);
+    return parse_string(s->parser, name, str);
 }
 
 int lily_exec_template_file(lily_state *s, const char *filename)
 {
-    return parse_file(s->parser, lm_tags, filename);
+    lily_set_in_template(s->parser->lex, 1);
+    return parse_file(s->parser, filename);
 }
 
 lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
