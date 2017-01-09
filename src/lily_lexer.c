@@ -104,7 +104,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
 {
     lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
     lexer->data = lily_op_get_data(options);
-    lexer->html_sender = lily_op_get_html_sender(options);
+    lexer->render_func = lily_op_get_render_func(options);
 
     char *ch_class;
 
@@ -176,7 +176,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
 
     /* This is set so that token is never unset, which allows parser to check
        the token before the first lily_lexer call. This is important, because
-       lily_lexer_handle_page_data may hit eof if there is nothing to parse. */
+       lily_lexer_handle_content may hit eof if there is nothing to parse. */
     lexer->token = tk_invalid;
     lexer->ch_class = ch_class;
     return lexer;
@@ -317,7 +317,7 @@ static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry)
                 lily_raise_syn(lexer->raiser,
                         "Files in template mode must start with '<?lily'.");
             }
-            lily_lexer_handle_page_data(lexer);
+            lily_lexer_handle_content(lexer);
         }
     }
     else
@@ -1759,7 +1759,7 @@ void lily_lexer(lily_lex_state *lexer)
 }
 
 /* This handles what's outside of <?lily ... ?>. */
-void lily_lexer_handle_page_data(lily_lex_state *lexer)
+void lily_lexer_handle_content(lily_lex_state *lexer)
 {
     char c;
     int lbp, htmlp;
@@ -1788,7 +1788,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
                 if (htmlp != 0) {
                     /* Don't include the '<', because it goes with <?lily. */
                     lexer->label[htmlp] = '\0';
-                    lexer->html_sender(lexer->label, data);
+                    lexer->render_func(lexer->label, data);
                 }
                 lbp += 5;
                 /* Yield control to the lexer. */
@@ -1799,7 +1799,7 @@ void lily_lexer_handle_page_data(lily_lex_state *lexer)
         htmlp++;
         if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
-            lexer->html_sender(lexer->label, data);
+            lexer->render_func(lexer->label, data);
             /* This isn't done, so fix htmlp. */
             htmlp = 0;
         }
@@ -1813,7 +1813,7 @@ next_line:
                     lexer->label[htmlp] = '\0';
                     /* Don't bother with sending just a newline. */
                     if (htmlp != 1 && lexer->label[0] != '\n')
-                        lexer->html_sender(lexer->label, data);
+                        lexer->render_func(lexer->label, data);
                     else
                         lexer->label[0] = '\0';
                 }

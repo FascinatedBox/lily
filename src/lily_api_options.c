@@ -21,8 +21,8 @@ struct lily_options_ {
     char **argv;
     /* The html sender gets this as the second argument. */
     void *data;
-    /* This is called when tagged data is seen in the lexer. */
-    lily_html_sender html_sender;
+    /* This is called by lexer when content is seen in template mode. */
+    lily_render_func render_func;
 };
 
 /* This creates an option structure containing "good" default values. This
@@ -38,7 +38,7 @@ lily_options *lily_new_options(void)
     options->argv = NULL;
     options->frozen = 0;
 
-    options->html_sender = (lily_html_sender) fputs;
+    options->render_func = (lily_render_func) fputs;
     options->data = stdout;
     options->allow_sys = 1;
 
@@ -94,12 +94,12 @@ void lily_op_gc_start(lily_options *opt, int gc_start)
     opt->gc_start = (uint16_t)gc_start;
 }
 
-void lily_op_html_sender(lily_options *opt, lily_html_sender html_sender)
+void lily_op_render_func(lily_options *opt, lily_render_func render_func)
 {
     if (opt->frozen)
         return;
 
-    opt->html_sender = html_sender;
+    opt->render_func = render_func;
 }
 
 int lily_op_get_allow_sys(lily_options *opt) { return opt->allow_sys; }
@@ -111,7 +111,7 @@ char **lily_op_get_argv(lily_options *opt, int *argc)
 void *lily_op_get_data(lily_options *opt) { return opt->data; }
 int lily_op_get_gc_multiplier(lily_options *opt) { return opt->gc_multiplier; }
 int lily_op_get_gc_start(lily_options *opt) { return opt->gc_start; }
-lily_html_sender lily_op_get_html_sender(lily_options *opt) { return opt->html_sender; }
+lily_render_func lily_op_get_render_func(lily_options *opt) { return opt->render_func; }
 
 void lily_free_options(lily_options *o)
 {

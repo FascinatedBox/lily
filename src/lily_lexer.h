@@ -132,7 +132,7 @@ typedef struct lily_lex_state_ {
     lily_literal *last_literal;
     lily_symtab *symtab;
     lily_raiser *raiser;
-    lily_html_sender html_sender;
+    lily_render_func render_func;
     void *data;
 } lily_lex_state;
 
@@ -140,7 +140,7 @@ void lily_free_lex_state(lily_lex_state *);
 void lily_rewind_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
-void lily_lexer_handle_page_data(lily_lex_state *);
+void lily_lexer_handle_content(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
 void lily_set_in_template(lily_lex_state *, int);
 void lily_load_source(lily_lex_state *, lily_lex_entry_type, const char *);

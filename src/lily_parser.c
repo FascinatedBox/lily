@@ -4413,7 +4413,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
             setup_and_exec_vm(parser);
 
             if (lex->token == tk_end_tag) {
-                lily_lexer_handle_page_data(parser->lex);
+                lily_lexer_handle_content(parser->lex);
                 if (lex->token == tk_eof)
                     break;
                 else
