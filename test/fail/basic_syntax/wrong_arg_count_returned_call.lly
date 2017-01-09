@@ -7,7 +7,7 @@ class Test
 {
     define test : Function(Integer, Integer => Boolean)
     {
-        return {|x, y| x == y}
+        return (|x, y| x == y)
     }
 }
 

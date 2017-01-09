@@ -3,4 +3,4 @@ define f(g: Function(Integer, Integer))
     g(1, 2)
 }
 
-f({|a, b| a + b})
+f((|a, b| a + b))

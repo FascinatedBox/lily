@@ -37,10 +37,10 @@
 
 /* Group 1: Increment pos, return a simple token. */
 #define CC_G_ONE_OFFSET  0
-#define CC_LEFT_PARENTH  0
-#define CC_RIGHT_PARENTH 1
-#define CC_COMMA         2
-/* CC_LEFT_CURLY isn't here because {| opens a lambda. */
+/* CC_LEFT_PARENTH isn't here because (| opens a lambda. */
+#define CC_RIGHT_PARENTH 0
+#define CC_COMMA         1
+#define CC_LEFT_CURLY    2
 #define CC_RIGHT_CURLY   3
 #define CC_LEFT_BRACKET  4
 #define CC_COLON         5
@@ -65,7 +65,7 @@
 #define CC_WORD          15
 #define CC_DOUBLE_QUOTE  16
 #define CC_NUMBER        17
-#define CC_LEFT_CURLY    18
+#define CC_LEFT_PARENTH  18
 #define CC_RIGHT_BRACKET 19
 
 #define CC_EQUAL         20
@@ -199,8 +199,7 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
 
     /* This is set so that token is never unset, which allows parser to check
        the token before the first lily_lexer call. This is important, because
-       lily_lexer_handle_page_data may return tk_eof if there is nothing
-       to parse. */
+       lily_lexer_handle_page_data may hit eof if there is nothing to parse. */
     lexer->token = tk_invalid;
     lexer->ch_class = ch_class;
     return lexer;
@@ -524,7 +523,7 @@ static void close_entry(lily_lex_entry *entry)
 {
     if (entry->entry_type == et_file)
         fclose((FILE *)entry->source);
-    else if (entry->entry_type == et_copied_string)
+    else if (entry->entry_type != et_shallow_string)
         /* entry->source moves, but entry->extra doesn't. Use this. */
         lily_free(entry->extra);
 }
@@ -1277,9 +1276,9 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
             i += strlen(buffer);
             continue;
         }
-        else if (*ch == '{')
+        else if (*ch == '(')
             brace_depth++;
-        else if (*ch == '}') {
+        else if (*ch == ')') {
             if (brace_depth == 1)
                 break;
 
@@ -1291,10 +1290,9 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
         i++;
     }
 
-    /* Add in the closing '}' at the end so the parser will know for sure when
+    /* Add in the closing ')' at the end so the parser will know for sure when
        the lambda is done. */
-    label[i] = '}';
-    label[i + 1] = '\0';
+    label[i] = '\0';
 
     *source_ch = ch + 1;
 }
@@ -1384,6 +1382,7 @@ static void setup_opened_file(lily_lex_state *lexer, FILE *f)
 
     new_entry->source = f;
     new_entry->entry_type = et_file;
+    new_entry->final_token = tk_eof;
 
     setup_entry(lexer, new_entry);
 }
@@ -1401,6 +1400,8 @@ int lily_try_load_file(lily_lex_state *lexer, const char *filename)
 void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
         const char *name)
 {
+    lily_token final_token = tk_eof;
+
     if (mode == et_file) {
         FILE *load_file = fopen(name, "r");
         if (load_file == NULL) {
@@ -1425,7 +1426,9 @@ void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
 
         setup_entry(lexer, new_entry);
     }
-    else if (mode == et_copied_string) {
+    else if (mode == et_copied_string ||
+             mode == et_lambda ||
+             mode == et_interpolation) {
         lily_lex_entry *new_entry = get_entry(lexer);
 
         char *copy = lily_malloc(strlen(name) + 1);
@@ -1434,10 +1437,17 @@ void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
 
         new_entry->source = &copy[0];
         new_entry->extra = copy;
-        new_entry->entry_type = et_copied_string;
+        new_entry->entry_type = mode;
+
+        if (mode == et_lambda)
+            final_token = tk_end_lambda;
+        else if (mode == et_interpolation)
+            final_token = tk_end_interp;
 
         setup_entry(lexer, new_entry);
     }
+
+    lexer->entry->final_token = final_token;
 }
 
 /* Toplevel parsing functions call this to say if the first source is a template
@@ -1499,7 +1509,7 @@ void lily_lexer(lily_lex_state *lexer)
                 continue;
             }
             else {
-                token = tk_eof;
+                token = lexer->entry->final_token;
                 input_pos = 0;
             }
         }
@@ -1521,7 +1531,7 @@ void lily_lexer(lily_lex_state *lexer)
             }
             /* read_line has no more data to offer. */
             else {
-                token = tk_eof;
+                token = lexer->entry->final_token;
                 input_pos = 0;
             }
         }
@@ -1616,7 +1626,7 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_minus;
             }
         }
-        else if (group == CC_LEFT_CURLY) {
+        else if (group == CC_LEFT_PARENTH) {
             input_pos++;
             ch++;
             if (*ch == '|') {
@@ -1625,7 +1635,7 @@ void lily_lexer(lily_lex_state *lexer)
                 token = tk_lambda;
             }
             else
-                token = tk_left_curly;
+                token = tk_left_parenth;
         }
         else if (group == CC_AMPERSAND) {
             input_pos++;
@@ -1831,7 +1841,7 @@ next_line:
                         lexer->label[0] = '\0';
                 }
 
-                lexer->token = tk_eof;
+                lexer->token = lexer->entry->final_token;
                 lbp = 0;
                 break;
             }
@@ -1847,12 +1857,13 @@ next_line:
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {"(", ")", ",", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
+    {")", ",", "{", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
      "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
-     ">>=", "=", "==", "{", "a lambda", "<[", "]>", "]", "=>", "a label",
+     ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
      "a byte", "an integer", "a double", "a docstring", ".", "&", "&=", "&&",
-     "|", "|=", "||", "@(", "...", "|>", "invalid token", "?>", "end of file"};
+     "|", "|=", "||", "@(", "...", "|>", "invalid token", "end of lambda",
+     "end of interpolation", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

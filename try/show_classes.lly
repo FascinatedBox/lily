@@ -29,10 +29,10 @@ stdout.write("Created three Points: ")
 coordinates.map(Point.to_s) |> print
 
 stdout.write("How many coordinates have an x < y? : ")
-coordinates.count{|c| c.x < c.y } |> print
+coordinates.count(|c| c.x < c.y ) |> print
 
 stdout.write("Using Point.moveBy to move each X down by half...\n")
-coordinates.each{|e| e.move2D(-e.x / 2, 0) }
+coordinates.each(|e| e.move2D(-e.x / 2, 0) )
 
 stdout.write("Points are now: ")
 coordinates.map(Point.to_s) |> print

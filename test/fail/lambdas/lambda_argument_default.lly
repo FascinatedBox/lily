@@ -7,4 +7,4 @@ define f[A](g: Function(A => A)) {
 
 }
 
-f({|a| a})
+f((|a| a))

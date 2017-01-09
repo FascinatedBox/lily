@@ -16,145 +16,145 @@ class Point(x: Integer, y: Integer)
     var @y = y
 }
 
-ok({||
+ok((||
     var v = [1, 2, 3]
     v.clear()
-    v == []}(),                        "List.clear on a list of Integer.")
-ok({||
+    v == [])(),                        "List.clear on a list of Integer.")
+ok((||
     var v = ["1", "2", "3"]
     v.clear()
 
-    v == []}(),                        "List.clear on a list of String.")
-ok({||
+    v == [])(),                        "List.clear on a list of String.")
+ok((||
     var v = [Dynamic(1), Dynamic(2), Dynamic(3)]
     v.clear()
-    v == []}(),                        "List.clear on a list of Dynamic.")
+    v == [])(),                        "List.clear on a list of Dynamic.")
 
 
-ok({||
+ok((||
     var v = []
-    v.count{|a| true} == 0}(),         "List.count on an empty list.")
+    v.count(|a| true) == 0)(),         "List.count on an empty list.")
 
-ok({||
+ok((||
     var v = [1, 2, 3, 4, 5]
-    v.count{|a| a % 2 == 0} == 2}(),   "List.count using modulo.")
+    v.count(|a| a % 2 == 0) == 2)(),   "List.count using modulo.")
 
-ok({||
+ok((||
     var v = [1, 2, 3]
-    v.count{|a| true} == 3}(),         "List.count with 'true' predicate'.")
+    v.count(|a| true) == 3)(),         "List.count with 'true' predicate'.")
 
-ok({||
+ok((||
     var v = [Some(1), None, Some(2)]
-    v.count{|a| a.is_none()} == 1}(),  "List.count inferring a method.")
+    v.count(|a| a.is_none()) == 1)(),  "List.count inferring a method.")
 
-ok({||
+ok((||
     var v = [1, 2, 3]
     v.delete_at(-1)
     v.delete_at(0)
-    v == [2]}(),                       "List.delete_at with positive+negative indexes.")
+    v == [2])(),                       "List.delete_at with positive+negative indexes.")
 
-ok({||
+ok((||
     var v = [1]
     var result = false
     try:
         v.delete_at(-2)
     except IndexError:
         result = true
-    result}(),                          "List.delete_at throws IndexError with bad negative.")
+    result)(),                          "List.delete_at throws IndexError with bad negative.")
 
-ok({||
+ok((||
     var v = [1]
     var result = false
     try:
         v.delete_at(2)
     except IndexError:
         result = true
-    result}(),                          "List.delete_at throws IndexError with bad positive.")    
+    result)(),                          "List.delete_at throws IndexError with bad positive.")    
 
-ok({||
+ok((||
     var v = [0, 1, 2]
     var results = [0, 0, 0]
     var k = 0
 
-    v.each{|e|
+    v.each(|e|
         k += 1
         results[e] = k
-        }
+        )
     results == [1, 2, 3]
-    }(),                                "List.each visits all elements and in order.")
+    )(),                                "List.each visits all elements and in order.")
 
-ok({||
+ok((||
     var result = true
     try:
-        [].each{|e| 1 / 0 }
+        [].each(|e| 1 / 0 )
     except DivisionByZeroError:
         result = false
         
     result
-    }(),                                "List.each does nothing for an empty list.")
+    )(),                                "List.each does nothing for an empty list.")
 
-ok({||
+ok((||
     var v = [3, 2, 1]
     var results = [0, 0, 0]
     var k = 0
     var i_total = 0
 
-    v.each_index{|i|
+    v.each_index(|i|
         k += 1
         results[i] = k
-        }
+        )
     results == [1, 2, 3]
-    }(),                                "List.each_index visits all elements and in order.")
+    )(),                                "List.each_index visits all elements and in order.")
 
-ok({||
+ok((||
     List.fill(3, 5) == [5, 5, 5]
-    }(),                                "List.fill for type Integer.")
+    )(),                                "List.fill for type Integer.")
 
-ok({||
+ok((||
     List.fill(3, Point(1, 2))
     true
-    }(),                                "List.fill for a user-defined class.")
+    )(),                                "List.fill for a user-defined class.")
 
-ok({||
+ok((||
     var result = false
     try:
         List.fill(-1, 0)
     except ValueError:
         result = true
     result
-    }(),                                "List.fill raises ValueError with negative fill.")
+    )(),                                "List.fill raises ValueError with negative fill.")
 
-ok({||
-    [1, 2, 3].fold(0, {|a, b| a + b}) == 6
-    }(),                                "List.fold with type Integer.")
+ok((||
+    [1, 2, 3].fold(0, (|a, b| a + b)) == 6
+    )(),                                "List.fold with type Integer.")
 
-ok({||
+ok((||
     var v: List[Integer] = []
     var result = true
     try:
         v.fold(0,
-            {|a, b|
+            (|a, b|
              true
-             1 / 0})
+             1 / 0))
     except DivisionByZeroError:
         result = false
 
     result
-    }(),                                "List.fold ignores empty lists.")
+    )(),                                "List.fold ignores empty lists.")
 
-ok({||
+ok((||
     var v = [1]
     v.insert(0, 0)
     v == [0, 1]
-    }(),                                "List.insert at position 0.")
+    )(),                                "List.insert at position 0.")
 
-ok({||
+ok((||
     var v = [1]
     v.insert(-1, 2)
     v == [2, 1]
-    }(),                                "List.insert at a negative position.")
+    )(),                                "List.insert at a negative position.")
 
-ok({||
+ok((||
     var v = [1]
     var result = false
     try:
@@ -162,9 +162,9 @@ ok({||
     except IndexError:
         result = true
     result
-    }(),                                "List.insert with position exceeding positive max.")
+    )(),                                "List.insert with position exceeding positive max.")
 
-ok({||
+ok((||
     var v = [1]
     var result = false
     try:
@@ -172,7 +172,7 @@ ok({||
     except IndexError:
         result = true
     result
-    }(),                                "List.insert with position under negative min.")
+    )(),                                "List.insert with position under negative min.")
 
 ok([].join() == "",                     "List.join with empty list and default separator.")
 ok([].join(",") == "",                  "List.join with empty list.")
@@ -181,25 +181,25 @@ ok([1].join(" ") == "1",                "List.join with 1-element list.")
 ok([1, 2, 3].join() == "123",           "List.join with 3-element list and default separator.")
 ok([1, 2, 3].join(", ") == "1, 2, 3",   "List.join with 3-element list.")
 
-ok({||
+ok((||
     var v = [1, 2, 3]
-    var w = v.map{|a| a}
+    var w = v.map(|a| a)
     w == [1, 2, 3]
-    }(),                                "List.map using static function.")
+    )(),                                "List.map using static function.")
 
-ok({||
+ok((||
     var v = [1, 2, 3]
     var w = v.map(Integer.to_s)
     w == ["1", "2", "3"]
-    }(),                                "List.map using static function.")
+    )(),                                "List.map using static function.")
 
-ok({||
+ok((||
     var v = [1]
     v.pop()
     v == []
-    }(),                                "List.pop with list of size 1.")
+    )(),                                "List.pop with list of size 1.")
 
-ok({||
+ok((||
     var result = false
     try:
         [].pop()
@@ -207,49 +207,49 @@ ok({||
         result = true
 
     result
-    }(),                                "List.pop raises when passed an empty list.")
+    )(),                                "List.pop raises when passed an empty list.")
 
-ok({||
-    [1, 2, 3, 4, 5].reject{|i| (i % 2) == 1} == [2, 4]
-    }(),                                "List.reject removing odd numbers.")
+ok((||
+    [1, 2, 3, 4, 5].reject(|i| (i % 2) == 1) == [2, 4]
+    )(),                                "List.reject removing odd numbers.")
 
-ok({||
-    [1, 2, 3].select{|a| true} == [1, 2, 3]
-    }(),                                "List.select keeping all values.")
+ok((||
+    [1, 2, 3].select(|a| true) == [1, 2, 3]
+    )(),                                "List.select keeping all values.")
 
-ok({||
-    var fn = {|x: Integer|
+ok((||
+    var fn = (|x: Integer|
               1 / 0
-              true}
+              true)
     var result = false
     try:
         [1].select(fn)
     except DivisionByZeroError:
         result = true
     result
-    }(),                                "List.select being interrupted.")
+    )(),                                "List.select being interrupted.")
 
-ok({||
-    [1, 2, 3].select{|a| false} == []
-    }(),                                "List.select rejecting all values.")
+ok((||
+    [1, 2, 3].select(|a| false) == []
+    )(),                                "List.select rejecting all values.")
 
-ok({||
-    [1, 2, 3].select{|i| (i % 2) == 1} == [1, 3]
-    }(),                                "List.select keeping evens.")
+ok((||
+    [1, 2, 3].select(|i| (i % 2) == 1) == [1, 3]
+    )(),                                "List.select keeping evens.")
 
-ok({||
+ok((||
     var v = [1, 2, 3]
     v.shift()
     v.shift()
     v == [3]
-    }(),                                "List.shift removes values from the left.")
+    )(),                                "List.shift removes values from the left.")
 
-ok({||
+ok((||
     var v = ["a", "b", "c"]
     v.shift() == "a"
-    }(),                                "List.shift returns the first value.")
+    )(),                                "List.shift returns the first value.")
 
-ok({||
+ok((||
     var v = []
     var result = false
     try:
@@ -258,7 +258,7 @@ ok({||
         result = true
 
     result
-    }(),                                "List.shift raises IndexError for an empty list.")
+    )(),                                "List.shift raises IndexError for an empty list.")
 
 ok([1, 2, 3].slice() == [1, 2, 3],      "List.slice defaults copy the list.")
 ok([1, 2, 3].slice(0, -1) == [1, 2],    "List.slice basic 0...-1 works.")
@@ -266,12 +266,12 @@ ok([1, 2, 3].slice(1, 2) == [2],        "List.slice basic 1...2 works (b).")
 ok([1, 2, 3].slice(2, 1) == [],         "List.slice gives empty string for reversed indexes.")
 ok([1, 2, 3].slice(1, 5) == [],         "List.slice gives empty string for too big indexes.")
 
-ok({||
+ok((||
     var v = [1]
     v.unshift(0)
     v.unshift(-1)
     v == [-1, 0, 1]
-    }(),                                "List.unshift pushing simple numbers.")
+    )(),                                "List.unshift pushing simple numbers.")
 
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")

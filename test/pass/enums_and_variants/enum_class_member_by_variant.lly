@@ -23,4 +23,4 @@ One(10).f(One(10))
 One("10").h(One(10))
 
 One(10).map(Integer.to_s)
-One(true).map{|a| a.to_i()}
+One(true).map(|a| a.to_i())

@@ -32,41 +32,41 @@ ok(Some(1).and(None).is_none(),                     "Option.and with Some and No
 
 ok(Some(4).and_then(opt_square).unwrap() == 16,     "Option.and_then with squared Some.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
     v.and_then(opt_square).is_none()
-    }(),     "Option.and_then with None.")
+    )(),     "Option.and_then with None.")
 
 ok(Some([1, 2, 3]).map(isize).unwrap() == 3,        "Option.map using a Some with a list inside.")
 
-ok({||
+ok((||
     var v: Option[List[Integer]] = None
     v.map(isize).is_none()
-    }(),                                            "Option.map with None.")
+    )(),                                            "Option.map with None.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
     v.or(v).is_none()
-    }(),                                            "Option.or with None and None.")
+    )(),                                            "Option.or with None and None.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
     v.or(Some(2)).unwrap() == 2
-    }(),                                            "Option.or with None and Some.")
+    )(),                                            "Option.or with None and Some.")
 
 ok(Some(1).or(None).unwrap() == 1,                  "Option.or with Some and None.")
 ok(Some(1).or(Some(2)).unwrap() == 1,               "Option.or with Some and Some.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
-    v.or_else{|| Some(1) }.unwrap() == 1
-    }(),                                            "Option.or_else with None.")
+    v.or_else(|| Some(1) ).unwrap() == 1
+    )(),                                            "Option.or_else with None.")
 
-ok(Some(1).or_else{|| Some(1 / 0) }.unwrap() == 1,  "Option.or_else with Some.")
+ok(Some(1).or_else(|| Some(1 / 0) ).unwrap() == 1,  "Option.or_else with Some.")
 
 ok(Some(1).unwrap() == 1,                           "Option.unwrap on Some.")
 
-ok({||
+ok((||
     var result = false
     try:
         None.unwrap()
@@ -74,21 +74,21 @@ ok({||
         result = true
 
     result
-    }(),                                            "Option.unwrap raises ValueError for None.")
+    )(),                                            "Option.unwrap raises ValueError for None.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
     v.unwrap_or(5) == 5
-    }(),                                            "Option.unwrap_or for None.")
+    )(),                                            "Option.unwrap_or for None.")
 
 ok(Some(1).unwrap_or(5) == 1,                       "Option.unwrap_or for Some.")
 
-ok({||
+ok((||
     var v: Option[Integer] = None
-    v.unwrap_or_else{|| 5} == 5
-    }(),                                            "Option.unwrap_or_else for None.")
+    v.unwrap_or_else(|| 5) == 5
+    )(),                                            "Option.unwrap_or_else for None.")
 
-ok(Some(1).unwrap_or_else{|| 1 / 0} == 1,           "Option.unwrap_or_else for Some.")
+ok(Some(1).unwrap_or_else(|| 1 / 0) == 1,           "Option.unwrap_or_else for Some.")
 
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")

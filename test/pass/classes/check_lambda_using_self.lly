@@ -5,5 +5,5 @@ class Test
         return 1
     }
 
-    var @i = ({|| hello() })()
+    var @i = ((|| hello() ))()
 }

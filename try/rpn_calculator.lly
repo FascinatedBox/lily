@@ -1,7 +1,7 @@
-var math_ops = ["+" => {|a: Integer, b: Integer| a + b},
-                "-" => {|a, b| a - b},
-                "*" => {|a, b| a * b},
-                "/" => {|a, b| a / b}]
+var math_ops = ["+" => (|a: Integer, b: Integer| a + b),
+                "-" => (|a, b| a - b),
+                "*" => (|a, b| a * b),
+                "/" => (|a, b| a / b)]
 
 #[
     This implements a reverse polish notation calculator.
@@ -52,4 +52,4 @@ var lines = [
     "1 2 ?"
     ]
 
-lines.each{|l| print($"\"^(l)\": ^(rpn(l))") }
+lines.each(|l| print($"\"^(l)\": ^(rpn(l))") )

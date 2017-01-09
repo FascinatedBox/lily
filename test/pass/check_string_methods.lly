@@ -23,50 +23,50 @@ ok("1234".find("5").is_none(),     "String.find needle not in haystack.")
 ok("1234".find("1", 9).is_none(),  "String.find where start is past end.")
 ok("1234".find("3", 2).is_some(),  "String.find where match begins at the start.")
 
-ok({||
+ok((||
     var result = false
     try:
         "{".format(0)
     except ValueError:
         result = true
 
-    result}(),                       "String.format fails on unterminated specifier.")
+    result)(),                       "String.format fails on unterminated specifier.")
 
-ok({||
+ok((||
     var result = false
     try:
         "{a}".format(0)
     except ValueError:
         result = true
 
-    result}(),                       "String.format fails on {a}.")
+    result)(),                       "String.format fails on {a}.")
 
-ok({||
+ok((||
     var result = false
     try:
         "{100}".format(0)
     except ValueError:
         result = true
 
-    result}(),                       "String.format fails on {100}.")
+    result)(),                       "String.format fails on {100}.")
 
-ok({||
+ok((||
     var result = false
     try:
         "{}".format(0)
     except ValueError:
         result = true
 
-    result}(),                       "String.format fails on {}.")
+    result)(),                       "String.format fails on {}.")
 
-ok({||
+ok((||
     var result = false
     try:
         "{5}".format(0)
     except IndexError:
         result = true
 
-    result}(),                       "String.format fails on an index that's too large.")
+    result)(),                       "String.format fails on an index that's too large.")
 
 ok("{0}{0}".format(0) == "00",       "String.format works for {0}{0}.")
 ok("{00000000}".format(0) == "0",    "String.format works on leading zeroes.")
@@ -147,14 +147,14 @@ ok("1 2 3".split() == ["1", "2", "3"],         "String.split default to split by
 ok("1ab2ab".split("ab") == ["1", "2", ""],     "String.split split by wide ascii.")
 ok("1ÀÀ2À".split("À") == ["1", "", "2", ""],   "String.split with utf-8 chunk.")
 ok("   ".split(" ") == ["", "", "", ""],       "String.split where all chars match.")
-ok({||
+ok((||
     var result = false
     try:
         "a".split("")
     except ValueError:
         result = true
     result
-    }(),                                       "String.split raises ValueError for empty string.")
+    )(),                                       "String.split raises ValueError for empty string.")
 ok("1 2 3".split(" ")[0].is_digit(),           "String.split doesn't generate a broken first string.")
 
 ok("abc".to_bytestring() == B"abc",            "String.to_bytestring basic success case.")

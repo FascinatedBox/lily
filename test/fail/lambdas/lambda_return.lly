@@ -3,4 +3,4 @@ SyntaxError: 'return' not allowed in a lambda.
     from lambda_return.lly:6
 ]#
 
-var v = {|| return }
+var v = (|| return )

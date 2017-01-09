@@ -1,9 +1,9 @@
 define f(a: Option[Integer]): Function( => Integer) {
-    var v = {|| 1}
+    var v = (|| 1)
 
     match a: {
         case Some(s):
-            v = {|| s}
+            v = (|| s)
         case None:
     }
 

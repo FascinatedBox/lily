@@ -27,9 +27,9 @@ enum Test[A] {
 var v = One(10)
 
 if 
-    v.and_then({|a| One(a * a)})
+    v.and_then((|a| One(a * a)))
      .with_default()
-     .and_then({|a| One(a * a)})
+     .and_then((|a| One(a * a)))
      .with_default(1)
      .force()
     != 10000:

@@ -19,7 +19,7 @@ class Cat(name: String)
 var cats = [Cat("Muffin"), Cat("Snowball")]
 
 # a |> b is the same as b(a)
-cats.map{|c| c.name} |> print
+cats.map(|c| c.name) |> print
 
 # Option is either Some(A), or None.
 var maybe_cat: Option[Cat] = None

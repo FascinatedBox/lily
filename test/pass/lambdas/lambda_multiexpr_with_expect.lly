@@ -1,8 +1,8 @@
 var last = 0
-var v: Function(Integer => Integer) = {|a|
+var v: Function(Integer => Integer) = (|a|
         last = a
         a + 1
-        }
+        )
 
 if v(10) != 11 || last != 10:
     stderr.print("Failed.")

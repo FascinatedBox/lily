@@ -3,12 +3,12 @@
 
 define and_then[A, B, C](f: Function(A => B), g: Function(B => C)):Function(A => C)
 {
-    return {|a| g(f(a)) }
+    return (|a| g(f(a)) )
 }
 
 define piped_and_then[A, B, C](f: Function(A => B), g: Function(B => C)):Function(A => C)
 {
-    return {|a| a |> f |> g }
+    return (|a| a |> f |> g )
 }
 
 define f(a: Integer): Integer { return a * a }

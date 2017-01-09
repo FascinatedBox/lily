@@ -6,4 +6,4 @@ define noret {}
 define f[A](value: A) {
 }
 
-f({|| noret()})
+f((|| noret()))

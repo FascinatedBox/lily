@@ -7,9 +7,9 @@ for i in 0...99:
 # The type must be specified since the list starts off empty.
 var open_doors: List[Integer] = []
 
-doors.each_index{|i|
+doors.each_index(|i|
     if doors[i]:
         open_doors.push(i + 1)
-}
+)
 
 print($"Open doors: ^(open_doors)")

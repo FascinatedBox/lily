@@ -26,20 +26,20 @@ ok(B"abc".slice(1, 2) == B"b",                  "ByteString.slice basic 1...2 wo
 ok(B"abc".slice(2, 1) == B"",                   "ByteString.slice gives empty string for reversed indexes.")
 ok(B"abc".slice(1, 5) == B"",                   "ByteString.slice gives empty string for too big indexes.")
 
-ok({||
+ok((||
     var success = true
     var i = 0
     var expect = ['a', 'b', 'c']
 
-    B"abc".each_byte{|b|
+    B"abc".each_byte(|b|
         if success: {
             success = (expect[i] == b)
             i += 1
         }
-    }
+    )
 
     success == true
-}(), "")
+)(), "")
 
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")

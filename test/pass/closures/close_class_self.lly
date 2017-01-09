@@ -1,6 +1,6 @@
 class example {
     var @x = 10
-    var @y = {|| @x }
+    var @y = (|| @x )
 }
 
 var v = example().y

@@ -20,9 +20,9 @@ typedef struct {
 static const lily_tok_info parser_tok_table[] =
 {
     /* token name       | val_or_end | expr_op */
-    {tk_left_parenth,     0          , -1},
     {tk_right_parenth,    0          , -1},
     {tk_comma,            1          , -1},
+    {tk_left_curly,       0          , -1},
     {tk_right_curly,      1          , -1},
     {tk_left_bracket,     0          , -1},
     {tk_colon,            1          , -1},
@@ -50,7 +50,7 @@ static const lily_tok_info parser_tok_table[] =
     {tk_right_shift_eq,   0          , expr_right_shift_assign},
     {tk_equal,            0          , expr_assign},
     {tk_eq_eq,            0          , expr_eq_eq},
-    {tk_left_curly,       0          , -1},
+    {tk_left_parenth,     0          , -1},
     {tk_lambda,           1          , -1},
     {tk_tuple_open,       0          , -1},
     {tk_tuple_close,      0          , -1},
@@ -80,6 +80,8 @@ static const lily_tok_info parser_tok_table[] =
     {tk_three_dots,       1          , -1},
     {tk_func_pipe,        0          , expr_func_pipe},
     {tk_invalid,          0          , -1},
+    {tk_end_lambda,       1          , -1},
+    {tk_end_interp,       1          , -1},
     {tk_end_tag,          1          , -1},
     {tk_eof,              1          , -1}
 };

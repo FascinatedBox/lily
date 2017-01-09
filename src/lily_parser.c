@@ -2557,7 +2557,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
 
         if (key_id == -1) {
             expression(parser);
-            if (lex->token != tk_right_curly)
+            if (lex->token != tk_end_lambda)
                 /* This expression isn't the last one, so it can do whatever it
                    wants to do. */
                 lily_emit_eval_expr(parser->emit, parser->expr);
@@ -2581,7 +2581,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             handle_multiline(parser, key_id);
 
             key_id = -1;
-            if (lex->token == tk_right_curly)
+            if (lex->token == tk_end_lambda)
                 break;
         }
     }
@@ -2643,11 +2643,11 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         const char *text)
 {
     lily_lex_state *lex = parser->lex;
-    lily_load_source(lex, et_copied_string, text);
+    lily_load_source(lex, et_interpolation, text);
     lex->line_num = start_line;
     lily_lexer(parser->lex);
 
-    if (lex->token == tk_eof)
+    if (lex->token == tk_end_interp)
         lily_raise_syn(parser->raiser, "Empty interpolation block.");
 
     lily_expr_state es;
@@ -2657,7 +2657,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
     lily_sym *result = lily_emit_eval_interp_expr(parser->emit,
             parser->expr);
 
-    if (lex->token != tk_eof)
+    if (lex->token != tk_end_interp)
         lily_raise_syn(parser->raiser,
                 "Interpolation block must be a single expression.",
                 tokname(lex->token));
@@ -2689,7 +2689,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_source(lex, et_copied_string, lambda_body);
+    lily_load_source(lex, et_lambda, lambda_body);
     lex->line_num = lambda_start_line;
 
     /* Block entry assumes that the most recent var added is the var to bind

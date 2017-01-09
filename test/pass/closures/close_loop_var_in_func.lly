@@ -1,5 +1,5 @@
 define wrap(x: Integer) : Function( => Integer) {
-    return {|| x * x}
+    return (|| x * x)
 }
 
 var l: List[Function( => Integer)] = []

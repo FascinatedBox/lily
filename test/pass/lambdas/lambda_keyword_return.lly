@@ -1,1 +1,1 @@
-[true].map{|a| true}
+[true].map(|a| true)

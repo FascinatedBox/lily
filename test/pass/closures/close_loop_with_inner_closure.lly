@@ -5,7 +5,7 @@ define bug {
     for i in 0...0: {
         var a = 1
         f(a, a, a, a)
-        lst.each{|e| a += 1 }
+        lst.each(|e| a += 1 )
     }
 }
 

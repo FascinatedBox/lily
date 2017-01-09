@@ -1,7 +1,7 @@
-var v = {|a: Integer|
+var v = (|a: Integer|
     var is_ten = false
     if a == 10: {
         is_ten = true
     }
     is_ten
-}
+)

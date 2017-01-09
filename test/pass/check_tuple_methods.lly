@@ -10,18 +10,18 @@ define ok(b: Boolean, s: String)
     }
 }
 
-ok({||
+ok((||
     <[1, "2"]>.push([3]) ==
-    <[1, "2", [3]]> }(),                "Tuple.push, called once.")
-ok({||
+    <[1, "2", [3]]> )(),                "Tuple.push, called once.")
+ok((||
     <[1, "2"]>
         .push([3])
         .push("4") ==
-    <[1, "2", [3], "4"]> }(),           "Tuple.push, twice.")
-ok({||
+    <[1, "2", [3], "4"]> )(),           "Tuple.push, twice.")
+ok((||
     <[1, "2"]>
         .merge(<[[3 => 4], [5]]>) ==
-    <[1, "2", [3 => 4], [5]]>}(),       "Tuple.merge for two 2-tuples.")
+    <[1, "2", [3 => 4], [5]]>)(),       "Tuple.merge for two 2-tuples.")
 
 if failed == 0:
     print($"^(total) of ^(total) tests passed.")

@@ -9,9 +9,9 @@
 # include "lily_api_options.h"
 
 typedef enum {
-    tk_left_parenth,
     tk_right_parenth,
     tk_comma,
+    tk_left_curly,
     tk_right_curly,
     tk_left_bracket,
     tk_colon,
@@ -42,7 +42,7 @@ typedef enum {
     tk_right_shift_eq,
     tk_equal,
     tk_eq_eq,
-    tk_left_curly,
+    tk_left_parenth,
     tk_lambda,       /* {| */
     tk_tuple_open,   /* <[ */
     tk_tuple_close,  /* ]> */
@@ -69,6 +69,8 @@ typedef enum {
     tk_three_dots,
     tk_func_pipe,
     tk_invalid,
+    tk_end_lambda,
+    tk_end_interp,
     tk_end_tag,
     tk_eof
 } lily_token;
@@ -76,7 +78,9 @@ typedef enum {
 typedef enum {
     et_file,
     et_shallow_string,
-    et_copied_string
+    et_copied_string,
+    et_lambda,
+    et_interpolation,
 } lily_lex_entry_type;
 
 typedef struct lily_lex_entry_ {
@@ -86,10 +90,11 @@ typedef struct lily_lex_entry_ {
     char *saved_input;
     uint16_t saved_input_pos;
     uint16_t saved_input_size;
-    lily_lex_entry_type entry_type : 16;
     lily_token saved_token : 16;
+    lily_token final_token : 16;
     uint32_t saved_line_num;
-    uint32_t pad2;
+    lily_lex_entry_type entry_type : 16;
+    uint16_t pad;
     int64_t saved_last_integer;
 
     void *source;
