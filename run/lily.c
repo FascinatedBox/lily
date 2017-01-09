@@ -92,9 +92,9 @@ int main(int argc, char **argv)
 
     if (do_tags) {
         if (is_file == 1)
-            result = lily_exec_template_file(state, to_process);
+            result = lily_render_file(state, to_process);
         else
-            result = lily_exec_template_string(state, "[cli]", to_process);
+            result = lily_render_string(state, "[cli]", to_process);
     }
     else {
         if (is_file == 1)

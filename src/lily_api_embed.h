@@ -19,8 +19,8 @@ int lily_parse_string(lily_state *, const char *, char *);
 int lily_parse_file(lily_state *, const char *);
 int lily_parse_expr(lily_state *, const char *, char *, const char **);
 
-int lily_exec_template_string(lily_state *, const char *, char *);
-int lily_exec_template_file(lily_state *, const char *);
+int lily_render_string(lily_state *, const char *, char *);
+int lily_render_file(lily_state *, const char *);
 
 /* This searches in the scope of the first file loaded, and attempts to find a
    global function based on the name given. Returns either a valid, callable

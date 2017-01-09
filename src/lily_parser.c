@@ -4637,14 +4637,14 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
     return 0;
 }
 
-int lily_exec_template_string(lily_state *s, const char *name,
+int lily_render_string(lily_state *s, const char *name,
         char *str)
 {
     lily_set_in_template(s->parser->lex, 1);
     return parse_string(s->parser, name, str);
 }
 
-int lily_exec_template_file(lily_state *s, const char *filename)
+int lily_render_file(lily_state *s, const char *filename)
 {
     lily_set_in_template(s->parser->lex, 1);
     return parse_file(s->parser, filename);
