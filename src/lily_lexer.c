@@ -12,29 +12,6 @@
 #include "lily_api_alloc.h"
 #include "lily_api_options.h"
 
-/** The lexer is responsible for:
-    * Opening and reading the file given by parser. It also handles strings sent
-      by parser. The lexer has some mode-switching code, since scanning strings
-      needs to avoid calling read_line.
-    * Scanning the given file/string and returning a token based upon the info.
-      The lexer stores labels and strings scanned to lexer->label.
-    * The lexer assumes that all files/strings are valid utf-8, and will give up
-      upon finding invalid utf-8. Other encodings may be added in the future.
-      Additionally, utf-8 can be used in identifiers and strings. utf-8
-      validation is in read_line for files, and in lily_load_str for strings.
-    * For files, lily_lexer_handle_page_data is available to scan and push the
-      HTML outside of the lily tag. The lily tag starts with <?lily and ends
-      with ?>. Parser is responsible for telling lexer to do the skip when it
-      encounters the end tag (?>)
-    Caveats:
-    * The lexer's way of scanning characters is fairly complicated, and could
-      probably be automated or added to a small database for ease of use.
-    * Currently, each character scanned is checked against ch_class, which
-      indicates what type of character it is. This allows several common cases
-      to be reduced into one.
-    * However, it's currently difficult to add new items in. New tokens need to
-      be placed in the right group, and also the right place in lily_token. **/
-
 /* Group 1: Increment pos, return a simple token. */
 #define CC_G_ONE_OFFSET  0
 /* CC_LEFT_PARENTH isn't here because (| opens a lambda. */
