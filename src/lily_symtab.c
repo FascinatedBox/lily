@@ -186,16 +186,15 @@ void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
 
 void lily_free_symtab(lily_symtab *symtab)
 {
+    /* __main__'s code is a shallow copy of emitter's code, which has already
+       been torn down. */
+    symtab->main_function->code = NULL;
+
     free_literals(symtab->literals);
 
     free_classes(symtab->old_class_chain);
     free_classes(symtab->hidden_class_chain);
     free_vars(symtab->old_function_chain);
-
-    /* __main__ requires a special teardown because it doesn't allocate names
-       for debug, and its code is a shallow copy of emitter's code block. */
-    lily_function_val *main_function = symtab->main_function;
-    lily_free(main_function);
 
     lily_free(symtab);
 }

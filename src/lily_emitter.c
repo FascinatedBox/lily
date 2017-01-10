@@ -133,11 +133,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     emit->symtab->main_var = main_var;
     emit->symtab->main_function = main_function;
 
-    /* __main__ needs two refs because it goes through a custom deref. Most
-       function values hold (copies of) the names of their vars inside for show
-       to print. However, __main__ does not, because __main__'s vars are global
-       and alive. Because of this, __main__ has a special deref. */
-    main_function->refcount++;
     lily_store_function(emit->symtab, main_var, main_function);
 
     /* Everything is set manually because creating a block requires taking info
