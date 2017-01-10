@@ -1810,6 +1810,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     first_frame->code = main_function->code;
     first_frame->regs_used = main_function->reg_count;
     first_frame->return_target = NULL;
+    first_frame->offset_to_main = 0;
     vm->call_depth = 1;
 }
 
