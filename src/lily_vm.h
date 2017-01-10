@@ -17,12 +17,6 @@ typedef struct lily_call_frame_ {
 
     lily_value **upvalues;
 
-    /* This is set to the value of 'self' within the .new of a class. The
-       instruction o_new_instance uses this to determine if a constructor is
-       being executed from a higher-up class. If that is the case, then the
-       subclass uses the value of the higher-up class. */
-    lily_value *build_value;
-
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;
 } lily_call_frame;
