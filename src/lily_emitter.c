@@ -416,16 +416,13 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     }
 
     lily_sym *target;
-    int need_sync = emit->function_block->prev == NULL;
+    int need_sync = user_loop_var && user_loop_var->flags & VAR_IS_GLOBAL;
 
     if (need_sync) {
         /* o_integer_for works by writing to both an intermediate, and to a
-           loop target (both being local). If this var is really a global var,
-           (and it's not within __main__ where it can be used as a global), then
-           use an intermediate (because using a global register number where a
-           local one is expected is quite bad.
-           This isn't common, so it's fine if this needs to be fixed up with an
-           extra set of syncing writes. */
+           loop target. The intermediate is always a local, but the target may
+           not be. In the event that it isn't, create a local and do syncing
+           writes at the front and back. */
         target = (lily_sym *)lily_emit_new_local_var(emit, cls->self_type,
                 "(for temp)");
     }
