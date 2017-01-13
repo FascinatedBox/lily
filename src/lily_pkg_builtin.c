@@ -206,7 +206,6 @@ void lily_builtin_ByteString_each_byte(lily_state *s)
     for (i = 0;i < len;i++) {
         lily_push_byte(s, (uint8_t)input[i]);
         lily_call_exec_prepared(s, 1);
-        lily_result_drop(s);
     }
 }
 
