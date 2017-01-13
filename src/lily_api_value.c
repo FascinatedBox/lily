@@ -135,7 +135,7 @@ int lily_arg_variant_for_id(lily_state *s, int index, lily_variant_val **iv)
 }
 
 /* Stack operations
-   Push operations are located within the s, so that stack growing can remain
+   Push operations are located within the vm, so that stack growing can remain
    internal to the vm. */
 
 lily_value *lily_result_pop(lily_state *s)
