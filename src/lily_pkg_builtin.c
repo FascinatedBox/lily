@@ -1052,8 +1052,8 @@ static lily_hash_val *build_hash(lily_state *s, lily_hash_val *hash_val,
     int i;
 
     for (i = 0;i < count;i++) {
-        lily_value *record = lily_result_pop(s);
-        lily_value *key = lily_result_pop(s);
+        lily_value *record = lily_take_value(s);
+        lily_value *key = lily_take_value(s);
 
         lily_hash_insert_value(hash_val, key, record);
     }
@@ -1164,8 +1164,8 @@ static void hash_select_reject_common(lily_state *s, int expect)
 
                 lily_call_exec_prepared(s, 2);
                 if (lily_result_boolean(s) != expect) {
-                    lily_result_drop(s);
-                    lily_result_drop(s);
+                    lily_pop_value(s);
+                    lily_pop_value(s);
                 }
                 else
                     count++;

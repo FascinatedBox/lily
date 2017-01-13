@@ -287,8 +287,8 @@ void lily_variant_set_variant      (lily_variant_val *, int, uint16_t, lily_vari
 
 /* Stack operations
    Note: Push operations are sourced from vm. */
-lily_value *lily_result_pop(lily_state *);
-void lily_result_drop(lily_state *);
+lily_value *lily_take_value(lily_state *);
+void lily_pop_value(lily_state *);
 void lily_push_boolean      (lily_state *, int);
 void lily_push_byte         (lily_state *, uint8_t);
 void lily_push_bytestring   (lily_state *, lily_bytestring_val *);

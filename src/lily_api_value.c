@@ -138,13 +138,13 @@ int lily_arg_variant_for_id(lily_state *s, int index, lily_variant_val **iv)
    Push operations are located within the vm, so that stack growing can remain
    internal to the vm. */
 
-lily_value *lily_result_pop(lily_state *s)
+lily_value *lily_take_value(lily_state *s)
 {
     s->num_registers--;
     return s->regs_from_main[s->num_registers];
 }
 
-void lily_result_drop(lily_state *s)
+void lily_pop_value(lily_state *s)
 {
     s->num_registers--;
     lily_value *z = s->regs_from_main[s->num_registers];
