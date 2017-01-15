@@ -333,7 +333,6 @@ int lily_arg_class_id(lily_state *, int);
 int lily_arg_count(lily_state *);
 int lily_arg_instance_for_id(lily_state *, int, lily_instance_val **);
 int lily_arg_variant_for_id(lily_state *, int, lily_variant_val **);
-void lily_result_return(lily_state *);
 
 /* Result operations */
 int                  lily_arg_boolean   (lily_state *, int);

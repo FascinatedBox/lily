@@ -97,14 +97,6 @@ void lily_return_value_noref(lily_state *s, lily_value *v)
     lily_value_assign_noref(s->call_chain->prev->return_target, v);
 }
 
-void lily_result_return(lily_state *s)
-{
-    lily_value *r = s->regs_from_main[s->num_registers - 1];
-    lily_value_assign_noref(s->call_chain->prev->return_target, r);
-    r->flags = 0;
-    s->num_registers--;
-}
-
 /* Argument and result operations */
 
 DEFINE_GETTERS(arg, vm_regs[index], lily_vm_state *source, int index)

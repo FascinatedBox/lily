@@ -1987,7 +1987,7 @@ void lily_builtin_Option_or_else(lily_state *s)
     else {
         lily_call_simple(s, lily_arg_function(s, 1), 0);
 
-        lily_result_return(s);
+        lily_return_value(s, lily_result_value(s));
     }
 }
 
