@@ -1633,11 +1633,8 @@ void lily_builtin_List_map(lily_state *s)
     lily_list_val *result_list = lily_new_list(i);
 
     i--;
-    for (;i >= 0;i--) {
-        s->num_registers--;
-        lily_value_assign(result_list->elems[i],
-                s->regs_from_main[s->num_registers]);
-    }
+    for (;i >= 0;i--)
+        lily_value_assign(result_list->elems[i], lily_take_value(s));
 
     lily_return_list(s, result_list);
 }
@@ -1715,11 +1712,8 @@ static void list_select_reject_common(lily_state *s, int expect)
     lily_list_val *result_list = lily_new_list(n);
 
     n--;
-    for (;n >= 0;n--) {
-        s->num_registers--;
-        lily_value_assign(result_list->elems[n],
-                s->regs_from_main[s->num_registers]);
-    }
+    for (;n >= 0;n--)
+        lily_value_assign(result_list->elems[n], lily_take_value(s));
 
     lily_return_list(s, result_list);
 }
