@@ -1,3 +1,4 @@
+
 #include <stddef.h>
 #include <string.h>
 
@@ -131,7 +132,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->raiser = raiser;
     vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
-    vm->num_registers = 0;
     vm->max_registers = 0;
     vm->gc_live_entries = NULL;
     vm->gc_spare_entries = NULL;
@@ -201,6 +201,14 @@ void lily_free_vm(lily_vm_state *vm)
         }
     }
 
+    /* If there are any entries left over, then do a final gc pass that will
+       destroy the tagged values. */
+    if (vm->gc_live_entry_count) {
+        /* This makes the gc avoid marking, and only sweep. */
+        vm->call_chain->total_regs = 0;
+        invoke_gc(vm);
+    }
+
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
 
@@ -208,11 +216,6 @@ void lily_free_vm(lily_vm_state *vm)
 
         lily_free(reg);
     }
-
-    /* This keeps the final gc invoke from touching the now-deleted registers.
-       It also ensures the last invoke will get everything. */
-    vm->num_registers = 0;
-    vm->max_registers = 0;
 
     lily_free(regs_from_main);
 
@@ -227,11 +230,6 @@ void lily_free_vm(lily_vm_state *vm)
         lily_free(frame_iter);
         frame_iter = frame_next;
     }
-
-    /* If there are any entries left over, then do a final gc pass that will
-       destroy the tagged values. */
-    if (vm->gc_live_entry_count)
-        invoke_gc(vm);
 
     destroy_gc_entries(vm);
 
@@ -286,10 +284,11 @@ static void invoke_gc(lily_vm_state *vm)
     int pass = vm->gc_pass;
     int i;
     lily_gc_entry *gc_iter;
+    int total = vm->call_chain->total_regs;
 
     /* Stage 1: Go through all registers and use the appropriate gc_marker call
                 that will mark every inner value that's visible. */
-    for (i = 0;i < vm->num_registers;i++) {
+    for (i = 0;i < total;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_IS_GC_SWEEPABLE)
             gc_mark(pass, reg);
@@ -313,7 +312,7 @@ static void invoke_gc(lily_vm_state *vm)
     /* Stage 3: Check registers not currently in use to see if they hold a
                 value that's going to be collected. If so, then mark the
                 register as nil so that the value will be cleared later. */
-    for (i = vm->num_registers;i < vm->max_registers;i++) {
+    for (i = total;i < vm->max_registers;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_IS_GC_TAGGED &&
             reg->value.gc_generic->gc_entry == lily_gc_stopper) {
@@ -540,34 +539,21 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
         new_regs[i] = v;
     }
 
+    lily_call_frame *frame_iter = vm->call_chain;
+    while (frame_iter) {
+        frame_iter->locals = vm->regs_from_main + frame_iter->offset_to_main;
+        frame_iter = frame_iter->prev;
+    }
+
     vm->max_registers = size;
 }
 
-/* This is called to clear the values that reside in the non-parameter registers
-   of a call. This is necessary because arthmetic operations assume that the
-   target is not a refcounted register. */
-static inline void scrub_registers(lily_vm_state *vm,
-        lily_function_val *fval, int args_collected)
+static void prep_registers(lily_call_frame *frame, uint16_t *code)
 {
-    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
-    for (;args_collected < fval->reg_count;args_collected++) {
-        lily_value *reg = target_regs[args_collected];
-        lily_deref(reg);
-
-        reg->flags = 0;
-    }
-}
-
-/* This is called to initialize the registers that 'fval' will need to types
-   that it expects. Old values are given a deref. Parameters are copied over and
-   given refs. */
-static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
-        uint16_t *code)
-{
-    int register_need = vm->num_registers + fval->reg_count;
+    lily_call_frame *next_frame = frame->next;
     int i;
-    lily_value **input_regs = vm->vm_regs;
-    lily_value **target_regs = vm->regs_from_main + vm->num_registers;
+    lily_value **input_regs = frame->locals;
+    lily_value **target_regs = next_frame->locals;
 
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
@@ -584,56 +570,63 @@ static void prep_registers(lily_vm_state *vm, lily_function_val *fval,
         *set_reg = *get_reg;
     }
 
-    if (i != fval->reg_count)
-        scrub_registers(vm, fval, i);
+    for (;i < next_frame->function->reg_count;i++) {
+        lily_value *reg = target_regs[i];
+        lily_deref(reg);
 
-    vm->num_registers = register_need;
+        reg->flags = 0;
+    }
 }
 
 void lily_push_byte(lily_vm_state *vm, uint8_t b)
 {
-    if (vm->num_registers == vm->max_registers)
-        grow_vm_registers(vm, vm->num_registers + 1);
+    lily_call_frame *frame = vm->call_chain;
+    if (frame->total_regs == vm->max_registers)
+        grow_vm_registers(vm, frame->total_regs + 1);
 
-    lily_move_byte(vm->regs_from_main[vm->num_registers], b);
-    vm->num_registers++;
+    lily_move_byte(vm->regs_from_main[frame->total_regs], b);
+    frame->total_regs++;
 }
 
 void lily_push_bytestring(lily_vm_state *vm, lily_bytestring_val *sv)
 {
-    if (vm->num_registers == vm->max_registers)
-        grow_vm_registers(vm, vm->num_registers + 1);
+    lily_call_frame *frame = vm->call_chain;
+    if (frame->total_regs == vm->max_registers)
+        grow_vm_registers(vm, frame->total_regs + 1);
 
-    lily_move_bytestring(vm->regs_from_main[vm->num_registers], sv);
-    vm->num_registers++;
+    lily_move_bytestring(vm->regs_from_main[frame->total_regs], sv);
+    frame->total_regs++;
 }
 
 void lily_push_integer(lily_vm_state *vm, int64_t i)
 {
-    if (vm->num_registers == vm->max_registers)
-        grow_vm_registers(vm, vm->num_registers + 1);
+    lily_call_frame *frame = vm->call_chain;
+    if (frame->total_regs == vm->max_registers)
+        grow_vm_registers(vm, frame->total_regs + 1);
 
-    lily_move_integer(vm->regs_from_main[vm->num_registers], i);
-    vm->num_registers++;
+    lily_move_integer(vm->regs_from_main[frame->total_regs], i);
+    frame->total_regs++;
 }
 
 void lily_push_list(lily_vm_state *vm, lily_list_val *l)
 {
-    if (vm->num_registers == vm->max_registers)
-        grow_vm_registers(vm, vm->num_registers + 1);
+    lily_call_frame *frame = vm->call_chain;
+    if (frame->total_regs == vm->max_registers)
+        grow_vm_registers(vm, frame->total_regs + 1);
 
     lily_move_list_f(MOVE_DEREF_SPECULATIVE,
-            vm->regs_from_main[vm->num_registers], l);
-    vm->num_registers++;
+            vm->regs_from_main[frame->total_regs], l);
+    frame->total_regs++;
 }
 
 void lily_push_value(lily_vm_state *vm, lily_value *v)
 {
-    if (vm->num_registers == vm->max_registers)
-        grow_vm_registers(vm, vm->num_registers + 1);
+    lily_call_frame *frame = vm->call_chain;
+    if (frame->total_regs == vm->max_registers)
+        grow_vm_registers(vm, frame->total_regs + 1);
 
-    lily_value_assign(vm->regs_from_main[vm->num_registers], v);
-    vm->num_registers++;
+    lily_value_assign(vm->regs_from_main[frame->total_regs], v);
+    frame->total_regs++;
 }
 
 
@@ -1617,47 +1610,53 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
 
 void lily_call_exec_prepared(lily_vm_state *vm, int count)
 {
+    lily_call_frame *source_frame = vm->call_chain;
+
     lily_call_frame *target_frame = vm->call_chain->next;
     lily_function_val *target_fn = target_frame->function;
+
+    /* The total drops because these registers really belong to the target. */
+    source_frame->total_regs -= count;
+    target_frame->offset_to_main = source_frame->total_regs;
 
     vm->call_depth++;
 
     if (target_fn->code == NULL) {
         target_frame->regs_used = count;
 
-        vm->vm_regs = vm->regs_from_main + vm->num_registers - count;
+        vm->vm_regs = vm->regs_from_main + target_frame->offset_to_main;
+
+        target_frame->locals = vm->vm_regs;
+        target_frame->total_regs =
+                target_frame->offset_to_main + target_frame->regs_used;
+
         vm->call_chain = target_frame;
 
         target_fn->foreign_func(vm);
 
         vm->call_chain = target_frame->prev;
-        vm->num_registers -= count;
 
         vm->call_depth--;
     }
     else {
-        int save = vm->num_registers;
-        int need = vm->num_registers + target_fn->reg_count;
-        int distance = target_fn->reg_count - count;
+        target_frame->total_regs =
+                target_frame->offset_to_main + target_frame->regs_used;
 
-        if (need > vm->max_registers)
-            grow_vm_registers(vm, need);
+        if (target_frame->total_regs > vm->max_registers)
+            grow_vm_registers(vm, target_frame->total_regs + 1);
 
-        vm->vm_regs = vm->regs_from_main + vm->num_registers - count;
+        vm->vm_regs = vm->regs_from_main + target_frame->offset_to_main;
+        target_frame->locals = vm->vm_regs;
+
         vm->call_chain = target_frame;
 
-        if (distance > 0) {
-            /* The register count is one ahead so that pushes don't need to add.
-               Drop it back since register scrub relies on it.
-               Without this, register 1 won't be cleared. */
-            vm->num_registers--;
-            scrub_registers(vm, target_fn, count);
-            vm->num_registers++;
+        int i;
+        for (i = count;i < target_frame->regs_used;i++) {
+            lily_value *reg = target_frame->locals[i];
+            lily_deref(reg);
+            reg->flags = 0;
         }
 
-        /* Increase the register count to include the intermediates that will be
-           needed by the native function. */
-        vm->num_registers += distance;
 
         lily_vm_execute(vm);
 
@@ -1665,8 +1664,8 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
            Leave the call chain and the depth alone. */
 
         /* Drop the registers back to what they were before the call. */
-        vm->num_registers = save - count;
-        vm->vm_regs = vm->regs_from_main + target_frame->prev->offset_to_main;
+        vm->vm_regs = target_frame->prev->locals;
+
     }
 }
 
@@ -1803,14 +1802,15 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     if (vm->stdout_reg == NULL)
         maybe_fix_print(vm);
 
-    vm->num_registers = main_function->reg_count;
-
     lily_call_frame *first_frame = vm->call_chain;
     first_frame->function = main_function;
     first_frame->code = main_function->code;
     first_frame->regs_used = main_function->reg_count;
     first_frame->return_target = NULL;
     first_frame->offset_to_main = 0;
+    first_frame->locals = vm->regs_from_main;
+    first_frame->total_regs = main_function->reg_count;
+
     vm->call_depth = 1;
 }
 
@@ -1828,13 +1828,15 @@ void lily_vm_execute(lily_vm_state *vm)
     uint16_t *code;
     lily_value **regs_from_main;
     lily_value **vm_regs;
-    int i, num_registers, max_registers;
+    int i, max_registers;
     register int64_t for_temp;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     lily_function_val *fval;
     lily_value **upvalues = NULL;
 
     lily_call_frame *current_frame = vm->call_chain;
+    lily_call_frame *next_frame = NULL;
+
     code = current_frame->function->code;
 
     /* Initialize local vars from the vm state's vars. */
@@ -1866,11 +1868,8 @@ void lily_vm_execute(lily_vm_state *vm)
             upvalues = current_frame->upvalues;
             regs_from_main = vm->regs_from_main;
             vm_regs = vm->vm_regs;
-            vm->num_registers = (vm_regs - regs_from_main) + current_frame->regs_used;
         }
     }
-
-    num_registers = vm->num_registers;
 
     while (1) {
         switch(code[0]) {
@@ -2032,12 +2031,9 @@ void lily_vm_execute(lily_vm_state *vm)
                     add_call_frame(vm);
                 }
 
-                i = code[3];
-                current_frame->line_num = code[1];
-                current_frame->code = code + i + 5;
-                current_frame->upvalues = upvalues;
+                next_frame = current_frame->next;
 
-                int register_need = num_registers + fval->reg_count;
+                int register_need = current_frame->total_regs + fval->reg_count;
 
                 if (register_need > max_registers) {
                     grow_vm_registers(vm, register_need);
@@ -2046,26 +2042,34 @@ void lily_vm_execute(lily_vm_state *vm)
                     vm_regs              = vm->vm_regs;
                     max_registers        = vm->max_registers;
                 }
+
+                i = code[3];
+                current_frame->line_num = code[1];
+                current_frame->code = code + i + 5;
+                current_frame->upvalues = upvalues;
+                current_frame->return_target = vm_regs[code[4]];
+
+                next_frame->offset_to_main = current_frame->total_regs;
+                next_frame->function = fval;
+                next_frame->line_num = -1;
+                next_frame->code = NULL;
+                next_frame->upvalues = NULL;
+                next_frame->regs_used = i;
+                next_frame->locals = vm->regs_from_main + next_frame->offset_to_main;
+                next_frame->total_regs =
+                        next_frame->offset_to_main + fval->reg_count;
+
                 lily_foreign_func func = fval->foreign_func;
 
-                /* Prepare the registers for what the function wants. Afterward,
-                   update num_registers since prep_registers changes it. */
-                prep_registers(vm, fval, code);
-                current_frame->return_target = vm_regs[code[4]];
+                /* Prepare the registers for what the function wants. */
+                prep_registers(current_frame, code);
                 vm_regs = vm_regs + current_frame->regs_used;
                 vm->vm_regs = vm_regs;
 
                 /* !PAST HERE TARGETS THE NEW FRAME! */
 
-                current_frame = current_frame->next;
+                current_frame = next_frame;
                 vm->call_chain = current_frame;
-
-                current_frame->offset_to_main = num_registers;
-                current_frame->function = fval;
-                current_frame->line_num = -1;
-                current_frame->code = NULL;
-                current_frame->upvalues = NULL;
-                current_frame->regs_used = i;
 
                 vm->call_depth++;
                 func(vm);
@@ -2079,14 +2083,13 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 current_frame = current_frame->prev;
 
-                vm_regs = vm->regs_from_main + num_registers - current_frame->regs_used;
+                vm_regs = current_frame->locals;
                 vm->vm_regs = vm_regs;
 
                 vm->call_chain = current_frame;
 
                 code += 5 + i;
                 vm->call_depth--;
-                vm->num_registers = num_registers;
 
                 break;
             case o_native_call: {
@@ -2101,12 +2104,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     add_call_frame(vm);
                 }
 
-                i = code[3];
-                current_frame->line_num = code[1];
-                current_frame->code = code + i + 5;
-                current_frame->upvalues = upvalues;
-
-                int register_need = fval->reg_count + num_registers;
+                int register_need = fval->reg_count + current_frame->total_regs;
 
                 if (register_need > max_registers) {
                     grow_vm_registers(vm, register_need);
@@ -2116,12 +2114,26 @@ void lily_vm_execute(lily_vm_state *vm)
                     max_registers  = vm->max_registers;
                 }
 
-                /* Prepare the registers for what the function wants. Afterward,
-                   update num_registers since prep_registers changes it. */
-                prep_registers(vm, fval, code);
-                num_registers = vm->num_registers;
-
+                i = code[3];
+                current_frame->line_num = code[1];
+                current_frame->code = code + i + 5;
+                current_frame->upvalues = upvalues;
                 current_frame->return_target = vm_regs[code[4]];
+
+                next_frame = current_frame->next;
+                next_frame->offset_to_main = current_frame->total_regs;
+                next_frame->function = fval;
+                next_frame->line_num = -1;
+                next_frame->code = fval->code;
+                next_frame->upvalues = NULL;
+                next_frame->regs_used = fval->reg_count;
+                next_frame->locals = vm->regs_from_main + next_frame->offset_to_main;
+                next_frame->total_regs =
+                        next_frame->offset_to_main + fval->reg_count;
+
+                /* Prepare the registers for what the function wants. */
+                prep_registers(current_frame, code);
+
                 vm_regs = vm_regs + current_frame->regs_used;
                 vm->vm_regs = vm_regs;
 
@@ -2130,10 +2142,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 current_frame = current_frame->next;
                 vm->call_chain = current_frame;
 
-                current_frame->function = fval;
-                current_frame->regs_used = fval->reg_count;
-                current_frame->code = fval->code;
-                current_frame->upvalues = NULL;
                 vm->call_depth++;
                 code = fval->code;
                 upvalues = NULL;
@@ -2184,13 +2192,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->call_chain = current_frame;
                 vm->call_depth--;
 
-                /* The registers that the function last entered are not in use
-                   anymore, so they don't count now. */
-                num_registers -= current_frame->next->regs_used;
-                vm->num_registers = num_registers;
-                /* vm_regs adjusts by the count of the now-current function so
-                   that vm_regs[0] is the 0 of the caller. */
-                vm_regs = vm_regs - current_frame->regs_used;
+                vm_regs = current_frame->locals;
                 vm->vm_regs = vm_regs;
                 upvalues = current_frame->upvalues;
                 code = current_frame->code;

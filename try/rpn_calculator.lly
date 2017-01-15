@@ -21,6 +21,7 @@ define rpn(input: String): Either[String, List[Integer]]
     for i in 0...values.size() - 1: {
         var v = values[i]
         if v.is_digit(): {
+            print(v.parse_i().unwrap())
             v.parse_i().unwrap() |> stack.push
         elif v.is_space() == false:
             if stack.size() < 2:

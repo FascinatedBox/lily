@@ -328,7 +328,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
         call_iter = call_iter->prev;
 
     vm->call_chain = call_iter;
-    vm->num_registers = call_iter->regs_used; /* todo: verify */
     vm->call_depth = 0;
 
     /* Symtab will choose to hide new classes (if executing) or destroy them (if
