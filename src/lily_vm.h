@@ -37,7 +37,6 @@ typedef struct lily_vm_catch_entry_ {
 } lily_vm_catch_entry;
 
 typedef struct lily_vm_state_ {
-    lily_value **vm_regs;
     lily_value **regs_from_main;
 
     /* The total number or registers allocated. */

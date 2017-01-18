@@ -320,7 +320,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     vm->catch_chain = catch_iter;
     vm->exception_value = NULL;
     vm->pending_line = 0;
-    vm->vm_regs = vm->regs_from_main;
     vm->include_last_frame_in_trace = 1;
 
     lily_call_frame *call_iter = vm->call_chain;

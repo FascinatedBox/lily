@@ -130,7 +130,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
 
     vm->call_depth = 0;
     vm->raiser = raiser;
-    vm->vm_regs = NULL;
     vm->regs_from_main = NULL;
     vm->max_registers = 0;
     vm->gc_live_entries = NULL;
@@ -503,13 +502,11 @@ void lily_tag_value(lily_vm_state *vm, lily_value *v)
     given invocation. **/
 
 /* This function ensures that 'register_need' more registers will be available.
-   This may resize (and thus invalidate) vm->regs_from_main and vm->vm_regs. */
+   If a resize is done, the locals are fixed up until the current frame. */
 static void grow_vm_registers(lily_vm_state *vm, int register_need)
 {
     lily_value **new_regs;
     int i = vm->max_registers;
-
-    ptrdiff_t reg_offset = vm->vm_regs - vm->regs_from_main;
 
     /* Size is zero only when this is called the first time and no registers
        have been made available. */
@@ -521,14 +518,10 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
         size *= 2;
     while (size < register_need);
 
-    /* Remember, use regs_from_main, NOT vm_regs, which is likely adjusted. */
     new_regs = lily_realloc(vm->regs_from_main, size *
             sizeof(lily_value *));
 
-    /* Realloc can move the pointer, so always recalculate vm_regs again using
-       regs_from_main and the offset. */
     vm->regs_from_main = new_regs;
-    vm->vm_regs = new_regs + reg_offset;
 
     /* Now create the registers as a bunch of empty values, to be filled in
        whenever they are needed. */
@@ -845,7 +838,7 @@ void lily_builtin_Dynamic_new(lily_vm_state *vm)
    be loaded from a register. */
 static void do_o_set_property(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *rhs_reg;
     int index;
     lily_instance_val *ival;
@@ -859,7 +852,7 @@ static void do_o_set_property(lily_vm_state *vm, uint16_t *code)
 
 static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *result_reg;
     int index;
     lily_instance_val *ival;
@@ -875,7 +868,7 @@ static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
    validated. */
 static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *lhs_reg, *index_reg, *rhs_reg;
 
     lhs_reg = vm_regs[code[2]];
@@ -924,7 +917,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
    validated. */
 static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *lhs_reg, *index_reg, *result_reg;
 
     lhs_reg = vm_regs[code[2]];
@@ -978,7 +971,7 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
 
 static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     int i, num_values;
     lily_value *result, *key_reg, *value_reg;
 
@@ -1009,7 +1002,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
    However, variant types are also tuples (but with a different name). */
 static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     int num_elems = code[2];
     lily_value *result = vm_regs[code[3+num_elems]];
 
@@ -1030,7 +1023,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 
 static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     int variant_id = code[2];
     int count = code[3];
     lily_value *result = vm_regs[code[code[3] + 4]];
@@ -1071,7 +1064,7 @@ static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
    This is done outside of the vm's main loop because it's not common. */
 static int do_o_optarg_dispatch(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     uint16_t first_spot = code[1];
     int count = code[2] - 1;
     unsigned int i;
@@ -1094,7 +1087,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
     int total_entries;
     int cls_id = code[2];
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *result = vm_regs[code[3]];
     lily_class *instance_class = vm->class_table[cls_id];
 
@@ -1126,7 +1119,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
 static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     int count = code[2];
     lily_msgbuf *vm_buffer = vm->vm_buffer;
     lily_mb_flush(vm_buffer);
@@ -1144,7 +1137,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 
 static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_class *cast_class = vm->class_table[code[2]];
     lily_value *rhs_reg = vm_regs[code[3]];
     lily_value *lhs_reg = vm_regs[code[4]];
@@ -1216,7 +1209,7 @@ static lily_function_val *new_function_copy(lily_function_val *to_copy)
 static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
 {
     int count = code[2];
-    lily_value *result = vm->vm_regs[code[3]];
+    lily_value *result = vm->call_chain->locals[code[3]];
 
     lily_function_val *last_call = vm->call_chain->function;
 
@@ -1266,7 +1259,7 @@ static void copy_upvalues(lily_function_val *target, lily_function_val *source)
    the specified closure. */
 static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 {
-    lily_value **vm_regs = vm->vm_regs;
+    lily_value **vm_regs = vm->call_chain->locals;
     lily_value *input_closure_reg = vm_regs[code[1]];
 
     lily_value *target = vm->readonly_table[code[2]];
@@ -1317,7 +1310,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_value *result_reg = vm->vm_regs[code[i]];
+    lily_value *result_reg = vm->call_chain->locals[code[i]];
 
     input_closure->refcount++;
 
@@ -1336,7 +1329,7 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
 static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code)
 {
     do_o_get_property(vm, code);
-    lily_value *result_reg = vm->vm_regs[code[4]];
+    lily_value *result_reg = vm->call_chain->locals[code[4]];
     lily_function_val *input_closure = result_reg->value.function;
 
     lily_function_val *new_closure = new_function_copy(input_closure);
@@ -1546,7 +1539,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
         vm->exception_value = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
-        vm->vm_regs = stack_regs;
         vm->call_chain->code = vm->call_chain->function->code + jump_location;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
@@ -1590,7 +1582,7 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
 {
     lily_call_frame *caller_frame = vm->call_chain;
     caller_frame->code = foreign_code;
-    caller_frame->return_target = vm->vm_regs[caller_frame->regs_used];
+    caller_frame->return_target = vm->call_chain->locals[caller_frame->regs_used];
 
     if (caller_frame->next == NULL) {
         add_call_frame(vm);
@@ -1624,9 +1616,8 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
     if (target_fn->code == NULL) {
         target_frame->regs_used = count;
 
-        vm->vm_regs = vm->regs_from_main + target_frame->offset_to_main;
-
-        target_frame->locals = vm->vm_regs;
+        target_frame->locals =
+                vm->regs_from_main + target_frame->offset_to_main;
         target_frame->total_regs =
                 target_frame->offset_to_main + target_frame->regs_used;
 
@@ -1645,8 +1636,8 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
         if (target_frame->total_regs > vm->max_registers)
             grow_vm_registers(vm, target_frame->total_regs + 1);
 
-        vm->vm_regs = vm->regs_from_main + target_frame->offset_to_main;
-        target_frame->locals = vm->vm_regs;
+        target_frame->locals =
+                vm->regs_from_main + target_frame->offset_to_main;
 
         vm->call_chain = target_frame;
 
@@ -1660,12 +1651,8 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
 
         lily_vm_execute(vm);
 
-        /* The frame is dropped when returning from native execute.
-           Leave the call chain and the depth alone. */
-
-        /* Drop the registers back to what they were before the call. */
-        vm->vm_regs = target_frame->prev->locals;
-
+        /* Native execute drops the frame and lowers the depth. Nothing more to
+           do for it. */
     }
 }
 
@@ -1779,23 +1766,12 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     vm->readonly_table = readonly_table;
 
     lily_function_val *main_function = symtab->main_function;
+    int need = main_function->reg_count;
+    if (need == 0)
+        need = 4;
 
-    if (main_function->reg_count > vm->max_registers) {
-        grow_vm_registers(vm, main_function->reg_count);
-        /* grow_vm_registers will move vm->vm_regs (which is supposed to be
-           local). That works everywhere...but here. Fix vm_regs back to the
-           start because we're still in __main__. */
-        vm->vm_regs = vm->regs_from_main;
-    }
-    else if (vm->vm_regs == NULL) {
-        /* This forces vm->vm_regs and vm->regs_from_main to not be NULL. This
-           prevents a segfault that happens when __main__ calls something that
-           does not have a register need (ex: __import__) and tries to calculate
-           the return register. Without this, vm->vm_regs will be NULL and not
-           get resized, resulting in a crash. */
-        grow_vm_registers(vm, 1);
-        vm->vm_regs = vm->regs_from_main;
-    }
+    if (need > vm->max_registers)
+        grow_vm_registers(vm, need);
 
     load_foreign_values(vm, foreign_values);
 
@@ -1840,7 +1816,6 @@ void lily_vm_execute(lily_vm_state *vm)
     code = current_frame->function->code;
 
     /* Initialize local vars from the vm state's vars. */
-    vm_regs = vm->vm_regs;
     regs_from_main = vm->regs_from_main;
     max_registers = vm->max_registers;
 
@@ -1867,9 +1842,10 @@ void lily_vm_execute(lily_vm_state *vm)
             code = current_frame->code;
             upvalues = current_frame->upvalues;
             regs_from_main = vm->regs_from_main;
-            vm_regs = vm->vm_regs;
         }
     }
+
+    vm_regs = vm->call_chain->locals;
 
     while (1) {
         switch(code[0]) {
@@ -2035,19 +2011,18 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 int register_need = current_frame->total_regs + fval->reg_count;
 
-                if (register_need > max_registers) {
-                    grow_vm_registers(vm, register_need);
-                    /* Don't forget to update local info... */
-                    regs_from_main       = vm->regs_from_main;
-                    vm_regs              = vm->vm_regs;
-                    max_registers        = vm->max_registers;
-                }
-
                 i = code[3];
                 current_frame->line_num = code[1];
                 current_frame->code = code + i + 5;
                 current_frame->upvalues = upvalues;
                 current_frame->return_target = vm_regs[code[4]];
+
+                if (register_need > max_registers) {
+                    grow_vm_registers(vm, register_need);
+                    /* Don't forget to update local info... */
+                    regs_from_main       = vm->regs_from_main;
+                    max_registers        = vm->max_registers;
+                }
 
                 next_frame->offset_to_main = current_frame->total_regs;
                 next_frame->function = fval;
@@ -2063,8 +2038,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);
-                vm_regs = vm_regs + current_frame->regs_used;
-                vm->vm_regs = vm_regs;
+                vm_regs = next_frame->locals;
 
                 /* !PAST HERE TARGETS THE NEW FRAME! */
 
@@ -2084,7 +2058,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 current_frame = current_frame->prev;
 
                 vm_regs = current_frame->locals;
-                vm->vm_regs = vm_regs;
 
                 vm->call_chain = current_frame;
 
@@ -2104,21 +2077,19 @@ void lily_vm_execute(lily_vm_state *vm)
                     add_call_frame(vm);
                 }
 
+                i = code[3];
+                current_frame->line_num = code[1];
+                current_frame->code = code + i + 5;
+                current_frame->upvalues = upvalues;
+                current_frame->return_target = vm_regs[code[4]];
                 int register_need = fval->reg_count + current_frame->total_regs;
 
                 if (register_need > max_registers) {
                     grow_vm_registers(vm, register_need);
                     /* Don't forget to update local info... */
                     regs_from_main = vm->regs_from_main;
-                    vm_regs        = vm->vm_regs;
                     max_registers  = vm->max_registers;
                 }
-
-                i = code[3];
-                current_frame->line_num = code[1];
-                current_frame->code = code + i + 5;
-                current_frame->upvalues = upvalues;
-                current_frame->return_target = vm_regs[code[4]];
 
                 next_frame = current_frame->next;
                 next_frame->offset_to_main = current_frame->total_regs;
@@ -2134,8 +2105,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);
 
-                vm_regs = vm_regs + current_frame->regs_used;
-                vm->vm_regs = vm_regs;
+                vm_regs = next_frame->locals;
 
                 /* !PAST HERE TARGETS THE NEW FRAME! */
 
@@ -2193,7 +2163,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->call_depth--;
 
                 vm_regs = current_frame->locals;
-                vm->vm_regs = vm_regs;
                 upvalues = current_frame->upvalues;
                 code = current_frame->code;
                 break;
