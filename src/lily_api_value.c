@@ -88,19 +88,19 @@ DEFINE_BOTH(list, elems[i], lily_list_val *source, int i)
 DEFINE_BOTH(tuple, elems[i], lily_tuple_val *source, int i)
 DEFINE_BOTH(variant, values[i], lily_variant_val *source, int i)
 
-DEFINE_SETTERS(return, call_chain->prev->return_target, lily_vm_state *source)
+DEFINE_SETTERS(return, call_chain->return_target, lily_vm_state *source)
 
 /* Special-cased returns */
 
 void lily_return_value_noref(lily_state *s, lily_value *v)
 {
-    lily_value_assign_noref(s->call_chain->prev->return_target, v);
+    lily_value_assign_noref(s->call_chain->return_target, v);
 }
 
 /* Argument and result operations */
 
 DEFINE_GETTERS(arg, call_chain->locals[index], lily_vm_state *source, int index)
-DEFINE_GETTERS(result, call_chain->return_target, lily_vm_state *source)
+DEFINE_GETTERS(result, call_chain->next->return_target, lily_vm_state *source)
 
 int lily_arg_class_id(lily_state *s, int index)
 {
@@ -810,7 +810,7 @@ uint16_t lily_value_class_id(lily_value *value)
 void lily_ctor_setup(lily_state *s, lily_instance_val **iv, uint16_t id,
         int initial)
 {
-    lily_value *v = s->call_chain->prev->return_target;
+    lily_value *v = s->call_chain->return_target;
 
     if (v->flags & VAL_IS_INSTANCE) {
         lily_instance_val *pending_instance = v->value.instance;

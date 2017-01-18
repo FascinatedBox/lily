@@ -821,7 +821,7 @@ void lily_builtin_Dynamic_new(lily_vm_state *vm)
     lily_dynamic_val *dynamic_val = lily_new_dynamic();
     lily_dynamic_set_value(dynamic_val, input);
 
-    lily_value *target = vm->call_chain->prev->return_target;
+    lily_value *target = vm->call_chain->return_target;
     lily_move_dynamic(target, dynamic_val);
     lily_tag_value(vm, target);
 }
@@ -1099,7 +1099,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     total_entries = instance_class->prop_count;
 
     /* Is the caller a superclass building an instance already? */
-    lily_value *pending_value = vm->call_chain->prev->return_target;
+    lily_value *pending_value = vm->call_chain->return_target;
     if (pending_value->flags & VAL_IS_INSTANCE) {
         lily_instance_val *iv = pending_value->value.instance;
 
@@ -1588,7 +1588,6 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
 {
     lily_call_frame *caller_frame = vm->call_chain;
     caller_frame->code = foreign_code;
-    caller_frame->return_target = vm->call_chain->locals[caller_frame->regs_used];
 
     if (caller_frame->next == NULL) {
         add_call_frame(vm);
@@ -1604,6 +1603,7 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
     target_frame->function = func;
     target_frame->line_num = 0;
     target_frame->regs_used = func->reg_count;
+    target_frame->return_target = caller_frame->locals[caller_frame->regs_used];
 }
 
 void lily_call_exec_prepared(lily_vm_state *vm, int count)
@@ -2030,14 +2030,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 current_frame->line_num = code[1];
                 current_frame->code = code + i + 5;
                 current_frame->upvalues = upvalues;
-                current_frame->return_target = vm_regs[code[4]];
-
-                if (register_need > max_registers) {
-                    grow_vm_registers(vm, register_need);
-                    /* Don't forget to update local info... */
-                    regs_from_main       = vm->regs_from_main;
-                    max_registers        = vm->max_registers;
-                }
 
                 next_frame->offset_to_start = current_frame->total_regs;
                 next_frame->function = fval;
@@ -2048,6 +2040,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 next_frame->locals = vm->regs_from_main + next_frame->offset_to_start;
                 next_frame->total_regs =
                         next_frame->offset_to_start + fval->reg_count;
+                next_frame->return_target = vm_regs[code[4]];
+
+                if (register_need > max_registers) {
+                    vm->call_chain = next_frame;
+                    grow_vm_registers(vm, register_need);
+                    /* Don't forget to update local info... */
+                    regs_from_main       = vm->regs_from_main;
+                    max_registers        = vm->max_registers;
+                }
 
                 lily_foreign_func func = fval->foreign_func;
 
@@ -2096,15 +2097,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 current_frame->line_num = code[1];
                 current_frame->code = code + i + 5;
                 current_frame->upvalues = upvalues;
-                current_frame->return_target = vm_regs[code[4]];
                 int register_need = fval->reg_count + current_frame->total_regs;
-
-                if (register_need > max_registers) {
-                    grow_vm_registers(vm, register_need);
-                    /* Don't forget to update local info... */
-                    regs_from_main = vm->regs_from_main;
-                    max_registers  = vm->max_registers;
-                }
 
                 next_frame = current_frame->next;
                 next_frame->offset_to_start = current_frame->total_regs;
@@ -2116,6 +2109,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 next_frame->locals = vm->regs_from_main + next_frame->offset_to_start;
                 next_frame->total_regs =
                         next_frame->offset_to_start + fval->reg_count;
+                next_frame->return_target = vm_regs[code[4]];
+
+                if (register_need > max_registers) {
+                    vm->call_chain = next_frame;
+                    grow_vm_registers(vm, register_need);
+                    /* Don't forget to update local info... */
+                    regs_from_main = vm->regs_from_main;
+                    max_registers  = vm->max_registers;
+                }
 
                 /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);
@@ -2163,11 +2165,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_return_unit:
-                lily_move_unit(current_frame->prev->return_target);
+                lily_move_unit(current_frame->return_target);
                 goto return_common;
 
             case o_return_val:
-                lhs_reg = current_frame->prev->return_target;
+                lhs_reg = current_frame->return_target;
                 rhs_reg = vm_regs[code[2]];
                 lily_value_assign(lhs_reg, rhs_reg);
 
