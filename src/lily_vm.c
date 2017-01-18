@@ -148,7 +148,12 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->pending_line = 0;
     vm->include_last_frame_in_trace = 1;
 
+    /* The first frame is the toplevel frame. That one holds globals. The other
+       is for __main__. The toplevel frame is never seen because the stack depth
+       doesn't account for it, and it has a NULL function. */
     add_call_frame(vm);
+    add_call_frame(vm);
+    vm->call_chain = vm->call_chain->prev;
 
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
     catch_entry->prev = NULL;
@@ -534,7 +539,7 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
 
     lily_call_frame *frame_iter = vm->call_chain;
     while (frame_iter) {
-        frame_iter->locals = vm->regs_from_main + frame_iter->offset_to_main;
+        frame_iter->locals = vm->regs_from_main + frame_iter->offset_to_start;
         frame_iter = frame_iter->prev;
     }
 
@@ -1427,8 +1432,9 @@ static void make_proper_exception_val(lily_vm_state *vm,
     lily_string_val *message = lily_new_string(raw_message);
     lily_mb_flush(vm->raiser->msgbuf);
 
-    lily_instance_set_string(ival, 0, message);
-    lily_instance_set_list(ival, 1, build_traceback_raw(vm));
+    /* Stick with moves just to be safe. */
+    lily_move_string(ival->values[0], message);
+    lily_move_list_f(MOVE_DEREF_NO_GC, ival->values[1], build_traceback_raw(vm));
 
     lily_move_instance_f(raised_cls->id | MOVE_DEREF_SPECULATIVE, result, ival);
 }
@@ -1609,7 +1615,7 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
 
     /* The total drops because these registers really belong to the target. */
     source_frame->total_regs -= count;
-    target_frame->offset_to_main = source_frame->total_regs;
+    target_frame->offset_to_start = source_frame->total_regs;
 
     vm->call_depth++;
 
@@ -1617,9 +1623,9 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
         target_frame->regs_used = count;
 
         target_frame->locals =
-                vm->regs_from_main + target_frame->offset_to_main;
+                vm->regs_from_main + target_frame->offset_to_start;
         target_frame->total_regs =
-                target_frame->offset_to_main + target_frame->regs_used;
+                target_frame->offset_to_start + target_frame->regs_used;
 
         vm->call_chain = target_frame;
 
@@ -1631,13 +1637,13 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
     }
     else {
         target_frame->total_regs =
-                target_frame->offset_to_main + target_frame->regs_used;
+                target_frame->offset_to_start + target_frame->regs_used;
 
         if (target_frame->total_regs > vm->max_registers)
             grow_vm_registers(vm, target_frame->total_regs + 1);
 
         target_frame->locals =
-                vm->regs_from_main + target_frame->offset_to_main;
+                vm->regs_from_main + target_frame->offset_to_start;
 
         vm->call_chain = target_frame;
 
@@ -1647,7 +1653,6 @@ void lily_call_exec_prepared(lily_vm_state *vm, int count)
             lily_deref(reg);
             reg->flags = 0;
         }
-
 
         lily_vm_execute(vm);
 
@@ -1766,7 +1771,7 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     vm->readonly_table = readonly_table;
 
     lily_function_val *main_function = symtab->main_function;
-    int need = main_function->reg_count;
+    int need = main_function->reg_count + symtab->next_global_id;
     if (need == 0)
         need = 4;
 
@@ -1778,15 +1783,25 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
     if (vm->stdout_reg == NULL)
         maybe_fix_print(vm);
 
-    lily_call_frame *first_frame = vm->call_chain;
-    first_frame->function = main_function;
-    first_frame->code = main_function->code;
-    first_frame->regs_used = main_function->reg_count;
-    first_frame->return_target = NULL;
-    first_frame->offset_to_main = 0;
-    first_frame->locals = vm->regs_from_main;
-    first_frame->total_regs = main_function->reg_count;
+    lily_call_frame *toplevel_frame = vm->call_chain;
+    toplevel_frame->locals = vm->regs_from_main;
+    toplevel_frame->function = NULL;
+    toplevel_frame->code = NULL;
+    toplevel_frame->regs_used = symtab->next_global_id;
+    toplevel_frame->return_target = vm->regs_from_main[0];
+    toplevel_frame->offset_to_start = 0;
+    toplevel_frame->total_regs = symtab->next_global_id;
 
+    lily_call_frame *main_frame = vm->call_chain->next;
+    main_frame->function = main_function;
+    main_frame->code = main_function->code;
+    main_frame->regs_used = main_function->reg_count;
+    main_frame->return_target = NULL;
+    main_frame->offset_to_start = symtab->next_global_id;
+    main_frame->total_regs = main_frame->offset_to_start + main_function->reg_count;
+    main_frame->locals = vm->regs_from_main + main_frame->offset_to_start;
+
+    vm->call_chain = vm->call_chain->next;
     vm->call_depth = 1;
 }
 
@@ -2024,15 +2039,15 @@ void lily_vm_execute(lily_vm_state *vm)
                     max_registers        = vm->max_registers;
                 }
 
-                next_frame->offset_to_main = current_frame->total_regs;
+                next_frame->offset_to_start = current_frame->total_regs;
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = NULL;
                 next_frame->upvalues = NULL;
                 next_frame->regs_used = i;
-                next_frame->locals = vm->regs_from_main + next_frame->offset_to_main;
+                next_frame->locals = vm->regs_from_main + next_frame->offset_to_start;
                 next_frame->total_regs =
-                        next_frame->offset_to_main + fval->reg_count;
+                        next_frame->offset_to_start + fval->reg_count;
 
                 lily_foreign_func func = fval->foreign_func;
 
@@ -2092,15 +2107,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 next_frame = current_frame->next;
-                next_frame->offset_to_main = current_frame->total_regs;
+                next_frame->offset_to_start = current_frame->total_regs;
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = fval->code;
                 next_frame->upvalues = NULL;
                 next_frame->regs_used = fval->reg_count;
-                next_frame->locals = vm->regs_from_main + next_frame->offset_to_main;
+                next_frame->locals = vm->regs_from_main + next_frame->offset_to_start;
                 next_frame->total_regs =
-                        next_frame->offset_to_main + fval->reg_count;
+                        next_frame->offset_to_start + fval->reg_count;
 
                 /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);

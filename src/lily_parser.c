@@ -4381,6 +4381,10 @@ static void setup_and_exec_vm(lily_parse_state *parser)
 
     parser->executing = 1;
     lily_vm_execute(parser->vm);
+    /* The above execute call is usually within a call in the vm, so it doesn't
+       pop the call back to where it was. Fix that and the depth. */
+    parser->vm->call_chain = parser->vm->call_chain->prev;
+    parser->vm->call_depth = 0;
     parser->executing = 0;
 
     /* Clear __main__ for the next pass. */
@@ -4494,7 +4498,7 @@ static void build_error(lily_parse_state *parser)
         if (parser->vm->include_last_frame_in_trace == 0)
             frame = frame->prev;
 
-        while (frame) {
+        while (frame->function) {
             lily_function_val *func = frame->function;
             const char *class_name = func->class_name;
             const char *func_name = func->trace_name;

@@ -36,7 +36,9 @@ typedef struct lily_symtab_ {
        which have some special behavior sometimes. */
     uint32_t next_class_id;
 
-    uint32_t pad;
+    uint16_t next_global_id;
+
+    uint16_t pad;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */

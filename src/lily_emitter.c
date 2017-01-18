@@ -217,8 +217,8 @@ lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
     lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
 
     if (emit->function_depth == 1) {
-        new_var->reg_spot = emit->main_block->next_reg_spot;
-        emit->main_block->next_reg_spot++;
+        new_var->reg_spot = emit->symtab->next_global_id;
+        emit->symtab->next_global_id++;
         new_var->flags |= VAR_IS_GLOBAL;
     }
     else {
@@ -307,8 +307,8 @@ lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
 {
     lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
 
-    new_var->reg_spot = emit->main_block->next_reg_spot;
-    emit->main_block->next_reg_spot++;
+    new_var->reg_spot = emit->symtab->next_global_id;
+    emit->symtab->next_global_id++;
     new_var->function_depth = 1;
     new_var->flags |= VAR_IS_GLOBAL;
 
@@ -417,7 +417,6 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
 
     lily_sym *target;
     int need_sync = user_loop_var && user_loop_var->flags & VAR_IS_GLOBAL;
-
     if (need_sync) {
         /* o_integer_for works by writing to both an intermediate, and to a
            loop target. The intermediate is always a local, but the target may

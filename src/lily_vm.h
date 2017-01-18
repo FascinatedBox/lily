@@ -17,7 +17,7 @@ typedef struct lily_call_frame_ {
     uint16_t *code;
     int line_num;
 
-    uint32_t offset_to_main;
+    uint32_t offset_to_start;
 
     lily_value **upvalues;
 
