@@ -1493,7 +1493,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         /* A try block is done when the next jump is at 0 (because 0 would
            always be going back, which is illogical otherwise). */
         jump_location = catch_iter->code_pos + code[catch_iter->code_pos] - 2;
-        stack_regs = vm->regs_from_main + catch_iter->offset_from_main;
+        stack_regs = call_frame->locals;
 
         while (1) {
             lily_class *catch_class = vm->class_table[code[jump_location + 2]];
@@ -2313,7 +2313,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = 2 + (code - current_frame->function->code);
                 catch_entry->jump_entry = vm->raiser->all_jumps;
-                catch_entry->offset_from_main = (int64_t)(vm_regs - regs_from_main);
 
                 vm->catch_chain = vm->catch_chain->next;
                 code += 3;

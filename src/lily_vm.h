@@ -27,12 +27,6 @@ typedef struct lily_call_frame_ {
 
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
-    /* How far away vm->vm_regs (where the locals start) is from
-       vm->regs_from_main in the current frame. When catching exceptions, it's
-       simpler, safer, and faster to fix vm->vm_regs with this instead of
-       attempting to walk the call chain backward to figure out where
-       vm->vm_regs will end up. */
-    int offset_from_main;
     int code_pos;
     uint32_t call_frame_depth;
     uint32_t pad;
