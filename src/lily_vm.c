@@ -90,20 +90,6 @@ else if (lhs_reg->class_id == LILY_STRING_ID) { \
 vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
 
-/** If you're interested in working on the vm, or having trouble with it, here's
-    some advice that might make things easier.
-
-    * The vm uses a mix of refcounting and a gc. Anything that has subvalues
-      will get a gc tag. Values that can be destroyed are destroy-able through
-      pure ref/deref (and that will zap the tag to prevent a double free), or
-      through the gc if it comes to that.
-
-    * Forgetting to increase a ref typically shows itself through invalid reads
-      and/or writes during garbage collection.
-
-    * -g is used to set the number of gc tags allowed at once. If Lily crashes
-      at a certain number, then a value is missing a gc tag. **/
-
 /* Foreign functions set this as their code so that the vm will exit when they
    are to be returned from. */
 static uint16_t foreign_code[1] = {o_return_from_vm};
