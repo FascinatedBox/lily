@@ -2767,6 +2767,23 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
     return var;
 }
 
+/* Same as get_named_var, except this creates a var that's always local. */
+static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *var;
+
+    var = lily_find_var(parser->symtab, NULL, lex->label);
+    if (var != NULL)
+        lily_raise_syn(parser->raiser, "%s has already been declared.",
+                lex->label);
+
+    var = lily_emit_new_local_var(parser->emit, var_type, lex->label);
+
+    lily_lexer(lex);
+    return var;
+}
+
 /* The same thing as get_named_var, but with a property instead. */
 static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
 {
@@ -4173,7 +4190,7 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
                 lily_lexer(lex);
             }
             else {
-                lily_var *var = get_named_var(parser, var_type);
+                lily_var *var = get_local_var(parser, var_type);
                 spot = var->reg_spot;
             }
 
