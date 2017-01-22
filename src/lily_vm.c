@@ -1362,6 +1362,7 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
         vm->include_last_frame_in_trace = 1;
     }
 
+    lily_msgbuf *msgbuf = lily_get_msgbuf(vm);
     lily_list_val *lv = lily_new_list(depth);
 
     /* The call chain goes from the most recent to least. Work around that by
@@ -1392,15 +1393,10 @@ static lily_list_val *build_traceback_raw(lily_vm_state *vm)
             class_name = func_val->class_name;
         }
 
-        /* +9 accounts for the non-format part, and a terminator. */
-        int str_size = strlen(path) + strlen(line) + strlen(class_name) +
-                strlen(name) + strlen(separator) + 9;
+        const char *str = lily_mb_sprintf(msgbuf, "%s:%s from %s%s%s", path,
+                line, class_name, separator, name);
 
-        char *str = lily_malloc(str_size);
-        sprintf(str, "%s:%s from %s%s%s", path, line, class_name, separator,
-                name);
-
-        lily_move_string(lv->elems[i - 1], lily_new_string_take(str));
+        lily_move_string(lv->elems[i - 1], lily_new_string(str));
     }
 
     return lv;
