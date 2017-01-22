@@ -1,5 +1,5 @@
-#ifndef LILY_API_CODE_ITER_H
-# define LILY_API_CODE_ITER_H
+#ifndef LILY_INT_CODE_ITER_H
+# define LILY_INT_CODE_ITER_H
 
 # include <stdint.h>
 

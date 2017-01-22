@@ -46,6 +46,8 @@ typedef struct lily_parse_state_ {
     /* The parser uses this to hold and register generic classes. */
     lily_generic_pool *generics;
 
+    lily_function_val *toplevel_func;
+
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;

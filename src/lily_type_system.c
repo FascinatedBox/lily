@@ -3,8 +3,7 @@
 #include <string.h>
 
 #include "lily_type_system.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 extern lily_type *lily_unit_type;
 

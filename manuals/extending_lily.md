@@ -113,7 +113,7 @@ add a `register_<name>` macro to the `dyna_<filename>.h` file. To register your
 module to Lily, use it like so:
 
 ```
-lily_state *state = lily_new_state(lily_new_default_options());
+lily_state *state = lily_new_state(lily_new_options());
 register_<name>(state);
 ```
 
@@ -140,27 +140,21 @@ typedef struct {
 
 static void destroy_$ClassName(lily_$PackageName_$ClassName *data)
 {
-    /* Do any cleanup needed. */
-
-    lily_free(data);
+    (free any resources you made)
 }
 ```
 
 Bear in mind that the destroy function and the typedef are case-sensitive. For
 each class, you will get the following macros in your `extras_` file:
 
-* **ARG_$ClassName**(state, index): Calls `lily_arg_generic(s, index)` and casts
-  it to the typedef mentioned above.
+* **ARG_$ClassName**(state, index): Calls `lily_arg_generic(state, index)` and
+  casts it to the typedef mentioned above.
 
 * **ID_$ClassName**(state): Fetches the class id for the given class from the
-  state's cid table. Only valid during vm execution.
+  state's cid table. Valid during dynaload and execution.
 
-* **INIT_$ClassName**(state, target): Calls `lily_malloc` to initialize `target`
-  and prepares the resulting class value.
-
-* **DYNA_$ClassName**(ids): Used when dynaloading vars. This fetches the class
-  id from the ids block passed to the var loader. You won't have this generated
-  if you don't have a loader (and you also won't need it).
+* **INIT_$ClassName**(state): Returns a newly-made instance of the class,
+  allocated through the interpreter.
 
 ## var
 
@@ -178,11 +172,14 @@ Lily type for a var to have.
 On the C side, your prototype should look like:
 
 ```
-static lily_value *load_var_<name>(lily_options *options, uint16_t *ids)
+static void load_var_<name>(lily_state *state)
 ```
 
-If you need your own class or variant ids for your var, then you can pass call
-the relevant `DYNA_` macro using `ids`.
+If you need your own class or variant ids for your var, then you can use the
+relevant `ID_` macro using `state`. Your function is expected to push one value
+to the stack (that being the result of the dynaload). You may use `lily_box_*`
+functions, as well as pushing/popping that you need to, so long as the function
+exits with only one extra value pushed to the interpreter's stack.
 
 ## define
 

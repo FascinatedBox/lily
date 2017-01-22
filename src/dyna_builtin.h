@@ -133,12 +133,12 @@ const char *lily_builtin_dynaload_table[] = {
     ,"Z"
 };
 
-void *lily_builtin_loader(lily_options *o, uint16_t *c, int id)
+void *lily_builtin_loader(lily_state *s, int id)
 {
     switch (id) {
-        case 1: return load_var_stdin(o, c);
-        case 2: return load_var_stderr(o, c);
-        case 3: return load_var_stdout(o, c);
+        case 1: load_var_stdin(s); return NULL;
+        case 2: load_var_stderr(s); return NULL;
+        case 3: load_var_stdout(s); return NULL;
         case 4: return lily_builtin_print;
         case 5: return lily_builtin_calltrace;
         case 6: return lily_builtin_assert;

@@ -1,6 +1,5 @@
 #include "lily_library.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 #ifdef _WIN32
 #include <Windows.h>

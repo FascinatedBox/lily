@@ -108,11 +108,13 @@ typedef struct lily_vm_state_ {
 } lily_vm_state;
 
 struct lily_value_stack_;
+struct lily_options_;
 
 lily_vm_state *lily_new_vm_state(struct lily_options_ *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
         struct lily_value_stack_ *);
+void lily_setup_toplevel(lily_vm_state *, lily_function_val *);
 void lily_vm_execute(lily_vm_state *);
 uint64_t lily_siphash(lily_vm_state *, lily_value *);
 

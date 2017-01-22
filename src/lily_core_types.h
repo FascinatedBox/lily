@@ -7,11 +7,11 @@
 
 struct lily_var_;
 struct lily_type_;
-struct lily_options_;
+struct lily_vm_state_;
 
 /* A module that has a dynaload table should also come with a loader. The loader
    is responsible for fetching functions and initializing variables. */
-typedef void *(*lily_loader)(struct lily_options_ *, uint16_t *, int);
+typedef void *(*lily_loader)(struct lily_vm_state_ *, int);
 
 typedef struct {
     struct lily_class_ *next;
@@ -386,8 +386,6 @@ typedef struct lily_module_entry_ {
 /* Parser's import handler needs to execute this module's code. */
 #define MODULE_NOT_EXECUTED  0x2
 
-/* SYM_CLASS_* defines are for checking ids of a type's class, since some
-   classes are special-cased internally. */
 #define LILY_INTEGER_ID     1
 #define LILY_DOUBLE_ID      2
 #define LILY_STRING_ID      3
@@ -401,9 +399,11 @@ typedef struct lily_module_entry_ {
 #define LILY_TUPLE_ID      11
 #define LILY_FILE_ID       12
 #define LILY_OPTION_ID     13
-/* The holes here are for None, Some, Left, and Right. Those aren't here because
-   lily_api_value.h needs them for raising runtime errors. */
+#define LILY_SOME_ID       14
+#define LILY_NONE_ID       15
 #define LILY_EITHER_ID     16
+#define LILY_LEFT_ID       17
+#define LILY_RIGHT_ID      18
 
 #define LILY_EXCEPTION_ID      19
 #define LILY_IOERROR_ID        20

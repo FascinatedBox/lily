@@ -1,4 +1,4 @@
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 void *lily_malloc(size_t size)
 {

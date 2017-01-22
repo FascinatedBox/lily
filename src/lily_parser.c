@@ -9,6 +9,7 @@
 #include "lily_keyword_table.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
+#include "lily_alloc.h"
 
 #include "lily_int_opcode.h"
 
@@ -17,8 +18,6 @@
 #include "lily_pkg_random.h"
 #include "lily_pkg_time.h"
 
-#include "lily_api_alloc.h"
-/* Ids for Exception + children are in here, and dynaload needs them. */
 #include "lily_api_value.h"
 #include "lily_api_options.h"
 
@@ -143,6 +142,11 @@ lily_state *lily_new_state(lily_options *options)
 
     parser->expr_strings = parser->emit->expr_strings;
 
+    /* This creates the nameless toplevel function and gives it to the vm to
+       enter. The cid table is swapped out so that ID_ macros work in dynaload
+       as well as outside of it. */
+    parser->toplevel_func = lily_emit_create_toplevel(parser->emit, parser->vm);
+
     /* All code that isn't within a function is grouped together in a special
        function called __main__. Since that function is the first kind of a
        block, it needs a special function to initialize that block. */
@@ -233,6 +237,7 @@ void lily_free_state(lily_state *vm)
     lily_free_msgbuf(parser->msgbuf);
     lily_free_type_maker(parser->tm);
     lily_free(parser->rs);
+    lily_free(parser->toplevel_func);
     lily_free_options(parser->options);
 
     lily_free(parser);
@@ -1292,8 +1297,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     lily_foreign_func func;
 
     if (m->loader)
-        func = (lily_foreign_func)m->loader(parser->options, m->cid_table,
-                dyna_index);
+        func = (lily_foreign_func)m->loader(parser->vm, dyna_index);
     else {
         lily_msgbuf *msgbuf = parser->msgbuf;
         lily_mb_flush(msgbuf);
@@ -1615,14 +1619,23 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            Make sure that cid information is up-to-date. */
         update_cid_table(parser, m);
 
-        void *value = m->loader(parser->options, m->cid_table, dyna_pos);
-        lily_literal *foreign = (lily_literal *)value;
+        /* This fixes the cid table so the callee can use ID_ macros to get
+           the ids they need. */
+        parser->toplevel_func->cid_table = m->cid_table;
+
+        /* todo: This is a roundabout way of doing it. The loader pushes a
+           value, so that parser can scrape it and re-add it later. Eventually,
+           get rid of the round trip so that the loader pushes in directly. */
+        m->loader(parser->vm, dyna_pos);
+
+        lily_value *foreign = lily_take_value(parser->vm);
+        lily_literal *value_copy = (lily_literal *)lily_value_copy(foreign);
 
         /* Values are saved in parser space until the vm is ready to receive
            them. Make use of the extra space in a lily_value to write down what
            register this value will target later on. */
-        foreign->reg_spot = new_var->reg_spot;
-        lily_vs_push(parser->foreign_values, (lily_value *)foreign);
+        value_copy->reg_spot = new_var->reg_spot;
+        lily_vs_push(parser->foreign_values, (lily_value *)value_copy);
 
         result = (lily_item *)new_var;
     }
@@ -4703,4 +4716,9 @@ const char *lily_get_error(lily_state *s)
 {
     build_error(s->parser);
     return lily_mb_get(s->parser->msgbuf);
+}
+
+lily_options *lily_get_options(lily_state *s)
+{
+    return s->parser->options;
 }

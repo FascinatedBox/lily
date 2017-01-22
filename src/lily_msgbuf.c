@@ -7,9 +7,10 @@
 #include "lily_core_types.h"
 #include "lily_value_flags.h"
 #include "lily_vm.h"
+#include "lily_alloc.h"
 
-#include "lily_api_alloc.h"
 #include "lily_api_msgbuf.h"
+#include "lily_api_value.h"
 
 extern lily_type *lily_unit_type;
 
@@ -386,18 +387,9 @@ static void add_value_to_msgbuf(lily_vm_state *, lily_msgbuf *, tag *,
 static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
         lily_value *v, const char *prefix, const char *suffix)
 {
-    int count, i;
-    lily_value **values;
-
-    if (v->class_id == LILY_LIST_ID ||
-        v->class_id == LILY_TUPLE_ID) {
-        values = v->value.list->elems;
-        count = v->value.list->num_values;
-    }
-    else {
-        values = v->value.instance->values;
-        count = v->value.instance->num_values;
-    }
+    int i;
+    lily_value **values = v->value.container->values;
+    int count = v->value.container->num_values;
 
     lily_mb_add(msgbuf, prefix);
 
@@ -464,7 +456,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
                 separator, fv->trace_name);
     }
     else if (v->class_id == LILY_DYNAMIC_ID)
-        add_value_to_msgbuf(vm, msgbuf, t, v->value.dynamic->inner_value);
+        add_value_to_msgbuf(vm, msgbuf, t, lily_boxed_nth_get(v, 0));
     else if (v->class_id == LILY_LIST_ID)
         add_list_like(vm, msgbuf, t, v, "[", "]");
     else if (v->class_id == LILY_TUPLE_ID)
@@ -496,7 +488,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
     else if (v->flags & VAL_IS_ENUM) {
-        lily_instance_val *variant = v->value.instance;
+        lily_container_val *variant = v->value.container;
         lily_class *variant_cls = vm->class_table[v->class_id];
 
         /* For scoped variants, render them how they're written. */
@@ -510,7 +502,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             add_list_like(vm, msgbuf, t, v, "(", ")");
     }
     else {
-        lily_class *cls = vm->class_table[v->class_id];
+        lily_container_val *cv = v->value.container;
+        lily_class *cls = vm->class_table[cv->class_id];
         const char *package_name = "";
         const char *separator = "";
 

@@ -1,8 +1,7 @@
 #include <string.h>
 
 #include "lily_expr.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 #define AST_COMMON_INIT(a, tt) \
 lily_ast *a; \

@@ -9,7 +9,7 @@ const char *lily_random_dynaload_table[] = {
     ,"Z"
 };
 
-void *lily_random_loader(lily_options *o, uint16_t *c, int id)
+void *lily_random_loader(lily_state *s, int id)
 {
     switch (id) {
         case 2: return lily_random_Random_new;

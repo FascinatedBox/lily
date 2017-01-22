@@ -8,10 +8,10 @@ const char *lily_sys_dynaload_table[] = {
     ,"Z"
 };
 
-void *lily_sys_loader(lily_options *o, uint16_t *c, int id)
+void *lily_sys_loader(lily_state *s, int id)
 {
     switch (id) {
-        case 1: return load_var_argv(o, c);
+        case 1: load_var_argv(s); return NULL;
         case 2: return lily_sys_getenv;
         default: return NULL;
     }

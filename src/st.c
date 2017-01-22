@@ -6,8 +6,8 @@
 
 #include "lily_core_types.h"
 #include "lily_value_structs.h"
+#include "lily_alloc.h"
 
-#include "lily_api_alloc.h"
 #include "lily_api_value.h"
 
 static long primes[] =

@@ -435,6 +435,7 @@ def run_loader_entry(e, i, accum, package_name):
     increase = 1
 
     name = e.name
+    prefix = "return "
     what = "lily_"
 
     if e.e_type == "method":
@@ -444,12 +445,14 @@ def run_loader_entry(e, i, accum, package_name):
     elif e.e_type in ["class", "enum", "native"]:
         what = ""
     elif e.e_type == "var":
+        prefix = ""
         what = "load_var_"
         package_name = ""
-        name += "(o, c)"
+        name += "(s); return NULL"
 
     if what:
-        accum.append("        case %d: return %s%s%s;" % (i, what, package_name, name))
+        accum.append("        case %d: %s%s%s%s;" % \
+                (i, prefix, what, package_name, name))
 
     try:
         for inner in e.inner_entries:
@@ -479,7 +482,7 @@ Generate a loader function based upon information within a given filename.
     pname = package_entry.name + "_"
     i = 1
 
-    header = "void *lily_%sloader(lily_options *o, uint16_t *c, int id)" % (pname)
+    header = "void *lily_%sloader(lily_state *s, int id)" % (pname)
 
     loader_entries.append(header)
     loader_entries.append("{\n    switch (id) {")
@@ -515,7 +518,6 @@ def gen_class_extras(package_entry):
     args = []
     ids = []
     inits = []
-    dynas = []
 
     for i in range(0, len(package_entry.decls)):
         d = package_entry.decls[i]
@@ -526,32 +528,23 @@ def gen_class_extras(package_entry):
 (lily_{0}_{1} *)lily_arg_generic(s, index)\
 """.format(package_entry.name, d.name, i))
             inits.append("""\
-#define INIT_{1}(state, target) \\
-target = lily_malloc(sizeof(lily_{0}_{1})); \\
-target->refcount = 0; \\
-target->destroy_func = (lily_destroy_func)destroy_{1};\
-""".format(package_entry.name, d.name, i))
+#define INIT_{1}(state) \\
+({2})lily_new_foreign(state, ID_{1}(s), (lily_destroy_func)destroy_{1}, sizeof({2}))
+""".format(package_entry.name, d.name, "lily_%s_%s *" % (package_entry.name, d.name)))
             ids.append("""\
 #define ID_{0}(state) lily_cid_at(state, {1})\
 """.format(d.name, i))
         elif d.e_type == "native":
-            dynas.append("""\
-#define DYNA_ID_{0}(ids) ids[{1}]\
-""".format(d.name, i))
-
             ids.append("""\
 #define ID_{0}(state) lily_cid_at(state, {1})\
 """.format(d.name, i))
         elif d.e_type == "enum":
             for j in range(len(d.variants)):
-                dynas.append("""\
-#define DYNA_ID_{0}(ids) (ids[{1}] + {2})\
-""".format(d.variants[j].name, i, j + 1))
                 ids.append("""\
 #define ID_{0}(state) (lily_cid_at(state, {1}) + {2})\
 """.format(d.variants[j].name, i, j + 1))
 
-    x = [args, dynas, ids, inits]
+    x = [args, ids, inits]
     s = ""
 
     for i in range(len(x)):

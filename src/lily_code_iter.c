@@ -2,11 +2,10 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "lily_value_structs.h"
-
+#include "lily_int_code_iter.h"
 #include "lily_int_opcode.h"
 
-#include "lily_api_code_iter.h"
+#include "lily_value_structs.h"
 
 void lily_ci_init(lily_code_iter *iter, uint16_t *buffer, uint16_t start,
         uint16_t stop)

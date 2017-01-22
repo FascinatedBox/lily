@@ -1,8 +1,7 @@
 #include <string.h>
 
 #include "lily_string_pile.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 lily_string_pile *lily_new_string_pile(void)
 {

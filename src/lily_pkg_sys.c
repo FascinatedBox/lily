@@ -1,8 +1,7 @@
 #include <string.h>
 
 #include "lily_move.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 
@@ -18,17 +17,18 @@ var argv: List[String]
 This contains arguments sent to the program through the command-line. If Lily
 was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
-static void *load_var_argv(lily_options *options, uint16_t *unused)
+static void load_var_argv(lily_state *s)
 {
+    lily_options *options = lily_get_options(s);
     int opt_argc;
     char **opt_argv = lily_op_get_argv(options, &opt_argc);
-    lily_list_val *lv = lily_new_list(opt_argc);
+    lily_container_val *lv = lily_new_list(opt_argc);
 
     int i;
     for (i = 0;i < opt_argc;i++)
-        lily_list_set_string(lv, i, lily_new_string(opt_argv[i]));
+        lily_nth_set(lv, i, lily_box_string(s, lily_new_string(opt_argv[i])));
 
-    return lily_new_value_of_list(lv);
+    lily_push_list(s, lv);
 }
 
 /**
@@ -42,12 +42,12 @@ static void lily_sys_getenv(lily_state *s)
     char *env = getenv(lily_arg_string_raw(s, 0));
 
     if (env) {
-        lily_variant_val *variant = lily_new_variant(1);
-        lily_variant_set_string(variant, 0, lily_new_string(env));
-        lily_return_variant(s, LILY_SOME_ID, variant);
+        lily_container_val *variant = lily_new_some();
+        lily_nth_set(variant, 0, lily_box_string(s, lily_new_string(env)));
+        lily_return_variant(s, variant);
     }
     else
-        lily_return_empty_variant(s, LILY_NONE_ID);
+        lily_return_none(s);
 }
 
 #include "dyna_sys.h"

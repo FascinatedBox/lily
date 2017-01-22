@@ -11,7 +11,7 @@ const char *lily_time_dynaload_table[] = {
     ,"Z"
 };
 
-void *lily_time_loader(lily_options *o, uint16_t *c, int id)
+void *lily_time_loader(lily_state *s, int id)
 {
     switch (id) {
         case 2: return lily_time_Time_clock;

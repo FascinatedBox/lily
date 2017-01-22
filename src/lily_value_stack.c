@@ -1,6 +1,5 @@
 #include "lily_value_stack.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 lily_value_stack *lily_new_value_stack(void)
 {

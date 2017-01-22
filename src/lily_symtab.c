@@ -4,8 +4,8 @@
 #include "lily_symtab.h"
 #include "lily_vm.h"
 #include "lily_value_flags.h"
+#include "lily_alloc.h"
 
-#include "lily_api_alloc.h"
 #include "lily_api_value.h"
 
 /***
@@ -29,7 +29,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
     symtab->generics = gp;
-    symtab->next_global_id = 0;
+    symtab->next_global_id = 1;
 
     return symtab;
 }
@@ -217,6 +217,44 @@ void lily_free_symtab(lily_symtab *symtab)
     Storing of (defined) functions is also here, because a function cannot be
     altered once it's defined. **/
 
+static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    bv->refcount++;
+    v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
+    v->value.string = (lily_string_val *)bv;
+    return v;
+}
+
+static lily_value *new_value_of_double(double d)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    v->flags = LILY_DOUBLE_ID;
+    v->value.doubleval = d;
+    return v;
+}
+
+static lily_value *new_value_of_integer(int64_t i)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    v->flags = LILY_INTEGER_ID;
+    v->value.integer = i;
+    return v;
+}
+
+static lily_value *new_value_of_string(lily_string_val *sv)
+{
+    lily_value *v = lily_malloc(sizeof(lily_value));
+
+    sv->refcount++;
+    v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
+    v->value.string = sv;
+    return v;
+}
+
 /* Literals take advantage of lily_value having extra padding in it. That extra
    padding will have the index of the next literal of that kind. The only
    trouble is finding the first one with the given flag to start with. */
@@ -253,7 +291,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_value_of_integer(int_val);
+    lily_literal *v = (lily_literal *)new_value_of_integer(int_val);
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -280,7 +318,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_literal *v = (lily_literal *)lily_new_value_of_double(dbl_val);
+    lily_literal *v = (lily_literal *)new_value_of_double(dbl_val);
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -310,7 +348,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
         iter->next_index = lily_vs_pos(symtab->literals);
 
     lily_bytestring_val *sv = lily_new_bytestring_sized(want_string, len);
-    lily_literal *v = (lily_literal *)lily_new_value_of_bytestring(sv);
+    lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
     v->flags = LILY_BYTESTRING_ID;
@@ -344,7 +382,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
         iter->next_index = lily_vs_pos(symtab->literals);
 
     lily_string_val *sv = lily_new_string(want_string);
-    lily_literal *v = (lily_literal *)lily_new_value_of_string(sv);
+    lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
     /* Drop the derefable marker. */
     v->flags = LILY_STRING_ID;

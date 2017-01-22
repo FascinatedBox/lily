@@ -1,6 +1,5 @@
 #include <time.h>
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_options.h"
 #include "lily_api_value.h"
@@ -28,7 +27,6 @@ includes static methods to provide a few extra features.
 
 static void destroy_Time(lily_time_Time *t)
 {
-    lily_free(t);
 }
 
 /**
@@ -48,9 +46,7 @@ Returns a `Time` instance representing the current system time.
 */
 void lily_time_Time_now(lily_state *s)
 {
-    lily_time_Time *t;
-
-    INIT_Time(s, t);
+    lily_time_Time *t = INIT_Time(s);
 
     time_t raw_time;
     struct tm *time_info;
@@ -59,7 +55,7 @@ void lily_time_Time_now(lily_state *s)
     time_info = localtime(&raw_time);
     t->local = *time_info;
 
-    lily_return_foreign(s, ID_Time(s), (lily_foreign_val *)t);
+    lily_return_foreign(s, (lily_foreign_val *)t);
 }
 
 /**

@@ -13,5 +13,6 @@
 #define VAL_IS_DEREFABLE        0x080000
 #define VAL_IS_FOREIGN          0x100000
 #define VAL_IS_ENUM             0x200000
+#define VAL_IS_CONTAINER        0x400000
 
 #endif

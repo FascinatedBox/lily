@@ -2,8 +2,7 @@
 #include <string.h>
 
 #include "lily_raiser.h"
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 
 lily_raiser *lily_new_raiser(void)
 {

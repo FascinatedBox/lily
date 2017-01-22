@@ -17,8 +17,6 @@ typedef union lily_raw_value_ {
     int64_t integer;
     double doubleval;
     struct lily_string_val_ *string;
-    struct lily_dynamic_val_ *dynamic;
-    struct lily_list_val_ *list;
     /* generic is a subset of any type that is refcounted. */
     struct lily_generic_val_ *generic;
     /* gc_generic is a subset of any type that is refcounted AND has a gc
@@ -27,7 +25,7 @@ typedef union lily_raw_value_ {
     struct lily_function_val_ *function;
     struct lily_hash_val_ *hash;
     struct lily_file_val_ *file;
-    struct lily_instance_val_ *instance;
+    struct lily_container_val_ *container;
     struct lily_foreign_val_ *foreign;
 } lily_raw_value;
 
@@ -101,35 +99,18 @@ typedef struct lily_bytestring_val_ {
     char *string;
 } lily_bytestring_val;
 
-/* Instances of the Dynamic class act as a wrapper around some singular value.
-   Their padding exists so that their gc entry aligns with that of instances. */
-typedef struct lily_dynamic_val_ {
+/* This serves List, Tuple, Dynamic, class instances, and variants. All they
+   need is some container that holds N number of inner values. Some of them will
+   make use of the gc_entry, but others won't. */
+typedef struct lily_container_val_ {
     uint32_t refcount;
-    uint32_t pad1;
-    uint64_t pad2;
-    struct lily_value_ *inner_value;
-    struct lily_gc_entry_ *gc_entry;
-} lily_dynamic_val;
-
-/* Internally, (non-empty) variants have the same layout as instances. This is
-   provided so that API can't make the same assumption, in case that changes. */
-typedef struct lily_variant_val_ {
-    uint32_t refcount;
-    uint16_t pad1;
-    uint16_t pad2;
+    uint16_t class_id;
+    uint16_t instance_ctor_need;
     uint32_t num_values;
-    uint32_t pad3;
+    uint32_t extra_space;
     struct lily_value_ **values;
     struct lily_gc_entry_ *gc_entry;
-} lily_variant_val;
-
-typedef struct lily_list_val_ {
-    uint32_t refcount;
-    uint32_t extra_space;
-    uint32_t num_values;
-    uint32_t pad;
-    struct lily_value_ **elems;
-} lily_list_val;
+} lily_container_val;
 
 typedef struct lily_hash_entry_ {
     unsigned int hash;
@@ -148,20 +129,6 @@ typedef struct lily_hash_val_ {
     int num_entries;
     lily_hash_entry **bins;
 } lily_hash_val;
-
-/* Either an instance or an enum. This structure has extra padding so that it
-   lines up with lists (and thus with tuples). This may be changed in the
-   future, but it won't mater to the API. */
-typedef struct lily_instance_val_ {
-    uint32_t refcount;
-    uint16_t pad1;
-    /* How many constructors need to visit this value before it's done? */
-    uint16_t ctor_need;
-    uint32_t num_values;
-    uint32_t pad2;
-    struct lily_value_ **values;
-    struct lily_gc_entry_ *gc_entry;
-} lily_instance_val;
 
 typedef struct lily_file_val_ {
     uint32_t refcount;
@@ -225,16 +192,6 @@ typedef struct lily_function_val_ {
     };
 } lily_function_val;
 
-/* Internally, Tuple has the same layout as List. This is provided so that API
-   can't make the same assumption, in case that changes. */
-typedef struct lily_tuple_val_ {
-    uint32_t refcount;
-    uint32_t extra_space;
-    uint32_t num_values;
-    uint32_t pad;
-    struct lily_value_ **elems;
-} lily_tuple_val;
-
 /* Every value that is refcounted is a superset of this. */
 typedef struct lily_generic_val_ {
     uint32_t refcount;
@@ -245,7 +202,8 @@ typedef struct lily_generic_val_ {
    Should that change, this too many need to be changed. */
 typedef struct lily_foreign_val_ {
     uint32_t refcount;
-    uint32_t pad;
+    uint16_t class_id;
+    uint16_t pad;
     void (*destroy_func)(lily_generic_val *);
 } lily_foreign_val;
 

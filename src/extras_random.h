@@ -6,7 +6,6 @@
 
 #define ID_Random(state) lily_cid_at(state, 0)
 
-#define INIT_Random(state, target) \
-target = lily_malloc(sizeof(lily_random_Random)); \
-target->refcount = 0; \
-target->destroy_func = (lily_destroy_func)destroy_Random;
+#define INIT_Random(state) \
+(lily_random_Random *)lily_new_foreign(state, ID_Random(s), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random *))
+

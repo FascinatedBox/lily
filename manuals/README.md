@@ -13,10 +13,6 @@ overview.
 
 ## API manuals
 
-**api_alloc.md** briefly explains the small allocation API that the interpreter
-uses. You're unlikely to need this, unless you're extending the interpreter with
-a foreign struct.
-
 **api_msgbuf.md** explains `lily_msgbuf`, a buffer with insertion functions that
 do size checks under the hood. Functions that manipulate text are likely to use
 the interpreter's shared buffer (or want one of their own), and may need this.

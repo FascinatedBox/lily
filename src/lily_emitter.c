@@ -1,14 +1,13 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "lily_alloc.h"
 #include "lily_expr.h"
 #include "lily_emitter.h"
 #include "lily_parser.h"
 
 #include "lily_int_opcode.h"
-
-#include "lily_api_alloc.h"
-#include "lily_api_code_iter.h"
+#include "lily_int_code_iter.h"
 
 # define IS_LOOP_BLOCK(b) (b == block_while || \
                            b == block_do_while || \
@@ -109,6 +108,14 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free_buffer_u16(emit->patches);
     lily_free_buffer_u16(emit->code);
     lily_free(emit);
+}
+
+lily_function_val *lily_emit_create_toplevel(lily_emit_state *emit,
+        lily_vm_state *vm)
+{
+    lily_function_val *toplevel_func = new_native_function_val(NULL, NULL);
+    lily_setup_toplevel(vm, toplevel_func);
+    return toplevel_func;
 }
 
 /* This is called once during parser init. It creates the first storage, and

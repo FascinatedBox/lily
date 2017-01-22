@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
+
 #include "lily_api_options.h"
 
 struct lily_options_ {

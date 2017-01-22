@@ -8,8 +8,8 @@
 #include "lily_config.h"
 #include "lily_lexer.h"
 #include "lily_utf8.h"
+#include "lily_alloc.h"
 
-#include "lily_api_alloc.h"
 #include "lily_api_options.h"
 
 /* Group 1: Increment pos, return a simple token. */

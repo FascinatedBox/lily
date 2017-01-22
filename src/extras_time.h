@@ -6,7 +6,6 @@
 
 #define ID_Time(state) lily_cid_at(state, 0)
 
-#define INIT_Time(state, target) \
-target = lily_malloc(sizeof(lily_time_Time)); \
-target->refcount = 0; \
-target->destroy_func = (lily_destroy_func)destroy_Time;
+#define INIT_Time(state) \
+(lily_time_Time *)lily_new_foreign(state, ID_Time(s), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time *))
+

@@ -53,8 +53,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
-
-#include "lily_api_alloc.h"
+#include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 #include "extras_random.h"
@@ -77,7 +76,6 @@ typedef struct {
 
 static void destroy_Random(lily_random_Random *r)
 {
-    lily_free(r);
 }
 
 /**
@@ -102,11 +100,9 @@ constructor Random(seed: *Integer=0): Random
 */
 void lily_random_Random_new(lily_state *s)
 {
-    lily_random_Random *r;
     int64_t seed = 0;
     int mti;
-
-    INIT_Random(s, r);
+    lily_random_Random *r = INIT_Random(s);
 
     if (lily_arg_count(s) == 2)
         seed = lily_arg_integer(s, 1);
@@ -119,7 +115,7 @@ void lily_random_Random_new(lily_state *s)
         r->mt[mti] = (6364136223846793005ULL * (r->mt[mti-1] ^ (r->mt[mti-1] >> 62)) + mti);
 
     r->mti = mti;
-    lily_return_foreign(s, ID_Random(s), (lily_foreign_val *)r);
+    lily_return_foreign(s, (lily_foreign_val *)r);
 }
 
 /* generates a random number on [0, 2^64-1]-interval */
