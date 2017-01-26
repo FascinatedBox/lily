@@ -4528,7 +4528,7 @@ static void build_error(lily_parse_state *parser)
         if (parser->vm->include_last_frame_in_trace == 0)
             frame = frame->prev;
 
-        while (frame->function) {
+        while (frame->prev) {
             lily_function_val *func = frame->function;
             const char *class_name = func->class_name;
             const char *func_name = func->trace_name;
