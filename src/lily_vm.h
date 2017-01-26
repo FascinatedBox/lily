@@ -3,6 +3,7 @@
 
 # include "lily_raiser.h"
 # include "lily_symtab.h"
+# include "lily_options.h"
 
 typedef struct lily_call_frame_ {
     lily_value **locals;
@@ -97,6 +98,7 @@ typedef struct lily_vm_state_ {
     struct lily_parse_state_ *parser;
     lily_symtab *symtab;
     lily_raiser *raiser;
+    lily_options *options;
     /* This holds the 'data' blob passed in to the interpreter's options. The
        mod_lily module uses this to hold the request_rec so that server
        functions can fetch it back out. */
@@ -108,9 +110,8 @@ typedef struct lily_vm_state_ {
 } lily_vm_state;
 
 struct lily_value_stack_;
-struct lily_options_;
 
-lily_vm_state *lily_new_vm_state(struct lily_options_ *, lily_raiser *);
+lily_vm_state *lily_new_vm_state(lily_options *, lily_raiser *);
 void lily_free_vm(lily_vm_state *);
 void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
         struct lily_value_stack_ *);

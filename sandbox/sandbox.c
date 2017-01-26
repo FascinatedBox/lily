@@ -8,11 +8,7 @@
 
 lily_state *get_parser()
 {
-    lily_options *options = lily_new_options();
-    lily_state *state = lily_new_state(options);
-    lily_op_allow_sys(options, 1);
-
-    return state;
+    return lily_new_state();
 }
 
 int run_parser(lily_state *state, char *to_parse)

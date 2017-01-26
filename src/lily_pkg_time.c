@@ -1,7 +1,6 @@
 #include <time.h>
 #include "lily_alloc.h"
 #include "lily_api_embed.h"
-#include "lily_api_options.h"
 #include "lily_api_value.h"
 
 #include "extras_time.h"
@@ -91,7 +90,7 @@ void lily_time_Time_since_epoch(lily_state *s)
 
 #include "dyna_time.h"
 
-void lily_pkg_time_init(lily_state *s, lily_options *options)
+void lily_pkg_time_init(lily_state *s)
 {
     register_time(s);
 }

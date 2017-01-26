@@ -4,6 +4,7 @@
 
 #include "lily_config.h"
 #include "lily_library.h"
+#include "lily_options.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
 #include "lily_keyword_table.h"
@@ -19,7 +20,6 @@
 #include "lily_pkg_time.h"
 
 #include "lily_api_value.h"
-#include "lily_api_options.h"
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -56,7 +56,6 @@ extern lily_type *lily_unit_type;
     * Link different parts of the interpreter up (sorry).
     * Enter __main__, which will receive toplevel code from the first module.
     * Create the first module (parsed files/strings will become the root).
-    * Register sys, unless options say not to.
 
     What's perhaps more interesting is that different functions within the
     parser will either take or return the vm. The reason for this is that it
@@ -83,19 +82,12 @@ typedef struct lily_rewind_state_
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
    when it shouldn't. */
-lily_state *lily_new_state(lily_options *options)
+lily_state *lily_new_state(void)
 {
-    if (options == NULL)
-        options = lily_new_options();
-    else
-        /* "Prevent" caller from changing options during exec and fouling up the
-           internal state. */
-        lily_op_freeze(options);
-
     lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
-    parser->data = lily_op_get_data(options);
     parser->module_top = NULL;
     parser->module_start = NULL;
+    parser->options = lily_new_options();
 
     lily_raiser *raiser = lily_new_raiser();
 
@@ -105,7 +97,7 @@ lily_state *lily_new_state(lily_options *options)
     parser->first_expr = lily_new_expr_state();
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
-    parser->vm = lily_new_vm_state(options, raiser);
+    parser->vm = lily_new_vm_state(parser->options, raiser);
     parser->rs = lily_malloc(sizeof(lily_rewind_state));
     parser->rs->pending = 0;
 
@@ -116,9 +108,8 @@ lily_state *lily_new_state(lily_options *options)
     lily_init_pkg_builtin(parser->symtab);
 
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
-    parser->lex = lily_new_lex_state(options, raiser);
+    parser->lex = lily_new_lex_state(parser->options, raiser);
     parser->msgbuf = lily_new_msgbuf(64);
-    parser->options = options;
     parser->data_stack = lily_new_buffer_u16(4);
     parser->expr = parser->first_expr;
     parser->foreign_values = lily_new_value_stack();
@@ -164,11 +155,9 @@ lily_state *lily_new_state(lily_options *options)
     parser->symtab->main_function->module = parser->main_module;
     parser->symtab->active_module = parser->main_module;
 
-    if (lily_op_get_allow_sys(options))
-        lily_pkg_sys_init(parser->vm, options);
-
-    lily_pkg_random_init(parser->vm, options);
-    lily_pkg_time_init(parser->vm, options);
+    lily_pkg_sys_init(parser->vm);
+    lily_pkg_random_init(parser->vm);
+    lily_pkg_time_init(parser->vm);
 
     parser->executing = 0;
 
@@ -4718,7 +4707,60 @@ const char *lily_get_error(lily_state *s)
     return lily_mb_get(s->parser->msgbuf);
 }
 
-lily_options *lily_get_options(lily_state *s)
+void lily_op_argv(lily_state *s, int argc, char **argv)
 {
-    return s->parser->options;
+    if (s->parser->first_pass) {
+        s->options->argc = argc;
+        s->options->argv = argv;
+    }
+}
+
+void lily_op_data(lily_state *s, void *data)
+{
+    if (s->parser->first_pass)
+        s->options->data = data;
+}
+
+void lily_op_render_func(lily_state *s, lily_render_func render_func)
+{
+    if (s->parser->first_pass)
+        s->options->render_func = render_func;
+}
+
+void lily_op_gc_start(lily_state *s, int start)
+{
+    if (s->parser->first_pass)
+        s->gc_threshold = start;
+}
+
+void lily_op_gc_multiplier(lily_state *s, int multiplier)
+{
+    if (s->parser->first_pass)
+        s->gc_multiplier = multiplier;
+}
+
+char **lily_op_get_argv(lily_state *s, int *argc)
+{
+    *argc = s->options->argc;
+    return s->options->argv;
+}
+
+void *lily_op_get_data(lily_state *s)
+{
+    return s->options->data;
+}
+
+int lily_op_get_gc_start(lily_state *s)
+{
+    return s->gc_threshold;
+}
+
+int lily_op_get_gc_multiplier(lily_state *s)
+{
+    return s->gc_multiplier;
+}
+
+lily_render_func lily_op_get_render_func(lily_state *s)
+{
+    return s->options->render_func;
 }

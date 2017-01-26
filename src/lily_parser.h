@@ -57,9 +57,8 @@ typedef struct lily_parse_state_ {
     lily_vm_state *vm;
     lily_type_maker *tm;
     lily_raiser *raiser;
-    struct lily_options_ *options;
+    lily_options *options;
     struct lily_rewind_state_ *rs;
-    void *data;
 } lily_parse_state;
 
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, const char *,

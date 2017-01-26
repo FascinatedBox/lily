@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "lily_alloc.h"
+#include "lily_options.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
 #include "lily_value_stack.h"
@@ -9,8 +11,6 @@
 #include "lily_move.h"
 
 #include "lily_int_opcode.h"
-#include "lily_alloc.h"
-#include "lily_api_options.h"
 #include "lily_api_value.h"
 
 extern lily_gc_entry *lily_gc_stopper;
@@ -111,9 +111,9 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
-    vm->data = lily_op_get_data(options);
-    vm->gc_threshold = lily_op_get_gc_start(options);
-    vm->gc_multiplier = lily_op_get_gc_multiplier(options);
+    /* Starting gc options are completely arbitrary. */
+    vm->gc_threshold = 100;
+    vm->gc_multiplier = 4;
 
     vm->call_depth = 0;
     vm->raiser = raiser;
@@ -134,6 +134,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->exception_value = NULL;
     vm->pending_line = 0;
     vm->include_last_frame_in_trace = 1;
+    vm->options = options;
 
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
     catch_entry->prev = NULL;

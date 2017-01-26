@@ -10,8 +10,6 @@
 #include "lily_utf8.h"
 #include "lily_alloc.h"
 
-#include "lily_api_options.h"
-
 /* Group 1: Increment pos, return a simple token. */
 #define CC_G_ONE_OFFSET  0
 /* CC_LEFT_PARENTH isn't here because (| opens a lambda. */
@@ -103,8 +101,8 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
         lily_raiser *raiser)
 {
     lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
-    lexer->data = lily_op_get_data(options);
-    lexer->render_func = lily_op_get_render_func(options);
+    lexer->data = options->data;
+    lexer->render_func = options->render_func;
 
     char *ch_class;
 

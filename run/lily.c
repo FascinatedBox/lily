@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_api_options.h"
 #include "lily_api_embed.h"
 
 /*  lily_main.c
@@ -78,15 +77,14 @@ int main(int argc, char **argv)
     if (to_process == NULL)
         usage();
 
-    lily_options *options = lily_new_options();
+    lily_state *state = lily_new_state();
+
     if (gc_start != -1)
-        lily_op_gc_start(options, gc_start);
+        lily_op_gc_start(state, gc_start);
     if (gc_multiplier != -1)
-        lily_op_gc_multiplier(options, gc_multiplier);
+        lily_op_gc_multiplier(state, gc_multiplier);
 
-    lily_op_argv(options, argc - argc_offset, argv + argc_offset);
-
-    lily_state *state = lily_new_state(options);
+    lily_op_argv(state, argc - argc_offset, argv + argc_offset);
 
     int result;
 

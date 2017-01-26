@@ -178,7 +178,7 @@ void lily_random_Random_between(lily_state *s)
 
 #include "dyna_random.h"
 
-void lily_pkg_random_init(lily_state *s, lily_options *options)
+void lily_pkg_random_init(lily_state *s)
 {
     register_random(s);
 }

@@ -19,9 +19,8 @@ was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
 static void load_var_argv(lily_state *s)
 {
-    lily_options *options = lily_get_options(s);
     int opt_argc;
-    char **opt_argv = lily_op_get_argv(options, &opt_argc);
+    char **opt_argv = lily_op_get_argv(s, &opt_argc);
     lily_container_val *lv = lily_new_list(opt_argc);
 
     int i;
@@ -52,7 +51,7 @@ static void lily_sys_getenv(lily_state *s)
 
 #include "dyna_sys.h"
 
-void lily_pkg_sys_init(lily_state *s, lily_options *options)
+void lily_pkg_sys_init(lily_state *s)
 {
     register_sys(s);
 }

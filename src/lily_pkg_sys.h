@@ -3,6 +3,6 @@
 
 # include "lily_parser.h"
 
-void lily_pkg_sys_init(struct lily_vm_state_ *, struct lily_options_ *);
+void lily_pkg_sys_init(struct lily_vm_state_ *);
 
 #endif
