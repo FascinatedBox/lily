@@ -455,8 +455,6 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
                 separator, fv->trace_name);
     }
-    else if (v->class_id == LILY_DYNAMIC_ID)
-        add_value_to_msgbuf(vm, msgbuf, t, lily_boxed_nth_get(v, 0));
     else if (v->class_id == LILY_LIST_ID)
         add_list_like(vm, msgbuf, t, v, "[", "]");
     else if (v->class_id == LILY_TUPLE_ID)
