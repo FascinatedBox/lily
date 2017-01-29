@@ -131,7 +131,7 @@ ok(!true == false,        "!true equals false.")
 ok(!false == true,        "!false equals true.")
 ok(![1][0] == 0,          "! on list subscript.")
 
-# Hash literals
+# Hash checks
 
 ok((||
     var v: Hash[String, String] = []
@@ -149,6 +149,25 @@ ok((||
     var result = ((v[1] == 2) && (v[2] == 4))
     result != false
     )(),                  "Hash literals take the right-most value.")
+ok((||
+    var h: Hash[Integer, Integer] = []
+    var reverse_h: Hash[Integer, Integer] = []
+    var i = 0
+    var expect = 0
+    var loop_total = 15
+
+    for i in 0...loop_total: {
+        h[i] = i
+        reverse_h[loop_total - i] = loop_total - i
+        expect += i
+    }
+
+    var local_total = 0
+    h.each_pair(|k, v| local_total += v)
+
+    local_total == expect &&
+    h == reverse_h
+    )(),                  "Hashes are looking at all of their entries.")
 
 # Tuple literals
 
