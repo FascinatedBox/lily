@@ -95,12 +95,12 @@ class VariantEntry:
 
 class EnumEntry:
     def __init__(self, source):
-        decl = re.search("enum (\\w+)([^\\n]*)", source)
+        decl = re.search("(scoped )?enum (\\w+)([^\\n]*)", source)
 
         self.variants = []
         self.inner_entries = []
-        self.name = decl.group(1).strip()
-        self.proto = decl.group(2).strip()
+        self.name = decl.group(2).strip()
+        self.proto = decl.group(3).strip()
         self.e_type = "enum"
 
         lines = source.split("\n")[1:]
@@ -115,6 +115,8 @@ class EnumEntry:
 
         self.doc = "\n".join(lines[start:])
         self.dyna_len = 0
+        if decl.group(1) == "scoped ":
+            self.dyna_len += len(self.variants)
         self.dyna_letter = 'E'
 
 class ClassEntry:
@@ -242,6 +244,10 @@ classes/enums belong.
 
         elif d.startswith("package"):
             package_target = PackageEntry(d, False)
+
+        elif d.startswith("scoped"):
+            class_target = EnumEntry(d)
+            decls.append(class_target)
 
         elif d.startswith("enum"):
             class_target = EnumEntry(d)

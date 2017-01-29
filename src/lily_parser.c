@@ -1129,7 +1129,7 @@ static void parse_class_body(lily_parse_state *, lily_class *);
 static lily_class *find_run_class_dynaload(lily_parse_state *,
         lily_module_entry *, const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
-static lily_class *parse_enum(lily_parse_state *, int);
+static lily_class *parse_enum(lily_parse_state *, int, int);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
 
@@ -1380,7 +1380,9 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         entry = table[entry_index];
     } while (entry[0] != 'V');
 
-    do {
+    int is_scoped = entry[0] != 'V';
+
+    while (entry[0] == 'V') {
         name = entry + DYNA_NAME_OFFSET;
         lily_mb_add(msgbuf, name);
         lily_mb_add(msgbuf, name + strlen(name) + 1);
@@ -1388,7 +1390,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
         entry_index++;
         entry = table[entry_index];
-    } while (entry[0] == 'V');
+    }
 
     lily_mb_add_char(msgbuf, '}');
 
@@ -1416,7 +1418,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     int save_generics;
     lily_gp_save_and_hide(parser->generics, &save_generics);
 
-    lily_class *result = parse_enum(parser, 1);
+    lily_class *result = parse_enum(parser, 1, is_scoped);
 
     lily_gp_restore_and_unhide(parser->generics, save_generics);
 
@@ -2923,6 +2925,7 @@ static void raise_handler(lily_parse_state *, int);
 static void match_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
+static void scoped_handler(lily_parse_state *, int);
 static void define_handler(lily_parse_state *, int);
 static void return_handler(lily_parse_state *, int);
 static void except_handler(lily_parse_state *, int);
@@ -2949,6 +2952,7 @@ static keyword_handler *handlers[] = {
     match_handler,
     break_handler,
     class_handler,
+    scoped_handler,
     define_handler,
     return_handler,
     except_handler,
@@ -4031,7 +4035,8 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->flags &= ~CLS_EMPTY_VARIANT;
 }
 
-static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
+static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
+        int is_scoped)
 {
     lily_block *block = parser->emit->block;
     if (is_dynaload == 0 &&
@@ -4040,8 +4045,15 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
     lily_lex_state *lex = parser->lex;
-
     NEED_CURRENT_TOK(tk_word)
+
+    if (is_scoped == 1 && is_dynaload == 0) {
+        if (strcmp(lex->label, "enum") != 0)
+            lily_raise_syn(parser->raiser, "Expected 'enum' after flat.");
+
+        NEED_NEXT_TOK(tk_word)
+    }
+
     if (is_dynaload == 0)
         ensure_valid_class(parser, lex->label);
 
@@ -4065,14 +4077,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
     lily_lexer(lex);
 
     int variant_count = 0;
-    int is_scoped = (lex->token == tk_dot);
 
     while (1) {
-        if (is_scoped) {
-            NEED_CURRENT_TOK(tk_dot)
-            lily_lexer(lex);
-        }
-
         NEED_CURRENT_TOK(tk_word)
         if (is_dynaload == 0) {
             lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
@@ -4139,7 +4145,12 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload)
 
 static void enum_handler(lily_parse_state *parser, int multi)
 {
-    parse_enum(parser, 0);
+    parse_enum(parser, 0, 0);
+}
+
+static void scoped_handler(lily_parse_state *parser, int multi)
+{
+    parse_enum(parser, 0, 1);
 }
 
 static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)

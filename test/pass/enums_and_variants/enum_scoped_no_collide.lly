@@ -4,8 +4,8 @@ enum StrangeSpeed {
     Slow
 }
 
-enum Speed {
-    .Fast
-    .Medium
-    .Slow
+scoped enum Speed {
+    Fast
+    Medium
+    Slow
 }

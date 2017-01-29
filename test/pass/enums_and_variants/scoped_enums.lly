@@ -1,6 +1,6 @@
-enum ScopeTest[A] {
-    .One(A)
-    .Two
+scoped enum ScopeTest[A] {
+    One(A)
+    Two
 }
 
 var v = [ScopeTest.One(1), ScopeTest.Two, ScopeTest.One(2)]

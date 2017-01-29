@@ -1,9 +1,0 @@
-#[
-SyntaxError: Expected '.', not 'a label'.
-    from partial_scoped_variant.lly:8
-]#
-
-enum Test[A] {
-    .One(A)
-    Two
-}
