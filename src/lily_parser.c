@@ -734,12 +734,16 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
         lily_u16_write_2(data_stack, o_get_boolean, key_id == CONST_TRUE);
     }
     else if (expect == tk_word) {
-        /* It's an enum. Allow any variant to be a default argument if that
-           variant doesn't take arguments. Those variants have a backing literal
-           which means they work like other arguments.
-           Is the enum scoped? It should not matter: It's patently obvious what
-           enum that this variant should be a member of. It's also consistent
-           with match (which ignores scoping for the same reason). */
+        if (cls->flags & CLS_ENUM_IS_SCOPED) {
+            if (strcmp(cls->name, lex->label) != 0)
+                lily_raise_syn(parser->raiser,
+                        "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
+                        cls->name, lex->label, cls->name);
+
+            NEED_NEXT_TOK(tk_dot)
+            NEED_NEXT_TOK(tk_word)
+        }
+
         lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
         if (variant == NULL)
             lily_raise_syn(parser->raiser,
@@ -4161,6 +4165,15 @@ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
     lily_variant_class *variant_case = NULL;
 
     NEED_CURRENT_TOK(tk_word)
+    if (match_class->flags & CLS_ENUM_IS_SCOPED) {
+        if (strcmp(match_class->name, lex->label) != 0)
+            lily_raise_syn(parser->raiser,
+                    "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
+                    match_class->name, lex->label, match_class->name);
+
+        NEED_NEXT_TOK(tk_dot)
+        NEED_NEXT_TOK(tk_word)
+    }
 
     int i;
     for (i = 0;i < match_class->variant_size;i++) {
