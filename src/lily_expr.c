@@ -233,49 +233,36 @@ static uint8_t priority_for_op(lily_expr_op o)
         case expr_logical_and:
             prio = 2;
             break;
-        case expr_eq_eq:
-        case expr_not_eq:
+        /* Put pipes lower so they scoop up as much as possible. This seems
+           right. */
+        case expr_func_pipe:
             prio = 3;
             break;
+        case expr_eq_eq:
+        case expr_not_eq:
         case expr_lt:
         case expr_gr:
         case expr_lt_eq:
         case expr_gr_eq:
             prio = 4;
             break;
-        /* This...seems like a reasonable place for call piping to go. It's high
-           enough that you can do ```x |> y != z```, but low enough that one can
-           also do ```a * b |> c```. This may be moved in the future. */
-        case expr_func_pipe:
-            prio = 5;
-            break;
-        /* Bitwise ops are intentionally put before equality operations. This
-           allows users to use bitwise ops without parens.
-           This:        a & 0x10 == x
-           Instead of: (a & 0x10) == x
-
-           Keeping their different precendence levels for now though. */
         case expr_bitwise_or:
-            prio = 6;
-            break;
         case expr_bitwise_xor:
-            prio = 7;
-            break;
         case expr_bitwise_and:
-            prio = 8;
+            prio = 5;
             break;
         case expr_left_shift:
         case expr_right_shift:
-            prio = 9;
+            prio = 6;
             break;
         case expr_plus:
         case expr_minus:
-            prio = 10;
+            prio = 7;
             break;
         case expr_multiply:
         case expr_divide:
         case expr_modulo:
-            prio = 11;
+            prio = 8;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */
