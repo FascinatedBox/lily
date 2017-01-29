@@ -368,7 +368,7 @@ def run_dyna_entry(e, accum):
     if suffix:
         suffix = "\\0" + suffix
 
-    accum.append('    ,"%s\\%d%s%s"' % (letter, dyna_len, name, suffix))
+    accum.append('    ,"%s\\%s%s%s"' % (letter, oct(dyna_len), name, suffix))
 
     try:
         for inner in e.inner_entries:
