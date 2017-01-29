@@ -148,6 +148,11 @@ int lily_arg_count(lily_state *s)
     return s->call_chain->regs_used;
 }
 
+uint16_t lily_arg_class_id(lily_state *s, int index)
+{
+    return s->call_chain->locals[index]->class_id;
+}
+
 lily_value *lily_arg_nth_get(lily_state *s, int reg_i, int container_i)
 {
     return s->call_chain->locals[reg_i]->value.container->values[container_i];
@@ -158,9 +163,9 @@ int lily_arg_is_some(lily_state *s, int i)
     return s->call_chain->locals[i]->class_id == LILY_SOME_ID;
 }
 
-int lily_arg_is_right(lily_state *s, int i)
+int lily_arg_is_success(lily_state *s, int i)
 {
-    return s->call_chain->locals[i]->class_id == LILY_RIGHT_ID;
+    return s->call_chain->locals[i]->class_id == LILY_SUCCESS_ID;
 }
 
 int lily_result_boolean(lily_state *s)
@@ -301,14 +306,14 @@ lily_container_val *lily_new_some(void)
     return new_container(LILY_SOME_ID, 1);
 }
 
-lily_container_val *lily_new_left(void)
+lily_container_val *lily_new_failure(void)
 {
-    return new_container(LILY_LEFT_ID, 1);
+    return new_container(LILY_FAILURE_ID, 1);
 }
 
-lily_container_val *lily_new_right(void)
+lily_container_val *lily_new_success(void)
 {
-    return new_container(LILY_RIGHT_ID, 1);
+    return new_container(LILY_SUCCESS_ID, 1);
 }
 
 lily_container_val *lily_new_variant(uint16_t class_id, int num_values)
@@ -343,22 +348,26 @@ FILE *lily_file_raw(lily_file_val *fv)
     return fv->inner_file;
 }
 
-void lily_file_ensure_writeable(lily_state *s, lily_file_val *filev)
+FILE *lily_file_for_write(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
         lily_IOError(s, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
         lily_IOError(s, "File not open for writing.");
+
+    return filev->inner_file;
 }
 
-void lily_file_ensure_readable(lily_state *s, lily_file_val *filev)
+FILE *lily_file_for_read(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
         lily_IOError(s, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
         lily_IOError(s, "File not open for reading.");
+
+    return filev->inner_file;
 }
 
 int lily_function_is_foreign(lily_function_val *fv)
@@ -369,6 +378,26 @@ int lily_function_is_foreign(lily_function_val *fv)
 int lily_function_is_native(lily_function_val *fv)
 {
     return fv->code != NULL;
+}
+
+void lily_instance_super(lily_state *s, lily_container_val **iv, uint16_t id,
+        uint32_t initial)
+{
+    lily_value *v = s->call_chain->return_target;
+
+    if (v->flags & VAL_IS_INSTANCE) {
+        lily_container_val *pending_instance = v->value.container;
+        if (pending_instance->instance_ctor_need != 0) {
+            pending_instance->instance_ctor_need = 0;
+            *iv = pending_instance;
+            lily_push_value(s, v);
+            return;
+        }
+    }
+
+    lily_container_val *new_iv = lily_new_instance(id, initial);
+    lily_push_instance(s, new_iv);
+    *iv = new_iv;
 }
 
 char *lily_string_raw(lily_string_val *sv)
@@ -687,24 +716,4 @@ int lily_value_is_derefable(lily_value *value)
 uint16_t lily_value_class_id(lily_value *value)
 {
     return value->class_id;
-}
-
-void lily_push_super(lily_state *s, lily_container_val **iv, uint16_t id,
-        uint32_t initial)
-{
-    lily_value *v = s->call_chain->return_target;
-
-    if (v->flags & VAL_IS_INSTANCE) {
-        lily_container_val *pending_instance = v->value.container;
-        if (pending_instance->instance_ctor_need != 0) {
-            pending_instance->instance_ctor_need = 0;
-            *iv = pending_instance;
-            lily_push_value(s, v);
-            return;
-        }
-    }
-
-    lily_container_val *new_iv = lily_new_instance(id, initial);
-    lily_push_instance(s, new_iv);
-    *iv = new_iv;
 }

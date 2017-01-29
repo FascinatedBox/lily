@@ -71,9 +71,10 @@ lily_value *         lily_arg_value     (lily_state *, int);
    Note: Functions taking a variable number of arguments will wrap their extra
    arguments into a list. */
 int lily_arg_count(lily_state *);
+uint16_t lily_arg_class_id(lily_state *, int);
 
 int lily_arg_is_some(lily_state *, int);
-int lily_arg_is_right(lily_state *, int);
+int lily_arg_is_success(lily_state *, int);
 
 /* The interpreter carries a single intermediate register, shared by all
    functions. These functions insert a raw value into it, then return that
@@ -117,9 +118,8 @@ lily_container_val *lily_new_dynamic(void);
 
 /* File operations */
 lily_file_val *lily_new_file(FILE *, const char *);
-FILE *lily_file_raw(lily_file_val *);
-void lily_file_ensure_readable(lily_state *, lily_file_val *);
-void lily_file_ensure_writeable(lily_state *, lily_file_val *);
+FILE *lily_file_for_read(lily_state *, lily_file_val *);
+FILE *lily_file_for_write(lily_state *, lily_file_val *);
 
 /* Foreign operations */
 lily_foreign_val *lily_new_foreign(lily_state *, uint16_t, lily_destroy_func,
@@ -131,6 +131,9 @@ int lily_function_is_native(lily_function_val *);
 
 /* Instance operations */
 lily_container_val *lily_new_instance(uint16_t, int);
+/* Call this if your function acts as a constructor. This pushes a value to the
+   top of the stack, and you should return that value. */
+void lily_instance_super(lily_state *, lily_container_val **, uint16_t, uint32_t);
 
 /* Hash operations */
 lily_hash_val *lily_new_hash_numtable(void);
@@ -151,14 +154,16 @@ lily_string_val *lily_new_string(const char *);
 lily_string_val *lily_new_string_sized(const char *, int);
 char *lily_string_raw(lily_string_val *);
 int lily_string_length(lily_string_val *);
+/* Return 1 if a given string is valid utf-8, 0 otherwise. */
+int lily_is_valid_utf8(const char *);
 
 /* Tuple operations */
 lily_container_val *lily_new_tuple(int);
 
 /* Enum operations */
 lily_container_val *lily_new_some(void);
-lily_container_val *lily_new_left(void);
-lily_container_val *lily_new_right(void);
+lily_container_val *lily_new_failure(void);
+lily_container_val *lily_new_success(void);
 lily_container_val *lily_new_variant(uint16_t, int);
 
 /* Stack operations (defined within the vm) */
@@ -210,13 +215,6 @@ void lily_call_simple(lily_state *, lily_function_val *, int);
 int lily_result_boolean(lily_state *);
 lily_value *lily_result_value(lily_state *);
 
-/* Do an action to a proper value. */
-void lily_deref(lily_value *);
-void lily_value_assign(lily_value *, lily_value *);
-lily_value *lily_value_copy(lily_value *);
-int lily_value_compare(lily_state *, lily_value *, lily_value *);
-int lily_value_is_derefable(lily_value *);
-
 int                  lily_value_boolean   (lily_value *);
 uint8_t              lily_value_byte      (lily_value *);
 lily_bytestring_val *lily_value_bytestring(lily_value *);
@@ -229,7 +227,14 @@ lily_hash_val *      lily_value_hash      (lily_value *);
 int64_t              lily_value_integer   (lily_value *);
 lily_string_val *    lily_value_string    (lily_value *);
 char *               lily_value_string_raw(lily_value *);
-lily_value *         lily_value_value     (lily_value *);
+
+/* Do an action to a proper value. */
+void lily_deref(lily_value *);
+void lily_value_assign(lily_value *, lily_value *);
+lily_value *lily_value_copy(lily_value *);
+int lily_value_compare(lily_state *, lily_value *, lily_value *);
+void lily_value_tag(lily_state *, lily_value *);
+int lily_value_is_derefable(lily_value *);
 
 /* Raise an exception within the interpreter. */
 void lily_DivisionByZeroError(lily_state *, const char *, ...);
@@ -238,21 +243,5 @@ void lily_IOError(lily_state *, const char *, ...);
 void lily_KeyError(lily_state *, const char *, ...);
 void lily_RuntimeError(lily_state *, const char *, ...);
 void lily_ValueError(lily_state *, const char *, ...);
-
-/* What's left are miscellaneous operations: */
-
-/* Return 1 if a given string is valid utf-8, 0 otherwise. */
-int lily_is_valid_utf8(const char *);
-
-/* Call this if your function is a constructor:
- * If your function is called as part of an inheritance, this pushes the
-   in-progress instance to the stack.
- * If your function is called directly (and there is no value to inherit), a new
-   instance is created (using the given id and field count). That instance is
-   pushed to the top of the stack.
-
-   The caller should set the fields their instance declared, and return the
-   value at the top of the stack. */
-void lily_push_super(lily_state *, lily_container_val **, uint16_t, uint32_t);
 
 #endif

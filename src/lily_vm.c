@@ -462,7 +462,7 @@ static void gc_mark(int pass, lily_value *v)
    If the number of living gc objects is at or past the threshold, then the
    collector will run BEFORE the association. This is intentional, as 'value' is
    not guaranteed to be in a register. */
-void lily_tag_value(lily_vm_state *vm, lily_value *v)
+void lily_value_tag(lily_vm_state *vm, lily_value *v)
 {
     if (vm->gc_live_entry_count >= vm->gc_threshold)
         invoke_gc(vm);
@@ -814,7 +814,7 @@ void lily_builtin_Dynamic_new(lily_vm_state *vm)
 
     lily_value *target = vm->call_chain->return_target;
     lily_move_dynamic(target, dynamic_val);
-    lily_tag_value(vm, target);
+    lily_value_tag(vm, target);
 }
 
 /***
@@ -1113,7 +1113,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     else {
         lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
         if (code[0] == o_new_instance_tagged)
-            lily_tag_value(vm, result);
+            lily_value_tag(vm, result);
     }
 }
 
@@ -1230,7 +1230,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     closure_func->upvalues = upvalues;
 
     lily_move_function_f(MOVE_DEREF_NO_GC, result, closure_func);
-    lily_tag_value(vm, result);
+    lily_value_tag(vm, result);
 
     return upvalues;
 }
@@ -1274,7 +1274,7 @@ static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
     copy_upvalues(new_closure, input_closure_reg->value.function);
 
     lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
-    lily_tag_value(vm, result_reg);
+    lily_value_tag(vm, result_reg);
 }
 
 /* This is written at the top of a define that uses a closure (unless that

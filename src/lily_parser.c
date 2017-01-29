@@ -1091,7 +1091,7 @@ static void collect_generics(lily_parse_state *parser)
    If the class has generics, then the self type will be a type of the class
    which has all of those generics:
    `class Box[A]` == `Box[A]`
-   `enum Either[A, B]` == `Either[A, B]`.
+   `enum Result[A, B]` == `Result[A, B]`.
    If the class doesn't have generics, the self type is set and there's nothing
    to do. */
 static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
@@ -1398,7 +1398,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     lily_lexer(parser->lex);
 
     int save_next_class_id;
-    /* Option and Either have specific ids set aside for them so they don't need
+    /* Option and Result have specific ids set aside for them so they don't need
        to be included in cid tables.
        The id must be set -before- parsing the enum, because variant default
        values rely on the id of an enum. If it's fixed later, they'll have the
@@ -1410,7 +1410,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         if (name[0] == 'O')
             parser->symtab->next_class_id = LILY_OPTION_ID;
         else
-            parser->symtab->next_class_id = LILY_EITHER_ID;
+            parser->symtab->next_class_id = LILY_RESULT_ID;
     }
     else
         save_next_class_id = 0;

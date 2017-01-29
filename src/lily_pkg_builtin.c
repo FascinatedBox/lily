@@ -365,7 +365,7 @@ void lily_builtin_ByteString_slice(lily_state *s)
 static void return_exception(lily_state *s, uint16_t id)
 {
     lily_container_val *result;
-    lily_push_super(s, &result, id, 2);
+    lily_instance_super(s, &result, id, 2);
 
     lily_nth_set(result, 0, lily_arg_value(s, 0));
     lily_nth_set(result, 1, lily_box_list(s, lily_new_list(0)));
@@ -423,75 +423,6 @@ constructor Dynamic[A](self: A): Dynamic
 Constructs a new `Dynamic` value. Call it using `Dynamic(<value>)`.
 */
 extern void lily_builtin_Dynamic_new(lily_state *);
-
-/**
-enum Either[A, B]
-    Left(A)
-    Right(B)
-
-`Either` is an enum that holds a `Left` on failure, or `Right` on success. It
-can be used as the return type of an operation that may fail, and have an error
-message to display.
-*/
-static void either_is_left_right(lily_state *s, int expect)
-{
-    lily_return_boolean(s, lily_arg_is_right(s, 0) == expect);
-}
-
-/**
-method Either.is_left[A, B](self: Either[A, B]): Boolean
-
-Return `true` if `self` contains a `Left`, `false` otherwise.
-*/
-void lily_builtin_Either_is_left(lily_state *s)
-{
-    either_is_left_right(s, 0);
-}
-
-/**
-method Either.is_right[A, B](self: Either[A, B]): Boolean
-
-Return `true` if `self` contains a `Right`, `false` otherwise.
-*/
-void lily_builtin_Either_is_right(lily_state *s)
-{
-    either_is_left_right(s, 1);
-}
-
-static void either_optionize_left_right(lily_state *s, int expect)
-{
-    if (lily_arg_is_right(s, 0) == expect) {
-        lily_container_val *variant = lily_new_some();
-        lily_nth_set(variant, 0, lily_arg_nth_get(s, 0, 0));
-        lily_return_variant(s, variant);
-    }
-    else
-        lily_return_none(s);
-}
-
-/**
-method Either.left[A, B](self: Either[A, B]):Option[A]
-
-If `self` contains a `Left`, produces a `Some(A)`.
-
-If `self` contains a `Right`, produces `None`.
-*/
-void lily_builtin_Either_left(lily_state *s)
-{
-    either_optionize_left_right(s, 0);
-}
-
-/**
-method Either.right[A, B](self: Either[A, B]): Option[B]
-
-If `self` contains a `Left`, produces a `None`.
-
-If `self` contains a `Right`, produces `Right(B)`.
-*/
-void lily_builtin_Either_right(lily_state *s)
-{
-    either_optionize_left_right(s, 1);
-}
 
 /**
 native Exception
@@ -557,8 +488,7 @@ void lily_builtin_File_each_line(lily_state *s)
     char read_buffer[128];
     int ch = 0, pos = 0;
 
-    lily_file_ensure_readable(s, filev);
-    FILE *f = filev->inner_file;
+    FILE *f = lily_file_for_read(s, filev);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
 
@@ -674,7 +604,7 @@ with a newline at the end.
 void lily_builtin_File_print(lily_state *s)
 {
     lily_builtin_File_write(s);
-    fputc('\n', lily_file_raw(lily_arg_file(s, 0)));
+    fputc('\n', lily_file_for_read(s, lily_arg_file(s, 0)));
     lily_return_unit(s);
 }
 
@@ -701,7 +631,7 @@ Read `size` bytes from `self`. If `size` is negative, then the full contents of
 void lily_builtin_File_read(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s,0);
-    lily_file_ensure_readable(s, filev);
+    FILE *raw_file = lily_file_for_read(s, filev);
     int need = -1;
     if (lily_arg_count(s) == 2)
         need = lily_arg_integer(s, 1);
@@ -710,7 +640,6 @@ void lily_builtin_File_read(lily_state *s)
     if (need < -1)
         need = -1;
 
-    FILE *raw_file = lily_file_raw(filev);
     size_t bufsize = 64;
     char *buffer = lily_malloc(bufsize);
     int pos = 0, nread;
@@ -763,8 +692,7 @@ void lily_builtin_File_read_line(lily_state *s)
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
-    lily_file_ensure_readable(s, filev);
-    FILE *f = filev->inner_file;
+    FILE *f = lily_file_for_read(s, filev);
 
     /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
        tell how much was written. */
@@ -812,15 +740,15 @@ void lily_builtin_File_write(lily_state *s)
     lily_file_val *filev = lily_arg_file(s, 0);
     lily_value *to_write = lily_arg_value(s, 1);
 
-    lily_file_ensure_writeable(s, filev);
+    FILE *inner_file = lily_file_for_write(s, filev);
 
     if (to_write->class_id == LILY_STRING_ID)
-        fputs(to_write->value.string->string, filev->inner_file);
+        fputs(to_write->value.string->string, inner_file);
     else {
         lily_msgbuf *msgbuf = s->vm_buffer;
         lily_mb_flush(msgbuf);
         lily_mb_add_value(msgbuf, s, to_write);
-        fputs(lily_mb_get(msgbuf), filev->inner_file);
+        fputs(lily_mb_get(msgbuf), inner_file);
     }
 
     lily_return_unit(s);
@@ -2043,6 +1971,75 @@ void lily_builtin_Option_unwrap_or_else(lily_state *s)
 
         lily_return_value(s, lily_result_value(s));
     }
+}
+
+/**
+enum Result[A, B]
+    Failure(A)
+    Success(B)
+
+`Result` is an enum that holds either a `Failure` or `Success`. This enum is
+for situations where the function that fails has an error message to deliver.
+Examples of that include a database query or a more humble rpn calculator.
+*/
+static void result_optionize(lily_state *s, int expect)
+{
+    if (lily_arg_is_success(s, 0) == expect) {
+        lily_container_val *variant = lily_new_some();
+        lily_nth_set(variant, 0, lily_arg_nth_get(s, 0, 0));
+        lily_return_variant(s, variant);
+    }
+    else
+        lily_return_none(s);
+}
+
+/**
+method Result.failure[A, B](self: Result[A, B]):Option[A]
+
+If `self` contains a `Failure`, produces a `Some(A)`.
+
+If `self` contains a `Right`, produces `None`.
+*/
+void lily_builtin_Result_failure(lily_state *s)
+{
+    result_optionize(s, 0);
+}
+
+static void result_is_success_or_failure(lily_state *s, int expect)
+{
+    lily_return_boolean(s, lily_arg_is_success(s, 0) == expect);
+}
+
+/**
+method Result.is_failure[A, B](self: Result[A, B]): Boolean
+
+Return `true` if `self` contains a `Failure`, `false` otherwise.
+*/
+void lily_builtin_Result_is_failure(lily_state *s)
+{
+    result_is_success_or_failure(s, 0);
+}
+
+/**
+method Result.is_success[A, B](self: Result[A, B]): Boolean
+
+Return `true` if `self` contains a `Success`, `false` otherwise.
+*/
+void lily_builtin_Result_is_success(lily_state *s)
+{
+    result_is_success_or_failure(s, 1);
+}
+
+/**
+method Result.success[A, B](self: Result[A, B]): Option[B]
+
+If `self` contains a `Failure`, produces a `None`.
+
+If `self` contains a `Success`, produces `Right(B)`.
+*/
+void lily_builtin_Result_success(lily_state *s)
+{
+    result_optionize(s, 1);
 }
 
 /**

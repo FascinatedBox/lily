@@ -401,9 +401,9 @@ typedef struct lily_module_entry_ {
 #define LILY_OPTION_ID     13
 #define LILY_SOME_ID       14
 #define LILY_NONE_ID       15
-#define LILY_EITHER_ID     16
-#define LILY_LEFT_ID       17
-#define LILY_RIGHT_ID      18
+#define LILY_RESULT_ID     16
+#define LILY_FAILURE_ID    17
+#define LILY_SUCCESS_ID    18
 
 #define LILY_EXCEPTION_ID      19
 #define LILY_IOERROR_ID        20

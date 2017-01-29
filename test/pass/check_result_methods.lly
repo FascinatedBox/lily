@@ -1,0 +1,28 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        failed += 1
+    }
+}
+
+ok(Failure(1).is_failure(),                  "Either.is_failure for Failure.")
+ok(Success(2).is_failure() == false,         "Either.is_failure for Success.")
+
+ok(Failure(1).is_success() == false,         "Either.is_success for Failure.")
+ok(Success(2).is_success(),                  "Either.is_success for Success.")
+
+ok(Failure(1).failure().unwrap() == 1,       "Either.failure for Failure.")
+ok(Success(2).failure().is_none(),           "Either.failure for Success.")
+
+ok(Failure(1).success().is_none(),           "Either.success for Failure.")
+ok(Success(2).success().unwrap() == 2,       "Either.success for Success.")
+
+if failed == 0:
+    print($"^(total) of ^(total) tests passed.")
+else:
+    stderr.write($"^(failed) tests have failed.\n")
