@@ -3812,9 +3812,7 @@ static void validate_and_prep_call(lily_emit_state *emit,
             /* This forces generic types to be solved as themselves.
                For the first two cases, this is about correctness. When inside
                of a generic function, the generics are quantified but as some
-               unknown type. So allowing them to be solved allows wrong code. To
-               do otherwise requires (at least) rank 2 polymorphism, which does
-               not exist in Lily (YET).
+               unknown type. So allowing them to be solved allows wrong code.
 
                For the last case, solving generics as themselves forces the A
                of a class to be in the same position regardless of how much it's
