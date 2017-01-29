@@ -655,15 +655,6 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         }
         return ok;
     }
-    else if (left_tag == LILY_DYNAMIC_ID) {
-        (*depth)++;
-        lily_value *left_value = lily_boxed_nth_get(left, 0);
-        lily_value *right_value = lily_boxed_nth_get(right, 0);
-        int ok = lily_value_compare_raw(s, depth, left_value, right_value);
-        (*depth)--;
-
-        return ok;
-    }
     else if (left->flags & VAL_IS_ENUM) {
         int ok;
         if (left_tag == right_tag) {
