@@ -688,6 +688,12 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
            build classes here. */
         c = lily_dynaload_exception(vm->parser,
                 names[id - LILY_EXCEPTION_ID]);
+
+        /* The above will store at least one new function. It's extremely rare,
+           but possible, for that to trigger a grow of symtab's literals. If
+           realloc moves the underlying data, then vm->readonly_table will be
+           invalid. Make sure that doesn't happen. */
+        vm->readonly_table = vm->parser->symtab->literals->data;
         vm->class_table[id] = c;
     }
 
