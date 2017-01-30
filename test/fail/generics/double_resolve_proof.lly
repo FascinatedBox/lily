@@ -2,7 +2,7 @@
 SyntaxError: List elements do not have a consistent type.
 Expected Type: A
 Received Type: List[Integer]
-    from double_resolve_proof.lly:28
+    from double_resolve_proof.lly:28:
 ]#
 
 define f[A, B](one: A, two: B, three: B) {  }

@@ -1,6 +1,6 @@
 #[
 SyntaxError: Invalid operation: List[Integer] == List[String].
-    from invalid_eq.lly:9
+    from invalid_eq.lly:9:
 ]#
 
 var v1 = [1]

@@ -1,6 +1,6 @@
 #[
 SyntaxError: Wrong number of arguments to abc.a (2 for 0).
-    from wrong_arg_count_property.lly:11
+    from wrong_arg_count_property.lly:11:
 ]#
 
 class abc {

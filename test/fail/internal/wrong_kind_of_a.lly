@@ -2,7 +2,7 @@
 SyntaxError: Argument #2 to f is invalid:
 Expected Type: List[Integer]
 Received Type: List[A]
-    from wrong_kind_of_a.lly:11
+    from wrong_kind_of_a.lly:11:
 ]#
 
 define f[A](a: List[A], b: List[A]) {}

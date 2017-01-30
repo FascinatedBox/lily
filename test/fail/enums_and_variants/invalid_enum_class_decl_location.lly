@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot define an enum here.
-    from invalid_enum_class_decl_location.lly:7
+    from invalid_enum_class_decl_location.lly:7:
 ]#
 
 define f {

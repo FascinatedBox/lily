@@ -2,7 +2,7 @@
 SyntaxError: Argument #1 to f is invalid:
 Expected Type: Integer
 Received Type: String
-    from wrong_arg_type.lly:8
+    from wrong_arg_type.lly:8:
 ]#
 
 define f(a: Integer) {} f("a")

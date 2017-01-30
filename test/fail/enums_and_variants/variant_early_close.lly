@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token 'a label'.
-    from variant_early_close.lly:11
+    from variant_early_close.lly:11:
 ]#
 
 enum Object {

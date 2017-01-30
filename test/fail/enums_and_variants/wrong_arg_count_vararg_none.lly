@@ -1,6 +1,6 @@
 #[
 SyntaxError: Wrong number of arguments to One (none for 0+).
-    from wrong_arg_count_vararg_none.lly:16
+    from wrong_arg_count_vararg_none.lly:16:
 ]#
 
 # This is an artificial restriction. The reason that I've placed it is for

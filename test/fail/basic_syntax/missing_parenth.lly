@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token 'end of file'.
-    from missing_parenth.lly:6
+    from missing_parenth.lly:6:
 ]#
 
 var a: Integer = 0   a = ((a)

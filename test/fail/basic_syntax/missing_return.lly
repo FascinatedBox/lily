@@ -1,6 +1,6 @@
 #[
 SyntaxError: Missing return statement at end of function.
-    from missing_return.lly:6
+    from missing_return.lly:6:
 ]#
 
 define f : Integer {  }

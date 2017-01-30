@@ -1,6 +1,6 @@
 #[
 SyntaxError: Class 'A' does not exist.
-    from generic_bleed.lly:7
+    from generic_bleed.lly:7:
 ]#
 
 enum Test[A] { One(A) Two }

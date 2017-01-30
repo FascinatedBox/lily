@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'self' must be used within a class.
-    from self_outside_class.lly:6
+    from self_outside_class.lly:6:
 ]#
 
 self

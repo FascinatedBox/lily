@@ -1,6 +1,6 @@
 #[
 SyntaxError: does_not_exist has not been declared.
-    from use_no_exist.lly:8
+    from use_no_exist.lly:8:
 ]#
 
 import empty

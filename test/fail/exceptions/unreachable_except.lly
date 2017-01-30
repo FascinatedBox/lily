@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'except' clause is unreachable.
-    from unreachable_except.lly:10
+    from unreachable_except.lly:10:
 ]#
 
 try: {

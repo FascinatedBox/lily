@@ -1,7 +1,7 @@
 #[
 SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
 * None
-    from match_incomplete.lly:12
+    from match_incomplete.lly:12:
 ]#
 
 var v = None

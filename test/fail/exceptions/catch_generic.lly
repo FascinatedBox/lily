@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'except' type cannot have subtypes.
-    from catch_generic.lly:13
+    from catch_generic.lly:13:
 ]#
 
 class Ex[A](message: String, v: A) < Exception(message)

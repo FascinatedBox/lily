@@ -1,6 +1,6 @@
 #[
 SyntaxError: One has not been declared.
-    from scoped_variant_direct.lly:11
+    from scoped_variant_direct.lly:11:
 ]#
 
 scoped enum Test[A] {

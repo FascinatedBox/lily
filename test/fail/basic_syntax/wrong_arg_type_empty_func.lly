@@ -2,7 +2,7 @@
 SyntaxError: Argument #1 to f is invalid:
 Expected Type: Function ()
 Received Type: Integer
-    from wrong_arg_type_empty_func.lly:10
+    from wrong_arg_type_empty_func.lly:10:
 ]#
 
 define f(g: Function()) {  }

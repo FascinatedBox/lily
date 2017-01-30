@@ -1,6 +1,6 @@
 #[
 SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)
-    from property_no_exist_var_missing.lly:8
+    from property_no_exist_var_missing.lly:8:
 ]#
 
 class Test

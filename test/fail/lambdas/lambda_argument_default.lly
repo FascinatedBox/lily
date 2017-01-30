@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot infer type of 'a'.
-    from lambda_argument_default.lly:10
+    from lambda_argument_default.lly:10:
 ]#
 
 define f[A](g: Function(A => A)) {

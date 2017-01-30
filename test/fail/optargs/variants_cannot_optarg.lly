@@ -1,6 +1,6 @@
 #[
 SyntaxError: Variant types cannot have default values.
-    from variants_cannot_optarg.lly:7
+    from variants_cannot_optarg.lly:7:
 ]#
 
 enum Test {

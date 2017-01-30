@@ -1,6 +1,6 @@
 #[
 SyntaxError: Wrong number of arguments to g (1 for 0).
-    from wrong_arg_count_closed_call.lly:8
+    from wrong_arg_count_closed_call.lly:8:
 ]#
 
 define f(a: Integer) {

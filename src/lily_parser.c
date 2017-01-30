@@ -4534,7 +4534,7 @@ static void build_error(lily_parse_state *parser)
             int fixed_line_num = (raiser->line_adjust == 0 ?
                     parser->lex->line_num : raiser->line_adjust);
 
-            lily_mb_add_fmt(msgbuf, "    from %s:%d\n",
+            lily_mb_add_fmt(msgbuf, "    from %s:%d:\n",
                     parser->symtab->active_module->path, fixed_line_num);
         }
     }

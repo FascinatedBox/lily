@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'return' not allowed in a class constructor.
-    from class_constructor_return.lly:8
+    from class_constructor_return.lly:8:
 ]#
 
 class example {

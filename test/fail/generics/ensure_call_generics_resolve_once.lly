@@ -2,7 +2,7 @@
 SyntaxError: List elements do not have a consistent type.
 Expected Type: A
 Received Type: Dynamic
-    from ensure_call_generics_resolve_once.lly:19
+    from ensure_call_generics_resolve_once.lly:19:
 ]#
 
 define f[A, B](value: A, value2: B, value3: B) {

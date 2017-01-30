@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'Integer' cannot be inherited from.
-    from inherit_builtin.lly:6
+    from inherit_builtin.lly:6:
 ]#
 
 class abc < Integer {  }

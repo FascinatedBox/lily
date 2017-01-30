@@ -1,6 +1,6 @@
 #[
 SyntaxError: A class with the name 'Fast' already exists.
-    from scoped_variant_repeat.lly:8
+    from scoped_variant_repeat.lly:8:
 ]#
 
 scoped enum Speed {

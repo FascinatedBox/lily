@@ -1,6 +1,6 @@
 #[
 SyntaxError: Wrong number of arguments to g (3 for 1).
-    from wrong_arg_count_parameter_func.lly:7
+    from wrong_arg_count_parameter_func.lly:7:
 ]#
 
 define f(g: Function(Integer)) {

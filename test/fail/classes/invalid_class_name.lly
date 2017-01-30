@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'A' is not a valid class name (too short).
-    from invalid_class_name.lly:6
+    from invalid_class_name.lly:6:
 ]#
 
 class A() {}

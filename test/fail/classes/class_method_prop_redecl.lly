@@ -1,6 +1,6 @@
 #[
 SyntaxError: A property in class 'Test' already has the name 'abc'.
-    from class_method_prop_redecl.lly:8
+    from class_method_prop_redecl.lly:8:
 ]#
 
 class Test {

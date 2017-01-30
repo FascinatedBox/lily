@@ -1,6 +1,6 @@
 #[
 SyntaxError: Use @<name> to get/set properties, not self.<name>.
-    from self_get_property.lly:8
+    from self_get_property.lly:8:
 ]#
 
 class Point(x: Integer, y: Integer) {

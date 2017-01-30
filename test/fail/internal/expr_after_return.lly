@@ -1,6 +1,6 @@
 #[
 SyntaxError: Statement(s) after 'return' will not execute.
-    from expr_after_return.lly:9
+    from expr_after_return.lly:9:
 ]#
 
 define f : Integer

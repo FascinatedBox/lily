@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'return' used outside of a function.
-    from return_outside_function.lly:6
+    from return_outside_function.lly:6:
 ]#
 
 return

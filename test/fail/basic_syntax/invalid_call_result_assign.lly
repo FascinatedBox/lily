@@ -1,6 +1,6 @@
 #[
 SyntaxError: Left side of = is not assignable.
-    from invalid_call_result_assign.lly:10
+    from invalid_call_result_assign.lly:10:
 ]#
 
 define f : List[Integer] {

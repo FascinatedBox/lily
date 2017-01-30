@@ -1,6 +1,6 @@
 #[
 SyntaxError: Interpolation block must be a single expression.
-    from interp_multi_expr.lly:6
+    from interp_multi_expr.lly:6:
 ]#
 
 var v = $"^(10 20)"

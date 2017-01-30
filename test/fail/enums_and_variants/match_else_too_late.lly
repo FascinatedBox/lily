@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'else' within an exhaustive match.
-    from match_else_too_late.lly:9
+    from match_else_too_late.lly:9:
 ]#
 
 match Some(1): {

@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot assign type 'List[Two]' to type 'List[One]'.
-    from list_assign_covariance_overridden.lly:12
+    from list_assign_covariance_overridden.lly:12:
 ]#
 
 class One {}

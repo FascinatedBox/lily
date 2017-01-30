@@ -2,7 +2,7 @@
 SyntaxError: Argument #2 to f is invalid:
 Expected Type: A
 Received Type: Integer
-    from attempt_generic_bypass.lly:17
+    from attempt_generic_bypass.lly:17:
 ]#
 
 define f[A](v1: A, v2: A) {  }

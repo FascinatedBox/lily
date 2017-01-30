@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'Option' cannot be inherited from.
-    from inherit_enum.lly:6
+    from inherit_enum.lly:6:
 ]#
 
 class abc < Option {

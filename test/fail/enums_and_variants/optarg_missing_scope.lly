@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.
-    from optarg_missing_scope.lly:11
+    from optarg_missing_scope.lly:11:
 ]#
 
 scoped enum Test {

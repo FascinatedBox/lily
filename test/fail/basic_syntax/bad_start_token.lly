@@ -1,6 +1,6 @@
 #[
 SyntaxError: Unexpected token +.
-    from bad_start_token.lly:6
+    from bad_start_token.lly:6:
 ]#
 
 +

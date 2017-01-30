@@ -1,6 +1,6 @@
 #[
 SyntaxError: Import path cannot end with '/'.
-    from trailing_slash.lly:6
+    from trailing_slash.lly:6:
 ]#
 
 import hello/

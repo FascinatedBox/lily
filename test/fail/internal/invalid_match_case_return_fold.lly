@@ -1,6 +1,6 @@
 #[
 SyntaxError: Missing return statement at end of function.
-    from invalid_match_case_return_fold.lly:14
+    from invalid_match_case_return_fold.lly:14:
 ]#
 
 define f(a: Option[Integer]) : Integer

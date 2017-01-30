@@ -1,6 +1,6 @@
 #[
 SyntaxError: Left side of = is not assignable.
-    from invalid_binary_result_assign.lly:8
+    from invalid_binary_result_assign.lly:8:
 ]#
 
 var a = 1

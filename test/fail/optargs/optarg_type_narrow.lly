@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, *Integer)'.
-    from optarg_type_narrow.lly:18
+    from optarg_type_narrow.lly:18:
 ]#
 
 define f(a: Integer) {  }

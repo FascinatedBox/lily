@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'Test' does not have a variant named 'what'.
-    from optarg_enum_not_member.lly:11
+    from optarg_enum_not_member.lly:11:
 ]#
 
 enum Test {

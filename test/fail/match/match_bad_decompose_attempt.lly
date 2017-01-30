@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected ':', not '('.
-    from match_bad_decompose_attempt.lly:9
+    from match_bad_decompose_attempt.lly:9:
 ]#
 
 var v = None

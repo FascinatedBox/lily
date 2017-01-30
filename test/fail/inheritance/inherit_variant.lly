@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'Two' cannot be inherited from.
-    from inherit_variant.lly:11
+    from inherit_variant.lly:11:
 ]#
 
 enum Test {

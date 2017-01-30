@@ -1,6 +1,6 @@
 #[
 SyntaxError: Variant types not allowed in a declaration.
-    from variant_decl.lly:11
+    from variant_decl.lly:11:
 ]#
 
 enum Test[A] {

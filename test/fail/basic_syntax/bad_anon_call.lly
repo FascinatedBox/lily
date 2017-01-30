@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot anonymously call resulting type 'Integer'.
-    from bad_anon_call.lly:6
+    from bad_anon_call.lly:6:
 ]#
 
 (10)()

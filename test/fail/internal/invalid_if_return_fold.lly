@@ -1,6 +1,6 @@
 #[
 SyntaxError: Missing return statement at end of function.
-    from invalid_if_return_fold.lly:14
+    from invalid_if_return_fold.lly:14:
 ]#
 
 define f(a: Integer) : Integer

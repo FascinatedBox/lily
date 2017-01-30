@@ -2,7 +2,7 @@
 SyntaxError: Argument #1 to Tuple.merge is invalid:
 Expected Type: Tuple[~1]
 Received Type: Integer
-    from wrong_arg_type_scoop.lly:8
+    from wrong_arg_type_scoop.lly:8:
 ]#
 
 Tuple.merge(1, 2)

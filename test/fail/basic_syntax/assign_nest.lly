@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot nest an assignment within an expression.
-    from assign_nest.lly:7
+    from assign_nest.lly:7:
 ]#
 
 var a = 10

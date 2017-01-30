@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot close over a var of an incomplete type in this scope.
-    from hindley_milner_barrier.lly:23
+    from hindley_milner_barrier.lly:23:
 ]#
 
 # Lily has an ML-styled type system, I guess. I never looked into how ML works

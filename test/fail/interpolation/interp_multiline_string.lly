@@ -1,6 +1,6 @@
 #[
 SyntaxError: Multi-line string not allowed within interpolation.
-    from interp_multiline_string.lly:6
+    from interp_multiline_string.lly:6:
 ]#
 
 var v = $" ^(""" """)"

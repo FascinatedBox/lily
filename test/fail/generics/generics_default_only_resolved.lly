@@ -2,7 +2,7 @@
 SyntaxError: Argument #2 to f is invalid:
 Expected Type: Integer
 Received Type: String
-    from generics_default_only_resolved.lly:14
+    from generics_default_only_resolved.lly:14:
 ]#
 
 define f[A](value1: A, value2: A) {  }

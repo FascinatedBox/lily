@@ -1,6 +1,6 @@
 #[
 SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.
-    from optarg_return_mismatch.lly:12
+    from optarg_return_mismatch.lly:12:
 ]#
 
 define f(a: String) : String { return "10" }

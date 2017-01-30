@@ -1,6 +1,6 @@
 #[
 SyntaxError: Docstring line does not start with full '###'.
-    from docstring_bad_indent.lly:7
+    from docstring_bad_indent.lly:7:
 ]#
 
 ###

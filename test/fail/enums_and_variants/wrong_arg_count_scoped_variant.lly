@@ -1,6 +1,6 @@
 #[
 SyntaxError: Wrong number of arguments to One (2 for 1).
-    from wrong_arg_count_scoped_variant.lly:11
+    from wrong_arg_count_scoped_variant.lly:11:
 ]#
 
 scoped enum Test[A] {

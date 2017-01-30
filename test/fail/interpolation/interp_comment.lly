@@ -1,6 +1,6 @@
 #[
 SyntaxError: Comment within interpolated section.
-    from interp_comment.lly:6
+    from interp_comment.lly:6:
 ]#
 
 var v = $"^(#)"

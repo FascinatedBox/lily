@@ -1,6 +1,6 @@
 #[
 SyntaxError: Expected either 'a label' or '@(', not 'a property name'.
-    from member_through_dot_at.lly:10
+    from member_through_dot_at.lly:10:
 ]#
 
 class Test[A](name: String) {

@@ -1,6 +1,6 @@
 #[
 SyntaxError: 'else' cannot be the only clause within a match.
-    from match_else_too_early.lly:7
+    from match_else_too_early.lly:7:
 ]#
 
 match Some(1): {
