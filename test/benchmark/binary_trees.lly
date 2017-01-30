@@ -1,0 +1,53 @@
+import time
+
+enum Tree {
+    Leaf(Integer)
+    Branch(Integer, Tree, Tree)
+}
+
+define make_tree(item: Integer, depth: Integer): Tree
+{
+    if depth == 0:
+        return Leaf(item)
+
+    var item2 = item + item
+    depth -= 1
+    return Branch(item, make_tree(item2 - 1, depth), make_tree(item2, depth))
+}
+
+define check_tree(t: Tree): Integer
+{
+    match t: {
+        case Leaf(i):
+            return i
+        case Branch(i, left, right):
+            return i + check_tree(left) - check_tree(right)
+    }
+}
+
+var min_depth = 4
+var max_depth = 12
+var stretch_depth = max_depth + 1
+
+var start = time.Time.clock()
+print("stretch tree of depth {0} check: {1}".format(stretch_depth, check_tree(make_tree(0, stretch_depth))))
+
+var long_lived_tree = make_tree(0, max_depth)
+
+var iterations = 1
+for i in 1...max_depth:
+    iterations *= 2
+
+for depth in min_depth...stretch_depth by 2: {
+    var check = 0
+    for i in 1...iterations: {
+        var k = 1
+        check += check_tree(make_tree(i, depth)) + check_tree(make_tree(-i, depth))
+    }
+
+    iterations /= 4
+    print("{0} trees of depth {1} check: {2}".format(iterations * 2, depth, check))
+}
+
+print("long lived tree of depth {0} check: {1}".format(max_depth, check_tree(long_lived_tree)))
+print("Elapsed: {0}".format(time.Time.clock() - start))

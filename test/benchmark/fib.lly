@@ -1,0 +1,16 @@
+import time
+
+var start = time.Time.clock()
+
+define fib(n: Integer): Integer
+{
+    if n < 2:
+        return n
+    else:
+        return fib(n - 1) + fib(n - 2)
+}
+
+for i in 1...5:
+    28 |> fib |> print
+
+print("Elapsed: {0}".format(time.Time.clock() - start))

@@ -1,0 +1,19 @@
+import time
+
+var start = time.Time.clock()
+
+var map: Hash[Integer, Integer] = []
+
+for i in 0...1000000:
+    map[i] = i
+
+var sum = 0
+
+for i in 0...1000000:
+    sum += map[i]
+
+for i in 0...1000000:
+    map.delete(i)
+
+print(sum)
+print("Elapsed: {0}".format(time.Time.clock() - start))
