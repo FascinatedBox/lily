@@ -604,7 +604,7 @@ with a newline at the end.
 void lily_builtin_File_print(lily_state *s)
 {
     lily_builtin_File_write(s);
-    fputc('\n', lily_file_for_read(s, lily_arg_file(s, 0)));
+    fputc('\n', lily_file_for_write(s, lily_arg_file(s, 0)));
     lily_return_unit(s);
 }
 
