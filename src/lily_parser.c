@@ -525,13 +525,18 @@ static lily_module_entry *load_file(lily_parse_state *parser, const char *path)
 }
 
 static lily_module_entry *load_library(lily_parse_state *parser,
-        const char *path)
+        const char *path, const char *name)
 {
     lily_module_entry *result = NULL;
     lily_library *library = lily_library_load(path);
     if (library) {
         result = new_module(parser, path, library->dynaload_table);
         result->handle = library->source;
+
+        lily_msgbuf *msgbuf = parser->msgbuf;
+        char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader", name);
+        /* This may be NULL, but that's okay because loaders are optional. */
+        result->loader = lily_library_get(library->source, lib_name);
 
         lily_free(library);
     }
@@ -641,7 +646,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
                 if (strcmp(suffix, ".lly") == 0)
                     module = load_file(parser, path);
                 else if (strcmp(suffix, LILY_LIB_SUFFIX) == 0)
-                    module = load_library(parser, path);
+                    module = load_library(parser, path, name);
 
                 if (module)
                     break;
