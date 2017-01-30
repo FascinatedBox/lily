@@ -534,7 +534,7 @@ static lily_module_entry *load_library(lily_parse_state *parser,
         result->handle = library->source;
 
         lily_msgbuf *msgbuf = parser->msgbuf;
-        char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader", name);
+        const char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader", name);
         /* This may be NULL, but that's okay because loaders are optional. */
         result->loader = lily_library_get(library->source, lib_name);
 
