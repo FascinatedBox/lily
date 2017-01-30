@@ -2274,54 +2274,6 @@ void lily_builtin_String_find(lily_state *s)
         lily_return_none(s);
 }
 
-
-/* Scan through `input` in search of html characters to encode. If there are
-   any, then s->vm_buffer is updated to contain an html-safe version of the
-   input string.
-   If no html characters are found, then 0 is returned, and the caller is to use
-   the given input buffer directly.
-   If html charcters are found, then 1 is returned, and the caller should read
-   from s->vm_buffer->message. */
-int lily_maybe_html_encode_to_buffer(lily_state *s, lily_value *input)
-{
-    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
-    int start = 0, stop = 0;
-    char *input_str = input->value.string->string;
-    char *ch = &input_str[0];
-
-    while (1) {
-        if (*ch == '&') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(vm_buffer, input_str, start, stop);
-            lily_mb_add(vm_buffer, "&amp;");
-            start = stop + 1;
-        }
-        else if (*ch == '<') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(vm_buffer, input_str, start, stop);
-            lily_mb_add(vm_buffer, "&lt;");
-            start = stop + 1;
-        }
-        else if (*ch == '>') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(vm_buffer, input_str, start, stop);
-            lily_mb_add(vm_buffer, "&gt;");
-            start = stop + 1;
-        }
-        else if (*ch == '\0')
-            break;
-
-        ch++;
-    }
-
-    if (start != 0) {
-        stop = (ch - input_str);
-        lily_mb_add_slice(vm_buffer, input_str, start, stop);
-    }
-
-    return start;
-}
-
 /**
 method String.html_encode(self: String): String
 
@@ -2335,12 +2287,16 @@ If not found, `self` is returned.
 void lily_builtin_String_html_encode(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
+    const char *raw = lily_value_string_raw(input_arg);
+    lily_msgbuf *msgbuf = lily_get_msgbuf_noflush(s);
 
     /* If nothing was escaped, output what was input. */
-    if (lily_maybe_html_encode_to_buffer(s, input_arg) == 0)
+    if (lily_mb_html_escape(msgbuf, raw) == raw)
+        /* The `String` given may be a cached literal, so return the input arg
+           instead of making a new `String`. */
         lily_return_value(s, input_arg);
     else
-        lily_return_string(s, lily_new_string(lily_mb_get(s->vm_buffer)));
+        lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \

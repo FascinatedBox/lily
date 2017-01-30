@@ -519,3 +519,48 @@ void lily_mb_add_value(lily_msgbuf *msgbuf, lily_vm_state *vm,
     else
         add_value_to_msgbuf(vm, msgbuf, NULL, value);
 }
+
+/* This begins by clearing the msgbuf that's been given. Afterward, it scans
+   through the input string given looking for html entities (any of "<&>").
+   * If html entities are found, the escaped content is added to the msgbuf, and
+     the backing message (what you get from lily_mb_get) is returned.
+   * If no html entities are found, the incoming string is returned. */
+const char *lily_mb_html_escape(lily_msgbuf *msgbuf, const char *input_str)
+{
+    lily_mb_flush(msgbuf);
+    int start = 0, stop = 0;
+    const char *ch = &input_str[0];
+
+    while (1) {
+        if (*ch == '&') {
+            stop = (ch - input_str);
+            lily_mb_add_slice(msgbuf, input_str, start, stop);
+            lily_mb_add(msgbuf, "&amp;");
+            start = stop + 1;
+        }
+        else if (*ch == '<') {
+            stop = (ch - input_str);
+            lily_mb_add_slice(msgbuf, input_str, start, stop);
+            lily_mb_add(msgbuf, "&lt;");
+            start = stop + 1;
+        }
+        else if (*ch == '>') {
+            stop = (ch - input_str);
+            lily_mb_add_slice(msgbuf, input_str, start, stop);
+            lily_mb_add(msgbuf, "&gt;");
+            start = stop + 1;
+        }
+        else if (*ch == '\0')
+            break;
+
+        ch++;
+    }
+
+    if (start != 0) {
+        stop = (ch - input_str);
+        lily_mb_add_slice(msgbuf, input_str, start, stop);
+        input_str = msgbuf->message;
+    }
+
+    return input_str;
+}

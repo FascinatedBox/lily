@@ -24,6 +24,7 @@ void lily_mb_add_fmt_va(lily_msgbuf *, const char *, va_list);
 void lily_mb_add_slice(lily_msgbuf *, const char *, int, int);
 void lily_mb_add_value(lily_msgbuf *, lily_state *, struct lily_value_ *);
 const char *lily_mb_sprintf(lily_msgbuf *, const char *, ...);
+const char *lily_mb_html_escape(lily_msgbuf *, const char *);
 
 /* Lily's msgbuf works by having the caller flush the msgbuf before use, so that
    problems occur close to the source. Most callers want the first call, which
