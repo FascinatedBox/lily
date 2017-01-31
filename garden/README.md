@@ -18,10 +18,11 @@ There is currently only one command. Example usage:
 ```
 
 ## Install
+
 What garden does is create a `packages` directory (if there isn't one), and
 to checkout `FascinatedBox/lily` on github. It will attempt to cmake, then make
 it. From there, supposing you have a script in the origin directory, that
-starting script can do, say, `use postgres` and have access to whatever is
+starting script can do, say, `import postgres` and have access to whatever is
 exported.
 
 
