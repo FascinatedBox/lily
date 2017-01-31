@@ -484,7 +484,7 @@ Read each line of text from `self`, passing it down to `fn` for processing.
 void lily_builtin_File_each_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_get_clean_msgbuf(s);
     char read_buffer[128];
     int ch = 0, pos = 0;
 
@@ -688,7 +688,7 @@ should check the result against `B""`. This will be fixed in a future release.
 void lily_builtin_File_read_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_get_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_get_clean_msgbuf(s);
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
@@ -2117,7 +2117,7 @@ void lily_builtin_String_format(lily_state *s)
     lily_container_val *lv = lily_arg_container(s, 1);
 
     int lsize = lily_container_num_values(lv);
-    lily_msgbuf *msgbuf = lily_get_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
 
     int idx, last_idx = 0;
 
@@ -2288,7 +2288,7 @@ void lily_builtin_String_html_encode(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
     const char *raw = lily_value_string_raw(input_arg);
-    lily_msgbuf *msgbuf = lily_get_msgbuf_noflush(s);
+    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
 
     /* If nothing was escaped, output what was input. */
     if (lily_mb_html_escape(msgbuf, raw) == raw)
@@ -2635,7 +2635,7 @@ void lily_builtin_String_replace(lily_state *s)
         return;
     }
 
-    lily_msgbuf *msgbuf = lily_get_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
     char *source = lily_string_raw(source_sv);
     char *needle = lily_string_raw(needle_sv);
     char *replace_with = lily_arg_string_raw(s, 2);

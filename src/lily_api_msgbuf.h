@@ -26,12 +26,11 @@ void lily_mb_add_value(lily_msgbuf *, lily_state *, struct lily_value_ *);
 const char *lily_mb_sprintf(lily_msgbuf *, const char *, ...);
 const char *lily_mb_html_escape(lily_msgbuf *, const char *);
 
-/* Lily's msgbuf works by having the caller flush the msgbuf before use, so that
-   problems occur close to the source. Most callers want the first call, which
-   will get and flush the msgbuf for them. */
-lily_msgbuf *lily_get_msgbuf(lily_state *);
+/* Clear the data in the vm's msgbuf, and return the msgbuf. */
+lily_msgbuf *lily_get_clean_msgbuf(lily_state *);
 
-/* Get the interpreter's working msgbuf, but don't flush it. */
-lily_msgbuf *lily_get_msgbuf_noflush(lily_state *);
+/* Just return the vm's msgbuf. The signature is different so the caller doesn't
+   use this by accident. */
+void lily_get_dirty_msgbuf(lily_state *, lily_msgbuf **);
 
 #endif

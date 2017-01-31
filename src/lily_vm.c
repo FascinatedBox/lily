@@ -1380,7 +1380,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
         vm->include_last_frame_in_trace = 1;
     }
 
-    lily_msgbuf *msgbuf = lily_get_msgbuf(vm);
+    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(vm);
     lily_container_val *lv = lily_new_list(depth);
 
     /* The call chain goes from the most recent to least. Work around that by
@@ -1563,17 +1563,16 @@ static int maybe_catch_exception(lily_vm_state *vm)
  *                           |___/
  */
 
-lily_msgbuf *lily_get_msgbuf(lily_vm_state *vm)
+lily_msgbuf *lily_get_clean_msgbuf(lily_vm_state *vm)
 {
     lily_msgbuf *msgbuf = vm->vm_buffer;
-    /* Almost every caller wants a fresh buffer, so do that for them. */
     lily_mb_flush(msgbuf);
     return msgbuf;
 }
 
-lily_msgbuf *lily_get_msgbuf_noflush(lily_vm_state *vm)
+void lily_get_dirty_msgbuf(lily_vm_state *vm, lily_msgbuf **msgbuf)
 {
-    return vm->vm_buffer;
+    *msgbuf = vm->vm_buffer;
 }
 
 uint16_t lily_cid_at(lily_vm_state *vm, int n)
