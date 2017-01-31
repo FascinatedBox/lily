@@ -1,0 +1,8 @@
+#[
+SyntaxError: Left side of = is not assignable.
+    from invalid_binary_result_assign.lily:8:
+]#
+
+var a = 1
+if 1:
+    (a + a) = 1

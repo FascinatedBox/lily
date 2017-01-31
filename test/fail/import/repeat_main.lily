@@ -1,0 +1,7 @@
+#[
+SyntaxError: A module named 'repeat_a' has already been imported here.
+    from repeat_main.lily:7:
+]#
+
+import repeat_a
+import repeat_a

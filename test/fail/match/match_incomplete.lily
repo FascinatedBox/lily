@@ -1,0 +1,12 @@
+#[
+SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
+* None
+    from match_incomplete.lily:12:
+]#
+
+var v = None
+
+match v: {
+    case Some(s):
+        print("Impossible!\n")
+}

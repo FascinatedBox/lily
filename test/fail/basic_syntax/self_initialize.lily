@@ -1,0 +1,6 @@
+#[
+SyntaxError: Attempt to use uninitialized value 'v'.
+    from self_initialize.lily:6:
+]#
+
+var v = v

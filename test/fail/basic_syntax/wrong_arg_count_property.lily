@@ -1,0 +1,11 @@
+#[
+SyntaxError: Wrong number of arguments to abc.a (2 for 0).
+    from wrong_arg_count_property.lily:11:
+]#
+
+class abc {
+    var @a = (|| 10)
+}
+
+var d = abc()
+d.a(1)

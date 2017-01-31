@@ -1,0 +1,6 @@
+#[
+SyntaxError: A class cannot inherit from itself!
+    from inherit_self.lily:6:
+]#
+
+class abc < abc {  }

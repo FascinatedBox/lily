@@ -1,0 +1,8 @@
+#[
+SyntaxError: Invalid use of uninitialized property '@x'.
+    from class_prop_initialize_self.lily:7:
+]#
+
+class Point {
+    var @x: Integer = @x
+}

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token +.
+    from bad_start_token.lily:6:
+]#
+
++

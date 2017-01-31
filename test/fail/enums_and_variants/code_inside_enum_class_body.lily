@@ -1,0 +1,14 @@
+#[
+SyntaxError: Expected '}' or 'define', not 'a label'.
+    from code_inside_enum_class_body.lily:13:
+]#
+
+enum Test {
+    One,
+    Two
+
+    define f {
+    }
+
+    var @v = 10
+}

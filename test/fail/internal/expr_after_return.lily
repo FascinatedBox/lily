@@ -1,0 +1,10 @@
+#[
+SyntaxError: Statement(s) after 'return' will not execute.
+    from expr_after_return.lily:9:
+]#
+
+define f : Integer
+{
+    return 1
+    var v = 2
+}

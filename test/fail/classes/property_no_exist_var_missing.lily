@@ -1,0 +1,9 @@
+#[
+SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)
+    from property_no_exist_var_missing.lily:8:
+]#
+
+class Test
+{
+    @xyz = 10
+}

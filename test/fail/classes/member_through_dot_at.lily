@@ -1,0 +1,10 @@
+#[
+SyntaxError: Expected either 'a label' or '@(', not 'a property name'.
+    from member_through_dot_at.lily:10:
+]#
+
+class Test[A](name: String) {
+    var @name = name
+}
+
+var v = Test("abc").@name

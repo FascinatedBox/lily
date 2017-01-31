@@ -1,0 +1,6 @@
+#[
+SyntaxError: '}' outside of a block.
+    from brace_at_end.lily:6:
+]#
+
+}

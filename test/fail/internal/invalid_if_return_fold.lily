@@ -1,0 +1,14 @@
+#[
+SyntaxError: Missing return statement at end of function.
+    from invalid_if_return_fold.lily:14:
+]#
+
+define f(a: Integer) : Integer
+{
+    if a == 1:
+        return 1
+    elif a == 1:
+        a = 2
+    else:
+        return 3
+}

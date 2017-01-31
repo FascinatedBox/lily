@@ -1,0 +1,8 @@
+#[
+SyntaxError: Test.x is marked protected, and not available here.
+    from protected_oo_assign.lily:8:
+]#
+
+class Test { protected var @x = 10 }
+
+Test().x = 11

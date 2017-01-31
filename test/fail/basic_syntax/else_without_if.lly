@@ -1,6 +1,0 @@
-#[
-SyntaxError: 'else' without 'if'.
-    from else_without_if.lly:6:
-]#
-
-else

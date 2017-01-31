@@ -1,0 +1,12 @@
+#[
+SyntaxError: Argument #2 to f is invalid:
+Expected Type: List[Integer]
+Received Type: List[A]
+    from wrong_kind_of_a.lily:11:
+]#
+
+define f[A](a: List[A], b: List[A]) {}
+
+define g[A](a: List[A]) {
+    f([1], a)
+}

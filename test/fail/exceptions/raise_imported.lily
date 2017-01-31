@@ -1,0 +1,9 @@
+#[
+ex.error: Imported raise!
+Traceback:
+    from raise_imported.lily:9: in __main__
+]#
+
+import ex
+
+raise ex.error("Imported raise!")

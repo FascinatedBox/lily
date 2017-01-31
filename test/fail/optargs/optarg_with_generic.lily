@@ -1,0 +1,6 @@
+#[
+SyntaxError: Type 'A' cannot have a default value.
+    from optarg_with_generic.lily:6:
+]#
+
+define f[A](a: Function(*A => A)) {  }

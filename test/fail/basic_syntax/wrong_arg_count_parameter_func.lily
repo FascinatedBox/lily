@@ -1,0 +1,8 @@
+#[
+SyntaxError: Wrong number of arguments to g (3 for 1).
+    from wrong_arg_count_parameter_func.lily:7:
+]#
+
+define f(g: Function(Integer)) {
+	g(1, 2, 3)
+}

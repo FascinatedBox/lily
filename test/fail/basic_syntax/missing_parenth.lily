@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token 'end of file'.
+    from missing_parenth.lily:6:
+]#
+
+var a: Integer = 0   a = ((a)

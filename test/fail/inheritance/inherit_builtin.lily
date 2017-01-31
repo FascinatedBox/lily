@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'Integer' cannot be inherited from.
+    from inherit_builtin.lily:6:
+]#
+
+class abc < Integer {  }

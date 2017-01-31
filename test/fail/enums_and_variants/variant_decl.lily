@@ -1,0 +1,11 @@
+#[
+SyntaxError: Variant types not allowed in a declaration.
+    from variant_decl.lily:11:
+]#
+
+enum Test[A] {
+    One(A),
+    Two
+}
+
+var v: One[integer] = One(10)

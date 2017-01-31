@@ -1,0 +1,6 @@
+#[
+SyntaxError: Class properties must start with @.
+    from invalid_class_prop_name.lily:6:
+]#
+
+class ABC { var a: integer }

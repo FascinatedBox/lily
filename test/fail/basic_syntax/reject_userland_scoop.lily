@@ -1,0 +1,6 @@
+#[
+SyntaxError: Expected 'a label', not 'an integer'.
+    from reject_userland_scoop.lily:6:
+]#
+
+define test: 0 {}

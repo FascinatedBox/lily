@@ -1,0 +1,8 @@
+#[
+SyntaxError: An enum must have at least two variants.
+    from enum_too_few_variants.lily:8:
+]#
+
+enum Test[A] {
+    One(A)
+}

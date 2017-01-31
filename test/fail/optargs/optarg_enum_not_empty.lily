@@ -1,0 +1,11 @@
+#[
+SyntaxError: Only variants that take no arguments can be default arguments.
+    from optarg_enum_not_empty.lily:11:
+]#
+
+enum Test {
+    One(Integer),
+    Two
+}
+
+define f(a: *Test = One)

@@ -1,0 +1,20 @@
+#[
+SyntaxError: List elements do not have a consistent type.
+Expected Type: A
+Received Type: Dynamic
+    from ensure_call_generics_resolve_once.lily:19:
+]#
+
+define f[A, B](value: A, value2: B, value3: B) {
+    
+}
+
+define g[A, B](value: A, value2: B) {
+    var a = Dynamic(10)
+
+    # f's A is first resolved as 'any'.
+    # B is then resolved as list[A] but it's g's A.
+    # The last part fails: B is a list of g's A (which is quasi-known) but is
+    # given a list of any.
+    f(a, [value], [a])
+}

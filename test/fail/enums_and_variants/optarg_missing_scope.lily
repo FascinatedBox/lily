@@ -1,0 +1,11 @@
+#[
+SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.
+    from optarg_missing_scope.lily:11:
+]#
+
+scoped enum Test {
+    One,
+    Two
+}
+
+define f(a: *Test = One) {}

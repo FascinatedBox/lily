@@ -1,0 +1,12 @@
+#[
+SyntaxError: Wrong number of arguments to Test.method (1 for 0).
+    from wrong_arg_count_method.lily:12:
+]#
+
+class Test
+{
+    define method {  }
+}
+
+var t = Test()
+t.method(123)

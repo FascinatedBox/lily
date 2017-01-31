@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'self' must be used within a class.
+    from self_outside_class.lily:6:
+]#
+
+self

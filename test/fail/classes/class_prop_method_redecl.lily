@@ -1,0 +1,11 @@
+#[
+SyntaxError: A method in class 'Test' already has the name 'abc'.
+    from class_prop_method_redecl.lily:10:
+]#
+
+class Test {
+    define abc {
+
+    }
+    var @abc = 10
+}

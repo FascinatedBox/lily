@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'else' without 'if'.
+    from else_without_if.lily:6:
+]#
+
+else

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Property a already exists in class ABC.
+    from class_property_redecl.lily:6:
+]#
+
+class ABC { var @a = 1 var @a = 1 }

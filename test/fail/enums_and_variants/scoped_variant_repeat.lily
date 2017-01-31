@@ -1,0 +1,9 @@
+#[
+SyntaxError: A class with the name 'Fast' already exists.
+    from scoped_variant_repeat.lily:8:
+]#
+
+scoped enum Speed {
+    Fast,
+    Fast
+}

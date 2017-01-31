@@ -1,0 +1,16 @@
+#[
+SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.
+    from match_missing_scope.lily:14:
+]#
+
+scoped enum Test {
+    One,
+    Two
+}
+
+var v = Test.One
+
+match v: {
+    case One:
+    case Two:
+}

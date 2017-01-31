@@ -1,0 +1,9 @@
+#[
+IOError: IO operation on closed file.
+Traceback:
+    from [C]: in File.read_line
+    from read_from_closed.lily:9: in __main__
+]#
+
+stdin.close()
+stdin.read_line()

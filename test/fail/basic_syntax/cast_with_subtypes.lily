@@ -1,0 +1,6 @@
+#[
+SyntaxError: Casts from Dynamic cannot include subtypes.
+    from cast_with_subtypes.lily:6:
+]#
+
+Dynamic(10).@(List[Integer])

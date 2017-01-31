@@ -1,0 +1,10 @@
+#[
+SyntaxError: v has not been declared.
+    from try_except_scoping_check.lily:10:
+]#
+
+# This isn't allowed, because 'v' cannot be guaranteed to be set.
+try:
+    var v = 10
+except Exception:
+    v = 11

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token 'a string'.
+    from list_strings_no_comma.lily:6:
+]#
+
+var s = ["1" "2"]

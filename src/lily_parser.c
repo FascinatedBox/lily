@@ -584,9 +584,9 @@ static const char *parse_path(lily_parse_state *parser, const char *fmt,
 
 static const char *import_paths[] =
 {
-    "$/?.lly",
+    "$/?.lily",
     "$/?.so",
-    "!/packages/?/?.lly",
+    "!/packages/?/?.lily",
     "!/packages/?/?.so",
     NULL,
 };
@@ -643,7 +643,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
                     current, name);
             suffix = strrchr(path, '.');
             if (suffix) {
-                if (strcmp(suffix, ".lly") == 0)
+                if (strcmp(suffix, ".lily") == 0)
                     module = load_file(parser, path);
                 else if (strcmp(suffix, LILY_LIB_SUFFIX) == 0)
                     module = load_library(parser, path, name);
@@ -4591,8 +4591,8 @@ static int parse_file(lily_parse_state *parser, const char *filename)
        jump. All others should use lily_jump_setup instead. */
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         char *suffix = strrchr(filename, '.');
-        if (suffix == NULL || strcmp(suffix, ".lly") != 0)
-            lily_raise_err(parser->raiser, "File name must end with '.lly'.");
+        if (suffix == NULL || strcmp(suffix, ".lily") != 0)
+            lily_raise_err(parser->raiser, "File name must end with '.lily'.");
 
         lily_load_source(parser->lex, et_file, filename);
         parser_loop(parser, filename);

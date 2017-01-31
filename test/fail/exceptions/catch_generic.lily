@@ -1,0 +1,16 @@
+#[
+SyntaxError: 'except' type cannot have subtypes.
+    from catch_generic.lily:13:
+]#
+
+class Ex[A](message: String, v: A) < Exception(message)
+{
+    var @value = v
+}
+
+try: {
+    raise Ex("", 100)
+except Ex[Integer] as e:
+    if e.value != 100:
+        stderr.print("Failed.")
+}

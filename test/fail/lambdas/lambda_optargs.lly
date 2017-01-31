@@ -1,6 +1,0 @@
-#[
-SyntaxError: Expected 'a label', not '*'.
-    from lambda_optargs.lly:6:
-]#
-
-var v = (|a: *Integer=10| a )

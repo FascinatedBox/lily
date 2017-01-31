@@ -1,0 +1,7 @@
+#[
+SyntaxError: A module named 'empty' has already been imported here.
+    from repeat_import_as.lily:7:
+]#
+
+import repeat_a as empty
+import empty

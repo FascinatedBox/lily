@@ -1,0 +1,10 @@
+#[
+SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, Integer, *Integer)'.
+    from oversize_with_optargs.lily:10:
+]#
+
+define f(a: Integer, b: Integer, c: *Integer=10) {}
+define g(a: Integer) {}
+
+var a = f
+a = g

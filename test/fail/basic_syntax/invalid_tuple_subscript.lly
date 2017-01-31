@@ -1,6 +1,0 @@
-#[
-SyntaxError: Index 3 is out of range for Tuple[Integer, String].
-    from invalid_tuple_subscript.lly:6:
-]#
-
-var s: String = <[1, "2"]> [3]

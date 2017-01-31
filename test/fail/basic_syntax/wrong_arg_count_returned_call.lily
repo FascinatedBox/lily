@@ -1,0 +1,14 @@
+#[
+SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).
+    from wrong_arg_count_returned_call.lily:14:
+]#
+
+class Test
+{
+    define test : Function(Integer, Integer => Boolean)
+    {
+        return (|x, y| x == y)
+    }
+}
+
+var z = Test().test()()

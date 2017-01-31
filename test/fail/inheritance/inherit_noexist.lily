@@ -1,0 +1,6 @@
+#[
+SyntaxError: Class 'invalid' does not exist.
+    from inherit_noexist.lily:6:
+]#
+
+class abc < invalid {  }

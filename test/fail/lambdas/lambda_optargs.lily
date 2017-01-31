@@ -1,0 +1,6 @@
+#[
+SyntaxError: Expected 'a label', not '*'.
+    from lambda_optargs.lily:6:
+]#
+
+var v = (|a: *Integer=10| a )

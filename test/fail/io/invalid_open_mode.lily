@@ -1,0 +1,8 @@
+#[
+IOError: Invalid mode 'z' given.
+Traceback:
+    from [C]: in File.open
+    from invalid_open_mode.lily:8: in __main__
+]#
+
+var f = File.open("io_test_file.txt", "z")

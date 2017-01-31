@@ -1,0 +1,10 @@
+#[
+ValueError
+Traceback:
+    from errorfunc.lily:1: in f
+    from use_errorfunc.lily:10: in __main__
+]#
+
+import errorfunc
+
+errorfunc.f()

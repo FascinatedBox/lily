@@ -1,0 +1,10 @@
+#[
+SyntaxError: Wrong number of arguments to Test.method (0 for 1).
+    from wrong_arg_count_method_within_new.lily:9:
+]#
+
+class Test
+{
+    define method(x: Integer) {  }
+    method()
+}

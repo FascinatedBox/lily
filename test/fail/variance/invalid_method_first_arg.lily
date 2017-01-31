@@ -1,0 +1,8 @@
+#[
+SyntaxError: Argument #1 to File.open is invalid:
+Expected Type: String
+Received Type: File
+    from invalid_method_first_arg.lily:8:
+]#
+
+stdin.open("r")

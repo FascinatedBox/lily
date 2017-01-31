@@ -1,0 +1,9 @@
+#[
+IOError: File not open for reading.
+Traceback:
+    from [C]: in File.read_line
+    from read_from_write_file.lily:9: in __main__
+]#
+
+var f = File.open("io_test_file.txt", "w")
+f.read_line()

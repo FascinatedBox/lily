@@ -1,0 +1,10 @@
+#[
+ValueError: IO operation on closed file.
+Traceback:
+    from [C]: in print
+    from stdout_print_close.lily:9: in __main__
+]#
+
+stdout.close()
+print(1)
+stderr.write("Failed.\n")

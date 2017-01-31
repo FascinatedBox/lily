@@ -1,0 +1,9 @@
+#[
+KeyError: "b"
+Traceback:
+    from trigger_keyerror.lily:9: in __main__
+]#
+
+var v = ["a" => 1]
+
+print(v["b"])

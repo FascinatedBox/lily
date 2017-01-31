@@ -1,0 +1,14 @@
+#[
+SyntaxError: Missing return statement at end of function.
+    from invalid_match_case_return_fold.lily:14:
+]#
+
+define f(a: Option[Integer]) : Integer
+{
+    match a: {
+        case Some(s):
+            s = 1
+        case None:
+            return 2
+    }
+}

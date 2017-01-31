@@ -1,0 +1,6 @@
+#[
+SyntaxError: Import path cannot end with '/'.
+    from trailing_slash.lily:6:
+]#
+
+import hello/

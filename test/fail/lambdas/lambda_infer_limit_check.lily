@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot infer type of 'b'.
+    from lambda_infer_limit_check.lily:6:
+]#
+
+var v = (|a: Integer, b| a + b)

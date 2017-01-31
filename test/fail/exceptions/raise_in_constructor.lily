@@ -1,0 +1,13 @@
+#[
+ValueError: Test
+Traceback:
+    from raise_in_constructor.lily:10: in Example
+    from raise_in_constructor.lily:13: in __main__
+]#
+
+class Example
+{
+    raise ValueError("Test")
+}
+
+Example()

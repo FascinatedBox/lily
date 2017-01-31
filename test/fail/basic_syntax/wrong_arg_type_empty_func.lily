@@ -1,0 +1,10 @@
+#[
+SyntaxError: Argument #1 to f is invalid:
+Expected Type: Function ()
+Received Type: Integer
+    from wrong_arg_type_empty_func.lily:10:
+]#
+
+define f(g: Function()) {  }
+
+f(10)

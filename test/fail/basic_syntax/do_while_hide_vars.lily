@@ -1,0 +1,9 @@
+#[
+SyntaxError: v has not been declared.
+    from do_while_hide_vars.lily:9:
+]#
+
+do: {
+    var v = 10
+    continue
+} while v == 10

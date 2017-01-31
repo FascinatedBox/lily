@@ -1,0 +1,10 @@
+#[
+SyntaxError: Argument #1 to f is invalid:
+Expected Type: List[?]
+Received Type: Integer
+    from ensure_error_has_question_mark.lily:10:
+]#
+
+define f[A](a: List[A]) {}
+
+f(10)

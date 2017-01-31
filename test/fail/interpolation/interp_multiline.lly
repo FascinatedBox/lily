@@ -1,7 +1,0 @@
-#[
-SyntaxError: Newline in interpolated section.
-    from interp_multiline.lly:6:
-]#
-
-var v = $"^(
-"

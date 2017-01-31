@@ -1,0 +1,7 @@
+#[
+SyntaxError: 'Option' cannot be inherited from.
+    from inherit_enum.lily:6:
+]#
+
+class abc < Option {
+}

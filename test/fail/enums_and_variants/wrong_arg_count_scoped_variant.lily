@@ -1,0 +1,11 @@
+#[
+SyntaxError: Wrong number of arguments to One (2 for 1).
+    from wrong_arg_count_scoped_variant.lily:11:
+]#
+
+scoped enum Test[A] {
+    One(A),
+    Two
+}
+
+var opt: Test[Integer] = Test.One(1, 2)

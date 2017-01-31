@@ -1,0 +1,12 @@
+#[
+SyntaxError: Missing return statement at end of function.
+    from invalid_try_except_return_fold.lily:12:
+]#
+
+define f(a: Integer) : Integer
+{
+    try:
+        a = 1
+    except Exception:
+        return 2
+}

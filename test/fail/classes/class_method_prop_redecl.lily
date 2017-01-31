@@ -1,0 +1,11 @@
+#[
+SyntaxError: A property in class 'Test' already has the name 'abc'.
+    from class_method_prop_redecl.lily:8:
+]#
+
+class Test {
+    var @abc = 10
+    define abc {
+
+    }
+}

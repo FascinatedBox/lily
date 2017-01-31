@@ -1,0 +1,16 @@
+#[
+SyntaxError: Wrong number of arguments to One (none for 0+).
+    from wrong_arg_count_vararg_none.lily:16:
+]#
+
+# This is an artificial restriction. The reason that I've placed it is for
+# consistency. You can't invoke a function without () even if it takes no
+# arguments. The same should hold for variants.
+
+enum Test[A]
+{
+    One(A...),
+    Two
+}
+
+var v = One

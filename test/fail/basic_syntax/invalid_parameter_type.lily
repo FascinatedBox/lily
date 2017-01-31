@@ -1,0 +1,7 @@
+#[
+SyntaxError: Class 'asdf' does not exist.
+    from invalid_parameter_type.lily:6:
+]#
+
+define f(g: asdf) {
+}

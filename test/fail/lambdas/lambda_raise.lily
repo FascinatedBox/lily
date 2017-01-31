@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'raise' not allowed in a lambda.
+    from lambda_raise.lily:6:
+]#
+
+var v = (|| raise ValueError("") )

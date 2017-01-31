@@ -1,0 +1,30 @@
+#[
+SyntaxError: Cannot close over a var of an incomplete type in this scope.
+    from hindley_milner_barrier.lily:23:
+]#
+
+# Lily has an ML-styled type system, I guess. I never looked into how ML works
+# until recently. Wikipedia has a nice article here:
+# https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system
+# "But where's the bug?"
+# You're looking for the "free type variables" header. It explains what this
+# code demonstrates.
+# What this code demonstrates is rather simple: You cannot assume that the 'A'
+# of another scope is the 'A' of the current scope. Lily's generics system can't
+# quite handle this yet. I hate things that crash, so prevent that by gating
+# what causes it off.
+# The simple explanation is that f's A can be solved as something that may or
+# may not be equivalent to h's A. Thus, trying to assign the two is a bad thing.
+
+define f[A](f_input: A) {
+    define g {
+        define h(h_input: A) : A {
+            h_input = f_input
+            return f_input
+        }
+        h(0).to_s()
+    }
+    g()
+}
+
+f([1, 2, 3])

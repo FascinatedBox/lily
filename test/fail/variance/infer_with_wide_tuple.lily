@@ -1,0 +1,10 @@
+#[
+SyntaxError: Argument #1 to f is invalid:
+Expected Type: Tuple[Integer]
+Received Type: Tuple[Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer]
+    from infer_with_wide_tuple.lily:10:
+]#
+
+define f(a: Tuple[Integer]) {  }
+
+f(<[1, 2, 3, 4, 5, 6, 7, 8]>)

@@ -1,0 +1,26 @@
+#[
+ValueError: Test
+Traceback:
+    from return_pops_try_blocks.lily:22: in g
+    from return_pops_try_blocks.lily:26: in __main__
+]#
+
+define f(a: Integer)
+{
+    try: {
+        while 1: {
+            1
+            return
+        }
+    except Exception as e:
+        print("caught!")
+    }
+}
+
+define g
+{
+    raise ValueError("Test")
+}
+
+f(1)
+g()

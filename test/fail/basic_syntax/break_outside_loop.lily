@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'break' used outside of a loop.
+    from break_outside_loop.lily:6:
+]#
+
+break

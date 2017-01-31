@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'hello' is not a valid default value for a Boolean.
+    from optarg_invalid_boolean.lily:6:
+]#
+
+define f(a: *Boolean=hello) { }

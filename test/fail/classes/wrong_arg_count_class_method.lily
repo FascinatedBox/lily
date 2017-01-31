@@ -1,0 +1,6 @@
+#[
+SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).
+    from wrong_arg_count_class_method.lily:6:
+]#
+
+String.ends_with("a", "b", "c")

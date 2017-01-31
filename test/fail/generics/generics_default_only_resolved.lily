@@ -1,0 +1,14 @@
+#[
+SyntaxError: Argument #2 to f is invalid:
+Expected Type: Integer
+Received Type: String
+    from generics_default_only_resolved.lily:14:
+]#
+
+define f[A](value1: A, value2: A) {  }
+define g[A](value1: A) : A { return value1 }
+
+# g should not assume any type info for the argument it takes because the
+# A given isn't resolved. If it's pulled in, then the error message is somewhat
+# confusing (it's assumed a bare A is wanted).
+f(10, g("10"))

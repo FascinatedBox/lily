@@ -1,9 +1,0 @@
-#[
-SyntaxError: Class A has no method or property named asdf.
-    from generic_method_access.lly:8:
-]#
-
-define f[A](a: A)
-{
-    a.asdf()
-}

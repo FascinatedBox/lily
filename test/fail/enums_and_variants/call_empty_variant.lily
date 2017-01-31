@@ -1,0 +1,11 @@
+#[
+SyntaxError: Variant Gamma should not get args.
+    from call_empty_variant.lily:11:
+]#
+
+enum TestE {
+  Alpha,
+  Beta,
+  Gamma
+}
+print(Gamma())

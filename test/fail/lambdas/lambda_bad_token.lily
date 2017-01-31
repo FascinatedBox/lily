@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token 'end of lambda'.
+    from lambda_bad_token.lily:6:
+]#
+
+var v = (|| )

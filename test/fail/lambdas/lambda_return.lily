@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'return' not allowed in a lambda.
+    from lambda_return.lily:6:
+]#
+
+var v = (|| return )

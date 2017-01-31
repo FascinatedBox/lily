@@ -1,0 +1,13 @@
+#[
+SyntaxError: Cannot assign type 'Function (Two)' to type 'Function (One)'.
+    from ensure_function_params_contravariant.lily:13:
+]#
+
+class One {}
+class Two < One {}
+
+define f(a: One) {}
+define g(a: Two) {}
+
+var v = f
+    v = g

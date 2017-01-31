@@ -1,6 +1,0 @@
-#[
-SyntaxError: Empty interpolation block.
-    from interp_no_value.lly:6:
-]#
-
-var v = $"^(  )"

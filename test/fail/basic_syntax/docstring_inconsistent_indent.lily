@@ -1,0 +1,8 @@
+#[
+SyntaxError: Docstring has inconsistent indentation.
+    from docstring_inconsistent_indent.lily:7:
+]#
+
+### asdf
+    ### 1234
+define f {}

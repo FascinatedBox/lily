@@ -1,0 +1,7 @@
+#[
+SyntaxError: Statement(s) after 'raise' will not execute.
+    from expr_after_raise.lily:7:
+]#
+
+raise ValueError("")
+var v = 10

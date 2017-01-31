@@ -1,0 +1,9 @@
+#[
+SyntaxError: A class with the name 'One' already exists.
+    from variant_name_clash.lily:8:
+]#
+
+enum Test[A] {
+    One(A),
+    One(A)
+}

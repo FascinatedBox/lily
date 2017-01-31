@@ -1,0 +1,11 @@
+#[
+SyntaxError: Unexpected token 'a label'.
+    from variant_early_close.lily:11:
+]#
+
+enum Object {
+    Value,
+    ObjList(Object...)
+}
+
+ObjList(ObjList() ObjList())

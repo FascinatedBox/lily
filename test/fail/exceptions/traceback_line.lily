@@ -1,0 +1,8 @@
+#[
+Exception: Test
+
+Traceback:
+    from traceback_line.lily:8: in __main__
+]#
+
+raise Exception("Test\n")

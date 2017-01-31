@@ -1,6 +1,0 @@
-#[
-SyntaxError: Class Integer does not have a constructor.
-    from integer_construct.lly:6:
-]#
-
-var v = Integer(10)

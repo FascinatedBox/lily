@@ -1,6 +1,0 @@
-#[
-SyntaxError: Expected closing token ']', not ')'.
-    from bad_list_close_token.lly:6:
-]#
-
-var lsi: List[Integer] = [10, 20, 30)

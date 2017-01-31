@@ -1,9 +1,0 @@
-#[
-SyntaxError: Cannot define a class here.
-    from invalid_class_decl_location.lly:7:
-]#
-
-if 1: {
-    class abc() {
-    }
-}

@@ -1,0 +1,7 @@
+#[
+SyntaxError: Class 'A' does not exist.
+    from generic_bleed.lily:7:
+]#
+
+enum Test[A] { One(A), Two }
+var v: A = 1

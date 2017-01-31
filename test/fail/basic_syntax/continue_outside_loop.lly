@@ -1,6 +1,0 @@
-#[
-SyntaxError: 'continue' used outside of a loop.
-    from continue_outside_loop.lly:6:
-]#
-
-continue

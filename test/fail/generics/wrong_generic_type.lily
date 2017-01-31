@@ -1,0 +1,12 @@
+#[
+SyntaxError: Argument #1 to g is invalid:
+Expected Type: A
+Received Type: B
+    from wrong_generic_type.lily:11:
+]#
+
+# This isn't allowed because A and B may be incompatible types.
+# Ex: A being an integer, B as a string.
+define f[A, B](g: Function(A), value: B) {
+	g(value)
+}

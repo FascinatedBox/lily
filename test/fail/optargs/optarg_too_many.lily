@@ -1,0 +1,10 @@
+#[
+SyntaxError: Wrong number of arguments to f (3 for 1..2).
+    from optarg_too_many.lily:10:
+]#
+
+define f(a: Integer, b: *Integer = 10) {
+
+}
+
+f(1, 2, 3)

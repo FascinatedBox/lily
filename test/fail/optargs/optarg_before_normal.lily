@@ -1,0 +1,6 @@
+#[
+SyntaxError: Non-optional argument follows optional argument.
+    from optarg_before_normal.lily:6:
+]#
+
+define f(a: *Integer=10, b: Integer) {  }

@@ -1,9 +1,0 @@
-#[
-KeyError: "b"
-Traceback:
-    from trigger_keyerror.lly:9: in __main__
-]#
-
-var v = ["a" => 1]
-
-print(v["b"])

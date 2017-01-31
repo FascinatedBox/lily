@@ -1,0 +1,6 @@
+#[
+SyntaxError: var has not been declared.
+    from invalid_keyword_use.lily:6:
+]#
+
+var v = var

@@ -1,0 +1,8 @@
+#[
+SyntaxError: Docstring line does not start with full '###'.
+    from docstring_bad_indent.lily:7:
+]#
+
+###
+##
+define f {}

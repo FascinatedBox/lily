@@ -1,0 +1,15 @@
+#[
+SyntaxError: Multi-line block within single-line block.
+    from multi_in_single.lily:11:
+]#
+
+var v = 10
+
+try:
+    1 / 0
+except DivisionByZeroError as e:
+    try: {
+        1 / 0
+    except DivisionByZeroError as e2:
+        v = 10
+    }

@@ -1,0 +1,10 @@
+#[
+SyntaxError: Cannot define a class here.
+    from class_nesting.lily:7:
+]#
+
+class c1(a: Integer) {
+    class c2(b: Integer) {
+
+    }
+}

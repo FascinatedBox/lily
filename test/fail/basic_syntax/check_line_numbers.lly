@@ -1,7 +1,0 @@
-#[
-SyntaxError: Cannot assign type 'String' to type 'Integer'.
-    from check_line_numbers.lly:7:
-]#
-
-var a = 10
-a = "10"

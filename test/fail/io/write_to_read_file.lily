@@ -1,0 +1,8 @@
+#[
+IOError: File not open for writing.
+Traceback:
+    from [C]: in File.write
+    from write_to_read_file.lily:8: in __main__
+]#
+
+stdin.write("123")

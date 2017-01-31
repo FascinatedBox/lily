@@ -1,0 +1,9 @@
+#[
+SyntaxError: 'String' is not a valid exception class.
+    from catch_string.lily:8:
+]#
+
+try:
+    1 / 0
+except String:
+    0

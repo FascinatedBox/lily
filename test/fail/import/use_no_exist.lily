@@ -1,0 +1,8 @@
+#[
+SyntaxError: does_not_exist has not been declared.
+    from use_no_exist.lily:8:
+]#
+
+import empty
+
+print(empty.does_not_exist())

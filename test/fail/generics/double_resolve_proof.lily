@@ -1,0 +1,29 @@
+#[
+SyntaxError: List elements do not have a consistent type.
+Expected Type: A
+Received Type: List[Integer]
+    from double_resolve_proof.lily:28:
+]#
+
+define f[A, B](one: A, two: B, three: B) {  }
+
+define g[A](one: A) {
+    # Here's what's supposed to happen:
+    # The first argument to f is processed as List[any].
+    # f: A = List[any]
+    # The second argument is List[A]
+    # f: B = List[A]
+    # The third argument is List[Integer].
+
+    # For the third argument, list build will attempt to resolve what B is and
+    # find that B = List[A].
+    # Correct:
+    # [[1]], expect B.       B = List[List[A]]
+    #  [1]   expect List[A]. However, the expected signature is resolved.
+
+    # Incorrect:
+    # [[1]], expect B.       B = List[List[A]]
+    #  [1],  expect List[A]. A = Dynamic (double resolve!)
+
+    f([Dynamic(10)], [one], [[1]])
+}

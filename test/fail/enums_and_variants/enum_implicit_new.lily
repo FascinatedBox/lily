@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot implicitly use the constructor of an enum.
+    from enum_implicit_new.lily:6:
+]#
+
+var v = Option(10)

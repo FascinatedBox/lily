@@ -1,0 +1,11 @@
+#[
+SyntaxError: 'Two' cannot be inherited from.
+    from inherit_variant.lily:11:
+]#
+
+enum Test {
+    One,
+    Two
+}
+
+class example < Two { }

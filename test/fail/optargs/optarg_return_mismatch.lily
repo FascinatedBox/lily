@@ -1,0 +1,12 @@
+#[
+SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.
+    from optarg_return_mismatch.lily:12:
+]#
+
+define f(a: String) : String { return "10" }
+
+define g(a: Integer, b: *Integer=10) : Integer { return 10 }
+
+var h = f
+
+h = g

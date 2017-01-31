@@ -1,0 +1,11 @@
+#[
+SyntaxError: Expected ':', not '('.
+    from match_bad_decompose_attempt.lily:9:
+]#
+
+var v = None
+
+match v: {
+    case None(a):
+    case Some(s):
+}

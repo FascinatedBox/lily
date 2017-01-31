@@ -1,0 +1,11 @@
+#[
+SyntaxError: 'Test' does not have a variant named 'what'.
+    from optarg_enum_not_member.lily:11:
+]#
+
+enum Test {
+    One,
+    Two
+}
+
+define f(a: *Test = what)

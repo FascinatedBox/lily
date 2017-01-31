@@ -1,0 +1,6 @@
+#[
+SyntaxError: return expected type 'Integer' but got type 'Unit'.
+    from return_without_value.lily:6:
+]#
+
+define f {  } define g : Integer { return f() }

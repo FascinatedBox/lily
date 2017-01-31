@@ -1,0 +1,10 @@
+#[
+IOError: IO operation on closed file.
+Traceback:
+    from [C]: in File.write
+    from write_to_closed.lily:10: in __main__
+]#
+
+var f = File.open("io_test_file.txt", "w")
+f.close()
+f.write("1234")

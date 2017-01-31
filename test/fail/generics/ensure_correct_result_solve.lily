@@ -1,0 +1,10 @@
+#[
+ValueError: Test.
+Traceback:
+    from ensure_correct_result_solve.lily:8: in f
+    from ensure_correct_result_solve.lily:10: in __main__
+]#
+
+define f[A] : A { raise ValueError("Test.") }
+
+var v = [f()]

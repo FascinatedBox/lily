@@ -1,6 +1,0 @@
-#[
-SyntaxError: a has already been declared.
-    from function_arg_redecl.lly:6:
-]#
-
-define f(a: Integer, a: Integer) {}

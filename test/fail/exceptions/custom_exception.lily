@@ -1,0 +1,11 @@
+#[
+MyException: Correct!
+Traceback:
+    from custom_exception.lily:11: in __main__
+]#
+
+class MyException(msg: String) < Exception(msg) {
+
+}
+
+raise MyException("Correct!")

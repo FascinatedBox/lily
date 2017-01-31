@@ -1,0 +1,6 @@
+#[
+SyntaxError: Missing return statement at end of function.
+    from missing_return.lily:6:
+]#
+
+define f : Integer {  }

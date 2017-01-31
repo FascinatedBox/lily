@@ -1,0 +1,6 @@
+#[
+SyntaxError: Wrong number of arguments to Some (2 for 1).
+    from wrong_arg_count_variant.lily:6:
+]#
+
+var v = Some(1, 2)

@@ -1,0 +1,10 @@
+#[
+DivisionByZeroError: Attempt to divide by zero.
+Traceback:
+    from dual_raise.lily:10: in __main__
+]#
+
+try:
+    raise ValueError("10")
+except ValueError:
+    var v = 1 / 0

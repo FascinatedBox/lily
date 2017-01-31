@@ -1,0 +1,10 @@
+#[
+SyntaxError: 'else' within an exhaustive match.
+    from match_else_too_late.lily:9:
+]#
+
+match Some(1): {
+    case Some(_):
+    case None:
+    else:
+}

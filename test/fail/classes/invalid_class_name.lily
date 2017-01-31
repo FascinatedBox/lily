@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'A' is not a valid class name (too short).
+    from invalid_class_name.lily:6:
+]#
+
+class A() {}

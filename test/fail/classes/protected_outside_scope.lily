@@ -1,0 +1,10 @@
+#[
+SyntaxError: abc.f is marked protected, and not available here.
+    from protected_outside_scope.lily:10:
+]#
+
+class abc {
+    protected define f {}
+}
+
+abc.f(abc())

@@ -1,0 +1,6 @@
+#[
+SyntaxError: Statement(s) after 'return' will not execute (no return type given).
+    from expr_after_return_no_return_type.lily:6:
+]#
+
+define test { return 0 }

@@ -1,0 +1,6 @@
+#[
+SyntaxError: f has already been declared.
+    from function_redeclaration.lily:6:
+]#
+
+define f {} define f {}

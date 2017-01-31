@@ -1,0 +1,9 @@
+#[
+SyntaxError: Cannot define a class here.
+    from invalid_class_decl_location.lily:7:
+]#
+
+if 1: {
+    class abc() {
+    }
+}

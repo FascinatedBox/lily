@@ -1,0 +1,9 @@
+#[
+SyntaxError: Invalid operation: List[Integer] == List[String].
+    from invalid_eq.lily:9:
+]#
+
+var v1 = [1]
+var v2 = ["1"]
+
+v1 == v2

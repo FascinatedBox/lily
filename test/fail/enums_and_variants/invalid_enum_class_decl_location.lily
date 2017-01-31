@@ -1,0 +1,11 @@
+#[
+SyntaxError: Cannot define an enum here.
+    from invalid_enum_class_decl_location.lily:7:
+]#
+
+define f {
+    enum Option[A] {
+        Some(A)
+        None
+    }
+}

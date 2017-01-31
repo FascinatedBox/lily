@@ -1,6 +1,0 @@
-#[
-SyntaxError: 'elif' without 'if'.
-    from elif_without_if.lly:6:
-]#
-
-elif

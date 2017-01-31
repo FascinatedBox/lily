@@ -1,0 +1,19 @@
+#[
+ValueError: Message.
+Traceback:
+    from error_from_method.lily:13: in Example.action
+    from error_from_method.lily:16: in Example
+    from error_from_method.lily:19: in __main__
+]#
+
+class Example {
+    define action {
+        if 1: {
+            var k = ValueError("Message.")
+            raise k
+        }
+    }
+    action()
+}
+
+Example()

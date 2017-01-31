@@ -1,0 +1,6 @@
+#[
+SyntaxError: Unexpected token ']'.
+    from bad_right_brace.lily:6:
+]#
+
+var a: List[Integer] = []   a = [10]]

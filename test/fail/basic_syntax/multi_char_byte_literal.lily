@@ -1,0 +1,6 @@
+#[
+SyntaxError: Multi-character byte literal.
+    from multi_char_byte_literal.lily:6:
+]#
+
+var v = '12'

@@ -1,0 +1,6 @@
+#[
+SyntaxError: 'return' used outside of a function.
+    from return_outside_function.lily:6:
+]#
+
+return

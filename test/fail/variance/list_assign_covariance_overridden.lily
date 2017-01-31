@@ -1,0 +1,12 @@
+#[
+SyntaxError: Cannot assign type 'List[Two]' to type 'List[One]'.
+    from list_assign_covariance_overridden.lily:12:
+]#
+
+class One {}
+class Two < One {}
+
+var v = [[One()]]
+var v2 = [Two()]
+# Assignment is naturally covariant. However, lists are invariant.
+v[0] = v2

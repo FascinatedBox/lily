@@ -1,0 +1,9 @@
+#[
+SyntaxError: Wrong number of arguments to g (1 for 0).
+    from wrong_arg_count_closed_call.lily:8:
+]#
+
+define f(a: Integer) {
+    define g { a += 1 }
+    g(1)
+}

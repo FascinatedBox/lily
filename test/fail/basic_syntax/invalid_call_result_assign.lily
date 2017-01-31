@@ -1,0 +1,10 @@
+#[
+SyntaxError: Left side of = is not assignable.
+    from invalid_call_result_assign.lily:10:
+]#
+
+define f : List[Integer] {
+    return [1]
+}
+
+f()[0] = 1

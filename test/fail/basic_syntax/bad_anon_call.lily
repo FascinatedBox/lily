@@ -1,0 +1,6 @@
+#[
+SyntaxError: Cannot anonymously call resulting type 'Integer'.
+    from bad_anon_call.lily:6:
+]#
+
+(10)()

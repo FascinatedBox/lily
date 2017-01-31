@@ -1,0 +1,8 @@
+#[
+SyntaxError: Wrong number of arguments to f (1 for 0).
+    from wrong_arg_count_plain_call.lily:8:
+]#
+
+define f {}
+
+f(1)

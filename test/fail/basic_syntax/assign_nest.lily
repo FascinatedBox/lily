@@ -1,0 +1,7 @@
+#[
+SyntaxError: Cannot nest an assignment within an expression.
+    from assign_nest.lily:7:
+]#
+
+var a = 10
+var b = (a = 10)

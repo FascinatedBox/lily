@@ -1,0 +1,6 @@
+#[
+SyntaxError: Multi-line string not allowed within interpolation.
+    from interp_multiline_string.lily:6:
+]#
+
+var v = $" ^(""" """)"

@@ -1,0 +1,9 @@
+#[
+SyntaxError: 'return' not allowed in a class constructor.
+    from class_constructor_return.lily:8:
+]#
+
+class example {
+    if 1:
+        return self
+}
