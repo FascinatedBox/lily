@@ -26,11 +26,11 @@ int lily_op_get_gc_start(lily_state *);
 int lily_op_get_gc_multiplier(lily_state *);
 lily_render_func lily_op_get_render_func(lily_state *);
 
-int lily_parse_string(lily_state *, const char *, char *);
+int lily_parse_string(lily_state *, const char *, const char *);
 int lily_parse_file(lily_state *, const char *);
 int lily_parse_expr(lily_state *, const char *, char *, const char **);
 
-int lily_render_string(lily_state *, const char *, char *);
+int lily_render_string(lily_state *, const char *, const char *);
 int lily_render_file(lily_state *, const char *);
 
 /* This searches in the scope of the first file loaded, and attempts to find a
