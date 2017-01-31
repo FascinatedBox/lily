@@ -2,85 +2,70 @@ Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=maste
 
 Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
 
-### Sample
+## Lily
+
+Lily is a programming language focused on expressiveness and type safety.
+
+## Sample
 
 ```
-print("Hello from Lily!")
+enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
 
-class Cat(name: String)
+# Class properties and methods are public by default.
+class Terminal(var @foreground: Color, width_str: String)
 {
-    # The body of a class is the constructor.
-    # Properties start with @<name>
-    var @name = name
-    print($"My name is ^(@name).")
+    var @width = width_str.parse_i().unwrap_or(80)
+
+    define set_fg(new_color: Color) {
+        @foreground = new_color
+    }
 }
 
-# Types can almost always be inferred. This is List[Cat].
-var cats = [Cat("Muffin"), Cat("Snowball")]
+var terms = [Terminal(Color.White, "A"), Terminal(Color.Red, "40")]
 
-# a |> b is the same as b(a)
-cats.map(|c| c.name) |> print
-
-# Option is either Some(A), or None.
-var maybe_cat: Option[Cat] = None
-
-match maybe_cat: {
-    case Some(s): print("Cat.")
-    case None:    print("None")
-}
+terms.each(|e| e.width += 20 )
+     |> print
 ```
 
-### Why Lily?
+## Features
 
-* Lily is statically-typed, but with a reference implementation as an interpreter. This gives the benefit of type safety, with a fast turn around time that comes with most interpreters.
+#### Templating
 
-* The interpreter can execute files in a template mode or a standalone mode. In template mode, code is between `<?lily ... ?>` tags, allowing you to use Lily where you may have once used PHP. The `apache` folder contains the code to get a basic `mod_lily` working within the Apache web server.
+By default, Lily runs in **standalone** mode where all content is code to
+execute. But Lily can also be run in **template** mode. In **template** mode,
+code is between `<?lily ... ?>` tags. When a file is imported, it's always
+loaded in **standalone** mode, so that it doesn't accidentally send headers.
+Files that are imported are also namespaced (no 'global namespace').
 
-* Internally, Lily's state is managed inside of a C struct and the interpreter does not write global data. This allows embedding one or even multiple interpreters independent of each other. The interpreter can be extended in C to provide new classes, methods, functions, and variables. More information can be found within `src/lily_api_*.h` files, notably `src/lily_api_value.h`. Proper documentation will be coming soon.
+#### Embeddable
 
-* The interpreter's internals are tightly packed, so that it uses very little memory. The interpreter has also been designed to only load builtin methods, functions, variables that are needed. This system, which I have termed dynaload, extends to shared libraries that the interpreter loads as well as being woven in the core itself. dynaload, along with tight packing, allows the interpreter to have a very low overhead.
+Lily may be a statically-typed language, but the reference implementation is an
+interpreter. The interpreter as well as its API have been carefully designed
+with sandboxing in mind. As a result, it's possible to have multiple
+interpreters exist alongside each other.
 
-* Memory is managed by refcounting, with garbage collection for handling cycles. The interpreter uses the type information it has to tag objects that may become circular, so that simple objects do not impose a penalty. This design means there is no heap that must be compacted after garbage collection. More importantly, this design makes it easy to compose whole programs that will never be paused by a garbage collection by avoiding cyclical structures.
+#### Shorter edit cycle
 
-### Install
+Another benefit from having the reference implementation as an interpreter is a
+shorter turn around time. The interpreter's parser is comparable in speed to
+that of languages using an interpreter as their reference.
 
-[Want to try it first? Here's a sandbox.](https://FascinatedBox.github.io/lily/sandbox.html)
-
-You need `cmake` and a compiler that understands C11.
-
-```
-cmake .
-make
-make install
-```
-
-To build and use `mod_lily`:
-
-```
-cmake -DWITH_APACHE=on .
-make
-make install
-# Restart apache
-
-# Edit httpd.conf to add:
-LoadModule lily_module <where cmake installed mod_lily.so>
-
-# To any directory block, add:
-SetHandler lily
-
-# Test it (note: a <?lily tag must be at the very start.
-<?lily
-use server
-server.write("Hello")
-?>
-```
-
-### Resources
+## Community
 
 Lily is a very young language and the community is still growing.
 
-- IRC: You can chat with other Lily users on [freenode #lily](https://webchat.freenode.net/?channels=%23lily).
+* IRC: [freenode #lily](https://webchat.freenode.net/?channels=%23lily) to chat
+  with others in real-time.
 
-- Tutorial: https://FascinatedBox.github.io/lily/tutorial.html
+* Reddit: [/r/lily_lang](https://reddit.com/r/lily_lang) for discussion around
+  the language and providing support to new users.
 
-- Reference: https://FascinatedBox.github.io/lily/reference.html
+## Resources
+
+* [Try it in your browser](https://FascinatedBox.github.com/lily-site/sandbox.html)
+
+* [Syntax Tutorial](https://FascinatedBox.github.com/lily-site/sandbox.html)
+
+* [Embedding Tutorial](https://FascinatedBox.github.com/lily-site/embed_and_extend.html)
+
+* [Community Packages](https://FascinatedBox.github.com/lily-site/community_packages.html)
