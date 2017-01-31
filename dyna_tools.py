@@ -450,6 +450,9 @@ def run_loader_entry(e, i, accum, package_name):
         name += "_new"
     elif e.e_type in ["class", "enum", "native"]:
         what = ""
+    elif e.e_type == "define":
+        # Add a _ prefix because there's no class name.
+        name = "_" + name
     elif e.e_type == "var":
         prefix = ""
         what = "load_var_"
