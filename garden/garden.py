@@ -28,14 +28,17 @@ from docopt import docopt
 fields = ["Author", "Description"]
 
 
-def lily_github(repo, operator="=", version="-1"):
+def lily_github(repo, operator="=", version="latest"):
     '''Fetches a given repository from GitHub with a given version you
     can control your versioning with the operator the version should
     match the version in the Github release'''
     print("Fetching Repository: " + repo + " - Version " + version)
     cwd = os.getcwd()
-    repo_dir = "packages/" + repo.split("/")[1]
+    repo_basename = repo.split("/")[1]
+    if repo_basename.startswith("lily-"):
+        repo_basename = repo_basename[5:]
 
+    repo_dir = "packages/{0}".format(repo_basename)
     repo_name = "git://github.com/{0}".format(repo)
     command = ["git", "clone", "--depth", "1", repo_name, repo_dir]
     subprocess.call(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -109,7 +112,7 @@ def perform_install(args):
             lily_parse_file(relfile)
     else:
         source = args.get("<source>")
-        version = args.get("<version>") or "-1"
+        version = args.get("<version>") or "latest"
         operator = args.get("<operator>") or "="
 
         if provider == "github":
