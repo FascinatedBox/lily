@@ -4,6 +4,6 @@ SyntaxError: A class with the name 'One' already exists.
 ]#
 
 enum Test[A] {
-    One(A)
+    One(A),
     One(A)
 }

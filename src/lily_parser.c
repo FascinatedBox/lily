@@ -1399,6 +1399,8 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
         entry_index++;
         entry = table[entry_index];
+        if (entry[0] == 'V')
+            lily_mb_add_char(msgbuf, ',');
     }
 
     lily_mb_add_char(msgbuf, '}');
@@ -4117,6 +4119,10 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
         else if (lex->token == tk_word && lex->label[0] == 'd' &&
                  keyword_by_name(lex->label) == KEY_DEFINE)
             break;
+        else {
+            NEED_CURRENT_TOK(tk_comma)
+            lily_lexer(lex);
+        }
     }
 
     if (variant_count < 2) {

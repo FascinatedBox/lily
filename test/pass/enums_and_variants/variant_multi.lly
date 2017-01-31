@@ -1,4 +1,4 @@
-enum Test[A] { Multi(A, A) Single(A) }
+enum Test[A] { Multi(A, A), Single(A) }
 
 var v = Multi(1, 2)
 

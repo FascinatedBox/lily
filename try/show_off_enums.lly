@@ -1,5 +1,5 @@
 enum TreeObject {
-    TreeValue(String)
+    TreeValue(String),
     TreeList(TreeObject...)
 
     define as_string: String {

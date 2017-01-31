@@ -4,6 +4,6 @@ SyntaxError: A class with the name 'Fast' already exists.
 ]#
 
 scoped enum Speed {
-    Fast
+    Fast,
     Fast
 }

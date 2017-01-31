@@ -4,8 +4,8 @@ SyntaxError: Variant Gamma should not get args.
 ]#
 
 enum TestE {
-  Alpha
-  Beta
+  Alpha,
+  Beta,
   Gamma
 }
 print(Gamma())

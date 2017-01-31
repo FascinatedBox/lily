@@ -1,5 +1,5 @@
 enum Test[A] {
-    One(A)
+    One(A),
     Two
 
     define or_else(other: A) : A {

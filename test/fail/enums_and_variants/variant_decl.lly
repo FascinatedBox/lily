@@ -4,7 +4,7 @@ SyntaxError: Variant types not allowed in a declaration.
 ]#
 
 enum Test[A] {
-    One(A)
+    One(A),
     Two
 }
 

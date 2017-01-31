@@ -4,7 +4,7 @@ SyntaxError: Unexpected token 'a label'.
 ]#
 
 enum Object {
-    Value
+    Value,
     ObjList(Object...)
 }
 

@@ -1,11 +1,11 @@
 enum StrangeSpeed {
-    Fast
-    Medium
+    Fast,
+    Medium,
     Slow
 }
 
 scoped enum Speed {
-    Fast
-    Medium
+    Fast,
+    Medium,
     Slow
 }

@@ -4,7 +4,7 @@ SyntaxError: Expected '}' or 'define', not 'a label'.
 ]#
 
 enum Test {
-    One
+    One,
     Two
 
     define f {

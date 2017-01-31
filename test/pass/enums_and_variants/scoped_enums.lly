@@ -1,5 +1,5 @@
 scoped enum ScopeTest[A] {
-    One(A)
+    One(A),
     Two
 }
 

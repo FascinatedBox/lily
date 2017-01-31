@@ -3,5 +3,5 @@ SyntaxError: Class 'A' does not exist.
     from generic_bleed.lly:7:
 ]#
 
-enum Test[A] { One(A) Two }
+enum Test[A] { One(A), Two }
 var v: A = 1

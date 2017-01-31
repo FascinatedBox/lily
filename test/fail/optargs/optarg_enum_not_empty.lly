@@ -4,7 +4,7 @@ SyntaxError: Only variants that take no arguments can be default arguments.
 ]#
 
 enum Test {
-    One(Integer)
+    One(Integer),
     Two
 }
 

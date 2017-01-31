@@ -4,7 +4,7 @@ SyntaxError: 'Two' cannot be inherited from.
 ]#
 
 enum Test {
-    One
+    One,
     Two
 }
 

@@ -4,7 +4,7 @@ SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enu
 ]#
 
 scoped enum Test {
-    One
+    One,
     Two
 }
 

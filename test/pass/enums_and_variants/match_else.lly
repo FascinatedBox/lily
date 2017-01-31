@@ -1,6 +1,6 @@
 enum RGB {
-    Red
-    Green
+    Red,
+    Green,
     Blue
 }
 

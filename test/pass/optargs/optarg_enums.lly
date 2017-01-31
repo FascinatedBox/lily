@@ -1,4 +1,4 @@
-enum Color { Black Blue Cyan Green Magenta Red White Yellow }
+enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
 
 define f(a: *Color = Black, b: *Color = Yellow)
 {

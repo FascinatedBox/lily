@@ -4,7 +4,7 @@ SyntaxError: Wrong number of arguments to One (2 for 1).
 ]#
 
 scoped enum Test[A] {
-    One(A)
+    One(A),
     Two
 }
 

@@ -1,5 +1,5 @@
 enum Test[A] {
-    One(A)
+    One(A),
     Two
 
     define with_default(a: *Integer = 0) : Test[A] {

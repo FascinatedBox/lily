@@ -9,7 +9,7 @@ SyntaxError: Wrong number of arguments to One (none for 0+).
 
 enum Test[A]
 {
-    One(A...)
+    One(A...),
     Two
 }
 
