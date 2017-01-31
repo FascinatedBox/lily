@@ -5,9 +5,6 @@
 
 #include "lily_api_embed.h"
 
-/*  lily_main.c
-    This is THE main runner for Lily. */
-
 static void usage()
 {
     fputs("Usage: lily [option] ...\n"
