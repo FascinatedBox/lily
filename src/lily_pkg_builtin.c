@@ -1433,31 +1433,6 @@ void lily_builtin_List_each_index(lily_state *s)
 }
 
 /**
-method List.fill[A](count: Integer, value: A): List[A]
-
-This createa a new `List` that contains `value` repeated `count` times.
-
-# Errors
-
-* `ValueError` if `count` is less than 1.
-*/
-void lily_builtin_List_fill(lily_state *s)
-{
-    int n = lily_arg_integer(s, 0);
-    if (n < 0)
-        lily_ValueError(s, "Repeat count must be >= 0 (%d given).", n);
-
-    lily_value *to_repeat = lily_arg_value(s, 1);
-    lily_container_val *lv = lily_new_list(n);
-
-    int i;
-    for (i = 0;i < n;i++)
-        lily_value_assign(lv->values[i], to_repeat);
-
-    lily_return_list(s, lv);
-}
-
-/**
 method List.fold[A](self: List[A], start: A, fn: Function(A, A => A)): A
 
 This calls `fn` for each element present within `self`. The first value sent to
@@ -1678,6 +1653,31 @@ This calls `fn` for each element within `self`. The result is a newly-made
 void lily_builtin_List_reject(lily_state *s)
 {
     list_select_reject_common(s, 0);
+}
+
+/**
+method List.repeat[A](count: Integer, value: A): List[A]
+
+This createa a new `List` that contains `value` repeated `count` times.
+
+# Errors
+
+* `ValueError` if `count` is less than 1.
+*/
+void lily_builtin_List_repeat(lily_state *s)
+{
+    int n = lily_arg_integer(s, 0);
+    if (n < 0)
+        lily_ValueError(s, "Repeat count must be >= 0 (%d given).", n);
+
+    lily_value *to_repeat = lily_arg_value(s, 1);
+    lily_container_val *lv = lily_new_list(n);
+
+    int i;
+    for (i = 0;i < n;i++)
+        lily_value_assign(lv->values[i], to_repeat);
+
+    lily_return_list(s, lv);
 }
 
 /**

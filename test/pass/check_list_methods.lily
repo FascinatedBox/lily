@@ -107,24 +107,6 @@ ok((||
     )(),                                "List.each_index visits all elements and in order.")
 
 ok((||
-    List.fill(3, 5) == [5, 5, 5]
-    )(),                                "List.fill for type Integer.")
-
-ok((||
-    List.fill(3, Point(1, 2))
-    true
-    )(),                                "List.fill for a user-defined class.")
-
-ok((||
-    var result = false
-    try:
-        List.fill(-1, 0)
-    except ValueError:
-        result = true
-    result
-    )(),                                "List.fill raises ValueError with negative fill.")
-
-ok((||
     [1, 2, 3].fold(0, (|a, b| a + b)) == 6
     )(),                                "List.fold with type Integer.")
 
@@ -212,6 +194,24 @@ ok((||
 ok((||
     [1, 2, 3, 4, 5].reject(|i| (i % 2) == 1) == [2, 4]
     )(),                                "List.reject removing odd numbers.")
+
+ok((||
+    List.repeat(3, 5) == [5, 5, 5]
+    )(),                                "List.repeat for type Integer.")
+
+ok((||
+    List.repeat(3, Point(1, 2))
+    true
+    )(),                                "List.repeat for a user-defined class.")
+
+ok((||
+    var result = false
+    try:
+        List.repeat(-1, 0)
+    except ValueError:
+        result = true
+    result
+    )(),                                "List.repeat raises ValueError with negative repeat.")
 
 ok((||
     [1, 2, 3].select(|a| true) == [1, 2, 3]

@@ -1,4 +1,4 @@
-var doors = List.fill(100, false)
+var doors = List.repeat(100, false)
 
 for i in 0...99:
     for j in i...99 by i + 1:

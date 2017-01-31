@@ -69,7 +69,6 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)):List[A]"
     ,"m\0each_index\0[A](List[A],Function(Integer)):List[A]"
-    ,"m\0fill\0[A](Integer,A):List[A]"
     ,"m\0fold\0[A](List[A],A,Function(A,A=>A)):A"
     ,"m\0insert\0[A](List[A],Integer,A)"
     ,"m\0join\0[A](List[A],*String):String"
@@ -77,6 +76,7 @@ const char *lily_builtin_dynaload_table[] = {
     ,"m\0pop\0[A](List[A]):A"
     ,"m\0push\0[A](List[A],A)"
     ,"m\0reject\0[A](List[A],Function(A=>Boolean)):List[A]"
+    ,"m\0repeat\0[A](Integer,A):List[A]"
     ,"m\0select\0[A](List[A],Function(A=>Boolean)):List[A]"
     ,"m\0size\0[A](List[A]):Integer"
     ,"m\0shift\0[A](List[A]):A"
@@ -184,14 +184,14 @@ void *lily_builtin_loader(lily_state *s, int id)
         case 64: return lily_builtin_List_delete_at;
         case 65: return lily_builtin_List_each;
         case 66: return lily_builtin_List_each_index;
-        case 67: return lily_builtin_List_fill;
-        case 68: return lily_builtin_List_fold;
-        case 69: return lily_builtin_List_insert;
-        case 70: return lily_builtin_List_join;
-        case 71: return lily_builtin_List_map;
-        case 72: return lily_builtin_List_pop;
-        case 73: return lily_builtin_List_push;
-        case 74: return lily_builtin_List_reject;
+        case 67: return lily_builtin_List_fold;
+        case 68: return lily_builtin_List_insert;
+        case 69: return lily_builtin_List_join;
+        case 70: return lily_builtin_List_map;
+        case 71: return lily_builtin_List_pop;
+        case 72: return lily_builtin_List_push;
+        case 73: return lily_builtin_List_reject;
+        case 74: return lily_builtin_List_repeat;
         case 75: return lily_builtin_List_select;
         case 76: return lily_builtin_List_size;
         case 77: return lily_builtin_List_shift;
