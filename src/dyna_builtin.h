@@ -139,9 +139,9 @@ void *lily_builtin_loader(lily_state *s, int id)
         case 1: load_var_stdin(s); return NULL;
         case 2: load_var_stderr(s); return NULL;
         case 3: load_var_stdout(s); return NULL;
-        case 4: return lily_builtin_print;
-        case 5: return lily_builtin_calltrace;
-        case 6: return lily_builtin_assert;
+        case 4: return lily_builtin__print;
+        case 5: return lily_builtin__calltrace;
+        case 6: return lily_builtin__assert;
         case 9: return lily_builtin_Boolean_to_i;
         case 10: return lily_builtin_Boolean_to_s;
         case 12: return lily_builtin_Byte_to_i;

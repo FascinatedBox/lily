@@ -36,7 +36,7 @@ define getenv(name: String): Option[String]
 Search the environment for `name`, returning either a `Some` with the contents,
 or `None`. Internally, this is a wrapper over C's getenv.
 */
-static void lily_sys_getenv(lily_state *s)
+static void lily_sys__getenv(lily_state *s)
 {
     char *env = getenv(lily_arg_string_raw(s, 0));
 

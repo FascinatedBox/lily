@@ -12,7 +12,7 @@ void *lily_sys_loader(lily_state *s, int id)
 {
     switch (id) {
         case 1: load_var_argv(s); return NULL;
-        case 2: return lily_sys_getenv;
+        case 2: return lily_sys__getenv;
         default: return NULL;
     }
 }

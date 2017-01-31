@@ -3248,9 +3248,9 @@ static void load_var_stderr(lily_state *s)
     lily_push_file(s, new_builtin_file(stderr, "w"));
 }
 
-extern void lily_builtin_assert(lily_state *);
-extern void lily_builtin_calltrace(lily_state *);
-extern void lily_builtin_print(lily_state *);
+extern void lily_builtin__assert(lily_state *);
+extern void lily_builtin__calltrace(lily_state *);
+extern void lily_builtin__print(lily_state *);
 
 #include "extras_builtin.h"
 #include "dyna_builtin.h"

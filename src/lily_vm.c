@@ -758,7 +758,7 @@ static void boundary_error(lily_vm_state *vm, int bad_index)
 
 static lily_container_val *build_traceback_raw(lily_vm_state *);
 
-void lily_builtin_calltrace(lily_vm_state *vm)
+void lily_builtin__calltrace(lily_vm_state *vm)
 {
     vm->include_last_frame_in_trace = 0;
     lily_container_val *traceback_val = build_traceback_raw(vm);
@@ -781,7 +781,7 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
     lily_return_unit(vm);
 }
 
-void lily_builtin_assert(lily_vm_state *vm)
+void lily_builtin__assert(lily_vm_state *vm)
 {
     int condition = lily_arg_boolean(vm, 0);
     if (condition == 0) {
@@ -794,12 +794,12 @@ void lily_builtin_assert(lily_vm_state *vm)
     }
 }
 
-void lily_builtin_print(lily_vm_state *vm)
+void lily_builtin__print(lily_vm_state *vm)
 {
     do_print(vm, stdout, lily_arg_value(vm, 0));
 }
 
-/* Initially, print is implemented through lily_builtin_print. However, when
+/* Initially, print is implemented through lily_builtin__print. However, when
    stdout is dynaloaded, that doesn't work. When stdout is found, print needs to
    use the register holding Lily's stdout, not the plain C stdout. */
 static void builtin_stdout_print(lily_vm_state *vm)
