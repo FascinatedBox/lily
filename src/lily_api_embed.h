@@ -12,7 +12,7 @@ lily_state *lily_new_state(void);
 const char *lily_get_error(lily_state *);
 const char *lily_get_error_message(lily_state *);
 
-typedef void (*lily_render_func)(char *, void *);
+typedef void (*lily_render_func)(const char *, void *);
 
 void lily_op_argv(lily_state *, int, char **);
 void lily_op_data(lily_state *, void *);

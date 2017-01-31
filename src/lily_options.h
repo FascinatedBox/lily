@@ -3,7 +3,7 @@
 
 # include <inttypes.h>
 
-typedef void (*lily_render_func)(char *, void *);
+typedef void (*lily_render_func)(const char *, void *);
 
 typedef struct {
     int argc;
