@@ -1,5 +1,46 @@
+Version 1.0 (2017-2-1)
+======================
+
+What's new:
+
+* Most of the work in this release was done in the api. A massive amount
+  of changes were made, breaking everything written against a prior
+  version of the language. The result is now a cleaner api, broken up
+  into msgbuf, embed, and value operations.
+
+* The site has been redone, and the `lily-lang.org` domain has been
+  acquired. For now, it redirects to the gh-pages of
+  `FascinatedBox/lily-site`, but will eventually stand on its own.
+
+* The api is now stable enough that apache is outside of core, along
+  with the `Tainted` class that it exported.
+
+* Added a basic random and time library to the builtin library. Those
+  will eventually be pushed out to the standard library.
+
+* File suffix is now `.lily`.
+
+Syntax:
+
+* `Either` is now `Result`, with the members being `Success` and
+  `Failure`. 
+
+* `List.fill` renamed to `List.repeat`.
+
+* `String.format` and `File.read` added to builtins. These were brought
+  over from @stevedonovan's lily-extras.
+
+* Lambdas use `(|<args>| ... )` instead of `{|<args>| ... }` (braces
+  versus parentheses). This change makes it so braces are limited to
+  blocks.
+
+* Added the `scoped` keyword to denote that variants should always be
+  qualified by their enum name (versus the old style of needing a dot
+  before each variant name). Scoped variants now always take their enum
+  name first in every case (suggested by @radiofreejohn).
+
 Version 0.18 (2016-10-9)
-=========================
+========================
 
 Neat features and the foundation for 1.0.
 

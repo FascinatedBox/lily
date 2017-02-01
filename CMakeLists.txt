@@ -22,9 +22,8 @@ endif()
 set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 
-set(LILY_MAJOR             "0")
-set(LILY_MINOR             "18")
-set(LILY_VERSION_DIR       "${LILY_MAJOR}_${LILY_MINOR}")
+set(LILY_MAJOR             "1")
+set(LILY_MINOR             "0")
 
 add_definitions(-DLILY_VERSION_DIR="${LILY_MAJOR}_${LILY_MINOR}")
 
