@@ -538,8 +538,8 @@ def gen_class_extras(package_entry):
 """.format(package_entry.name, d.name, i))
             inits.append("""\
 #define INIT_{1}(state) \\
-({2})lily_new_foreign(state, ID_{1}(s), (lily_destroy_func)destroy_{1}, sizeof({2}))
-""".format(package_entry.name, d.name, "lily_%s_%s *" % (package_entry.name, d.name)))
+({2} *)lily_new_foreign(state, ID_{1}(s), (lily_destroy_func)destroy_{1}, sizeof({2}))
+""".format(package_entry.name, d.name, "lily_%s_%s" % (package_entry.name, d.name)))
             ids.append("""\
 #define ID_{0}(state) lily_cid_at(state, {1})\
 """.format(d.name, i))
