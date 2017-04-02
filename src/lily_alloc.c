@@ -11,7 +11,11 @@ void *lily_malloc(size_t size)
 
 void *lily_realloc(void *ptr, size_t new_size)
 {
-    return realloc(ptr, new_size);
+    void *result = realloc(ptr, new_size);
+    if (result == NULL)
+        abort();
+
+    return result;
 }
 
 void lily_free(void *ptr)
