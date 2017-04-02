@@ -84,7 +84,7 @@ typedef struct lily_rewind_state_
    when it shouldn't. */
 lily_state *lily_new_state(void)
 {
-    lily_parse_state *parser = lily_malloc(sizeof(lily_parse_state));
+    lily_parse_state *parser = lily_malloc(sizeof(*parser));
     parser->module_top = NULL;
     parser->module_start = NULL;
     parser->options = lily_new_options();
@@ -98,7 +98,7 @@ lily_state *lily_new_state(void)
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
     parser->vm = lily_new_vm_state(parser->options, raiser);
-    parser->rs = lily_malloc(sizeof(lily_rewind_state));
+    parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
 
     parser->vm->parser = parser;
@@ -391,9 +391,9 @@ static void set_module_names_by_path(lily_module_entry *module,
         const char *path)
 {
     if (path[0] == '[') {
-        module->loadname = lily_malloc(1);
+        module->loadname = lily_malloc(1 * sizeof(*module->loadname));
         module->loadname[0] = '\0';
-        module->dirname = lily_malloc(2);
+        module->dirname = lily_malloc(2 * sizeof(*module->dirname));
         strcpy(module->dirname, ".");
         module->cmp_len = 0;
     }
@@ -401,13 +401,14 @@ static void set_module_names_by_path(lily_module_entry *module,
         const char *slash = strrchr(path, LILY_PATH_CHAR);
 
         if (slash == NULL) {
-            module->dirname = lily_malloc(1);
+            module->dirname = lily_malloc(1 * sizeof(*module->dirname));
             module->dirname[0] = '\0';
             slash = path;
         }
         else {
             int bare_len = slash - path;
-            module->dirname = lily_malloc(bare_len + 1);
+            module->dirname = lily_malloc((bare_len + 1) *
+                    sizeof(*module->dirname));
 
             strncpy(module->dirname, path, bare_len);
             module->dirname[bare_len] = '\0';
@@ -422,7 +423,8 @@ static void set_module_names_by_path(lily_module_entry *module,
         if (dot == NULL)
             load_len = strlen(path);
 
-        module->loadname = lily_malloc(load_len + 1);
+        module->loadname = lily_malloc((load_len + 1) *
+                sizeof(*module->loadname));
         strncpy(module->loadname, slash, load_len);
         module->loadname[load_len] = '\0';
 
@@ -433,10 +435,10 @@ static void set_module_names_by_path(lily_module_entry *module,
 static lily_module_entry *new_module(lily_parse_state *parser, const char *path,
         const char **dynaload_table)
 {
-    lily_module_entry *module = lily_malloc(sizeof(lily_module_entry));
+    lily_module_entry *module = lily_malloc(sizeof(*module));
 
     if (path) {
-        module->path = lily_malloc(strlen(path) + 1);
+        module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
         strcpy(module->path, path);
 
         set_module_names_by_path(module, path);
@@ -453,8 +455,8 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path,
     if (dynaload_table && dynaload_table[0][0]) {
         unsigned char cid_count = dynaload_table[0][0];
 
-        module->cid_table = lily_malloc(cid_count * sizeof(uint16_t));
-        memset(module->cid_table, 0, cid_count * sizeof(uint16_t));
+        module->cid_table = lily_malloc(cid_count * sizeof(*module->cid_table));
+        memset(module->cid_table, 0, cid_count * sizeof(*module->cid_table));
     }
     else
         module->cid_table = NULL;
@@ -498,12 +500,12 @@ void lily_register_package(lily_state *s, const char *name,
 static void link_module_to(lily_module_entry *target, lily_module_entry *to_link,
         const char *as_name)
 {
-    lily_module_link *new_link = lily_malloc(sizeof(lily_module_link));
+    lily_module_link *new_link = lily_malloc(sizeof(*new_link));
     char *link_name;
     if (as_name == NULL)
         link_name = NULL;
     else {
-        link_name = lily_malloc(strlen(as_name) + 1);
+        link_name = lily_malloc((strlen(as_name) + 1) * sizeof(*link_name));
         strcpy(link_name, as_name);
     }
 

@@ -6,9 +6,9 @@
 
 lily_generic_pool *lily_new_generic_pool(void)
 {
-    lily_generic_pool *gp = lily_malloc(sizeof(lily_generic_pool));
-    lily_class **cache_generics = lily_malloc(4 * sizeof(lily_class *));
-    lily_class **scope_generics = lily_malloc(4 * sizeof(lily_class *));
+    lily_generic_pool *gp = lily_malloc(sizeof(*gp));
+    lily_class **cache_generics = lily_malloc(4 * sizeof(*cache_generics));
+    lily_class **scope_generics = lily_malloc(4 * sizeof(*scope_generics));
 
     gp->cache_generics = cache_generics;
     gp->cache_size = 4;
@@ -83,7 +83,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
         if (i + 1 == gp->cache_size) {
             gp->cache_size *= 2;
             lily_class **new_cache = lily_realloc(gp->cache_generics,
-                    gp->cache_size * sizeof(lily_class *));
+                    gp->cache_size * sizeof(*new_cache));
 
             for (i = i + 1;i < gp->cache_size;i++)
                 new_cache[i] = NULL;
@@ -95,7 +95,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
     if (gp->scope_end == gp->scope_size) {
         gp->scope_size *= 2;
         lily_class **new_scope = lily_realloc(gp->scope_generics,
-                gp->scope_size * sizeof(lily_class *));
+                gp->scope_size * sizeof(*new_scope));
 
         gp->scope_generics = new_scope;
     }

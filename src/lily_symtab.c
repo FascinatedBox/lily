@@ -19,7 +19,7 @@
 
 lily_symtab *lily_new_symtab(lily_generic_pool *gp)
 {
-    lily_symtab *symtab = lily_malloc(sizeof(lily_symtab));
+    lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
     symtab->main_function = NULL;
     symtab->next_class_id = 1;
@@ -219,7 +219,7 @@ void lily_free_symtab(lily_symtab *symtab)
 
 static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 {
-    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(*v));
 
     bv->refcount++;
     v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
@@ -229,7 +229,7 @@ static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 
 static lily_value *new_value_of_double(double d)
 {
-    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(*v));
 
     v->flags = LILY_DOUBLE_ID;
     v->value.doubleval = d;
@@ -238,7 +238,7 @@ static lily_value *new_value_of_double(double d)
 
 static lily_value *new_value_of_integer(int64_t i)
 {
-    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(*v));
 
     v->flags = LILY_INTEGER_ID;
     v->value.integer = i;
@@ -247,7 +247,7 @@ static lily_value *new_value_of_integer(int64_t i)
 
 static lily_value *new_value_of_string(lily_string_val *sv)
 {
-    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(*v));
 
     sv->refcount++;
     v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
@@ -402,7 +402,7 @@ static void store_function(lily_symtab *symtab, lily_var *func_var,
     func_val->line_num = func_var->line_num;
     func_val->module = module;
 
-    lily_value *v = lily_malloc(sizeof(lily_value));
+    lily_value *v = lily_malloc(sizeof(*v));
     v->flags = LILY_FUNCTION_ID;
     v->value.function = func_val;
 
@@ -454,9 +454,9 @@ static uint64_t shorthash_for_name(const char *name)
 lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
         const char *name)
 {
-    lily_var *var = lily_malloc(sizeof(lily_var));
+    lily_var *var = lily_malloc(sizeof(*var));
 
-    var->name = lily_malloc(strlen(name) + 1);
+    var->name = lily_malloc((strlen(name) + 1) * sizeof(*var->name));
     var->item_kind = ITEM_TYPE_VAR;
     var->flags = 0;
     strcpy(var->name, name);
@@ -545,8 +545,8 @@ void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
    is not added to the symtab, and has no id set upon it. */
 lily_class *lily_new_raw_class(const char *name)
 {
-    lily_class *new_class = lily_malloc(sizeof(lily_class));
-    char *name_copy = lily_malloc(strlen(name) + 1);
+    lily_class *new_class = lily_malloc(sizeof(*new_class));
+    char *name_copy = lily_malloc((strlen(name) + 1) * sizeof(*name_copy));
 
     strcpy(name_copy, name);
 
@@ -737,8 +737,8 @@ static lily_module_entry *find_module(lily_module_entry *module,
 lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
         lily_type *type, const char *name, int flags)
 {
-    lily_prop_entry *entry = lily_malloc(sizeof(lily_prop_entry));
-    char *entry_name = lily_malloc(strlen(name) + 1);
+    lily_prop_entry *entry = lily_malloc(sizeof(*entry));
+    char *entry_name = lily_malloc((strlen(name) + 1) * sizeof(*entry_name));
 
     strcpy(entry_name, name);
 
@@ -771,14 +771,14 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
         lily_class *enum_cls, const char *name)
 {
-    lily_variant_class *variant = lily_malloc(sizeof(lily_variant_class));
+    lily_variant_class *variant = lily_malloc(sizeof(*variant));
 
     variant->item_kind = ITEM_TYPE_VARIANT;
     variant->flags = CLS_EMPTY_VARIANT;
     variant->parent = enum_cls;
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
-    variant->name = lily_malloc(strlen(name) + 1);
+    variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);
 
     variant->cls_id = symtab->next_class_id;

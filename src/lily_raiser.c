@@ -6,8 +6,8 @@
 
 lily_raiser *lily_new_raiser(void)
 {
-    lily_raiser *raiser = lily_malloc(sizeof(lily_raiser));
-    lily_jump_link *first_jump = lily_malloc(sizeof(lily_jump_link));
+    lily_raiser *raiser = lily_malloc(sizeof(*raiser));
+    lily_jump_link *first_jump = lily_malloc(sizeof(*first_jump));
     first_jump->prev = NULL;
     first_jump->next = NULL;
 
@@ -44,7 +44,7 @@ lily_jump_link *lily_jump_setup(lily_raiser *raiser)
     if (raiser->all_jumps->next)
         raiser->all_jumps = raiser->all_jumps->next;
     else {
-        lily_jump_link *new_link = lily_malloc(sizeof(lily_jump_link));
+        lily_jump_link *new_link = lily_malloc(sizeof(*new_link));
         new_link->prev = raiser->all_jumps;
         raiser->all_jumps->next = new_link;
 

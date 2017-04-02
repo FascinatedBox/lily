@@ -3,9 +3,9 @@
 
 lily_value_stack *lily_new_value_stack(void)
 {
-    lily_value_stack *vs = lily_malloc(sizeof(lily_value_stack));
+    lily_value_stack *vs = lily_malloc(sizeof(*vs));
 
-    vs->data = lily_malloc(4 * sizeof(lily_value *));
+    vs->data = lily_malloc(4 * sizeof(*vs->data));
     vs->pos = 0;
     vs->size = 4;
 
@@ -16,7 +16,7 @@ void lily_vs_push(lily_value_stack *vs, lily_value *value)
 {
     if (vs->pos + 1 > vs->size) {
         vs->size *= 2;
-        vs->data = lily_realloc(vs->data, vs->size * sizeof(lily_value *));
+        vs->data = lily_realloc(vs->data, vs->size * sizeof(*vs->data));
     }
 
     vs->data[vs->pos] = value;

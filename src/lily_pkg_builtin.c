@@ -285,8 +285,8 @@ static const char follower_table[256] =
 
 static lily_string_val *make_sv(lily_state *s, int size)
 {
-    lily_string_val *new_sv = lily_malloc(sizeof(lily_string_val));
-    char *new_string = lily_malloc(sizeof(char) * size);
+    lily_string_val *new_sv = lily_malloc(sizeof(*new_sv));
+    char *new_string = lily_malloc(sizeof(*new_string) * size);
 
     new_sv->string = new_string;
     new_sv->size = size - 1;
@@ -610,7 +610,7 @@ void lily_builtin_File_print(lily_state *s)
 
 static lily_bytestring_val *new_sv_take(char *buffer)
 {
-    lily_bytestring_val *sv = lily_malloc(sizeof(lily_string_val));
+    lily_bytestring_val *sv = lily_malloc(sizeof(*sv));
     sv->refcount = 0;
     sv->string = buffer;
     sv->size = strlen(buffer);
@@ -641,7 +641,7 @@ void lily_builtin_File_read(lily_state *s)
         need = -1;
 
     size_t bufsize = 64;
-    char *buffer = lily_malloc(bufsize);
+    char *buffer = lily_malloc(bufsize * sizeof(*buffer));
     int pos = 0, nread;
     int nbuf = bufsize/2;
 
@@ -659,7 +659,7 @@ void lily_builtin_File_read(lily_state *s)
         if (pos >= bufsize) {
             nbuf = bufsize;
             bufsize *= 2;
-            buffer = lily_realloc(buffer, bufsize);
+            buffer = lily_realloc(buffer, bufsize * sizeof(*buffer));
         }
 
         /* Done if EOF hit (first), or got what was wanted (second). */
@@ -1334,7 +1334,7 @@ static void make_extra_space_in_list(lily_container_val *lv)
     /* There's probably room for improvement here, later on. */
     int extra = (lv->num_values + 8) >> 2;
     lv->values = lily_realloc(lv->values,
-            (lv->num_values + extra) * sizeof(lily_value *));
+            (lv->num_values + extra) * sizeof(*lv->values));
     lv->extra_space = extra;
 }
 
@@ -1386,7 +1386,7 @@ void lily_builtin_List_delete_at(lily_state *s)
     /* Shove everything leftward hide the hole from erasing the value. */
     if (pos != list_val->num_values)
         memmove(list_val->values + pos, list_val->values + pos + 1,
-                (list_val->num_values - pos) * sizeof(lily_value *));
+                (list_val->num_values - pos) * sizeof(*list_val->values));
 
     list_val->num_values--;
     list_val->extra_space++;
@@ -1496,7 +1496,7 @@ void lily_builtin_List_insert(lily_state *s)
     /* Shove everything rightward to make space for the new value. */
     if (insert_pos != list_val->num_values)
         memmove(list_val->values + insert_pos + 1, list_val->values + insert_pos,
-                (list_val->num_values - insert_pos) * sizeof(lily_value *));
+                (list_val->num_values - insert_pos) * sizeof(*list_val->values));
 
     list_val->values[insert_pos] = lily_value_copy(insert_value);
     list_val->num_values++;
@@ -1732,7 +1732,7 @@ void lily_builtin_List_shift(lily_state *s)
     if (list_val->num_values != 1)
         memmove(list_val->values, list_val->values + 1,
                 (list_val->num_values - 1) *
-                sizeof(lily_value *));
+                sizeof(*list_val->values));
 
     list_val->num_values--;
     list_val->extra_space++;
@@ -1801,7 +1801,7 @@ void lily_builtin_List_unshift(lily_state *s)
 
     if (list_val->num_values != 0)
         memmove(list_val->values + 1, list_val->values,
-                list_val->num_values * sizeof(lily_value *));
+                list_val->num_values * sizeof(*list_val->values));
 
     list_val->values[0] = lily_value_copy(input_reg);
 

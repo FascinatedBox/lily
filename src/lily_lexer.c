@@ -100,7 +100,7 @@ static const lily_token grp_two_eq_table[] =
 lily_lex_state *lily_new_lex_state(lily_options *options,
         lily_raiser *raiser)
 {
-    lily_lex_state *lexer = lily_malloc(sizeof(lily_lex_state));
+    lily_lex_state *lexer = lily_malloc(sizeof(*lexer));
     lexer->data = options->data;
     lexer->render_func = options->render_func;
 
@@ -109,13 +109,13 @@ lily_lex_state *lily_new_lex_state(lily_options *options,
     lexer->last_digit_start = 0;
     lexer->entry = NULL;
     lexer->raiser = raiser;
-    lexer->input_buffer = lily_malloc(128 * sizeof(char));
-    lexer->label = lily_malloc(128 * sizeof(char));
+    lexer->input_buffer = lily_malloc(128 * sizeof(*lexer->input_buffer));
+    lexer->label = lily_malloc(128 * sizeof(*lexer->label));
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
     lexer->docstring = NULL;
-    ch_class = lily_malloc(256 * sizeof(char));
+    ch_class = lily_malloc(256 * sizeof(*ch_class));
 
     lexer->input_pos = 0;
     lexer->input_size = 128;
@@ -244,7 +244,7 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
 
     if (lexer->entry == NULL ||
         (lexer->entry->source != NULL && lexer->entry->next == NULL)) {
-        ret_entry = lily_malloc(sizeof(lily_lex_entry));
+        ret_entry = lily_malloc(sizeof(*ret_entry));
 
         if (lexer->entry == NULL) {
             lexer->entry = ret_entry;
@@ -276,9 +276,10 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
         /* size + 1 isn't needed here because the input buffer's size includes
            space for the \0. */
         if (prev_entry->saved_input == NULL)
-            new_input = lily_malloc(lexer->input_size);
+            new_input = lily_malloc(lexer->input_size * sizeof(*new_input));
         else if (prev_entry->saved_input_size < lexer->input_size)
-            new_input = lily_realloc(prev_entry->saved_input, lexer->input_size);
+            new_input = lily_realloc(prev_entry->saved_input,
+                    lexer->input_size * sizeof(*new_input));
         else
             new_input = prev_entry->saved_input;
 
@@ -867,7 +868,7 @@ static void ensure_label_size(lily_lex_state *lexer, int at_least)
     while (new_size < at_least)
         new_size *= 2;
 
-    char *new_data = lily_realloc(lexer->label, new_size);
+    char *new_data = lily_realloc(lexer->label, new_size * sizeof(*new_data));
 
     lexer->label = new_data;
     lexer->label_size = new_size;
@@ -892,7 +893,7 @@ static void scan_docstring(lily_lex_state *lexer, char **ch)
             /* No checking needs to be done for a prior docstring because parser
                makes sure docstrings are always followed by a function
                definition. */
-            lexer->docstring = lily_malloc(sizeof(char) * label_pos);
+            lexer->docstring = lily_malloc(sizeof(*lexer->docstring) * label_pos);
             strcpy(lexer->docstring, lexer->label);
 
             *ch = lexer->input_buffer + i;
@@ -1334,14 +1335,14 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
        have to check for potential overflows. */
     if (lexer->label_size == lexer->input_size) {
         char *new_label;
-        new_label = lily_realloc(lexer->label, new_size * sizeof(char));
+        new_label = lily_realloc(lexer->label, new_size * sizeof(*new_label));
 
         lexer->label = new_label;
         lexer->label_size = new_size;
     }
 
     char *new_lb;
-    new_lb = lily_realloc(lexer->input_buffer, new_size * sizeof(char));
+    new_lb = lily_realloc(lexer->input_buffer, new_size * sizeof(*new_lb));
 
     lexer->input_buffer = new_lb;
     lexer->input_size = new_size;
@@ -1406,7 +1407,7 @@ void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
              mode == et_interpolation) {
         lily_lex_entry *new_entry = get_entry(lexer);
 
-        char *copy = lily_malloc(strlen(name) + 1);
+        char *copy = lily_malloc((strlen(name) + 1) * sizeof(*copy));
 
         strcpy(copy, name);
 
