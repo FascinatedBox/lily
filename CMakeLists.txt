@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0)
-project("Lily")
+project("Lily" C)
 
 if(MSVC)
     add_definitions(/W4)
@@ -7,7 +7,9 @@ if(MSVC)
     add_definitions(/wd4204)
     add_definitions(/wd4214)
     add_definitions(/MP)
+    set(CMAKE_CTEST_COMMAND	copy lily.exe ..)
 else()
+    set(CMAKE_CTEST_COMMAND	cp lily ..)
     if(DEBUG)
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -g3")
     endif(DEBUG)
@@ -43,3 +45,8 @@ add_subdirectory(run)
 if(WITH_SANDBOX)
     add_subdirectory(sandbox)
 endif(WITH_SANDBOX)
+
+set(TEST_COMMAND cd .. && python pre-commit-hook.py --verbose)
+add_custom_target(check ${CMAKE_CTEST_COMMAND}
+  COMMAND ${TEST_COMMAND}
+  DEPENDS lily VERBATIM)
