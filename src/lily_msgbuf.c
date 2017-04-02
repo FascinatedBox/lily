@@ -135,7 +135,7 @@ const char *lily_mb_get(lily_msgbuf *msgbuf)
 
 void lily_mb_add(lily_msgbuf *msgbuf, const char *str)
 {
-    int len = strlen(str);
+    size_t len = strlen(str);
 
     if ((msgbuf->pos + len + 1) > msgbuf->size)
         resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
@@ -297,7 +297,8 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
         va_list var_args)
 {
     char buffer[128];
-    int i, len, text_start;
+    int i, text_start;
+    size_t len;
 
     text_start = 0;
     len = strlen(fmt);

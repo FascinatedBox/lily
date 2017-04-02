@@ -289,7 +289,7 @@ lily_string_val *lily_new_string_sized(const char *source, int len)
    of what is inside 'source'. The source is expected to be \0 terminated. */
 lily_string_val *lily_new_string(const char *source)
 {
-    int len = strlen(source);
+    size_t len = strlen(source);
     char *buffer = lily_malloc(len + 1);
     strcpy(buffer, source);
 

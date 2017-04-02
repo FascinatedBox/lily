@@ -363,7 +363,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
         const char *want_string)
 {
     lily_literal *iter = first_lit_of(symtab->literals, LILY_STRING_ID);
-    int want_string_len = strlen(want_string);
+    size_t want_string_len = strlen(want_string);
 
     while (iter) {
         if (iter->value.string->size == want_string_len &&

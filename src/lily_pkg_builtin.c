@@ -2520,7 +2520,8 @@ void lily_builtin_String_lstrip(lily_state *s)
 
     char *strip_str;
     unsigned char ch;
-    int copy_from, i, has_multibyte_char, strip_str_len;
+    int copy_from, i, has_multibyte_char;
+    size_t strip_str_len;
     lily_string_val *strip_sv;
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
@@ -2776,7 +2777,8 @@ void lily_builtin_String_rstrip(lily_state *s)
 
     char *strip_str;
     unsigned char ch;
-    int copy_to, i, has_multibyte_char, strip_str_len;
+    int copy_to, i, has_multibyte_char;
+    size_t strip_str_len;
     lily_string_val *strip_sv;
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
@@ -3020,7 +3022,7 @@ void lily_builtin_String_strip(lily_state *s)
     char ch;
     lily_string_val *strip_sv = strip_arg->value.string;
     char *strip_str = strip_sv->string;
-    int strip_str_len = strlen(strip_str);
+    size_t strip_str_len = strlen(strip_str);
     int has_multibyte_char = 0;
     int copy_from, copy_to, i;
 
