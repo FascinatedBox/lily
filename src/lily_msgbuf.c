@@ -29,9 +29,9 @@ typedef struct lily_msgbuf_ {
 
 lily_msgbuf *lily_new_msgbuf(uint32_t initial)
 {
-    lily_msgbuf *msgbuf = lily_malloc(sizeof(lily_msgbuf));
+    lily_msgbuf *msgbuf = lily_malloc(sizeof(*msgbuf));
 
-    msgbuf->message = lily_malloc(initial * sizeof(char));
+    msgbuf->message = lily_malloc(initial * sizeof(*msgbuf->message));
     msgbuf->message[0] = '\0';
     msgbuf->pos = 0;
     msgbuf->size = initial;
@@ -44,7 +44,8 @@ static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
     while (msgbuf->size < new_size)
         msgbuf->size *= 2;
 
-    msgbuf->message = lily_realloc(msgbuf->message, msgbuf->size);
+    msgbuf->message = lily_realloc(msgbuf->message,
+            msgbuf->size * sizeof(*msgbuf->message));
 }
 
 static void add_escaped_char(lily_msgbuf *msgbuf, char ch)

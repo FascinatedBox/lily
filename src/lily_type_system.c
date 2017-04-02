@@ -33,8 +33,8 @@ if (new_size >= ts->max) \
 lily_type_system *lily_new_type_system(lily_type_maker *tm,
         lily_type *dynamic_type, lily_type *question_type)
 {
-    lily_type_system *ts = lily_malloc(sizeof(lily_type_system));
-    lily_type **types = lily_malloc(4 * sizeof(lily_type *));
+    lily_type_system *ts = lily_malloc(sizeof(*ts));
+    lily_type **types = lily_malloc(4 * sizeof(*types));
 
     ts->tm = tm;
     ts->types = types;
@@ -62,7 +62,7 @@ static void grow_types(lily_type_system *ts)
 {
     ts->max *= 2;
     ts->types = lily_realloc(ts->types,
-            sizeof(lily_type *) * ts->max);;
+            sizeof(*ts->types) * ts->max);;
 }
 
 lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,

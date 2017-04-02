@@ -61,7 +61,7 @@ static long primes[] =
         bin_pos = hash_val % table->num_bins;\
     }\
     \
-    entry = lily_malloc(sizeof(lily_hash_entry));\
+    entry = lily_malloc(sizeof(*entry));\
     \
     entry->boxed_key = lily_value_copy(key_box); \
     entry->raw_key = key_raw; \
@@ -105,16 +105,15 @@ static lily_hash_val *new_table_sized(int size, int (*compare_fn)(),
 
     size = new_size(size); /* round up to prime number */
 
-    tbl = lily_malloc(sizeof(lily_hash_val));
+    tbl = lily_malloc(sizeof(*tbl));
     tbl->refcount = 0;
     tbl->iter_count = 0;
     tbl->compare_fn = compare_fn;
     tbl->hash_fn = hash_fn;
     tbl->num_entries = 0;
     tbl->num_bins = size;
-    tbl->bins =
-            (lily_hash_entry **)lily_malloc(size * sizeof(lily_hash_entry *));
-    memset(tbl->bins, 0, size * sizeof(lily_hash_entry *));
+    tbl->bins = lily_malloc(size * sizeof(*tbl->bins));
+    memset(tbl->bins, 0, size * sizeof(*tbl->bins));
 
     return tbl;
 }
@@ -177,9 +176,8 @@ static void rehash(lily_hash_val *table)
     unsigned int hash_val;
 
     new_num_bins = new_size(old_num_bins+1);
-    new_bins = (lily_hash_entry **)lily_malloc(
-            new_num_bins * sizeof(lily_hash_entry *));
-    memset(new_bins, 0, new_num_bins * sizeof(lily_hash_entry *));
+    new_bins = lily_malloc(new_num_bins * sizeof(*new_bins));
+    memset(new_bins, 0, new_num_bins * sizeof(*new_bins));
 
     for(i = 0; i < old_num_bins; i++) {
         ptr = table->bins[i];

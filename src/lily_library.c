@@ -46,7 +46,7 @@ lily_library *lily_library_load(const char *path)
         return NULL;
     }
 
-    lily_library *lib = lily_malloc(sizeof(lily_library));
+    lily_library *lib = lily_malloc(sizeof(*lib));
     lib->source = handle;
     lib->dynaload_table = (const char **)dynaload_table;
 

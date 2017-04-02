@@ -5,9 +5,9 @@
 
 lily_string_pile *lily_new_string_pile(void)
 {
-    lily_string_pile *sp = lily_malloc(sizeof(lily_string_pile));
+    lily_string_pile *sp = lily_malloc(sizeof(*sp));
 
-    sp->buffer = lily_malloc(64);
+    sp->buffer = lily_malloc(64 * sizeof(*sp->buffer));
     sp->size = 63;
 
     return sp;
@@ -26,7 +26,8 @@ void lily_sp_insert(lily_string_pile *sp, char *new_str, uint16_t *pos)
         while (sp->size < want_size)
             sp->size *= 2;
 
-        char *new_buffer = lily_realloc(sp->buffer, sp->size);
+        char *new_buffer = lily_realloc(sp->buffer,
+                sp->size * sizeof(*new_buffer));
         sp->buffer = new_buffer;
     }
 

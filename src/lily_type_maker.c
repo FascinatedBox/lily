@@ -10,9 +10,9 @@
 
 lily_type_maker *lily_new_type_maker(void)
 {
-    lily_type_maker *tm = lily_malloc(sizeof(lily_type_maker));
+    lily_type_maker *tm = lily_malloc(sizeof(*tm));
 
-    tm->types = lily_malloc(sizeof(lily_type *) * 4);
+    tm->types = lily_malloc(sizeof(*tm->types) * 4);
     tm->pos = 0;
     tm->size = 4;
 
@@ -21,7 +21,7 @@ lily_type_maker *lily_new_type_maker(void)
 
 lily_type *lily_new_raw_type(lily_class *cls)
 {
-    lily_type *new_type = lily_malloc(sizeof(lily_type));
+    lily_type *new_type = lily_malloc(sizeof(*new_type));
     new_type->item_kind = ITEM_TYPE_TYPE;
     new_type->cls = cls;
     new_type->flags = 0;
@@ -39,7 +39,7 @@ void lily_tm_reserve(lily_type_maker *tm, int amount)
         while (tm->pos + amount > tm->size)
             tm->size *= 2;
 
-        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
+        tm->types = lily_realloc(tm->types, sizeof(*tm->types) * tm->size);
     }
 }
 
@@ -53,7 +53,7 @@ void lily_tm_add(lily_type_maker *tm, lily_type *type)
 {
     if (tm->pos + 1 == tm->size) {
         tm->size *= 2;
-        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
+        tm->types = lily_realloc(tm->types, sizeof(*tm->types) * tm->size);
     }
 
     tm->types[tm->pos] = type;
@@ -66,7 +66,7 @@ void lily_tm_insert(lily_type_maker *tm, int pos, lily_type *type)
         while (pos >= tm->size)
             tm->size *= 2;
 
-        tm->types = lily_realloc(tm->types, sizeof(lily_type *) * tm->size);
+        tm->types = lily_realloc(tm->types, sizeof(*tm->types) * tm->size);
     }
 
     tm->types[pos] = type;
@@ -126,8 +126,8 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     memcpy(new_type, fake_type, sizeof(lily_type));
 
     int count = fake_type->subtype_count;
-    lily_type **new_subtypes = lily_malloc(count * sizeof(lily_type *));
-    memcpy(new_subtypes, fake_type->subtypes, count * sizeof(lily_type *));
+    lily_type **new_subtypes = lily_malloc(count * sizeof(*new_subtypes));
+    memcpy(new_subtypes, fake_type->subtypes, count * sizeof(*new_subtypes));
     new_type->subtypes = new_subtypes;
     new_type->subtype_count = count;
 

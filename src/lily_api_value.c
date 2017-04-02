@@ -200,8 +200,8 @@ void lily_pop_value(lily_state *s)
 
 lily_container_val *new_container(uint16_t class_id, int num_values)
 {
-    lily_container_val *cv = lily_malloc(sizeof(lily_container_val));
-    cv->values = lily_malloc(num_values * sizeof(lily_value *));
+    lily_container_val *cv = lily_malloc(sizeof(*cv));
+    cv->values = lily_malloc(num_values * sizeof(*cv->values));
     cv->refcount = 0;
     cv->num_values = num_values;
     cv->extra_space = 0;
@@ -210,7 +210,7 @@ lily_container_val *new_container(uint16_t class_id, int num_values)
 
     int i;
     for (i = 0;i < num_values;i++) {
-        lily_value *elem = lily_malloc(sizeof(lily_value));
+        lily_value *elem = lily_malloc(sizeof(*elem));
         elem->flags = 0;
         cv->values[i] = elem;
     }
@@ -229,7 +229,7 @@ lily_container_val *lily_new_dynamic(void)
    Lily will close the File when it is deref'd/collected if it is open. */
 lily_file_val *lily_new_file(FILE *inner_file, const char *mode)
 {
-    lily_file_val *filev = lily_malloc(sizeof(lily_file_val));
+    lily_file_val *filev = lily_malloc(sizeof(*filev));
 
     int plus = strchr(mode, '+') != NULL;
 
@@ -245,7 +245,7 @@ lily_file_val *lily_new_file(FILE *inner_file, const char *mode)
 lily_foreign_val *lily_new_foreign(lily_state *s, uint16_t id,
         lily_destroy_func func, size_t size)
 {
-    lily_foreign_val *fv = lily_malloc(size);
+    lily_foreign_val *fv = lily_malloc(size * sizeof(*fv));
     fv->refcount = 0;
     fv->class_id = id;
     fv->destroy_func = func;
@@ -265,7 +265,7 @@ lily_container_val *lily_new_instance(uint16_t class_id, int initial)
 
 static lily_string_val *new_sv(char *buffer, int size)
 {
-    lily_string_val *sv = lily_malloc(sizeof(lily_string_val));
+    lily_string_val *sv = lily_malloc(sizeof(*sv));
     sv->refcount = 0;
     sv->string = buffer;
     sv->size = size;
@@ -278,7 +278,7 @@ static lily_string_val *new_sv(char *buffer, int size)
    will */
 lily_string_val *lily_new_string_sized(const char *source, int len)
 {
-    char *buffer = lily_malloc(len + 1);
+    char *buffer = lily_malloc((len + 1) * sizeof(*buffer));
     memcpy(buffer, source, len);
     buffer[len] = '\0';
 
@@ -290,7 +290,7 @@ lily_string_val *lily_new_string_sized(const char *source, int len)
 lily_string_val *lily_new_string(const char *source)
 {
     size_t len = strlen(source);
-    char *buffer = lily_malloc(len + 1);
+    char *buffer = lily_malloc((len + 1) * sizeof(*buffer));
     strcpy(buffer, source);
 
     return new_sv(buffer, len);
@@ -585,7 +585,7 @@ lily_value *lily_value_copy(lily_value *input)
     if (input->flags & VAL_IS_DEREFABLE)
         input->value.generic->refcount++;
 
-    lily_value *result = lily_malloc(sizeof(lily_value));
+    lily_value *result = lily_malloc(sizeof(*result));
     result->flags = input->flags;
     result->value = input->value;
 

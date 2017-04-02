@@ -110,7 +110,7 @@ static void invoke_gc(lily_vm_state *);
 lily_vm_state *lily_new_vm_state(lily_options *options,
         lily_raiser *raiser)
 {
-    lily_vm_state *vm = lily_malloc(sizeof(lily_vm_state));
+    lily_vm_state *vm = lily_malloc(sizeof(*vm));
     /* Starting gc options are completely arbitrary. */
     vm->gc_threshold = 100;
     vm->gc_multiplier = 4;
@@ -136,7 +136,7 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->include_last_frame_in_trace = 1;
     vm->options = options;
 
-    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(lily_vm_catch_entry));
+    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
     catch_entry->prev = NULL;
     catch_entry->next = NULL;
 
@@ -473,7 +473,7 @@ void lily_value_tag(lily_vm_state *vm, lily_value *v)
         vm->gc_spare_entries = vm->gc_spare_entries->next;
     }
     else
-        new_entry = lily_malloc(sizeof(lily_gc_entry));
+        new_entry = lily_malloc(sizeof(*new_entry));
 
     new_entry->value.gc_generic = v->value.gc_generic;
     new_entry->last_pass = 0;
@@ -528,14 +528,14 @@ static void grow_vm_registers(lily_vm_state *vm, int register_need)
     while (size < register_need);
 
     new_regs = lily_realloc(vm->regs_from_main, size *
-            sizeof(lily_value *));
+            sizeof(*new_regs));
 
     vm->regs_from_main = new_regs;
 
     /* Now create the registers as a bunch of empty values, to be filled in
        whenever they are needed. */
     for (;i < size;i++) {
-        lily_value *v = lily_malloc(sizeof(lily_value));
+        lily_value *v = lily_malloc(sizeof(*v));
         v->flags = 0;
 
         new_regs[i] = v;
@@ -632,7 +632,7 @@ TYPE_FN(push, GROW_CHECK, vm->regs_from_main[frame->total_regs], frame->total_re
 
 static void add_call_frame(lily_vm_state *vm)
 {
-    lily_call_frame *new_frame = lily_malloc(sizeof(lily_call_frame));
+    lily_call_frame *new_frame = lily_malloc(sizeof(*new_frame));
 
     /* This intentionally doesn't set anything but prev and next because the
        caller will have proper values for those. */
@@ -648,7 +648,7 @@ static void add_call_frame(lily_vm_state *vm)
 
 static void add_catch_entry(lily_vm_state *vm)
 {
-    lily_vm_catch_entry *new_entry = lily_malloc(sizeof(lily_vm_catch_entry));
+    lily_vm_catch_entry *new_entry = lily_malloc(sizeof(*new_entry));
 
     vm->catch_chain->next = new_entry;
     new_entry->next = NULL;
@@ -1193,7 +1193,7 @@ static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
    value is given a ref increase. */
 static lily_value *make_cell_from(lily_value *value)
 {
-    lily_value *result = lily_malloc(sizeof(lily_value));
+    lily_value *result = lily_malloc(sizeof(*result));
     *result = *value;
     result->cell_refcount = 1;
     if (value->flags & VAL_IS_DEREFABLE)
@@ -1205,7 +1205,7 @@ static lily_value *make_cell_from(lily_value *value)
 /* This clones the data inside of 'to_copy'. */
 static lily_function_val *new_function_copy(lily_function_val *to_copy)
 {
-    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+    lily_function_val *f = lily_malloc(sizeof(*f));
 
     *f = *to_copy;
     f->refcount = 0;
@@ -1224,7 +1224,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
 
     lily_function_val *closure_func = new_function_copy(last_call);
 
-    lily_value **upvalues = lily_malloc(sizeof(lily_value *) * count);
+    lily_value **upvalues = lily_malloc(sizeof(*upvalues) * count);
 
     /* Cells are initially NULL so that o_set_upvalue knows to copy a new value
        into a cell. */
@@ -1248,7 +1248,7 @@ static void copy_upvalues(lily_function_val *target, lily_function_val *source)
     lily_value **source_upvalues = source->upvalues;
     int count = source->num_upvalues;
 
-    lily_value **new_upvalues = lily_malloc(sizeof(lily_value *) * count);
+    lily_value **new_upvalues = lily_malloc(sizeof(*new_upvalues) * count);
     lily_value *up;
     int i;
 
@@ -1697,7 +1697,7 @@ void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
             vm->class_count *= 2;
 
         vm->class_table = lily_realloc(vm->class_table,
-                sizeof(lily_class *) * vm->class_count);
+                sizeof(*vm->class_table) * vm->class_count);
     }
 
     /* For the first pass, make sure the spots for Exception and its built-in

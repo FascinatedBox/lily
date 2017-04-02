@@ -39,10 +39,10 @@ lily_function_val *new_foreign_function_val(lily_foreign_func, const char *,
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
-    lily_emit_state *emit = lily_malloc(sizeof(lily_emit_state));
+    lily_emit_state *emit = lily_malloc(sizeof(*emit));
 
     emit->patches = lily_new_buffer_u16(4);
-    emit->match_cases = lily_malloc(sizeof(int) * 4);
+    emit->match_cases = lily_malloc(sizeof(*emit->match_cases) * 4);
     emit->tm = lily_new_type_maker();
     emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->self_type,
             symtab->question_class->self_type);
@@ -51,7 +51,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 
     emit->storages = new_storage_stack(4);
 
-    emit->closed_syms = lily_malloc(sizeof(lily_sym *) * 4);
+    emit->closed_syms = lily_malloc(sizeof(*emit->closed_syms) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
@@ -61,7 +61,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->tm->dynamic_class_type = symtab->dynamic_class->self_type;
     emit->tm->question_class_type = symtab->question_class->self_type;
 
-    emit->call_values = lily_malloc(sizeof(lily_sym *) * 8);
+    emit->call_values = lily_malloc(sizeof(*emit->call_values) * 8);
 
     emit->call_values_pos = 0;
     emit->call_values_size = 8;
@@ -134,7 +134,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_var->function_depth = 1;
     main_var->flags |= VAR_IS_READONLY;
 
-    lily_block *main_block = lily_malloc(sizeof(lily_block));
+    lily_block *main_block = lily_malloc(sizeof(*main_block));
     lily_function_val *main_function = new_native_function_val(
             NULL, main_var->name);
 
@@ -586,7 +586,7 @@ static void write_patches_since(lily_emit_state *emit, int to)
 
 static lily_storage *new_storage(void)
 {
-    lily_storage *result = lily_malloc(sizeof(lily_storage));
+    lily_storage *result = lily_malloc(sizeof(*result));
 
     result->type = NULL;
     result->expr_num = 0;
@@ -601,8 +601,8 @@ static lily_storage *new_storage(void)
     Most of that is done in get_storage. **/
 static lily_storage_stack *new_storage_stack(int initial)
 {
-    lily_storage_stack *result = lily_malloc(sizeof(lily_storage_stack));
-    result->data = lily_malloc(initial * sizeof(lily_storage *));
+    lily_storage_stack *result = lily_malloc(sizeof(*result));
+    result->data = lily_malloc(initial * sizeof(*result->data));
     int i;
     for (i = 0;i < initial;i++) {
         lily_storage *s = new_storage();
@@ -632,7 +632,7 @@ static void grow_storages(lily_storage_stack *stack)
     int i;
     int new_size = stack->size * 2;
     lily_storage **new_data = lily_realloc(stack->data,
-            sizeof(lily_storage *) * stack->size * 2);
+            sizeof(*new_data) * stack->size * 2);
 
     /* Storages are taken pretty often, so eagerly initialize them for a little
        bit more speed. */
@@ -735,7 +735,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
-        new_block = lily_malloc(sizeof(lily_block));
+        new_block = lily_malloc(sizeof(*new_block));
 
         emit->block->next = new_block;
         new_block->prev = emit->block;
@@ -1130,7 +1130,7 @@ static void grow_closed_syms(lily_emit_state *emit)
 {
     emit->closed_size *= 2;
     emit->closed_syms = lily_realloc(emit->closed_syms,
-        sizeof(lily_sym *) * emit->closed_size);
+        sizeof(*emit->closed_syms) * emit->closed_size);
 }
 
 static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
@@ -1253,12 +1253,14 @@ static void setup_transform_table(lily_emit_state *emit)
 {
     if (emit->transform_size < emit->function_block->next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
-                emit->function_block->next_reg_spot * sizeof(uint16_t));
+                emit->function_block->next_reg_spot *
+                sizeof(*emit->transform_table));
         emit->transform_size = emit->function_block->next_reg_spot;
     }
 
     memset(emit->transform_table, (uint16_t)-1,
-           sizeof(uint16_t) * emit->function_block->next_reg_spot);
+            sizeof(*emit->transform_table) *
+            emit->function_block->next_reg_spot);
 
     int i;
     for (i = 0;i < emit->closed_pos;i++) {
@@ -1729,8 +1731,8 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
         source = emit->closure_aux_code->data;
     }
 
-    code = lily_malloc((code_size + 1) * sizeof(uint16_t));
-    memcpy(code, source + code_start, sizeof(uint16_t) * code_size);
+    code = lily_malloc((code_size + 1) * sizeof(*code));
+    memcpy(code, source + code_start, sizeof(*code) * code_size);
 
     f->code_len = code_size;
     f->code = code;
@@ -1761,7 +1763,7 @@ static void grow_match_cases(lily_emit_state *emit, int new_size)
         emit->match_case_size *= 2;
 
     emit->match_cases = lily_realloc(emit->match_cases,
-        sizeof(int) * emit->match_case_size);
+        sizeof(*emit->match_cases) * emit->match_case_size);
 }
 
 /* This writes a decomposition for a given variant type. The buffer is written
@@ -1934,7 +1936,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 lily_function_val *new_foreign_function_val(lily_foreign_func func,
         const char *class_name, const char *name)
 {
-    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+    lily_function_val *f = lily_malloc(sizeof(*f));
 
     /* This won't get a ref bump from being moved/assigned since all functions
        are marked as literals. Start at 1 ref, not 0. */
@@ -1955,7 +1957,7 @@ lily_function_val *new_foreign_function_val(lily_foreign_func func,
 /* This creates a new function value representing a native function. */
 lily_function_val *new_native_function_val(char *class_name, char *name)
 {
-    lily_function_val *f = lily_malloc(sizeof(lily_function_val));
+    lily_function_val *f = lily_malloc(sizeof(*f));
 
     /* This won't get a ref bump from being moved/assigned since all functions
        are marked as literals. Start at 1 ref, not 0. */
@@ -3559,7 +3561,7 @@ static void grow_call_values(lily_emit_state *emit)
 {
     emit->call_values_size *= 2;
     emit->call_values = lily_realloc(emit->call_values,
-            sizeof(lily_sym *) * emit->call_values_size);
+            sizeof(*emit->call_values) * emit->call_values_size);
 }
 
 static void add_value(lily_emit_state *emit, lily_emit_call_state *cs,

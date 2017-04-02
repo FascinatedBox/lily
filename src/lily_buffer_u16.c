@@ -5,8 +5,8 @@
 
 lily_buffer_u16 *lily_new_buffer_u16(uint32_t start)
 {
-    lily_buffer_u16 *b = lily_malloc(sizeof(lily_buffer_u16));
-    b->data = lily_malloc(start * sizeof(uint16_t));
+    lily_buffer_u16 *b = lily_malloc(sizeof(*b));
+    b->data = lily_malloc(start * sizeof(*b->data));
     b->pos = 0;
     b->size = start;
     return b;
@@ -16,7 +16,7 @@ void lily_u16_write_1(lily_buffer_u16 *b, uint16_t one)
 {
     if (b->pos + 1 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos] = one;
@@ -27,7 +27,7 @@ void lily_u16_write_2(lily_buffer_u16 *b, uint16_t one, uint16_t two)
 {
     if (b->pos + 2 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos    ] = one;
@@ -40,7 +40,7 @@ void lily_u16_write_3(lily_buffer_u16 *b, uint16_t one, uint16_t two,
 {
     if (b->pos + 3 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos    ] = one;
@@ -54,7 +54,7 @@ void lily_u16_write_4(lily_buffer_u16 *b, uint16_t one, uint16_t two,
 {
     if (b->pos + 4 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos    ] = one;
@@ -69,7 +69,7 @@ void lily_u16_write_5(lily_buffer_u16 *b, uint16_t one, uint16_t two,
 {
     if (b->pos + 5 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos    ] = one;
@@ -85,7 +85,7 @@ void lily_u16_write_6(lily_buffer_u16 *b, uint16_t one, uint16_t two,
 {
     if (b->pos + 6 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     b->data[b->pos    ] = one;
@@ -103,7 +103,7 @@ void lily_u16_write_prep(lily_buffer_u16 *b, uint32_t needed)
         while ((b->pos + needed) > b->size)
             b->size *= 2;
 
-        b->data = lily_realloc(b->data, sizeof(uint16_t) * b->size);
+        b->data = lily_realloc(b->data, sizeof(*b->data) * b->size);
     }
 }
 
@@ -118,12 +118,12 @@ void lily_u16_inject(lily_buffer_u16 *b, int where, uint16_t value)
 {
     if (b->pos + 1 > b->size) {
         b->size *= 2;
-        b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
+        b->data = lily_realloc(b->data, b->size * sizeof(*b->data));
     }
 
     int move_by = b->pos - where;
 
-    memmove(b->data+where+1, b->data+where, move_by * sizeof(uint16_t));
+    memmove(b->data+where+1, b->data+where, move_by * sizeof(*b->data));
     b->pos++;
     b->data[where] = value;
 }

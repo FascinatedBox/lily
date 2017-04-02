@@ -35,12 +35,12 @@ static void add_save_entry(lily_expr_state *);
 
 lily_expr_state *lily_new_expr_state(void)
 {
-    lily_expr_state *es = lily_malloc(sizeof(lily_expr_state));
+    lily_expr_state *es = lily_malloc(sizeof(*es));
 
     int i;
     lily_ast *last_tree = NULL;
     for (i = 0;i < 4;i++) {
-        lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
+        lily_ast *new_tree = lily_malloc(sizeof(*new_tree));
 
         new_tree->next_tree = last_tree;
         last_tree = new_tree;
@@ -85,7 +85,7 @@ void lily_free_expr_state(lily_expr_state *es)
 
 static void add_save_entry(lily_expr_state *es)
 {
-    lily_ast_save_entry *new_entry = lily_malloc(sizeof(lily_ast_save_entry));
+    lily_ast_save_entry *new_entry = lily_malloc(sizeof(*new_entry));
 
     if (es->save_chain == NULL) {
         es->save_chain = new_entry;
@@ -104,7 +104,7 @@ static void add_save_entry(lily_expr_state *es)
 
 static void add_new_tree(lily_expr_state *es)
 {
-    lily_ast *new_tree = lily_malloc(sizeof(lily_ast));
+    lily_ast *new_tree = lily_malloc(sizeof(*new_tree));
 
     new_tree->next_tree = NULL;
 
