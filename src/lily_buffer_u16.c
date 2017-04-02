@@ -116,7 +116,7 @@ uint16_t lily_u16_pop(lily_buffer_u16 *b)
 
 void lily_u16_inject(lily_buffer_u16 *b, int where, uint16_t value)
 {
-    if (b->pos + 1 == b->size) {
+    if (b->pos + 1 > b->size) {
         b->size *= 2;
         b->data = lily_realloc(b->data, b->size * sizeof(uint16_t));
     }
