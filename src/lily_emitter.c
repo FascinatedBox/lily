@@ -1754,9 +1754,12 @@ static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
     enums and variants, but this focuses on match and decomposition. This isn't
     terrible, but it's not great either. **/
 
-static void grow_match_cases(lily_emit_state *emit)
+static void grow_match_cases(lily_emit_state *emit, int new_size)
 {
-    emit->match_case_size *= 2;
+    /* todo: make this a u16 buffer in the future. */
+    while (emit->match_case_size < new_size)
+        emit->match_case_size *= 2;
+
     emit->match_cases = lily_realloc(emit->match_cases,
         sizeof(int) * emit->match_case_size);
 }
@@ -1887,8 +1890,9 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     }
 
     int match_cases_needed = match_class->variant_size;
-    if (emit->match_case_pos + match_cases_needed > emit->match_case_size)
-        grow_match_cases(emit);
+    int total_need = emit->match_case_pos + match_cases_needed;
+    if (total_need > emit->match_case_size)
+        grow_match_cases(emit, total_need);
 
     block->match_case_start = emit->match_case_pos;
 
