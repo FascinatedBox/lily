@@ -224,7 +224,6 @@ void lily_free_state(lily_state *vm)
     lily_free_generic_pool(parser->generics);
     lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
-    lily_free_type_maker(parser->tm);
     lily_free(parser->rs);
     lily_free(parser->toplevel_func);
     lily_free_options(parser->options);

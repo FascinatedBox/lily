@@ -98,6 +98,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     free_storage_stack(emit->storages);
 
     lily_free_string_pile(emit->expr_strings);
+    lily_free_type_maker(emit->tm);
     lily_free(emit->transform_table);
     lily_free(emit->closed_syms);
     lily_free(emit->call_values);
