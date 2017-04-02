@@ -21,7 +21,7 @@ void lily_free_string_pile(lily_string_pile *sp)
 
 void lily_sp_insert(lily_string_pile *sp, char *new_str, uint16_t *pos)
 {
-    int want_size = *pos + 1 + strlen(new_str);
+    size_t want_size = *pos + 1 + strlen(new_str);
     if (sp->size < want_size) {
         while (sp->size < want_size)
             sp->size *= 2;

@@ -547,7 +547,7 @@ static const char *parse_path(lily_parse_state *parser, const char *fmt,
         const char *root_path, const char *relative_path, const char *base_path)
 {
     int i = 0, text_start = 0;
-    int len = strlen(fmt);
+    size_t len = strlen(fmt);
     lily_msgbuf *msgbuf = parser->msgbuf;
 
     /* Don't flush the msgbuf: load_import uses this function to add paths tried
@@ -618,7 +618,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
         lily_mb_flush(msgbuf);
         const char *path = parse_path(parser, import_paths[i], root, current,
                 name);
-        int len = strlen(path);
+        size_t len = strlen(path);
         lily_module_entry *module_iter = parser->module_start;
         while (module_iter) {
             if (module_iter->cmp_len == len &&
