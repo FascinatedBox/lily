@@ -1658,7 +1658,7 @@ void lily_builtin_List_reject(lily_state *s)
 /**
 method List.repeat[A](count: Integer, value: A): List[A]
 
-This createa a new `List` that contains `value` repeated `count` times.
+This creates a new `List` that contains `value` repeated `count` times.
 
 # Errors
 
@@ -3206,7 +3206,7 @@ void lily_builtin_Tuple_push(lily_state *s)
 native ValueError < Exception
 
 `ValueError` is a subclass of `Exception` that is raised when sending an
-improper argument to a function, such as trying to call `List.fill` with a
+improper argument to a function, such as trying to call `List.repeat` with a
 negative amount.
 */
 
