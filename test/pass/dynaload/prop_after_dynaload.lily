@@ -1,0 +1,12 @@
+class Test {
+    var @contents = [1, 2, 3]
+
+    define check(source: String) {
+        var f = File.open(source, "r")
+        var lines: List[String] = []
+
+        f.each_line(|l| l.encode().unwrap() |> lines.push )
+
+        @contents.size()
+    }
+}

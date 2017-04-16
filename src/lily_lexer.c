@@ -348,7 +348,7 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 
         /* lexer->label has almost certainly been overwritten with something
            else. Restore it by rolling back and calling for a rescan. */
-        if (lexer->token == tk_word) {
+        if (lexer->token == tk_word || lexer->token == tk_prop_word) {
             int end, pos;
             end = pos = lexer->input_pos;
 
