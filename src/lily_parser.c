@@ -3389,18 +3389,16 @@ static void continue_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_continue(parser->emit);
 
-    if (multi && parser->lex->token != tk_right_curly)
-        lily_raise_syn(parser->raiser,
-                "'continue' not at the end of a multi-line block.");
+    if (multi)
+        ensure_no_code_after_exit(parser, "continue");
 }
 
 static void break_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
 
-    if (multi && parser->lex->token != tk_right_curly)
-        lily_raise_syn(parser->raiser,
-                "'break' not at the end of a multi-line block.");
+    if (multi)
+        ensure_no_code_after_exit(parser, "break");
 }
 
 static void for_handler(lily_parse_state *parser, int multi)
