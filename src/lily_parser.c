@@ -906,6 +906,7 @@ static lily_type *get_prop_arg(lily_parse_state *parser, int *flags)
            var the concrete underlying type, and the caller the true optarg
            containing type. */
         prop->type = type->subtypes[0];
+        var->type = prop->type;
         collect_optarg_for(parser, var);
     }
     else
