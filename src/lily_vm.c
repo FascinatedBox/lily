@@ -2304,6 +2304,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code++;
                 break;
             case o_raise:
+                vm->pending_line = code[1];
                 lhs_reg = vm_regs[code[2]];
                 do_o_raise(vm, lhs_reg);
                 code += 3;
