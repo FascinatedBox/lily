@@ -4313,7 +4313,9 @@ static void match_handler(lily_parse_state *parser, int multi)
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
-    lily_lexer(lex);
+    NEED_NEXT_TOK(tk_word)
+    if (keyword_by_name(lex->label) != KEY_CASE)
+        lily_raise_syn(parser->raiser, "'match' must start with a case.");
 
     while (1) {
         if (lex->token == tk_word) {

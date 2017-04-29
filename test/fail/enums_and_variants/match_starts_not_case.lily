@@ -1,0 +1,12 @@
+#[
+SyntaxError: 'match' must start with a case.
+    from match_starts_not_case.lily:9:
+]#
+
+var v = None
+
+match v: {
+    v = Some(1)
+    case Some(s):
+    None:
+}

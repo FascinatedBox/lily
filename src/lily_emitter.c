@@ -1864,15 +1864,8 @@ void lily_emit_do_match_else(lily_emit_state *emit)
         }
     }
 
-    if (ok == 0) {
-        char *message;
-        if (first == 1)
-            message = "'else' within an exhaustive match.";
-        else
-            message = "'else' cannot be the only clause within a match.";
-
-        lily_raise_syn(emit->raiser, message);
-    }
+    if (ok == 0)
+        lily_raise_syn(emit->raiser, "'else' within an exhaustive match.");
 }
 
 /* This evaluates the expression to be sent to 'match' The resulting value is
