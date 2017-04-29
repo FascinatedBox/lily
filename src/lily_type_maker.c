@@ -133,6 +133,8 @@ static lily_type *build_real_type_for(lily_type *fake_type)
 
     new_type->next = new_type->cls->all_subtypes;
     new_type->cls->all_subtypes = new_type;
+    /* Letting other flags carry over causes rare but bad side effects. */
+    new_type->flags &= (TYPE_IS_VARARGS | TYPE_HAS_OPTARGS);
 
     int i;
     for (i = 0;i < new_type->subtype_count;i++) {

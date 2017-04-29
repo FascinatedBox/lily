@@ -1,0 +1,9 @@
+define f {
+    var v = Some(1)
+    define g {
+        match v: {
+            case Some(s):
+            case None:
+        }
+    }
+}
