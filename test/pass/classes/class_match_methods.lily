@@ -1,0 +1,24 @@
+class Base { define base_str: String { return "B" } }
+class Left < Base { define left_str: String { return "L" } }
+class Right < Base { define right_str: String { return "R" } }
+class Up < Base {  }
+
+define f(input: Base): String {
+    var out = ""
+
+    match input: {
+        case Left(l):
+            out = l.left_str()
+        case Right(r):
+            out = r.right_str()
+        else:
+            out = input.base_str()
+    }
+
+    return out
+}
+
+var v: List[Base] = [Right(), Left(), Up(), Left(), Right()]
+
+if v.map(f) != ["R", "L", "B", "L", "R"]:
+    stderr.print("Failed")

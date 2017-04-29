@@ -1,0 +1,12 @@
+#[
+SyntaxError: Class matching only works for types without generics.
+    from match_generic.lily:11:
+]#
+
+class One[A](a: A) {}
+
+var v = One(1)
+
+match v: {
+    case One(o):
+}

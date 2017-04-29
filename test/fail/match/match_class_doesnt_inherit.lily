@@ -1,0 +1,14 @@
+#[
+SyntaxError: Class Three does not inherit from matching class One.
+    from match_class_doesnt_inherit.lily:13:
+]#
+
+class One {}
+class Two < One {}
+class Three {}
+
+var v: One = Two()
+
+match v: {
+    case Three(t):
+}

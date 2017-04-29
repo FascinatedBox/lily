@@ -1,0 +1,14 @@
+#[
+SyntaxError: Already have a case for class One.
+    from match_duplicate_class.lily:13:
+]#
+
+class One {}
+class Two < One {}
+
+var v: One = Two()
+
+match v: {
+    case One(o):
+    case One(o):
+}

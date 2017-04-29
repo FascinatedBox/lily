@@ -2317,6 +2317,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             }
+            case o_jump_if_not_class:
+                lhs_reg = vm_regs[code[1]];
+                i = code[2];
+
+                if (lhs_reg->class_id == i)
+                    code += 4;
+                else
+                    code += code[3];
+
+                break;
             case o_match_dispatch:
             {
                 /* This opcode is easy because emitter ensures that the match is

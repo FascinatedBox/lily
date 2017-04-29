@@ -1,0 +1,23 @@
+class One {}
+class Two < One {}
+class Three < Two {}
+
+define f(input: One): Integer {
+    var out = 0
+
+    match input: {
+        case Three(t):
+            out = 3
+        case Two(t):
+            out = 2
+        else:
+            out = 1
+    }
+
+    return out
+}
+
+var v: List[One] = [Three(), Two(), One(), Two(), Three()]
+
+if v.map(f) != [3, 2, 1, 2, 3]:
+    stderr.print("Failed")

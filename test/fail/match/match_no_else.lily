@@ -1,0 +1,12 @@
+#[
+SyntaxError: Match against a class must have an 'else' case.
+    from match_no_else.lily:12:
+]#
+
+class One {}
+
+var v = One()
+
+match v: {
+    case One(o):
+}

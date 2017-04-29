@@ -1,0 +1,15 @@
+#[
+SyntaxError: 'case' in exhaustive match.
+    from match_case_after_else.lily:14:
+]#
+
+class One {}
+class Two < One {}
+
+var v: One = Two()
+
+match v: {
+    case One(o):
+    else:
+    case Two(t):
+}

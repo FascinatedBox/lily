@@ -52,6 +52,9 @@ typedef enum {
        jump provided is taken. Otherwise, control moves to after this condition.
        Like o_jump, this may be a negative jump. */
     o_jump_if,
+    /* Check if an input symbol belongs to an input class. If yes, fall.
+       Otherwise, follow the jump. */
+    o_jump_if_not_class,
 
     /* Perform a single step of a for loop. This may jump out of the loop, or it
        may only increment and continue on. */

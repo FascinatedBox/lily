@@ -4168,7 +4168,7 @@ static void scoped_handler(lily_parse_state *parser, int multi)
     parse_enum(parser, 0, 1);
 }
 
-static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
+ static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
 {
     lily_type *match_input_type = match_sym->type;
     lily_class *match_class = match_input_type->cls;
@@ -4296,6 +4296,104 @@ static void ensure_proper_match_block(lily_parse_state *parser,
         lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
 }
 
+static void process_class_match_case(lily_parse_state *parser,
+        lily_sym *match_sym)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+    lily_class *cls = resolve_class_name(parser);
+
+    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0) {
+        lily_raise_syn(parser->raiser,
+                "Class %s does not inherit from matching class %s.", cls->name,
+                match_sym->type->cls->name);
+    }
+
+    if (lily_emit_add_class_match_case(parser->emit, cls) == 0) {
+        lily_raise_syn(parser->raiser, "Already have a case for class %s.",
+                cls->name);
+    }
+
+    /* Forbid non-monomorphic types to avoid the question of what to do
+       if the match class has more generics. */
+    if (cls->generic_count != 0) {
+        lily_raise_syn(parser->raiser,
+                "Class matching only works for types without generics.",
+                cls->name);
+    }
+
+    NEED_NEXT_TOK(tk_left_parenth)
+    NEED_NEXT_TOK(tk_word)
+
+    uint16_t spot;
+
+    if (strcmp(lex->label, "_") == 0) {
+        spot = (uint16_t)-1;
+        lily_lexer(lex);
+    }
+    else {
+        lily_var *var = get_local_var(parser, cls->self_type);
+        spot = var->reg_spot;
+    }
+
+    NEED_CURRENT_TOK(tk_right_parenth)
+    NEED_NEXT_TOK(tk_colon)
+    lily_lexer(lex);
+
+    lily_emit_write_class_case(parser->emit, cls, match_sym, spot);
+}
+
+static void parse_class_match(lily_parse_state *parser, int multi)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_sym *match_sym = parser->expr->root->result;
+    int case_count = 0, have_else = 0;
+
+    while (1) {
+        if (lex->token == tk_word) {
+            int key = keyword_by_name(lex->label);
+            if (key == KEY_CASE) {
+                if (have_else)
+                    lily_raise_syn(parser->raiser,
+                            "'case' in exhaustive match.");
+
+                lily_lexer(lex);
+                case_count++;
+                process_class_match_case(parser, match_sym);
+            }
+            else if (key == KEY_ELSE) {
+                if (have_else)
+                    lily_raise_syn(parser->raiser,
+                            "'else' in exhaustive match.");
+
+                have_else = 1;
+                lily_emit_write_class_match_else(parser->emit);
+                NEED_NEXT_TOK(tk_colon)
+                lily_lexer(lex);
+            }
+            else if (key != -1) {
+                lily_lexer(lex);
+                handlers[key](parser, multi);
+            }
+            else {
+                expression(parser);
+                lily_emit_eval_expr(parser->emit, parser->expr);
+            }
+        }
+        else if (lex->token != tk_right_curly)
+            statement(parser, 0);
+        else
+            break;
+    }
+
+    if (have_else == 0)
+        lily_raise_syn(parser->raiser,
+                "Match against a class must have an 'else' case.");
+
+    lily_lexer(lex);
+    lily_emit_leave_block(parser->emit);
+}
+
 static void match_handler(lily_parse_state *parser, int multi)
 {
     if (multi == 0)
@@ -4309,13 +4407,18 @@ static void match_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_eval_match_expr(parser->emit, parser->expr);
 
-    lily_sym *match_sym = parser->expr->root->result;
-
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
     NEED_NEXT_TOK(tk_word)
     if (keyword_by_name(lex->label) != KEY_CASE)
         lily_raise_syn(parser->raiser, "'match' must start with a case.");
+
+    lily_sym *match_sym = parser->expr->root->result;
+
+    if ((match_sym->type->cls->flags & CLS_IS_ENUM) == 0) {
+        parse_class_match(parser, multi);
+        return;
+    }
 
     while (1) {
         if (lex->token == tk_word) {
