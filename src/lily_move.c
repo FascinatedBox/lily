@@ -54,7 +54,7 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
 \
     z->refcount++; \
     v->value.field = z; \
-    v->flags = (z->class_id | type_flag); \
+    v->flags = (z->class_id | f | type_flag); \
 }
 
 #define MOVE_FN_F(name, in_type, field, type_flag) \
