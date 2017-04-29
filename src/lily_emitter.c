@@ -1160,7 +1160,7 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
    that it cannot be an unsolved type from a higher-up scope. This requirement
    exists because Lily does not currently understand how to have two different
    kinds of a generic that are not equivalent / scoped generics. */
-static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
+static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
 {
     if (emit->function_block->block_type == block_define &&
         emit->function_block->prev->block_type == block_define &&
@@ -1169,6 +1169,7 @@ static void checked_close_over_var(lily_emit_state *emit, lily_var *var)
                 "Cannot close over a var of an incomplete type in this scope.");
 
     close_over_sym(emit, (lily_sym *)var);
+    return emit->closed_pos - 1;
 }
 
 /* See if the given sym has been closed over.
@@ -2840,25 +2841,6 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs;
 }
 
-static void eval_upvalue(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_sym *sym = ast->sym;
-
-    int i;
-    for (i = 0;i < emit->closed_pos;i++)
-        if (emit->closed_syms[i] == sym)
-            break;
-
-    if (i == emit->closed_pos)
-        checked_close_over_var(emit, (lily_var *)ast->sym);
-
-    emit->function_block->make_closure = 1;
-
-    lily_storage *s = get_storage(emit, sym->type);
-    lily_u16_write_4(emit->code, o_get_upvalue, ast->line_num, i, s->reg_spot);
-    ast->result = (lily_sym *)s;
-}
-
 static void emit_literal(lily_emit_state *, lily_ast *);
 
 /* This evaluates an interpolation block `$"..."`. The children of this tree are
@@ -2938,10 +2920,8 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 
     lily_sym *left_sym = ast->left->sym;
     int spot = find_closed_sym_spot(emit, left_sym);
-    if (spot == -1) {
-        checked_close_over_var(emit, (lily_var *)left_sym);
-        spot = emit->closed_pos - 1;
-    }
+    if (spot == -1)
+        spot = checked_close_over_var(emit, (lily_var *)left_sym);
 
     lily_sym *rhs = ast->right->result;
 
@@ -3250,33 +3230,43 @@ static void emit_literal(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
-/* This handles globals and static functions. */
+/* This handles loading globals, upvalues, and static functions. */
 static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_storage *ret;
     int opcode;
+    uint16_t spot;
+    lily_sym *sym = ast->sym;
+    lily_storage *ret = get_storage(emit, sym->type);
 
     switch (ast->tree_type) {
         case tree_global_var:
             opcode = o_get_global;
+            spot = sym->reg_spot;
+            break;
+        case tree_upvalue:
+            opcode = o_get_upvalue;
+            spot = find_closed_sym_spot(emit, sym);
+            if (spot == (uint16_t)-1)
+                spot = checked_close_over_var(emit, (lily_var *)sym);
+
+            emit->function_block->make_closure = 1;
             break;
         case tree_static_func:
             ensure_valid_scope(emit, ast->sym);
         default:
+            ret->flags |= SYM_NOT_ASSIGNABLE;
+            spot = sym->reg_spot;
             opcode = o_get_readonly;
             break;
     }
 
-    ret = get_storage(emit, ast->sym->type);
-
-    if (opcode != o_get_global)
-        ret->flags |= SYM_NOT_ASSIGNABLE;
-
-    if ((ast->sym->flags & VAR_NEEDS_CLOSURE) == 0)
-        lily_u16_write_4(emit->code, opcode, ast->line_num, ast->sym->reg_spot,
+    if ((sym->flags & VAR_NEEDS_CLOSURE) == 0 ||
+        ast->tree_type == tree_upvalue) {
+        lily_u16_write_4(emit->code, opcode, ast->line_num, spot,
                 ret->reg_spot);
+    }
     else
-        emit_create_function(emit, ast->sym, ret);
+        emit_create_function(emit, sym, ret);
 
     ast->result = (lily_sym *)ret;
 }
@@ -4162,7 +4152,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         ast->tree_type == tree_defined_func ||
         ast->tree_type == tree_static_func ||
         ast->tree_type == tree_method ||
-        ast->tree_type == tree_inherited_new)
+        ast->tree_type == tree_inherited_new ||
+        ast->tree_type == tree_upvalue)
         emit_nonlocal_var(emit, ast);
     else if (ast->tree_type == tree_literal)
         emit_literal(emit, ast);
@@ -4239,8 +4230,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_lambda(emit, ast, expect);
     else if (ast->tree_type == tree_self)
         eval_self(emit, ast);
-    else if (ast->tree_type == tree_upvalue)
-        eval_upvalue(emit, ast);
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return
