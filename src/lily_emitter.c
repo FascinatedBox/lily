@@ -2894,9 +2894,12 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
 
     /* For 'var @<name> = ...', fix the type of the property. */
     if (left_prop->flags & SYM_NOT_INITIALIZED) {
-        left_prop->type = right_type;
         left_prop->flags &= ~SYM_NOT_INITIALIZED;
-        left_type = right_type;
+
+        if (left_type == NULL) {
+            left_prop->type = right_type;
+            left_type = right_type;
+        }
     }
 
     if (left_type != ast->right->result->type &&
