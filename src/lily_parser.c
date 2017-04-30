@@ -3744,8 +3744,91 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
                 "A built-in class named '%s' already exists.", name);
 }
 
-/* This handles everything needed to create a class, up until figuring out
-   inheritance (if that's indicated). */
+static lily_class *parse_and_verify_super(lily_parse_state *parser,
+        lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_NEXT_TOK(tk_word)
+
+    lily_class *super_class = resolve_class_name(parser);
+
+    if (super_class == NULL)
+        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
+                lex->label);
+    else if (super_class == cls)
+        lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
+    else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
+             super_class->flags & (CLS_IS_ENUM | CLS_IS_BUILTIN))
+        lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
+                lex->label);
+
+    int adjust = super_class->prop_count;
+
+    /* Lineage must be fixed before running the inherited constructor, as the
+       constructor may use 'self'. */
+    cls->parent = super_class;
+    cls->prop_count += super_class->prop_count;
+    cls->inherit_depth = super_class->inherit_depth + 1;
+
+    if (cls->prop_count && cls->members) {
+        /* Properties created through the `var @<name> = ...` shorthand have the
+           wrong index. Fix their register spots before the assigns are written
+           by emitter's function setup. */
+        lily_named_sym *sym = cls->members;
+        while (sym) {
+            if (sym->item_kind == ITEM_TYPE_PROPERTY)
+                sym->reg_spot += adjust;
+
+            sym = sym->next;
+        }
+    }
+
+    return super_class;
+}
+
+/* There's a class to inherit from, so run the constructor. */
+static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
+        lily_class *super_class)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *class_new = lily_find_method(super_class, "<new>");
+
+    /* There's a small problem here. The idea of being able to pass expressions
+       as well as values is great. However, expression cannot be trusted to
+       collect what's inside of the parentheses because it may allow a subscript
+       afterward.
+       Ex: class Point(integer value) > Parent(value)[0].
+       This is avoided by passing a special flag to expression and calling it
+       directly. */
+
+    lily_expr_state *es = parser->expr;
+    rewind_expr_state(es);
+    lily_es_enter_tree(es, tree_call);
+    lily_es_push_inherited_new(es, class_new);
+    lily_es_collect_arg(es);
+
+    lily_lexer(parser->lex);
+
+    if (lex->token == tk_left_parenth) {
+        /* Since the call was already entered, skip the first '(' or the parser
+           will attempt to enter it again. */
+        lily_lexer(lex);
+        if (lex->token == tk_right_parenth)
+            lily_raise_syn(parser->raiser,
+                    "Empty () not needed here for inherited new.");
+
+        expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
+
+        lily_lexer(lex);
+    }
+    else
+        lily_es_leave_tree(parser->expr);
+
+    lily_emit_eval_expr(parser->emit, es);
+}
+
+/* This handles everything needed to create a class, including the inheritance
+   if that turns out to be necessary. */
 static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
@@ -3801,70 +3884,16 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     call_var->type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 
+    lily_class *super_cls = NULL;
+
+    if (lex->token == tk_lt)
+        super_cls = parse_and_verify_super(parser, cls);
+
     lily_emit_setup_call(parser->emit, parser->class_self_type, call_var,
             parser->data_stack, data_start);
-}
 
-/* This is called when one class wants to inherit from another. It makes sure
-   that the inheritance is valid, and then runs the expression necessary to make
-   the inheritance work. */
-static void parse_inheritance(lily_parse_state *parser, lily_class *cls)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_NEXT_TOK(tk_word)
-
-    lily_class *super_class = resolve_class_name(parser);
-
-    if (super_class == NULL)
-        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
-                lex->label);
-    else if (super_class == cls)
-        lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
-    else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
-             super_class->flags & (CLS_IS_ENUM | CLS_IS_BUILTIN))
-        lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
-                lex->label);
-
-    /* Lineage must be fixed before running the inherited constructor, as the
-       constructor may use 'self'. */
-    cls->parent = super_class;
-    cls->prop_count = super_class->prop_count;
-    cls->inherit_depth = super_class->inherit_depth + 1;
-
-    lily_var *class_new = lily_find_method(super_class, "<new>");
-
-    /* There's a small problem here. The idea of being able to pass expressions
-       as well as values is great. However, expression cannot be trusted to
-       collect what's inside of the parentheses because it may allow a subscript
-       afterward.
-       Ex: class Point(integer value) > Parent(value)[0].
-       This is avoided by passing a special flag to expression and calling it
-       directly. */
-
-    lily_expr_state *es = parser->expr;
-    rewind_expr_state(es);
-    lily_es_enter_tree(es, tree_call);
-    lily_es_push_inherited_new(es, class_new);
-    lily_es_collect_arg(es);
-
-    lily_lexer(lex);
-
-    if (lex->token == tk_left_parenth) {
-        /* Since the call was already entered, skip the first '(' or the parser
-           will attempt to enter it again. */
-        lily_lexer(lex);
-        if (lex->token == tk_right_parenth)
-            lily_raise_syn(parser->raiser,
-                    "Empty () not needed here for inherited new.");
-
-        expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
-
-        lily_lexer(lex);
-    }
-    else
-        lily_es_leave_tree(parser->expr);
-
-    lily_emit_eval_expr(parser->emit, es);
+    if (super_cls)
+        run_super_ctor(parser, cls, super_cls);
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
@@ -3968,9 +3997,6 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     lily_gp_save_and_hide(parser->generics, &save_generic_start);
 
     parse_class_header(parser, cls);
-
-    if (lex->token == tk_lt)
-        parse_inheritance(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);

@@ -1,0 +1,7 @@
+class Base(var @index: Integer) {  }
+class NthBase(index: Integer, var @str: String) < Base(index) {  }
+
+var v = NthBase(1, "abc")
+
+if v.index != 1 || v.str != "abc":
+    stderr.print("Failed")
