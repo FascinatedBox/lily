@@ -2856,7 +2856,7 @@ static lily_container_val *string_split_by_val(lily_state *s, char *input,
 
                 if (*input_ch != *splitby_ch) {
                     is_match = 0;
-                    input_ch = restore_ch;
+                    input_ch = restore_ch + 1;
                     break;
                 }
             }

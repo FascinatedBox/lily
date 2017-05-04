@@ -147,6 +147,7 @@ ok("1 2 3".split() == ["1", "2", "3"],         "String.split default to split by
 ok("1ab2ab".split("ab") == ["1", "2", ""],     "String.split split by wide ascii.")
 ok("1ÀÀ2À".split("À") == ["1", "", "2", ""],   "String.split with utf-8 chunk.")
 ok("   ".split(" ") == ["", "", "", ""],       "String.split where all chars match.")
+ok("abc.def".split(".xyz") == ["abc.def"],     "String.split with incomplete match.")
 ok((||
     var result = false
     try:
