@@ -737,8 +737,10 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
-static void boundary_error(lily_vm_state *vm, int bad_index)
+static void boundary_error(lily_vm_state *vm, int bad_index, uint16_t line_num)
 {
+    vm->pending_line = line_num;
+
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
     lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
@@ -885,12 +887,12 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
             if (index_int < 0) {
                 int new_index = bytev->size + index_int;
                 if (new_index < 0)
-                    boundary_error(vm, index_int);
+                    boundary_error(vm, index_int, code[1]);
 
                 index_int = new_index;
             }
             else if (index_int >= bytev->size)
-                boundary_error(vm, index_int);
+                boundary_error(vm, index_int, code[1]);
 
             bytev->string[index_int] = (char)rhs_reg->value.integer;
         }
@@ -901,12 +903,12 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
             if (index_int < 0) {
                 int new_index = list_val->num_values + index_int;
                 if (new_index < 0)
-                    boundary_error(vm, index_int);
+                    boundary_error(vm, index_int, code[1]);
 
                 index_int = new_index;
             }
             else if (index_int >= list_val->num_values)
-                boundary_error(vm, index_int);
+                boundary_error(vm, index_int, code[1]);
 
             lily_value_assign(list_val->values[index_int], rhs_reg);
         }
@@ -934,12 +936,12 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
             if (index_int < 0) {
                 int new_index = bytev->size + index_int;
                 if (new_index < 0)
-                    boundary_error(vm, index_int);
+                    boundary_error(vm, index_int, code[1]);
 
                 index_int = new_index;
             }
             else if (index_int >= bytev->size)
-                boundary_error(vm, index_int);
+                boundary_error(vm, index_int, code[1]);
 
             lily_move_byte(result_reg, (uint8_t) bytev->string[index_int]);
         }
@@ -950,12 +952,12 @@ static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
             if (index_int < 0) {
                 int new_index = list_val->num_values + index_int;
                 if (new_index < 0)
-                    boundary_error(vm, index_int);
+                    boundary_error(vm, index_int, code[1]);
 
                 index_int = new_index;
             }
             else if (index_int >= list_val->num_values)
-                boundary_error(vm, index_int);
+                boundary_error(vm, index_int, code[1]);
 
             lily_value_assign(result_reg, list_val->values[index_int]);
         }
@@ -1947,17 +1949,22 @@ void lily_vm_execute(lily_vm_state *vm)
                    than dumping INTEGER_OP's contents here or rewriting
                    INTEGER_OP for the special case of division. */
                 rhs_reg = vm_regs[code[3]];
-                if (rhs_reg->value.integer == 0)
+                if (rhs_reg->value.integer == 0) {
+                    vm->pending_line = code[1];
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
+                }
                 INTEGER_OP(/)
                 break;
             case o_modulo:
                 /* x % 0 will do the same thing as x / 0... */
                 rhs_reg = vm_regs[code[3]];
-                if (rhs_reg->value.integer == 0)
+                if (rhs_reg->value.integer == 0) {
+                    vm->pending_line = code[1];
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
+                }
+
                 INTEGER_OP(%)
                 break;
             case o_left_shift:
@@ -1977,9 +1984,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_double_div:
                 rhs_reg = vm_regs[code[3]];
-                if (rhs_reg->value.doubleval == 0)
+                if (rhs_reg->value.doubleval == 0) {
+                    vm->pending_line = code[1];
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
+                }
 
                 DOUBLE_OP(/)
                 break;
