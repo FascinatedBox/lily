@@ -433,7 +433,7 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
                 else
                     parent->right = new_ast;
 
-                new_ast->parent = active->parent;
+                new_ast->parent = parent;
             }
             else
                 /* At the top, so become root as well. */
