@@ -1,0 +1,16 @@
+#[
+SyntaxError: Invalid operation: String + String.
+    from interp_plus.lily:11:
+]#
+
+class Example {
+    var @v = "test"
+    define tryit(other: Example) {
+        var combine =
+            "a" ++ other.v ++ "b" ++
+            "c" + @v ++ "d" ++ other.v ++ "e"
+    }
+}
+
+var a = Example()
+a.tryit(a)

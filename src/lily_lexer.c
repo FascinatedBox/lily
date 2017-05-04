@@ -1582,6 +1582,15 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos += 2;
                 token = tk_plus_eq;
             }
+            else if (*(ch + 1) == '+') {
+                if (*(ch + 2) == '=')
+                    lily_raise_syn(lexer->raiser,
+                            "'++=' is not a valid token.");
+
+                ch += 2;
+                input_pos += 2;
+                token = tk_plus_plus;
+            }
             else {
                 ch++;
                 input_pos++;
@@ -1834,8 +1843,8 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {")", ",", "{", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
-     "/", "/=", "+", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=", ">>",
-     ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>", "a label",
+     "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=",
+     ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>", "a label",
      "a property name", "a string", "a bytestring", "an interpolated string",
      "a byte", "an integer", "a double", "a docstring", ".", "&", "&=", "&&",
      "|", "|=", "||", "@(", "...", "|>", "invalid token", "end of lambda",

@@ -1,0 +1,26 @@
+var total = 0, failed = 0
+
+define ok(b: Boolean, s: String)
+{
+    total += 1
+
+    if b == false: {
+        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        failed += 1
+    }
+}
+
+# Since the interpolation test verifies output, this doesn't need to.
+# This test is more about checking the parsing.
+
+define fn[A](a: A): A { return a }
+
+ok("" ++ "" == "",                     "Empty concat yields empty result.")
+ok([1, 2] ++ <[1]> == "[1, 2]<[1]>",   "Concat of different types.")
+ok("a" ++ "b" == "ab",                 "Concat with comparison (precedence).")
+ok("a" ++ "a" |> fn == "aa",           "Concat with pipe (precedence).")
+
+if failed == 0:
+    print($"^(total) of ^(total) tests passed.")
+else:
+    stderr.write($"^(failed) tests have failed.\n")

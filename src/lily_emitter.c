@@ -2052,9 +2052,9 @@ lily_function_val *new_native_function_val(char *class_name, char *name)
 static const char *opname(lily_expr_op op)
 {
     static const char *opnames[] =
-    {"+", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<", ">>", "&",
-     "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=", "*=", "/=",
-     "<<=", ">>=", "&=", "|=", "^="};
+    {"+", "++", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<",
+     ">>", "&", "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=",
+     "*=", "/=", "<<=", ">>=", "&=", "|=", "^="};
 
     return opnames[op];
 }
@@ -4213,6 +4213,51 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
     eval_call(emit, ast, expect);
 }
 
+static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
+{
+    if (ast->left->tree_type != tree_local_var)
+        eval_tree(emit, ast->left, NULL);
+
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right, NULL);
+
+    if (ast->parent == NULL ||
+        (ast->parent->tree_type != tree_binary ||
+         ast->parent->op != expr_plus_plus)) {
+        lily_u16_write_3(emit->code, o_interpolation, ast->line_num, 0);
+
+        int fix_spot = lily_u16_pos(emit->code) - 1;
+        lily_ast *iter_ast = ast->left;
+        lily_storage *s = get_storage(emit,
+                emit->symtab->string_class->self_type);
+
+        while (1) {
+            if (iter_ast->tree_type != tree_binary ||
+                iter_ast->op != expr_plus_plus)
+                break;
+
+            iter_ast = iter_ast->left;
+        }
+
+        iter_ast = iter_ast->parent;
+        lily_u16_write_1(emit->code, iter_ast->left->result->reg_spot);
+
+        while (iter_ast != ast) {
+            lily_u16_write_1(emit->code, iter_ast->right->result->reg_spot);
+            iter_ast = iter_ast->parent;
+        }
+
+        lily_u16_write_1(emit->code, iter_ast->right->result->reg_spot);
+
+        lily_u16_insert(emit->code, fix_spot,
+                lily_u16_pos(emit->code) - fix_spot - 1);
+
+        lily_u16_write_1(emit->code, s->reg_spot);
+
+        ast->result = (lily_sym *)s;
+    }
+}
+
 /***
  *         _    ____ ___
  *        / \  |  _ \_ _|
@@ -4271,6 +4316,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
             eval_logical_op(emit, ast);
         else if (ast->op == expr_func_pipe)
             eval_func_pipe(emit, ast, expect);
+        else if (ast->op == expr_plus_plus)
+            eval_plus_plus(emit, ast);
         else {
             if (ast->left->tree_type != tree_local_var)
                 eval_tree(emit, ast->left, NULL);

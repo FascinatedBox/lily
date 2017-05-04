@@ -25,6 +25,7 @@ typedef enum {
     tk_divide,
     tk_divide_eq,
     tk_plus,
+    tk_plus_plus,
     tk_plus_eq,
     tk_minus,
     tk_minus_eq,

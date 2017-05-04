@@ -7,6 +7,7 @@
 
 typedef enum {
     expr_plus,
+    expr_plus_plus,
     expr_minus,
     expr_eq_eq,
     expr_lt,

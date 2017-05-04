@@ -37,6 +37,7 @@ static const lily_tok_info parser_tok_table[] =
     {tk_divide,           0          , expr_divide},
     {tk_divide_eq,        0          , expr_div_assign},
     {tk_plus,             0          , expr_plus},
+    {tk_plus_plus,        0          , expr_plus_plus},
     {tk_plus_eq,          0          , expr_plus_assign},
     {tk_minus,            0          , expr_minus},
     {tk_minus_eq,         0          , expr_minus_assign},

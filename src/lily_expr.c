@@ -241,28 +241,33 @@ static uint8_t priority_for_op(lily_expr_op o)
         case expr_gr_eq:
             prio = 3;
             break;
+        /* Put concat here so it can chain together the output of pipe
+           operations: `a |> b ++ b |> c`. */
+        case expr_plus_plus:
+            prio = 4;
+            break;
         /* Put pipes here so they capture as much as possible for comparison
            operations. Ex: `a << b |> fn <= something`. */
         case expr_func_pipe:
-            prio = 4;
+            prio = 5;
             break;
         case expr_bitwise_or:
         case expr_bitwise_xor:
         case expr_bitwise_and:
-            prio = 5;
+            prio = 6;
             break;
         case expr_left_shift:
         case expr_right_shift:
-            prio = 6;
+            prio = 7;
             break;
         case expr_plus:
         case expr_minus:
-            prio = 7;
+            prio = 8;
             break;
         case expr_multiply:
         case expr_divide:
         case expr_modulo:
-            prio = 8;
+            prio = 9;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */
