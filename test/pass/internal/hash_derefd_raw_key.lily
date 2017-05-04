@@ -1,0 +1,11 @@
+var hash: Hash[String, Integer] = []
+
+define f: Integer {
+    var i = 1
+    hash[i ++ i] = i
+
+    return hash["11"]
+}
+
+f()
+f()

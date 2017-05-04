@@ -263,6 +263,10 @@ void lily_hash_insert_value(register lily_hash_val *table,
     else {
         lily_value_assign(ptr->record, record);
         lily_value_assign(ptr->boxed_key, boxed_key);
+        /* This must be updated, because the lifetime of the old raw key is
+           based on the old boxed key. Otherwise, the old string may be deref'd
+           away, causing the raw key to point toward garbage. */
+        ptr->raw_key = key;
     }
 }
 
