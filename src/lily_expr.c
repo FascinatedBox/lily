@@ -407,9 +407,11 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
                new_prio == 0 is so that assign and assign-like operations run
                right-to-left. */
             new_ast->left = active->right;
-            active->right = new_ast;
+            new_ast->left->parent = new_ast;
 
-            new_ast->parent = active;
+            active->right = new_ast;
+            active->right->parent = active;
+
             es->active = new_ast;
         }
         else {
@@ -433,12 +435,13 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
 
                 new_ast->parent = active->parent;
             }
-            else {
-                /* Remember to operate on the tree, not current. */
-                tree->parent = new_ast;
+            else
+                /* At the top, so become root as well. */
                 es->root = new_ast;
-            }
+
             new_ast->left = tree;
+            new_ast->left->parent = new_ast;
+
             es->active = new_ast;
         }
     }
