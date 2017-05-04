@@ -233,17 +233,17 @@ static uint8_t priority_for_op(lily_expr_op o)
         case expr_logical_and:
             prio = 2;
             break;
-        /* Put pipes lower so they scoop up as much as possible. This seems
-           right. */
-        case expr_func_pipe:
-            prio = 3;
-            break;
         case expr_eq_eq:
         case expr_not_eq:
         case expr_lt:
         case expr_gr:
         case expr_lt_eq:
         case expr_gr_eq:
+            prio = 3;
+            break;
+        /* Put pipes here so they capture as much as possible for comparison
+           operations. Ex: `a << b |> fn <= something`. */
+        case expr_func_pipe:
             prio = 4;
             break;
         case expr_bitwise_or:
