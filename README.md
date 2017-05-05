@@ -9,7 +9,7 @@ Lily is a programming language focused on expressiveness and type safety.
 ## Sample
 
 ```
-enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
+scoped enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
 
 # Class properties and methods are public by default.
 class Terminal(var @foreground: Color, width_str: String)
@@ -54,11 +54,13 @@ that of languages using an interpreter as their reference.
 
 Lily is a very young language and the community is still growing.
 
-* IRC: [freenode #lily](https://webchat.freenode.net/?channels=%23lily) to chat
-  with others in real-time.
+* Discord: [Lily](https://discord.gg/Vr5CXFY) to chat with others in real-time.
 
-* Reddit: [/r/lily_lang](https://reddit.com/r/lily_lang) for discussion around
-  the language and providing support to new users.
+* IRC: [freenode #lily](https://webchat.freenode.net/?channels=%23lily) is
+  another way to chat with others.
+
+* Reddit: [/r/lily](https://reddit.com/r/lily) for discussion around the
+  language and providing support to new users.
 
 ## Resources
 
