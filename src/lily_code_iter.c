@@ -87,8 +87,8 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 4;
             break;
         case o_jump_if_not_class:
-            iter->special_1 = 1;
             iter->inputs_3 = 1;
+            iter->special_4 = 1;
             iter->jumps_7 = 1;
 
             iter->round_total = 4;

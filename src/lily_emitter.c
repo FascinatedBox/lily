@@ -1588,6 +1588,9 @@ static void perform_closure_transform(lily_emit_state *emit,
                 case o_load_closure:
                     pos += ci.special_4;
                     break;
+                case o_jump_if_not_class:
+                    pos += 1;
+                    break;
                 default:
                     lily_raise_syn(emit->raiser,
                             "Special value #4 for opcode %d not handled.", op);
