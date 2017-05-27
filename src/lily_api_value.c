@@ -717,3 +717,8 @@ uint16_t lily_value_class_id(lily_value *value)
 {
     return value->class_id;
 }
+
+uint16_t lily_cid_at(lily_vm_state *vm, int n)
+{
+    return vm->call_chain->function->cid_table[n];
+}

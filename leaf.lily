@@ -1,0 +1,2234 @@
+# Functions that really ought to be built in, but aren't yet.
+define string_repeat(what: String, count: Integer): String
+{
+    var out = ""
+
+    for i in 0...count - 1: {
+        out = out ++ what
+    }
+
+    return out
+}
+
+define string_size(in: String): Integer
+{
+    return in.to_bytestring().size()
+}
+
+define list_merge[A](left: List[A], right: List[A]): List[A]
+{
+    var out: List[A] = []
+
+    for i in 0...left.size() - 1:
+        out.push(left[i])
+
+    for i in 0...right.size() - 1:
+        out.push(right[i])
+
+    return out
+}
+
+define oct(num: Integer): String
+{
+    var out = ""
+
+    while num: {
+        var digit = num % 8
+        out = digit.to_s() ++ out
+        num = num / 8
+    }
+
+    return "0" ++ out
+}
+
+class ParseError(message: String) < Exception(message) {  }
+class BlockError(var @line: Integer, message: String) < Exception(message) {  }
+
+# The first order of business is creating a lexer that understands enough of
+# Lily's tokenizing to be able to scan definitions.
+
+scoped enum Token {
+    Arrow,
+    Colon,
+    Comma,
+    Digit,
+    DollarSign,
+    Dot,
+    DoubleQuote,
+    EndOfFile,
+    Equal,
+    LeftBracket,
+    LeftCurly,
+    LeftParenth,
+    Less,
+    Minus,
+    Multiply,
+    Newline,
+    PoundSign,
+    PropWord,
+    RightBracket,
+    RightCurly,
+    RightParenth,
+    Semicolon,
+    ThreeDots,
+    Word,
+    Invalid
+}
+
+var char_class = List.repeat(256, Token.Invalid)
+
+for i in 'a'.to_i()...'z'.to_i():
+    char_class[i] = Token.Word
+
+for i in 'A'.to_i()...'Z'.to_i():
+    char_class[i] = Token.Word
+
+for i in '0'.to_i()...'9'.to_i():
+    char_class[i] = Token.Digit
+
+char_class['@'.to_i()] = Token.PropWord
+char_class['_'.to_i()] = Token.Word
+char_class['['.to_i()] = Token.LeftBracket
+char_class[']'.to_i()] = Token.RightBracket
+char_class['('.to_i()] = Token.LeftParenth
+char_class[')'.to_i()] = Token.RightParenth
+char_class['{'.to_i()] = Token.LeftCurly
+char_class['}'.to_i()] = Token.RightCurly
+char_class[':'.to_i()] = Token.Colon
+char_class[';'.to_i()] = Token.Semicolon
+char_class[','.to_i()] = Token.Comma
+char_class['*'.to_i()] = Token.Multiply
+char_class['='.to_i()] = Token.Equal
+char_class['"'.to_i()] = Token.DoubleQuote
+char_class['-'.to_i()] = Token.Minus
+char_class['.'.to_i()] = Token.Dot
+char_class['<'.to_i()] = Token.Less
+char_class['$'.to_i()] = Token.DollarSign
+char_class['#'.to_i()] = Token.PoundSign
+char_class['\r'.to_i()] = Token.Newline
+char_class['\n'.to_i()] = Token.Newline
+
+class LilyEngineScanner
+{
+    private var @source_bytes = B""
+    private var @source_pos = 0
+    private var @source = ""
+    private var @last_tok = Token.EndOfFile
+    private var @last_str = ""
+    var @line_num = 0
+
+    define set_source(new_source: String, offset: *Integer = 1) {
+        new_source = new_source ++ "\n"
+        @source = new_source
+        @source_bytes = new_source.to_bytestring()
+        @source_pos = 0
+        @line_num = offset
+    }
+
+    private define scan_comment_block: String {
+        var start = @source_pos
+
+        if @source_bytes[@source_pos + 1] != '#' ||
+           @source_bytes[@source_pos + 2] != '#':
+            raise ParseError("Docblocks must start with '###'.")
+
+        @source_pos += 2
+
+        var pending_lines: List[String] = []
+        var local_bytes = @source_bytes
+        var local_pos = @source_pos
+        var ch = ' '
+        var slice_start = local_pos + 1
+
+        while 1: {
+            ch = local_bytes[local_pos]
+            if ch == '\n': {
+                pending_lines.push(@source.slice(slice_start, local_pos))
+                @line_num += 1
+                local_pos += 1
+
+                while 1: {
+                    ch = local_bytes[local_pos]
+                    if ch != ' ' && ch != '\t':
+                        break
+
+                    local_pos += 1
+                }
+
+                if ch != '#': {
+                    break
+                elif local_bytes[local_pos + 1] != '#' ||
+                     local_bytes[local_pos + 2] != '#':
+                    raise ParseError(
+                            "Docblock line must start with a full '###'.")
+                else:
+                    local_pos += 2
+                    slice_start = local_pos + 1
+                }
+            }
+
+            local_pos += 1
+        }
+
+        @source_pos = local_pos
+
+        return pending_lines.map(|line| line.lstrip(" \t") ).join("\n")
+    }
+
+    define next {
+        var result_tok = Token.EndOfFile
+        var result_str = ""
+
+        while 1: {
+            var ch = @source_bytes[@source_pos]
+
+            while ch == ' ' || ch == '\t': {
+                @source_pos += 1
+                ch = @source_bytes[@source_pos]
+            }
+
+            result_tok = char_class[ch.to_i()]
+
+            match result_tok: {
+                case Token.Word:
+                    var start = @source_pos
+                    var cc = char_class[ch.to_i()]
+
+                    while cc == Token.Word || cc == Token.Digit: {
+                        @source_pos += 1
+                        ch = @source_bytes[@source_pos]
+                        cc = char_class[ch.to_i()]
+                    }
+
+                    result_str = @source.slice(start, @source_pos)
+                case Token.LeftParenth:
+                    @source_pos += 1
+                case Token.RightParenth:
+                    @source_pos += 1
+                case Token.LeftBracket:
+                    @source_pos += 1
+                case Token.RightBracket:
+                    @source_pos += 1
+                case Token.LeftCurly:
+                    @source_pos += 1
+                case Token.RightCurly:
+                    @source_pos += 1
+                case Token.Colon:
+                    @source_pos += 1
+                case Token.Less:
+                    @source_pos += 1
+                case Token.Semicolon:
+                    @source_pos += 1
+                case Token.Comma:
+                    @source_pos += 1
+                case Token.Multiply:
+                    @source_pos += 1
+                case Token.Arrow:
+                    @source_pos += 1
+                case Token.Dot:
+                    @source_pos += 1
+
+                    if @source_bytes[@source_pos] == '.' &&
+                       @source_bytes[@source_pos + 1] == '.': {
+                       @source_pos += 2
+                       result_tok = Token.ThreeDots
+                    }
+
+                case Token.Equal:
+                    @source_pos += 1
+                    if @source_bytes[@source_pos] == '>': {
+                        result_tok = Token.Arrow
+                        @source_pos += 1
+                    }
+
+                case Token.Digit:
+                    var start = @source_pos
+                    var cc = char_class[ch.to_i()]
+
+                    while cc == Token.Digit: {
+                        @source_pos += 1
+                        ch = @source_bytes[@source_pos]
+                        cc = char_class[ch.to_i()]
+                    }
+
+                    result_str = @source.slice(start, @source_pos)
+                case Token.PropWord:
+                    @source_pos += 1
+                    ch = @source_bytes[@source_pos]
+
+                    var start = @source_pos
+                    var cc = char_class[ch.to_i()]
+
+                    while cc == Token.Word || cc == Token.Digit: {
+                        @source_pos += 1
+                        ch = @source_bytes[@source_pos]
+                        cc = char_class[ch.to_i()]
+                    }
+
+                    result_str = @source.slice(start, @source_pos)
+
+                    if result_str == "":
+                        result_tok = Token.Invalid
+                case Token.Minus:
+                    var start = @source_pos
+                    @source_pos += 1
+
+                    ch = @source_bytes[@source_pos]
+                    var cc = char_class[ch.to_i()]
+
+                    if cc == Token.Digit: {
+                        while cc == Token.Digit: {
+                            @source_pos += 1
+                            ch = @source_bytes[@source_pos]
+                            cc = char_class[ch.to_i()]
+                        }
+
+                        result_str = @source.slice(start, @source_pos)
+                        result_tok = Token.Digit
+                    }
+
+                case Token.DoubleQuote:
+                    var start = @source_pos
+
+                    @source_pos += 1
+                    ch = @source_bytes[@source_pos]
+
+                    while ch != '"': {
+                        @source_pos += 1
+                        ch = @source_bytes[@source_pos]
+                    }
+
+                    @source_pos += 1
+                    result_str = @source.slice(start, @source_pos)
+                case Token.DollarSign:
+                    ch = @source_bytes[@source_pos + 1]
+
+                    if ch != '1' && ch != '2':
+                        raise ParseError(
+                                "Invalid '$' marker, expected either $1 or $2.")
+
+                    @source_pos += 2
+
+                    # This is a special type that accepts all types it sees.
+                    # Used for Function.doc and Tuple methods.
+                    # For simplicity (and for now), rewrite this as a word and
+                    # allow it to pass through unchecked. Later on, tell the
+                    # real story and have the parser verify proper use of it.
+                    # It's currently in the interpreter as 1 or 2, so write it
+                    # down as that until the interpreter is updated.
+
+                    result_str = (ch.to_i() - '0'.to_i()).to_s()
+                    result_tok = Token.Word
+                case Token.PoundSign:
+                    result_str = scan_comment_block()
+                case Token.Newline:
+                    if @source_pos == @source_bytes.size() - 1: {
+                        result_tok = Token.EndOfFile
+                        @source_pos -= 1
+                    else:
+                        @line_num += 1
+                        @source_pos += 1
+                        continue
+                    }
+                else:
+                    # The other token kinds aren't seeded into ch_class, and
+                    # therefore aren't possible to see here.
+            }
+
+            break
+        }
+
+        @last_tok = result_tok
+        @last_str = result_str
+    }
+
+    define next_tok: Token {
+        next()
+        return @last_tok
+    }
+
+    define current_tok: Token {
+        return @last_tok
+    }
+
+    define current_str: String {
+        return @last_str
+    }
+
+    define current_is(expected_token: Token): Boolean {
+        return @last_tok == expected_token
+    }
+
+    define next_is(expected_token: Token): Boolean {
+        next()
+        return @last_tok == expected_token
+    }
+
+    define expect(tok: Token) {
+        if @last_tok != tok: {
+            var got = $"^(@last_tok)"
+
+            if @last_tok == Token.Word:
+                got = $"'^(@last_str)'"
+
+            raise ParseError("Expected {0}, not {1}.".format(tok, got))
+        }
+    }
+
+    define expect_word(value: *String=""): String {
+        if @last_tok != Token.Word ||
+            (value != "" && @last_str != value):
+            raise ParseError(
+                    $"Expected '^(value)', not '^(@last_tok).")
+
+        return @last_str
+    }
+
+    define expect_any(tokens: Token...) {
+        raise ParseError("Expected one of {0} but got {1}."
+                .format(tokens.map(|t| $"^(t)" ).join(", "), @last_tok))
+    }
+
+    define require(tok: Token): String {
+        next()
+        expect(tok)
+        return @last_str
+    }
+
+    define require_word(value: String): String {
+        next()
+        return expect_word(value)
+    }
+
+    # Returns a slice from the current position to the end.
+    #
+    # This returns a slice containing whatever is left in the scanner. This is
+    # used primarily to get the doc blocks that occur after commands.
+    #
+    # This doesn't modify the scanner's position.
+    define strify_to_end: String {
+        return @source.slice(@source_pos)
+    }
+}
+
+# These trees are what the engine creates from the source that it's fed.
+# First, the flags. The bottom area (0x00 to 0xFF) is reserved in 'flags' to
+# denote the ids of different generics.
+
+var CLASS_IS_GENERIC = 0x000100
+
+var SCOPE_PUBLIC     = 0x000200
+var SCOPE_PROTECTED  = 0x000400
+var SCOPE_PRIVATE    = 0x000800
+
+var IS_FOREIGN       = 0x001000
+var IS_STATIC        = 0x002000
+var IS_METHOD        = 0x004000
+var IS_CTOR          = 0x008000
+
+var IS_FOREIGN_CLASS = 0x010000
+var IS_NATIVE_CLASS  = 0x020000
+var IS_ENUM          = 0x040000
+var IS_VAR           = 0x080000
+
+var IS_ROOT          = 0x100000
+
+var ANY_SCOPE = SCOPE_PUBLIC | SCOPE_PROTECTED | SCOPE_PRIVATE
+
+class NamedSym(
+    var @name: String,
+    var @generics: Integer,
+    var @flags: Integer
+) {
+    var @doc = ""
+
+    define proto_generics: String {
+        # <= 0 because Function and Tuple use -1 to denote infinity.
+        if @generics <= 0:
+            return ""
+
+        var generic_line = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        var out = "[A"
+
+        for i in 1...@generics - 1:
+            out = out ++ ", " ++ generic_line.slice(i, i + 1)
+
+        return out ++ "]"
+    }
+
+    define qualifier: String {
+        if @flags & SCOPE_PUBLIC:
+            return "public "
+        elif @flags & SCOPE_PROTECTED:
+            return "protected "
+        elif @flags & SCOPE_PRIVATE:
+            return "private "
+        else:
+            return ""
+    }
+}
+
+# This specifies NamedSym, but types should only ever be created from
+# ContainerSym and above.
+
+class TypeEntry(var @klass: NamedSym, var @contents: List[TypeEntry],
+        var @value: *String = "")
+{
+    define display: String {
+        var result = @klass.name
+        var ready_args: List[String] = []
+
+        if @contents.size():
+            ready_args = @contents.map(TypeEntry.display)
+
+        if @klass.name == "Function": {
+            var output = ready_args[0]
+            var inputs = ready_args.slice(1, @contents.size()).join(", ")
+
+            if output != "Unit":
+                output = " => " ++ output
+            else:
+                output = ""
+
+            result = @klass.name ++ "(" ++ inputs ++ output ++ ")"
+        elif @klass.name == "*":
+            result = @klass.name ++ ready_args[0] ++ " = " ++ @value
+        elif @klass.name == "...":
+            result = ready_args[0] ++ "..."
+        # Use != 0 because Tuple has -1 to denote infinity
+        elif @klass.generics != 0:
+            result = @klass.name ++ "[" ++ ready_args.join(", ") ++ "]"
+        }
+
+        return result
+    }
+}
+
+class VarSym(
+    name: String,
+    type: TypeEntry,
+    flags: Integer
+) < NamedSym(name, 0, flags | IS_VAR) {
+    var @type = type
+}
+
+class DefineSym(
+    name: String,
+    var @types: List[TypeEntry],
+    var @type_names: List[String],
+    flags: Integer
+) < NamedSym(name, 0, flags) {
+    var @parent_name: String = ""
+
+    define clean_proto: String {
+        var out: List[String] = []
+
+        for i in 1...@types.size() - 1: {
+            var t = @types[i]
+
+            if t.klass.name == "*":
+                out.push("*" ++ t.contents[0].display())
+            else:
+                out.push(t.display())
+        }
+
+        var out_text = out.join(",")
+        var return_type = ""
+
+        if out_text != "":
+            out_text = "(" ++ out_text ++ ")"
+
+        if @types[0].klass.name != "Unit":
+            return_type = ":" ++ @types[0].display()
+
+        return out_text ++ return_type
+    }
+
+    define full_proto_args: String {
+        var out: List[String] = []
+
+        for j in 1...@types.size() - 1:
+            out.push(@type_names[j] ++ ": " ++ @types[j].display())
+
+        if out.size():
+            return "(" ++ out.join(", ") ++ ")"
+        else:
+            return ""
+    }
+
+    define full_proto: String {
+        var out: List[String] = []
+
+        for j in 1...@types.size() - 1:
+            out.push(@type_names[j] ++ ": " ++ @types[j].display())
+
+        var out_text = full_proto_args()
+        var return_type = ""
+
+        if @types[0].klass.name != "Unit":
+            return_type = ": " ++ @types[0].display()
+
+        return out_text ++ return_type
+    }
+}
+
+class ContainerSym(
+    name: String,
+    generics: Integer,
+    flags: Integer
+) < NamedSym(name, generics, flags)
+{
+    var @vars: List[VarSym] = []
+    var @methods: List[DefineSym] = []
+}
+
+class VariantSym(
+    name: String
+) < NamedSym(name, 0, 0) {
+    var @types: List[TypeEntry] = []
+
+    define clean_proto: String {
+        var out = ""
+        if @types:
+            out = "(" ++ @types.map(TypeEntry.display).join(", ") ++ ")"
+
+        return out
+    }
+}
+
+class ClassSym(
+    name: String,
+    generics: Integer,
+    flags: Integer
+) < ContainerSym(name, generics, flags)
+{
+    var @layout: List[String] = []
+    var @parent = ""
+}
+
+class EnumSym(
+    name: String,
+    is_scoped: Boolean
+) < ContainerSym(name, 0, IS_ENUM) {
+    var @is_scoped = is_scoped
+    var @variants: List[VariantSym] = []
+}
+
+class RootSym
+< ClassSym("*toplevel", 0, IS_ROOT)
+{
+    var @classes: List[ContainerSym] = []
+    var @source_str = ""
+    var @package_name = ""
+}
+
+# This parser should be thought of more as a parse engine.
+# To use it, a class should extend it and feed it blocks.
+# This too is quite rough.
+
+class LilyParseEngine {
+    private var @classes: List[ClassSym] = []
+
+    private var @function_class = ClassSym("Function", -1, IS_FOREIGN_CLASS)
+    private var @unit_class = ClassSym("Unit", 0, IS_FOREIGN_CLASS)
+    private var @optarg_class = ClassSym("*", 1, IS_FOREIGN_CLASS)
+    private var @vararg_class = ClassSym("...", 1, IS_FOREIGN_CLASS)
+
+    private var @unit_type = TypeEntry(@unit_class, [])
+    private var @current_self_type = @unit_type
+
+    var @pending_doc = ""
+    var @scope_generics = 0
+    var @root_sym = RootSym()
+    var @current_sym: ContainerSym = @root_sym
+    var @scanner = LilyEngineScanner()
+
+    @classes = [
+        ClassSym("Integer", 0, IS_FOREIGN_CLASS),
+        ClassSym("Double", 0, IS_FOREIGN_CLASS),
+        ClassSym("String", 0, IS_FOREIGN_CLASS),
+        ClassSym("Byte", 0, IS_FOREIGN_CLASS),
+        ClassSym("ByteString", 0, IS_FOREIGN_CLASS),
+        ClassSym("Boolean", 0, IS_FOREIGN_CLASS),
+        ClassSym("Dynamic", 0, IS_FOREIGN_CLASS),
+        @function_class,
+        ClassSym("File", 0, IS_FOREIGN_CLASS),
+        ClassSym("List", 1, IS_FOREIGN_CLASS),
+        ClassSym("Hash", 2, IS_FOREIGN_CLASS),
+        ClassSym("Tuple", -1, IS_FOREIGN_CLASS),
+        ClassSym("Option", 1, IS_FOREIGN_CLASS),
+        ClassSym("Result", 2, IS_FOREIGN_CLASS),
+        ClassSym("Exception", 0, IS_NATIVE_CLASS),
+        ClassSym("IOError", 0, IS_NATIVE_CLASS),
+        ClassSym("KeyError", 0, IS_NATIVE_CLASS),
+        ClassSym("RuntimeError", 0, IS_NATIVE_CLASS),
+        ClassSym("ValueError", 0, IS_NATIVE_CLASS),
+        ClassSym("IndexError", 0, IS_NATIVE_CLASS),
+        ClassSym("DivisionByZeroError", 0, IS_NATIVE_CLASS),
+        ClassSym("AssertionError", 0, IS_NATIVE_CLASS),
+        ClassSym("1", 0, IS_FOREIGN_CLASS),
+        ClassSym("2", 0, IS_FOREIGN_CLASS),
+        ClassSym("A", 0, 1 + IS_FOREIGN_CLASS),
+        ClassSym("B", 0, 2 + IS_FOREIGN_CLASS),
+        ClassSym("C", 0, 3 + IS_FOREIGN_CLASS),
+        ClassSym("D", 0, 4 + IS_FOREIGN_CLASS),
+        ClassSym("E", 0, 5 + IS_FOREIGN_CLASS)
+    ]
+
+    define leave_scope {
+        @current_sym = @root_sym
+        @scope_generics = @root_sym.generics
+    }
+
+    define enter_scope(sym: ContainerSym) {
+        @current_sym = sym
+        @scope_generics = sym.generics
+    }
+
+    define new_foreign_class(name: String): ClassSym {
+        var c = ClassSym(name, 0, IS_FOREIGN_CLASS)
+        c.doc = @pending_doc
+        var push_c: ClassSym = c
+        @root_sym.classes.push(push_c)
+        return c
+    }
+
+    define new_native_class(name: String): ClassSym {
+        var c = ClassSym(name, 0, IS_NATIVE_CLASS)
+        c.doc = @pending_doc
+        var push_c: ClassSym = c
+        @root_sym.classes.push(push_c)
+        return c
+    }
+
+    define push_builtin_class(sym: ContainerSym) {
+        @root_sym.classes.push(sym)
+    }
+
+    define new_define(name: String, qual: Integer, generics: *Integer = 0) {
+        var type_names = [""]
+        var types = [@unit_type]
+
+        if qual & IS_STATIC == 0 &&
+            @current_sym.flags & IS_ROOT == 0: {
+            type_names.push("self")
+            types.push(@current_self_type)
+        }
+
+        if qual & IS_CTOR:
+            types[0] = @current_self_type
+
+        var sym = DefineSym(name, types, type_names, qual)
+        sym.doc = @pending_doc
+        sym.generics = generics
+        @current_sym.methods.push(sym)
+    }
+
+    define new_enum(name: String, scoped: Boolean): EnumSym {
+        var sym = EnumSym(name, scoped)
+        var push_sym: ContainerSym = sym
+
+        @root_sym.classes.push(push_sym)
+
+        return sym
+    }
+
+    define new_variant(name: String): VariantSym {
+        var sym = VariantSym(name)
+
+        match @current_sym: {
+            case EnumSym(es):
+                es.variants.push(sym)
+            else:
+                raise ParseError(
+                $"Trying to add a variant to ^(es.name) which isn't an enum.")
+        }
+
+        return sym
+    }
+
+    define new_var(name: String, type: TypeEntry, qual: Integer): VarSym {
+        var sym = VarSym(name, type, qual)
+        sym.flags = qual
+        sym.doc = @pending_doc
+        @current_sym.vars.push(sym)
+        return sym
+    }
+
+    private define scan_optarg_for(entry: ContainerSym): String {
+        var expect_tok = Token.Invalid
+
+        if entry.name == "String": {
+            expect_tok = Token.DoubleQuote
+        elif entry.name == "Integer":
+            expect_tok = Token.Digit
+        elif entry.name == "Boolean":
+            expect_tok = Token.Word
+        }
+
+        @scanner.require(expect_tok)
+
+        return @scanner.current_str()
+    }
+
+    define find_class(name: String): Option[ContainerSym] {
+        var entry: Option[ContainerSym] = None
+
+        for i in 0...@root_sym.classes.size() - 1: {
+            var c = @root_sym.classes[i]
+            if name == c.name: {
+                entry = Some(c)
+                break
+            }
+        }
+
+        if entry.is_none(): {
+            for i in 0...@classes.size() - 1: {
+                var c = @classes[i]
+                if name == c.name: {
+                    if c.flags & CLASS_IS_GENERIC &&
+                    @current_sym.generics < c.flags & 0xFF:
+                        continue
+
+                    var some_c: ContainerSym = c
+                    entry = Some(some_c)
+                    break
+                }
+            }
+        }
+
+        return entry
+    }
+
+    define scan_type: TypeEntry {
+        var is_optarg = false
+        if @scanner.current_tok() == Token.Multiply: {
+            is_optarg = true
+            @scanner.next()
+        }
+
+        @scanner.expect(Token.Word)
+
+        var class_name = @scanner.current_str()
+        var entry = find_class(class_name)
+
+        if entry.is_none():
+            raise ParseError($"Class '^(class_name)' does not exist.")
+
+        var raw_class = entry.unwrap()
+        var type_args: List[TypeEntry] = []
+
+        if raw_class.generics == 0: {
+            0
+        elif raw_class.name != "Function":
+            @scanner.require(Token.LeftBracket)
+            var i = 0
+
+            while 1: {
+                @scanner.next()
+                type_args.push(scan_type())
+                i += 1
+
+                match @scanner.current_tok(): {
+                    case Token.Comma:
+                        continue
+                    case Token.RightBracket:
+                        break
+                    else:
+                        @scanner.expect_any(Token.Comma, Token.LeftBracket)
+                }
+            }
+
+            if i != raw_class.generics && raw_class.name != "Tuple": {
+                raise ParseError("Wrong number of types for {0} ({1} for {2})."
+                        .format(raw_class.name, raw_class.generics, i))
+            }
+        else:
+            @scanner.require(Token.LeftParenth)
+            type_args.push(@unit_type)
+
+            @scanner.next()
+
+            if @scanner.current_tok() != Token.RightParenth &&
+               @scanner.current_tok() != Token.Arrow: {
+
+                while 1: {
+                    @scanner.expect(Token.Word)
+                    type_args.push(scan_type())
+
+                    if @scanner.current_tok() == Token.Comma: {
+                        @scanner.next()
+                        continue
+                    else:
+                        break
+                    }
+                }
+            }
+
+            if @scanner.current_tok() == Token.Arrow: {
+                @scanner.next()
+                type_args[0] = scan_type()
+            }
+
+            @scanner.expect(Token.RightParenth)
+        }
+
+        var new_entry = TypeEntry(raw_class, type_args)
+
+        if is_optarg: {
+            @scanner.require(Token.Equal)
+            var value = scan_optarg_for(raw_class)
+
+            new_entry = TypeEntry(@optarg_class, [new_entry], value)
+        }
+
+        @scanner.next()
+
+        return new_entry
+    }
+
+    define parse_generics_from(index: Integer): Integer {
+        var generic_line = B"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+        # Tuple and Function use -1 to denote infinity.
+        # However, Tuple.merge for example uses generics and must start from 0.
+        if index == -1:
+            index = 0
+
+        while 1: {
+            @scanner.require(Token.Word)
+
+            var byte_word = @scanner.current_str().to_bytestring()
+
+            if byte_word.size() != 1:
+                raise ParseError("Invalid generic " ++ @scanner.current_str() ++ ".")
+
+            var new_pos = byte_word[0].to_i() - 'A'.to_i()
+
+            if new_pos != index: {
+                raise ParseError("Expected generic {0}, not {1}."
+                        .format(generic_line[index],
+                                generic_line[new_pos]))
+            }
+
+            index += 1
+            @scanner.next()
+
+            match @scanner.current_tok(): {
+                case Token.Comma:
+                    continue
+                case Token.RightBracket:
+                    break
+                else:
+                    @scanner.expect_any(Token.Comma, Token.RightBracket)
+            }
+        }
+
+        @scanner.next()
+        return index
+    }
+
+    define make_self_type_for(sym: ClassSym) {
+        var generic_line = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        var types: List[TypeEntry] = []
+
+        for i in 0...sym.generics - 1: {
+            var name = generic_line.slice(i, i + 1)
+
+            types.push(TypeEntry(find_class(name).unwrap(), []))
+        }
+
+        @current_self_type = TypeEntry(sym, types)
+    }
+
+    define parse_define_body(name: String, qualifiers: Integer,
+            generics: *Integer = 0) {
+        var save_generics = @scope_generics
+
+        if generics != 0:
+            @scope_generics = generics
+
+        var define_names: List[String] = []
+        var define_types: List[TypeEntry] = []
+
+        if qualifiers & IS_STATIC == 0 &&
+            @current_sym.flags & IS_ROOT == 0: {
+            define_names.push("self")
+            define_types.push(@current_self_type)
+        }
+
+        if @scanner.current_tok() == Token.LeftParenth: {
+            @scanner.next()
+
+            if @scanner.current_is(Token.RightParenth) &&
+               qualifiers & IS_CTOR: {
+                @scanner.next()
+            else:
+                while 1: {
+                    @scanner.expect(Token.Word)
+                    define_names.push(@scanner.current_str())
+                    @scanner.require(Token.Colon)
+                    @scanner.next()
+                    define_types.push(scan_type())
+
+                    match @scanner.current_tok(): {
+                        case Token.Comma:
+                            @scanner.next()
+                        case Token.RightParenth:
+                            @scanner.next()
+                            break
+                        case Token.ThreeDots:
+                            var t = [define_types[-1]]
+                            define_types[-1] = TypeEntry(@vararg_class, t)
+                            @scanner.require(Token.RightParenth)
+                            @scanner.next()
+                            break
+                        else:
+                            @scanner.expect_any(Token.Comma, Token.RightParenth)
+                    }
+                }
+            }
+        }
+
+        define_names.unshift("")
+
+        if qualifiers & IS_CTOR == 0: {
+            if @scanner.current_tok() == Token.Colon: {
+                @scanner.require(Token.Word)
+                define_types.unshift(scan_type())
+            else:
+                define_types.unshift(@unit_type)
+            }
+        else:
+            define_types.unshift(@current_self_type)
+        }
+
+        var parent_name = ""
+
+        if @current_sym.flags & IS_ROOT == 0: {
+            qualifiers |= IS_METHOD
+            parent_name = @current_sym.name
+        }
+
+        var new_sym = DefineSym(name, define_types, define_names, qualifiers)
+        new_sym.parent_name = parent_name
+        new_sym.generics = generics
+        new_sym.doc = @pending_doc
+
+        @current_sym.methods.push(new_sym)
+
+        if generics != 0:
+            @scope_generics = save_generics
+    }
+
+    define parse_variant_args_for(sym: VariantSym) {
+        var type_args: List[TypeEntry] = []
+        @scanner.next()
+
+        while 1: {
+            @scanner.expect(Token.Word)
+            type_args.push(scan_type())
+
+            match @scanner.current_tok(): {
+                case Token.Comma:
+                    continue
+                case Token.RightParenth:
+                    @scanner.next()
+                    break
+                else:
+                    @scanner.expect_any(Token.Comma, Token.RightParenth)
+            }
+        }
+
+        sym.types = type_args
+    }
+}
+
+class CBlockReader {
+    private var @lines: List[String] = []
+    private var @pos = 0
+    private var @end_pos = 0
+
+    private var @autogen_start = -1
+    private var @autogen_end = -1
+
+    var @command = ""
+    var @docblock = ""
+    var @line_num = 0
+
+    private define read_block_from(start: Integer)
+        : Boolean
+    {
+        var empty_line_pos = -1
+
+        for current in start...@end_pos: {
+            var line = @lines[current]
+
+            if line == "*/": {
+                var found = false
+                var j = -1
+
+                for j in start + 1...@end_pos: {
+                    line = @lines[j]
+                    if line == "": {
+                        found = true
+                        break
+                    }
+                }
+
+                if found == false:
+                    raise BlockError(start - 1,
+                    "Block has no blank dividing line.")
+
+                @command = @lines.slice(start, j + 1).join("\n")
+                @docblock = @lines.slice(j, current).join("\n")
+                @line_num = start
+
+                @pos = current + 1
+
+                return true
+            }
+        }
+
+        raise BlockError(start - 1, "Block is unterminated.")
+    }
+
+    define read_next: Boolean {
+        var i = @pos
+        var end = @end_pos
+
+        while i != end: {
+            var line = @lines[i]
+
+            if line.starts_with("/**"): {
+                if line == "/**":
+                    return read_block_from(i + 1)
+                elif line == "/** Begin autogen section. **/":
+                    @autogen_start = i
+                elif line == "/** End autogen section. **/":
+                    @autogen_end = i + 1
+            }
+
+            i += 1
+        }
+
+        return false
+    }
+
+    define get_header: List[String] {
+        if @autogen_start > 0 &&
+           @autogen_start < @autogen_end:
+            return @lines.slice(0, @autogen_start)
+        else:
+            return []
+    }
+
+    define get_footer: List[String] {
+        if @autogen_end > @autogen_start:
+            return @lines.slice(@autogen_end)
+        else:
+            return []
+    }
+
+    define verify_header_footer {
+        if @autogen_start > 0 &&
+           @autogen_start < @autogen_end:
+            0
+        else:
+            raise BlockError(@end_pos,
+                    "No '/** Begin autogen section. **/' marker found.")
+
+        if @autogen_end > @autogen_start:
+            0
+        else:
+            raise BlockError(@end_pos,
+                    "No '/** End autogen section. **/' marker found.")
+    }
+
+    define load_file(filename: String) {
+        var local_lines: List[String] = []
+
+        var f = File.open(filename, "r")
+        f.each_line(|l| l.encode().unwrap() |> local_lines.push )
+        f.close()
+
+        @lines = local_lines
+        @end_pos = local_lines.size() - 1
+    }
+}
+
+scoped enum ParseResult {
+    # Something happened while collecting blocks.
+    # Fields are error message and line number.
+    BlockIssue(String, Integer),
+
+    # This time the problem was in command processing.
+    # Fields are error message and line number.
+    CommandIssue(#[ message: ]# String, #[ where: ]# Integer),
+
+    # Command 'name' is not understood.
+    CommandUnknown(String),
+
+    # Processing done, here's the root to analyze.
+    Done(RootSym)
+}
+
+# This extends the parsing engine in order to feed it.
+# This is responsible for reading the special /** header comments.
+# Once they're all read in, it will begin feeding the underlying parse engine.
+# The data of interest can be obtained by asking for the engine's root symbol,
+# to which all the other symbols are linked.
+
+class CBlockSourceParser(engine: LilyParseEngine) {
+    private var @engine = engine
+    private var @scanner = engine.scanner
+    private var @reader = CBlockReader()
+    private var @qualifiers = 0
+    private var @need_header_footer = false
+
+    private var @is_builtin = false
+    private var @done_result = ParseResult.Done(@engine.root_sym)
+
+    private define parse_layout_for(sym: ClassSym) {
+        var entry = ""
+
+        @scanner.next()
+        var last_token = Token.Invalid
+
+        while 1: {
+            match @scanner.current_tok(): {
+                case Token.Word:
+                    if last_token == Token.Word:
+                        entry = entry ++ " " ++ @scanner.current_str()
+                    else:
+                        entry = entry ++ @scanner.current_str()
+                case Token.LeftBracket:
+                    entry = entry ++ "["
+                case Token.RightBracket:
+                    entry = entry ++ "]"
+                case Token.Multiply:
+                    if last_token == Token.Word:
+                        entry = entry ++ " *"
+                    else:
+                        entry = entry ++ "*"
+                case Token.Semicolon:
+                    sym.layout.push(entry ++ ";")
+
+                    if @scanner.next_is(Token.RightCurly): {
+                        break
+                    else:
+                        last_token = Token.Semicolon
+                        entry = ""
+                        continue
+                    }
+
+                else:
+                    raise ParseError("Unexpected token {0} in layout block."
+                    .format(@scanner.current_tok()))
+            }
+
+            last_token = @scanner.current_tok()
+
+            @scanner.next()
+        }
+    }
+
+    private define parse_members_for(sym: ClassSym) {
+        var qual = 0
+        @scanner.next()
+
+        while 1: {
+            var word = @scanner.expect_word()
+
+            if word == "private": {
+                qual = SCOPE_PRIVATE
+                @scanner.next()
+            elif word == "protected":
+                qual = SCOPE_PROTECTED
+                @scanner.next()
+            else:
+                qual = SCOPE_PUBLIC
+            }
+
+            @scanner.expect_word("var")
+            var name = @scanner.require(Token.PropWord)
+
+            @scanner.require(Token.Colon)
+            @scanner.next()
+
+            var type = @engine.scan_type()
+            @engine.new_var(name, type, qual)
+
+            if @scanner.current_is(Token.Comma): {
+                @scanner.next()
+                continue
+            elif @scanner.current_is(Token.RightCurly):
+                break
+            else:
+                @scanner.expect_any(Token.Comma, Token.RightCurly)
+            }
+        }
+    }
+
+    private define cmd_library {
+        var name = @scanner.require(Token.Word)
+
+        if name == "builtin":
+            @is_builtin = true
+
+        var root = engine.root_sym
+        root.package_name = name
+        root.doc = @engine.pending_doc
+        @scanner.next()
+    }
+
+    private define cmd_source {
+        @scanner.require(Token.DoubleQuote)
+        @engine.root_sym.source_str = @scanner.current_str().slice(1, -1)
+        @scanner.next()
+    }
+
+    private define cmd_foreign {
+        @scanner.require_word("class")
+        var name = @scanner.require(Token.Word)
+        var foreign_class = @engine.new_foreign_class(name)
+
+        @engine.make_self_type_for(foreign_class)
+        @engine.enter_scope(foreign_class)
+
+        if @scanner.next_is(Token.LeftParenth):
+            @engine.parse_define_body("<new>", IS_STATIC | IS_CTOR)
+
+        @scanner.expect(Token.LeftCurly)
+        @scanner.require_word("layout")
+        @scanner.require(Token.LeftCurly)
+
+        parse_layout_for(foreign_class)
+
+        @scanner.require(Token.RightCurly)
+        @scanner.next()
+    }
+
+    private define cmd_builtin {
+        if @is_builtin == false:
+            raise ParseError("'builtin' strictly for the builtin package.")
+
+        @scanner.require_word("class")
+        var name = @scanner.require(Token.Word)
+
+        var boxed_container = @engine.find_class(name)
+        if boxed_container.is_none():
+            raise ParseError($"Builtin class ^(name) not found.")
+
+        var raw_container = boxed_container.unwrap()
+
+        @engine.enter_scope(raw_container)
+        @engine.push_builtin_class(raw_container)
+
+        if @scanner.next_is(Token.LeftBracket):
+            raw_container.generics = @engine.parse_generics_from(0)
+
+        if @scanner.current_is(Token.LeftParenth): {
+            # Currently, Dynamic is the only class that has a constructor.
+            # Dynamic's constructor takes [A], but that doesn't reflect back on
+            # the class. Just fake it.
+            raw_container.generics = 1
+            @engine.parse_define_body("<new>", IS_STATIC | IS_CTOR)
+            raw_container.generics = 0
+        }
+    }
+
+    private define cmd_native {
+        @scanner.require_word("class")
+        var name = @scanner.require(Token.Word)
+        var native_class = @engine.new_native_class(name)
+        var generics = 0
+
+        if @scanner.next_is(Token.LeftBracket): {
+            generics = @engine.parse_generics_from(0)
+            native_class.generics = generics
+        }
+
+        var self_type = @engine.make_self_type_for(native_class)
+        @engine.enter_scope(native_class)
+
+        if @scanner.current_is(Token.LeftParenth):
+            @engine.parse_define_body("<new>", IS_STATIC | IS_CTOR, generics)
+        else:
+            @engine.new_define("<new>", IS_STATIC | IS_CTOR, generics)
+
+        if @scanner.current_is(Token.Less): {
+            native_class.parent = @scanner.require(Token.Word)
+            @scanner.next()
+        }
+
+        if @scanner.current_is(Token.LeftCurly): {
+            parse_members_for(native_class)
+            @scanner.next()
+        }
+    }
+
+    private define cmd_enum(is_scoped: *Boolean = false) {
+        var enum_name = @scanner.require(Token.Word)
+        var new_enum = @engine.new_enum(enum_name, is_scoped)
+        @engine.enter_scope(new_enum)
+
+        if @scanner.next_is(Token.LeftBracket):
+            new_enum.generics = @engine.parse_generics_from(0)
+
+        @scanner.expect(Token.LeftCurly)
+        @scanner.next()
+
+        while 1: {
+            var variant_name = @scanner.expect_word()
+            var variant_sym = @engine.new_variant(variant_name)
+
+            if @scanner.next_is(Token.LeftParenth):
+                @engine.parse_variant_args_for(variant_sym)
+
+            if @scanner.current_is(Token.Comma):
+                @scanner.next()
+            elif @scanner.current_is(Token.RightCurly):
+                break
+            else:
+                @scanner.expect_any(Token.Comma, Token.RightCurly)
+        }
+
+        @scanner.next()
+    }
+
+    private define cmd_define {
+        var name = @scanner.require(Token.Word)
+
+        if name == @engine.current_sym.name: {
+            @scanner.require(Token.Dot)
+            name = @scanner.require(Token.Word)
+        }
+
+        @scanner.next()
+
+        var generics = @engine.current_sym.generics
+        var save_generics = generics
+
+        if @scanner.current_is(Token.LeftBracket):
+            generics = @engine.parse_generics_from(generics)
+
+        @engine.parse_define_body(name, @qualifiers, generics)
+    }
+
+    private define cmd_run_qualifier(qualifier_flag: Integer) {
+        if @engine.current_sym.flags & IS_ENUM &&
+            qualifier_flag & (SCOPE_PROTECTED | SCOPE_PRIVATE):
+                raise ParseError("Definitions for enum must be public.")
+        elif @engine.current_sym.flags & IS_ROOT:
+            raise ParseError("Qualifiers not allowed outside of a class.")
+
+        @scanner.require_word("define")
+        @qualifiers = qualifier_flag
+        cmd_define()
+    }
+
+    private define cmd_var {
+        if @engine.current_sym.flags & IS_ROOT == 0:
+            @engine.leave_scope()
+
+        var name = @scanner.require(Token.Word)
+        @scanner.require(Token.Colon)
+        @scanner.require(Token.Word)
+        var type = @engine.scan_type()
+        @engine.new_var(name, type, 0)
+    }
+
+    private define parse_block: ParseResult {
+        try: {
+            var command = @scanner.require(Token.Word)
+
+            if command == "define":
+                cmd_define()
+            elif command == "foreign":
+                cmd_foreign()
+            elif command == "native":
+                cmd_native()
+            elif command == "enum":
+                cmd_enum()
+            elif command == "protected":
+                cmd_run_qualifier(SCOPE_PROTECTED)
+            elif command == "private":
+                cmd_run_qualifier(SCOPE_PRIVATE)
+            elif command == "static":
+                cmd_run_qualifier(IS_STATIC)
+            elif command == "var":
+                cmd_var()
+            elif command == "builtin":
+                cmd_builtin()
+            elif command == "library":
+                cmd_library()
+            elif command == "source":
+                cmd_source()
+            else:
+                return ParseResult.CommandUnknown(command)
+
+            @scanner.expect(Token.EndOfFile)
+        except ParseError as e:
+            return ParseResult.CommandIssue(e.message, @scanner.line_num)
+        }
+
+        return @done_result
+    }
+
+    define get_header: List[String] {
+        return @reader.get_header()
+    }
+
+    define get_footer: List[String] {
+        return @reader.get_footer()
+    }
+
+    define require_header_footer {
+        @need_header_footer = true
+    }
+
+    define load_file(filename: String) {
+        @reader.load_file(filename)
+    }
+
+    define read_until_done_or_error: ParseResult {
+        try: {
+            while @reader.read_next(): {
+                @scanner.set_source(@reader.command, @reader.line_num)
+                @engine.pending_doc = @reader.docblock
+
+                var result = parse_block()
+                if result != @done_result:
+                    return result
+            }
+
+            if @need_header_footer:
+                @reader.verify_header_footer()
+        except ParseError as e:
+            return ParseResult.CommandIssue(e.message, @scanner.line_num)
+        except BlockError as e:
+            return ParseResult.BlockIssue(e.message, e.line)
+        }
+
+        return @done_result
+    }
+}
+
+# This will take in the root symbol returned by the generator and generate a new
+# autogen header. The parser that read in the blocks will have the header and
+# footer sections of the file that was read in. The output is the result of
+# stitching together the header, autogen entries, and footer.
+
+class AutogenSectionGenerator {
+    # The name of the package being updated.
+    var @pname = ""
+
+    # Entries put in the 'autogen entries' section so far.
+    var @entries_made: List[String] = []
+
+    # Each class and enum has an offset, and all toplevel items share one
+    # toplevel offset. When generating the loader, the cases will use an offset
+    # plus a number.
+    # The purpose of this is to reduce the size of diffs, as only the offset of
+    # one class will chance when a method is added, instead of shuffling all of
+    # the later entries.
+    var @offsets: Hash[String, Integer] = []
+
+    # Special case for the builtin package, which doesn't need ID macros for the
+    # builtin symbols.
+    var @is_builtin = false
+
+    # If the last pass put something into @offsets, then add a newline. This
+    # helps to keep the sections distinct so the output looks nicer.
+    var @did_gen = false
+
+    private define gen_helper_for(sym: NamedSym, index: Integer): Integer {
+        match sym: {
+            case ClassSym(cs):
+                var layout = cs.layout
+                var did_add = false
+                var full_name = $"lily_^(@pname)_^(sym.name)"
+
+                if layout.size(): {
+                    if index != 1: {
+                        @entries_made.push("")
+                        did_add = true
+                    }
+
+                    @entries_made.push(
+                    "typedef struct " ++ full_name ++ "_ {")
+
+                    @entries_made.push("    LILY_FOREIGN_HEADER")
+
+                    for i in 0...layout.size() - 1:
+                        @entries_made.push("    " ++ layout[i])
+
+                    @entries_made.push(
+                    "} " ++ full_name ++ ";")
+
+                    @entries_made.push(
+                    "#define ARG_{0}(state, index) \\\n" ++
+                    "({1} *)lily_arg_generic(state, index)"
+                    .format(sym.name, full_name))
+                }
+
+                if @is_builtin == false ||
+                   cs.flags & IS_FOREIGN_CLASS: {
+                    if did_add == false && index != 1: {
+                        @entries_made.push("")
+                    }
+
+                    @entries_made.push(
+                    "#define ID_{0}(state) lily_cid_at(state, {1})"
+                    .format(sym.name, index))
+                }
+
+                if layout.size(): {
+                    @entries_made.push(
+                    "#define INIT_{0}(state)\\\n" ++
+                    "({1} *) lily_new_foreign(state, " ++
+                    "ID_{0}(state), " ++
+                    "(lily_destroy_func)destroy_{0}, " ++
+                    "sizeof({1}))"
+                    .format(sym.name, full_name))
+                }
+
+                @did_gen = true
+                index += 1
+            case EnumSym(es):
+                index += 1
+            else:
+        }
+
+        return index
+    }
+
+    private define gen_helper(syms: List[ContainerSym]) {
+        var counter = 0
+        for index in 0...syms.size() - 1: {
+            var sym = syms[index]
+            counter = gen_helper_for(sym, counter)
+
+            for j in 0...sym.methods.size() - 1:
+                counter = gen_helper_for(sym.methods[j], counter)
+
+            for j in 0...sym.vars.size() - 1:
+                counter = gen_helper_for(sym.vars[j], counter)
+        }
+    }
+
+    private define gen_dyna_for(sym: NamedSym) {
+        match sym: {
+            case VarSym(vs):
+                var dyna_letter = "R"
+
+                if sym.flags & SCOPE_PUBLIC:
+                    dyna_letter = "3"
+                elif sym.flags & SCOPE_PROTECTED:
+                    dyna_letter = "2"
+                elif sym.flags & SCOPE_PRIVATE:
+                    dyna_letter = "1"
+
+                @entries_made.push(
+                "    ,\"" ++ dyna_letter ++ "\\0"
+                          ++ sym.name ++ "\\0"
+                          ++ vs.type.display()
+                          ++ "\"")
+
+            case DefineSym(ds):
+                var dyna_letter = "m"
+                if ds.parent_name == "":
+                    dyna_letter = "F"
+
+                @entries_made.push(
+                "    ,\"" ++ dyna_letter ++ "\\0"
+                          ++ sym.name ++ "\\0"
+                          ++ ds.proto_generics()
+                          ++ ds.clean_proto()
+                          ++ "\"")
+
+            case ClassSym(cs):
+                var dyna_letter = "N"
+                var total_size = cs.methods.size() + cs.vars.size()
+                var parent = ""
+
+                if cs.flags & IS_FOREIGN_CLASS:
+                    dyna_letter = "C"
+                elif cs.parent:
+                    parent = "\\0< " ++ cs.parent
+                else:
+                    parent = "\\0"
+
+                @entries_made.push(
+                "    ,\"" ++ dyna_letter
+                          ++ "\\"
+                          ++ oct(total_size)
+                          ++ sym.name
+                          ++ parent
+                          ++ "\"")
+
+            case EnumSym(es):
+                var dyna_letter = "E"
+                var total_size = es.methods.size()
+                var generics = ""
+
+                if es.is_scoped:
+                    total_size += es.variants.size()
+
+                if es.generics:
+                    generics = es.proto_generics()
+
+                @entries_made.push(
+                "    ,\"" ++ dyna_letter
+                          ++ "\\"
+                          ++ oct(total_size)
+                          ++ sym.name
+                          ++ "\\0"
+                          ++ generics
+                          ++ "\"")
+
+            case VariantSym(vs):
+                var dyna_letter = "V"
+                var type_str = ""
+
+                if vs.types.size():
+                    type_str = "("
+                               ++ vs.types.map(TypeEntry.display).join(",")
+                               ++ ")"
+
+                @entries_made.push(
+                "    ,\"" ++ dyna_letter
+                          ++ "\\0"
+                          ++ vs.name
+                          ++ "\\0"
+                          ++ type_str
+                          ++ "\"")
+            else:
+        }
+    }
+
+    private define gen_dyna(syms: List[ContainerSym]) {
+        if @did_gen: {
+            @entries_made.push("")
+            # Don't set @did_gen to false, because this always generates.
+        }
+
+        var names_used = ""
+        var class_count = 0
+
+        match syms[-1]: {
+            case RootSym(rs):
+                if rs.package_name != "builtin": {
+                    # The slice removes *toplevel, which added itself so that
+                    # only one list would need to be passed.
+                    names_used = rs.classes.slice(0, -1)
+                                           .map(|cl| cl.name)
+                                           .join("\\0")
+
+                    class_count = rs.classes.size() - 1
+                }
+            else:
+        }
+
+        @entries_made.push(
+        "const char *lily_" ++ @pname ++ "_table[] = {")
+
+        @entries_made.push(
+        "    \"\\" ++ class_count |> oct ++ names_used ++ "\\0\"")
+
+        for index in 0...syms.size() - 1: {
+            var sym = syms[index]
+            gen_dyna_for(sym)
+
+            for j in 0...sym.methods.size() - 1:
+                gen_dyna_for(sym.methods[j])
+
+            for j in 0...sym.vars.size() - 1:
+                gen_dyna_for(sym.vars[j])
+
+            match sym: {
+                case EnumSym(es):
+                    for j in 0...es.variants.size() - 1:
+                        gen_dyna_for(es.variants[j])
+                else:
+            }
+        }
+
+        @entries_made.push("    ,\"Z\"")
+        @entries_made.push("};")
+        @did_gen = true
+    }
+
+    private define gen_offsets(syms: List[ContainerSym]) {
+        if @did_gen: {
+            @entries_made.push("")
+            @did_gen = false
+        }
+
+        var have_toplevel_offset = false
+        var total = 1
+
+        # -2 avoids the root symbol at the end because that's not a class.
+        for i in 0...syms.size() - 2: {
+            match syms[i]: {
+                case ClassSym(cs):
+                    @entries_made.push("#define " ++ cs.name ++ "_OFFSET " ++ total)
+                    @offsets[cs.name] = total
+                    @did_gen = true
+                    total += 1 + cs.methods.size() + cs.vars.size()
+
+                case EnumSym(es):
+                    @entries_made.push("#define " ++ es.name ++ "_OFFSET " ++ total)
+                    @offsets[es.name] = total
+                    @did_gen = true
+                    total += 1 + es.methods.size() + es.variants.size()
+
+                else:
+            }
+        }
+
+        var root = syms[-1]
+
+        if root.vars.size() || root.methods.size(): {
+            @entries_made.push("#define Toplevel_OFFSET " ++ total)
+            @offsets["Toplevel"] = total
+            @did_gen = true
+        }
+    }
+
+    private define gen_proto_for(sym: NamedSym) {
+        match sym: {
+            case VarSym(vs):
+                if vs.flags & ANY_SCOPE:
+                    return
+
+                var load_name = "lily_" ++ @pname ++ "_var_" ++ sym.name
+
+                @entries_made.push("void " ++ load_name ++ "(lily_state *);")
+                @did_gen = true
+
+            case DefineSym(ds):
+                var clean_name = sym.name
+                if sym.flags & IS_CTOR:
+                    clean_name = clean_name.slice(1, -1)
+
+                var load_name = "lily_" ++ @pname ++ "_"
+                                        ++ ds.parent_name ++ "_"
+                                        ++ clean_name
+
+                @entries_made.push("void " ++ load_name ++ "(lily_state *);")
+                @did_gen = true
+            else:
+        }
+    }
+
+    private define gen_proto(syms: List[ContainerSym]) {
+        if @did_gen: {
+            @entries_made.push("")
+            @did_gen = false
+        }
+
+        for index in 0...syms.size() - 1: {
+            var sym = syms[index]
+            gen_proto_for(sym)
+
+            for j in 0...sym.methods.size() - 1:
+                gen_proto_for(sym.methods[j])
+
+            for j in 0...sym.vars.size() - 1:
+                gen_proto_for(sym.vars[j])
+        }
+    }
+
+    private define gen_loader_for(sym: NamedSym, index: Integer) {
+        match sym: {
+            case VarSym(vs):
+                if vs.flags & ANY_SCOPE:
+                    return
+
+                var load_name = "lily_" ++ @pname ++ "_var_" ++ sym.name
+                var case_str = "Toplevel_OFFSET + "
+                               ++ (index - @offsets["Toplevel"])
+
+                @entries_made.push(
+                "        case " ++ case_str ++ ": " ++ load_name
+                                ++"(s); return NULL;")
+                @did_gen = true
+
+            case DefineSym(ds):
+                var clean_name = sym.name
+                if sym.flags & IS_CTOR:
+                    clean_name = clean_name.slice(1, -1)
+
+                var load_name = "lily_" ++ @pname ++ "_"
+                                        ++ ds.parent_name ++ "_"
+                                        ++ clean_name
+
+                var case_str = ""
+                var offset = 0
+
+                if ds.parent_name: {
+                    case_str = ds.parent_name
+                               ++ "_OFFSET + "
+                               ++ (index - @offsets[ds.parent_name])
+                    offset = (index - @offsets[ds.parent_name])
+                else:
+                    case_str = "Toplevel_OFFSET + "
+                               ++ (index - @offsets["Toplevel"])
+
+                    offset = (index - @offsets["Toplevel"])
+                }
+
+                @entries_made.push(
+                "        case " ++ case_str ++ ": return " ++ load_name ++ ";")
+                @did_gen = true
+
+            else:
+        }
+    }
+
+    private define gen_loader(syms: List[ContainerSym]) {
+        if @did_gen: {
+            @entries_made.push("")
+            @did_gen = false
+        }
+
+        @entries_made.push(
+        "void *lily_" ++ @pname ++ "_loader(lily_state *s, int id)\n{")
+
+        @entries_made.push(
+        "    switch (id) {")
+
+        var total = 1
+
+        for index in 0...syms.size() - 1: {
+            var sym = syms[index]
+
+            if sym.flags & IS_ROOT == 0: {
+                gen_loader_for(sym, total)
+                total += 1
+            }
+
+            for j in 0...sym.methods.size() - 1: {
+                gen_loader_for(sym.methods[j], total)
+                total += 1
+            }
+
+            for j in 0...sym.vars.size() - 1: {
+                gen_loader_for(sym.vars[j], total)
+                total += 1
+            }
+
+            match sym: {
+                case EnumSym(es):
+                    total = total + es.variants.size()
+                else:
+            }
+        }
+
+        @entries_made.push("        default: return NULL;")
+        @entries_made.push("    }")
+        @entries_made.push("}")
+    }
+
+    define process_root_sym(sym: RootSym) {
+        @pname = sym.package_name
+
+        if sym.package_name == "builtin":
+            @is_builtin = true
+
+        var all_containers = sym.classes
+        var push_s: ClassSym = sym
+        all_containers.push(push_s)
+
+        @entries_made.push("/** Begin autogen section. **/")
+
+        gen_helper(all_containers)
+        gen_dyna(all_containers)
+        gen_proto(all_containers)
+        gen_offsets(all_containers)
+        gen_loader(all_containers)
+
+        @entries_made.push("/** End autogen section. **/")
+    }
+}
+
+class DocGenerator {
+    var @doc_entries: List[String] = []
+    var @is_builtin = false
+
+    var @classes_created: Hash[String, Boolean] = []
+    var @enums_created: Hash[String, Boolean] = []
+
+    private define render_type(type: TypeEntry): String {
+        var result = type.klass.name
+
+        if @classes_created.has_key(type.klass.name):
+            result = "<a href='class.{0}.html'>{0}</a>".format(type.klass.name)
+        elif @enums_created.has_key(type.klass.name):
+            result = "<a href='enum.{0}.html'>{0}</a>".format(type.klass.name)
+
+        var ready_args: List[String] = []
+
+        for i in 0...type.contents.size() - 1:
+            ready_args.push(render_type(type.contents[i]))
+
+        if type.klass.name == "Function": {
+            var output = ready_args[0]
+            var inputs = ready_args.slice(1, type.contents.size()).join(", ")
+
+            if output != "Unit":
+                output = " =&gt; " ++ output
+            else:
+                output = ""
+
+            result = result ++ "(" ++ inputs ++ output ++ ")"
+        elif type.klass.name == "*":
+            result = result ++ ready_args[0] ++ " = " ++ type.value
+        elif type.klass.name == "...":
+            result = ready_args[0] ++ "..."
+        elif ready_args.size():
+            result = result ++ "[" ++ ready_args.join(", ") ++ "]"
+        }
+
+        return result
+    }
+
+    private define render_all_args(sym: DefineSym): String {
+        var args: List[String] = []
+        var start = 1
+
+        try:
+            if sym.type_names[1] == "self":
+                start = 2
+        except IndexError:
+            0
+
+        for i in start...sym.types.size() - 1:
+            args.push(sym.type_names[i] ++ ": " ++ render_type(sym.types[i]))
+
+        var out = args.join(", ")
+        if args.size():
+            out = "(" ++ out ++ ")"
+
+        # The return of a constructor (<new>) is obviously self.
+        if !(sym.flags & IS_CTOR):
+            out = out ++ ": " ++ render_type(sym.types[0])
+
+        return out
+    }
+
+    private define add_container_usage(sym: ContainerSym) {
+        var kind = "class"
+        if sym.flags & IS_ENUM:
+            kind = "enum"
+
+        @doc_entries.push("<tr>")
+        @doc_entries.push(
+        "<td><a class='lclass' href='{0}.{1}.html'>{1}</a></td>"
+            .format(kind, sym.name))
+
+        @doc_entries.push(
+        "<td>" ++ sym.doc.split("\n\n")[0] ++ "</td>")
+
+        @doc_entries.push("</tr>")
+    }
+
+    private define add_all_func_usage(sym: ContainerSym) {
+        var prefix = "function"
+        if sym.flags & IS_METHOD:
+            prefix = "method"
+
+        for i in 0...sym.methods.size() - 1: {
+            var m = sym.methods[i]
+            @doc_entries.push(
+            "<h3 id='{0}.{1}'><code>define <a href='#{0}.{1}'>{1}</a>{2}</code></h3>"
+            .format(prefix, m.name, render_all_args(m)))
+            @doc_entries.push("<div class='doc'>" ++ m.doc ++ "</div>")
+        }
+    }
+
+    private define add_all_var_usage(sym: ContainerSym) {
+        for i in 0...sym.vars.size() - 1: {
+            var v = sym.vars[i]
+            @doc_entries.push(
+            "<h3 id='var.{0}'><code>var <a href='#var.{0}'>{0}</a>{1}</code></h3>"
+            .format(v.name, render_type(v.type)))
+
+            @doc_entries.push(
+            "<div class='doc'>" ++ v.doc ++ "</div>")
+        }
+    }
+
+    private define gen_class_file(sym: ClassSym) {
+        var class_entries: List[String] = ["<pre>"]
+
+        var header = "class " ++ sym.name
+
+        if sym.generics:
+            header = header ++ sym.proto_generics() ++ " "
+
+        if sym.parent:
+            header = header ++ " &lt; <a href='class.{1}.html'>{1}</a>"
+                    .format(sym.name, sym.parent)
+        elif sym.flags & IS_FOREIGN_CLASS:
+            header = "foreign " ++ header
+
+        class_entries.push(header ++ " {")
+
+        for i in 0...sym.vars.size() - 1: {
+            var v = sym.vars[i]
+            class_entries.push("    " ++ v.type.display())
+        }
+
+        class_entries.push("}</pre>")
+
+        if sym.methods.size(): {
+            @doc_entries.push("<h2>Methods</h2>")
+            add_all_func_usage(sym)
+        }
+
+        print(class_entries.join("\n"))
+    }
+
+    private define gen_enum_file(sym: EnumSym) {
+        var class_entries: List[String] = ["<pre>"]
+
+        var header = "enum " ++ sym.name
+
+        if sym.generics:
+            header = header ++ sym.proto_generics()
+
+        class_entries.push(header ++ " {")
+
+        for i in 0...sym.variants.size() - 1: {
+            var v = sym.variants[i]
+            class_entries.push("    " ++ v.clean_proto())
+        }
+
+        class_entries.push("}</pre>")
+
+        if sym.methods.size(): {
+            @doc_entries.push("<h2>Methods</h2>")
+            add_all_func_usage(sym)
+        }
+
+        print(class_entries.join("\n"))
+    }
+
+    define process_root_sym(sym: RootSym) {
+        if sym.package_name == "builtin":
+            @is_builtin = true
+
+        var named_sym: NamedSym = sym
+        var all_syms: List[NamedSym] = [named_sym]
+
+        @doc_entries.push(
+        "<h1>Module <a href='{0}.html'>{0}</a></h1>"
+            .format(sym.package_name))
+
+        @doc_entries.push("<div class='doc'>")
+
+        var root_doc_parts = sym.doc.split("\n\n").reject(|m| m == "")
+
+        for i in 0...root_doc_parts.size() - 1:
+            @doc_entries.push("<p>" ++ root_doc_parts[i] ++ "</p>")
+
+        @doc_entries.push("</div>")
+
+        var class_list: List[ClassSym] = []
+        var enum_list: List[EnumSym] = []
+
+        for i in 0...sym.classes.size() - 1: {
+            var class_sym = sym.classes[i]
+
+            match sym.classes[i]: {
+                case EnumSym(es):
+                    enum_list.push(es)
+                    @enums_created[es.name] = true
+                case ClassSym(cs):
+                    class_list.push(cs)
+                    @classes_created[cs.name] = true
+                else:
+            }
+        }
+
+        if class_list.size(): {
+            @doc_entries.push("<h2>Classes</h2>")
+            @doc_entries.push("<table><tbody>")
+
+            for i in 0...class_list.size() - 1:
+                add_container_usage(class_list[i])
+
+            @doc_entries.push("</tbody></table>")
+        }
+
+        if enum_list.size(): {
+            @doc_entries.push("<h2>Enums</h2>")
+            @doc_entries.push("<table><tbody>")
+
+            for i in 0...enum_list.size() - 1:
+                add_container_usage(enum_list[i])
+
+            @doc_entries.push("</tbody></table>")
+        }
+
+        if sym.methods.size(): {
+            @doc_entries.push("<h2>Toplevel Methods</h2>")
+            add_all_func_usage(sym)
+        }
+
+        if sym.vars.size(): {
+            @doc_entries.push("<h2>Toplevel Vars</h2>")
+            add_all_var_usage(sym)
+        }
+
+        if class_list.size(): {
+            for i in 0...class_list.size() - 1:
+                gen_class_file(class_list[i])
+        }
+
+        if enum_list.size(): {
+            for i in 0...enum_list.size() - 1:
+                gen_enum_file(enum_list[i])
+        }
+    }
+}
+
+import sys
+
+var file_name = sys.argv[1]
+print("Leaf: Processing " ++ file_name ++ ".")
+
+var p = CBlockSourceParser(LilyParseEngine())
+p.require_header_footer()
+p.load_file(file_name)
+
+match p.read_until_done_or_error(): {
+    case ParseResult.BlockIssue(message, where):
+        print($"Block error: ^(message)\n    from line ^(where).")
+    case ParseResult.CommandIssue(message, where):
+        print($"Command error: ^(message)\n    from line ^(where).")
+    case ParseResult.CommandUnknown(command):
+        print($"Error: Unrecognized command '^(command)'.")
+    case ParseResult.Done(root_sym):
+        var secgen = AutogenSectionGenerator()
+        secgen.process_root_sym(root_sym)
+
+        #var docgen = DocGenerator()
+        #docgen.process_root_sym(root_sym)
+        #
+        #docgen.doc_entries.each(print)
+
+        print("Leaf: Regenerating " ++ file_name ++ ".")
+        
+        var f = File.open(file_name, "w")
+        var all_entries = [p.get_header(), secgen.entries_made, p.get_footer()]
+        
+        all_entries.each(|entry_list|
+            entry_list.each(|e| f.print(e) )
+        )
+        
+        f.close()
+}

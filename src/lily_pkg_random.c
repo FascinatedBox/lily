@@ -1,3 +1,9 @@
+/**
+library random
+
+The random package provides access to a Mersenne Twister for pseudo-random
+number generation.
+*/
 /* 
    A C-program for MT19937-64 (2004/9/29 version).
    Coded by Takuji Nishimura and Makoto Matsumoto.
@@ -56,7 +62,6 @@
 #include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
-#include "extras_random.h"
 
 #define NN 312
 #define MM 156
@@ -64,29 +69,49 @@
 #define UM 0xFFFFFFFF80000000ULL /* Most significant 33 bits */
 #define LM 0x7FFFFFFFULL /* Least significant 31 bits */
 
-typedef struct {
+/** Begin autogen section. **/
+typedef struct lily_random_Random_ {
     LILY_FOREIGN_HEADER
-
-    /* The array for the state vector */
-    unsigned long long mt[NN]; 
-
-    /* mti==NN+1 means mt[NN] is not initialized */
+    unsigned long long mt[NN];
     int mti;
 } lily_random_Random;
+#define ARG_Random(state, index) \
+(lily_random_Random *)lily_arg_generic(state, index)
+#define ID_Random(state) lily_cid_at(state, 0)
+#define INIT_Random(state)\
+(lily_random_Random *) lily_new_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
+
+const char *lily_random_table[] = {
+    "\01Random\0"
+    ,"C\02Random"
+    ,"m\0<new>\0(*Integer):Random"
+    ,"m\0between\0(Random,Integer,Integer):Integer"
+    ,"Z"
+};
+#define Random_OFFSET 1
+void lily_random_Random_new(lily_state *);
+void lily_random_Random_between(lily_state *);
+void *lily_random_loader(lily_state *s, int id)
+{
+    switch (id) {
+        case Random_OFFSET + 1: return lily_random_Random_new;
+        case Random_OFFSET + 2: return lily_random_Random_between;
+        default: return NULL;
+    }
+}
+/** End autogen section. **/
 
 static void destroy_Random(lily_random_Random *r)
 {
 }
 
 /**
-embedded random
-
-The random package provides access to a Mersenne Twister for pseudo-random
-number generation.
-*/
-
-/**
-class Random
+foreign class Random(seed: *Integer = 0) {
+    layout {
+        unsigned long long mt[NN];
+        int mti;
+    }
+}
 
 The `Random` class provides access to the random number generator. Each
 instance is completely separate from all others.
@@ -95,9 +120,6 @@ The constructor for this class takes a seed. If the seed provided is 0 or less,
 then the current time (`time(NULL)` in C) is used instead. 
 */
 
-/**
-constructor Random(seed: *Integer=0): Random
-*/
 void lily_random_Random_new(lily_state *s)
 {
     int64_t seed = 0;
@@ -151,7 +173,7 @@ static uint64_t gen_int(lily_random_Random *r)
 }
 
 /**
-method Random.between(self: Random, lower: Integer, upper: Integer): Integer
+define Random.between(lower: Integer, upper: Integer): Integer
 
 Generate a random `Integer` value between `lower` and `upper`.
 
@@ -174,11 +196,4 @@ void lily_random_Random_between(lily_state *s)
     uint64_t result = start + (rng % distance);
 
     lily_return_integer(s, result);
-}
-
-#include "dyna_random.h"
-
-void lily_pkg_random_init(lily_state *s)
-{
-    register_random(s);
 }

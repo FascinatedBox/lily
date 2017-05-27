@@ -20,8 +20,7 @@ install(TARGETS liblily
 	LIBRARY DESTINATION lib
 	COMPONENT library)
 
-install(FILES lily_api_dyna.h
-              lily_api_embed.h
+install(FILES lily_api_embed.h
               lily_api_msgbuf.h
               lily_api_value.h
               lily_int_code_iter.h

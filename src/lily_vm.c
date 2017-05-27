@@ -1577,11 +1577,6 @@ void lily_get_dirty_msgbuf(lily_vm_state *vm, lily_msgbuf **msgbuf)
     *msgbuf = vm->vm_buffer;
 }
 
-uint16_t lily_cid_at(lily_vm_state *vm, int n)
-{
-    return vm->call_chain->function->cid_table[n];
-}
-
 /** Foreign functions that are looking to interact with the interpreter can use
     the functions within here. Do be careful with foreign calls, however. **/
 

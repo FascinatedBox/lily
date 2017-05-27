@@ -1,3 +1,9 @@
+/**
+library sys
+
+The sys package provides access to the arguments given to Lily.
+*/
+
 #include <string.h>
 
 #include "lily_move.h"
@@ -5,11 +11,25 @@
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 
-/**
-embedded sys
-
-The sys package provides access to the arguments given to Lily.
-*/
+/** Begin autogen section. **/
+const char *lily_sys_table[] = {
+    "\0\0"
+    ,"F\0getenv\0(String):Option[String]"
+    ,"R\0argv\0List[String]"
+    ,"Z"
+};
+#define toplevel_OFFSET 1
+void lily_sys__getenv(lily_state *);
+void lily_sys_var_argv(lily_state *);
+void *lily_sys_loader(lily_state *s, int id)
+{
+    switch (id) {
+        case toplevel_OFFSET + 0: return lily_sys__getenv;
+        case toplevel_OFFSET + 1: lily_sys_var_argv(s); return NULL;
+        default: return NULL;
+    }
+}
+/** End autogen section. **/
 
 /**
 var argv: List[String]
@@ -17,7 +37,7 @@ var argv: List[String]
 This contains arguments sent to the program through the command-line. If Lily
 was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
-static void load_var_argv(lily_state *s)
+void lily_sys_var_argv(lily_state *s)
 {
     int opt_argc;
     char **opt_argv = lily_op_get_argv(s, &opt_argc);
@@ -36,7 +56,7 @@ define getenv(name: String): Option[String]
 Search the environment for `name`, returning either a `Some` with the contents,
 or `None`. Internally, this is a wrapper over C's getenv.
 */
-static void lily_sys__getenv(lily_state *s)
+void lily_sys__getenv(lily_state *s)
 {
     char *env = getenv(lily_arg_string_raw(s, 0));
 
@@ -47,11 +67,4 @@ static void lily_sys__getenv(lily_state *s)
     }
     else
         lily_return_none(s);
-}
-
-#include "dyna_sys.h"
-
-void lily_pkg_sys_init(lily_state *s)
-{
-    register_sys(s);
 }

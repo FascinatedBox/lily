@@ -1,3 +1,9 @@
+/**
+library builtin
+
+The builtin package provides the classes, vars, and functions that form the
+foundation of Lily.
+*/
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -12,6 +18,370 @@
 #include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
+
+/** Begin autogen section. **/
+const char *lily_builtin_table[] = {
+    "\0\0"
+    ,"N\01AssertionError\0< Exception"
+    ,"m\0<new>\0(String):AssertionError"
+    ,"N\02Boolean\0"
+    ,"m\0to_i\0(Boolean):Integer"
+    ,"m\0to_s\0(Boolean):String"
+    ,"N\01Byte\0"
+    ,"m\0to_i\0(Byte):Integer"
+    ,"N\04ByteString\0"
+    ,"m\0each_byte\0(ByteString,Function(Byte))"
+    ,"m\0encode\0(ByteString,*String):Option[String]"
+    ,"m\0size\0(ByteString):Integer"
+    ,"m\0slice\0(ByteString,*Integer,*Integer):ByteString"
+    ,"N\01DivisionByZeroError\0< Exception"
+    ,"m\0<new>\0(String):DivisionByZeroError"
+    ,"N\01Double\0"
+    ,"m\0to_i\0(Double):Integer"
+    ,"N\01Dynamic\0"
+    ,"m\0<new>\0[A](A):Dynamic"
+    ,"N\03Exception\0"
+    ,"m\0<new>\0(String):Exception"
+    ,"3\0message\0String"
+    ,"3\0traceback\0List[String]"
+    ,"N\07File\0"
+    ,"m\0close\0(File)"
+    ,"m\0each_line\0(File,Function(ByteString))"
+    ,"m\0open\0(String,String):File"
+    ,"m\0print\0[A](File,A)"
+    ,"m\0read\0(File,*Integer):ByteString"
+    ,"m\0read_line\0(File):ByteString"
+    ,"m\0write\0[A](File,A)"
+    ,"N\01Function\0"
+    ,"m\0doc\0(Function(1)):String"
+    ,"N\013Hash\0"
+    ,"m\0clear\0[A,B](Hash[A, B])"
+    ,"m\0delete\0[A,B](Hash[A, B],A)"
+    ,"m\0each_pair\0[A,B](Hash[A, B],Function(A, B))"
+    ,"m\0get\0[A,B](Hash[A, B],A,B):B"
+    ,"m\0has_key\0[A,B](Hash[A, B],A):Boolean"
+    ,"m\0keys\0[A,B](Hash[A, B]):List[A]"
+    ,"m\0map_values\0[A,B,C](Hash[A, B],Function(B=>C)):Hash[A, C]"
+    ,"m\0merge\0[A,B](Hash[A, B],Hash[A, B]...):Hash[A, B]"
+    ,"m\0reject\0[A,B](Hash[A, B],Function(A, B=>Boolean)):Hash[A, B]"
+    ,"m\0select\0[A,B](Hash[A, B],Function(A, B=>Boolean)):Hash[A, B]"
+    ,"m\0size\0[A,B](Hash[A, B]):Integer"
+    ,"N\01IndexError\0< Exception"
+    ,"m\0<new>\0(String):IndexError"
+    ,"N\04Integer\0"
+    ,"m\0to_bool\0(Integer):Boolean"
+    ,"m\0to_byte\0(Integer):Byte"
+    ,"m\0to_d\0(Integer):Double"
+    ,"m\0to_s\0(Integer):String"
+    ,"N\01IOError\0< Exception"
+    ,"m\0<new>\0(String):IOError"
+    ,"N\01KeyError\0< Exception"
+    ,"m\0<new>\0(String):KeyError"
+    ,"N\022List\0"
+    ,"m\0clear\0[A](List[A])"
+    ,"m\0count\0[A](List[A],Function(A=>Boolean)):Integer"
+    ,"m\0delete_at\0[A](List[A],Integer)"
+    ,"m\0each\0[A](List[A],Function(A)):List[A]"
+    ,"m\0each_index\0[A](List[A],Function(Integer)):List[A]"
+    ,"m\0fold\0[A](List[A],A,Function(A, A=>A)):A"
+    ,"m\0insert\0[A](List[A],Integer,A)"
+    ,"m\0join\0[A](List[A],*String):String"
+    ,"m\0map\0[A,B](List[A],Function(A=>B)):List[B]"
+    ,"m\0pop\0[A](List[A]):A"
+    ,"m\0push\0[A](List[A],A)"
+    ,"m\0reject\0[A](List[A],Function(A=>Boolean)):List[A]"
+    ,"m\0repeat\0[A](Integer,A):List[A]"
+    ,"m\0select\0[A](List[A],Function(A=>Boolean)):List[A]"
+    ,"m\0size\0[A](List[A]):Integer"
+    ,"m\0shift\0[A](List[A]):A"
+    ,"m\0slice\0[A](List[A],*Integer,*Integer):List[A]"
+    ,"m\0unshift\0[A](List[A],A)"
+    ,"N\01RuntimeError\0< Exception"
+    ,"m\0<new>\0(String):RuntimeError"
+    ,"N\024String\0"
+    ,"m\0format\0(String,1...):String"
+    ,"m\0ends_with\0(String,String):Boolean"
+    ,"m\0find\0(String,String,*Integer):Option[Integer]"
+    ,"m\0html_encode\0(String):String"
+    ,"m\0is_alnum\0(String):Boolean"
+    ,"m\0is_alpha\0(String):Boolean"
+    ,"m\0is_digit\0(String):Boolean"
+    ,"m\0is_space\0(String):Boolean"
+    ,"m\0lower\0(String):String"
+    ,"m\0lstrip\0(String,String):String"
+    ,"m\0parse_i\0(String):Option[Integer]"
+    ,"m\0replace\0(String,String,String):String"
+    ,"m\0rstrip\0(String,String):String"
+    ,"m\0slice\0(String,*Integer,*Integer):String"
+    ,"m\0split\0(String,*String):List[String]"
+    ,"m\0starts_with\0(String,String):Boolean"
+    ,"m\0strip\0(String,String):String"
+    ,"m\0to_bytestring\0(String):ByteString"
+    ,"m\0trim\0(String):String"
+    ,"m\0upper\0(String):String"
+    ,"N\02Tuple\0"
+    ,"m\0merge\0(Tuple[1],Tuple[2]):Tuple[1, 2]"
+    ,"m\0push\0[A](Tuple[1],A):Tuple[1, A]"
+    ,"N\01ValueError\0< Exception"
+    ,"m\0<new>\0(String):ValueError"
+    ,"E\012Option\0[A]"
+    ,"m\0and\0[A,B](Option[A],Option[B]):Option[B]"
+    ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])):Option[B]"
+    ,"m\0is_none\0[A](Option[A]):Boolean"
+    ,"m\0is_some\0[A](Option[A]):Boolean"
+    ,"m\0map\0[A,B](Option[A],Function(A=>B)):Option[B]"
+    ,"m\0or\0[A](Option[A],Option[A]):Option[A]"
+    ,"m\0or_else\0[A](Option[A],Function(=>Option[A])):Option[A]"
+    ,"m\0unwrap\0[A](Option[A]):A"
+    ,"m\0unwrap_or\0[A](Option[A],A):A"
+    ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)):A"
+    ,"V\0Some\0(A)"
+    ,"V\0None\0"
+    ,"E\04Result\0[A,B]"
+    ,"m\0failure\0[A,B](Result[A, B]):Option[A]"
+    ,"m\0is_failure\0[A,B](Result[A, B]):Boolean"
+    ,"m\0is_success\0[A,B](Result[A, B]):Boolean"
+    ,"m\0success\0[A,B](Result[A, B]):Option[B]"
+    ,"V\0Failure\0(A)"
+    ,"V\0Success\0(B)"
+    ,"F\0print\0[A](A)"
+    ,"F\0calltrace\0:List[String]"
+    ,"F\0assert\0(Boolean,*String)"
+    ,"R\0stdin\0File"
+    ,"R\0stderr\0File"
+    ,"R\0stdout\0File"
+    ,"Z"
+};
+#define AssertionError_OFFSET 1
+#define Boolean_OFFSET 3
+#define Byte_OFFSET 6
+#define ByteString_OFFSET 8
+#define DivisionByZeroError_OFFSET 13
+#define Double_OFFSET 15
+#define Dynamic_OFFSET 17
+#define Exception_OFFSET 19
+#define File_OFFSET 23
+#define Function_OFFSET 31
+#define Hash_OFFSET 33
+#define IndexError_OFFSET 45
+#define Integer_OFFSET 47
+#define IOError_OFFSET 52
+#define KeyError_OFFSET 54
+#define List_OFFSET 56
+#define RuntimeError_OFFSET 75
+#define String_OFFSET 77
+#define Tuple_OFFSET 98
+#define ValueError_OFFSET 101
+#define Option_OFFSET 103
+#define Result_OFFSET 116
+#define toplevel_OFFSET 123
+void lily_builtin_AssertionError_new(lily_state *);
+void lily_builtin_Boolean_to_i(lily_state *);
+void lily_builtin_Boolean_to_s(lily_state *);
+void lily_builtin_Byte_to_i(lily_state *);
+void lily_builtin_ByteString_each_byte(lily_state *);
+void lily_builtin_ByteString_encode(lily_state *);
+void lily_builtin_ByteString_size(lily_state *);
+void lily_builtin_ByteString_slice(lily_state *);
+void lily_builtin_DivisionByZeroError_new(lily_state *);
+void lily_builtin_Double_to_i(lily_state *);
+void lily_builtin_Dynamic_new(lily_state *);
+void lily_builtin_Exception_new(lily_state *);
+void lily_builtin_File_close(lily_state *);
+void lily_builtin_File_each_line(lily_state *);
+void lily_builtin_File_open(lily_state *);
+void lily_builtin_File_print(lily_state *);
+void lily_builtin_File_read(lily_state *);
+void lily_builtin_File_read_line(lily_state *);
+void lily_builtin_File_write(lily_state *);
+void lily_builtin_Function_doc(lily_state *);
+void lily_builtin_Hash_clear(lily_state *);
+void lily_builtin_Hash_delete(lily_state *);
+void lily_builtin_Hash_each_pair(lily_state *);
+void lily_builtin_Hash_get(lily_state *);
+void lily_builtin_Hash_has_key(lily_state *);
+void lily_builtin_Hash_keys(lily_state *);
+void lily_builtin_Hash_map_values(lily_state *);
+void lily_builtin_Hash_merge(lily_state *);
+void lily_builtin_Hash_reject(lily_state *);
+void lily_builtin_Hash_select(lily_state *);
+void lily_builtin_Hash_size(lily_state *);
+void lily_builtin_IndexError_new(lily_state *);
+void lily_builtin_Integer_to_bool(lily_state *);
+void lily_builtin_Integer_to_byte(lily_state *);
+void lily_builtin_Integer_to_d(lily_state *);
+void lily_builtin_Integer_to_s(lily_state *);
+void lily_builtin_IOError_new(lily_state *);
+void lily_builtin_KeyError_new(lily_state *);
+void lily_builtin_List_clear(lily_state *);
+void lily_builtin_List_count(lily_state *);
+void lily_builtin_List_delete_at(lily_state *);
+void lily_builtin_List_each(lily_state *);
+void lily_builtin_List_each_index(lily_state *);
+void lily_builtin_List_fold(lily_state *);
+void lily_builtin_List_insert(lily_state *);
+void lily_builtin_List_join(lily_state *);
+void lily_builtin_List_map(lily_state *);
+void lily_builtin_List_pop(lily_state *);
+void lily_builtin_List_push(lily_state *);
+void lily_builtin_List_reject(lily_state *);
+void lily_builtin_List_repeat(lily_state *);
+void lily_builtin_List_select(lily_state *);
+void lily_builtin_List_size(lily_state *);
+void lily_builtin_List_shift(lily_state *);
+void lily_builtin_List_slice(lily_state *);
+void lily_builtin_List_unshift(lily_state *);
+void lily_builtin_RuntimeError_new(lily_state *);
+void lily_builtin_String_format(lily_state *);
+void lily_builtin_String_ends_with(lily_state *);
+void lily_builtin_String_find(lily_state *);
+void lily_builtin_String_html_encode(lily_state *);
+void lily_builtin_String_is_alnum(lily_state *);
+void lily_builtin_String_is_alpha(lily_state *);
+void lily_builtin_String_is_digit(lily_state *);
+void lily_builtin_String_is_space(lily_state *);
+void lily_builtin_String_lower(lily_state *);
+void lily_builtin_String_lstrip(lily_state *);
+void lily_builtin_String_parse_i(lily_state *);
+void lily_builtin_String_replace(lily_state *);
+void lily_builtin_String_rstrip(lily_state *);
+void lily_builtin_String_slice(lily_state *);
+void lily_builtin_String_split(lily_state *);
+void lily_builtin_String_starts_with(lily_state *);
+void lily_builtin_String_strip(lily_state *);
+void lily_builtin_String_to_bytestring(lily_state *);
+void lily_builtin_String_trim(lily_state *);
+void lily_builtin_String_upper(lily_state *);
+void lily_builtin_Tuple_merge(lily_state *);
+void lily_builtin_Tuple_push(lily_state *);
+void lily_builtin_ValueError_new(lily_state *);
+void lily_builtin_Option_and(lily_state *);
+void lily_builtin_Option_and_then(lily_state *);
+void lily_builtin_Option_is_none(lily_state *);
+void lily_builtin_Option_is_some(lily_state *);
+void lily_builtin_Option_map(lily_state *);
+void lily_builtin_Option_or(lily_state *);
+void lily_builtin_Option_or_else(lily_state *);
+void lily_builtin_Option_unwrap(lily_state *);
+void lily_builtin_Option_unwrap_or(lily_state *);
+void lily_builtin_Option_unwrap_or_else(lily_state *);
+void lily_builtin_Result_failure(lily_state *);
+void lily_builtin_Result_is_failure(lily_state *);
+void lily_builtin_Result_is_success(lily_state *);
+void lily_builtin_Result_success(lily_state *);
+void lily_builtin__print(lily_state *);
+void lily_builtin__calltrace(lily_state *);
+void lily_builtin__assert(lily_state *);
+void lily_builtin_var_stdin(lily_state *);
+void lily_builtin_var_stderr(lily_state *);
+void lily_builtin_var_stdout(lily_state *);
+void *lily_builtin_loader(lily_state *s, int id)
+{
+    switch (id) {
+        case AssertionError_OFFSET + 1: return lily_builtin_AssertionError_new;
+        case Boolean_OFFSET + 1: return lily_builtin_Boolean_to_i;
+        case Boolean_OFFSET + 2: return lily_builtin_Boolean_to_s;
+        case Byte_OFFSET + 1: return lily_builtin_Byte_to_i;
+        case ByteString_OFFSET + 1: return lily_builtin_ByteString_each_byte;
+        case ByteString_OFFSET + 2: return lily_builtin_ByteString_encode;
+        case ByteString_OFFSET + 3: return lily_builtin_ByteString_size;
+        case ByteString_OFFSET + 4: return lily_builtin_ByteString_slice;
+        case DivisionByZeroError_OFFSET + 1: return lily_builtin_DivisionByZeroError_new;
+        case Double_OFFSET + 1: return lily_builtin_Double_to_i;
+        case Dynamic_OFFSET + 1: return lily_builtin_Dynamic_new;
+        case Exception_OFFSET + 1: return lily_builtin_Exception_new;
+        case File_OFFSET + 1: return lily_builtin_File_close;
+        case File_OFFSET + 2: return lily_builtin_File_each_line;
+        case File_OFFSET + 3: return lily_builtin_File_open;
+        case File_OFFSET + 4: return lily_builtin_File_print;
+        case File_OFFSET + 5: return lily_builtin_File_read;
+        case File_OFFSET + 6: return lily_builtin_File_read_line;
+        case File_OFFSET + 7: return lily_builtin_File_write;
+        case Function_OFFSET + 1: return lily_builtin_Function_doc;
+        case Hash_OFFSET + 1: return lily_builtin_Hash_clear;
+        case Hash_OFFSET + 2: return lily_builtin_Hash_delete;
+        case Hash_OFFSET + 3: return lily_builtin_Hash_each_pair;
+        case Hash_OFFSET + 4: return lily_builtin_Hash_get;
+        case Hash_OFFSET + 5: return lily_builtin_Hash_has_key;
+        case Hash_OFFSET + 6: return lily_builtin_Hash_keys;
+        case Hash_OFFSET + 7: return lily_builtin_Hash_map_values;
+        case Hash_OFFSET + 8: return lily_builtin_Hash_merge;
+        case Hash_OFFSET + 9: return lily_builtin_Hash_reject;
+        case Hash_OFFSET + 10: return lily_builtin_Hash_select;
+        case Hash_OFFSET + 11: return lily_builtin_Hash_size;
+        case IndexError_OFFSET + 1: return lily_builtin_IndexError_new;
+        case Integer_OFFSET + 1: return lily_builtin_Integer_to_bool;
+        case Integer_OFFSET + 2: return lily_builtin_Integer_to_byte;
+        case Integer_OFFSET + 3: return lily_builtin_Integer_to_d;
+        case Integer_OFFSET + 4: return lily_builtin_Integer_to_s;
+        case IOError_OFFSET + 1: return lily_builtin_IOError_new;
+        case KeyError_OFFSET + 1: return lily_builtin_KeyError_new;
+        case List_OFFSET + 1: return lily_builtin_List_clear;
+        case List_OFFSET + 2: return lily_builtin_List_count;
+        case List_OFFSET + 3: return lily_builtin_List_delete_at;
+        case List_OFFSET + 4: return lily_builtin_List_each;
+        case List_OFFSET + 5: return lily_builtin_List_each_index;
+        case List_OFFSET + 6: return lily_builtin_List_fold;
+        case List_OFFSET + 7: return lily_builtin_List_insert;
+        case List_OFFSET + 8: return lily_builtin_List_join;
+        case List_OFFSET + 9: return lily_builtin_List_map;
+        case List_OFFSET + 10: return lily_builtin_List_pop;
+        case List_OFFSET + 11: return lily_builtin_List_push;
+        case List_OFFSET + 12: return lily_builtin_List_reject;
+        case List_OFFSET + 13: return lily_builtin_List_repeat;
+        case List_OFFSET + 14: return lily_builtin_List_select;
+        case List_OFFSET + 15: return lily_builtin_List_size;
+        case List_OFFSET + 16: return lily_builtin_List_shift;
+        case List_OFFSET + 17: return lily_builtin_List_slice;
+        case List_OFFSET + 18: return lily_builtin_List_unshift;
+        case RuntimeError_OFFSET + 1: return lily_builtin_RuntimeError_new;
+        case String_OFFSET + 1: return lily_builtin_String_format;
+        case String_OFFSET + 2: return lily_builtin_String_ends_with;
+        case String_OFFSET + 3: return lily_builtin_String_find;
+        case String_OFFSET + 4: return lily_builtin_String_html_encode;
+        case String_OFFSET + 5: return lily_builtin_String_is_alnum;
+        case String_OFFSET + 6: return lily_builtin_String_is_alpha;
+        case String_OFFSET + 7: return lily_builtin_String_is_digit;
+        case String_OFFSET + 8: return lily_builtin_String_is_space;
+        case String_OFFSET + 9: return lily_builtin_String_lower;
+        case String_OFFSET + 10: return lily_builtin_String_lstrip;
+        case String_OFFSET + 11: return lily_builtin_String_parse_i;
+        case String_OFFSET + 12: return lily_builtin_String_replace;
+        case String_OFFSET + 13: return lily_builtin_String_rstrip;
+        case String_OFFSET + 14: return lily_builtin_String_slice;
+        case String_OFFSET + 15: return lily_builtin_String_split;
+        case String_OFFSET + 16: return lily_builtin_String_starts_with;
+        case String_OFFSET + 17: return lily_builtin_String_strip;
+        case String_OFFSET + 18: return lily_builtin_String_to_bytestring;
+        case String_OFFSET + 19: return lily_builtin_String_trim;
+        case String_OFFSET + 20: return lily_builtin_String_upper;
+        case Tuple_OFFSET + 1: return lily_builtin_Tuple_merge;
+        case Tuple_OFFSET + 2: return lily_builtin_Tuple_push;
+        case ValueError_OFFSET + 1: return lily_builtin_ValueError_new;
+        case Option_OFFSET + 1: return lily_builtin_Option_and;
+        case Option_OFFSET + 2: return lily_builtin_Option_and_then;
+        case Option_OFFSET + 3: return lily_builtin_Option_is_none;
+        case Option_OFFSET + 4: return lily_builtin_Option_is_some;
+        case Option_OFFSET + 5: return lily_builtin_Option_map;
+        case Option_OFFSET + 6: return lily_builtin_Option_or;
+        case Option_OFFSET + 7: return lily_builtin_Option_or_else;
+        case Option_OFFSET + 8: return lily_builtin_Option_unwrap;
+        case Option_OFFSET + 9: return lily_builtin_Option_unwrap_or;
+        case Option_OFFSET + 10: return lily_builtin_Option_unwrap_or_else;
+        case Result_OFFSET + 1: return lily_builtin_Result_failure;
+        case Result_OFFSET + 2: return lily_builtin_Result_is_failure;
+        case Result_OFFSET + 3: return lily_builtin_Result_is_success;
+        case Result_OFFSET + 4: return lily_builtin_Result_success;
+        case toplevel_OFFSET + 0: return lily_builtin__print;
+        case toplevel_OFFSET + 1: return lily_builtin__calltrace;
+        case toplevel_OFFSET + 2: return lily_builtin__assert;
+        case toplevel_OFFSET + 3: lily_builtin_var_stdin(s); return NULL;
+        case toplevel_OFFSET + 4: lily_builtin_var_stderr(s); return NULL;
+        case toplevel_OFFSET + 5: lily_builtin_var_stdout(s); return NULL;
+        default: return NULL;
+    }
+}
+/** End autogen section. **/
 
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy
    from reentering it. The values are useless, but cannot be 0 or this will be
@@ -74,13 +444,6 @@ static const lily_class raw_unit =
 const lily_type *lily_unit_type = (lily_type *)&raw_unit;
 
 /**
-embedded builtin
-
-The builtin package provides the classes, vars, and functions that form the
-foundation of Lily.
-*/
-
-/**
 var stdin: File
 
 Provides a wrapper around the `stdin` present within C.
@@ -121,21 +484,35 @@ define assert(condition: Boolean, message: *String="")
 If `condition` is `false`, raise `AssertionError` using `message`.
 */
 
+static void return_exception(lily_state *s, uint16_t id)
+{
+    lily_container_val *result;
+    lily_instance_super(s, &result, id, 2);
+
+    lily_nth_set(result, 0, lily_arg_value(s, 0));
+    lily_nth_set(result, 1, lily_box_list(s, lily_new_list(0)));
+    lily_return_value(s, lily_take_value(s));
+}
+
 /**
-native AssertionError < Exception
+native class AssertionError(message: String) < Exception
 
 This is a subclass of `Exception` that is raised when an `assert` is passed
 `false` as the first argument.
 */
+void lily_builtin_AssertionError_new(lily_state *s)
+{
+    return_exception(s, LILY_ASSERTIONERROR_ID);
+}
 
 /**
-class Boolean
+builtin class Boolean
 
 The `Boolean` class represents a value that is either `true` or `false`.
 */
 
 /**
-method Boolean.to_i(self: Boolean): Integer
+define Boolean.to_i: Integer
 
 Convert a `Boolean` to an `Integer`. `true` becomes `1`, `false` becomes `0`.
 */
@@ -145,7 +522,7 @@ void lily_builtin_Boolean_to_i(lily_state *s)
 }
 
 /**
-method Boolean.to_s(self: Boolean): String
+define Boolean.to_s: String
 
 Convert a `Boolean` to a `String`.
 */
@@ -163,7 +540,7 @@ void lily_builtin_Boolean_to_s(lily_state *s)
 }
 
 /**
-class Byte
+builtin class Byte
 
 The `Byte` class represents a wrapper over a single `Byte` value. A `Byte` value
 is always unsigned, giving it a range from 0 to 255. `Byte` literals are written
@@ -171,7 +548,7 @@ using 't' as the suffix on an `Integer` value.
 */
 
 /**
-method Byte.to_i(self: Byte): Integer
+define Byte.to_i: Integer
 
 Convert a `Byte` to an `Integer`.
 */
@@ -181,7 +558,7 @@ void lily_builtin_Byte_to_i(lily_state *s)
 }
 
 /**
-class ByteString
+builtin class ByteString
 
 The `ByteString` class represents a bag of bytes. A `ByteString` may have '\0'
 values embedded within it. It may also have data that is not valid as utf-8.
@@ -189,7 +566,7 @@ The `ByteString` class currently does not support any primitive operations.
 */
 
 /**
-method ByteString.each_byte(self: ByteString, fn: Function(Byte))
+define ByteString.each_byte(fn: Function(Byte))
 
 Call `fn` for each `Byte` within the given `ByteString`.
 */
@@ -209,7 +586,7 @@ void lily_builtin_ByteString_each_byte(lily_state *s)
 }
 
 /**
-method ByteString.encode(self: ByteString, encode: *String="error"): Option[String]
+define ByteString.encode(encode: *String="error"): Option[String]
 
 Attempt to transform the given `ByteString` into a `String`. The action taken
 depends on the value of `encode`.
@@ -250,7 +627,7 @@ void lily_builtin_ByteString_encode(lily_state *s)
 }
 
 /**
-method ByteString.size(self: ByteString): Integer
+define ByteString.size: Integer
 
 Return the number of `Byte` values within `self`.
 */
@@ -345,7 +722,7 @@ void do_str_slice(lily_state *s, int is_bytestring)
 }
 
 /**
-method ByteString.slice(self: ByteString, start: *Integer=0, stop: *Integer=-1): ByteString
+define ByteString.slice(start: *Integer=0, stop: *Integer=-1): ByteString
 
 Create a new `ByteString` copying a section of `self` from `start` to `stop`.
 
@@ -362,25 +739,11 @@ void lily_builtin_ByteString_slice(lily_state *s)
     do_str_slice(s, 1);
 }
 
-static void return_exception(lily_state *s, uint16_t id)
-{
-    lily_container_val *result;
-    lily_instance_super(s, &result, id, 2);
-
-    lily_nth_set(result, 0, lily_arg_value(s, 0));
-    lily_nth_set(result, 1, lily_box_list(s, lily_new_list(0)));
-    lily_return_value(s, lily_take_value(s));
-}
-
 /**
-native DivisionByZeroError < Exception
+native class DivisionByZeroError(message: String) < Exception
 
 The `DivisionByZeroError` is a subclass of `Exception` that is raised when
 trying to divide or modulo by zero.
-*/
-
-/**
-constructor DivisionByZeroError(m: String): DivisionByZeroError
 */
 void lily_builtin_DivisionByZeroError_new(lily_state *s)
 {
@@ -388,13 +751,13 @@ void lily_builtin_DivisionByZeroError_new(lily_state *s)
 }
 
 /**
-class Double
+builtin class Double
 
 The `Double` class exists as a wrapper over a C double.
 */
 
 /**
-method Double.to_i(self: Double): Integer
+define Double.to_i: Integer
 
 Convert a `Double` to an `Integer`. This is done internally through a cast from
 a C double, to int64_t, the type of `Integer`.
@@ -407,7 +770,7 @@ void lily_builtin_Double_to_i(lily_state *s)
 }
 
 /**
-class Dynamic
+builtin class Dynamic[A](value: A)
 
 The `Dynamic` class allows defering type checking until runtime. Creation of
 `Dynamic` is done through `Dynamic(<value>)`. Extraction of values is done
@@ -417,25 +780,17 @@ polymorphic types, such as `List` or `Hash` or `Function`, because Lily's vm
 only holds class information at runtime.
 */
 
-/**
-constructor Dynamic[A](self: A): Dynamic
-
-Constructs a new `Dynamic` value. Call it using `Dynamic(<value>)`.
-*/
 extern void lily_builtin_Dynamic_new(lily_state *);
 
 /**
-native Exception
-    var @message: String
+native class Exception(message: String) {
+    var @message: String,
     var @traceback: List[String]
+}
 
 The `Exception` class is the base class of all exceptions. It defines two
 properties: A `message` as `String`, and a `traceback` as `List[String]`. The
 `traceback` field is rewritten whenever an exception instance is raised.
-*/
-
-/**
-constructor Exception(m: String): Exception
 */
 void lily_builtin_Exception_new(lily_state *s)
 {
@@ -443,7 +798,7 @@ void lily_builtin_Exception_new(lily_state *s)
 }
 
 /**
-class File
+builtin class File
 
 The `File` class provides a wrapper over a C FILE * struct. A `File` is closed
 automatically when a scope exits (though not immediately). However, it is also
@@ -451,7 +806,7 @@ possible to manually close a `File`.
 */
 
 /**
-method File.close(self: File)
+define File.close
 
 Close `self` if it is open, or do nothing if already closed.
 
@@ -473,7 +828,7 @@ void lily_builtin_File_close(lily_state *s)
 }
 
 /**
-method File.each_line(self: File, fn: Function(ByteString))
+define File.each_line(fn: Function(ByteString))
 
 Read each line of text from `self`, passing it down to `fn` for processing.
 
@@ -529,7 +884,7 @@ void lily_builtin_File_each_line(lily_state *s)
 }
 
 /**
-method File.open(path: String, mode: String):File
+static define File.open(path: String, mode: String):File
 
 Attempt to open `path` using the `mode` given. `mode` may be one of the
 following:
@@ -592,7 +947,7 @@ void lily_builtin_File_open(lily_state *s)
 void lily_builtin_File_write(lily_state *);
 
 /**
-method File.print[A](self: File, data: A)
+define File.print[A](data: A)
 
 Attempt to write the contents of `data` to the file provided. `data` is written
 with a newline at the end.
@@ -618,7 +973,7 @@ static lily_bytestring_val *new_sv_take(char *buffer)
 }
 
 /**
-method File.read(self: File, size: *Integer=-1): ByteString
+define File.read(size: *Integer=-1): ByteString
 
 Read `size` bytes from `self`. If `size` is negative, then the full contents of
 `self` are read. This stops if either `size` bytes are read, or the end of
@@ -675,7 +1030,7 @@ void lily_builtin_File_read(lily_state *s)
 }
 
 /**
-method File.read_line(self: File): ByteString
+define File.read_line: ByteString
 
 Attempt to read a line of text from `self`. Currently, this function does not
 have a way to signal that the end of the file has been reached. For now, callers
@@ -727,7 +1082,7 @@ void lily_builtin_File_read_line(lily_state *s)
 }
 
 /**
-method File.write[A](self: File, data: A)
+define File.write[A](data: A)
 
 Attempt to write the contents of `data` to the file provided.
 
@@ -755,7 +1110,7 @@ void lily_builtin_File_write(lily_state *s)
 }
 
 /**
-class Function
+builtin class Function
 
 The `Function` class represents a block of code to be called, which may or may
 not produce a value. `Function` values are first-class, and can be passed around
@@ -770,7 +1125,7 @@ colon at the end to denote the value returned:
 */
 
 /**
-method Function.doc(self: Function(1)): String
+static define Function.doc(self: Function($1)): String
 
 If `self` has a docstring, then the docstring is returned. Otherwise, an empty
 `String` is returned instead.
@@ -787,7 +1142,7 @@ void lily_builtin_Function_doc(lily_state *s)
 }
 
 /**
-class Hash
+builtin class Hash[A, B]
 
 The `Hash` class provides a mapping between a key and a value. `Hash` values can
 be created through `[key1 => value1, key2 => value2, ...]`. When writing a
@@ -838,7 +1193,7 @@ void lily_destroy_hash(lily_value *v)
 }
 
 /**
-method Hash.clear[A, B](self: Hash[A, B])
+define Hash.clear
 
 Removes all pairs currently present within `self`.
 
@@ -861,7 +1216,7 @@ void lily_builtin_Hash_clear(lily_state *s)
 }
 
 /**
-method Hash.delete[A, B](self: Hash[A, B], key: A)
+define Hash.delete(key: A)
 
 Attempt to remove `key` from `self`. If `key` is not present within `self`, then
 nothing happens.
@@ -895,7 +1250,7 @@ void lily_builtin_Hash_delete(lily_state *s)
 }
 
 /**
-method Hash.each_pair[A, B](self: Hash[A, B], fn: Function(A, B))
+define Hash.each_pair(fn: Function(A, B))
 
 Iterate through each pair that is present within `self`. For each of the pairs,
 call `fn` with the key and value of each pair.
@@ -931,7 +1286,7 @@ void lily_builtin_Hash_each_pair(lily_state *s)
 }
 
 /**
-method Hash.get[A, B](self: Hash[A, B], key: A, default: B): B
+define Hash.get(key: A, default: B): B
 
 Attempt to find `key` within `self`. If `key` is present, then the value
 associated with it is returned. If `key` cannot be found, then `default` is
@@ -951,7 +1306,7 @@ void lily_builtin_Hash_get(lily_state *s)
 }
 
 /**
-method Hash.has_key[A, B](self: Hash[A, B], key: A):Boolean
+define Hash.has_key(key: A):Boolean
 
 Return `true` if `key` is present within `self`, `false` otherwise.
 */
@@ -966,7 +1321,7 @@ void lily_builtin_Hash_has_key(lily_state *s)
 }
 
 /**
-method Hash.keys[A, B](self: Hash[A, B]): List[A]
+define Hash.keys: List[A]
 
 Construct a `List` containing all values that are present within `self`. There
 is no guarantee of the ordering of the resulting `List`.
@@ -1005,7 +1360,7 @@ static lily_hash_val *build_hash(lily_state *s, lily_hash_val *hash_val,
 }
 
 /**
-method Hash.map_values[A, B, C](self: Hash[A, B], Function(B => C)): Hash[A, C]
+define Hash.map_values[C](fn: Function(B => C)): Hash[A, C]
 
 This iterates through `self` and calls `fn` for each element present. The result
 of this function is a newly-made `Hash` where each value is the result of the
@@ -1050,7 +1405,7 @@ void lily_builtin_Hash_map_values(lily_state *s)
 }
 
 /**
-method Hash.merge[A, B](self: Hash[A, B], others: Hash[A, B]...): Hash[A, B]
+define Hash.merge(others: Hash[A, B]...): Hash[A, B]
 
 Create a new `Hash` that holds the result of `self` and each `Hash present
 within `others`.
@@ -1136,7 +1491,7 @@ static void hash_select_reject_common(lily_state *s, int expect)
 }
 
 /**
-method Hash.reject[A, B](self: Hash[A, B], fn: Function(A, B => Boolean)): Hash[A, B]
+define Hash.reject(fn: Function(A, B => Boolean)): Hash[A, B]
 
 This calls `fn` for each element present within `self`. The result of this
 function is a newly-made `Hash` containing all values for which `fn` returns
@@ -1148,7 +1503,7 @@ void lily_builtin_Hash_reject(lily_state *s)
 }
 
 /**
-method Hash.select[A, B](self: Hash[A, B], fn: Function(A, B => Boolean)): Hash[A, B]
+define Hash.select(fn: Function(A, B => Boolean)): Hash[A, B]
 
 This calls `fn` for each element present within `self`. The result of this
 function is a newly-made `Hash` containing all values for which `fn` returns
@@ -1160,7 +1515,7 @@ void lily_builtin_Hash_select(lily_state *s)
 }
 
 /**
-method Hash.size[A, B](self: Hash[A, B]): Integer
+define Hash.size: Integer
 
 Returns the number of key+value pairs present within `self`.
 */
@@ -1172,14 +1527,10 @@ void lily_builtin_Hash_size(lily_state *s)
 }
 
 /**
-native IndexError < Exception
+native class IndexError(message: String) < Exception
 
 The `DivisionByZeroError` is a subclass of `Exception` that is raised when
 trying to divide or modulo by zero.
-*/
-
-/**
-constructor IndexError(m: String): IndexError
 */
 void lily_builtin_IndexError_new(lily_state *s)
 {
@@ -1187,14 +1538,14 @@ void lily_builtin_IndexError_new(lily_state *s)
 }
 
 /**
-class Integer
+builtin class Integer
 
 The `Integer` class is Lily's native numeric type. Internally, it is a wrapper
 over a C int64_t.
 */
 
 /**
-method Integer.to_bool(self: Integer): Boolean
+define Integer.to_bool: Boolean
 
 Converts an `Integer` to a `Boolean`.
 */
@@ -1205,7 +1556,7 @@ void lily_builtin_Integer_to_bool(lily_state *s)
 }
 
 /**
-method Integer.to_byte(self: Integer): Byte
+define Integer.to_byte: Byte
 
 Convert an `Integer` to a `Byte`, truncating the value if necessary.
 */
@@ -1215,7 +1566,7 @@ void lily_builtin_Integer_to_byte(lily_state *s)
 }
 
 /**
-method Integer.to_d(self: Integer): Double
+define Integer.to_d: Double
 
 Converts an `Integer` to a `Double`. Internally, this is done by a typecast to
 the `Double` type (a raw C double).
@@ -1228,7 +1579,7 @@ void lily_builtin_Integer_to_d(lily_state *s)
 }
 
 /**
-method Integer.to_s(self: Integer): String
+define Integer.to_s: String
 
 Convert an `Integer` to a `String` using base-10.
 */
@@ -1243,14 +1594,10 @@ void lily_builtin_Integer_to_s(lily_state *s)
 }
 
 /**
-native IOError < Exception
+native class IOError(message: String) < Exception
 
 `IOError` is a subclass of `Exception` that is raised when an IO operation fails
 or does not have permission.
-*/
-
-/**
-constructor IOError(m: String): IOError
 */
 void lily_builtin_IOError_new(lily_state *s)
 {
@@ -1258,14 +1605,10 @@ void lily_builtin_IOError_new(lily_state *s)
 }
 
 /**
-native KeyError < Exception
+native class KeyError(message: String) < Exception
 
 `KeyError` is a subclass of `Exception` that is raised when trying to get an
 item from a `Hash` that does not exist.
-*/
-
-/**
-constructor KeyError(m: String): KeyError
 */
 void lily_builtin_KeyError_new(lily_state *s)
 {
@@ -1273,7 +1616,7 @@ void lily_builtin_KeyError_new(lily_state *s)
 }
 
 /**
-class List
+builtin class List[A]
 
 The `List` class represents a container of a given type, written as
 `List[<inner type>]`. A `List` value can be accessed through a positive index or
@@ -1282,7 +1625,7 @@ to access an invalid index will produce `IndexError`.
 */
 
 /**
-method List.clear[A](self: List[A])
+define List.clear
 
 Removes all elements present within `self`. No error is raised if `self` is
 being iterated over.
@@ -1304,7 +1647,7 @@ void lily_builtin_List_clear(lily_state *s)
 }
 
 /**
-method List.count[A](self: List[A], fn: Function(A => Boolean)): Integer
+define List.count(fn: Function(A => Boolean)): Integer
 
 This calls `fn` for each element within `self`. The result of this function is
 the number of times that `fn` returns `true`.
@@ -1357,7 +1700,7 @@ static int64_t get_relative_index(lily_state *s, lily_container_val *list_val,
 }
 
 /**
-method List.delete_at[A](self: List[A], index: Integer)
+define List.delete_at(index: Integer)
 
 Attempts to remove index from the List. If index is negative, then it is
 considered an offset from the end of the List.
@@ -1393,7 +1736,7 @@ void lily_builtin_List_delete_at(lily_state *s)
 }
 
 /**
-method List.each[A](self: List[A], fn: Function(A)): List[A]
+define List.each(fn: Function(A)): List[A]
 
 Calls `fn` for each element within `self`. The result of this function is
 `self`, so that this method can be chained with others.
@@ -1413,7 +1756,7 @@ void lily_builtin_List_each(lily_state *s)
 }
 
 /**
-method List.each_index[A](self: List[A], fn: Function(Integer)): List[A]
+define List.each_index(fn: Function(Integer)): List[A]
 
 Calls `fn` for each element within `self`. Rather than receive the elements of
 `self`, `fn` instead receives the index of each element.
@@ -1433,7 +1776,7 @@ void lily_builtin_List_each_index(lily_state *s)
 }
 
 /**
-method List.fold[A](self: List[A], start: A, fn: Function(A, A => A)): A
+define List.fold(start: A, fn: Function(A, A => A)): A
 
 This calls `fn` for each element present within `self`. The first value sent to
 `fn` is initially `start`, but will later be the result of `fn`. Therefore, the
@@ -1473,7 +1816,7 @@ void lily_builtin_List_fold(lily_state *s)
 }
 
 /**
-method List.insert[A](self: List[A], index: Integer, value: A)
+define List.insert(index: Integer, value: A)
 
 Attempt to insert `value` at `index` within `self`. If index is negative, then
 it is treated as an offset from the end of `self`.
@@ -1506,7 +1849,7 @@ void lily_builtin_List_insert(lily_state *s)
 }
 
 /**
-method List.join[A](self: List[A], separator: *String=""): String
+define List.join(separator: *String=""): String
 
 Create a `String` consisting of the elements of `self` interleaved with
 `separator`. The elements of self are converted to a `String` as if they were
@@ -1537,7 +1880,7 @@ void lily_builtin_List_join(lily_state *s)
 }
 
 /**
-method List.map[A,B](self: List[A], fn: Function(A => B)): List[B]
+define List.map[B](fn: Function(A => B)): List[B]
 
 This calls `fn` on each element within `self`. The result of this function is a
 newly-made `List` containing the results of `fn`.
@@ -1566,7 +1909,7 @@ void lily_builtin_List_map(lily_state *s)
 }
 
 /**
-method List.pop[A](self: List[A]): A
+define List.pop: A
 
 Attempt to remove and return the last element within `self`.
 
@@ -1595,7 +1938,7 @@ void lily_builtin_List_pop(lily_state *s)
 }
 
 /**
-method List.push[A](self: List[A], value: A)
+define List.push(value: A)
 
 Add `value` to the end of `self`.
 */
@@ -1645,7 +1988,7 @@ static void list_select_reject_common(lily_state *s, int expect)
 }
 
 /**
-method List.reject[A](self: List[A], fn: Function(A => Boolean)): List[A]
+define List.reject(fn: Function(A => Boolean)): List[A]
 
 This calls `fn` for each element within `self`. The result is a newly-made
 `List` holding each element where `fn` returns `false`.
@@ -1656,7 +1999,7 @@ void lily_builtin_List_reject(lily_state *s)
 }
 
 /**
-method List.repeat[A](count: Integer, value: A): List[A]
+static define List.repeat(count: Integer, value: A): List[A]
 
 This creates a new `List` that contains `value` repeated `count` times.
 
@@ -1681,7 +2024,7 @@ void lily_builtin_List_repeat(lily_state *s)
 }
 
 /**
-method List.select[A](self: List[A], fn: Function(A => Boolean)): List[A]
+define List.select(fn: Function(A => Boolean)): List[A]
 
 This calls `fn` for each element within `self`. The result is a newly-made
 `List` holding each element where `fn` returns `true`.
@@ -1692,7 +2035,7 @@ void lily_builtin_List_select(lily_state *s)
 }
 
 /**
-method List.size[A](self: List[A]): Integer
+define List.size: Integer
 
 Returns the number of elements that are within `self`.
 */
@@ -1704,7 +2047,7 @@ void lily_builtin_List_size(lily_state *s)
 }
 
 /**
-method List.shift[A](self: List[A]): A
+define List.shift: A
 
 This attempts to remove the last element from `self` and return it.
 
@@ -1739,7 +2082,7 @@ void lily_builtin_List_shift(lily_state *s)
 }
 
 /**
-method List.slice[A](self: List[A], start: *Integer=0, stop: *Integer=-1): List[A]
+define List.slice(start: *Integer=0, stop: *Integer=-1): List[A]
 
 Create a new `List` copying a section of `self` from `start` to `stop`.
 
@@ -1787,7 +2130,7 @@ void lily_builtin_List_slice(lily_state *s)
 }
 
 /**
-method List.unshift[A](self: List[A], value: A)
+define List.unshift(value: A)
 
 Inserts value at the front of self, moving all other elements to the right.
 */
@@ -1810,9 +2153,10 @@ void lily_builtin_List_unshift(lily_state *s)
 }
 
 /**
-enum Option[A]
-    Some(A)
+enum Option[A] {
+    Some(A),
     None
+}
 
 The `Option` type presents a way to hold either a value of `A`, or `None`, with
 `None` being valid for any `Option`. A common use for this is as a return type
@@ -1820,7 +2164,7 @@ for functions that may fail, but have no meaningful error message.
 */
 
 /**
-method Option.and[A, B](self: Option[A], other: Option[B]): Option[B]
+define Option.and[B](other: Option[B]): Option[B]
 
 If `self` is a `Some`, this returns `other`.
 
@@ -1835,7 +2179,7 @@ void lily_builtin_Option_and(lily_state *s)
 }
 
 /**
-method Option.and_then[A, B](self: Option[A], fn: Function(A => Option[B])): Option[B]
+define Option.and_then[B](fn: Function(A => Option[B])): Option[B]
 
 If `self` is a `Some`, this calls `fn` with the value within the `Some`. The
 result is the result of the `Option` returned by `fn`.
@@ -1856,7 +2200,7 @@ void lily_builtin_Option_and_then(lily_state *s)
 }
 
 /**
-method Option.is_none[A](self: Option[A]): Boolean
+define Option.is_none: Boolean
 
 If `self` is a `Some`, this returns `false`.
 
@@ -1868,7 +2212,7 @@ void lily_builtin_Option_is_none(lily_state *s)
 }
 
 /**
-method Option.is_some[A](self: Option[A]): Boolean
+define Option.is_some: Boolean
 
 If `self` is a `Some`, this returns `true`.
 
@@ -1880,7 +2224,7 @@ void lily_builtin_Option_is_some(lily_state *s)
 }
 
 /**
-method Option.map[A, B](self: Option[A], fn: Function(A => B)): Option[B]
+define Option.map[B](fn: Function(A => B)): Option[B]
 
 If `self` is a `Some`, this returns a `Some` holding the result of `fn`.
 
@@ -1902,7 +2246,7 @@ void lily_builtin_Option_map(lily_state *s)
 }
 
 /**
-method Option.or[A](self: Option[A], alternate: Option[A]): Option[A]
+define Option.or(alternate: Option[A]): Option[A]
 
 If `self` is a `Some`, this returns `self`.
 
@@ -1917,7 +2261,7 @@ void lily_builtin_Option_or(lily_state *s)
 }
 
 /**
-method Option.or_else[A](self: Option[A], fn: Function( => Option[A])):Option[A]
+define Option.or_else(fn: Function( => Option[A])):Option[A]
 
 If `self` is a `Some`, this returns `self`.
 
@@ -1935,7 +2279,7 @@ void lily_builtin_Option_or_else(lily_state *s)
 }
 
 /**
-method Option.unwrap[A](self: Option[A]): A
+define Option.unwrap: A
 
 If `self` is a `Some`, this returns the value contained within.
 
@@ -1952,7 +2296,7 @@ void lily_builtin_Option_unwrap(lily_state *s)
 }
 
 /**
-method Option.unwrap_or[A](self: Option[A], alternate: A):A
+define Option.unwrap_or(alternate: A):A
 
 If `self` is a `Some`, this returns the value with `self`.
 
@@ -1971,7 +2315,7 @@ void lily_builtin_Option_unwrap_or(lily_state *s)
 }
 
 /**
-method Option.unwrap_or_else[A](self: Option[A], fn: Function( => A)):A
+define Option.unwrap_or_else(fn: Function( => A)):A
 
 If `self` is a `Some`, this returns the value with `self`.
 
@@ -1989,9 +2333,10 @@ void lily_builtin_Option_unwrap_or_else(lily_state *s)
 }
 
 /**
-enum Result[A, B]
-    Failure(A)
+enum Result[A, B] {
+    Failure(A),
     Success(B)
+}
 
 `Result` is an enum that holds either a `Failure` or `Success`. This enum is
 for situations where the function that fails has an error message to deliver.
@@ -2009,7 +2354,7 @@ static void result_optionize(lily_state *s, int expect)
 }
 
 /**
-method Result.failure[A, B](self: Result[A, B]):Option[A]
+define Result.failure: Option[A]
 
 If `self` contains a `Failure`, produces a `Some(A)`.
 
@@ -2026,7 +2371,7 @@ static void result_is_success_or_failure(lily_state *s, int expect)
 }
 
 /**
-method Result.is_failure[A, B](self: Result[A, B]): Boolean
+define Result.is_failure: Boolean
 
 Return `true` if `self` contains a `Failure`, `false` otherwise.
 */
@@ -2036,7 +2381,7 @@ void lily_builtin_Result_is_failure(lily_state *s)
 }
 
 /**
-method Result.is_success[A, B](self: Result[A, B]): Boolean
+define Result.is_success: Boolean
 
 Return `true` if `self` contains a `Success`, `false` otherwise.
 */
@@ -2046,7 +2391,7 @@ void lily_builtin_Result_is_success(lily_state *s)
 }
 
 /**
-method Result.success[A, B](self: Result[A, B]): Option[B]
+define Result.success: Option[B]
 
 If `self` contains a `Failure`, produces a `None`.
 
@@ -2058,14 +2403,10 @@ void lily_builtin_Result_success(lily_state *s)
 }
 
 /**
-native RuntimeError < Exception
+native class RuntimeError(message: String) < Exception
 
 `RuntimeError` is a subclass of `Exception` that is raised when the recursion
 limit is exceeded, or when trying to modify a `Hash` while iterating over it.
-*/
-
-/**
-constructor RuntimeError(m: String): RuntimeError
 */
 void lily_builtin_RuntimeError_new(lily_state *s)
 {
@@ -2073,7 +2414,7 @@ void lily_builtin_RuntimeError_new(lily_state *s)
 }
 
 /**
-class String
+builtin class String
 
 The `String` class provides a wrapper over a C char *. The `String` class is
 guaranteed to have a single '\0' terminator. Additionally, a `String` is
@@ -2094,7 +2435,7 @@ static int char_index(const char *s, int idx, char ch)
 }
 
 /**
-method String.format(self: String, args: 1...): String
+define String.format(args: $1...): String
 
 This creates a new `String` by processing `self` as a format. Format specifiers
 must be between braces (`{}`), and must be between `0` and `99`. Each format
@@ -2171,7 +2512,7 @@ void lily_builtin_String_format(lily_state *s)
 }
 
 /**
-method String.ends_with(self: String, end: String): Boolean
+define String.ends_with(end: String): Boolean
 
 Checks if `self` ends with `end`.
 */
@@ -2205,7 +2546,7 @@ void lily_builtin_String_ends_with(lily_state *s)
 
 
 /**
-method String.find(self: String, needle: String, start: *Integer=0): Option[Integer]
+define String.find(needle: String, start: *Integer=0): Option[Integer]
 
 Check for `needle` being within `self`. By default, this begins at the start of
 `self`. If `start` is non-zero, then the search begins `start` bytes away from
@@ -2275,7 +2616,7 @@ void lily_builtin_String_find(lily_state *s)
 }
 
 /**
-method String.html_encode(self: String): String
+define String.html_encode: String
 
 Check for one of `"&"`, `"<"`, or `">"` being within `self`.
 
@@ -2325,7 +2666,7 @@ void lily_builtin_String_##WRAP_NAME(lily_state *s) \
 }
 
 /**
-method String.is_alnum(self: String):Boolean
+define String.is_alnum: Boolean
 
 Return `true` if `self` has only alphanumeric([a-zA-Z0-9]+) characters, `false`
 otherwise.
@@ -2333,7 +2674,7 @@ otherwise.
 CTYPE_WRAP(is_alnum, isalnum)
 
 /**
-method String.is_alpha(self: String):Boolean
+define String.is_alpha: Boolean
 
 Return `true` if `self` has only alphabetical([a-zA-Z]+) characters, `false`
 otherwise.
@@ -2341,14 +2682,14 @@ otherwise.
 CTYPE_WRAP(is_alpha, isalpha)
 
 /**
-method String.is_digit(self: String):Boolean
+define String.is_digit: Boolean
 
 Return `true` if `self` has only digit([0-9]+) characters, `false` otherwise.
 */
 CTYPE_WRAP(is_digit, isdigit)
 
 /**
-method String.is_space(self: String):Boolean
+define String.is_space: Boolean
 
 Returns `true` if `self` has only space(" \t\r\n") characters, `false`
 otherwise.
@@ -2356,7 +2697,7 @@ otherwise.
 CTYPE_WRAP(is_space, isspace)
 
 /**
-method String.lower(self: String):String
+define String.lower: String
 
 Checks if any characters within `self` are within [A-Z]. If so, it creates a new
 `String` with [A-Z] replaced by [a-z]. Otherwise, `self` is returned.
@@ -2507,7 +2848,7 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 /**
-method String.lstrip(self: String, to_strip: String):String
+define String.lstrip(to_strip: String):String
 
 This walks through `self` from left to right, stopping on the first utf-8 chunk
 that is not found within `to_strip`. The result is a newly-made copy of self
@@ -2558,7 +2899,7 @@ void lily_builtin_String_lstrip(lily_state *s)
 }
 
 /**
-method String.parse_i(self: String): Option[Integer]
+define String.parse_i: Option[Integer]
 
 Attempts to convert `self` into an `Integer`. Currently, `self` is parsed as a
 base-10 encoded value.
@@ -2620,7 +2961,7 @@ void lily_builtin_String_parse_i(lily_state *s)
 }
 
 /**
-method String.replace(self: String, needle: String, new: String): String
+define String.replace(needle: String, new: String): String
 
 Create a new `String` consisting of every `needle` replaced with `new`.
 */
@@ -2764,7 +3105,7 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 /**
-method String.rstrip(self: String, to_strip: String):String
+define String.rstrip(to_strip: String):String
 
 This walks through `self` from right to left, stopping on the first utf-8 chunk
 that is not found within `to_strip`. The result is a newly-made copy of `self`
@@ -2918,7 +3259,7 @@ static lily_container_val *string_split_by_val(lily_state *s, char *input,
 }
 
 /**
-method String.slice(self: String, start: *Integer=0, stop: *Integer=-1): String
+define String.slice(start: *Integer=0, stop: *Integer=-1): String
 
 Create a new `String` copying a section of `self` from `start` to `stop`. This
 function works using byte indexes into the `String` value.
@@ -2938,7 +3279,7 @@ void lily_builtin_String_slice(lily_state *s)
 }
 
 /**
-method String.split(self: String, split_by: *String=" "):List[String]
+define String.split(split_by: *String=" "):List[String]
 
 This attempts to split `self` using `split_by`, with a default value of a single
 space.
@@ -2971,7 +3312,7 @@ void lily_builtin_String_split(lily_state *s)
 }
 
 /**
-method String.starts_with(self: String, with: String): Boolean
+define String.starts_with(with: String): Boolean
 
 Checks if `self` starts with `with`.
 */
@@ -3001,7 +3342,7 @@ void lily_builtin_String_starts_with(lily_state *s)
 }
 
 /**
-method String.strip(self: String, to_strip: String):String
+define String.strip(to_strip: String):String
 
 This walks through self from right to left, and then from left to right. The
 result of this is a newly-made `String` without any elements within `to_strip`
@@ -3061,7 +3402,7 @@ void lily_builtin_String_strip(lily_state *s)
 }
 
 /**
-method String.to_bytestring(self: String): ByteString
+define String.to_bytestring: ByteString
 
 Produce a copy of `self`, as a `ByteString`. This allows per-`Byte` operations
 to be performed.
@@ -3074,7 +3415,7 @@ void lily_builtin_String_to_bytestring(lily_state *s)
 }
 
 /**
-method String.trim(self: String): String
+define String.trim: String
 
 Checks if `self` starts or ends with any of `" \t\r\n"`. If it does, then a new
 `String` is made with spaces removed from both sides. If it does not, then this
@@ -3111,7 +3452,7 @@ void lily_builtin_String_trim(lily_state *s)
 }
 
 /**
-method String.upper(self: String):String
+define String.upper: String
 
 Checks if any characters within self are within [a-z]. If so, it creates a new
 `String` with [a-z] replaced by [A-Z]. Otherwise, `self` is returned.
@@ -3141,7 +3482,7 @@ void lily_builtin_String_upper(lily_state *s)
 }
 
 /**
-class Tuple
+builtin class Tuple
 
 The `Tuple` class provides a fixed-size container over a set of types. `Tuple`
 is ideal for situations where a variety of data is needed, but a class is too
@@ -3157,9 +3498,8 @@ work on all `Tuple` instances, regardless of the number of elements within the
 `Tuple` (sometimes considered its arity).
 */
 
-
 /**
-method Tuple.merge(self: Tuple[1], other: Tuple[2]): Tuple[1, 2]
+static define Tuple.merge(self: Tuple[$1], other: Tuple[$2]): Tuple[$1, $2]
 
 Build a new `Tuple` composed of the contents of `self` and the contents of
 `other`.
@@ -3183,7 +3523,7 @@ void lily_builtin_Tuple_merge(lily_state *s)
 }
 
 /**
-method Tuple.push[A](self: Tuple[1], other: A): Tuple[1, A]
+static define Tuple.push[A](self: Tuple[$1], other: A): Tuple[$1, A]
 
 Build a new `Tuple` composed of the contents of `self` and `other`.
 */
@@ -3203,29 +3543,16 @@ void lily_builtin_Tuple_push(lily_state *s)
 }
 
 /**
-native ValueError < Exception
+native class ValueError(message: String) < Exception
 
 `ValueError` is a subclass of `Exception` that is raised when sending an
 improper argument to a function, such as trying to call `List.repeat` with a
 negative amount.
 */
-
-/**
-constructor ValueError(m: String): ValueError
-*/
 void lily_builtin_ValueError_new(lily_state *s)
 {
     return_exception(s, LILY_VALUEERROR_ID);
 }
-
-/***
- *      ____                    _                 _
- *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
- *     | | | | | | | '_ \ / _` | |/ _ \ / _` |/ _` |
- *     | |_| | |_| | | | | (_| | | (_) | (_| | (_| |
- *     |____/ \__, |_| |_|\__,_|_|\___/ \__,_|\__,_|
- *            |___/
- */
 
 static lily_file_val *new_builtin_file(FILE *source, const char *mode)
 {
@@ -3235,27 +3562,20 @@ static lily_file_val *new_builtin_file(FILE *source, const char *mode)
     return file_val;
 }
 
-static void load_var_stdin(lily_state *s)
+void lily_builtin_var_stdin(lily_state *s)
 {
     lily_push_file(s, new_builtin_file(stdin, "r"));
 }
 
-static void load_var_stdout(lily_state *s)
+void lily_builtin_var_stdout(lily_state *s)
 {
     lily_push_file(s, new_builtin_file(stdout, "w"));
 }
 
-static void load_var_stderr(lily_state *s)
+void lily_builtin_var_stderr(lily_state *s)
 {
     lily_push_file(s, new_builtin_file(stderr, "w"));
 }
-
-extern void lily_builtin__assert(lily_state *);
-extern void lily_builtin__calltrace(lily_state *);
-extern void lily_builtin__print(lily_state *);
-
-#include "extras_builtin.h"
-#include "dyna_builtin.h"
 
 static lily_class *build_class(lily_symtab *symtab, const char *name,
         int generic_count, int dyna_start)
@@ -3290,24 +3610,24 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
 void lily_register_pkg_builtin(lily_state *s)
 {
-    lily_register_package(s, "", lily_builtin_dynaload_table,
+    lily_register_package(s, "", lily_builtin_table,
             lily_builtin_loader);
 }
 
 void lily_init_pkg_builtin(lily_symtab *symtab)
 {
-    symtab->integer_class    = build_class(symtab, "Integer",     0, INTEGER_OFFSET);
-    symtab->double_class     = build_class(symtab, "Double",      0, DOUBLE_OFFSET);
-    symtab->string_class     = build_class(symtab, "String",      0, STRING_OFFSET);
-    symtab->byte_class       = build_class(symtab, "Byte",        0, BYTE_OFFSET);
-    symtab->bytestring_class = build_class(symtab, "ByteString",  0, BYTESTRING_OFFSET);
-    symtab->boolean_class    = build_class(symtab, "Boolean",     0, BOOLEAN_OFFSET);
-    symtab->function_class   = build_class(symtab, "Function",   -1, FUNCTION_OFFSET);
-    symtab->dynamic_class    = build_class(symtab, "Dynamic",     0, DYNAMIC_OFFSET);
-    symtab->list_class       = build_class(symtab, "List",        1, LIST_OFFSET);
-    symtab->hash_class       = build_class(symtab, "Hash",        2, HASH_OFFSET);
-    symtab->tuple_class      = build_class(symtab, "Tuple",      -1, TUPLE_OFFSET);
-                               build_class(symtab, "File",        0, FILE_OFFSET);
+    symtab->integer_class    = build_class(symtab, "Integer",     0, Integer_OFFSET);
+    symtab->double_class     = build_class(symtab, "Double",      0, Double_OFFSET);
+    symtab->string_class     = build_class(symtab, "String",      0, String_OFFSET);
+    symtab->byte_class       = build_class(symtab, "Byte",        0, Byte_OFFSET);
+    symtab->bytestring_class = build_class(symtab, "ByteString",  0, ByteString_OFFSET);
+    symtab->boolean_class    = build_class(symtab, "Boolean",     0, Boolean_OFFSET);
+    symtab->function_class   = build_class(symtab, "Function",   -1, Function_OFFSET);
+    symtab->dynamic_class    = build_class(symtab, "Dynamic",     0, Dynamic_OFFSET);
+    symtab->list_class       = build_class(symtab, "List",        1, List_OFFSET);
+    symtab->hash_class       = build_class(symtab, "Hash",        2, Hash_OFFSET);
+    symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
+                               build_class(symtab, "File",        0, File_OFFSET);
 
     symtab->question_class = build_special(symtab, "?", 0, LILY_QUESTION_ID);
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_OPTARG_ID);

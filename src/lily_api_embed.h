@@ -38,4 +38,17 @@ int lily_render_file(lily_state *, const char *);
    function value or NULL. */
 struct lily_function_val_ *lily_get_func(lily_state *, const char *);
 
+/* Registering a C package makes it available for the interpreter to load when
+   'import <name>' is used. */
+
+#define LILY_DECLARE_PACKAGE(name) \
+extern const char **lily_##name##_table; \
+void *lily_##name##_loader(lily_state *s, int)
+
+#define LILY_REGISTER_PACKAGE(state, name) \
+lily_register_package(state, #name, lily_##name##_table, lily_##name##_loader)
+
+/* Should only be called through the macro. */
+void lily_register_package(lily_state *, const char *, const char **, void *);
+
 #endif

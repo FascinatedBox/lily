@@ -1,35 +1,68 @@
+/**
+library time
+
+The time package provides access to basic time information on the system.
+*/
+
 #include <time.h>
 #include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
 
-#include "extras_time.h"
-
-typedef struct {
+/** Begin autogen section. **/
+typedef struct lily_time_Time_ {
     LILY_FOREIGN_HEADER
-
     struct tm local;
 } lily_time_Time;
+#define ARG_Time(state, index) \
+(lily_time_Time *)lily_arg_generic(state, index)
+#define ID_Time(state) lily_cid_at(state, 0)
+#define INIT_Time(state)\
+(lily_time_Time *) lily_new_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
+
+const char *lily_time_table[] = {
+    "\01Time\0"
+    ,"C\04Time"
+    ,"m\0clock\0(Time):Double"
+    ,"m\0now\0:Time"
+    ,"m\0to_s\0(Time):String"
+    ,"m\0since_epoch\0(Time):Integer"
+    ,"Z"
+};
+#define Time_OFFSET 1
+void lily_time_Time_clock(lily_state *);
+void lily_time_Time_now(lily_state *);
+void lily_time_Time_to_s(lily_state *);
+void lily_time_Time_since_epoch(lily_state *);
+void *lily_time_loader(lily_state *s, int id)
+{
+    switch (id) {
+        case Time_OFFSET + 1: return lily_time_Time_clock;
+        case Time_OFFSET + 2: return lily_time_Time_now;
+        case Time_OFFSET + 3: return lily_time_Time_to_s;
+        case Time_OFFSET + 4: return lily_time_Time_since_epoch;
+        default: return NULL;
+    }
+}
+/** End autogen section. **/
 
 /**
-embedded time
-
-The time package provides access to basic time information on the system.
-*/
-
-/**
-class Time
+foreign class Time {
+    layout {
+        struct tm local;
+    }
+}
 
 Instances of this class represent a single point in time. This class also
 includes static methods to provide a few extra features.
 */
 
-static void destroy_Time(lily_time_Time *t)
+void destroy_Time(lily_time_Time *t)
 {
 }
 
 /**
-method Time.clock: Double
+define Time.clock: Double
 
 Returns the number of seconds of CPU time the interpreter has used.
 */
@@ -39,7 +72,7 @@ void lily_time_Time_clock(lily_state *s)
 }
 
 /**
-method Time.now: Time
+static define Time.now: Time
 
 Returns a `Time` instance representing the current system time.
 */
@@ -58,7 +91,7 @@ void lily_time_Time_now(lily_state *s)
 }
 
 /**
-method Time.to_s(self: Time): String
+define Time.to_s: String
 
 Return a `String` representation of a `Time` instance.
 
@@ -77,7 +110,7 @@ void lily_time_Time_to_s(lily_state *s)
 }
 
 /**
-method Time.since_epoch(self: Time): Integer
+define Time.since_epoch: Integer
 
 Returns the value of `self` as a number of seconds since the epoch.
 */
@@ -86,11 +119,4 @@ void lily_time_Time_since_epoch(lily_state *s)
     lily_time_Time *t = ARG_Time(s, 0);
 
     lily_return_integer(s, (int64_t) mktime(&t->local));
-}
-
-#include "dyna_time.h"
-
-void lily_pkg_time_init(lily_state *s)
-{
-    register_time(s);
 }

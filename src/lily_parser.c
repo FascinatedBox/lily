@@ -14,11 +14,6 @@
 
 #include "lily_int_opcode.h"
 
-#include "lily_pkg_builtin.h"
-#include "lily_pkg_sys.h"
-#include "lily_pkg_random.h"
-#include "lily_pkg_time.h"
-
 #include "lily_api_value.h"
 
 #define NEED_NEXT_TOK(expected) \
@@ -68,6 +63,7 @@ static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *, const char *,
         const char **);
+void lily_register_package(lily_state *, const char *, const char **, void *);
 
 typedef struct lily_rewind_state_
 {
@@ -78,6 +74,20 @@ typedef struct lily_rewind_state_
     uint32_t line_num;
     uint32_t pending;
 } lily_rewind_state;
+
+extern const char *lily_builtin_table[];
+void *lily_builtin_loader(lily_state *s, int);
+
+extern const char *lily_sys_table[];
+void *lily_sys_loader(lily_state *s, int);
+
+extern const char *lily_random_table[];
+void *lily_random_loader(lily_state *s, int);
+
+extern const char *lily_time_table[];
+void *lily_time_loader(lily_state *s, int);
+
+void lily_init_pkg_builtin(lily_symtab *);
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
    especially with how the parser is assigning into all sorts of various structs
@@ -103,7 +113,7 @@ lily_state *lily_new_state(void)
 
     parser->vm->parser = parser;
 
-    lily_register_pkg_builtin(parser->vm);
+    lily_register_package(parser->vm, "", lily_builtin_table, lily_builtin_loader);
     lily_set_builtin(parser->symtab, parser->module_top);
     lily_init_pkg_builtin(parser->symtab);
 
@@ -155,9 +165,9 @@ lily_state *lily_new_state(void)
     parser->symtab->main_function->module = parser->main_module;
     parser->symtab->active_module = parser->main_module;
 
-    lily_pkg_sys_init(parser->vm);
-    lily_pkg_random_init(parser->vm);
-    lily_pkg_time_init(parser->vm);
+    lily_register_package(parser->vm, "sys", lily_sys_table, lily_sys_loader);
+    lily_register_package(parser->vm, "random", lily_random_table, lily_random_loader);
+    lily_register_package(parser->vm, "time", lily_time_table, lily_time_loader);
 
     parser->executing = 0;
 
@@ -530,14 +540,27 @@ static lily_module_entry *load_library(lily_parse_state *parser,
 {
     lily_module_entry *result = NULL;
     lily_library *library = lily_library_load(path);
-    if (library) {
-        result = new_module(parser, path, library->dynaload_table);
-        result->handle = library->source;
 
-        lily_msgbuf *msgbuf = parser->msgbuf;
-        const char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader", name);
-        /* This may be NULL, but that's okay because loaders are optional. */
-        result->loader = lily_library_get(library->source, lib_name);
+    if (library) {
+        /* 'path' is in parser's msgbuf, so use this msgbuf instead. */
+        lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
+        void *source = library->source;
+        void *table = lily_library_get(source, "lily_dynaload_table");
+
+        if (table == NULL) {
+            const char *table_name = lily_mb_sprintf(msgbuf, "lily_%s_table",
+                    name);
+            table = lily_library_get(source, table_name);
+        }
+
+        if (table) {
+            result = new_module(parser, path, table);
+            result->handle = source;
+            const char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader",
+                    name);
+            /* This can be NULL because loaders are optional. */
+            result->loader = lily_library_get(source, lib_name);
+        }
 
         lily_free(library);
     }
@@ -1501,10 +1524,6 @@ lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
-/* The exception ids need to be fixed. The easiest way to do that is to fix them
-   based off of their dynaload offsets. */
-#include "extras_builtin.h"
-
 static lily_class *dynaload_native(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
@@ -1542,20 +1561,26 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     cls->dyna_start = dyna_index + 1;
     if (m == parser->module_start) {
         parser->symtab->next_class_id--;
-        int index = dyna_index + 1;
 
-        switch (index) {
-            case DIVISIONBYZEROERROR_OFFSET: cls->id = LILY_DBZERROR_ID;       break;
-            case EXCEPTION_OFFSET:           cls->id = LILY_EXCEPTION_ID;      break;
-            case INDEXERROR_OFFSET:          cls->id = LILY_INDEXERROR_ID;     break;
-            case IOERROR_OFFSET:             cls->id = LILY_IOERROR_ID;        break;
-            case KEYERROR_OFFSET:            cls->id = LILY_KEYERROR_ID;       break;
-            case RUNTIMEERROR_OFFSET:        cls->id = LILY_RUNTIMEERROR_ID;   break;
-            case VALUEERROR_OFFSET:          cls->id = LILY_VALUEERROR_ID;     break;
-            case ASSERTIONERROR_OFFSET:      cls->id = LILY_ASSERTIONERROR_ID; break;
+        if (strcmp(cls->name, "DivisionByZeroError") == 0)
+            cls->id = LILY_DBZERROR_ID;
+        else if (strcmp(cls->name, "Exception") == 0)
+            cls->id = LILY_EXCEPTION_ID;
+        else if (strcmp(cls->name, "IndexError") == 0)
+            cls->id = LILY_INDEXERROR_ID;
+        else if (strcmp(cls->name, "IOError") == 0)
+            cls->id = LILY_IOERROR_ID;
+        else if (strcmp(cls->name, "KeyError") == 0)
+            cls->id = LILY_KEYERROR_ID;
+        else if (strcmp(cls->name, "RuntimeError") == 0)
+            cls->id = LILY_RUNTIMEERROR_ID;
+        else if (strcmp(cls->name, "ValueError") == 0)
+            cls->id = LILY_VALUEERROR_ID;
+        else if (strcmp(cls->name, "AssertionError") == 0)
+            cls->id = LILY_ASSERTIONERROR_ID;
+        else
             /* Shouldn't happen, but use an impossible id to make it stand out. */
-            default:                         cls->id = 12345;                  break;
-        }
+            cls->id = 12345;
     }
 
     do {

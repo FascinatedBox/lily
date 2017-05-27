@@ -10,15 +10,8 @@ lily_library *lily_library_load(const char *path)
     if (handle == NULL)
         return NULL;
 
-    const void *dynaload_table = GetProcAddress(handle, "lily_dynaload_table");
-    if (dynaload_table == NULL) {
-        FreeLibrary(handle);
-        return NULL;
-    }
-
     lily_library *lib = lily_malloc(sizeof(*lib));
     lib->source = handle;
-    lib->dynaload_table = (const char **)dynaload_table;
     return lib;
 }
 
@@ -40,15 +33,8 @@ lily_library *lily_library_load(const char *path)
     if (handle == NULL)
         return NULL;
 
-    const void *dynaload_table = dlsym(handle, "lily_dynaload_table");
-    if (dynaload_table == NULL) {
-        dlclose(handle);
-        return NULL;
-    }
-
     lily_library *lib = lily_malloc(sizeof(*lib));
     lib->source = handle;
-    lib->dynaload_table = (const char **)dynaload_table;
 
     return lib;
 }

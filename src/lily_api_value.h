@@ -244,4 +244,7 @@ void lily_KeyError(lily_state *, const char *, ...);
 void lily_RuntimeError(lily_state *, const char *, ...);
 void lily_ValueError(lily_state *, const char *, ...);
 
+/* For use by autogen sections only. */
+uint16_t lily_cid_at(lily_state *, int);
+
 #endif
