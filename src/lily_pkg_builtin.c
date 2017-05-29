@@ -1407,7 +1407,7 @@ void lily_builtin_Hash_map_values(lily_state *s)
 /**
 define Hash.merge(others: Hash[A, B]...): Hash[A, B]
 
-Create a new `Hash` that holds the result of `self` and each `Hash present
+Create a new `Hash` that holds the result of `self` and each `Hash` present
 within `others`.
 
 When duplicate elements are found, the value of the right-most `Hash` wins.
