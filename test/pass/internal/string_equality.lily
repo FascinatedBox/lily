@@ -1,0 +1,40 @@
+define less(a: String, b: String): Boolean
+{ return a < b }
+define less_eq(a: String, b: String): Boolean
+{ return a <= b }
+define greater(a: String, b: String): Boolean
+{ return a > b }
+define greater_eq(a: String, b: String): Boolean
+{ return a >= b }
+
+var tests =
+[
+    <["A", "A", greater, false]>,
+    <["B", "A", greater, true]>,
+    <["Z", "A", greater, true]>,
+
+    <["A", "A", greater_eq, true]>,
+    <["A", "B", greater_eq, false]>,
+    <["B", "A", greater_eq, true]>,
+    <["Z", "A", greater_eq, true]>,
+
+    <["A", "A", less, false]>,
+    <["A", "B", less, true]>,
+    <["A", "Z", less, true]>,
+
+    <["A", "A", less_eq, true]>,
+    <["B", "A", less_eq, false]>,
+    <["A", "B", less_eq, true]>,
+    <["A", "Z", less_eq, true]>
+]
+
+for i in 0...tests.size() - 1: {
+    var t = tests[i]
+    var left = t[0]
+    var right = t[1]
+    var fn = t[2]
+    var expect = t[3]
+
+    if fn(left, right) != expect:
+        stderr.print(tests[i])
+}

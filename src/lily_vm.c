@@ -45,10 +45,8 @@ code += 5;
    Arguments are:
    * op:       The operation to perform relative to the values given. This will
                be substituted like: lhs->value OP rhs->value
-               This is done for everything BUT string.
-   * stringop: The operation to perform relative to the result of strcmp. ==
-               does == 0, as an example. */
-#define EQUALITY_COMPARE_OP(OP, STRINGOP) \
+               Do it for string too, but against 0. */
+#define EQUALITY_COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
@@ -62,7 +60,7 @@ else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
 else if (lhs_reg->class_id == LILY_STRING_ID) { \
     vm_regs[code[4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) STRINGOP; \
+           rhs_reg->value.string->string) OP 0; \
 } \
 else { \
     vm->pending_line = code[1]; \
@@ -72,7 +70,7 @@ else { \
 vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
 
-#define COMPARE_OP(OP, STRINGOP) \
+#define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
 rhs_reg = vm_regs[code[3]]; \
 if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
@@ -86,7 +84,7 @@ else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
 else if (lhs_reg->class_id == LILY_STRING_ID) { \
     vm_regs[code[4]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) STRINGOP; \
+           rhs_reg->value.string->string) OP 0; \
 } \
 vm_regs[code[4]]->flags = LILY_BOOLEAN_ID; \
 code += 5;
@@ -1912,22 +1910,22 @@ void lily_vm_execute(lily_vm_state *vm)
                 DOUBLE_OP(-)
                 break;
             case o_less:
-                COMPARE_OP(<, == -1)
+                COMPARE_OP(<)
                 break;
             case o_less_eq:
-                COMPARE_OP(<=, <= 0)
+                COMPARE_OP(<=)
                 break;
             case o_is_equal:
-                EQUALITY_COMPARE_OP(==, == 0)
+                EQUALITY_COMPARE_OP(==)
                 break;
             case o_greater:
-                COMPARE_OP(>, == 1)
+                COMPARE_OP(>)
                 break;
             case o_greater_eq:
-                COMPARE_OP(>=, >= 0)
+                COMPARE_OP(>=)
                 break;
             case o_not_eq:
-                EQUALITY_COMPARE_OP(!=, != 0)
+                EQUALITY_COMPARE_OP(!=)
                 break;
             case o_jump:
                 code += (int16_t)code[1];
