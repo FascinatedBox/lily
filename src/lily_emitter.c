@@ -2647,60 +2647,58 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     lily_storage *s;
 
     if (lhs_sym->type == rhs_sym->type) {
-        if (ast->op == expr_plus) {
-            if (lhs_class->id == LILY_INTEGER_ID)
+        int lhs_id = lhs_class->id;
+        int op = ast->op;
+
+        if (lhs_id == LILY_INTEGER_ID) {
+            if (op == expr_plus)
                 opcode = o_integer_add;
-            else if (lhs_class->id == LILY_DOUBLE_ID)
-                opcode = o_double_add;
-        }
-        else if (ast->op == expr_minus) {
-            if (lhs_class->id == LILY_INTEGER_ID)
+            else if (op == expr_minus)
                 opcode = o_integer_minus;
-            else if (lhs_class->id == LILY_DOUBLE_ID)
-                opcode = o_double_minus;
-        }
-        else if (ast->op == expr_multiply) {
-            if (lhs_class->id == LILY_INTEGER_ID)
+            else if (op == expr_multiply)
                 opcode = o_integer_mul;
-            else if (lhs_class->id == LILY_DOUBLE_ID)
-                opcode = o_double_mul;
-        }
-        else if (ast->op == expr_divide) {
-            if (lhs_class->id == LILY_INTEGER_ID)
+            else if (op == expr_divide)
                 opcode = o_integer_div;
-            else if (lhs_class->id == LILY_DOUBLE_ID)
+            else if (op == expr_modulo)
+                opcode = o_modulo;
+            else if (op == expr_left_shift)
+                opcode = o_left_shift;
+            else if (op == expr_right_shift)
+                opcode = o_right_shift;
+            else if (op == expr_bitwise_and)
+                opcode = o_bitwise_and;
+            else if (op == expr_bitwise_or)
+                opcode = o_bitwise_or;
+            else if (op == expr_bitwise_xor)
+                opcode = o_bitwise_xor;
+        }
+        else if (lhs_id == LILY_DOUBLE_ID) {
+            if (op == expr_plus)
+                opcode = o_double_add;
+            else if (op == expr_minus)
+                opcode = o_double_minus;
+            else if (op == expr_multiply)
+                opcode = o_double_mul;
+            else if (op == expr_divide)
                 opcode = o_double_div;
         }
-        else if (ast->op == expr_modulo && lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_modulo;
-        else if (ast->op == expr_left_shift &&
-                 lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_left_shift;
-        else if (ast->op == expr_right_shift &&
-                 lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_right_shift;
-        else if (ast->op == expr_bitwise_and &&
-                 lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_bitwise_and;
-        else if (ast->op == expr_bitwise_or &&
-                 lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_bitwise_or;
-        else if (ast->op == expr_bitwise_xor &&
-                 lhs_class->id == LILY_INTEGER_ID)
-            opcode = o_bitwise_xor;
-        else if (ast->op == expr_eq_eq)
+
+        if (lhs_id == LILY_INTEGER_ID ||
+            lhs_id == LILY_DOUBLE_ID ||
+            lhs_id == LILY_STRING_ID) {
+            if (op == expr_lt_eq)
+                opcode = o_less_eq;
+            else if (op == expr_lt)
+                opcode = o_less;
+            else if (op == expr_gr_eq)
+                opcode = o_greater_eq;
+            else if (op == expr_gr)
+                opcode = o_greater;
+        }
+
+        if (op == expr_eq_eq)
             opcode = o_is_equal;
-        else if (ast->op == expr_lt_eq)
-            opcode = o_less_eq;
-        else if (ast->op == expr_lt)
-            opcode = o_less;
-        else if (ast->op == expr_gr_eq)
-            opcode = o_greater_eq;
-        else if (ast->op == expr_gr)
-            opcode = o_greater;
-        else if (ast->op == expr_eq_eq)
-            opcode = o_is_equal;
-        else if (ast->op == expr_not_eq)
+        else if (op == expr_not_eq)
             opcode = o_not_eq;
     }
 
