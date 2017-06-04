@@ -23,7 +23,7 @@ typedef struct lily_time_Time_ {
 const char *lily_time_table[] = {
     "\01Time\0"
     ,"C\04Time"
-    ,"m\0clock\0(Time):Double"
+    ,"m\0clock\0:Double"
     ,"m\0now\0:Time"
     ,"m\0to_s\0(Time):String"
     ,"m\0since_epoch\0(Time):Integer"
@@ -62,7 +62,7 @@ void destroy_Time(lily_time_Time *t)
 }
 
 /**
-define Time.clock: Double
+static define Time.clock: Double
 
 Returns the number of seconds of CPU time the interpreter has used.
 */
