@@ -1,7 +1,7 @@
 import time
 
 enum Tree {
-    Leaf(Integer)
+    Leaf(Integer),
     Branch(Integer, Tree, Tree)
 }
 
