@@ -64,6 +64,8 @@ Lily is a very young language and the community is still growing.
 
 ## Resources
 
+* [Reference](https://Fascinatedbox.github.com/lily/core/module.core.html)
+
 * [Try it in your browser](https://FascinatedBox.github.com/lily-site/sandbox.html)
 
 * [Syntax Tutorial](https://FascinatedBox.github.com/lily-site/tutorial.html)
