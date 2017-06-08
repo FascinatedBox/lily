@@ -118,7 +118,7 @@ lily_state *lily_new_state(void)
     lily_init_pkg_builtin(parser->symtab);
 
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
-    parser->lex = lily_new_lex_state(parser->options, raiser);
+    parser->lex = lily_new_lex_state(raiser);
     parser->msgbuf = lily_new_msgbuf(64);
     parser->data_stack = lily_new_buffer_u16(4);
     parser->expr = parser->first_expr;
@@ -4601,12 +4601,32 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     lily_reset_main(parser->emit);
 }
 
+static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
+{
+    lily_options *options = parser->options;
+    int result = 0;
+
+    do {
+        char *buffer;
+        result = lily_lexer_load_content(lex, &buffer);
+        if (buffer[0])
+            options->render_func(buffer, options->data);
+    } while (result);
+}
+
 /* This is the entry point of the parser. It parses the thing that it was given
    and then runs the code. This shouldn't be called directly, but instead by
    one of the lily_parse_* functions that will set it up right. */
-static void parser_loop(lily_parse_state *parser, const char *filename)
+static void parser_loop(lily_parse_state *parser, const char *filename,
+        int in_template)
 {
     lily_lex_state *lex = parser->lex;
+
+    if (in_template)
+        /* Force template files to start with <?lily at the very top.
+           This prevents accidentally viewing a code file as content. */
+        lily_verify_template(lex);
+
     lily_lexer(lex);
 
     while (1) {
@@ -4617,6 +4637,10 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
             lily_lexer(lex);
         }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
+            if (in_template == 0 && lex->token == tk_end_tag)
+                lily_raise_syn(parser->raiser, "Unexpected token %s.",
+                        tokname(lex->token));
+
             if (parser->emit->block->prev != NULL) {
                 lily_raise_syn(parser->raiser,
                            "Unterminated block(s) at end of parsing.");
@@ -4624,14 +4648,10 @@ static void parser_loop(lily_parse_state *parser, const char *filename)
 
             setup_and_exec_vm(parser);
 
-            if (lex->token == tk_end_tag) {
-                lily_lexer_handle_content(parser->lex);
-                if (lex->token == tk_eof)
-                    break;
-                else
-                    lily_lexer(lex);
-            }
-            else
+            if (lex->token == tk_end_tag)
+                template_read_loop(parser, lex);
+
+            if (lex->token == tk_eof)
                 break;
         }
         else if (lex->token == tk_docstring) {
@@ -4736,7 +4756,8 @@ static void build_error(lily_parse_state *parser)
     }
 }
 
-static int parse_file(lily_parse_state *parser, const char *filename)
+static int parse_file(lily_parse_state *parser, const char *filename,
+        int in_template)
 {
     if (parser->first_pass)
         fix_first_file_name(parser, filename);
@@ -4751,7 +4772,7 @@ static int parse_file(lily_parse_state *parser, const char *filename)
             lily_raise_err(parser->raiser, "File name must end with '.lily'.");
 
         lily_load_source(parser->lex, et_file, filename);
-        parser_loop(parser, filename);
+        parser_loop(parser, filename, in_template);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
 
@@ -4763,7 +4784,8 @@ static int parse_file(lily_parse_state *parser, const char *filename)
     return 0;
 }
 
-static int parse_string(lily_parse_state *parser, const char *name, char *str)
+static int parse_string(lily_parse_state *parser, const char *name, char *str,
+        int in_template)
 {
     if (parser->first_pass)
         fix_first_file_name(parser, name);
@@ -4772,7 +4794,7 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str)
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_load_source(parser->lex, et_shallow_string, str);
-        parser_loop(parser, name);
+        parser_loop(parser, name, in_template);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
         return 1;
@@ -4785,14 +4807,12 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str)
 
 int lily_parse_file(lily_state *s, const char *name)
 {
-    lily_set_in_template(s->parser->lex, 0);
-    return parse_file(s->parser, name);
+    return parse_file(s->parser, name, 0);
 }
 
 int lily_parse_string(lily_state *s, const char *name, const char *str)
 {
-    lily_set_in_template(s->parser->lex, 0);
-    return parse_string(s->parser, name, (char *)str);
+    return parse_string(s->parser, name, (char *)str, 0);
 }
 
 int lily_parse_expr(lily_state *s, const char *name, char *str,
@@ -4800,8 +4820,6 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 {
     if (text)
         *text = NULL;
-
-    lily_set_in_template(s->parser->lex, 0);
 
     lily_parse_state *parser = s->parser;
     if (parser->first_pass)
@@ -4851,14 +4869,12 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
 int lily_render_string(lily_state *s, const char *name, const char *str)
 {
-    lily_set_in_template(s->parser->lex, 1);
-    return parse_string(s->parser, name, (char *)str);
+    return parse_string(s->parser, name, (char *)str, 1);
 }
 
 int lily_render_file(lily_state *s, const char *filename)
 {
-    lily_set_in_template(s->parser->lex, 1);
-    return parse_file(s->parser, filename);
+    return parse_file(s->parser, filename, 1);
 }
 
 lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)

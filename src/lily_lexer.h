@@ -5,7 +5,8 @@
 
 # include "lily_raiser.h"
 # include "lily_symtab.h"
-# include "lily_options.h"
+
+# include "lily_api_embed.h"
 
 typedef enum {
     tk_right_parenth,
@@ -132,24 +133,22 @@ typedef struct lily_lex_state_ {
     lily_literal *last_literal;
     lily_symtab *symtab;
     lily_raiser *raiser;
-    lily_render_func render_func;
-    void *data;
 } lily_lex_state;
 
 void lily_free_lex_state(lily_lex_state *);
 void lily_rewind_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
-void lily_lexer_handle_content(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
-void lily_set_in_template(lily_lex_state *, int);
 void lily_load_source(lily_lex_state *, lily_lex_entry_type, const char *);
 int lily_try_load_file(lily_lex_state *, const char *);
 int lily_scan_interpolation_piece(lily_lex_state *, char **);
 void lily_scan_import_path(lily_lex_state *);
+void lily_verify_template(lily_lex_state *);
+int lily_lexer_load_content(lily_lex_state *, char **);
 
 void lily_pop_lex_entry(lily_lex_state *);
-lily_lex_state *lily_new_lex_state(lily_options *, lily_raiser *);
+lily_lex_state *lily_new_lex_state(lily_raiser *);
 char *tokname(lily_token);
 
 #endif

@@ -97,12 +97,9 @@ static const lily_token grp_two_eq_table[] =
 
 
 /** Lexer init and deletion **/
-lily_lex_state *lily_new_lex_state(lily_options *options,
-        lily_raiser *raiser)
+lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 {
     lily_lex_state *lexer = lily_malloc(sizeof(*lexer));
-    lexer->data = options->data;
-    lexer->render_func = options->render_func;
 
     char *ch_class;
 
@@ -299,28 +296,6 @@ static lily_lex_entry *get_entry(lily_lex_state *lexer)
     lexer->entry = ret_entry;
 
     return ret_entry;
-}
-
-/* This reads the first line of 'new_entry'. If the mode given is tagged mode,
-   then it is checked for starting with '<?lily' here. */
-static void setup_entry(lily_lex_state *lexer, lily_lex_entry *new_entry)
-{
-    if (new_entry->prev == NULL) {
-        read_line(lexer);
-
-        if (lexer->in_template) {
-            /* This prevents a user from accidentally having space before the
-               first tag, and then having issues with the headers already being
-               sent when they attempt to modify headers. */
-            if (strncmp(lexer->input_buffer, "<?lily", 5) != 0) {
-                lily_raise_syn(lexer->raiser,
-                        "Files in template mode must start with '<?lily'.");
-            }
-            lily_lexer_handle_content(lexer);
-        }
-    }
-    else
-        read_line(lexer);
 }
 
 /* Remove the top-most entry. Restore state to what the previous entry held. */
@@ -1359,8 +1334,6 @@ static void setup_opened_file(lily_lex_state *lexer, FILE *f)
     new_entry->source = f;
     new_entry->entry_type = et_file;
     new_entry->final_token = tk_eof;
-
-    setup_entry(lexer, new_entry);
 }
 
 int lily_try_load_file(lily_lex_state *lexer, const char *filename)
@@ -1370,6 +1343,7 @@ int lily_try_load_file(lily_lex_state *lexer, const char *filename)
         return 0;
 
     setup_opened_file(lexer, load_file);
+    read_line(lexer);
     return 1;
 }
 
@@ -1399,8 +1373,6 @@ void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
 
         new_entry->source = (char *)&name[0];
         new_entry->entry_type = et_shallow_string;
-
-        setup_entry(lexer, new_entry);
     }
     else if (mode == et_copied_string ||
              mode == et_lambda ||
@@ -1419,19 +1391,10 @@ void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
             final_token = tk_end_lambda;
         else if (mode == et_interpolation)
             final_token = tk_end_interp;
-
-        setup_entry(lexer, new_entry);
     }
 
+    read_line(lexer);
     lexer->entry->final_token = final_token;
-}
-
-/* Toplevel parsing functions call this to say if the first source is a template
-   or not. Only template mode allows `?>` tags. It's called before loading the
-   first source, to make sure the mode is right. */
-void lily_set_in_template(lily_lex_state *lexer, int in)
-{
-    lexer->in_template = in;
 }
 
 /* Magic scanning function. */
@@ -1743,13 +1706,6 @@ void lily_lexer(lily_lex_state *lexer)
             ch++;
             input_pos++;
             if (*ch == '>') {
-                if (lexer->in_template == 0)
-                    lily_raise_syn(lexer->raiser,
-                            "Found ?> but not expecting tags.");
-                if (lexer->entry->prev != NULL)
-                    lily_raise_syn(lexer->raiser,
-                            "Tags not allowed in included files.");
-
                 input_pos++;
                 token = tk_end_tag;
             }
@@ -1766,12 +1722,25 @@ void lily_lexer(lily_lex_state *lexer)
     }
 }
 
-/* This handles what's outside of <?lily ... ?>. */
-void lily_lexer_handle_content(lily_lex_state *lexer)
+void lily_verify_template(lily_lex_state *lexer)
+{
+    if (strncmp(lexer->input_buffer, "<?lily", 5) != 0)
+        lily_raise_syn(lexer->raiser,
+                "Files in template mode must start with '<?lily'.");
+
+    lexer->input_pos = 6;
+}
+
+/* This function loads content outside of the `<?lily ... ?>` tags. This returns
+   1 if there is more content, or 0 if the content is done. If 0, the token is
+   either a non-EOF value (if there is now Lily code to read), or EOF if the
+   source has been exhausted.
+   Regardless of the result, *out_buffer is set to the buffer that the lexer
+   stored the content into. */
+int lily_lexer_load_content(lily_lex_state *lexer, char **out_buffer)
 {
     char c;
     int lbp, htmlp;
-    void *data = lexer->data;
 
     /* htmlp and lbp are used so it's obvious they aren't globals. */
     lbp = lexer->input_pos;
@@ -1793,23 +1762,19 @@ void lily_lexer_handle_content(lily_lex_state *lexer)
         lbp++;
         if (c == '<') {
             if (strncmp(lexer->input_buffer + lbp, "?lily", 5) == 0) {
-                if (htmlp != 0) {
-                    /* Don't include the '<', because it goes with <?lily. */
-                    lexer->label[htmlp] = '\0';
-                    lexer->render_func(lexer->label, data);
-                }
-                lbp += 5;
-                /* Yield control to the lexer. */
-                break;
+                lexer->label[htmlp] = '\0';
+                *out_buffer = lexer->label;
+                lexer->input_pos = lbp + 5;
+                return 0;
             }
         }
         lexer->label[htmlp] = c;
         htmlp++;
         if (htmlp == (lexer->input_size - 1)) {
             lexer->label[htmlp] = '\0';
-            lexer->render_func(lexer->label, data);
-            /* This isn't done, so fix htmlp. */
-            htmlp = 0;
+            *out_buffer = lexer->label;
+            lexer->input_pos = lbp;
+            return 1;
         }
 
         if (c == '\n') {
@@ -1817,25 +1782,22 @@ next_line:
             if (read_line(lexer))
                 lbp = 0;
             else {
-                if (htmlp != 0) {
-                    lexer->label[htmlp] = '\0';
-                    /* Don't bother with sending just a newline. */
-                    if (htmlp != 1 && lexer->label[0] != '\n')
-                        lexer->render_func(lexer->label, data);
-                    else
-                        lexer->label[0] = '\0';
-                }
-
                 lexer->token = lexer->entry->final_token;
-                lbp = 0;
-                break;
+
+                /* This allows files to have a newline at the end, without
+                   sending just that newline. */
+                if (htmlp == 1 && lexer->label[0] == '\n')
+                    htmlp = 0;
+
+                lexer->label[htmlp] = '\0';
+                *out_buffer = lexer->label;
+                lexer->input_pos = 0;
+                return 0;
             }
         }
 
         c = lexer->input_buffer[lbp];
     }
-
-    lexer->input_pos = lbp;
 }
 
 /* Give a printable name for a given token. Assumes only valid tokens. */
