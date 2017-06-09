@@ -74,14 +74,19 @@ int main(int argc, char **argv)
     if (to_process == NULL)
         usage();
 
-    lily_state *state = lily_new_state();
+    lily_config config;
+
+    lily_init_config(&config);
 
     if (gc_start != -1)
-        lily_op_gc_start(state, gc_start);
+        config.gc_start = gc_start;
     if (gc_multiplier != -1)
-        lily_op_gc_multiplier(state, gc_multiplier);
+        config.gc_multiplier = gc_multiplier;
 
-    lily_op_argv(state, argc - argc_offset, argv + argc_offset);
+    config.argc = argc - argc_offset;
+    config.argv = argv + argc_offset;
+
+    lily_state *state = lily_new_state(&config);
 
     int result;
 

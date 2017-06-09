@@ -13,6 +13,7 @@
 # include "lily_generic_pool.h"
 
 # include "lily_api_msgbuf.h"
+# include "lily_api_embed.h"
 
 struct lily_rewind_state_;
 
@@ -57,7 +58,7 @@ typedef struct lily_parse_state_ {
     lily_vm_state *vm;
     lily_type_maker *tm;
     lily_raiser *raiser;
-    lily_options *options;
+    lily_config *config;
     struct lily_rewind_state_ *rs;
 } lily_parse_state;
 

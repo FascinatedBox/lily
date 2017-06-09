@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "lily_alloc.h"
-#include "lily_options.h"
 #include "lily_vm.h"
 #include "lily_parser.h"
 #include "lily_value_stack.h"
@@ -105,13 +104,9 @@ static uint16_t foreign_code[1] = {o_return_from_vm};
 static void add_call_frame(lily_vm_state *);
 static void invoke_gc(lily_vm_state *);
 
-lily_vm_state *lily_new_vm_state(lily_options *options,
-        lily_raiser *raiser)
+lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
     lily_vm_state *vm = lily_malloc(sizeof(*vm));
-    /* Starting gc options are completely arbitrary. */
-    vm->gc_threshold = 100;
-    vm->gc_multiplier = 4;
 
     vm->call_depth = 0;
     vm->raiser = raiser;
@@ -132,7 +127,6 @@ lily_vm_state *lily_new_vm_state(lily_options *options,
     vm->exception_value = NULL;
     vm->pending_line = 0;
     vm->include_last_frame_in_trace = 1;
-    vm->options = options;
 
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
     catch_entry->prev = NULL;
