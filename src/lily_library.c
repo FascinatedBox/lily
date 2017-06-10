@@ -4,15 +4,9 @@
 #ifdef _WIN32
 #include <Windows.h>
 
-lily_library *lily_library_load(const char *path)
+void *lily_library_load(const char *path)
 {
-    HMODULE handle = LoadLibraryA(path);
-    if (handle == NULL)
-        return NULL;
-
-    lily_library *lib = lily_malloc(sizeof(*lib));
-    lib->source = handle;
-    return lib;
+    return LoadLibraryA(path);
 }
 
 void *lily_library_get(void *source, const char *target)
@@ -27,16 +21,9 @@ void lily_library_free(void *source)
 #else
 #include <dlfcn.h>
 
-lily_library *lily_library_load(const char *path)
+void *lily_library_load(const char *path)
 {
-    void *handle = dlopen(path, RTLD_LAZY);
-    if (handle == NULL)
-        return NULL;
-
-    lily_library *lib = lily_malloc(sizeof(*lib));
-    lib->source = handle;
-
-    return lib;
+    return dlopen(path, RTLD_LAZY);
 }
 
 void *lily_library_get(void *source, const char *name)

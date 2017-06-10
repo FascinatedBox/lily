@@ -13,11 +13,16 @@ typedef struct {
     lily_config config;
 } sandbox;
 
+void import_noop(lily_state *s, const char *root, const char *source,
+        const char *name) {  }
+
 sandbox *get_parser()
 {
     sandbox *box = malloc(sizeof(*box));
 
     lily_init_config(&box->config);
+    box->config.import_func = import_noop;
+
     box->state = lily_new_state(&box->config);
 
     return box;

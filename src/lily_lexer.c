@@ -1323,78 +1323,32 @@ void lily_grow_lexer_buffers(lily_lex_state *lexer)
     lexer->input_size = new_size;
 }
 
-/* The loaders use the first file loaded to determine what the mode should be.
-   Subsequent loads can only be in code mode. This prevents including something
-   that accidentally sends data, and lots of other problems. */
-
-static void setup_opened_file(lily_lex_state *lexer, FILE *f)
+void lily_lexer_load(lily_lex_state *lexer, lily_lex_entry_type entry_type,
+        const void *source)
 {
-    lily_lex_entry *new_entry = get_entry(lexer);
+    lily_lex_entry *entry = get_entry(lexer);
 
-    new_entry->source = f;
-    new_entry->entry_type = et_file;
-    new_entry->final_token = tk_eof;
-}
+    entry->extra = NULL;
+    entry->entry_type = entry_type;
+    entry->final_token = tk_eof;
 
-int lily_try_load_file(lily_lex_state *lexer, const char *filename)
-{
-    FILE *load_file = fopen(filename, "r");
-    if (load_file == NULL)
-        return 0;
+    if (entry_type != et_file &&
+        entry_type != et_shallow_string) {
+        char *str_source = (char *)source;
+        char *copy = lily_malloc((strlen(str_source) + 1) * sizeof(*copy));
 
-    setup_opened_file(lexer, load_file);
+        strcpy(copy, str_source);
+        source = copy;
+        entry->extra = copy;
+
+        if (entry_type == et_lambda)
+            entry->final_token = tk_end_lambda;
+        else if (entry_type == et_interpolation)
+            entry->final_token = tk_end_interp;
+    }
+
+    entry->source = (void *)source;
     read_line(lexer);
-    return 1;
-}
-
-void lily_load_source(lily_lex_state *lexer, lily_lex_entry_type mode,
-        const char *name)
-{
-    lily_token final_token = tk_eof;
-
-    if (mode == et_file) {
-        FILE *load_file = fopen(name, "r");
-        if (load_file == NULL) {
-            /* Assume that the message is of a reasonable sort of size. */
-            char buffer[128];
-#ifdef _WIN32
-            strerror_s(buffer, sizeof(buffer), errno);
-#else
-            strerror_r(errno, buffer, sizeof(buffer));
-#endif
-            lily_raise_err(lexer->raiser, "Failed to open %s: (%s).", name,
-                    buffer);
-        }
-
-        setup_opened_file(lexer, load_file);
-    }
-    else if (mode == et_shallow_string) {
-        lily_lex_entry *new_entry = get_entry(lexer);
-
-        new_entry->source = (char *)&name[0];
-        new_entry->entry_type = et_shallow_string;
-    }
-    else if (mode == et_copied_string ||
-             mode == et_lambda ||
-             mode == et_interpolation) {
-        lily_lex_entry *new_entry = get_entry(lexer);
-
-        char *copy = lily_malloc((strlen(name) + 1) * sizeof(*copy));
-
-        strcpy(copy, name);
-
-        new_entry->source = &copy[0];
-        new_entry->extra = copy;
-        new_entry->entry_type = mode;
-
-        if (mode == et_lambda)
-            final_token = tk_end_lambda;
-        else if (mode == et_interpolation)
-            final_token = tk_end_interp;
-    }
-
-    read_line(lexer);
-    lexer->entry->final_token = final_token;
 }
 
 /* Magic scanning function. */

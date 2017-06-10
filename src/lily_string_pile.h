@@ -20,7 +20,7 @@ void lily_free_string_pile(lily_string_pile *);
 
 /* Insert a string into the pile at the index given. The index is updated to
    start after the inserted string. */
-void lily_sp_insert(lily_string_pile *, char *, uint16_t *);
+void lily_sp_insert(lily_string_pile *, const char *, uint16_t *);
 
 /* Fetch a string from the pile that starts from the given index. The string is
    a shallow copy of the buffer, and is thus invalidated if the underlying

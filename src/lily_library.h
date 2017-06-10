@@ -3,7 +3,7 @@
 
 # include "lily_core_types.h"
 
-lily_library *lily_library_load(const char *);
+void *lily_library_load(const char *);
 void *lily_library_get(void *, const char *);
 void lily_library_free(void *);
 

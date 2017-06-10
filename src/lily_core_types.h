@@ -210,14 +210,6 @@ typedef struct lily_module_link_ {
     struct lily_module_link_ *next_module;
 } lily_module_link;
 
-/* This is for when a module has a link to a library. */
-typedef struct {
-    /* This is the handle to the library. */
-    void *source;
-    /* This is the first link in the module's dynaloads. */
-    const char **dynaload_table;
-} lily_library;
-
 /* A module either a single code file, or a single library that has been loaded.
    The contents inside are what the module has exported. */
 typedef struct lily_module_entry_ {

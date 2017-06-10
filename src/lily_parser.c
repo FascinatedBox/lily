@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "lily_config.h"
 #include "lily_library.h"
@@ -60,9 +61,10 @@ extern lily_type *lily_unit_type;
     API functions can be found at the bottom of this file. **/
 static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
-static lily_module_entry *new_module(lily_parse_state *, const char *,
-        const char **);
+static lily_module_entry *new_module(lily_parse_state *);
 void lily_register_package(lily_state *, const char *, const char **, void *);
+void lily_default_import_func(lily_state *, const char *, const char *,
+        const char *);
 
 typedef struct lily_rewind_state_
 {
@@ -97,6 +99,7 @@ void lily_init_config(lily_config *conf)
     conf->gc_start = 100;
     conf->gc_multiplier = 4;
 
+    conf->import_func = lily_default_import_func;
     conf->render_func = (lily_render_func)fputs;
     conf->data = stdout;
 }
@@ -171,7 +174,7 @@ lily_state *lily_new_state(lily_config *config)
        used when creating new functions so that they have a type. */
     parser->default_call_type = parser->symtab->main_var->type;
 
-    lily_module_entry *main_package = new_module(parser, NULL, NULL);
+    lily_module_entry *main_package = new_module(parser);
     parser->main_module = main_package;
 
     /* This puts __main__ into the scope of the first thing to be executed, and
@@ -410,80 +413,61 @@ static void handle_rewind(lily_parse_state *parser)
     between files meant for template layout, and those meant to hold shared
     code. **/
 
-static void set_module_names_by_path(lily_module_entry *module,
-        const char *path)
+static char *dir_from_path(const char *path)
 {
-    if (path[0] == '[') {
-        module->loadname = lily_malloc(1 * sizeof(*module->loadname));
-        module->loadname[0] = '\0';
-        module->dirname = lily_malloc(2 * sizeof(*module->dirname));
-        strcpy(module->dirname, ".");
-        module->cmp_len = 0;
+    const char *slash = strrchr(path, LILY_PATH_CHAR);
+    char *out;
+
+    if (slash == NULL) {
+        out = lily_malloc(1 * sizeof(*out));
+        out[0] = '\0';
     }
     else {
-        const char *slash = strrchr(path, LILY_PATH_CHAR);
+        int bare_len = slash - path;
+        out = lily_malloc((bare_len + 1) * sizeof(*out));
 
-        if (slash == NULL) {
-            module->dirname = lily_malloc(1 * sizeof(*module->dirname));
-            module->dirname[0] = '\0';
-            slash = path;
-        }
-        else {
-            int bare_len = slash - path;
-            module->dirname = lily_malloc((bare_len + 1) *
-                    sizeof(*module->dirname));
-
-            strncpy(module->dirname, path, bare_len);
-            module->dirname[bare_len] = '\0';
-
-            slash += 1;
-        }
-
-        char *dot = strrchr(slash, '.');
-        int load_len = dot - slash;
-
-        /* Registered modules won't have a dot in their 'path'. */
-        if (dot == NULL)
-            load_len = strlen(path);
-
-        module->loadname = lily_malloc((load_len + 1) *
-                sizeof(*module->loadname));
-        strncpy(module->loadname, slash, load_len);
-        module->loadname[load_len] = '\0';
-
-        module->cmp_len = strlen(path);
+        strncpy(out, path, bare_len);
+        out[bare_len] = '\0';
     }
+
+    return out;
 }
 
-static lily_module_entry *new_module(lily_parse_state *parser, const char *path,
-        const char **dynaload_table)
+static char *loadname_from_path(const char *path)
+{
+    const char *slash = strrchr(path, LILY_PATH_CHAR);
+
+    if (slash == NULL)
+        slash = path;
+    else
+        slash += 1;
+
+    char *dot = strrchr(slash, '.');
+    int load_len;
+
+    if (dot)
+        load_len = dot - slash;
+    else
+        load_len = strlen(path);
+
+    char *out = lily_malloc((load_len + 1) * sizeof(*out));
+
+    strncpy(out, slash, load_len);
+    out[load_len] = '\0';
+
+    return out;
+}
+
+static lily_module_entry *new_module(lily_parse_state *parser)
 {
     lily_module_entry *module = lily_malloc(sizeof(*module));
 
-    if (path) {
-        module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
-        strcpy(module->path, path);
-
-        set_module_names_by_path(module, path);
-    }
-    else {
-        module->loadname = NULL;
-        module->dirname = NULL;
-        module->path = NULL;
-        module->cmp_len = 0;
-    }
-
-    module->dynaload_table = dynaload_table;
-
-    if (dynaload_table && dynaload_table[0][0]) {
-        unsigned char cid_count = dynaload_table[0][0];
-
-        module->cid_table = lily_malloc(cid_count * sizeof(*module->cid_table));
-        memset(module->cid_table, 0, cid_count * sizeof(*module->cid_table));
-    }
-    else
-        module->cid_table = NULL;
-
+    module->loadname = NULL;
+    module->dirname = NULL;
+    module->path = NULL;
+    module->cmp_len = 0;
+    module->dynaload_table = NULL;
+    module->cid_table = NULL;
     module->root_next = NULL;
     module->module_chain = NULL;
     module->class_chain = NULL;
@@ -502,18 +486,184 @@ static lily_module_entry *new_module(lily_parse_state *parser, const char *path,
         parser->module_top = module;
     }
 
+    parser->last_import = module;
+
     return module;
 }
 
-/* This adds a preloaded module using the data provided. It's intentionally not
-   linked anywhere to prevent assumptions about its existence. */
-void lily_register_package(lily_state *s, const char *name,
-        const char **dynaload_table, void *loader)
+static void add_data_to_module(lily_module_entry *module, void *handle,
+        const char **table, lily_loader loader)
+{
+    module->handle = handle;
+    module->dynaload_table = table;
+    module->loader = loader;
+
+    unsigned char cid_count = module->dynaload_table[0][0];
+
+    if (cid_count) {
+        module->cid_table = lily_malloc(cid_count * sizeof(*module->cid_table));
+        memset(module->cid_table, 0, cid_count * sizeof(*module->cid_table));
+    }
+}
+
+static void add_path_to_module(lily_module_entry *module, const char *path)
+{
+    module->loadname = loadname_from_path(path);
+    module->dirname = dir_from_path(path);
+    module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
+    module->cmp_len = strlen(path);
+    strcpy(module->path, path);
+}
+
+static lily_module_entry *find_existing_module(lily_parse_state *parser,
+        const char *path)
+{
+    size_t len = strlen(path);
+    lily_module_entry *module_iter = parser->module_start;
+    while (module_iter) {
+        if (module_iter->cmp_len == len &&
+            strcmp(module_iter->path, path) == 0) {
+            break;
+        }
+
+        module_iter = module_iter->root_next;
+    }
+
+    return module_iter;
+}
+
+static int import_check(lily_parse_state *parser, const char *path, int *out)
+{
+    if (parser->last_import) {
+        *out = 0;
+        return 1;
+    }
+
+    lily_module_entry *m = find_existing_module(parser, path);
+
+    if (m) {
+        parser->last_import = m;
+        *out = 1;
+        return 1;
+    }
+
+    /* 'import' isn't allowed inside of an expression, so expr_strings should
+       not be holding anything important. Use it to store paths that have been
+       tried so the interpreter can deliver a better error message. */
+    lily_buffer_u16 *b = parser->data_stack;
+    uint16_t pos = lily_u16_get(b, lily_u16_pos(b) - 1);
+    lily_sp_insert(parser->expr_strings, path, &pos);
+    lily_u16_write_1(b, pos);
+
+    return 0;
+}
+
+int lily_load_file(lily_state *s, const char *path)
+{
+    int out;
+    lily_parse_state *parser = s->parser;
+
+    if (import_check(parser, path, &out))
+        return out;
+
+    FILE *source = fopen(path, "r");
+    if (source == NULL)
+        return 0;
+
+    lily_lexer_load(parser->lex, et_file, source);
+
+    lily_module_entry *module = new_module(parser);
+
+    add_path_to_module(module, path);
+    module->flags |= MODULE_NOT_EXECUTED;
+    return 1;
+}
+
+int lily_load_string(lily_state *s, const char *path, const char *source)
+{
+    int out;
+    lily_parse_state *parser = s->parser;
+
+    if (import_check(parser, path, &out))
+        return out;
+
+    lily_lexer_load(parser->lex, et_shallow_string, (char *)source);
+
+    lily_module_entry *module = new_module(parser);
+
+    add_path_to_module(module, path);
+    module->flags |= MODULE_NOT_EXECUTED;
+    return 1;
+}
+
+int lily_load_library(lily_state *s, const char *path)
+{
+    int out;
+    lily_parse_state *parser = s->parser;
+
+    if (import_check(parser, path, &out))
+        return out;
+
+    void *handle = lily_library_load(path);
+    if (handle == NULL)
+        return 0;
+
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_mb_flush(msgbuf);
+
+    char *loadname = loadname_from_path(path);
+
+    const char **table = (const char **)lily_library_get(handle,
+            lily_mb_sprintf(msgbuf, "lily_%s_table", loadname));
+
+    void *loader = lily_library_get(handle,
+            lily_mb_sprintf(msgbuf, "lily_%s_loader", loadname));
+
+    if (table == NULL || loader == NULL) {
+        lily_free(loadname);
+        lily_library_free(handle);
+        return 0;
+    }
+
+    lily_lexer_load(parser->lex, et_shallow_string, handle);
+
+    lily_module_entry *module = new_module(parser);
+
+    module->dirname = dir_from_path(path);
+    module->path = loadname;
+    module->cmp_len = strlen(path);
+    add_data_to_module(module, handle, table, (lily_loader)loader);
+    return 1;
+}
+
+int lily_load_library_data(lily_state *s, const char *path, const char **table,
+        void *loader)
+{
+    int out;
+    lily_parse_state *parser = s->parser;
+
+    if (import_check(parser, path, &out))
+        return out;
+
+    lily_module_entry *module = new_module(parser);
+
+    add_path_to_module(module, path);
+    add_data_to_module(module, NULL, table, (lily_loader)loader);
+    return 1;
+}
+
+void lily_register_package(lily_state *s, const char *name, const char **table,
+        void *loader)
 {
     lily_parse_state *parser = s->parser;
-    lily_module_entry *entry = new_module(parser, name, dynaload_table);
-    entry->loader = (lily_loader)loader;
-    entry->flags |= MODULE_IS_REGISTERED;
+    lily_module_entry *module = new_module(parser);
+
+    module->loadname = lily_malloc(
+            (strlen(name) + 1) * sizeof(*module->loadname));
+    strcpy(module->loadname, name);
+    add_data_to_module(module, NULL, table, (lily_loader)loader);
+    module->cmp_len = strlen(name);
+    module->flags |= MODULE_IS_REGISTERED;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
@@ -539,106 +689,35 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
     target->module_chain = new_link;
 }
 
-static lily_module_entry *load_file(lily_parse_state *parser, const char *path)
+void lily_default_import_func(lily_state *s, const char *root,
+        const char *source, const char *name)
 {
-    lily_module_entry *result = NULL;
-    if (lily_try_load_file(parser->lex, path))
-        result = new_module(parser, path, NULL);
+    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
+    const char *path;
 
-    return result;
+    path = lily_mb_sprintf(msgbuf, "%s/%s.lily", source, name);
+    if (lily_load_file(s, path))
+        return;
+
+    path = lily_mb_sprintf(msgbuf, "%s/%s" LILY_LIB_SUFFIX, source, name);
+    if (lily_load_library(s, path))
+        return;
+
+    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s.lily", root, name, name);
+    if (lily_load_file(s, path))
+        return;
+
+    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s" LILY_LIB_SUFFIX, root,
+            name, name);
+    if (lily_load_library(s, path))
+        return;
 }
 
-static lily_module_entry *load_library(lily_parse_state *parser,
-        const char *path, const char *name)
-{
-    lily_module_entry *result = NULL;
-    lily_library *library = lily_library_load(path);
-
-    if (library) {
-        /* 'path' is in parser's msgbuf, so use this msgbuf instead. */
-        lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
-        void *source = library->source;
-        void *table = lily_library_get(source, "lily_dynaload_table");
-
-        if (table == NULL) {
-            const char *table_name = lily_mb_sprintf(msgbuf, "lily_%s_table",
-                    name);
-            table = lily_library_get(source, table_name);
-        }
-
-        if (table) {
-            result = new_module(parser, path, table);
-            result->handle = source;
-            const char *lib_name = lily_mb_sprintf(msgbuf, "lily_%s_loader",
-                    name);
-            /* This can be NULL because loaders are optional. */
-            result->loader = lily_library_get(source, lib_name);
-        }
-
-        lily_free(library);
-    }
-
-    return result;
-}
-
-static const char *parse_path(lily_parse_state *parser, const char *fmt,
-        const char *root_path, const char *relative_path, const char *base_path)
-{
-    int i = 0, text_start = 0;
-    size_t len = strlen(fmt);
-    lily_msgbuf *msgbuf = parser->msgbuf;
-
-    /* Don't flush the msgbuf: load_import uses this function to add paths tried
-       to the same msgbuf. */
-    const char *to_insert = NULL;
-
-    for (i = 0;i < len;i++) {
-        char c = fmt[i];
-        if (c == '/')
-            to_insert = LILY_PATH_SLASH;
-        else if (c == '?')
-            to_insert = base_path;
-        else if (c == '$')
-            to_insert = relative_path;
-        else if (c == '!')
-            to_insert = root_path;
-
-        if (to_insert) {
-            if (i != text_start)
-                lily_mb_add_slice(msgbuf, fmt, text_start, i);
-
-            lily_mb_add(msgbuf, to_insert);
-            text_start = i + 1;
-            to_insert = NULL;
-        }
-    }
-
-    if (i != text_start)
-        lily_mb_add_slice(msgbuf, fmt, text_start, i);
-
-    return lily_mb_get(msgbuf);
-}
-
-static const char *import_paths[] =
-{
-    "$/?.lily",
-    "$/?.so",
-    "!/packages/?/?.lily",
-    "!/packages/?/?.so",
-    NULL,
-};
-
-/* Since 'name' does not exist as a registered module, check if it has been
-   loaded elsewhere, using the paths above. If it hasn't been loaded yet, then
-   try to do so. This will only load the module: Execution is the responsibility
-   of import handling.
-   If unable to load 'name', raise SyntaxError with the paths tried. */
 static lily_module_entry *load_module(lily_parse_state *parser,
         const char *name)
 {
     char *current = parser->symtab->active_module->dirname;
     char *root = parser->main_module->dirname;
-    lily_msgbuf *msgbuf = parser->msgbuf;
 
     /* Using . provides context and prevents Linux from searching system
        library paths. */
@@ -648,70 +727,36 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     if (current[0] == '\0')
         current = ".";
 
-    lily_module_entry *module = NULL;
-    int i;
+    /* 'import' can't execute during an expression, so the data stack and the
+       string pool are used to store paths that have been tried. */
+    lily_u16_write_1(parser->data_stack, 0);
+    parser->last_import = NULL;
 
-    for (i = 0;import_paths[i] != NULL;i++) {
-        /* todo: Use string pile to cache paths. */
-        lily_mb_flush(msgbuf);
-        const char *path = parse_path(parser, import_paths[i], root, current,
-                name);
-        size_t len = strlen(path);
-        lily_module_entry *module_iter = parser->module_start;
-        while (module_iter) {
-            if (module_iter->cmp_len == len &&
-                strcmp(module_iter->path, path) == 0) {
-                module = module_iter;
-                break;
-            }
+    parser->config->import_func(parser->vm, root, current, name);
 
-            module_iter = module_iter->root_next;
-        }
-
-        if (module_iter != NULL)
-            break;
-    }
-
-    if (module == NULL) {
-        char *suffix = NULL;
-        for (i = 0;import_paths[i] != NULL;i++) {
-            lily_mb_flush(msgbuf);
-            const char *path = parse_path(parser, import_paths[i], root,
-                    current, name);
-            suffix = strrchr(path, '.');
-            if (suffix) {
-                if (strcmp(suffix, ".lily") == 0)
-                    module = load_file(parser, path);
-                else if (strcmp(suffix, LILY_LIB_SUFFIX) == 0)
-                    module = load_library(parser, path, name);
-
-                if (module)
-                    break;
-            }
-        }
-
-        if (module && module->handle == NULL)
-            module->flags |= MODULE_NOT_EXECUTED;
-    }
-
-    if (module == NULL) {
-        lily_mb_flush(msgbuf);
+    if (parser->last_import == NULL) {
+        lily_msgbuf *msgbuf = parser->msgbuf;
+        lily_mb_flush(parser->msgbuf);
         lily_mb_add_fmt(msgbuf, "Cannot import '%s':\n", name);
-        lily_mb_add_fmt(msgbuf, "    no preloaded package '%s'\n", name);
-        for (i = 0;import_paths[i] != NULL;i++) {
-            if (i > 0)
-                lily_mb_add_char(msgbuf, '\n');
+        lily_mb_add_fmt(msgbuf, "    no preloaded package '%s'", name);
 
-            lily_mb_add(msgbuf, "    no file '");
-            /* Path parsing doesn't flush msgbuf so it can be used here. */
-            parse_path(parser, import_paths[i], root, current, name);
-            lily_mb_add_char(msgbuf, '\'');
+        lily_buffer_u16 *b = parser->data_stack;
+        int i;
+
+        for (i = 0;i < lily_u16_pos(b) - 1;i++) {
+            uint16_t check_pos = lily_u16_get(b, i);
+            lily_mb_add_fmt(msgbuf, "\n    no file '%s'",
+                    lily_sp_get(parser->expr_strings, check_pos));
         }
 
         lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
     }
+    else
+        /* Nothing needs to be done for the string pool, because the pool
+           itself doesn't hold a position. */
+        lily_u16_set_pos(parser->data_stack, 0);
 
-    return module;
+    return parser->last_import;
 }
 
 /***
@@ -1077,7 +1122,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 /* Get a type represented by the name given. Largely used by dynaload. */
 static lily_type *type_by_name(lily_parse_state *parser, const char *name)
 {
-    lily_load_source(parser->lex, et_copied_string, name);
+    lily_lexer_load(parser->lex, et_copied_string, name);
     lily_lexer(parser->lex);
     lily_type *result = get_type(parser);
     lily_pop_lex_entry(parser->lex);
@@ -1321,7 +1366,7 @@ static lily_var *dynaload_function(lily_parse_state *parser,
 
     lily_module_entry *save_active = parser->symtab->active_module;
 
-    lily_load_source(lex, et_shallow_string, body);
+    lily_lexer_load(lex, et_shallow_string, body);
     lily_lexer(lex);
 
     lily_item *source;
@@ -1443,7 +1488,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     lily_mb_add_char(msgbuf, '}');
 
-    lily_load_source(parser->lex, et_copied_string, lily_mb_get(msgbuf));
+    lily_lexer_load(parser->lex, et_copied_string, lily_mb_get(msgbuf));
     lily_lexer(parser->lex);
 
     int save_next_class_id;
@@ -1548,7 +1593,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     int entry_index = dyna_index;
     lily_lex_state *lex = parser->lex;
 
-    lily_load_source(lex, et_shallow_string, body);
+    lily_lexer_load(lex, et_shallow_string, body);
     lily_lexer(lex);
 
     lily_class *cls = lily_new_class(parser->symtab, name);
@@ -1617,7 +1662,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
         const char *prop_name = entry + DYNA_NAME_OFFSET;
         const char *prop_body = prop_name + strlen(prop_name) + 1;
 
-        lily_load_source(lex, et_shallow_string, prop_body);
+        lily_lexer_load(lex, et_shallow_string, prop_body);
         lily_lexer(lex);
         lily_add_class_property(parser->symtab, cls, get_type(parser),
                 prop_name, flags);
@@ -2696,7 +2741,7 @@ lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
         const char *text)
 {
     lily_lex_state *lex = parser->lex;
-    lily_load_source(lex, et_interpolation, text);
+    lily_lexer_load(lex, et_interpolation, text);
     lex->line_num = start_line;
     lily_lexer(parser->lex);
 
@@ -2742,7 +2787,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        Additionally, lambda_body is a shallow copy of data within the ast's
        string pool. A deep copy MUST be made because expressions within this
        lambda may cause the ast's string pool to be resized. */
-    lily_load_source(lex, et_lambda, lambda_body);
+    lily_lexer_load(lex, et_lambda, lambda_body);
     lex->line_num = lambda_start_line;
 
     /* Block entry assumes that the most recent var added is the var to bind
@@ -3573,9 +3618,6 @@ static void run_loaded_module(lily_parse_state *parser,
 
 static void import_handler(lily_parse_state *parser, int multi)
 {
-#ifdef WITH_EMSCRIPTEN
-    lily_raise_syn(parser->raiser, "'import' not allowed within the sandbox.");
-#else
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file &&
@@ -3637,7 +3679,6 @@ static void import_handler(lily_parse_state *parser, int multi)
         else
             break;
     }
-#endif
 }
 
 static void process_except(lily_parse_state *parser)
@@ -4692,8 +4733,13 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
 static void fix_first_file_name(lily_parse_state *parser,
         const char *filename)
 {
-    parser->main_module->const_path = filename;
-    set_module_names_by_path(parser->main_module, filename);
+    lily_module_entry *module = parser->main_module;
+
+    module->const_path = filename;
+    module->dirname = dir_from_path(filename);
+    module->loadname = loadname_from_path(filename);
+    module->cmp_len = strlen(filename);
+
     parser->first_pass = 0;
 }
 
@@ -4769,6 +4815,24 @@ static void build_error(lily_parse_state *parser)
     }
 }
 
+static FILE *load_file_to_parse(lily_parse_state *parser, const char *path)
+{
+    FILE *load_file = fopen(path, "r");
+    if (load_file == NULL) {
+        /* Assume that the message is of a reasonable sort of size. */
+        char buffer[128];
+#ifdef _WIN32
+        strerror_s(buffer, sizeof(buffer), errno);
+#else
+        strerror_r(errno, buffer, sizeof(buffer));
+#endif
+        lily_raise_err(parser->raiser, "Failed to open %s: (%s).", path,
+                buffer);
+    }
+
+    return load_file;
+}
+
 static int parse_file(lily_parse_state *parser, const char *filename,
         int in_template)
 {
@@ -4784,7 +4848,9 @@ static int parse_file(lily_parse_state *parser, const char *filename,
         if (suffix == NULL || strcmp(suffix, ".lily") != 0)
             lily_raise_err(parser->raiser, "File name must end with '.lily'.");
 
-        lily_load_source(parser->lex, et_file, filename);
+        FILE *f = load_file_to_parse(parser, filename);
+
+        lily_lexer_load(parser->lex, et_file, f);
         parser_loop(parser, filename, in_template);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -4806,7 +4872,7 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str,
     handle_rewind(parser);
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_load_source(parser->lex, et_shallow_string, str);
+        lily_lexer_load(parser->lex, et_shallow_string, str);
         parser_loop(parser, name, in_template);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -4818,9 +4884,9 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str,
     return 0;
 }
 
-int lily_parse_file(lily_state *s, const char *name)
+int lily_parse_file(lily_state *s, const char *path)
 {
-    return parse_file(s->parser, name, 0);
+    return parse_file(s->parser, path, 0);
 }
 
 int lily_parse_string(lily_state *s, const char *name, const char *str)
@@ -4842,7 +4908,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
-        lily_load_source(lex, et_shallow_string, str);
+        lily_lexer_load(lex, et_shallow_string, str);
         lily_lexer(lex);
 
         expression(parser);
@@ -4910,6 +4976,11 @@ lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
 const char *lily_get_error_message(lily_state *s)
 {
     return lily_mb_get(s->raiser->msgbuf);
+}
+
+void *lily_get_data(lily_vm_state *vm)
+{
+    return vm->data;
 }
 
 /* Return a string describing the last error encountered by the interpreter.

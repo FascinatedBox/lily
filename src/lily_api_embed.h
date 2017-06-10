@@ -7,6 +7,8 @@ typedef struct lily_vm_state_ lily_state;
 # endif
 
 typedef void (*lily_render_func)(const char *, void *);
+typedef void (*lily_import_func)(lily_state *, const char *, const char *,
+        const char *);
 
 typedef struct lily_config_ {
     int argc;
@@ -16,6 +18,7 @@ typedef struct lily_config_ {
     int gc_start;
 
     lily_render_func render_func;
+    lily_import_func import_func;
 
     void *data;
 } lily_config;
@@ -26,6 +29,11 @@ lily_state *lily_new_state(lily_config *);
 
 const char *lily_get_error(lily_state *);
 const char *lily_get_error_message(lily_state *);
+
+int lily_open_file(lily_state *, const char *);
+int lily_open_string(lily_state *, const char *, const char *);
+int lily_open_library(lily_state *, const char *);
+int lily_open_library_data(lily_state *, const char *, const char **, void *);
 
 int lily_parse_string(lily_state *, const char *, const char *);
 int lily_parse_file(lily_state *, const char *);

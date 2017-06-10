@@ -23,6 +23,8 @@ typedef struct lily_parse_state_ {
 
     lily_module_entry *main_module;
 
+    lily_module_entry *last_import;
+
     lily_buffer_u16 *data_stack;
 
     uint16_t executing;
