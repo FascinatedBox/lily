@@ -4906,11 +4906,6 @@ lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
     return result;
 }
 
-void *lily_get_data(lily_vm_state *vm)
-{
-    return vm->data;
-}
-
 /* Return the message of the last error encountered by the interpreter. */
 const char *lily_get_error_message(lily_state *s)
 {
