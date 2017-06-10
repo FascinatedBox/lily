@@ -6,8 +6,6 @@
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 
-# include "lily_api_embed.h"
-
 typedef enum {
     tk_right_parenth,
     tk_comma,
@@ -126,7 +124,6 @@ typedef struct lily_lex_state_ {
     int64_t last_integer;
 
     lily_token token;
-    int in_template;
 
     /* When the lexer sees a numeric or string literal, it calls the symtab to
        make a literal value. Said value is stored here, for the parser to use. */
