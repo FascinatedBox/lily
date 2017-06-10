@@ -4621,7 +4621,7 @@ static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
 
     do {
         char *buffer;
-        result = lily_lexer_load_content(lex, &buffer);
+        result = lily_lexer_read_content(lex, &buffer);
         if (buffer[0])
             config->render_func(buffer, config->data);
     } while (result);

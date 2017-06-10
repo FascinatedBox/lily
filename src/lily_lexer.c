@@ -1737,7 +1737,7 @@ void lily_verify_template(lily_lex_state *lexer)
    source has been exhausted.
    Regardless of the result, *out_buffer is set to the buffer that the lexer
    stored the content into. */
-int lily_lexer_load_content(lily_lex_state *lexer, char **out_buffer)
+int lily_lexer_read_content(lily_lex_state *lexer, char **out_buffer)
 {
     char c;
     int lbp, htmlp;
