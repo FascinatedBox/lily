@@ -4922,7 +4922,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
         if (sym && text) {
             /* This grabs the symbol from __main__. */
-            lily_value *reg = s->call_chain->next->locals[sym->reg_spot];
+            lily_value *reg = s->call_chain->next->start[sym->reg_spot];
             lily_msgbuf *msgbuf = parser->msgbuf;
 
             lily_mb_flush(msgbuf);

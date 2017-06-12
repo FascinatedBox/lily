@@ -140,42 +140,32 @@ void lily_return_value_noref(lily_state *s, lily_value *v)
 
 /* Argument and result operations */
 
-DEFINE_GETTERS(arg, ->call_chain->locals[index], lily_vm_state *source, int index)
+DEFINE_GETTERS(arg, ->call_chain->start[index], lily_vm_state *source, int index)
 DEFINE_GETTERS(value, , lily_value *source)
 
 int lily_arg_count(lily_state *s)
 {
-    return s->call_chain->regs_used;
+    return (int)(s->call_chain->top - s->call_chain->start);
 }
 
 uint16_t lily_arg_class_id(lily_state *s, int index)
 {
-    return s->call_chain->locals[index]->class_id;
+    return s->call_chain->start[index]->class_id;
 }
 
 lily_value *lily_arg_nth_get(lily_state *s, int reg_i, int container_i)
 {
-    return s->call_chain->locals[reg_i]->value.container->values[container_i];
+    return s->call_chain->start[reg_i]->value.container->values[container_i];
 }
 
 int lily_arg_is_some(lily_state *s, int i)
 {
-    return s->call_chain->locals[i]->class_id == LILY_SOME_ID;
+    return s->call_chain->start[i]->class_id == LILY_SOME_ID;
 }
 
 int lily_arg_is_success(lily_state *s, int i)
 {
-    return s->call_chain->locals[i]->class_id == LILY_SUCCESS_ID;
-}
-
-int lily_result_boolean(lily_state *s)
-{
-    return s->call_chain->next->return_target->value.integer;
-}
-
-lily_value *lily_result_value(lily_state *s)
-{
-    return s->call_chain->next->return_target;
+    return s->call_chain->start[i]->class_id == LILY_SUCCESS_ID;
 }
 
 /* Stack operations
@@ -184,14 +174,14 @@ lily_value *lily_result_value(lily_state *s)
 
 lily_value *lily_take_value(lily_state *s)
 {
-    s->call_chain->total_regs--;
-    return s->regs_from_main[s->call_chain->total_regs];
+    s->call_chain->top--;
+    return *s->call_chain->top;
 }
 
 void lily_pop_value(lily_state *s)
 {
-    s->call_chain->total_regs--;
-    lily_value *z = s->regs_from_main[s->call_chain->total_regs];
+    s->call_chain->top--;
+    lily_value *z = *s->call_chain->top;
     lily_deref(z);
     z->flags = 0;
 }

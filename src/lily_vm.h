@@ -5,21 +5,19 @@
 # include "lily_symtab.h"
 
 typedef struct lily_call_frame_ {
-    lily_value **locals;
-    /* The initial number of registers this frame wanted. */
-    int regs_used;
-    /* The total number of registers claimed when this frame has entered.
-       (This includes values pushed onto the stack). */
-    int total_regs;
+    /* This frame's registers start here. */
+    lily_value **start;
+    /* One past the last register used (next frame starts here). */
+    lily_value **top;
+    /* Starts at the last register available. Grow when top == end. */
+    lily_value **register_end;
 
-    lily_function_val *function;
-    lily_value *return_target;
     uint16_t *code;
-    int line_num;
-
-    uint32_t offset_to_start;
-
+    lily_function_val *function;
+    /* A value from the previous frame to return back into. */
+    lily_value *return_target;
     lily_value **upvalues;
+    int line_num;
 
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;
@@ -38,11 +36,6 @@ typedef struct lily_vm_catch_entry_ {
 
 typedef struct lily_vm_state_ {
     lily_value **regs_from_main;
-
-    /* The total number or registers allocated. */
-    uint32_t max_registers;
-
-    uint32_t pad;
 
     uint32_t call_depth;
 

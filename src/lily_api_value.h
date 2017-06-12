@@ -206,14 +206,13 @@ void lily_return_value        (lily_state *, lily_value *);
 void lily_return_variant      (lily_state *, lily_container_val *);
 void lily_return_value_noref  (lily_state *, lily_value *);
 
-/* Calling, and argument fetching */
+/* Calling into the vm.
+   Functions that call into the vm from inside of it must use lily_call_prepare
+   exactly once beforehand. Call prepare pushes one value onto the stack that
+   the function will assign into (which is what lily_call_result returns). */
+void lily_call(lily_state *, int);
 void lily_call_prepare(lily_state *, lily_function_val *);
-void lily_call_exec_prepared(lily_state *, int);
-void lily_call_simple(lily_state *, lily_function_val *, int);
-
-/* Result operations */
-int lily_result_boolean(lily_state *);
-lily_value *lily_result_value(lily_state *);
+lily_value *lily_call_result(lily_state *);
 
 int                  lily_value_boolean   (lily_value *);
 uint8_t              lily_value_byte      (lily_value *);
