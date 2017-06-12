@@ -699,7 +699,7 @@ void lily_default_import_func(lily_state *s, const char *root,
     if (lily_load_file(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, "%s/%s" LILY_LIB_SUFFIX, source, name);
+    path = lily_mb_sprintf(msgbuf, "%s/%s." LILY_LIB_SUFFIX, source, name);
     if (lily_load_library(s, path))
         return;
 
@@ -707,7 +707,7 @@ void lily_default_import_func(lily_state *s, const char *root,
     if (lily_load_file(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s" LILY_LIB_SUFFIX, root,
+    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s." LILY_LIB_SUFFIX, root,
             name, name);
     if (lily_load_library(s, path))
         return;
