@@ -689,29 +689,41 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
     target->module_chain = new_link;
 }
 
+#define PACKAGE_DIR LILY_PATH_SLASH "packages" LILY_PATH_SLASH
+
+#define FIRST_PATH "%s" LILY_PATH_SLASH "%s.lily"
+#define SECOND_PATH "%s" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
+#define THIRD_PATH "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "%s.lily"
+#define FOURTH_PATH "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
+
 void lily_default_import_func(lily_state *s, const char *root,
         const char *source, const char *name)
 {
     lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
     const char *path;
 
-    path = lily_mb_sprintf(msgbuf, "%s/%s.lily", source, name);
+    path = lily_mb_sprintf(msgbuf, FIRST_PATH, source, name);
     if (lily_load_file(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, "%s/%s." LILY_LIB_SUFFIX, source, name);
+    path = lily_mb_sprintf(msgbuf, SECOND_PATH, source, name);
     if (lily_load_library(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s.lily", root, name, name);
+    path = lily_mb_sprintf(msgbuf, THIRD_PATH, root, name, name);
     if (lily_load_file(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, "%s/packages/%s/%s." LILY_LIB_SUFFIX, root,
-            name, name);
+    path = lily_mb_sprintf(msgbuf, FOURTH_PATH, root, name, name);
     if (lily_load_library(s, path))
         return;
 }
+
+#undef PACKAGE_DIR
+#undef FIRST_PATH
+#undef SECOND_PATH
+#undef THIRD_PATH
+#undef FOURTH_PATH
 
 static lily_module_entry *load_module(lily_parse_state *parser,
         const char *name)
