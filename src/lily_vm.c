@@ -203,11 +203,8 @@ void lily_free_vm(lily_vm_state *vm)
 
     /* If there are any entries left over, then do a final gc pass that will
        destroy the tagged values. */
-    if (vm->gc_live_entry_count) {
-        /* This makes the gc avoid marking, and only sweep. */
-        vm->call_chain->total_regs = 0;
+    if (vm->gc_live_entry_count)
         invoke_gc(vm);
-    }
 
     for (i = vm->max_registers-1;i >= 0;i--) {
         reg = regs_from_main[i];
