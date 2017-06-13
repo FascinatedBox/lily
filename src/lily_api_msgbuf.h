@@ -16,6 +16,7 @@ void lily_free_msgbuf(lily_msgbuf *);
 lily_msgbuf *lily_new_msgbuf(uint32_t);
 void lily_mb_flush(lily_msgbuf *);
 const char *lily_mb_get(lily_msgbuf *);
+int lily_mb_pos(lily_msgbuf *);
 
 void lily_mb_add(lily_msgbuf *, const char *);
 void lily_mb_add_char(lily_msgbuf *, char);

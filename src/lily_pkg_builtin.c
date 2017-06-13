@@ -694,7 +694,7 @@ void do_str_slice(lily_state *s, int is_bytestring)
         if (is_bytestring == 0)
             lily_return_string(s, lily_new_string(""));
         else
-            lily_return_bytestring(s, lily_new_bytestring(""));
+            lily_return_bytestring(s, lily_new_bytestring_sized("", 0));
 
         return;
     }
@@ -871,8 +871,9 @@ void lily_builtin_File_each_line(lily_state *s)
             }
 
             const char *text = lily_mb_get(vm_buffer);
+            int pos = lily_mb_pos(vm_buffer);
 
-            lily_push_bytestring(s, lily_new_bytestring(text));
+            lily_push_bytestring(s, lily_new_bytestring_sized(text, pos));
             lily_call(s, 1);
             lily_mb_flush(vm_buffer);
         }

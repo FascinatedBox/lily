@@ -318,11 +318,6 @@ lily_bytestring_val *lily_new_bytestring_sized(const char *source, int len)
     return (lily_bytestring_val *)lily_new_string_sized(source, len);
 }
 
-lily_bytestring_val *lily_new_bytestring(const char *source)
-{
-    return (lily_bytestring_val *)lily_new_string(source);
-}
-
 char *lily_bytestring_raw(lily_bytestring_val *sv)
 {
     return sv->string;

@@ -366,6 +366,11 @@ void lily_mb_add_fmt(lily_msgbuf *msgbuf, const char *fmt, ...)
     va_end(var_args);
 }
 
+int lily_mb_pos(lily_msgbuf *msgbuf)
+{
+    return msgbuf->pos;
+}
+
 const char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *fmt, ...)
 {
     lily_mb_flush(msgbuf);

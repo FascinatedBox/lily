@@ -100,7 +100,6 @@ lily_value *lily_box_variant      (lily_state *, lily_container_val *);
 /* Operations for specific kinds of values. */
 
 /* ByteString operations */
-lily_bytestring_val *lily_new_bytestring(const char *);
 lily_bytestring_val *lily_new_bytestring_sized(const char *, int);
 char *lily_bytestring_raw(lily_bytestring_val *);
 int lily_bytestring_length(lily_bytestring_val *);
