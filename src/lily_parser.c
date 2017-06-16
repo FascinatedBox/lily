@@ -613,6 +613,9 @@ int lily_load_library(lily_state *s, const char *path)
 
     char *loadname = loadname_from_path(path);
 
+    char *path_copy = lily_malloc((strlen(path) + 1) * sizeof(*path_copy));
+    strcpy(path_copy, path);
+
     const char **table = (const char **)lily_library_get(handle,
             lily_mb_sprintf(msgbuf, "lily_%s_table", loadname));
 
@@ -621,16 +624,16 @@ int lily_load_library(lily_state *s, const char *path)
 
     if (table == NULL || loader == NULL) {
         lily_free(loadname);
+        lily_free(path_copy);
         lily_library_free(handle);
         return 0;
     }
 
-    lily_lexer_load(parser->lex, et_shallow_string, handle);
-
     lily_module_entry *module = new_module(parser);
 
+    module->loadname = loadname;
     module->dirname = dir_from_path(path);
-    module->path = loadname;
+    module->path = path_copy;
     module->cmp_len = strlen(path);
     add_data_to_module(module, handle, table, (lily_loader)loader);
     return 1;
