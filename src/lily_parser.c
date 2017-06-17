@@ -2810,7 +2810,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
     lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "(lambda)", NULL);
+            parser->default_call_type, NULL, "(lambda)");
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -3121,8 +3121,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
        The emitter will attempt to restore the return type via the type of the
        define var here. */
     lily_var *define_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, parent, lex->label, lex->docstring);
-    lex->docstring = NULL;
+            parser->default_call_type, parent, lex->label);
 
     int i = 0;
     int arg_flags = 0;
@@ -3606,7 +3605,7 @@ static void run_loaded_module(lily_parse_state *parser,
 
     /* lily_emit_enter_block will write new code to this special var. */
     lily_var *import_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "__import__", NULL);
+            parser->default_call_type, NULL, "__import__");
 
     lily_emit_enter_block(parser->emit, block_file);
 
@@ -3930,8 +3929,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
     lily_var *call_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, cls, "<new>", lex->docstring);
-    lex->docstring = NULL;
+            parser->default_call_type, cls, "<new>");
 
     lily_lexer(lex);
     collect_generics(parser);

@@ -111,7 +111,6 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lexer->ch_class = NULL;
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
-    lexer->docstring = NULL;
     ch_class = lily_malloc(256 * sizeof(*ch_class));
 
     lexer->input_pos = 0;
@@ -202,9 +201,6 @@ void lily_rewind_lex_state(lily_lex_state *lexer)
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
     lexer->input_pos = 0;
-
-    lily_free(lexer->docstring);
-    lexer->docstring = NULL;
 }
 
 void lily_free_lex_state(lily_lex_state *lexer)
@@ -226,7 +222,6 @@ void lily_free_lex_state(lily_lex_state *lexer)
         }
     }
 
-    lily_free(lexer->docstring);
     lily_free(lexer->input_buffer);
     lily_free(lexer->ch_class);
     lily_free(lexer->label);
@@ -849,10 +844,11 @@ static void ensure_label_size(lily_lex_state *lexer, int at_least)
     lexer->label_size = new_size;
 }
 
+/* This scans a docstring to verify it has the proper structure. The interpreter
+   doesn't store docstrings though. Instead, that job is left up to tooling. */
 static void scan_docstring(lily_lex_state *lexer, char **ch)
 {
     int offset = (int)(*ch - lexer->input_buffer);
-    int label_pos = 0;
     char *buffer = lexer->input_buffer;
 
     while (1) {
@@ -861,19 +857,8 @@ static void scan_docstring(lily_lex_state *lexer, char **ch)
         while (buffer[i] == ' ' || buffer[i] == '\t')
             i++;
 
-        if (buffer[i] != '#') {
-            /* This removes the \n at the end of the last line. */
-            lexer->label[label_pos - 1] = '\0';
-
-            /* No checking needs to be done for a prior docstring because parser
-               makes sure docstrings are always followed by a function
-               definition. */
-            lexer->docstring = lily_malloc(sizeof(*lexer->docstring) * label_pos);
-            strcpy(lexer->docstring, lexer->label);
-
-            *ch = lexer->input_buffer + i;
+        if (buffer[i] != '#')
             break;
-        }
         else if (buffer[i] == '#') {
             if (buffer[i + 1] != '#' ||
                 buffer[i + 2] != '#')
@@ -883,20 +868,6 @@ static void scan_docstring(lily_lex_state *lexer, char **ch)
                 lily_raise_syn(lexer->raiser,
                         "Docstring has inconsistent indentation.");
         }
-
-        i += 3;
-
-        while (1) {
-            if (buffer[i] != ' ' && buffer[i] != '\t')
-                break;
-
-            i++;
-        }
-
-        int len = strlen(buffer) - i;
-        ensure_label_size(lexer, label_pos + len);
-        strcpy(lexer->label + label_pos, lexer->input_buffer + i);
-        label_pos += len;
 
         if (read_line(lexer))
             /* Must reassign, in case input_buffer was moved. */

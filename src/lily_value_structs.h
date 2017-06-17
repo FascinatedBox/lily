@@ -179,8 +179,6 @@ typedef struct lily_function_val_ {
        check 'foreign_func == NULL'. */
     lily_foreign_func foreign_func;
 
-    char *docstring;
-
     /* Here's where the function's code is stored. */
     uint16_t *code;
 

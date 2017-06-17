@@ -292,7 +292,7 @@ lily_var *lily_emit_new_local_var(lily_emit_state *, lily_type *, const char *);
 lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *,
         const char *);
 lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *, lily_class *,
-        const char *, char *);
+        const char *);
 lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *, lily_foreign_func,
         lily_item *, lily_type *, const char *);
 lily_var *lily_emit_new_dyna_var(lily_emit_state *, lily_module_entry *,

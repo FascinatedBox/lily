@@ -52,20 +52,19 @@ const char *lily_builtin_table[] = {
     ,"m\0read\0(File,*Integer):ByteString"
     ,"m\0read_line\0(File):ByteString"
     ,"m\0write\0[A](File,A)"
-    ,"N\01Function\0"
-    ,"m\0doc\0(Function(1)):String"
+    ,"N\0Function\0"
     ,"N\013Hash\0"
-    ,"m\0clear\0[A,B](Hash[A, B])"
-    ,"m\0delete\0[A,B](Hash[A, B],A)"
-    ,"m\0each_pair\0[A,B](Hash[A, B],Function(A, B))"
-    ,"m\0get\0[A,B](Hash[A, B],A,B):B"
-    ,"m\0has_key\0[A,B](Hash[A, B],A):Boolean"
-    ,"m\0keys\0[A,B](Hash[A, B]):List[A]"
-    ,"m\0map_values\0[A,B,C](Hash[A, B],Function(B=>C)):Hash[A, C]"
-    ,"m\0merge\0[A,B](Hash[A, B],Hash[A, B]...):Hash[A, B]"
-    ,"m\0reject\0[A,B](Hash[A, B],Function(A, B=>Boolean)):Hash[A, B]"
-    ,"m\0select\0[A,B](Hash[A, B],Function(A, B=>Boolean)):Hash[A, B]"
-    ,"m\0size\0[A,B](Hash[A, B]):Integer"
+    ,"m\0clear\0[A,B](Hash[A,B])"
+    ,"m\0delete\0[A,B](Hash[A,B],A)"
+    ,"m\0each_pair\0[A,B](Hash[A,B],Function(A, B))"
+    ,"m\0get\0[A,B](Hash[A,B],A,B):B"
+    ,"m\0has_key\0[A,B](Hash[A,B],A):Boolean"
+    ,"m\0keys\0[A,B](Hash[A,B]):List[A]"
+    ,"m\0map_values\0[A,B,C](Hash[A,B],Function(B=>C)):Hash[A,C]"
+    ,"m\0merge\0[A,B](Hash[A,B],Hash[A,B]...):Hash[A,B]"
+    ,"m\0reject\0[A,B](Hash[A,B],Function(A, B=>Boolean)):Hash[A,B]"
+    ,"m\0select\0[A,B](Hash[A,B],Function(A, B=>Boolean)):Hash[A,B]"
+    ,"m\0size\0[A,B](Hash[A,B]):Integer"
     ,"N\01IndexError\0< Exception"
     ,"m\0<new>\0(String):IndexError"
     ,"N\04Integer\0"
@@ -96,6 +95,26 @@ const char *lily_builtin_table[] = {
     ,"m\0shift\0[A](List[A]):A"
     ,"m\0slice\0[A](List[A],*Integer,*Integer):List[A]"
     ,"m\0unshift\0[A](List[A],A)"
+    ,"E\012Option\0[A]"
+    ,"m\0and\0[A,B](Option[A],Option[B]):Option[B]"
+    ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])):Option[B]"
+    ,"m\0is_none\0[A](Option[A]):Boolean"
+    ,"m\0is_some\0[A](Option[A]):Boolean"
+    ,"m\0map\0[A,B](Option[A],Function(A=>B)):Option[B]"
+    ,"m\0or\0[A](Option[A],Option[A]):Option[A]"
+    ,"m\0or_else\0[A](Option[A],Function(=>Option[A])):Option[A]"
+    ,"m\0unwrap\0[A](Option[A]):A"
+    ,"m\0unwrap_or\0[A](Option[A],A):A"
+    ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)):A"
+    ,"V\0Some\0(A)"
+    ,"V\0None\0"
+    ,"E\04Result\0[A,B]"
+    ,"m\0failure\0[A,B](Result[A,B]):Option[A]"
+    ,"m\0is_failure\0[A,B](Result[A,B]):Boolean"
+    ,"m\0is_success\0[A,B](Result[A,B]):Boolean"
+    ,"m\0success\0[A,B](Result[A,B]):Option[B]"
+    ,"V\0Failure\0(A)"
+    ,"V\0Success\0(B)"
     ,"N\01RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
     ,"N\024String\0"
@@ -119,31 +138,9 @@ const char *lily_builtin_table[] = {
     ,"m\0to_bytestring\0(String):ByteString"
     ,"m\0trim\0(String):String"
     ,"m\0upper\0(String):String"
-    ,"N\02Tuple\0"
-    ,"m\0merge\0(Tuple[1],Tuple[2]):Tuple[1, 2]"
-    ,"m\0push\0[A](Tuple[1],A):Tuple[1, A]"
+    ,"N\0Tuple\0"
     ,"N\01ValueError\0< Exception"
     ,"m\0<new>\0(String):ValueError"
-    ,"E\012Option\0[A]"
-    ,"m\0and\0[A,B](Option[A],Option[B]):Option[B]"
-    ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])):Option[B]"
-    ,"m\0is_none\0[A](Option[A]):Boolean"
-    ,"m\0is_some\0[A](Option[A]):Boolean"
-    ,"m\0map\0[A,B](Option[A],Function(A=>B)):Option[B]"
-    ,"m\0or\0[A](Option[A],Option[A]):Option[A]"
-    ,"m\0or_else\0[A](Option[A],Function(=>Option[A])):Option[A]"
-    ,"m\0unwrap\0[A](Option[A]):A"
-    ,"m\0unwrap_or\0[A](Option[A],A):A"
-    ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)):A"
-    ,"V\0Some\0(A)"
-    ,"V\0None\0"
-    ,"E\04Result\0[A,B]"
-    ,"m\0failure\0[A,B](Result[A, B]):Option[A]"
-    ,"m\0is_failure\0[A,B](Result[A, B]):Boolean"
-    ,"m\0is_success\0[A,B](Result[A, B]):Boolean"
-    ,"m\0success\0[A,B](Result[A, B]):Option[B]"
-    ,"V\0Failure\0(A)"
-    ,"V\0Success\0(B)"
     ,"F\0print\0[A](A)"
     ,"F\0calltrace\0:List[String]"
     ,"F\0assert\0(Boolean,*String)"
@@ -162,19 +159,19 @@ const char *lily_builtin_table[] = {
 #define Exception_OFFSET 19
 #define File_OFFSET 23
 #define Function_OFFSET 31
-#define Hash_OFFSET 33
-#define IndexError_OFFSET 45
-#define Integer_OFFSET 47
-#define IOError_OFFSET 52
-#define KeyError_OFFSET 54
-#define List_OFFSET 56
-#define RuntimeError_OFFSET 75
-#define String_OFFSET 77
-#define Tuple_OFFSET 98
-#define ValueError_OFFSET 101
-#define Option_OFFSET 103
-#define Result_OFFSET 116
-#define toplevel_OFFSET 123
+#define Hash_OFFSET 32
+#define IndexError_OFFSET 44
+#define Integer_OFFSET 46
+#define IOError_OFFSET 51
+#define KeyError_OFFSET 53
+#define List_OFFSET 55
+#define Option_OFFSET 74
+#define Result_OFFSET 87
+#define RuntimeError_OFFSET 94
+#define String_OFFSET 96
+#define Tuple_OFFSET 117
+#define ValueError_OFFSET 118
+#define toplevel_OFFSET 120
 void lily_builtin_AssertionError_new(lily_state *);
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
@@ -194,7 +191,6 @@ void lily_builtin_File_print(lily_state *);
 void lily_builtin_File_read(lily_state *);
 void lily_builtin_File_read_line(lily_state *);
 void lily_builtin_File_write(lily_state *);
-void lily_builtin_Function_doc(lily_state *);
 void lily_builtin_Hash_clear(lily_state *);
 void lily_builtin_Hash_delete(lily_state *);
 void lily_builtin_Hash_each_pair(lily_state *);
@@ -231,6 +227,20 @@ void lily_builtin_List_size(lily_state *);
 void lily_builtin_List_shift(lily_state *);
 void lily_builtin_List_slice(lily_state *);
 void lily_builtin_List_unshift(lily_state *);
+void lily_builtin_Option_and(lily_state *);
+void lily_builtin_Option_and_then(lily_state *);
+void lily_builtin_Option_is_none(lily_state *);
+void lily_builtin_Option_is_some(lily_state *);
+void lily_builtin_Option_map(lily_state *);
+void lily_builtin_Option_or(lily_state *);
+void lily_builtin_Option_or_else(lily_state *);
+void lily_builtin_Option_unwrap(lily_state *);
+void lily_builtin_Option_unwrap_or(lily_state *);
+void lily_builtin_Option_unwrap_or_else(lily_state *);
+void lily_builtin_Result_failure(lily_state *);
+void lily_builtin_Result_is_failure(lily_state *);
+void lily_builtin_Result_is_success(lily_state *);
+void lily_builtin_Result_success(lily_state *);
 void lily_builtin_RuntimeError_new(lily_state *);
 void lily_builtin_String_format(lily_state *);
 void lily_builtin_String_ends_with(lily_state *);
@@ -252,23 +262,7 @@ void lily_builtin_String_strip(lily_state *);
 void lily_builtin_String_to_bytestring(lily_state *);
 void lily_builtin_String_trim(lily_state *);
 void lily_builtin_String_upper(lily_state *);
-void lily_builtin_Tuple_merge(lily_state *);
-void lily_builtin_Tuple_push(lily_state *);
 void lily_builtin_ValueError_new(lily_state *);
-void lily_builtin_Option_and(lily_state *);
-void lily_builtin_Option_and_then(lily_state *);
-void lily_builtin_Option_is_none(lily_state *);
-void lily_builtin_Option_is_some(lily_state *);
-void lily_builtin_Option_map(lily_state *);
-void lily_builtin_Option_or(lily_state *);
-void lily_builtin_Option_or_else(lily_state *);
-void lily_builtin_Option_unwrap(lily_state *);
-void lily_builtin_Option_unwrap_or(lily_state *);
-void lily_builtin_Option_unwrap_or_else(lily_state *);
-void lily_builtin_Result_failure(lily_state *);
-void lily_builtin_Result_is_failure(lily_state *);
-void lily_builtin_Result_is_success(lily_state *);
-void lily_builtin_Result_success(lily_state *);
 void lily_builtin__print(lily_state *);
 void lily_builtin__calltrace(lily_state *);
 void lily_builtin__assert(lily_state *);
@@ -297,7 +291,6 @@ void *lily_builtin_loader(lily_state *s, int id)
         case File_OFFSET + 5: return lily_builtin_File_read;
         case File_OFFSET + 6: return lily_builtin_File_read_line;
         case File_OFFSET + 7: return lily_builtin_File_write;
-        case Function_OFFSET + 1: return lily_builtin_Function_doc;
         case Hash_OFFSET + 1: return lily_builtin_Hash_clear;
         case Hash_OFFSET + 2: return lily_builtin_Hash_delete;
         case Hash_OFFSET + 3: return lily_builtin_Hash_each_pair;
@@ -334,6 +327,20 @@ void *lily_builtin_loader(lily_state *s, int id)
         case List_OFFSET + 16: return lily_builtin_List_shift;
         case List_OFFSET + 17: return lily_builtin_List_slice;
         case List_OFFSET + 18: return lily_builtin_List_unshift;
+        case Option_OFFSET + 1: return lily_builtin_Option_and;
+        case Option_OFFSET + 2: return lily_builtin_Option_and_then;
+        case Option_OFFSET + 3: return lily_builtin_Option_is_none;
+        case Option_OFFSET + 4: return lily_builtin_Option_is_some;
+        case Option_OFFSET + 5: return lily_builtin_Option_map;
+        case Option_OFFSET + 6: return lily_builtin_Option_or;
+        case Option_OFFSET + 7: return lily_builtin_Option_or_else;
+        case Option_OFFSET + 8: return lily_builtin_Option_unwrap;
+        case Option_OFFSET + 9: return lily_builtin_Option_unwrap_or;
+        case Option_OFFSET + 10: return lily_builtin_Option_unwrap_or_else;
+        case Result_OFFSET + 1: return lily_builtin_Result_failure;
+        case Result_OFFSET + 2: return lily_builtin_Result_is_failure;
+        case Result_OFFSET + 3: return lily_builtin_Result_is_success;
+        case Result_OFFSET + 4: return lily_builtin_Result_success;
         case RuntimeError_OFFSET + 1: return lily_builtin_RuntimeError_new;
         case String_OFFSET + 1: return lily_builtin_String_format;
         case String_OFFSET + 2: return lily_builtin_String_ends_with;
@@ -355,23 +362,7 @@ void *lily_builtin_loader(lily_state *s, int id)
         case String_OFFSET + 18: return lily_builtin_String_to_bytestring;
         case String_OFFSET + 19: return lily_builtin_String_trim;
         case String_OFFSET + 20: return lily_builtin_String_upper;
-        case Tuple_OFFSET + 1: return lily_builtin_Tuple_merge;
-        case Tuple_OFFSET + 2: return lily_builtin_Tuple_push;
         case ValueError_OFFSET + 1: return lily_builtin_ValueError_new;
-        case Option_OFFSET + 1: return lily_builtin_Option_and;
-        case Option_OFFSET + 2: return lily_builtin_Option_and_then;
-        case Option_OFFSET + 3: return lily_builtin_Option_is_none;
-        case Option_OFFSET + 4: return lily_builtin_Option_is_some;
-        case Option_OFFSET + 5: return lily_builtin_Option_map;
-        case Option_OFFSET + 6: return lily_builtin_Option_or;
-        case Option_OFFSET + 7: return lily_builtin_Option_or_else;
-        case Option_OFFSET + 8: return lily_builtin_Option_unwrap;
-        case Option_OFFSET + 9: return lily_builtin_Option_unwrap_or;
-        case Option_OFFSET + 10: return lily_builtin_Option_unwrap_or_else;
-        case Result_OFFSET + 1: return lily_builtin_Result_failure;
-        case Result_OFFSET + 2: return lily_builtin_Result_is_failure;
-        case Result_OFFSET + 3: return lily_builtin_Result_is_success;
-        case Result_OFFSET + 4: return lily_builtin_Result_success;
         case toplevel_OFFSET + 0: return lily_builtin__print;
         case toplevel_OFFSET + 1: return lily_builtin__calltrace;
         case toplevel_OFFSET + 2: return lily_builtin__assert;
@@ -1124,23 +1115,6 @@ colon at the end to denote the value returned:
 
 `Function(String, String)` (no value returned).
 */
-
-/**
-static define Function.doc(self: Function($1)): String
-
-If `self` has a docstring, then the docstring is returned. Otherwise, an empty
-`String` is returned instead.
-*/
-void lily_builtin_Function_doc(lily_state *s)
-{
-    lily_function_val *f = lily_arg_function(s, 0);
-    const char *doc = "";
-
-    if (f->docstring)
-        doc = f->docstring;
-
-    lily_return_string(s, lily_new_string(doc));
-}
 
 /**
 builtin class Hash[A, B]
@@ -3499,56 +3473,7 @@ complex.
 `Tuple` literals are created by `<[value1, value2, ...]>`. Member of the `Tuple`
 class can be accessed through subscripts. Unlike `List`, `Tuple` does not
 support negative indexes.
-
-Operations on the `Tuple` class use the types `1` and `2`. These are special
-types that match against any number of types. This allows `Tuple` operations to
-work on all `Tuple` instances, regardless of the number of elements within the
-`Tuple` (sometimes considered its arity).
 */
-
-/**
-static define Tuple.merge(self: Tuple[$1], other: Tuple[$2]): Tuple[$1, $2]
-
-Build a new `Tuple` composed of the contents of `self` and the contents of
-`other`.
-*/
-void lily_builtin_Tuple_merge(lily_state *s)
-{
-    lily_container_val *left_tuple = lily_arg_container(s, 0);
-    lily_container_val *right_tuple = lily_arg_container(s, 1);
-
-    int new_count = left_tuple->num_values + right_tuple->num_values;
-    lily_container_val *lv = lily_new_tuple(new_count);
-
-    int i, j;
-    for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
-        lily_value_assign(lv->values[j], left_tuple->values[i]);
-
-    for (i = 0;i < right_tuple->num_values;i++, j++)
-        lily_value_assign(lv->values[j], right_tuple->values[i]);
-
-    lily_return_tuple(s, lv);
-}
-
-/**
-static define Tuple.push[A](self: Tuple[$1], other: A): Tuple[$1, A]
-
-Build a new `Tuple` composed of the contents of `self` and `other`.
-*/
-void lily_builtin_Tuple_push(lily_state *s)
-{
-    lily_container_val *left_tuple = lily_arg_container(s, 0);
-    lily_value *right = lily_arg_value(s, 1);
-    lily_container_val *lv = lily_new_tuple(left_tuple->num_values + 1);
-
-    int i, j;
-    for (i = 0, j = 0;i < left_tuple->num_values;i++, j++)
-        lily_value_assign(lv->values[j], left_tuple->values[i]);
-
-    lily_value_assign(lv->values[j], right);
-
-    lily_return_tuple(s, lv);
-}
 
 /**
 native class ValueError(message: String) < Exception
