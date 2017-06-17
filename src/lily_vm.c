@@ -1672,6 +1672,7 @@ void lily_call(lily_vm_state *vm, int count)
             start++;
         }
 
+        target_frame->top += diff;
         vm->call_chain = target_frame;
 
         lily_vm_execute(vm);
