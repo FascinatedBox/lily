@@ -13,7 +13,7 @@
                            b == block_do_while || \
                            b == block_for_in)
 
-# define lily_raise_adjusted(r, adjust, error_code, message, ...) \
+# define lily_raise_adjusted(r, adjust, message, ...) \
 { \
     r->line_adjust = adjust; \
     lily_raise_syn(r, message, __VA_ARGS__); \
@@ -2082,7 +2082,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     if (var_cls_id == LILY_LIST_ID || var_cls_id == LILY_BYTESTRING_ID) {
         if (index_ast->result->type->cls->id != LILY_INTEGER_ID)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "%s index is not an integer.",
+                    "%s index is not an integer.",
                     var_ast->result->type->cls->name);
     }
     else if (var_cls_id == LILY_HASH_ID) {
@@ -2090,14 +2090,14 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_type *have_key = index_ast->result->type;
 
         if (want_key != have_key) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
                     "hash index should be type '^T', not type '^T'.",
                     want_key, have_key);
         }
     }
     else if (var_cls_id == LILY_TUPLE_ID) {
         if (index_ast->tree_type != tree_integer) {
-            lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+            lily_raise_adjusted(emit->raiser, var_ast->line_num,
                     "tuple subscripts must be integer literals.", "");
         }
 
@@ -2105,12 +2105,11 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_type *var_type = var_ast->result->type;
         if (index_value < 0 || index_value >= var_type->subtype_count) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    lily_SyntaxError, "Index %d is out of range for ^T.",
-                    index_value, var_type);
+                    "Index %d is out of range for ^T.", index_value, var_type);
         }
     }
     else {
-        lily_raise_adjusted(emit->raiser, var_ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, var_ast->line_num,
                 "Cannot subscript type '^T'.",
                 var_ast->result->type);
     }
@@ -2373,7 +2372,7 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
 static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, const char *context)
 {
-    lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+    lily_raise_adjusted(emit->raiser, ast->line_num,
             "%s do not have a consistent type.\n"
             "Expected Type: ^T\n"
             "Received Type: ^T",
@@ -2383,7 +2382,7 @@ static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
 static void bad_assign_error(lily_emit_state *emit, int line_num,
         lily_type *left_type, lily_type *right_type)
 {
-    lily_raise_adjusted(emit->raiser, line_num, lily_SyntaxError,
+    lily_raise_adjusted(emit->raiser, line_num,
             "Cannot assign type '^T' to type '^T'.",
             right_type, left_type);
 }
@@ -2520,14 +2519,12 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     if (item == NULL) {
         lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
-                lily_SyntaxError,
                 "Class %s has no method or property named %s.",
                 lookup_class->name, oo_name);
     }
     else if (item->item_kind == ITEM_TYPE_PROPERTY &&
              ast->arg_start->tree_type == tree_self) {
         lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
-                lily_SyntaxError,
                 "Use @<name> to get/set properties, not self.<name>.", "");
     }
     else
@@ -2590,7 +2587,7 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
     eval_oo_access_for_item(emit, ast->left);
     ensure_valid_scope(emit, ast->left->sym);
     if (ast->left->item->item_kind != ITEM_TYPE_PROPERTY)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Left side of %s is not assignable.", opname(ast->op));
 
     left_type = get_solved_property_type(emit, ast->left);
@@ -2698,7 +2695,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (opcode == -1)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                    "Invalid operation: ^T %s ^T.", ast->left->result->type,
                    opname(ast->op), ast->right->result->type);
 
@@ -2792,7 +2789,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         ast->left->tree_type != tree_local_var) {
         /* If the left is complex and valid, it would have been sent off to a
            different assign. Ergo, it must be invalid. */
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Left side of %s is not assignable.", opname(ast->op));
     }
 
@@ -2860,7 +2857,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
         maybe_close_over_class_self(emit);
 
     if (ast->property->flags & SYM_NOT_INITIALIZED)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Invalid use of uninitialized property '@%s'.",
                 ast->property->name);
 
@@ -2935,7 +2932,6 @@ static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
                     ast->line_num, interp_body);
             if (result == NULL)
                 lily_raise_adjusted(emit->raiser, tree_iter->line_num,
-                        lily_SyntaxError,
                         "Interpolation expression does not yield a value.",
                         "");
 
@@ -3138,7 +3134,6 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, var_ast, NULL);
         if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
             lily_raise_adjusted(emit->raiser, ast->line_num,
-                    lily_SyntaxError,
                     "Left side of %s is not assignable.", opname(ast->op));
         }
     }
@@ -3207,7 +3202,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
         ast->result = (lily_sym *)result;
     }
     else
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Cannot cast type '^T' to type '^T'.", var_type, cast_type);
 }
 
@@ -3235,7 +3230,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (opcode == -1)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Invalid operation: %s%s.",
                 opname(ast->op), lhs_class->name);
 
@@ -3414,7 +3409,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         key_type = emit->symtab->dynamic_class->self_type;
 
     if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Type '^T' is not a valid hash key.", key_type);
 }
 
@@ -3814,7 +3809,7 @@ static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
 
         get_error_name(emit, target, &class_name, &separator, &name);
 
-        lily_raise_adjusted(emit->raiser, target->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, target->line_num,
                 "Wrong number of arguments to %s%s%s (%s for %s%s%s).",
                 class_name, separator, name, arg_str,
                 min_str, div_str, max_str);
@@ -4059,7 +4054,7 @@ static void begin_call(lily_emit_state *emit, lily_emit_call_state *cs,
 
     if (call_type->cls->id != LILY_FUNCTION_ID &&
         first_tt != tree_variant)
-        lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+        lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Cannot anonymously call resulting type '^T'.",
                 call_type);
 
@@ -4490,7 +4485,7 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
 
         if (ast->result->type != ret_type &&
             type_matchup(emit, ret_type, ast) == 0) {
-            lily_raise_adjusted(emit->raiser, ast->line_num, lily_SyntaxError,
+            lily_raise_adjusted(emit->raiser, ast->line_num,
                     "return expected type '^T' but got type '^T'.", ret_type,
                     ast->result->type);
         }
