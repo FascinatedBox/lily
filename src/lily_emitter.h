@@ -89,6 +89,9 @@ typedef struct lily_block_ {
        if there is a dynaload. */
     lily_class *class_entry;
 
+    /* Note: Only set if the current block is itself a function. */
+    struct lily_block_ *prev_function_block;
+
     /* Where 'self' is at, or NULL if not within a class. */
     lily_storage *self;
 

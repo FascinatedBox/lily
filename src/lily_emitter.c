@@ -799,6 +799,9 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
             }
             emit->function_depth++;
         }
+
+        new_block->prev_function_block = emit->function_block;
+
         emit->function_block = new_block;
 
         new_block->storage_start = emit->storages->scope_end;
@@ -892,14 +895,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
     finalize_function_block(emit, block);
 
-    /* Information must be pulled from and saved to the last function-like
-       block. This loop is because of lambdas. */
-    lily_block *last_func_block = block->prev;
-    while (last_func_block->block_type < block_define)
-        last_func_block = last_func_block->prev;
-
-    lily_var *v = last_func_block->function_var;
-
     /* If this function was the .new for a class, move it over into that class
        since the class is about to close. */
     if (emit->block->block_type == block_class) {
@@ -913,9 +908,12 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
 
+    lily_block *prev_function_block = block->prev_function_block;
+    lily_var *v = prev_function_block->function_var;
+
     emit->top_var = v;
     emit->top_function_ret = v->type->subtypes[0];
-    emit->function_block = last_func_block;
+    emit->function_block = prev_function_block;
 
     lily_u16_set_pos(emit->code, block->code_start);
 
@@ -928,8 +926,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
            up making a closure to pass downward. But don't bubble that flag up
            to __import__ or __main__, which are never closures. */
         if (block->make_closure == 1 &&
-            last_func_block->block_type != block_file &&
-            last_func_block->prev != NULL) {
+            prev_function_block->block_type != block_file &&
+            prev_function_block->prev != NULL) {
             emit->function_block->make_closure = 1;
         }
     }
@@ -1205,9 +1203,9 @@ static int find_closed_self_spot(lily_emit_state *emit)
 /* If 'self' isn't close over, then close over it. */
  static void maybe_close_over_class_self(lily_emit_state *emit)
 {
-    lily_block *block = emit->block;
+    lily_block *block = emit->function_block;
     while (block->block_type != block_class)
-        block = block->prev;
+        block = block->prev_function_block;
 
     lily_sym *self = (lily_sym *)block->self;
     if (find_closed_sym_spot(emit, self) == -1)
