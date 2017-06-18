@@ -1,0 +1,8 @@
+class Example {
+    var @x = (|z: Integer| (|| print(z) )() )
+    define k(a: Integer) {
+        @x(a)
+    }
+}
+
+Example().k(5)

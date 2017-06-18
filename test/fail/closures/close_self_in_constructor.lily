@@ -1,0 +1,9 @@
+#[
+SyntaxError: Not allowed to close over self in a class constructor.
+    from close_self_in_constructor.lily:8:
+]#
+
+class Example {
+    var @a = 1
+    var @b = (|| @a += 1 )
+}

@@ -163,6 +163,7 @@ void lily_emit_enter_main(lily_emit_state *emit)
     emit->function_depth++;
     emit->main_block = main_block;
     emit->function_block = main_block;
+    emit->class_block_depth = 0;
 }
 
 /***
@@ -770,19 +771,16 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     }
     else {
         lily_var *v = emit->symtab->active_module->var_chain;
-        if (block_type == block_class)
+        if (block_type == block_class) {
             new_block->class_entry = emit->symtab->active_module->class_chain;
+            emit->class_block_depth = emit->function_depth + 1;
+        }
 
         v->parent = new_block->class_entry;
 
-        /* This only happens when a define occurs within another define. The
-           inner define is marked as needing closures. This makes it so all
-           calls to the inner define will create a copy with closures.
-           The last line exists to prevent dynaloaded class constructors from
-           unnecessarily being marked as closures. */
-        if (emit->function_depth >= 2 &&
-            emit->block->block_type != block_class &&
-            new_block->block_type != block_class)
+        /* Nested functions are marked this way so that any call to them is
+           guaranteed to give them the upvalues they need. */
+        if (emit->block->block_type == block_define)
             v->flags |= VAR_NEEDS_CLOSURE;
 
         new_block->next_reg_spot = 0;
@@ -902,6 +900,8 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
 
         emit->symtab->active_module->var_chain = block->function_var;
         lily_add_class_method(emit->symtab, cls, block->function_var);
+
+        emit->class_block_depth = 0;
     }
     else if (emit->block->block_type != block_file)
         emit->symtab->active_module->var_chain = block->function_var;
@@ -1165,6 +1165,11 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
         lily_raise_syn(emit->raiser,
                 "Cannot close over a var of an incomplete type in this scope.");
 
+    if (var->function_depth == emit->class_block_depth)
+        lily_raise_syn(emit->raiser,
+                "Not allowed to close over variables from a class constructor.",
+                "");
+
     close_over_sym(emit, (lily_sym *)var);
     return emit->closed_pos - 1;
 }
@@ -1185,29 +1190,24 @@ static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
     return result;
 }
 
-/* Like find_closed_sym_spot, but checks for 'self' instead. */
-static int find_closed_self_spot(lily_emit_state *emit)
+/* Called if the current block is a lambda. If `self` can be closed over, then
+   do that. */
+static void maybe_close_over_class_self(lily_emit_state *emit, lily_ast *ast)
 {
-    int i, result = -1;
-    for (i = 0;i < emit->closed_pos;i++) {
-        lily_sym *s = emit->closed_syms[i];
-        if (s && s->item_kind != ITEM_TYPE_VAR) {
-            result = i;
-            break;
-        }
-    }
-
-    return result;
-}
-
-/* If 'self' isn't close over, then close over it. */
- static void maybe_close_over_class_self(lily_emit_state *emit)
-{
-    lily_block *block = emit->function_block;
+    lily_block *block = emit->function_block->prev_function_block;
     while (block->block_type != block_class)
         block = block->prev_function_block;
 
+    block = block->next;
+
+    if (block->block_type != block_define) {
+        lily_raise_adjusted(emit->raiser, ast->line_num,
+                "Not allowed to close over self in a class constructor.",
+                "");
+    }
+
     lily_sym *self = (lily_sym *)block->self;
+
     if (find_closed_sym_spot(emit, self) == -1)
         close_over_sym(emit, self);
 
@@ -1378,14 +1378,7 @@ static int count_transforms(lily_emit_state *emit, int start)
 
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
-   closures.
-   there are a couple things to do before the transform:
-   * The first part is to setup the emitter's "transform table". This table will
-     map from a var's position in the current function's locals to the position
-     it has in the current closure. This will be used by transform_code.
-   * Depending on where this function is (is it a class method, a nested
-     function, or the top-most function), a different opcode will get written
-     that will become the top of the transformed code. */
+   closures. */
 static void perform_closure_transform(lily_emit_state *emit,
         lily_block *function_block, lily_function_val *f)
 {
@@ -1394,90 +1387,46 @@ static void perform_closure_transform(lily_emit_state *emit,
     else
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
-    int iter_start, iter_offset;
-
-    iter_start = iter_offset = emit->block->code_start;
+    int iter_start = emit->block->code_start;
 
     /* Hold closure information in a storage so it isn't lost. Make sure it's
        a closure not currently used, for the same reason. */
     lily_storage *s = get_unique_storage(emit, emit->block->function_var->type);
 
-    int closed_self_spot = find_closed_self_spot(emit);
+    lily_block *prev_block = function_block->prev_function_block;
+    int is_backing = (prev_block->block_type == block_class ||
+                      prev_block->block_type == block_file);
 
-    if (emit->function_depth == 2) {
-        /* Depth of 2 means that this needs to make the backing closure. */
+    if (is_backing) {
         lily_u16_write_4(emit->closure_aux_code, o_create_closure, f->line_num,
                 emit->closed_pos, s->reg_spot);
 
-        if (emit->block->block_type == block_class) {
-            /* It's a fair guess that, yeah, this needs a tag. */
-            emit->block->class_entry->flags |= CLS_GC_TAGGED;
-
-            uint16_t linenum = emit->code->data[iter_start + 1];
-            uint16_t cls_id = emit->code->data[iter_start + 2];
-            uint16_t self_reg_spot = emit->code->data[iter_start + 3];
-
-            /* Write this directly and skip over it to prevent transforming. */
-            lily_u16_write_4(emit->closure_aux_code, o_new_instance_tagged,
-                    linenum, cls_id, self_reg_spot);
-
-            iter_start += 4;
-
-            /* The closure only needs to hold self if there was a lambda that
-               used self (because the lambda doesn't automatically get self). */
-            if (closed_self_spot != -1) {
-                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue, linenum,
-                        closed_self_spot, self_reg_spot);
-                /* This class is going out of scope, so the 'self' it contians
-                   is going away as well. */
-                emit->closed_syms[closed_self_spot] = NULL;
-            }
-
-            lily_class *cls = emit->block->class_entry;
-            /* This is only set if a class method needed to access some part of
-               the closure through the class. This is likely to be the case, but
-               may not always be (ex: the class only contains lambdas). */
-            lily_prop_entry *closure_prop;
-            closure_prop = lily_find_property(cls, "*closure");
-
-            if (closure_prop) {
-                lily_u16_write_5(emit->closure_aux_code, o_set_property,
-                        linenum, closure_prop->id, self_reg_spot, s->reg_spot);
+        if (emit->class_block_depth) {
+            uint16_t self_spot = find_closed_sym_spot(emit,
+                    (lily_sym *)function_block->self);
+            /* Load register 0 (self) into the closure. */
+            if (self_spot != (uint16_t)-1) {
+                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
+                        f->line_num, self_spot, 0);
             }
         }
     }
-    else if (emit->block->prev &&
-             emit->block->prev->block_type == block_class) {
-        if (emit->block->block_type != block_lambda) {
-            lily_class *cls = emit->block->class_entry;
-            lily_prop_entry *closure_prop = lily_find_property(cls, "*closure");
-            lily_class *parent = cls->parent;
-            if (closure_prop == NULL ||
-                /* This should yield a closure stored in THIS class, not one
-                   that may be in a parent class. */
-                (parent && closure_prop->id <= parent->prop_count)) {
-                closure_prop = lily_add_class_property(emit->symtab, cls,
-                    s->type, "*closure", 0);
-            }
+    else if (emit->block->block_type == block_lambda) {
+        lily_u16_write_4(emit->closure_aux_code, o_load_closure,
+                f->line_num, 0, s->reg_spot);
 
-            lily_u16_write_5(emit->closure_aux_code, o_load_class_closure,
-                    f->line_num, closure_prop->id, emit->block->self->reg_spot,
-                    s->reg_spot);
-        }
-        else {
-            /* Lambdas don't get 'self' as their first argument: They instead
-               need to pull it out of the closure.
-               Lambdas do not need to write in a zap for their level of
-               upvalues because they cannot be called by name twice. */
-            lily_u16_write_4(emit->closure_aux_code, o_load_closure,
-                    f->line_num, 0, s->reg_spot);
+        lily_storage *lambda_self = emit->block->self;
+        if (lambda_self) {
+            while (prev_block->block_type != block_class)
+                prev_block = prev_block->prev_function_block;
 
-            lily_storage *lambda_self = emit->block->self;
-            if (lambda_self) {
+            prev_block = prev_block->next;
+
+            uint16_t self_spot = find_closed_sym_spot(emit,
+                    (lily_sym *)prev_block->self);
+            if (self_spot != (uint16_t)-1)
                 lily_u16_write_4(emit->closure_aux_code, o_get_upvalue,
-                        *emit->lex_linenum, closed_self_spot,
-                        lambda_self->reg_spot);
-            }
+                        f->line_num, self_spot, lambda_self->reg_spot);
         }
     }
     else {
@@ -1490,7 +1439,7 @@ static void perform_closure_transform(lily_emit_state *emit,
     ensure_params_in_closure(emit);
     setup_transform_table(emit);
 
-    if (emit->function_depth == 2)
+    if (is_backing)
         emit->closed_pos = 0;
 
     lily_code_iter ci;
@@ -2502,7 +2451,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
     if (emit->function_block->block_type == block_lambda &&
         ast->arg_start->tree_type == tree_self)
-        maybe_close_over_class_self(emit);
+        maybe_close_over_class_self(emit, ast);
 
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start, NULL);
@@ -2854,7 +2803,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast->sym);
     if (emit->function_block->block_type == block_lambda)
-        maybe_close_over_class_self(emit);
+        maybe_close_over_class_self(emit, ast);
 
     if (ast->property->flags & SYM_NOT_INITIALIZED)
         lily_raise_adjusted(emit->raiser, ast->line_num,
@@ -2874,7 +2823,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
 {
     if (emit->function_block->block_type == block_lambda)
-        maybe_close_over_class_self(emit);
+        maybe_close_over_class_self(emit, ast);
 
     ensure_valid_scope(emit, ast->left->sym);
     lily_type *left_type = ast->left->property->type;
@@ -3829,7 +3778,7 @@ static void push_first_tree_value(lily_emit_state *emit,
     if (call_tt == tree_method) {
         /* This happens when a lambda tries a class method. */
         if (emit->block->self == NULL)
-            maybe_close_over_class_self(emit);
+            maybe_close_over_class_self(emit, cs->ast);
 
         push_type = emit->block->self->type;
         push_value = (lily_sym *)emit->block->self;

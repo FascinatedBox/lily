@@ -1,8 +1,0 @@
-class example {
-    var @x = 10
-    var @y = (|| @x )
-}
-
-var v = example().y
-if v() != 10:
-    stderr.print("Failed.")

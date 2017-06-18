@@ -1,9 +1,0 @@
-class Test
-{
-    define hello: Integer
-    {
-        return 1
-    }
-
-    var @i = ((|| hello() ))()
-}

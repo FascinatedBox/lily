@@ -1,0 +1,10 @@
+#[
+SyntaxError: Not allowed to close over variables from a class constructor.
+    from close_constructor_var.lily:9:
+]#
+
+class Example(a: Integer) {
+    define f {
+        var v = a
+    }
+}

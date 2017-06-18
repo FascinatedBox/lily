@@ -214,7 +214,8 @@ typedef struct {
        implicitly entered before any user code. */
     lily_block *block;
 
-    uint16_t pad2;
+    /* The function depth of the current class (not enum) block, or 0. */
+    uint16_t class_block_depth;
 
     /* How deep the current functions are. */
     uint16_t function_depth;

@@ -1360,24 +1360,6 @@ static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
     return input_closure->upvalues;
 }
 
-/* This handles when a class method is a closure. Class methods will pull
-   closure information from a special *closure property in the class. Doing it
-   that way allows class methods to be used statically with ease regardless of
-   if they are a closure. */
-static lily_value **do_o_load_class_closure(lily_vm_state *vm, uint16_t *code)
-{
-    do_o_get_property(vm, code);
-    lily_value *result_reg = vm->call_chain->start[code[4]];
-    lily_function_val *input_closure = result_reg->value.function;
-
-    lily_function_val *new_closure = new_function_copy(input_closure);
-    copy_upvalues(new_closure, input_closure);
-
-    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
-
-    return new_closure->upvalues;
-}
-
 /***
  *      _____                    _   _
  *     | ____|_  _____ ___ _ __ | |_(_) ___  _ __  ___
@@ -2351,10 +2333,6 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_create_closure:
                 upvalues = do_o_create_closure(vm, code);
                 code += 4;
-                break;
-            case o_load_class_closure:
-                upvalues = do_o_load_class_closure(vm, code);
-                code += 5;
                 break;
             case o_load_closure:
                 upvalues = do_o_load_closure(vm, code);
