@@ -457,6 +457,7 @@ static void destroy_function(lily_value *v)
         return;
 
     if (fv->num_upvalues == (uint16_t)-1) {
+        lily_free(fv->locals);
         lily_free(fv->code);
         lily_free(fv);
     }

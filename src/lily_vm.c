@@ -160,7 +160,6 @@ void lily_setup_toplevel(lily_vm_state *vm, lily_function_val *toplevel)
     toplevel_frame->code = NULL;
     toplevel_frame->function = NULL;
     toplevel_frame->return_target = NULL;
-    toplevel_frame->upvalues = NULL;
     toplevel_frame->line_num = 0;
     toplevel_frame->prev = NULL;
 
@@ -175,7 +174,6 @@ void lily_setup_toplevel(lily_vm_state *vm, lily_function_val *toplevel)
     first_frame->function = NULL;
     /* The absolute first register is reserved for */
     first_frame->return_target = register_base[0];
-    first_frame->upvalues = NULL;
     first_frame->line_num = 0;
     first_frame->prev = toplevel_frame;
     first_frame->next = NULL;
@@ -1264,8 +1262,15 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
     closure_func->num_upvalues = count;
     closure_func->upvalues = upvalues;
 
+    /* Put the closure into a register so that the gc has an easy time of
+       finding it. This also helps to ensure it goes away in a more predictable
+       manner, in case there aren't many gc objects. */
     lily_move_function_f(MOVE_DEREF_NO_GC, result, closure_func);
     lily_value_tag(vm, result);
+
+    /* Swap out the currently-entered function. This will make it so that all
+       closures have upvalues set on the frame to draw from. */
+    vm->call_chain->function = closure_func;
 
     return upvalues;
 }
@@ -1298,66 +1303,32 @@ static void copy_upvalues(lily_function_val *target, lily_function_val *source)
 static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    lily_value *input_closure_reg = vm_regs[code[1]];
-
-    lily_value *target = vm->readonly_table[code[2]];
-    lily_function_val *target_func = target->value.function;
-
-    lily_value *result_reg = vm_regs[code[3]];
-    lily_function_val *new_closure = new_function_copy(target_func);
-
-    copy_upvalues(new_closure, input_closure_reg->value.function);
-
-    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
-    lily_value_tag(vm, result_reg);
-}
-
-/* This is written at the top of a define that uses a closure (unless that
-   define is a class method).
-
-   This instruction is unique in that there's a particular problem that needs to
-   be addressed. If function 'f' is a closure and is recursively called, there
-   will be existing cells at the level of 'f'. Naturally, this will lead to the
-   cells at that level being rewritten.
-
-   Would you expect calling a function recursively to modify local values in the
-   current frame? Almost certainly not! This solves that problem by including
-   the spots in the closure at the level of 'f'. These spots are deref'd and
-   NULL'd, so that any recursive call does not damage locals. */
-static lily_value **do_o_load_closure(lily_vm_state *vm, uint16_t *code)
-{
     lily_function_val *input_closure = vm->call_chain->function;
 
-    lily_value **upvalues = input_closure->upvalues;
-    int count = code[2];
-    int i;
-    lily_value *up;
+    lily_value *target = vm->readonly_table[code[1]];
+    lily_function_val *target_func = target->value.function;
 
-    code = code + 3;
+    lily_value *result_reg = vm_regs[code[2]];
+    lily_function_val *new_closure = new_function_copy(target_func);
 
-    for (i = 0;i < count;i++) {
-        up = upvalues[code[i]];
-        if (up) {
-            up->cell_refcount--;
-            if (up->cell_refcount == 0) {
-                lily_deref(up);
-                lily_free(up);
+    copy_upvalues(new_closure, input_closure);
+
+    uint16_t *locals = new_closure->locals;
+    if (locals) {
+        lily_value **upvalues = new_closure->upvalues;
+        int i, end = locals[0];
+        for (i = 1;i < end;i++) {
+            int pos = locals[i];
+            lily_value *up = upvalues[pos];
+            if (up) {
+                up->cell_refcount--;
+                upvalues[pos] = NULL;
             }
-
-            upvalues[code[i]] = NULL;
         }
     }
 
-    lily_value *result_reg = vm->call_chain->start[code[i]];
-
-    input_closure->refcount++;
-
-    /* Closures are always tagged. Do this as a custom move, because this is,
-       so far, the only scenario where a move needs to mark a tagged value. */
-    lily_move_function_f(VAL_IS_DEREFABLE | VAL_IS_GC_TAGGED, result_reg,
-            input_closure);
-
-    return input_closure->upvalues;
+    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
+    lily_value_tag(vm, result_reg);
 }
 
 /***
@@ -1838,10 +1809,10 @@ void lily_vm_execute(lily_vm_state *vm)
             /* The exception was caught, so resync local data. */
             current_frame = vm->call_chain;
             code = current_frame->code;
-            upvalues = current_frame->upvalues;
         }
     }
 
+    upvalues = current_frame->function->upvalues;
     vm_regs = vm->call_chain->start;
 
     while (1) {
@@ -2016,14 +1987,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = code[3];
                 current_frame->line_num = code[1];
                 current_frame->code = code + i + 5;
-                current_frame->upvalues = upvalues;
 
                 next_frame->start = current_frame->top;
                 next_frame->top = next_frame->start + i;
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = NULL;
-                next_frame->upvalues = NULL;
                 next_frame->return_target = vm_regs[code[4]];
 
                 if (next_frame->top >= next_frame->register_end) {
@@ -2072,14 +2041,12 @@ void lily_vm_execute(lily_vm_state *vm)
                 i = code[3];
                 current_frame->line_num = code[1];
                 current_frame->code = code + i + 5;
-                current_frame->upvalues = upvalues;
 
                 next_frame->start = current_frame->top;
                 next_frame->top = next_frame->start + fval->reg_count;
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = NULL;
-                next_frame->upvalues = NULL;
                 next_frame->return_target = vm_regs[code[4]];
 
                 if (next_frame->top >= next_frame->register_end) {
@@ -2099,7 +2066,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 vm->call_depth++;
                 code = fval->code;
-                upvalues = NULL;
+                upvalues = fval->upvalues;
 
                 break;
             }
@@ -2148,7 +2115,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 vm->call_depth--;
 
                 vm_regs = current_frame->start;
-                upvalues = current_frame->upvalues;
+                upvalues = current_frame->function->upvalues;
                 code = current_frame->code;
                 break;
             case o_get_global:
@@ -2207,7 +2174,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_create_function:
                 do_o_create_function(vm, code);
-                code += 4;
+                code += 3;
                 break;
             case o_set_upvalue:
                 lhs_reg = upvalues[code[2]];
@@ -2331,12 +2298,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             }
             case o_create_closure:
-                upvalues = do_o_create_closure(vm, code);
+                do_o_create_closure(vm, code);
+                upvalues = current_frame->function->upvalues;
                 code += 4;
-                break;
-            case o_load_closure:
-                upvalues = do_o_load_closure(vm, code);
-                code += (code[2] + 4);
                 break;
             case o_for_setup:
                 /* lhs_reg is the start, rhs_reg is the stop. */

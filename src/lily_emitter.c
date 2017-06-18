@@ -1148,7 +1148,7 @@ static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
 static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
         lily_storage *target)
 {
-    lily_u16_write_4(emit->code, o_create_function, 0, func_sym->reg_spot,
+    lily_u16_write_3(emit->code, o_create_function, func_sym->reg_spot,
             target->reg_spot);
     emit->function_block->make_closure = 1;
 }
@@ -1247,7 +1247,8 @@ static void ensure_params_in_closure(lily_emit_state *emit)
 
 /* This sets up the table used to map from a register spot to where that spot is
    in the closure. */
-static void setup_transform_table(lily_emit_state *emit)
+static void setup_transform_table_and_locals(lily_emit_state *emit,
+        lily_function_val *f, int is_backing)
 {
     if (emit->transform_size < emit->function_block->next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
@@ -1260,13 +1261,15 @@ static void setup_transform_table(lily_emit_state *emit)
             sizeof(*emit->transform_table) *
             emit->function_block->next_reg_spot);
 
-    int i;
+    int i, count = 0;
     for (i = 0;i < emit->closed_pos;i++) {
         lily_sym *s = (lily_sym *)emit->closed_syms[i];
         if (s && s->item_kind == ITEM_TYPE_VAR) {
             lily_var *v = (lily_var *)s;
             if (v->function_depth == emit->function_depth) {
                 emit->transform_table[v->reg_spot] = i;
+                count++;
+
                 /* Each var can only be transformed once, and within the scope
                    it was declared. This prevents two nested functions from
                    trying to transform the same (now-dead) vars. */
@@ -1274,32 +1277,25 @@ static void setup_transform_table(lily_emit_state *emit)
             }
         }
     }
-}
 
-/* Some functions are closures and recursive. Calling a recursive function
-   should not result in local values being mutated. This function solves that by
-   'zapping' the cells on the current level. This forces the closed-over
-   function to make new cells. */
-static void write_closure_zap(lily_emit_state *emit)
-{
-    int spot = lily_u16_pos(emit->closure_aux_code);
-    /* This will be patched with the length later. */
-    lily_u16_write_1(emit->closure_aux_code, 0);
-    int count = 0;
+    /* If there are locals in one of the inner functions, write them down. This
+       is later used by the vm to make sure the cells of inner functions are
+       fresh. */
+    if (is_backing == 0 && count) {
+        uint16_t *locals = lily_malloc((count + 1) * sizeof(*locals));
 
-    int i;
-    for (i = 0;i < emit->closed_pos;i++) {
-        lily_sym *sym = emit->closed_syms[i];
-        if (sym && sym->item_kind == ITEM_TYPE_VAR) {
-            lily_var *var = (lily_var *)sym;
-            if (var->function_depth == emit->function_depth) {
-                lily_u16_write_1(emit->closure_aux_code, i);
-                count++;
+        locals[0] = count + 1;
+
+        int pos = 1;
+        for (i = 0;i < emit->closed_pos;i++) {
+            if (emit->transform_table[i] != (uint16_t) -1) {
+                locals[pos] = i;
+                pos++;
             }
         }
-    }
 
-    lily_u16_insert(emit->closure_aux_code, spot, count);
+        f->locals = locals;
+    }
 }
 
 /* This takes a buffer (it's always the patch buffer) and checks for a record of
@@ -1389,15 +1385,16 @@ static void perform_closure_transform(lily_emit_state *emit,
 
     int iter_start = emit->block->code_start;
 
-    /* Hold closure information in a storage so it isn't lost. Make sure it's
-       a closure not currently used, for the same reason. */
-    lily_storage *s = get_unique_storage(emit, emit->block->function_var->type);
-
     lily_block *prev_block = function_block->prev_function_block;
     int is_backing = (prev_block->block_type == block_class ||
                       prev_block->block_type == block_file);
 
     if (is_backing) {
+        /* Put the backing closure into a register so it's not lost in a gc
+           sweep. */
+        lily_storage *s = get_unique_storage(emit,
+                function_block->function_var->type);
+
         lily_u16_write_4(emit->closure_aux_code, o_create_closure, f->line_num,
                 emit->closed_pos, s->reg_spot);
 
@@ -1412,9 +1409,6 @@ static void perform_closure_transform(lily_emit_state *emit,
         }
     }
     else if (emit->block->block_type == block_lambda) {
-        lily_u16_write_4(emit->closure_aux_code, o_load_closure,
-                f->line_num, 0, s->reg_spot);
-
         lily_storage *lambda_self = emit->block->self;
         if (lambda_self) {
             while (prev_block->block_type != block_class)
@@ -1429,15 +1423,9 @@ static void perform_closure_transform(lily_emit_state *emit,
                         f->line_num, self_spot, lambda_self->reg_spot);
         }
     }
-    else {
-        lily_u16_write_2(emit->closure_aux_code, o_load_closure,
-                (uint16_t)f->line_num);
-        write_closure_zap(emit);
-        lily_u16_write_1(emit->closure_aux_code, s->reg_spot);
-    }
 
     ensure_params_in_closure(emit);
-    setup_transform_table(emit);
+    setup_transform_table_and_locals(emit, f, is_backing);
 
     if (is_backing)
         emit->closed_pos = 0;
@@ -1501,13 +1489,6 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         if (ci.special_1) {
             switch (op) {
-                case o_create_function:
-                    /* The first special of this opcode is the register of the
-                       closure, which was only recently made. Fix the buffer,
-                       and the write that happens later will do the rest. */
-                    buffer[pos] = s->reg_spot;
-                    pos++;
-                    break;
                 case o_function_call:
                 case o_match_dispatch:
                     MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
@@ -1530,8 +1511,6 @@ static void perform_closure_transform(lily_emit_state *emit,
         if (ci.special_4) {
             switch (op) {
                 case o_create_function:
-                case o_load_class_closure:
-                case o_load_closure:
                     pos += ci.special_4;
                     break;
                 case o_jump_if_not_class:
@@ -1972,6 +1951,7 @@ lily_function_val *new_foreign_function_val(lily_foreign_func func,
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
+    f->locals = NULL;
     return f;
 }
 
@@ -1992,6 +1972,7 @@ lily_function_val *new_native_function_val(char *class_name, char *name)
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->reg_count = -1;
+    f->locals = NULL;
     return f;
 }
 

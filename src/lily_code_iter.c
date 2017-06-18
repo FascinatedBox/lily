@@ -313,19 +313,10 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 4;
             break;
         case o_create_function:
-            iter->special_1 = 1;
             iter->special_4 = 1;
             iter->outputs_5 = 1;
 
-            iter->round_total = 4;
-            break;
-        case o_load_closure:
-            iter->line = 1;
-            iter->counter_2 = 1;
-            iter->special_4 = buffer[2];
-            iter->outputs_5 = 1;
-
-            iter->round_total = buffer[2] + 4;
+            iter->round_total = 3;
             break;
         case o_interpolation:
             iter->line = 1;

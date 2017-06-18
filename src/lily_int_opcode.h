@@ -161,13 +161,6 @@ typedef enum {
     /* This creates a copy of a given function that has upvalues from the
        backing closure. */
     o_create_function,
-    /* This loads a backing closure from a class. */
-    o_load_class_closure,
-    /* This loads a closure from the calling frame. This includes a series of
-       inputs, which are register positions in the closure that must be wiped.
-       Wiping that data allows closures to recurse without corruption. */
-    o_load_closure,
-
     /* Attempt to extract a value from a Dynamic. The wanted class is given as
        an id into the vm's class table. Success yields a Some(class), whereas
        failure provides a None. */

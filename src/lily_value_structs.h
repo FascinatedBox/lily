@@ -188,6 +188,11 @@ typedef struct lily_function_val_ {
            ids for dynaloaded classes. */
         uint16_t *cid_table;
     };
+
+    /* Closures: Upvalue indexes of locals in this function, with [0] being the
+       count. When a closure copy is created, the cells listed in here are
+       cleared out. */
+    uint16_t *locals;
 } lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */

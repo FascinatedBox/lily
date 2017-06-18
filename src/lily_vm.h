@@ -16,7 +16,6 @@ typedef struct lily_call_frame_ {
     lily_function_val *function;
     /* A value from the previous frame to return back into. */
     lily_value *return_target;
-    lily_value **upvalues;
     int line_num;
 
     struct lily_call_frame_ *prev;
