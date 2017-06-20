@@ -10,6 +10,7 @@
 #include "lily_keyword_table.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
+#include "lily_value_raw.h"
 #include "lily_alloc.h"
 
 #include "lily_int_opcode.h"
@@ -1730,7 +1731,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            get rid of the round trip so that the loader pushes in directly. */
         m->loader(parser->vm, dyna_pos);
 
-        lily_value *foreign = lily_take_value(parser->vm);
+        lily_value *foreign = lily_stack_take(parser->vm);
         lily_literal *value_copy = (lily_literal *)lily_value_copy(foreign);
 
         /* Values are saved in parser space until the vm is ready to receive

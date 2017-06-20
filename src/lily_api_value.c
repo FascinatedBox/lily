@@ -5,42 +5,9 @@
 #include "lily_vm.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
+#include "lily_value_raw.h"
 
 #include "lily_api_value.h"
-
-#define DEFINE_SETTERS(name, action, ...) \
-void lily_##name##_boolean(__VA_ARGS__, int v) \
-{ lily_move_boolean(source->action, v); } \
-void lily_##name##_byte(__VA_ARGS__, uint8_t v) \
-{ lily_move_byte(source->action, v); } \
-void lily_##name##_bytestring(__VA_ARGS__, lily_bytestring_val * v) \
-{ lily_move_bytestring(source->action, v); } \
-void lily_##name##_double(__VA_ARGS__, double v) \
-{ lily_move_double(source->action, v); } \
-void lily_##name##_empty_variant(__VA_ARGS__, uint16_t f) \
-{ lily_move_empty_variant(f, source->action); } \
-void lily_##name##_file(__VA_ARGS__, lily_file_val * v) \
-{ lily_move_file(source->action, v); } \
-void lily_##name##_foreign(__VA_ARGS__, lily_foreign_val * v) \
-{ lily_move_foreign_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_hash(__VA_ARGS__, lily_hash_val * v) \
-{ lily_move_hash_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_instance(__VA_ARGS__, lily_container_val * v) \
-{ lily_move_instance_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_integer(__VA_ARGS__, int64_t v) \
-{ lily_move_integer(source->action, v); } \
-void lily_##name##_list(__VA_ARGS__, lily_container_val * v) \
-{ lily_move_list_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_string(__VA_ARGS__, lily_string_val * v) \
-{ lily_move_string(source->action, v); } \
-void lily_##name##_tuple(__VA_ARGS__, lily_container_val * v) \
-{ lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
-void lily_##name##_unit(__VA_ARGS__) \
-{ lily_move_unit(source->action); } \
-void lily_##name##_value(__VA_ARGS__, lily_value * v) \
-{ lily_value_assign(source->action, v); } \
-void lily_##name##_variant(__VA_ARGS__, lily_container_val * v) \
-{ lily_move_variant_f(MOVE_DEREF_SPECULATIVE, source->action, v); } \
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
@@ -72,76 +39,38 @@ char *lily_##name##_string_raw(__VA_ARGS__) \
 lily_value *lily_##name##_value(__VA_ARGS__) \
 { return source  action; } \
 
-#define DEFINE_PAIR(name, action, ...) \
-void lily_##name##_set(__VA_ARGS__, lily_value * v) \
-{ lily_value_assign(source->action, v); } \
-lily_value *lily_##name##_get(__VA_ARGS__) \
-{ return source->action; }
+DEFINE_GETTERS(arg, ->call_chain->start[index], lily_state *source, int index)
+DEFINE_GETTERS(as, , lily_value *source)
 
-DEFINE_PAIR(boxed_nth, value.container->values[i], lily_value *source, int i)
-DEFINE_PAIR(nth, values[i], lily_container_val *source, int i)
-
-DEFINE_SETTERS(return, call_chain->return_target, lily_vm_state *source)
-
-uint32_t lily_container_num_values(lily_container_val *cv)
+lily_value *lily_con_get(lily_container_val *c, int index)
 {
-    return cv->num_values;
+    return c->values[index];
 }
 
-#define TYPE_FN(name, PRE, INPUT, POST, return_type, ...) \
-return_type lily_##name##_boolean(__VA_ARGS__, int v) \
-{ PRE; lily_move_boolean(INPUT, v); POST; } \
-return_type lily_##name##_byte(__VA_ARGS__, uint8_t v) \
-{ PRE; lily_move_byte(INPUT, v); POST; } \
-return_type lily_##name##_bytestring(__VA_ARGS__, lily_bytestring_val * v) \
-{ PRE; lily_move_bytestring(INPUT, v); POST; } \
-return_type lily_##name##_double(__VA_ARGS__, double v) \
-{ PRE; lily_move_double(INPUT, v); POST; } \
-return_type lily_##name##_empty_variant(__VA_ARGS__, uint16_t f) \
-{ PRE; lily_move_empty_variant(f, INPUT); POST; } \
-return_type lily_##name##_file(__VA_ARGS__, lily_file_val * v) \
-{ PRE; lily_move_file(INPUT, v); POST; } \
-return_type lily_##name##_foreign(__VA_ARGS__, lily_foreign_val * v) \
-{ PRE; lily_move_foreign_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-return_type lily_##name##_hash(__VA_ARGS__, lily_hash_val * v) \
-{ PRE; lily_move_hash_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-return_type lily_##name##_instance(__VA_ARGS__, lily_container_val * v) \
-{ PRE; lily_move_instance_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-return_type lily_##name##_integer(__VA_ARGS__, int64_t v) \
-{ PRE; lily_move_integer(INPUT, v); POST; } \
-return_type lily_##name##_list(__VA_ARGS__, lily_container_val * v) \
-{ PRE; lily_move_list_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-return_type lily_##name##_string(__VA_ARGS__, lily_string_val * v) \
-{ PRE; lily_move_string(INPUT, v); POST; } \
-return_type lily_##name##_tuple(__VA_ARGS__, lily_container_val * v) \
-{ PRE; lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-return_type lily_##name##_unit(__VA_ARGS__) \
-{ PRE; lily_move_unit(INPUT); POST; } \
-return_type lily_##name##_value(__VA_ARGS__, lily_value * v) \
-{ PRE; lily_value_assign(INPUT, v); POST; } \
-return_type lily_##name##_variant(__VA_ARGS__, lily_container_val * v) \
-{ PRE; lily_move_variant_f(MOVE_DEREF_SPECULATIVE, INPUT, v); POST; } \
-
-TYPE_FN(box, lily_value *r = s->regs_from_main[0], r, return r, lily_value *, lily_state *s)
-
-/* Special-cased returns */
-
-void lily_value_assign_noref(lily_value *, lily_value *);
-
-void lily_return_none(lily_state *s)
+void lily_con_set(lily_container_val *c, int index, lily_value *v)
 {
-    lily_move_empty_variant(LILY_NONE_ID, s->call_chain->return_target);
+    lily_value_assign(c->values[index], v);
 }
 
-void lily_return_value_noref(lily_state *s, lily_value *v)
+void lily_con_set_from_stack(lily_state *s, lily_container_val *c, int index)
 {
-    lily_value_assign_noref(s->call_chain->return_target, v);
+    lily_value *target = c->values[index];
+
+    if (target->flags & VAL_IS_DEREFABLE)
+        lily_deref(target);
+
+    s->call_chain->top--;
+
+    lily_value *top = *(s->call_chain->top);
+    *target = *top;
+
+    top->flags = 0;
 }
 
-/* Argument and result operations */
-
-DEFINE_GETTERS(arg, ->call_chain->start[index], lily_vm_state *source, int index)
-DEFINE_GETTERS(value, , lily_value *source)
+uint32_t lily_con_size(lily_container_val *c)
+{
+    return c->num_values;
+}
 
 int lily_arg_count(lily_state *s)
 {
@@ -172,13 +101,25 @@ int lily_arg_is_success(lily_state *s, int i)
    Push operations are located within the vm, so that stack growing can remain
    internal to the vm. */
 
-lily_value *lily_take_value(lily_state *s)
+lily_value *lily_stack_take(lily_state *s)
 {
     s->call_chain->top--;
     return *s->call_chain->top;
 }
 
-void lily_pop_value(lily_state *s)
+void lily_stack_push_and_destroy(lily_state *s, lily_value *v)
+{
+    lily_push_value(s, v);
+    lily_deref(v);
+    lily_free(v);
+}
+
+lily_value *lily_stack_top(lily_state *s)
+{
+    return *(s->call_chain->top - 1);
+}
+
+void lily_stack_delete_top(lily_state *s)
 {
     s->call_chain->top--;
     lily_value *z = *s->call_chain->top;
@@ -186,136 +127,72 @@ void lily_pop_value(lily_state *s)
     z->flags = 0;
 }
 
-/* Raw value creation functions. */
-
-lily_container_val *new_container(uint16_t class_id, int num_values)
-{
-    lily_container_val *cv = lily_malloc(sizeof(*cv));
-    cv->values = lily_malloc(num_values * sizeof(*cv->values));
-    cv->refcount = 0;
-    cv->num_values = num_values;
-    cv->extra_space = 0;
-    cv->class_id = class_id;
-    cv->gc_entry = NULL;
-
-    int i;
-    for (i = 0;i < num_values;i++) {
-        lily_value *elem = lily_malloc(sizeof(*elem));
-        elem->flags = 0;
-        cv->values[i] = elem;
-    }
-
-    return cv;
-}
-
-lily_container_val *lily_new_dynamic(void)
-{
-    return new_container(LILY_DYNAMIC_ID, 1);
-}
-
-/* Create a new File value. The 'inner_file' given is expected to be a valid,
-   already-opened C file. 'mode' should be a valid mode according to what fopen
-   expects. The read/write bits on the File are set based on parsing 'mode'.
-   Lily will close the File when it is deref'd/collected if it is open. */
-lily_file_val *lily_new_file(FILE *inner_file, const char *mode)
-{
-    lily_file_val *filev = lily_malloc(sizeof(*filev));
-
-    int plus = strchr(mode, '+') != NULL;
-
-    filev->refcount = 0;
-    filev->inner_file = inner_file;
-    filev->read_ok = (*mode == 'r' || plus);
-    filev->write_ok = (*mode == 'w' || plus);
-    filev->is_builtin = 0;
-
-    return filev;
-}
-
-lily_foreign_val *lily_new_foreign(lily_state *s, uint16_t id,
-        lily_destroy_func func, size_t size)
-{
-    lily_foreign_val *fv = lily_malloc(size * sizeof(*fv));
-    fv->refcount = 0;
-    fv->class_id = id;
-    fv->destroy_func = func;
-
-    return fv;
-}
-
-lily_container_val *lily_new_list(int num_values)
-{
-    return new_container(LILY_LIST_ID, num_values);
-}
-
-lily_container_val *lily_new_instance(uint16_t class_id, int initial)
-{
-    return new_container(class_id, initial);
-}
-
-static lily_string_val *new_sv(char *buffer, int size)
-{
-    lily_string_val *sv = lily_malloc(sizeof(*sv));
-    sv->refcount = 0;
-    sv->string = buffer;
-    sv->size = size;
-    return sv;
-}
-
-/* Create a new RAW lily_string_val. The newly-made string will hold 'size'
-   bytes of 'source'. 'source' is expected to NOT be \0 terminated, and thus
-   'size' SHOULD NOT include any \0 termination. Instead, the \0 termination
-   will */
-lily_string_val *lily_new_string_sized(const char *source, int len)
-{
-    char *buffer = lily_malloc((len + 1) * sizeof(*buffer));
-    memcpy(buffer, source, len);
-    buffer[len] = '\0';
-
-    return new_sv(buffer, len);
-}
-
-/* Create a new RAW lily_string_val. The newly-made string shall contain a copy
-   of what is inside 'source'. The source is expected to be \0 terminated. */
-lily_string_val *lily_new_string(const char *source)
-{
-    size_t len = strlen(source);
-    char *buffer = lily_malloc((len + 1) * sizeof(*buffer));
-    strcpy(buffer, source);
-
-    return new_sv(buffer, len);
-}
-
-lily_container_val *lily_new_tuple(int num_values)
-{
-    return new_container(LILY_TUPLE_ID, num_values);
-}
-
-lily_container_val *lily_new_some(void)
-{
-    return new_container(LILY_SOME_ID, 1);
-}
-
-lily_container_val *lily_new_failure(void)
-{
-    return new_container(LILY_FAILURE_ID, 1);
-}
-
-lily_container_val *lily_new_success(void)
-{
-    return new_container(LILY_SUCCESS_ID, 1);
-}
-
-lily_container_val *lily_new_variant(uint16_t class_id, int num_values)
-{
-    return new_container(class_id, num_values);
-}
-
 /* Simple per-type operations. */
 
-lily_bytestring_val *lily_new_bytestring_sized(const char *source, int len)
+void lily_list_take(lily_state *s, lily_container_val *c, int index)
 {
-    return (lily_bytestring_val *)lily_new_string_sized(source, len);
+    lily_value *v = c->values[index];
+    lily_push_value(s, v);
+
+    lily_deref(v);
+    lily_free(v);
+
+    if (index != c->num_values)
+        memmove(c->values + index, c->values + index + 1,
+                (c->num_values - index - 1) * sizeof(*c->values));
+
+    c->num_values--;
+    c->extra_space++;
+}
+
+static void grow_list(lily_container_val *lv)
+{
+    /* There's probably room for improvement here, later on. */
+    int extra = (lv->num_values + 8) >> 2;
+    lv->values = lily_realloc(lv->values,
+            (lv->num_values + extra) * sizeof(*lv->values));
+    lv->extra_space = extra;
+}
+
+void lily_list_reserve(lily_container_val *c, int new_size)
+{
+    int size = c->num_values + c->extra_space;
+
+    if (size > new_size)
+        return;
+
+    if (size == 0)
+        size = 8;
+
+    while (size < new_size)
+        size *= 2;
+
+    c->values = lily_realloc(c->values, size * sizeof(*c->values));
+    c->extra_space = size - c->num_values;
+}
+
+void lily_list_push(lily_container_val *c, lily_value *v)
+{
+    if (c->extra_space == 0)
+        grow_list(c);
+
+    c->values[c->num_values] = lily_value_copy(v);
+    c->num_values++;
+    c->extra_space--;
+}
+
+void lily_list_insert(lily_container_val *c, int index, lily_value *v)
+{
+    if (c->extra_space == 0)
+        grow_list(c);
+
+    if (index != c->num_values)
+        memmove(c->values + index + 1, c->values + index,
+                (c->num_values - index) * sizeof(*c->values));
+
+    c->values[index] = lily_value_copy(v);
+    c->num_values++;
+    c->extra_space--;
 }
 
 char *lily_bytestring_raw(lily_bytestring_val *sv)
@@ -363,26 +240,6 @@ int lily_function_is_foreign(lily_function_val *fv)
 int lily_function_is_native(lily_function_val *fv)
 {
     return fv->code != NULL;
-}
-
-void lily_instance_super(lily_state *s, lily_container_val **iv, uint16_t id,
-        uint32_t initial)
-{
-    lily_value *v = s->call_chain->return_target;
-
-    if (v->flags & VAL_IS_INSTANCE) {
-        lily_container_val *pending_instance = v->value.container;
-        if (pending_instance->instance_ctor_need != 0) {
-            pending_instance->instance_ctor_need = 0;
-            *iv = pending_instance;
-            lily_push_value(s, v);
-            return;
-        }
-    }
-
-    lily_container_val *new_iv = lily_new_instance(id, initial);
-    lily_push_instance(s, new_iv);
-    *iv = new_iv;
 }
 
 char *lily_string_raw(lily_string_val *sv)
@@ -654,7 +511,7 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
             for (i = 0;i < left_hash->num_bins;i++) {
                 lily_hash_entry *left = left_hash->bins[i];
                 if (left) {
-                    lily_value *right = lily_hash_find_value(right_hash,
+                    lily_value *right = lily_hash_get(right_hash,
                             left->boxed_key);
 
                     if (right == NULL ||

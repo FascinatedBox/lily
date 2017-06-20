@@ -12,9 +12,8 @@ foundation of Lily.
 #include "lily_parser.h"
 #include "lily_symtab.h"
 #include "lily_utf8.h"
-#include "lily_move.h"
-#include "lily_value_flags.h"
 #include "lily_value_structs.h"
+#include "lily_value_raw.h"
 #include "lily_alloc.h"
 #include "lily_api_embed.h"
 #include "lily_api_value.h"
@@ -477,12 +476,13 @@ If `condition` is `false`, raise `AssertionError` using `message`.
 
 static void return_exception(lily_state *s, uint16_t id)
 {
-    lily_container_val *result;
-    lily_instance_super(s, &result, id, 2);
+    lily_container_val *result = lily_push_super(s, id, 2);
 
-    lily_nth_set(result, 0, lily_arg_value(s, 0));
-    lily_nth_set(result, 1, lily_box_list(s, lily_new_list(0)));
-    lily_return_value(s, lily_take_value(s));
+    lily_con_set(result, 0, lily_arg_value(s, 0));
+
+    lily_push_list(s, 0);
+    lily_con_set_from_stack(s, result, 1);
+    lily_return_super(s);
 }
 
 /**
@@ -527,7 +527,8 @@ void lily_builtin_Boolean_to_s(lily_state *s)
     else
         to_copy = "true";
 
-    lily_return_string(s, lily_new_string(to_copy));
+    lily_push_string(s, to_copy);
+    lily_return_top(s);
 }
 
 /**
@@ -611,10 +612,10 @@ void lily_builtin_ByteString_encode(lily_state *s)
         return;
     }
 
-    lily_container_val *variant = lily_new_some();
-    lily_nth_set(variant, 0,
-            lily_box_string(s, lily_new_string(byte_buffer)));
-    lily_return_variant(s, variant);
+    lily_container_val *variant = lily_push_some(s);
+    lily_push_string(s, byte_buffer);
+    lily_con_set_from_stack(s, variant, 0);
+    lily_return_top(s);
 }
 
 /**
@@ -651,18 +652,6 @@ static const char follower_table[256] =
 /* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
-static lily_string_val *make_sv(lily_state *s, int size)
-{
-    lily_string_val *new_sv = lily_malloc(sizeof(*new_sv));
-    char *new_string = lily_malloc(sizeof(*new_string) * size);
-
-    new_sv->string = new_string;
-    new_sv->size = size - 1;
-    new_sv->refcount = 0;
-
-    return new_sv;
-}
-
 void do_str_slice(lily_state *s, int is_bytestring)
 {
     lily_string_val *sv = lily_arg_string(s, 0);
@@ -683,10 +672,11 @@ void do_str_slice(lily_state *s, int is_bytestring)
         start > sv->size ||
         start > stop) {
         if (is_bytestring == 0)
-            lily_return_string(s, lily_new_string(""));
+            lily_push_string(s, "");
         else
-            lily_return_bytestring(s, lily_new_bytestring_sized("", 0));
+            lily_push_bytestring(s, "", 0);
 
+        lily_return_top(s);
         return;
     }
 
@@ -694,22 +684,18 @@ void do_str_slice(lily_state *s, int is_bytestring)
     if (is_bytestring == 0) {
         if (follower_table[(unsigned char)raw[start]] == -1 ||
             follower_table[(unsigned char)raw[stop]] == -1) {
-            lily_return_string(s, lily_new_string(""));
+            lily_push_string(s, "");
+            lily_return_top(s);
             return;
         }
     }
 
-    int new_size = (stop - start) + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
-
-    char *new_str = new_sv->string;
-    strncpy(new_str, raw + start, new_size - 1);
-    new_str[new_size - 1] = '\0';
-
     if (is_bytestring == 0)
-        lily_return_string(s, new_sv);
+        lily_push_string_sized(s, raw + start, stop - start);
     else
-        lily_return_bytestring(s, (lily_bytestring_val *)new_sv);
+        lily_push_bytestring(s, raw + start, stop - start);
+
+    lily_return_top(s);
 }
 
 /**
@@ -864,7 +850,7 @@ void lily_builtin_File_each_line(lily_state *s)
             const char *text = lily_mb_get(vm_buffer);
             int pos = lily_mb_pos(vm_buffer);
 
-            lily_push_bytestring(s, lily_new_bytestring_sized(text, pos));
+            lily_push_bytestring(s, text, pos);
             lily_call(s, 1);
             lily_mb_flush(vm_buffer);
         }
@@ -931,9 +917,8 @@ void lily_builtin_File_open(lily_state *s)
         lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
     }
 
-    lily_file_val *filev = lily_new_file(f, mode);
-
-    lily_return_file(s, filev);
+    lily_push_file(s, f, mode);
+    lily_return_top(s);
 }
 
 void lily_builtin_File_write(lily_state *);
@@ -953,15 +938,6 @@ void lily_builtin_File_print(lily_state *s)
     lily_builtin_File_write(s);
     fputc('\n', lily_file_for_write(s, lily_arg_file(s, 0)));
     lily_return_unit(s);
-}
-
-static lily_bytestring_val *new_sv_take(char *buffer)
-{
-    lily_bytestring_val *sv = lily_malloc(sizeof(*sv));
-    sv->refcount = 0;
-    sv->string = buffer;
-    sv->size = strlen(buffer);
-    return sv;
 }
 
 /**
@@ -1018,7 +994,9 @@ void lily_builtin_File_read(lily_state *s)
             to_read -= nread;
     }
 
-    lily_return_bytestring(s, new_sv_take(buffer));
+    lily_push_bytestring(s, buffer, pos);
+    lily_free(buffer);
+    lily_return_top(s);
 }
 
 /**
@@ -1070,7 +1048,8 @@ void lily_builtin_File_read_line(lily_state *s)
     }
 
     const char *text = lily_mb_get(vm_buffer);
-    lily_return_bytestring(s, lily_new_bytestring_sized(text, total_pos));
+    lily_push_bytestring(s, text, total_pos);
+    lily_return_top(s);
 }
 
 /**
@@ -1207,18 +1186,10 @@ void lily_builtin_Hash_delete(lily_state *s)
     remove_key_check(s, hash_val);
 
     lily_value *key = lily_arg_value(s, 1);
-    lily_value *v;
 
-    if (lily_hash_delete(hash_val, &key, &v)) {
-        if (key->flags & VAL_IS_DEREFABLE)
-            lily_deref(key);
-
-        lily_free(key);
-
-        if (v->flags & VAL_IS_DEREFABLE)
-            lily_deref(v);
-
-        lily_free(v);
+    if (lily_hash_take(s, hash_val, key)) {
+        lily_stack_delete_top(s);
+        lily_stack_delete_top(s);
     }
 
     lily_return_unit(s);
@@ -1273,7 +1244,7 @@ void lily_builtin_Hash_get(lily_state *s)
     lily_value *key = lily_arg_value(s, 1);
     lily_value *default_value = lily_arg_value(s, 2);
 
-    lily_value *v = lily_hash_find_value(hash_val, key);
+    lily_value *v = lily_hash_get(hash_val, key);
     if (v == NULL)
         v = default_value;
 
@@ -1290,7 +1261,7 @@ void lily_builtin_Hash_has_key(lily_state *s)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
 
-    lily_value *entry = lily_hash_find_value(hash_val, key);
+    lily_value *entry = lily_hash_get(hash_val, key);
 
     lily_return_boolean(s, entry != NULL);
 }
@@ -1304,34 +1275,19 @@ is no guarantee of the ordering of the resulting `List`.
 void lily_builtin_Hash_keys(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_container_val *result_lv = lily_new_list(hash_val->num_entries);
+    lily_container_val *result_lv = lily_push_list(s, hash_val->num_entries);
     int i, list_i;
 
     for (i = 0, list_i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         while (entry) {
-            lily_value_assign(result_lv->values[list_i], entry->boxed_key);
+            lily_con_set(result_lv, list_i, entry->boxed_key);
             list_i++;
             entry = entry->next;
         }
     }
 
-    lily_return_list(s, result_lv);
-}
-
-static lily_hash_val *build_hash(lily_state *s, lily_hash_val *hash_val,
-        int count)
-{
-    int i;
-
-    for (i = 0;i < count;i++) {
-        lily_value *record = lily_take_value(s);
-        lily_value *key = lily_take_value(s);
-
-        lily_hash_insert_value(hash_val, key, record);
-    }
-
-    return hash_val;
+    lily_return_top(s);
 }
 
 /**
@@ -1344,35 +1300,29 @@ call to `fn`.
 void lily_builtin_Hash_map_values(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    int count = 0;
 
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
+    lily_hash_val *h = lily_push_hash_like(s, hash_val, hash_val->num_entries);
 
     if (setjmp(link->jump) == 0) {
         int i;
         for (i = 0;i < hash_val->num_bins;i++) {
             lily_hash_entry *entry = hash_val->bins[i];
             while (entry) {
-                lily_push_value(s, entry->boxed_key);
                 lily_push_value(s, entry->record);
-
                 lily_call(s, 1);
 
-                lily_push_value(s, result);
-                count++;
-
+                lily_hash_set(h, entry->boxed_key, result);
                 entry = entry->next;
             }
         }
 
-        lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val, count);
-        build_hash(s, result_hash, count);
         hash_val->iter_count--;
         lily_release_jump(s->raiser);
-        lily_return_hash(s, result_hash);
+        lily_return_top(s);
     }
     else {
         hash_val->iter_count--;
@@ -1392,15 +1342,14 @@ void lily_builtin_Hash_merge(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
-    lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val,
-            hash_val->num_entries);
+    lily_hash_val *result_hash = lily_push_hash_like(s, hash_val,hash_val->num_entries);
 
     int i, j;
 
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         while (entry) {
-            lily_hash_insert_value(result_hash, entry->boxed_key,
+            lily_hash_set(result_hash, entry->boxed_key,
                     entry->record);
             entry = entry->next;
         }
@@ -1412,14 +1361,14 @@ void lily_builtin_Hash_merge(lily_state *s)
         for (j = 0;j < merging_hash->num_bins;j++) {
             lily_hash_entry *entry = merging_hash->bins[j];
             while (entry) {
-                lily_hash_insert_value(result_hash, entry->boxed_key,
+                lily_hash_set(result_hash, entry->boxed_key,
                         entry->record);
                 entry = entry->next;
             }
         }
     }
 
-    lily_return_hash(s, result_hash);
+    lily_return_top(s);
 }
 
 static void hash_select_reject_common(lily_state *s, int expect)
@@ -1427,7 +1376,7 @@ static void hash_select_reject_common(lily_state *s, int expect)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
-    int count = 0;
+    lily_hash_val *h = lily_push_hash_like(s, hash_val, hash_val->num_entries);
 
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
@@ -1444,22 +1393,20 @@ static void hash_select_reject_common(lily_state *s, int expect)
                 lily_push_value(s, entry->record);
 
                 lily_call(s, 2);
-                if (lily_value_boolean(result) != expect) {
-                    lily_pop_value(s);
-                    lily_pop_value(s);
+                if (lily_as_boolean(result) != expect) {
+                    lily_stack_delete_top(s);
+                    lily_stack_delete_top(s);
                 }
                 else
-                    count++;
+                    lily_hash_set_from_stack(s, h);
 
                 entry = entry->next;
             }
         }
 
-        lily_hash_val *result_hash = lily_new_hash_like_sized(hash_val, count);
-        build_hash(s, result_hash, count);
         hash_val->iter_count--;
         lily_release_jump(s->raiser);
-        lily_return_hash(s, result_hash);
+        lily_return_top(s);
     }
     else {
         hash_val->iter_count--;
@@ -1567,7 +1514,8 @@ void lily_builtin_Integer_to_s(lily_state *s)
     char buffer[32];
     snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_return_string(s, lily_new_string(buffer));
+    lily_push_string(s, buffer);
+    lily_return_top(s);
 }
 
 /**
@@ -1641,22 +1589,11 @@ void lily_builtin_List_count(lily_state *s)
         lily_push_value(s, list_val->values[i]);
         lily_call(s, 1);
 
-        if (lily_value_boolean(result) == 1)
+        if (lily_as_boolean(result) == 1)
             count++;
     }
 
     lily_return_integer(s, count);
-}
-
-/* This expands the list value so there's more extra space. Growth is done
-   relative to the current size of the list, because why not? */
-static void make_extra_space_in_list(lily_container_val *lv)
-{
-    /* There's probably room for improvement here, later on. */
-    int extra = (lv->num_values + 8) >> 2;
-    lv->values = lily_realloc(lv->values,
-            (lv->num_values + extra) * sizeof(*lv->values));
-    lv->extra_space = extra;
 }
 
 static int64_t get_relative_index(lily_state *s, lily_container_val *list_val,
@@ -1697,20 +1634,8 @@ void lily_builtin_List_delete_at(lily_state *s)
 
     pos = get_relative_index(s, list_val, pos);
 
-    if (list_val->extra_space == 0)
-        make_extra_space_in_list(list_val);
-
-    lily_value *to_delete = list_val->values[pos];
-    lily_deref(to_delete);
-    lily_free(to_delete);
-
-    /* Shove everything leftward hide the hole from erasing the value. */
-    if (pos != list_val->num_values)
-        memmove(list_val->values + pos, list_val->values + pos + 1,
-                (list_val->num_values - pos) * sizeof(*list_val->values));
-
-    list_val->num_values--;
-    list_val->extra_space++;
+    lily_list_take(s, list_val, pos);
+    lily_return_top(s);
 }
 
 /**
@@ -1726,11 +1651,11 @@ void lily_builtin_List_each(lily_state *s)
     int i;
 
     for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(s, list_val->values[i]);
+        lily_push_value(s, lily_con_get(list_val, i));
         lily_call(s, 1);
     }
 
-    lily_return_list(s, list_val);
+    lily_return_value(s, lily_arg_value(s, 0));
 }
 
 /**
@@ -1750,7 +1675,7 @@ void lily_builtin_List_each_index(lily_state *s)
         lily_call(s, 1);
     }
 
-    lily_return_list(s, list_val);
+    lily_return_value(s, lily_arg_value(s, 0));
 }
 
 /**
@@ -1776,7 +1701,7 @@ void lily_builtin_List_fold(lily_state *s)
         lily_push_value(s, start);
         int i = 0;
         while (1) {
-            lily_push_value(s, list_val->values[i]);
+            lily_push_value(s, lily_con_get(list_val, i));
             lily_call(s, 2);
 
             if (i == list_val->num_values - 1)
@@ -1809,18 +1734,7 @@ void lily_builtin_List_insert(lily_state *s)
 
     insert_pos = get_relative_index(s, list_val, insert_pos);
 
-    if (list_val->extra_space == 0)
-        make_extra_space_in_list(list_val);
-
-    /* Shove everything rightward to make space for the new value. */
-    if (insert_pos != list_val->num_values)
-        memmove(list_val->values + insert_pos + 1, list_val->values + insert_pos,
-                (list_val->num_values - insert_pos) * sizeof(*list_val->values));
-
-    list_val->values[insert_pos] = lily_value_copy(insert_value);
-    list_val->num_values++;
-    list_val->extra_space--;
-
+    lily_list_insert(list_val, insert_pos, insert_value);
     lily_return_unit(s);
 }
 
@@ -1852,7 +1766,8 @@ void lily_builtin_List_join(lily_state *s)
             lily_mb_add_value(vm_buffer, s, values[i]);
     }
 
-    lily_return_string(s, lily_new_string(lily_mb_get(vm_buffer)));
+    lily_push_string(s, lily_mb_get(vm_buffer));
+    lily_return_top(s);
 }
 
 /**
@@ -1866,22 +1781,18 @@ void lily_builtin_List_map(lily_state *s)
     lily_container_val *list_val = lily_arg_container(s, 0);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
+    lily_container_val *con = lily_push_list(s, 0);
+    lily_list_reserve(con, list_val->num_values);
 
     int i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *e = list_val->values[i];
         lily_push_value(s, e);
         lily_call(s, 1);
-        lily_push_value(s, lily_call_result(s));
+        lily_list_push(con, lily_call_result(s));
     }
 
-    lily_container_val *result_list = lily_new_list(i);
-
-    i--;
-    for (;i >= 0;i--)
-        lily_value_assign(result_list->values[i], lily_take_value(s));
-
-    lily_return_list(s, result_list);
+    lily_return_top(s);
 }
 
 /**
@@ -1900,17 +1811,8 @@ void lily_builtin_List_pop(lily_state *s)
     if (list_val->num_values == 0)
         lily_IndexError(s, "Pop from an empty list.");
 
-    lily_value *source = list_val->values[list_val->num_values - 1];
-
-    /* This is a special case because the value is moving out of the list, so
-       don't let it get a ref increase. */
-    lily_return_value_noref(s, source);
-
-    /* For now, free extra values instead of trying to keep reserves around.
-       Not the best course of action, perhaps, but certainly the simplest. */
-    lily_free(list_val->values[list_val->num_values - 1]);
-    list_val->num_values--;
-    list_val->extra_space++;
+    lily_list_take(s, list_val, lily_con_size(list_val) - 1);
+    lily_return_top(s);
 }
 
 /**
@@ -1923,15 +1825,7 @@ void lily_builtin_List_push(lily_state *s)
     lily_container_val *list_val = lily_arg_container(s, 0);
     lily_value *insert_value = lily_arg_value(s, 1);
 
-    if (list_val->extra_space == 0)
-        make_extra_space_in_list(list_val);
-
-    int value_count = list_val->num_values;
-
-    list_val->values[value_count] = lily_value_copy(insert_value);
-    list_val->num_values++;
-    list_val->extra_space--;
-
+    lily_list_insert(list_val, lily_con_size(list_val), insert_value);
     lily_return_unit(s);
 }
 
@@ -1940,28 +1834,20 @@ static void list_select_reject_common(lily_state *s, int expect)
     lily_container_val *list_val = lily_arg_container(s, 0);
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
+    lily_container_val *con = lily_push_list(s, 0);
 
-    int n = 0;
     int i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_push_value(s, list_val->values[i]);
         lily_call(s, 1);
 
-        int ok = lily_value_boolean(result) == expect;
+        int ok = lily_as_boolean(result) == expect;
 
-        if (ok) {
-            lily_push_value(s, list_val->values[i]);
-            n++;
-        }
+        if (ok)
+            lily_list_push(con, list_val->values[i]);
     }
 
-    lily_container_val *result_list = lily_new_list(n);
-
-    n--;
-    for (;n >= 0;n--)
-        lily_value_assign(result_list->values[n], lily_take_value(s));
-
-    lily_return_list(s, result_list);
+    lily_return_top(s);
 }
 
 /**
@@ -1991,13 +1877,13 @@ void lily_builtin_List_repeat(lily_state *s)
         lily_ValueError(s, "Repeat count must be >= 0 (%d given).", n);
 
     lily_value *to_repeat = lily_arg_value(s, 1);
-    lily_container_val *lv = lily_new_list(n);
+    lily_container_val *lv = lily_push_list(s, n);
 
     int i;
     for (i = 0;i < n;i++)
-        lily_value_assign(lv->values[i], to_repeat);
+        lily_con_set(lv, i, to_repeat);
 
-    lily_return_list(s, lv);
+    lily_return_top(s);
 }
 
 /**
@@ -2036,26 +1922,12 @@ void lily_builtin_List_shift(lily_state *s)
 {
     lily_container_val *list_val = lily_arg_container(s, 0);
 
-    if (list_val->num_values == 0)
+    if (lily_con_size(list_val) == 0)
         lily_IndexError(s, "Shift on an empty list.");
 
-    lily_value *source = list_val->values[0];
-
-    /* Similar to List.pop, the value is being taken out so use this custom
-       assign to keep the refcount the same. */
-    lily_return_value_noref(s, source);
-
-    /* For now, free extra values instead of trying to keep reserves around.
-       Not the best course of action, perhaps, but certainly the simplest. */
-    lily_free(list_val->values[0]);
-
-    if (list_val->num_values != 1)
-        memmove(list_val->values, list_val->values + 1,
-                (list_val->num_values - 1) *
-                sizeof(*list_val->values));
-
-    list_val->num_values--;
-    list_val->extra_space++;
+    lily_list_take(s, list_val, 0);
+    lily_return_top(s);
+    return;
 }
 
 /**
@@ -2075,7 +1947,7 @@ void lily_builtin_List_slice(lily_state *s)
 {
     lily_container_val *lv = lily_arg_container(s, 0);
     int start = 0;
-    int size = lily_container_num_values(lv);
+    int size = lily_con_size(lv);
     int stop = size;
 
     switch (lily_arg_count(s)) {
@@ -2091,19 +1963,20 @@ void lily_builtin_List_slice(lily_state *s)
     if (stop > size ||
         start > size ||
         start > stop) {
-        lily_return_list(s, lily_new_list(0));
+        lily_push_list(s, 0);
+        lily_return_top(s);
         return;
     }
 
     int new_size = (stop - start);
-    lily_container_val *new_lv = lily_new_list(new_size);
+    lily_container_val *new_lv = lily_push_list(s, new_size);
     int i, j;
 
     for (i = 0, j = start;i < new_size;i++, j++) {
-        lily_nth_set(new_lv, i, lily_nth_get(lv, j));
+        lily_con_set(new_lv, i, lily_con_get(lv, j));
     }
 
-    lily_return_list(s, new_lv);
+    lily_return_top(s);
 }
 
 /**
@@ -2116,17 +1989,7 @@ void lily_builtin_List_unshift(lily_state *s)
     lily_container_val *list_val = lily_arg_container(s, 0);
     lily_value *input_reg = lily_arg_value(s, 1);
 
-    if (list_val->extra_space == 0)
-        make_extra_space_in_list(list_val);
-
-    if (list_val->num_values != 0)
-        memmove(list_val->values + 1, list_val->values,
-                list_val->num_values * sizeof(*list_val->values));
-
-    list_val->values[0] = lily_value_copy(input_reg);
-
-    list_val->num_values++;
-    list_val->extra_space--;
+    lily_list_insert(list_val, 0, input_reg);
 }
 
 /**
@@ -2166,12 +2029,10 @@ Otherwise, this returns `None`.
 void lily_builtin_Option_and_then(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
         lily_call_prepare(s, lily_arg_function(s, 1));
-
-        lily_push_value(s, lily_arg_nth_get(s, 0, 0));
-
+        lily_push_value(s, lily_con_get(con, 0));
         lily_call(s, 1);
-
         lily_return_value(s, lily_call_result(s));
     }
     else
@@ -2212,14 +2073,14 @@ Otherwise, this returns `None`.
 void lily_builtin_Option_map(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
         lily_call_prepare(s, lily_arg_function(s, 1));
-
-        lily_push_value(s, lily_arg_nth_get(s, 0, 0));
+        lily_push_value(s, lily_con_get(con, 0));
         lily_call(s, 1);
 
-        lily_container_val *variant = lily_new_some();
-        lily_nth_set(variant, 0, lily_call_result(s));
-        lily_return_variant(s, variant);
+        lily_container_val *variant = lily_push_some(s);
+        lily_con_set(variant, 0, lily_call_result(s));
+        lily_return_top(s);
     }
     else
         lily_return_none(s);
@@ -2270,8 +2131,10 @@ If `self` is a `Some`, this returns the value contained within.
 */
 void lily_builtin_Option_unwrap(lily_state *s)
 {
-    if (lily_arg_is_some(s, 0))
-        lily_return_value(s, lily_arg_nth_get(s, 0, 0));
+    if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
+        lily_return_value(s, lily_con_get(con, 0));
+    }
     else
         lily_ValueError(s, "unwrap called on None.");
 }
@@ -2287,8 +2150,10 @@ void lily_builtin_Option_unwrap_or(lily_state *s)
 {
     lily_value *source;
 
-    if (lily_arg_is_some(s, 0))
-        source = lily_arg_nth_get(s, 0, 0);
+    if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
+        source = lily_con_get(con, 0);
+    }
     else
         source = lily_arg_value(s, 1);
 
@@ -2304,8 +2169,10 @@ Otherwise, this returns the result of calling `fn`.
 */
 void lily_builtin_Option_unwrap_or_else(lily_state *s)
 {
-    if (lily_arg_is_some(s, 0))
-        lily_return_value(s, lily_arg_nth_get(s, 0, 0));
+    if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
+        lily_return_value(s, lily_con_get(con, 0));
+    }
     else {
         lily_call_prepare(s, lily_arg_function(s, 1));
         lily_call(s, 0);
@@ -2327,9 +2194,11 @@ Examples of that include a database query or a more humble rpn calculator.
 static void result_optionize(lily_state *s, int expect)
 {
     if (lily_arg_is_success(s, 0) == expect) {
-        lily_container_val *variant = lily_new_some();
-        lily_nth_set(variant, 0, lily_arg_nth_get(s, 0, 0));
-        lily_return_variant(s, variant);
+        lily_container_val *con = lily_arg_container(s, 0);
+
+        lily_container_val *variant = lily_push_some(s);
+        lily_con_set(variant, 0, lily_con_get(con, 0));
+        lily_return_top(s);
     }
     else
         lily_return_none(s);
@@ -2439,7 +2308,7 @@ void lily_builtin_String_format(lily_state *s)
     const char *fmt = lily_arg_string_raw(s, 0);
     lily_container_val *lv = lily_arg_container(s, 1);
 
-    int lsize = lily_container_num_values(lv);
+    int lsize = lily_con_size(lv);
     lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
 
     int idx, last_idx = 0;
@@ -2481,7 +2350,7 @@ void lily_builtin_String_format(lily_state *s)
             idx++;
             last_idx = idx;
 
-            lily_value *v = lily_nth_get(lv, total);
+            lily_value *v = lily_con_get(lv, total);
             lily_mb_add_value(msgbuf, s, v);
         }
         else {
@@ -2490,7 +2359,8 @@ void lily_builtin_String_format(lily_state *s)
         }
     }
 
-    lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
+    lily_push_string(s, lily_mb_get(msgbuf));
+    lily_return_top(s);
 }
 
 /**
@@ -2589,9 +2459,12 @@ void lily_builtin_String_find(lily_state *s)
     }
 
     if (match) {
-        lily_container_val *variant = lily_new_some();
-        lily_nth_set(variant, 0, lily_box_integer(s, i));
-        lily_return_variant(s, variant);
+        lily_container_val *variant = lily_push_some(s);
+
+        lily_push_integer(s, i);
+        lily_con_set_from_stack(s, variant, 0);
+
+        lily_return_top(s);
     }
     else
         lily_return_none(s);
@@ -2610,7 +2483,7 @@ If not found, `self` is returned.
 void lily_builtin_String_html_encode(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-    const char *raw = lily_value_string_raw(input_arg);
+    const char *raw = lily_as_string_raw(input_arg);
     lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
 
     /* If nothing was escaped, output what was input. */
@@ -2618,8 +2491,10 @@ void lily_builtin_String_html_encode(lily_state *s)
         /* The `String` given may be a cached literal, so return the input arg
            instead of making a new `String`. */
         lily_return_value(s, input_arg);
-    else
-        lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
+    else {
+        lily_push_string(s, lily_mb_get(msgbuf));
+        lily_return_top(s);
+    }
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
@@ -2687,25 +2562,19 @@ Checks if any characters within `self` are within [A-Z]. If so, it creates a new
 void lily_builtin_String_lower(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-
-    int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
-
-    char *new_str = new_sv->string;
-    char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
     int i;
 
-    for (i = 0;i < input_length;i++) {
-        char ch = input_str[i];
-        if (isupper(ch))
-            new_str[i] = tolower(ch);
-        else
-            new_str[i] = ch;
-    }
-    new_str[input_length] = '\0';
+    lily_push_string(s, lily_as_string_raw(input_arg));
+    char *raw_out = lily_as_string_raw(lily_stack_top(s));
 
-    lily_return_string(s, new_sv);
+    for (i = 0;i < input_length;i++) {
+        char ch = raw_out[i];
+        if (isupper(ch))
+            raw_out[i] = tolower(ch);
+    }
+
+    lily_return_top(s);
 }
 
 /* This is a helper for lstrip wherein input_arg has some utf-8 bits inside. */
@@ -2872,12 +2741,11 @@ void lily_builtin_String_lstrip(lily_state *s)
     else
         copy_from = lstrip_utf8_start(input_arg, strip_sv);
 
-    int new_size = (input_arg->value.string->size - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
+    const char *raw = input_arg->value.string->string + copy_from;
+    int size = input_arg->value.string->size;
 
-    strcpy(new_sv->string, input_arg->value.string->string + copy_from);
-
-    lily_return_string(s, new_sv);
+    lily_push_string_sized(s, raw, size - copy_from);
+    lily_return_top(s);
 }
 
 /**
@@ -2936,9 +2804,12 @@ void lily_builtin_String_parse_i(lily_state *s)
         else
             signed_value = -(int64_t)value;
 
-        lily_container_val *variant = lily_new_some();
-        lily_nth_set(variant, 0, lily_box_integer(s, signed_value));
-        lily_return_variant(s, variant);
+        lily_container_val *variant = lily_push_some(s);
+
+        lily_push_integer(s, signed_value);
+        lily_con_set_from_stack(s, variant, 0);
+
+        lily_return_top(s);
     }
 }
 
@@ -2955,7 +2826,7 @@ void lily_builtin_String_replace(lily_state *s)
     int needle_len = lily_string_length(needle_sv);
 
     if (needle_len > source_len) {
-        lily_return_string(s, source_sv);
+        lily_return_value(s, lily_arg_value(s, 0));
         return;
     }
 
@@ -2993,7 +2864,8 @@ void lily_builtin_String_replace(lily_state *s)
     if (i != start)
         lily_mb_add_slice(msgbuf, source, start, i);
 
-    lily_return_string(s, lily_new_string(lily_mb_get(msgbuf)));
+    lily_push_string(s, lily_mb_get(msgbuf));
+    lily_return_top(s);
 }
 
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
@@ -3129,14 +3001,10 @@ void lily_builtin_String_rstrip(lily_state *s)
     else
         copy_to = rstrip_utf8_stop(input_arg, strip_sv);
 
-    int new_size = copy_to + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
+    const char *raw = input_arg->value.string->string;
 
-    strncpy(new_sv->string, input_arg->value.string->string, copy_to);
-    /* This will always copy a partial string, so make sure to add a terminator. */
-    new_sv->string[copy_to] = '\0';
-
-    lily_return_string(s, new_sv);
+    lily_push_string_sized(s, raw, copy_to);
+    lily_return_top(s);
 }
 
 static const char move_table[256] =
@@ -3160,8 +3028,7 @@ static const char move_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-static lily_container_val *string_split_by_val(lily_state *s, char *input,
-        char *splitby)
+static void string_split_by_val(lily_state *s, char *input, char *splitby)
 {
     char *input_ch = &input[0];
     char *splitby_ch = &splitby[0];
@@ -3193,7 +3060,7 @@ static lily_container_val *string_split_by_val(lily_state *s, char *input,
 
     values_needed++;
     input_ch = &input[0];
-    lily_container_val *list_val = lily_new_list(values_needed);
+    lily_container_val *list_val = lily_push_list(s, values_needed);
     int i = 0;
     char *last_start = input_ch;
 
@@ -3222,8 +3089,8 @@ static lily_container_val *string_split_by_val(lily_state *s, char *input,
            Ex: "1 2 3 ".split(" ") # ["1", "2", "3", ""] */
         if (is_match || *input_ch == '\0') {
             int size = match_start - last_start;
-            lily_string_val *sv = lily_new_string_sized(last_start, size);
-            lily_nth_set(list_val, i, lily_box_string(s, sv));
+            lily_push_string_sized(s, last_start, size);
+            lily_con_set_from_stack(s, list_val, i);
 
             i++;
             if (*input_ch == '\0')
@@ -3236,8 +3103,6 @@ static lily_container_val *string_split_by_val(lily_state *s, char *input,
 
         input_ch++;
     }
-
-    return list_val;
 }
 
 /**
@@ -3287,10 +3152,8 @@ void lily_builtin_String_split(lily_state *s)
         split_strval = &fake_sv;
     }
 
-    lily_container_val *lv = string_split_by_val(s, input_strval->string,
-            split_strval->string);
-
-    lily_return_list(s, lv);
+    string_split_by_val(s, input_strval->string, split_strval->string);
+    lily_return_top(s);
 }
 
 /**
@@ -3373,14 +3236,9 @@ void lily_builtin_String_strip(lily_state *s)
            result is an empty string. */
         copy_to = copy_from;
 
-    int new_size = (copy_to - copy_from) + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
-
-    char *new_str = new_sv->string;
-    strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
-    new_str[new_size - 1] = '\0';
-
-    lily_return_string(s, new_sv);
+    const char *raw = input_arg->value.string->string + copy_from;
+    lily_push_string_sized(s, raw, copy_to - copy_from);
+    lily_return_top(s);
 }
 
 /**
@@ -3393,7 +3251,9 @@ void lily_builtin_String_to_bytestring(lily_state *s)
 {
     /* They currently have the same internal representation. This method is
        provided for the type system. */
-    lily_return_bytestring(s, (lily_bytestring_val *)lily_arg_string(s, 0));
+    lily_string_val *sv = lily_arg_string(s, 0);
+    lily_push_bytestring(s, lily_string_raw(sv), lily_string_length(sv));
+    lily_return_top(s);
 }
 
 /**
@@ -3413,24 +3273,18 @@ void lily_builtin_String_trim(lily_state *s)
     fake_sv.size = strlen(fake_buffer);
 
     int copy_from = lstrip_ascii_start(input_arg, &fake_sv);
-    lily_string_val *new_sv;
 
     if (copy_from != input_arg->value.string->size) {
         int copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
-        int new_size = (copy_to - copy_from) + 1;
-        new_sv = make_sv(s, new_size);
-        char *new_str = new_sv->string;
-
-        strncpy(new_str, input_arg->value.string->string + copy_from, new_size - 1);
-        new_str[new_size - 1] = '\0';
+        const char *raw = input_arg->value.string->string;
+        lily_push_string_sized(s, raw + copy_from, copy_to - copy_from);
     }
     else {
         /* It's all space, so make a new empty string. */
-        new_sv = make_sv(s, 1);
-        new_sv->string[0] = '\0';
+        lily_push_string(s, "");
     }
 
-    lily_return_string(s, new_sv);
+    lily_return_top(s);
 }
 
 /**
@@ -3442,25 +3296,19 @@ Checks if any characters within self are within [a-z]. If so, it creates a new
 void lily_builtin_String_upper(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-
-    int new_size = input_arg->value.string->size + 1;
-    lily_string_val *new_sv = make_sv(s, new_size);
-
-    char *new_str = new_sv->string;
-    char *input_str = input_arg->value.string->string;
     int input_length = input_arg->value.string->size;
     int i;
 
-    for (i = 0;i < input_length;i++) {
-        char ch = input_str[i];
-        if (islower(ch))
-            new_str[i] = toupper(ch);
-        else
-            new_str[i] = ch;
-    }
-    new_str[input_length] = '\0';
+    lily_push_string(s, lily_as_string_raw(input_arg));
+    char *raw_out = lily_as_string_raw(lily_stack_top(s));
 
-    lily_return_string(s, new_sv);
+    for (i = 0;i < input_length;i++) {
+        char ch = raw_out[i];
+        if (islower(ch))
+            raw_out[i] = toupper(ch);
+    }
+
+    lily_return_top(s);
 }
 
 /**
@@ -3487,27 +3335,26 @@ void lily_builtin_ValueError_new(lily_state *s)
     return_exception(s, LILY_VALUEERROR_ID);
 }
 
-static lily_file_val *new_builtin_file(FILE *source, const char *mode)
+static void new_builtin_file(lily_state *s, FILE *source, const char *mode)
 {
-    lily_file_val *file_val = lily_new_file(source, mode);
+    lily_push_file(s, source, mode);
+    lily_file_val *file_val = lily_as_file(lily_stack_top(s));
     file_val->is_builtin = 1;
-
-    return file_val;
 }
 
 void lily_builtin_var_stdin(lily_state *s)
 {
-    lily_push_file(s, new_builtin_file(stdin, "r"));
+    new_builtin_file(s, stdin, "r");
 }
 
 void lily_builtin_var_stdout(lily_state *s)
 {
-    lily_push_file(s, new_builtin_file(stdout, "w"));
+    new_builtin_file(s, stdout, "w");
 }
 
 void lily_builtin_var_stderr(lily_state *s)
 {
-    lily_push_file(s, new_builtin_file(stderr, "w"));
+    new_builtin_file(s, stderr, "w");
 }
 
 static lily_class *build_class(lily_symtab *symtab, const char *name,

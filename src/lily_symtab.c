@@ -5,6 +5,7 @@
 #include "lily_vm.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
+#include "lily_value_raw.h"
 
 #include "lily_api_value.h"
 
@@ -221,7 +222,6 @@ static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    bv->refcount++;
     v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
     v->value.string = (lily_string_val *)bv;
     return v;
@@ -249,7 +249,6 @@ static lily_value *new_value_of_string(lily_string_val *sv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    sv->refcount++;
     v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
@@ -347,7 +346,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_bytestring_val *sv = lily_new_bytestring_sized(want_string, len);
+    lily_bytestring_val *sv = lily_new_bytestring_raw(want_string, len);
     lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
@@ -381,7 +380,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     if (iter)
         iter->next_index = lily_vs_pos(symtab->literals);
 
-    lily_string_val *sv = lily_new_string(want_string);
+    lily_string_val *sv = lily_new_string_raw(want_string);
     lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
     /* Drop the derefable marker. */

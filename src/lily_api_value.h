@@ -48,10 +48,8 @@ lily_destroy_func destroy_func;
    function should not have any side-effects. */
 typedef void (*lily_destroy_func)(lily_generic_val *);
 
-/* These lily_arg_* functions return the Nth argument passed to the current
-   function, with 0 being the first argument.
-   lily_arg_nth_get gets the container located at the first index, then the
-   container's value at the second index. */
+/* These functions fetch values from the start of the stack of the current
+   frame, with 0 being the first argument. */
 int                  lily_arg_boolean   (lily_state *, int);
 uint8_t              lily_arg_byte      (lily_state *, int);
 lily_bytestring_val *lily_arg_bytestring(lily_state *, int);
@@ -61,11 +59,65 @@ lily_file_val *      lily_arg_file      (lily_state *, int);
 lily_function_val *  lily_arg_function  (lily_state *, int);
 lily_generic_val *   lily_arg_generic   (lily_state *, int);
 lily_hash_val *      lily_arg_hash      (lily_state *, int);
-lily_value *         lily_arg_nth_get   (lily_state *, int, int);
 int64_t              lily_arg_integer   (lily_state *, int);
 lily_string_val *    lily_arg_string    (lily_state *, int);
 char *               lily_arg_string_raw(lily_state *, int);
 lily_value *         lily_arg_value     (lily_state *, int);
+
+/* Push a value into the vm. Some of these return the value so that content can
+   be added. */
+void                lily_push_boolean      (lily_state *, int);
+void                lily_push_byte         (lily_state *, uint8_t);
+void                lily_push_bytestring   (lily_state *, const char *, int);
+void                lily_push_double       (lily_state *, double);
+lily_container_val *lily_push_dynamic      (lily_state *);
+void                lily_push_empty_variant(lily_state *, uint16_t);
+lily_container_val *lily_push_failure      (lily_state *);
+void                lily_push_file         (lily_state *, FILE *, const char *);
+lily_foreign_val *  lily_push_foreign      (lily_state *, uint16_t,
+                                            lily_destroy_func, size_t);
+lily_hash_val *     lily_push_hash_integer (lily_state *, int);
+lily_hash_val *     lily_push_hash_like    (lily_state *, lily_hash_val *, int);
+lily_hash_val *     lily_push_hash_string  (lily_state *, int);
+lily_container_val *lily_push_instance     (lily_state *, uint16_t, uint32_t);
+void                lily_push_integer      (lily_state *, int64_t);
+lily_container_val *lily_push_list         (lily_state *, int);
+void                lily_push_none         (lily_state *);
+void                lily_push_string       (lily_state *, const char *);
+void                lily_push_string_sized (lily_state *, const char *, int);
+lily_container_val *lily_push_some         (lily_state *);
+lily_container_val *lily_push_success      (lily_state *);
+lily_container_val *lily_push_super        (lily_state *, uint16_t, uint32_t);
+lily_container_val *lily_push_tuple        (lily_state *, int);
+void                lily_push_unit         (lily_state *);
+void                lily_push_value        (lily_state *, lily_value *);
+lily_container_val *lily_push_variant      (lily_state *, uint16_t, int);
+
+/* Return some value from the current foreign function. Callers will typically
+   finish with one extra value on the stack and should use `lily_return_top`. */
+void lily_return_boolean(lily_state *, int);
+void lily_return_byte   (lily_state *, uint8_t);
+void lily_return_double (lily_state *, double);
+void lily_return_integer(lily_state *, int64_t);
+void lily_return_none   (lily_state *);
+void lily_return_super  (lily_state *);
+void lily_return_top    (lily_state *);
+void lily_return_unit   (lily_state *);
+void lily_return_value  (lily_state *, lily_value *);
+
+/* Return the content of a value. No safety checking is performed. */
+int                  lily_as_boolean   (lily_value *);
+uint8_t              lily_as_byte      (lily_value *);
+lily_bytestring_val *lily_as_bytestring(lily_value *);
+lily_container_val * lily_as_container (lily_value *);
+double               lily_as_double    (lily_value *);
+lily_file_val *      lily_as_file      (lily_value *);
+lily_function_val *  lily_as_function  (lily_value *);
+lily_generic_val *   lily_as_generic   (lily_value *);
+lily_hash_val *      lily_as_hash      (lily_value *);
+int64_t              lily_as_integer   (lily_value *);
+lily_string_val *    lily_as_string    (lily_value *);
+char *               lily_as_string_raw(lily_value *);
 
 /* # of args passed to the function.
    Note: Functions taking a variable number of arguments will wrap their extra
@@ -76,135 +128,6 @@ uint16_t lily_arg_class_id(lily_state *, int);
 int lily_arg_is_some(lily_state *, int);
 int lily_arg_is_success(lily_state *, int);
 
-/* The interpreter carries a single intermediate register, shared by all
-   functions. These functions insert a raw value into it, then return that
-   intermediate register. */
-lily_value *lily_box_boolean      (lily_state *, int);
-lily_value *lily_box_byte         (lily_state *, uint8_t);
-lily_value *lily_box_bytestring   (lily_state *, lily_bytestring_val *);
-lily_value *lily_box_double       (lily_state *, double);
-lily_value *lily_box_empty_variant(lily_state *, uint16_t);
-lily_value *lily_box_file         (lily_state *, lily_file_val *);
-lily_value *lily_box_foreign      (lily_state *, lily_foreign_val *);
-lily_value *lily_box_hash         (lily_state *, lily_hash_val *);
-lily_value *lily_box_instance     (lily_state *, lily_container_val *);
-lily_value *lily_box_integer      (lily_state *, int64_t);
-lily_value *lily_box_list         (lily_state *, lily_container_val *);
-lily_value *lily_box_none         (lily_state *);
-lily_value *lily_box_string       (lily_state *, lily_string_val *);
-lily_value *lily_box_tuple        (lily_state *, lily_container_val *);
-lily_value *lily_box_unit         (lily_state *);
-lily_value *lily_box_value        (lily_state *, lily_value *);
-lily_value *lily_box_variant      (lily_state *, lily_container_val *);
-
-/* Operations for specific kinds of values. */
-
-/* ByteString operations */
-lily_bytestring_val *lily_new_bytestring_sized(const char *, int);
-char *lily_bytestring_raw(lily_bytestring_val *);
-int lily_bytestring_length(lily_bytestring_val *);
-
-/* Container operations
-   Any lily_new_* function that returns lily_container_val can use these. */
-uint32_t lily_container_num_values(lily_container_val *);
-lily_value *lily_boxed_nth_get(lily_value *, int);
-lily_value *lily_nth_get(lily_container_val *, int);
-void lily_boxed_nth_set(lily_value *, int, lily_value *);
-void lily_nth_set(lily_container_val *, int, lily_value *);
-
-/* Dynamic operations */
-lily_container_val *lily_new_dynamic(void);
-
-/* File operations */
-lily_file_val *lily_new_file(FILE *, const char *);
-FILE *lily_file_for_read(lily_state *, lily_file_val *);
-FILE *lily_file_for_write(lily_state *, lily_file_val *);
-
-/* Foreign operations */
-lily_foreign_val *lily_new_foreign(lily_state *, uint16_t, lily_destroy_func,
-        size_t);
-
-/* Function operations */
-int lily_function_is_foreign(lily_function_val *);
-int lily_function_is_native(lily_function_val *);
-
-/* Instance operations */
-lily_container_val *lily_new_instance(uint16_t, int);
-/* Call this if your function acts as a constructor. This pushes a value to the
-   top of the stack, and you should return that value. */
-void lily_instance_super(lily_state *, lily_container_val **, uint16_t, uint32_t);
-
-/* Hash operations */
-lily_hash_val *lily_new_hash_numtable(void);
-lily_hash_val *lily_new_hash_numtable_sized(int);
-lily_hash_val *lily_new_hash_strtable(void);
-lily_hash_val *lily_new_hash_strtable_sized(int);
-lily_hash_val *lily_new_hash_like_sized(lily_hash_val *, int);
-lily_value *lily_hash_find_value(lily_hash_val *, lily_value *);
-void lily_hash_insert_value(lily_hash_val *, lily_value *, lily_value *);
-void lily_hash_insert_str(lily_hash_val *, lily_string_val *, lily_value *);
-int lily_hash_delete(lily_hash_val *, lily_value **, lily_value **);
-
-/* List operations */
-lily_container_val *lily_new_list(int);
-
-/* String operations */
-lily_string_val *lily_new_string(const char *);
-lily_string_val *lily_new_string_sized(const char *, int);
-char *lily_string_raw(lily_string_val *);
-int lily_string_length(lily_string_val *);
-/* Return 1 if a given string is valid utf-8, 0 otherwise. */
-int lily_is_valid_utf8(const char *);
-
-/* Tuple operations */
-lily_container_val *lily_new_tuple(int);
-
-/* Enum operations */
-lily_container_val *lily_new_some(void);
-lily_container_val *lily_new_failure(void);
-lily_container_val *lily_new_success(void);
-lily_container_val *lily_new_variant(uint16_t, int);
-
-/* Stack operations (defined within the vm) */
-lily_value *lily_take_value(lily_state *);
-void lily_pop_value(lily_state *);
-void lily_push_boolean      (lily_state *, int);
-void lily_push_byte         (lily_state *, uint8_t);
-void lily_push_bytestring   (lily_state *, lily_bytestring_val *);
-void lily_push_double       (lily_state *, double);
-void lily_push_empty_variant(lily_state *, uint16_t);
-void lily_push_file         (lily_state *, lily_file_val *);
-void lily_push_foreign      (lily_state *, lily_foreign_val *);
-void lily_push_hash         (lily_state *, lily_hash_val *);
-void lily_push_instance     (lily_state *, lily_container_val *);
-void lily_push_integer      (lily_state *, int64_t);
-void lily_push_list         (lily_state *, lily_container_val *);
-void lily_push_none         (lily_state *);
-void lily_push_string       (lily_state *, lily_string_val *);
-void lily_push_tuple        (lily_state *, lily_container_val *);
-void lily_push_unit         (lily_state *);
-void lily_push_value        (lily_state *, lily_value *);
-void lily_push_variant      (lily_state *, lily_container_val *);
-
-void lily_return_boolean      (lily_state *, int);
-void lily_return_byte         (lily_state *, uint8_t);
-void lily_return_bytestring   (lily_state *, lily_bytestring_val *);
-void lily_return_double       (lily_state *, double);
-void lily_return_empty_variant(lily_state *, uint16_t);
-void lily_return_file         (lily_state *, lily_file_val *);
-void lily_return_foreign      (lily_state *, lily_foreign_val *);
-void lily_return_hash         (lily_state *, lily_hash_val *);
-void lily_return_instance     (lily_state *, lily_container_val *);
-void lily_return_integer      (lily_state *, int64_t);
-void lily_return_list         (lily_state *, lily_container_val *);
-void lily_return_none         (lily_state *);
-void lily_return_string       (lily_state *, lily_string_val *);
-void lily_return_tuple        (lily_state *, lily_container_val *);
-void lily_return_unit         (lily_state *);
-void lily_return_value        (lily_state *, lily_value *);
-void lily_return_variant      (lily_state *, lily_container_val *);
-void lily_return_value_noref  (lily_state *, lily_value *);
-
 /* Calling into the vm.
    Functions that call into the vm from inside of it must use lily_call_prepare
    exactly once beforehand. Call prepare pushes one value onto the stack that
@@ -213,26 +136,43 @@ void lily_call(lily_state *, int);
 void lily_call_prepare(lily_state *, lily_function_val *);
 lily_value *lily_call_result(lily_state *);
 
-int                  lily_value_boolean   (lily_value *);
-uint8_t              lily_value_byte      (lily_value *);
-lily_bytestring_val *lily_value_bytestring(lily_value *);
-lily_container_val * lily_value_container (lily_value *);
-double               lily_value_double    (lily_value *);
-lily_file_val *      lily_value_file      (lily_value *);
-lily_function_val *  lily_value_function  (lily_value *);
-lily_generic_val *   lily_value_generic   (lily_value *);
-lily_hash_val *      lily_value_hash      (lily_value *);
-int64_t              lily_value_integer   (lily_value *);
-lily_string_val *    lily_value_string    (lily_value *);
-char *               lily_value_string_raw(lily_value *);
+/* Operations for specific kinds of values. */
 
-/* Do an action to a proper value. */
-void lily_deref(lily_value *);
-void lily_value_assign(lily_value *, lily_value *);
-lily_value *lily_value_copy(lily_value *);
-int lily_value_compare(lily_state *, lily_value *, lily_value *);
-void lily_value_tag(lily_state *, lily_value *);
-int lily_value_is_derefable(lily_value *);
+/* ByteString operations */
+char *lily_bytestring_raw(lily_bytestring_val *);
+int lily_bytestring_length(lily_bytestring_val *);
+
+/* Container operations
+   These are valid on any container and assume a proper size. */
+lily_value *lily_con_get(lily_container_val *, int);
+void lily_con_set(lily_container_val *, int, lily_value *);
+void lily_con_set_from_stack(lily_state *, lily_container_val *, int);
+uint32_t lily_con_size(lily_container_val *);
+
+/* File operations */
+FILE *lily_file_for_read(lily_state *, lily_file_val *);
+FILE *lily_file_for_write(lily_state *, lily_file_val *);
+
+/* Function operations */
+int lily_function_is_foreign(lily_function_val *);
+int lily_function_is_native(lily_function_val *);
+
+/* Hash operations */
+lily_value *lily_hash_get(lily_hash_val *, lily_value *);
+void lily_hash_set(lily_hash_val *, lily_value *, lily_value *);
+void lily_hash_set_from_stack(lily_state *, lily_hash_val *);
+int lily_hash_take(lily_state *, lily_hash_val *, lily_value *);
+
+/* List operations
+   Lists are containers, but these operations should only be used on a List. */
+void lily_list_insert(lily_container_val *, int, lily_value *);
+void lily_list_reserve(lily_container_val *, int);
+void lily_list_take(lily_state *, lily_container_val *, int);
+void lily_list_push(lily_container_val *, lily_value *);
+
+/* String operations */
+char *lily_string_raw(lily_string_val *);
+int lily_string_length(lily_string_val *);
 
 /* Raise an exception within the interpreter. */
 void lily_DivisionByZeroError(lily_state *, const char *, ...);
@@ -241,6 +181,17 @@ void lily_IOError(lily_state *, const char *, ...);
 void lily_KeyError(lily_state *, const char *, ...);
 void lily_RuntimeError(lily_state *, const char *, ...);
 void lily_ValueError(lily_state *, const char *, ...);
+
+/* Stack operations */
+void lily_stack_delete_top(lily_state *);
+lily_value *lily_stack_top(lily_state *);
+
+/* Do an action to a proper value. */
+int lily_value_compare(lily_state *, lily_value *, lily_value *);
+void lily_value_tag(lily_state *, lily_value *);
+
+/* Return 1 if a given string is valid utf-8, 0 otherwise. */
+int lily_is_valid_utf8(const char *);
 
 /* For use by autogen sections only. */
 uint16_t lily_cid_at(lily_state *, int);

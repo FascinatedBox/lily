@@ -79,7 +79,7 @@ typedef struct lily_random_Random_ {
 (lily_random_Random *)lily_arg_generic(state, index)
 #define ID_Random(state) lily_cid_at(state, 0)
 #define INIT_Random(state)\
-(lily_random_Random *) lily_new_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
+(lily_random_Random *) lily_push_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
 
 const char *lily_random_table[] = {
     "\01Random\0"
@@ -137,7 +137,7 @@ void lily_random_Random_new(lily_state *s)
         r->mt[mti] = (6364136223846793005ULL * (r->mt[mti-1] ^ (r->mt[mti-1] >> 62)) + mti);
 
     r->mti = mti;
-    lily_return_foreign(s, (lily_foreign_val *)r);
+    lily_return_top(s);
 }
 
 /* generates a random number on [0, 2^64-1]-interval */

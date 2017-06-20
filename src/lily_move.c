@@ -1,6 +1,7 @@
 #include "lily_core_types.h"
 #include "lily_value_structs.h"
 #include "lily_value_flags.h"
+#include "lily_value_raw.h"
 
 #include "lily_api_value.h"
 
@@ -30,7 +31,6 @@ void lily_move_##name(lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = z; \
     v->flags = f; \
 }
@@ -41,7 +41,6 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = z; \
     v->flags = (f | type_flag); \
 }
@@ -52,7 +51,6 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = z; \
     v->flags = (z->class_id | f | type_flag); \
 }
@@ -63,7 +61,6 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = z; \
     v->flags = (f | type_flag); \
 }
@@ -74,7 +71,6 @@ void lily_move_##name(lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = (cast_type)z; \
     v->flags = type_flag; \
 }
@@ -85,7 +81,6 @@ void lily_move_##name##_f(uint32_t f, lily_value *v, in_type z) \
     if (v->flags & VAL_IS_DEREFABLE) \
         lily_deref(v); \
 \
-    z->refcount++; \
     v->value.field = (cast_type)z; \
     v->flags = (f | type_flag); \
 }

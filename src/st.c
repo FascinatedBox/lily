@@ -7,6 +7,7 @@
 #include "lily_core_types.h"
 #include "lily_value_structs.h"
 #include "lily_alloc.h"
+#include "lily_value_raw.h"
 
 #include "lily_api_value.h"
 
@@ -106,7 +107,7 @@ static lily_hash_val *new_table_sized(int size, int (*compare_fn)(),
     size = new_size(size); /* round up to prime number */
 
     tbl = lily_malloc(sizeof(*tbl));
-    tbl->refcount = 0;
+    tbl->refcount = 1;
     tbl->iter_count = 0;
     tbl->compare_fn = compare_fn;
     tbl->hash_fn = hash_fn;
@@ -116,11 +117,6 @@ static lily_hash_val *new_table_sized(int size, int (*compare_fn)(),
     memset(tbl->bins, 0, size * sizeof(*tbl->bins));
 
     return tbl;
-}
-
-static lily_hash_val *new_table(int (*compare_fn)(), int (*hash_fn)())
-{
-    return new_table_sized(0, compare_fn, hash_fn);
 }
 
 static int strhash(char *string)
@@ -144,27 +140,17 @@ static int numhash(int n)
     return n;
 }
 
-lily_hash_val *lily_new_hash_numtable(void)
-{
-    return new_table(numcmp, numhash);
-}
-
-lily_hash_val *lily_new_hash_numtable_sized(int size)
+lily_hash_val *lily_new_hash_integer_raw(int size)
 {
     return new_table_sized(size, numcmp, numhash);
 }
 
-lily_hash_val *lily_new_hash_strtable(void)
-{
-    return new_table(strcmp, strhash);
-}
-
-lily_hash_val *lily_new_hash_strtable_sized(int size)
+lily_hash_val *lily_new_hash_string_raw(int size)
 {
     return new_table_sized(size, strcmp, strhash);
 }
 
-lily_hash_val *lily_new_hash_like_sized(lily_hash_val *other, int size)
+lily_hash_val *lily_new_hash_like_raw(lily_hash_val *other, int size)
 {
     return new_table_sized(size, other->compare_fn, other->hash_fn);
 }
@@ -194,34 +180,29 @@ static void rehash(lily_hash_val *table)
     table->bins = new_bins;
 }
 
-int lily_hash_delete(lily_hash_val *table, lily_value **boxed_key,
-        lily_value **record)
+int lily_hash_take(lily_state *s, lily_hash_val *table, lily_value *search_key)
 {
     unsigned int hash_val;
     lily_hash_entry *tmp, *ptr;
     char *raw_key;
 
     if (table->compare_fn == numcmp)
-        raw_key = (char *)(*boxed_key)->value.integer;
+        raw_key = (char *)search_key->value.integer;
     else
-        raw_key = (*boxed_key)->value.string->string;
+        raw_key = search_key->value.string->string;
 
     hash_val = do_hash_bin(raw_key, table);
     ptr = table->bins[hash_val];
 
-    if (ptr == 0) {
-        if (record != 0)
-            *record = 0;
+    if (ptr == 0)
         return 0;
-    }
 
     if (EQUAL(table, raw_key, ptr->raw_key)) {
         table->bins[hash_val] = ptr->next;
         table->num_entries--;
-        if (record != 0)
-            *record = ptr->record;
 
-        *boxed_key = ptr->boxed_key;
+        lily_stack_push_and_destroy(s, ptr->boxed_key);
+        lily_stack_push_and_destroy(s, ptr->record);
         lily_free(ptr);
         return 1;
     }
@@ -231,10 +212,9 @@ int lily_hash_delete(lily_hash_val *table, lily_value **boxed_key,
             tmp = ptr->next;
             ptr->next = ptr->next->next;
             table->num_entries--;
-            if (record != 0)
-                *record = tmp->record;
 
-            *boxed_key = tmp->boxed_key;
+            lily_stack_push_and_destroy(s, ptr->boxed_key);
+            lily_stack_push_and_destroy(s, ptr->record);
             lily_free(tmp);
             return 1;
         }
@@ -243,7 +223,7 @@ int lily_hash_delete(lily_hash_val *table, lily_value **boxed_key,
     return 0;
 }
 
-void lily_hash_insert_value(register lily_hash_val *table,
+void lily_hash_set(register lily_hash_val *table,
         lily_value *boxed_key, lily_value *record)
 {
     unsigned int hash_val, bin_pos;
@@ -270,17 +250,21 @@ void lily_hash_insert_value(register lily_hash_val *table,
     }
 }
 
-void lily_hash_insert_str(register lily_hash_val *table, lily_string_val *key,
-        lily_value *record)
+void lily_hash_set_from_stack(lily_state *s, lily_hash_val *table)
 {
-    lily_value boxed_key;
-    boxed_key.flags = LILY_STRING_ID;
-    boxed_key.value.string = key;
+    lily_value *record = lily_stack_take(s);
+    lily_value *key = lily_stack_take(s);
 
-    lily_hash_insert_value(table, &boxed_key, record);
+    lily_hash_set(table, key, record);
+
+    lily_deref(record);
+    record->flags = 0;
+
+    lily_deref(key);
+    key->flags = 0;
 }
 
-lily_value *lily_hash_find_value(lily_hash_val *table, lily_value *boxed_key)
+lily_value *lily_hash_get(lily_hash_val *table, lily_value *boxed_key)
 {
     unsigned int hash_val, bin_pos;
     register lily_hash_entry *ptr;

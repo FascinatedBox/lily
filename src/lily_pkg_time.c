@@ -18,7 +18,7 @@ typedef struct lily_time_Time_ {
 (lily_time_Time *)lily_arg_generic(state, index)
 #define ID_Time(state) lily_cid_at(state, 0)
 #define INIT_Time(state)\
-(lily_time_Time *) lily_new_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
+(lily_time_Time *) lily_push_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
 
 const char *lily_time_table[] = {
     "\01Time\0"
@@ -87,7 +87,7 @@ void lily_time_Time_now(lily_state *s)
     time_info = localtime(&raw_time);
     t->local = *time_info;
 
-    lily_return_foreign(s, (lily_foreign_val *)t);
+    lily_return_top(s);
 }
 
 /**
@@ -106,7 +106,8 @@ void lily_time_Time_to_s(lily_state *s)
 
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %z", &t->local);
 
-    lily_return_string(s, lily_new_string(buf));
+    lily_push_string(s, buf);
+    lily_return_top(s);
 }
 
 /**
