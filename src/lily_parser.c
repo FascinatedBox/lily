@@ -2263,39 +2263,14 @@ static void check_valid_close_tok(lily_parse_state *parser)
    just an operator. */
 static int maybe_digit_fixup(lily_parse_state *parser)
 {
-    /* The lexer records where the last digit scan started. So check if it
-       started with '+' or '-'. */
-    lily_lex_state *lex = parser->lex;
-    char ch = lex->input_buffer[lex->last_digit_start];
     int fixed = 0;
+    int is_positive = parser->lex->last_integer >= 0;
 
-    if (ch == '-' || ch == '+') {
-        int expr_op;
-
-        if (ch == '-')
-            expr_op = parser_tok_table[tk_minus].expr_op;
+    if (lily_lexer_digit_rescan(parser->lex)) {
+        if (is_positive)
+            lily_es_push_binary_op(parser->expr, expr_plus);
         else
-            expr_op = parser_tok_table[tk_plus].expr_op;
-
-        lily_es_push_binary_op(parser->expr, (lily_expr_op)expr_op);
-        /* Call this to force a rescan from the proper starting point, yielding
-           a proper new token. */
-        lily_lexer_digit_rescan(lex);
-
-        if (lex->token == tk_integer) {
-            if (lex->last_integer <= INT16_MAX &&
-                lex->last_integer >= INT16_MIN)
-                lily_es_push_integer(parser->expr, (int16_t)
-                        lex->last_integer);
-            else {
-                lily_literal *lit = lily_get_integer_literal(parser->symtab,
-                        lex->last_integer);
-
-                push_literal(parser, lit);
-            }
-        }
-        else
-            push_literal(parser, lex->last_literal);
+            lily_es_push_binary_op(parser->expr, expr_minus);
 
         fixed = 1;
     }
@@ -2312,15 +2287,14 @@ static void expression_literal(lily_parse_state *parser, int *state)
     if (*state == ST_WANT_OPERATOR) {
         if ((token == tk_integer || token == tk_double) &&
             maybe_digit_fixup(parser))
-            /* The number unrolled to -/+(value), so an operator is still
-               wanted. */
-            ;
+            goto integer_case;
         else if (parser->expr->save_depth == 0)
             *state = ST_DONE;
         else
             *state = ST_BAD_TOKEN;
     }
     else if (lex->token == tk_integer) {
+integer_case: ;
         if (lex->last_integer <= INT16_MAX &&
             lex->last_integer >= INT16_MIN)
             lily_es_push_integer(parser->expr, (int16_t)

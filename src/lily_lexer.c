@@ -103,7 +103,6 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 
     char *ch_class;
 
-    lexer->last_digit_start = 0;
     lexer->entry = NULL;
     lexer->raiser = raiser;
     lexer->input_buffer = lily_malloc(128 * sizeof(*lexer->input_buffer));
@@ -197,7 +196,6 @@ void lily_rewind_lex_state(lily_lex_state *lexer)
         }
     }
 
-    lexer->last_digit_start = 0;
     lexer->last_literal = NULL;
     lexer->last_integer = 0;
     lexer->input_pos = 0;
@@ -713,8 +711,6 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
     uint64_t integer_value = 0;
     lily_raw_value yield_val;
 
-    lexer->last_digit_start = *pos;
-
     if (sign == '-' || sign == '+') {
         num_pos++;
         new_ch++;
@@ -1155,18 +1151,32 @@ void lily_scan_import_path(lily_lex_state *lexer)
     lexer->input_pos = iter_ch - lexer->input_buffer;
 }
 
-/* This is kinda awful. This is called when something like '1+1' was seen and it
-   was broken up as '1' and '+1'. But '+1' should really have been '+' and '1'.
-   This rescans the literal in case it's no longer valid (and is only a problem
-   for negative max). */
-void lily_lexer_digit_rescan(lily_lex_state *lexer)
+/* The lexer reads `-1` and `+1` as negative or positive literals. Most of the
+   time that's correct. But sometimes it's part of, say, `1+1`. This reads back
+   to see if the digit started with + or -. If it did, this returns 1 and
+   rescans the value. Otherwise, this returns 0. */
+int lily_lexer_digit_rescan(lily_lex_state *lexer)
 {
-    /* Reset the scanning position to just after the '+' or '-' and try
-       again. This is safe, because the lexer hasn't been invoked since the
-       digit scan. */
-    lexer->input_pos = lexer->last_digit_start + 1;
+    int pos = lexer->input_pos - 1;
+    char *input = lexer->input_buffer;
+    char ch = ' ';
 
-    lily_lexer(lexer);
+    while (pos) {
+        ch = input[pos];
+        if (isalnum(ch) == 0)
+            break;
+
+        pos--;
+    }
+
+    int plus_or_minus = (ch == '-' || ch == '+');
+
+    if (plus_or_minus) {
+        lexer->input_pos = pos + 1;
+        lily_lexer(lexer);
+    }
+
+    return plus_or_minus;
 }
 
 /** Lexer API **/

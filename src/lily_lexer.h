@@ -108,9 +108,8 @@ typedef struct lily_lex_state_ {
 
     uint32_t line_num;
     uint32_t expand_start_line;
-    /* Where the last digit scan started at. This is used by parser to fixup
-       the '1+1' case. */
-    uint16_t last_digit_start;
+
+    uint16_t pad;
     uint16_t label_size;
 
     uint16_t input_size;
@@ -131,7 +130,7 @@ void lily_free_lex_state(lily_lex_state *);
 void lily_rewind_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
-void lily_lexer_digit_rescan(lily_lex_state *);
+int lily_lexer_digit_rescan(lily_lex_state *);
 void lily_scan_import_path(lily_lex_state *);
 void lily_verify_template(lily_lex_state *);
 int lily_lexer_read_content(lily_lex_state *, char **);
