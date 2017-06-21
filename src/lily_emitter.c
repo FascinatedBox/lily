@@ -2846,47 +2846,6 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
     ast->result = rhs;
 }
 
-static void emit_literal(lily_emit_state *, lily_ast *);
-
-/* This evaluates an interpolation block `$"..."`. The children of this tree are
-   divided into either tree_literal or tree_interp_block. The former does not
-   need to be evaluated. The latter */
-static void eval_interpolation(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_ast *tree_iter = ast->arg_start;
-    while (tree_iter) {
-        if (tree_iter->tree_type == tree_interp_block) {
-            char *interp_body = lily_sp_get(emit->expr_strings,
-                    tree_iter->pile_pos);
-            lily_sym *result = lily_parser_interp_eval(emit->parser,
-                    ast->line_num, interp_body);
-            if (result == NULL)
-                lily_raise_adjusted(emit->raiser, tree_iter->line_num,
-                        "Interpolation expression does not yield a value.",
-                        "");
-
-            tree_iter->result = result;
-        }
-        else
-            emit_literal(emit, tree_iter);
-
-        tree_iter = tree_iter->next_arg;
-    }
-
-    lily_u16_write_3(emit->code, o_interpolation, ast->line_num,
-            ast->args_collected);
-    lily_u16_write_prep(emit->code, ast->args_collected + 1);
-    int i;
-    lily_ast *arg = ast->arg_start;
-    for (i = 0, arg = ast->arg_start; arg != NULL; arg = arg->next_arg, i++)
-        lily_u16_write_1(emit->code, arg->result->reg_spot);
-
-    lily_storage *s = get_storage(emit, emit->symtab->string_class->self_type);
-    lily_u16_write_1(emit->code, s->reg_spot);
-
-    ast->result = (lily_sym *)s;
-}
-
 /* This evaluates a lambda. The parser sent the lambda over as a blob of text
    since it didn't know what the types were. Now that the types are known, pass
    it back to the parser to, umm, parse. */
@@ -4258,8 +4217,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
    }
     else if (ast->tree_type == tree_unary)
         eval_unary_op(emit, ast);
-    else if (ast->tree_type == tree_interp_top)
-        eval_interpolation(emit, ast);
     else if (ast->tree_type == tree_list)
         eval_build_list(emit, ast, expect);
     else if (ast->tree_type == tree_hash)

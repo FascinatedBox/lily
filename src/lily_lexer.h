@@ -52,7 +52,6 @@ typedef enum {
     tk_prop_word,
     tk_double_quote,
     tk_bytestring,
-    tk_dollar_string,
     tk_byte,
     tk_integer,
     tk_double,
@@ -69,7 +68,6 @@ typedef enum {
     tk_func_pipe,
     tk_invalid,
     tk_end_lambda,
-    tk_end_interp,
     tk_end_tag,
     tk_eof
 } lily_token;
@@ -79,7 +77,6 @@ typedef enum {
     et_shallow_string,
     et_copied_string,
     et_lambda,
-    et_interpolation,
 } lily_lex_entry_type;
 
 typedef struct lily_lex_entry_ {
@@ -135,7 +132,6 @@ void lily_rewind_lex_state(lily_lex_state *);
 void lily_grow_lexer_buffers(lily_lex_state *);
 void lily_lexer(lily_lex_state *);
 void lily_lexer_digit_rescan(lily_lex_state *);
-int lily_scan_interpolation_piece(lily_lex_state *, char **);
 void lily_scan_import_path(lily_lex_state *);
 void lily_verify_template(lily_lex_state *);
 int lily_lexer_read_content(lily_lex_state *, char **);
@@ -147,3 +143,4 @@ lily_lex_state *lily_new_lex_state(lily_raiser *);
 char *tokname(lily_token);
 
 #endif
+ 

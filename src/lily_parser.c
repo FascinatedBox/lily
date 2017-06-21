@@ -2320,36 +2320,6 @@ static void expression_literal(lily_parse_state *parser, int *state)
         else
             *state = ST_BAD_TOKEN;
     }
-    else if (token == tk_dollar_string) {
-        lily_expr_state *es = parser->expr;
-        lily_symtab *symtab = parser->symtab;
-        lily_msgbuf *msgbuf = parser->msgbuf;
-        lily_mb_flush(msgbuf);
-        lily_mb_add(msgbuf, lex->label);
-        char *scan_string = (char *)lily_mb_get(msgbuf);
-
-        lily_es_enter_tree(es, tree_interp_top);
-        do {
-            int is_interp = lily_scan_interpolation_piece(lex, &scan_string);
-            if (is_interp) {
-                int pile_spot = es->pile_current;
-                lily_sp_insert(parser->expr_strings, lex->label,
-                        &es->pile_current);
-
-                lily_es_push_text(es, tree_interp_block,
-                        lex->expand_start_line, pile_spot);
-            }
-            else {
-                lily_literal *lit = lily_get_string_literal(symtab, lex->label);
-                push_literal(parser, lit);
-            }
-            lily_es_collect_arg(parser->expr);
-        } while (*scan_string != '\0');
-
-        lily_es_leave_tree(es);
-        lily_mb_flush(msgbuf);
-        *state = ST_WANT_OPERATOR;
-    }
     else if (lex->token == tk_integer) {
         if (lex->last_integer <= INT16_MAX &&
             lex->last_integer >= INT16_MIN)
@@ -2562,7 +2532,7 @@ static void expression_raw(lily_parse_state *parser, int state)
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote || lex->token == tk_bytestring ||
-                 lex->token == tk_dollar_string || lex->token == tk_byte)
+                 lex->token == tk_byte)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
@@ -2749,40 +2719,6 @@ static int collect_lambda_args(lily_parse_state *parser,
     }
 
     return num_args;
-}
-
-/* Interpolation gets handled here, because it's roughly the same thing as
-   lambda handling. */
-lily_sym *lily_parser_interp_eval(lily_parse_state *parser, int start_line,
-        const char *text)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_lexer_load(lex, et_interpolation, text);
-    lex->line_num = start_line;
-    lily_lexer(parser->lex);
-
-    if (lex->token == tk_end_interp)
-        lily_raise_syn(parser->raiser, "Empty interpolation block.");
-
-    lily_expr_state es;
-    init_expr_state(parser, &es);
-    expression(parser);
-
-    lily_sym *result = lily_emit_eval_interp_expr(parser->emit,
-            parser->expr);
-
-    if (lex->token != tk_end_interp)
-        lily_raise_syn(parser->raiser,
-                "Interpolation block must be a single expression.",
-                tokname(lex->token));
-
-    if (result == NULL)
-        lily_raise_syn(parser->raiser,
-                "Interpolation command does not return a value.");
-
-    fini_expr_state(parser);
-    lily_pop_lex_entry(lex);
-    return result;
 }
 
 /* This is the main workhorse of lambda handling. It takes the lambda body and
@@ -3279,7 +3215,7 @@ static void statement(lily_parse_state *parser, int multi)
                  token == tk_double_quote || token == tk_left_parenth ||
                  token == tk_left_bracket || token == tk_tuple_open ||
                  token == tk_prop_word || token == tk_bytestring ||
-                 token == tk_dollar_string || token == tk_byte) {
+                 token == tk_byte) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
@@ -4732,7 +4668,6 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
                  lex->token == tk_left_parenth ||
                  lex->token == tk_left_bracket ||
                  lex->token == tk_bytestring ||
-                 lex->token == tk_dollar_string ||
                  lex->token == tk_lambda ||
                  lex->token == tk_byte) {
             expression(parser);

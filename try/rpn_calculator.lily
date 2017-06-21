@@ -33,11 +33,11 @@ define rpn(input: String): Result[String, List[Integer]]
                 var op_value = op_fn(left, right)
                 stack.push(op_value)
             except KeyError:
-                return Failure($"Invalid operation ^(v)")
+                return Failure("Invalid operation {0}".format(v))
             except DivisionByZeroError:
                 return Failure("Attempt to divide by zero")
             except Exception:
-                return Failure($"Unexpected error from op ^(v)")
+                return Failure("Unexpected error from op {0}".format(v))
             }
         }
     }
@@ -52,4 +52,4 @@ var lines = [
     "1 2 ?"
     ]
 
-lines.each(|l| print($"\"^(l)\": ^(rpn(l))") )
+lines.each(|l| print("{0}: {1}".format(l, rpn(l)) ) )

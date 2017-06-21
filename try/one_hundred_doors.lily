@@ -12,4 +12,4 @@ doors.each_index(|i|
         open_doors.push(i + 1)
 )
 
-print($"Open doors: ^(open_doors)")
+print("Open doors: {0}".format(open_doors))

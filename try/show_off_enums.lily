@@ -13,12 +13,12 @@ enum TreeObject {
                 var size = l.size() - 1
 
                 for i in 0...size: {
-                    result = $"^(result)^(l[i].as_string())"
+                    result = "{0}{1}".format(result, l[i].as_string())
                     if i != size:
-                        result = $"^(result) "
+                        result = result ++ " "
                 }
 
-                return $"^(result)]"
+                return result ++ "]"
         }
     }
 }

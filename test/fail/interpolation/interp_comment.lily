@@ -1,6 +1,0 @@
-#[
-SyntaxError: Comment within interpolated section.
-    from interp_comment.lily:6:
-]#
-
-var v = $"^(#)"

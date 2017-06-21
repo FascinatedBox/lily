@@ -5,7 +5,7 @@ define ok(b: Boolean, s: String)
     total += 1
 
     if b == false: {
-        stderr.write($"Test ^(total) (^(s)) failed.\n")
+        stderr.write("Test {0} ({1}) failed.\n".format(total, s))
         failed += 1
     }
 }
@@ -21,6 +21,6 @@ ok("a" ++ "b" == "ab",                 "Concat with comparison (precedence).")
 ok("a" ++ "a" |> fn == "aa",           "Concat with pipe (precedence).")
 
 if failed == 0:
-    print($"^(total) of ^(total) tests passed.")
+    print("{0} of {0} tests passed.".format(total))
 else:
-    stderr.write($"^(failed) tests have failed.\n")
+    stderr.write("{0} tests have failed.\n".format(failed))

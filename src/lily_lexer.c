@@ -880,96 +880,14 @@ static void scan_docstring(lily_lex_state *lexer, char **ch)
 static void scan_quoted_raw(lily_lex_state *, char **, int *, int);
 
 #define SQ_IS_BYTESTRING   0x01
-#define SQ_IS_INTERPOLATED 0x02
-#define SQ_SKIP_ESCAPES    0x04
+#define SQ_SKIP_ESCAPES    0x02
 /* Only capture the source text (don't build a literal). */
-#define SQ_NO_LITERAL      0x10
+#define SQ_NO_LITERAL      0x04
 /* Capture the start+end " or """ too. */
-#define SQ_INCLUDE_QUOTES  0x20
-/* Stop when ^( is seen, and do not include it. */
-#define SQ_STOP_ON_INTERP  0x40
+#define SQ_INCLUDE_QUOTES  0x08
 
-#define SQ_TOPLEVEL_INTERP_FLAGS \
-    (SQ_IS_INTERPOLATED | SQ_NO_LITERAL | SQ_SKIP_ESCAPES)
 #define SQ_LAMBDA_STRING_FLAGS \
     (SQ_SKIP_ESCAPES | SQ_NO_LITERAL | SQ_INCLUDE_QUOTES)
-
-static void scan_interpolation(lily_lex_state *lexer, char **source_ch,
-        int *start, int flags)
-{
-    char *label = lexer->label;
-    char *ch = *source_ch;
-    int label_pos = *start;
-    int parenth_depth = 1;
-
-    while (1) {
-        if (*ch == '(')
-            parenth_depth++;
-        else if (*ch == '$' && *(ch + 1) == '"')
-            lily_raise_syn(lexer->raiser,
-                    "Nested interpolation is not allowed.");
-        else if (*ch == '"') {
-            if (*(ch + 1) == '"' && *(ch + 2) == '"')
-                lily_raise_syn(lexer->raiser,
-                    "Multi-line string not allowed within interpolation.");
-
-            scan_quoted_raw(lexer, &ch, &label_pos,
-                    SQ_INCLUDE_QUOTES | SQ_SKIP_ESCAPES);
-        }
-        else if (*ch == '\n')
-            lily_raise_syn(lexer->raiser, "Newline in interpolated section.");
-        else if (*ch == '#')
-            lily_raise_syn(lexer->raiser,
-                    "Comment within interpolated section.");
-
-        label[label_pos] = *ch;
-
-        if (*ch == ')') {
-            if (parenth_depth == 1)
-                break;
-
-            parenth_depth--;
-        }
-
-        ch++;
-        label_pos++;
-    }
-
-    *source_ch = ch;
-    *start = label_pos;
-}
-
-/* This collects the text of an interpolated string. What happens depends on
-   what start_ch is at.
-   For "^(", the text within is scooped up into lexer->label and \0 terminated.
-   For everything else, text up to ^( OR the end of the source string is scooped
-   up into lexer->label and \0 terminated.
-   Returns 1 if the text scanned is to be interpolated, 0 otherwise.  */
-int lily_scan_interpolation_piece(lily_lex_state *lexer, char **start_ch)
-{
-    char *ch = *start_ch;
-    int start = 0;
-    int is_interpolated = 1;
-
-    if (*ch == '^' && *(ch + 1) == '(') {
-        ch += 2;
-        lexer->expand_start_line = lexer->line_num;
-        scan_interpolation(lexer, &ch, &start, SQ_SKIP_ESCAPES);
-        /* Don't include the closing ')' in the next scan. */
-        ch++;
-    }
-    else {
-        /* This offsets the ch++ that scan_quoted_raw does on entry. */
-        ch--;
-        scan_quoted_raw(lexer, &ch, &start,
-                SQ_NO_LITERAL | SQ_STOP_ON_INTERP);
-        is_interpolated = 0;
-    }
-
-    lexer->label[start] = '\0';
-    *start_ch = ch;
-    return is_interpolated;
-}
 
 static void collect_escape(lily_lex_state *lexer, char **source_ch,
         int *start, int flags)
@@ -1022,8 +940,7 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
 
     /* ch is actually the first char after the opening ". */
     if (*(new_ch + 1) == '"' &&
-        *(new_ch + 2) == '"' &&
-        (flags & SQ_STOP_ON_INTERP) == 0) {
+        *(new_ch + 2) == '"') {
         is_multiline = 1;
         multiline_start = lexer->line_num;
         new_ch += 2;
@@ -1042,7 +959,7 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     while (1) {
         if (*new_ch == '\\')
             collect_escape(lexer, &new_ch, &label_pos, flags);
-        else if (*new_ch == '\n' && (flags & SQ_STOP_ON_INTERP) == 0) {
+        else if (*new_ch == '\n') {
             if (is_multiline == 0)
                 lily_raise_syn(lexer->raiser, "Newline in single-line string.");
             int line_length = read_line(lexer);
@@ -1060,22 +977,9 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
         }
         else if (*new_ch == '"' &&
                  ((is_multiline == 0) ||
-                  (*(new_ch + 1) == '"' && *(new_ch + 2) == '"')) &&
-                 (flags & SQ_STOP_ON_INTERP) == 0) {
+                  (*(new_ch + 1) == '"' && *(new_ch + 2) == '"'))) {
             new_ch++;
             break;
-        }
-        else if (*new_ch == '^' && *(new_ch + 1) == '(' &&
-                 (flags & (SQ_IS_INTERPOLATED | SQ_STOP_ON_INTERP)))
-        {
-            if (flags & SQ_STOP_ON_INTERP)
-                break;
-
-            label[label_pos] = '^';
-            label[label_pos + 1] = '(';
-            label_pos += 2;
-            new_ch += 2;
-            scan_interpolation(lexer, &new_ch, &label_pos, flags);
         }
         else if (*new_ch == '\0')
             break;
@@ -1312,10 +1216,7 @@ void lily_lexer_load(lily_lex_state *lexer, lily_lex_entry_type entry_type,
         source = copy;
         entry->extra = copy;
 
-        if (entry_type == et_lambda)
-            entry->final_token = tk_end_lambda;
-        else if (entry_type == et_interpolation)
-            entry->final_token = tk_end_interp;
+        entry->final_token = tk_end_lambda;
     }
 
     entry->source = (void *)source;
@@ -1398,16 +1299,6 @@ void lily_lexer(lily_lex_state *lexer)
                 token = lexer->entry->final_token;
                 input_pos = 0;
             }
-        }
-        else if (group == CC_DOLLAR) {
-            ch++;
-            if (*ch != '"')
-                lily_raise_syn(lexer->raiser, "Expected '\"' after '$'.");
-
-            scan_quoted(lexer, &ch,
-                    SQ_IS_INTERPOLATED | SQ_SKIP_ESCAPES | SQ_NO_LITERAL);
-            input_pos = ch - lexer->input_buffer;
-            token = tk_dollar_string;
         }
         else if (group == CC_DOUBLE_QUOTE) {
             scan_quoted(lexer, &ch, 0);
@@ -1732,10 +1623,9 @@ char *tokname(lily_token t)
     {")", ",", "{", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
      "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=",
      ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>", "a label",
-     "a property name", "a string", "a bytestring", "an interpolated string",
-     "a byte", "an integer", "a double", "a docstring", ".", "&", "&=", "&&",
-     "|", "|=", "||", "@(", "...", "|>", "invalid token", "end of lambda",
-     "end of interpolation", "?>", "end of file"};
+     "a property name", "a string", "a bytestring", "a byte", "an integer",
+     "a double", "a docstring", ".", "&", "&=", "&&", "|", "|=", "||", "@(",
+     "...", "|>", "invalid token", "end of lambda", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

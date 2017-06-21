@@ -10,9 +10,7 @@ define fizzbuzz(start: *Integer = 1, stop: *Integer = 100): List[String] {
         elif (i % 5) == 0:
             result.push("Buzz")
         else:
-            # $" ... " is for interpolated strings.
-            # ^(expr) quotes expressions.
-            result.push($"^(i)")
+            result.push("{0}".format(i))
     }
 
     return result

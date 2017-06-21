@@ -73,7 +73,7 @@ var keys: List[String] = []
 for i in 0...animals.size() - 1: {
     for j in 0...adjectives.size() - 1: {
         for k in 0...adverbs.size() - 1: {
-            keys.push($"^(adverbs[k]) ^(adjectives[j]) ^(animals[i])")
+            keys.push("{0} {1} {2}".format(adverbs[k], adjectives[j], animals[i]))
         }
     }
 }

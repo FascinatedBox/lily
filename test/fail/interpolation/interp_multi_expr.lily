@@ -1,6 +1,0 @@
-#[
-SyntaxError: Interpolation block must be a single expression.
-    from interp_multi_expr.lily:6:
-]#
-
-var v = $"^(10 20)"
