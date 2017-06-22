@@ -1,6 +1,0 @@
-#[
-SyntaxError: '++=' is not a valid token.
-    from tok_pluspluseq.lily:6:
-]#
-
-++=
