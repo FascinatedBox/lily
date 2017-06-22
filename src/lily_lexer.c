@@ -474,14 +474,12 @@ static void close_entry(lily_lex_entry *entry)
 
 /** Scanning functions and helpers **/
 
-/* This handles escape codes. 'ch' starts at the '\'. adjust is set to how much
-   adjustment there should be. The result is the escape char value. */
-static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
+/* Returns the char code of an escape. *source_ch starts on the first character
+   after the slash, and is updated to 1 past the end of the escape sequence. */
+static char scan_escape(lily_lex_state *lexer, char **source_ch)
 {
     char ret;
-    ch++;
-
-    *adjust = 2;
+    char *ch = *source_ch;
 
     if (*ch == 'n')
         ret = '\n';
@@ -515,7 +513,7 @@ static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
             total = (total * 10) + value;
         }
 
-        *adjust = *adjust + i - 1;
+        ch -= 1;
         ret = (char)total;
     }
     else {
@@ -523,6 +521,8 @@ static char scan_escape(lily_lex_state *lexer, char *ch, int *adjust)
         /* Keeps the compiler happy (ret always given a value). */
         ret = 0;
     }
+
+    *source_ch = ch + 1;
 
     return ret;
 }
@@ -875,54 +875,11 @@ static void scan_docstring(lily_lex_state *lexer, char **ch)
 
 static void scan_quoted_raw(lily_lex_state *, char **, int *, int);
 
-#define SQ_IS_BYTESTRING   0x01
-#define SQ_SKIP_ESCAPES    0x02
-/* Only capture the source text (don't build a literal). */
-#define SQ_NO_LITERAL      0x04
-/* Capture the start+end " or """ too. */
-#define SQ_INCLUDE_QUOTES  0x08
-
-#define SQ_LAMBDA_STRING_FLAGS \
-    (SQ_SKIP_ESCAPES | SQ_NO_LITERAL | SQ_INCLUDE_QUOTES)
-
-static void collect_escape(lily_lex_state *lexer, char **source_ch,
-        int *start, int flags)
-{
-    char *label = lexer->label;
-    char *new_ch = *source_ch;
-    int label_pos = *start;
-
-    if ((flags & SQ_SKIP_ESCAPES) == 0) {
-        /* Most escape codes are only one letter long. */
-        int adjust_ch;
-        char esc_ch = scan_escape(lexer, new_ch, &adjust_ch);
-        /* Forbid \0 from non-bytestrings so that string is guaranteed
-            to be a valid C string. Additionally, the second case
-            prevents possibly creating invalid utf-8. */
-        if ((flags & SQ_IS_BYTESTRING) == 0 &&
-            (esc_ch == 0 || (unsigned char)esc_ch > 127))
-            lily_raise_syn(lexer->raiser, "Invalid escape sequence.");
-
-        label[label_pos] = esc_ch;
-        label_pos++;
-        new_ch += adjust_ch;
-    }
-    else {
-        label[label_pos] = *new_ch;
-        label_pos++;
-        new_ch++;
-        /* These two (\\ and \") always have to be processed because not
-            doing so can result in the string being collected wrong. */
-        if (*new_ch == '\\' || *new_ch == '"') {
-            label[label_pos] = *new_ch;
-            label_pos++;
-            new_ch++;
-        }
-    }
-
-    *source_ch = new_ch;
-    *start = label_pos;
-}
+#define SQ_IS_BYTESTRING 0x01
+/* Lambdas need to collect everything inside of them as-is. Later, they'll be
+   loaded and read in. If this is set, include quote marks, but don't run
+   escapes. */
+#define SQ_IN_LAMBDA     0x02
 
 static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
         int flags)
@@ -942,7 +899,7 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
         new_ch += 2;
     }
 
-    if (flags & SQ_INCLUDE_QUOTES) {
+    if (flags & SQ_IN_LAMBDA) {
         int num = is_multiline ? 3 : 1;
         strncpy(lexer->label + *start, "\"\"\"", num);
         *start += num;
@@ -953,8 +910,31 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     label_pos = *start;
 
     while (1) {
-        if (*new_ch == '\\')
-            collect_escape(lexer, &new_ch, &label_pos, flags);
+        if (*new_ch == '\\') {
+            char *start_ch = new_ch;
+
+            new_ch++;
+
+            char esc_ch = scan_escape(lexer, &new_ch);
+            /* Make sure String is \0 terminated and utf-8 clean. */
+            if ((flags & SQ_IS_BYTESTRING) == 0 &&
+                (esc_ch == 0 || (unsigned char)esc_ch > 127))
+                lily_raise_syn(lexer->raiser, "Invalid escape sequence.");
+
+            if ((flags & SQ_IN_LAMBDA) == 0) {
+                label[label_pos] = esc_ch;
+                label_pos++;
+            }
+            else {
+                /* Lambdas will get loaded later, so give them the original
+                   source that will get escape processed later. */
+                while (start_ch != new_ch) {
+                    label[label_pos] = *start_ch;
+                    label_pos++;
+                    start_ch++;
+                }
+            }
+        }
         else if (*new_ch == '\n') {
             if (is_multiline == 0)
                 lily_raise_syn(lexer->raiser, "Newline in single-line string.");
@@ -989,16 +969,16 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     if (is_multiline)
         new_ch += 2;
 
-    if (flags & SQ_INCLUDE_QUOTES) {
+    if (flags & SQ_IN_LAMBDA) {
         int num = is_multiline ? 3 : 1;
         strncpy(lexer->label + label_pos, "\"\"\"", num);
         label_pos += num;
     }
 
-    if ((flags & SQ_IS_BYTESTRING) == 0)
+    if ((flags & (SQ_IN_LAMBDA | SQ_IS_BYTESTRING)) == 0)
         label[label_pos] = '\0';
 
-    if ((flags & SQ_NO_LITERAL) == 0) {
+    if ((flags & SQ_IN_LAMBDA) == 0) {
         if ((flags & SQ_IS_BYTESTRING) == 0)
             lexer->last_literal = lily_get_string_literal(lexer->symtab, label);
         else
@@ -1022,9 +1002,8 @@ static void scan_single_quote(lily_lex_state *lexer, char **source_ch)
     char ch = *new_ch;
 
     if (ch == '\\') {
-        int adjust;
-        ch = scan_escape(lexer, new_ch, &adjust);
-        new_ch += adjust;
+        new_ch++;
+        ch = scan_escape(lexer, &new_ch);
     }
     else {
         ch = *new_ch;
@@ -1083,7 +1062,14 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
             continue;
         }
         else if (*ch == '"') {
-            scan_quoted_raw(lexer, &ch, &i, SQ_LAMBDA_STRING_FLAGS);
+            int flags = SQ_IN_LAMBDA;
+
+            /* This lets scan_quoted_raw know that ByteString escape codes are
+               allowed instead of failing on them. */
+            if (ch != &lexer->input_buffer[0] && *(ch - 1) == 'B')
+                flags |= SQ_IS_BYTESTRING;
+
+            scan_quoted_raw(lexer, &ch, &i, flags);
             /* Don't ensure check: scan_quoted already did it if that was
                necessary. */
             continue;
