@@ -908,12 +908,18 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
     /* Skip the last " of either kind of string. */
     new_ch++;
     label_pos = *start;
+    int backslash_before_newline = 0;
 
     while (1) {
         if (*new_ch == '\\') {
             char *start_ch = new_ch;
 
             new_ch++;
+
+            if (*new_ch == '\n') {
+                backslash_before_newline = 1;
+                continue;
+            }
 
             char esc_ch = scan_escape(lexer, &new_ch);
             /* Make sure String is \0 terminated and utf-8 clean. */
@@ -936,20 +942,29 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
             }
         }
         else if (*new_ch == '\n') {
-            if (is_multiline == 0)
+            if (is_multiline == 0 && backslash_before_newline == 0)
                 lily_raise_syn(lexer->raiser, "Newline in single-line string.");
             int line_length = read_line(lexer);
             if (line_length == 0) {
                 lily_raise_syn(lexer->raiser,
-                           "Unterminated multi-line string (started at line %d).",
+                           "Unterminated string (started at line %d).",
                            multiline_start);
             }
 
             ensure_label_size(lexer, label_pos + line_length + 3);
             label = lexer->label;
             new_ch = &lexer->input_buffer[0];
-            label[label_pos] = '\n';
-            label_pos++;
+
+            if (backslash_before_newline == 0 || (flags & SQ_IN_LAMBDA)) {
+                label[label_pos] = '\n';
+                label_pos++;
+            }
+            else {
+                while (*new_ch == ' ')
+                    new_ch++;
+
+                backslash_before_newline = 0;
+            }
         }
         else if (*new_ch == '"' &&
                  ((is_multiline == 0) ||
