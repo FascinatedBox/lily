@@ -159,7 +159,7 @@ void lily_setup_toplevel(lily_vm_state *vm, lily_function_val *toplevel)
     toplevel_frame->top = register_base;
     toplevel_frame->register_end = register_end;
     toplevel_frame->code = NULL;
-    toplevel_frame->function = NULL;
+    toplevel_frame->function = toplevel;
     toplevel_frame->return_target = NULL;
     toplevel_frame->line_num = 0;
     toplevel_frame->prev = NULL;
