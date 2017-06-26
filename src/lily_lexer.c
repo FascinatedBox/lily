@@ -497,6 +497,8 @@ static char scan_escape(lily_lex_state *lexer, char **source_ch)
         ret = '\b';
     else if (*ch == 'a')
         ret = '\a';
+    else if (*ch == '/')
+        ret = LILY_PATH_CHAR;
     else if (*ch >= '0' && *ch <= '9') {
         /* It's a numeric escape. Keep swallowing up numeric values until either
            3 are caught in total OR there is a possible 'overflow'.
