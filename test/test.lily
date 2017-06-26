@@ -1,0 +1,122 @@
+import extend
+
+scoped enum TestAction {
+    Expect(Function( => Boolean)),
+    Interpret(String),
+    Render(String)
+}
+
+class TestGroup {
+    private var @tests: List[Tuple[String, String, String, TestAction]] = []
+    private var @tests_passed = 0
+    private var @tests_failed = 0
+    private var @test_scope = ""
+
+    define pass_count : Integer { return @tests_passed }
+    define fail_count : Integer { return @tests_failed }
+
+    define scope(path: String) {
+        @test_scope = path
+    }
+
+    define assert(message: String, f: Function( => Boolean)) {
+        @tests.push(<[@test_scope, message, "true", TestAction.Expect(f)]>)
+    }
+
+    define expect_error(message: String, expect: String,
+                        f: Function( => Boolean)) {
+        @tests.push(<[@test_scope, message, expect, TestAction.Expect(f)]>)
+    }
+
+    define interpret(message: String, to_interpret: String) {
+        @tests.push(<[@test_scope, message, "", TestAction.Interpret(to_interpret)]>)
+    }
+
+    define interpret_for_error(message: String, expect: String,
+                               to_interpret: String) {
+        @tests.push(<[@test_scope, message, expect, TestAction.Interpret(to_interpret)]>)
+    }
+
+    define render(message: String, to_interpret: String) {
+        @tests.push(<[@test_scope, message, "", TestAction.Render(to_interpret)]>)
+    }
+
+    private define exception_to_s(e: Exception): String {
+        var result = "{0}".format(e)
+
+        result = result.slice(1, result.find(" ").unwrap())
+        if e.message:
+            result = result ++ ": " ++ e.message
+
+        return result
+    }
+
+    private define pad_message(input: String): String {
+        return input.split("\n")
+                    .map(|m| "          " ++ m)
+                            # Received:
+                            # Expected:
+                    .join("\n")
+    }
+
+    define run {
+        var i = 0
+
+        for i in 0...@tests.size() - 1: {
+            stdout.write("\r{0}: ".format(i))
+
+            var current_test = @tests[i]
+
+            var message = current_test[1]
+            var expect_str = current_test[2]
+            var receive_str = ""
+
+            stdout.write(message)
+
+            match current_test[3]: {
+                case TestAction.Expect(func):
+                    try:
+                        receive_str = func().to_s()
+                    except Exception as e:
+                        receive_str = exception_to_s(e)
+                case TestAction.Interpret(to_interpret):
+                    match extend.parse_string("test\/[subinterp]", to_interpret): {
+                        case Success(s):
+                            receive_str = ""
+                        case Failure(f):
+                            # This removes the ending newline.
+                            receive_str = f.slice(0, -1)
+                    }
+                case TestAction.Render(to_interpret):
+                    match extend.render_string("test\/[subinterp]", to_interpret): {
+                        case Success(s):
+                            receive_str = ""
+                        case Failure(f):
+                            # Same as above.
+                            receive_str = f.slice(0, -1)
+                    }
+            }
+
+            if expect_str != receive_str: {
+                var filename = pad_message(current_test[0])
+
+                @tests_failed += 1
+
+                expect_str = pad_message(expect_str)
+                receive_str = pad_message(receive_str)
+
+                stdout.write(" (failed)\n\
+                              Source:\n{0}\n\
+                              Expected:\n{1}\n\
+                              Received:\n{2}\n\n"
+                             .format(filename, expect_str, receive_str))
+            else:
+                @tests_passed += 1
+            }
+
+            stdout.write("\r                                                                      ")
+        }
+    }
+}
+
+var t = TestGroup()

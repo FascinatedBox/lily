@@ -1,7 +1,7 @@
 # Binary junk to ignore.
 lib/*
 lily
-embed_examples/call_lily_from_c
+pre-commit-tests
 
 # CMake-related stuff.
 CMakeFiles

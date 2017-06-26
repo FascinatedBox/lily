@@ -1,0 +1,303 @@
+import test
+
+var t = test.t
+
+t.interpret_for_error("Return within a class constructor.",
+    """\
+    SyntaxError: 'return' not allowed in a class constructor.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class example {
+        if 1:
+            return self
+    }
+    """)
+
+t.interpret_for_error("Redeclare a class property.",
+    """\
+    SyntaxError: A property in class 'Test' already has the name 'abc'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class Test {
+        var @abc = 10
+        define abc {
+
+        }
+    }
+    """)
+
+t.interpret_for_error("Define a class inside of a class.",
+    """\
+    SyntaxError: Cannot define a class here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class c1(a: Integer) {
+        class c2(b: Integer) {
+
+        }
+    }
+    """)
+
+t.interpret_for_error("Class property self initialization.",
+    """\
+    SyntaxError: Invalid use of uninitialized property '@x'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Point {
+        var @x: Integer = @x
+    }
+    """)
+
+t.interpret_for_error("Redeclare property as method.",
+    """\
+    SyntaxError: A method in class 'Test' already has the name 'abc'.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    class Test {
+        define abc {
+
+        }
+        var @abc = 10
+    }
+    """)
+
+t.interpret_for_error("Declare property twice.",
+    """\
+    SyntaxError: Property a already exists in class ABC.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class ABC { var @a = 1 var @a = 1 }
+    """)
+
+t.interpret_for_error("Attempt to close construct parameters.",
+    """\
+    SyntaxError: Not allowed to close over variables from a class constructor.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    class Example(a: Integer) {
+        define f {
+            var v = a
+        }
+    }
+    """)
+
+t.interpret_for_error("Attempt to close self in a constructor.",
+    """\
+    SyntaxError: Not allowed to close over self in a class constructor.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class Example {
+        var @a = 1
+        var @b = (|| @a += 1 )
+    }
+    """)
+
+t.interpret_for_error("Attempt to use class method of a generic type.",
+    """\
+    SyntaxError: Class A has no method or property named asdf.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f[A](a: A)
+    {
+        a.asdf()
+    }
+    """)
+
+t.interpret_for_error("Attempt to inherit from a builtin class.",
+    """\
+    SyntaxError: 'Integer' cannot be inherited from.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class abc < Integer {  }
+    """)
+
+t.interpret_for_error("Forbid inheritance with misordered generics.",
+    """\
+    SyntaxError: Argument #1 to First is invalid:\n\
+    Expected Type: A\n\
+    Received Type: B\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class First[A](value: A) {  }
+
+    class Second[A, B](v1: A, v2: B) < First(v2) {  }
+
+    # This is prevented so that First's A is the same A of any class inheriting
+    # from First. This makes solving generics a lot easier.
+    """)
+
+t.interpret_for_error("Attempt to inherit a missing class.",
+    """\
+    SyntaxError: Class 'invalid' does not exist.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class abc < invalid {  }
+    """)
+
+t.interpret_for_error("Attempt to have a class inherit from itself.",
+    """\
+    SyntaxError: A class cannot inherit from itself!\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class abc < abc {  }
+    """)
+
+t.interpret_for_error("Attempt to inherit from a variant.",
+    """\
+    SyntaxError: 'Two' cannot be inherited from.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    enum Test {
+        One,
+        Two
+    }
+
+    class example < Two { }
+    """)
+
+t.interpret_for_error("Attempt to declare a class inside 'if'.",
+    """\
+    SyntaxError: Cannot define a class here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+        class abc() {
+        }
+    }
+    """)
+
+t.interpret_for_error("Attempt to declare a class with a short name.",
+    """\
+    SyntaxError: 'A' is not a valid class name (too short).\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class A() {}
+    """)
+
+t.interpret_for_error("Attempt to declare class property without @.",
+    """\
+    SyntaxError: Class properties must start with @.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class ABC { var a: integer }
+    """)
+
+t.interpret_for_error("Attempt to return 'self' outside a class method.",
+    """\
+    SyntaxError: 'self' return type only allowed on class methods.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f: self {}
+    """)
+
+t.interpret_for_error("Attempt to use @name outside a class.",
+    """\
+    SyntaxError: Expected either 'a label' or '@(', not 'a property name'.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    class Test[A](name: String) {
+        var @name = name
+    }
+
+    var v = Test("abc").@name
+    """)
+
+t.interpret_for_error("Attempt to use a private property outside a class.",
+    """\
+    SyntaxError: abc.f is marked private, and not available here.\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class abc {
+        private define f { }
+    }
+
+    class def < abc {
+        abc.f()
+    }
+    """)
+
+t.interpret_for_error("Class property doesn't exist.",
+    """\
+    SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class Test
+    {
+        @xyz = 10
+    }
+    """)
+
+t.interpret_for_error("Forbid protected var from being used outside class.",
+    """\
+    SyntaxError: Test.x is marked protected, and not available here.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    class Test { protected var @x = 10 }
+
+    Test().x = 11
+    """)
+
+t.interpret_for_error("Forbid protected method from being used outside class.",
+    """\
+    SyntaxError: abc.f is marked protected, and not available here.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class abc {
+        protected define f {}
+    }
+
+    abc.f(abc())
+    """)
+
+t.interpret_for_error("Forbid self.property",
+    """\
+    SyntaxError: Use @<name> to get/set properties, not self.<name>.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class Point(x: Integer, y: Integer) {
+        var @x = x
+        var @y = self.x
+    }
+    """)
+
+t.interpret_for_error("Forbid self being used outside of a class.",
+    """\
+    SyntaxError: 'self' must be used within a class.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    self
+    """)
+
+t.interpret_for_error("Wrong arg count with class method.",
+    """\
+    SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    String.ends_with("a", "b", "c")
+    """)

@@ -1,9 +1,0 @@
-define test: Function(=> Integer) {
-    for i in 5...10: {
-        return (|| i)
-    }
-    return (|| 0)
-}
-
-if test()() != 5:
-    stderr.print("Failed.")

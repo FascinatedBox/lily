@@ -1,9 +1,0 @@
-class Point(x: *Integer=0, y: *Integer=0)
-{
-    var @x = x
-    var @y = y
-}
-
-Point()
-Point(1)
-Point(1, 1)

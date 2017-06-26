@@ -1,2 +1,0 @@
-if ["    a"].map(|m| m.strip(" ") ) != ["a"]:
-    stderr.print("Failed.")

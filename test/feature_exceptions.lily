@@ -1,0 +1,123 @@
+import test
+
+var t = test.t
+
+t.interpret("Verify catch of custom exception.",
+    """
+    class Error(code: Integer, message: String) < Exception(message)    {
+        var @code = code
+    }
+
+    try: {
+        raise Error(100, "Test")
+    except Error as e:
+        if e.code != 100:
+            raise Exception("Failed.")
+    }
+    """)
+
+t.interpret("Verify catch in another function.",
+    """
+    define g
+    {
+        try:
+            raise ValueError("")
+        except Exception:
+            1
+    }
+
+    define f
+    {
+        var a = 1, b = 2, c = 3
+        g()
+    }
+
+    f()
+    """)
+
+t.interpret("Verify exception passing through a foreign call.",
+    """
+    define f(a: Integer) : Integer
+    {
+        raise ValueError("")
+    }
+
+    for i in 0...5: {
+        var v = [1, 2, 3]
+        try: {
+            v.map(f)
+        except Exception:
+
+        }
+    }
+    """)
+
+t.interpret("Verify getting the message of an exception var.",
+    """
+    try: {
+        1 / 0
+    except Exception as e:
+        var v = e.message
+    }
+    """)
+
+t.interpret("Verify that exception traceback is created and usable.",
+    """
+    try:
+        raise ValueError("")
+    except ValueError as e:
+        var v = e.traceback[0].split(":")[-1]
+    """)
+
+t.interpret("Verify all branches of a try block are tried.",
+    """
+    # This test make sure that all branches of a try+except are being tried,
+    # and not just the first one.
+
+    try:
+        1 / 0
+    except IndexError:
+        0
+    except ValueError:
+        0
+    except DivisionByZeroError:
+        0
+    """)
+
+t.interpret("Verify native raise and catch, called from a foreign function.",
+    """
+    define f(a: Integer) : Integer
+    {
+        try: {
+            if a % 2:
+                raise ValueError("")
+        except Exception:
+
+        }
+
+        return a
+    }
+
+
+    [1, 2, 3, 4].map(f)
+    """)
+
+t.interpret("Repeatedly try and catch inside of a loop.",
+    """
+    define f {
+        var a = 1, b = 1, c = 1, d = 1
+        var e = 1, g = 1, h = 1
+        raise ValueError("")
+    }
+
+    var i = 10
+
+    while i < 100: {
+        try:
+            f()
+        except Exception:
+            0
+
+        i += 1
+    }
+    """)

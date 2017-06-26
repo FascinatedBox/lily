@@ -1,2 +1,0 @@
-if false:
-    stderr.print("Failed.")

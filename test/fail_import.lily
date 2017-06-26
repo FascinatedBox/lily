@@ -1,0 +1,53 @@
+import test
+
+var t = test.t
+
+t.interpret_for_error("Forbid import within define.",
+    """\
+    SyntaxError: Cannot import a file here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f {
+        import empty
+    }
+    """)
+
+t.interpret_for_error("Forbid import ending with '}'.",
+    """\
+    SyntaxError: '}' outside of a block.\n    \
+        from test\/import_dir\/brace_at_end.lily:1:\
+    """,
+    """\
+    import import_dir/brace_at_end
+    """)
+
+t.interpret_for_error("Forbid import of duplicate name (with renamed import).",
+    """\
+    SyntaxError: A module named 'var_access' has already been imported here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    import import_dir/var_exporter as var_access
+    import import_dir/var_access
+    """)
+
+t.interpret_for_error("Forbid import path from having a trailing slash.",
+    """\
+    SyntaxError: Import path cannot end with '/'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import import_dir/diamond_a/
+    """)
+
+t.interpret_for_error("Forbid import within define.",
+    """\
+    SyntaxError: Cannot import a file here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f {
+        import empty
+    }
+    """)

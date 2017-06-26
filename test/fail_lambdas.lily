@@ -1,0 +1,52 @@
+import test
+
+var t = test.t
+
+t.interpret_for_error("Error when unable to infer a lambda's argument type.",
+    """\
+    SyntaxError: Cannot infer type of 'a'.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    define f[A](g: Function(A => A)) {
+
+    }
+
+    f((|a| a))
+    """)
+
+t.interpret_for_error("Forbid empty lambdas.",
+    """\
+    SyntaxError: Unexpected token 'end of lambda'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = (|| )
+    """)
+
+t.interpret_for_error("Forbid lambdas from having default arguments.",
+    """\
+    SyntaxError: Expected 'a label', not '*'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = (|a: *Integer=10| a )
+    """)
+
+t.interpret_for_error("Forbid raise within a lambda.",
+    """\
+    SyntaxError: 'raise' not allowed in a lambda.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = (|| raise ValueError("") )
+    """)
+
+t.interpret_for_error("Forbid return within a lambda.",
+    """\
+    SyntaxError: 'return' not allowed in a lambda.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = (|| return )
+    """)

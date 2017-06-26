@@ -1,4 +1,0 @@
-var f = File.open("io_test_file.txt", "w")
-
-f.close()
-f.close()

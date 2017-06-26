@@ -1,6 +1,0 @@
-#[
-SyntaxError: 'self' return type only allowed on class methods.
-    from invalid_self_return.lily:6:
-]#
-
-define f: self {}

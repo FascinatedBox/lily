@@ -8,6 +8,7 @@ build_script:
   - cmd: cmake ../ -G "Visual Studio 14 2015 Win64"
   - cmd: cmake --build . --config Release
   - cmd: cp Release/lily.exe ../lily
+  - cmd: cp Release/pre-commit-tests.exe ../pre-commit-tests.exe
   - cmd: cd ..
-  - cmd: python pre-commit-hook.py --verbose
-
+  - cmd: dir
+  - cmd: pre-commit-tests.exe

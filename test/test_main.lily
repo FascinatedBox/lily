@@ -1,0 +1,48 @@
+import feature_classes
+import feature_closures
+import feature_dynaload
+import feature_enums
+import feature_generics
+import feature_import
+import feature_internal
+import feature_lambdas
+import feature_optargs
+import feature_template
+import fail_syntax
+import fail_classes
+import fail_variance
+import fail_enums
+import fail_exceptions
+import fail_generics
+import fail_import
+import fail_lambdas
+import fail_optargs
+import verify_basics
+import verify_boolean
+import verify_byte
+import verify_bytestring
+import verify_file
+import verify_hash
+import verify_list
+import verify_option
+import verify_result
+import verify_string
+import test
+
+var test_group = test.t
+
+var pass_total = 0
+var fail_total = 0
+
+test_group.run()
+pass_total += test_group.pass_count()
+fail_total += test_group.fail_count()
+
+print("\r{0} tests passed, {1} failed, {2} total."
+      .format(pass_total, fail_total, pass_total + fail_total))
+
+# The runner calls this to determine if exit should be failure or success.
+
+define did_pass: Boolean {
+    return fail_total == 0
+}

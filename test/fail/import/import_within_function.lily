@@ -1,8 +1,0 @@
-#[
-SyntaxError: Cannot import a file here.
-    from import_within_function.lily:7:
-]#
-
-define f {
-    import empty.lily
-}

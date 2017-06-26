@@ -1,0 +1,70 @@
+import test
+
+var t = test.t
+
+t.assert("File.close does nothing if called on closed file.",
+         (||
+    var f = File.open("io_test_file.txt", "w")
+
+    f.close()
+    f.close()
+    true ))
+
+
+t.expect_error("File.open fails when given invalid mode.",
+               "IOError: Invalid mode 'z' given.",
+               (|| File.open("io_test_file.txt", "z") ))
+
+
+t.expect_error("File.read_line on closed file.",
+               "IOError: IO operation on closed file.",
+               (||
+    stdin.close()
+    stdin.read_line() ))
+
+t.expect_error("File.read_line on write file.",
+               "IOError: File not open for reading.",
+               (||
+    var f = File.open("io_test_file.txt", "w")
+    f.read_line() ))
+
+
+t.expect_error("File.write to closed file.",
+               "IOError: IO operation on closed file.",
+               (||
+    var f = File.open("io_test_file.txt", "w")
+    f.close()
+    f.write("1234") ))
+
+t.expect_error("File.write to read file.",
+               "IOError: File not open for writing.",
+               (||
+    var f = File.open("io_test_file.txt", "r")
+    f.write("1234") ))
+
+
+t.assert("File write and read of utf-8.",
+         (||
+    var f = File.open("io_test_file.txt", "w")
+    f.write("♡")
+    f.close()
+
+    var v = File.open("io_test_file.txt", "r")
+            .read_line()
+            .encode()
+            .unwrap()
+
+    v == "♡" ))
+
+t.assert("File write and read of plain data.",
+         (||
+    var f = File.open("io_test_file.txt", "w")
+    f.write("1234567890")
+    f.close()
+
+    var v = File.open("io_test_file.txt", "r")
+            .read_line()
+            .encode()
+            .unwrap()
+
+    v == "1234567890" ))

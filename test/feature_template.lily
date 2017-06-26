@@ -1,0 +1,22 @@
+import test
+
+var t = test.t
+
+t.render("Basic template usage.",
+    """\
+    <?lily   ?>\
+    """)
+
+t.render("Multiple template usage.",
+    """\
+    <?lily ?>\
+    <?lily ?>\
+    <?lily ?>\
+    """)
+
+t.render("Templates can use globals from old scope.",
+    """\
+    <?lily var v = 10 ?>\
+    <?lily v += 1 ?>\
+    <?lily if v != 11: raise ValueError("") ?>\
+    """)

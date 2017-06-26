@@ -1,7 +1,0 @@
-class One {}
-class Two < One {}
-
-class Test {
-    var @a: One = Two()
-    @a = One()
-}

@@ -41,6 +41,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(run)
+add_subdirectory(test)
 
 if(WITH_SANDBOX)
     add_subdirectory(sandbox)

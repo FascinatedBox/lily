@@ -1,6 +1,0 @@
-define f(g: Function(Integer => String)): String
-{
-    return g(10)
-}
-
-f(|a| a.to_s())

@@ -1,6 +1,0 @@
-var l = ["a", "b", "c"]
-
-var f = l.fold("", (|a, b| "{0}{1}".format(a, b) ))
-
-if f != "abc":
-    stderr.print("Failed.")

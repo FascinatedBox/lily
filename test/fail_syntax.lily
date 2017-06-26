@@ -1,0 +1,618 @@
+import test
+
+var t = test.t
+
+t.interpret_for_error("Forbid nested assignments.",
+    """\
+    SyntaxError: Cannot nest an assignment within an expression.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var a = 10
+    var b = (a = 10)
+    """)
+
+t.interpret_for_error("Invalid anonymous call to non-function.",
+    """\
+    SyntaxError: Cannot anonymously call resulting type 'Integer'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    (10)()
+    """)
+
+t.interpret_for_error("Wrong closing token.",
+    """\
+    SyntaxError: Expected closing token ')', not ']'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    calltrace("test."]
+    """)
+
+t.interpret_for_error("Comma at end of file.",
+    """\
+    SyntaxError: Unexpected token ,.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var a = 10
+    a = 10,
+    """)
+
+t.interpret_for_error("Wrong closing token for a list.",
+    """\
+    SyntaxError: Expected closing token ']', not ')'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var lsi: List[Integer] = [10, 20, 30)
+    """)
+
+t.interpret_for_error("Mismatched right brace after end of expression.",
+    """\
+    SyntaxError: Unexpected token ']'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var a: List[Integer] = []
+    a = [10]
+    ]
+    """)
+
+t.interpret_for_error("Typecast with no lineage.",
+    """\
+    SyntaxError: Cannot cast type 'Integer' to type 'String'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    10.@(String)
+    """)
+
+t.interpret_for_error("Close brace outside of a block.",
+    """\
+    SyntaxError: '}' outside of a block.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    }
+    """)
+
+t.interpret_for_error("Break outside of a loop.",
+    """\
+    SyntaxError: 'break' used outside of a loop.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    break
+    """)
+
+t.interpret_for_error("Forbid continue outside of a loop.",
+    """\
+    SyntaxError: 'continue' used outside of a loop.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    continue
+    """)
+
+t.interpret_for_error("Forbid return outside of define.",
+    """\
+    SyntaxError: 'return' used outside of a function.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    return
+    """)
+
+
+t.interpret_for_error("Forbid cast that uses subtypes.",
+    """\
+    SyntaxError: Casts from Dynamic cannot include subtypes.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    Dynamic(10).@(List[Integer])
+    """)
+
+t.interpret_for_error("Verify line numbers.",
+    """\
+    SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var a = 10
+    a = "10"
+    """)
+
+t.interpret_for_error("Forbid 'do while' condition from using inner vars.",
+    """\
+    SyntaxError: v has not been declared.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    do: {
+        var v = 10
+        continue
+    } while v == 10
+    """)
+
+t.interpret_for_error("Verify docstring '###'.",
+    """\
+    SyntaxError: Docstring line does not start with full '###'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    ###
+    ##
+    define f {}
+    """)
+
+t.interpret_for_error("Prevent inconsistent docstring indentation.",
+    """\
+    SyntaxError: Docstring has inconsistent indentation.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    ### asdf
+        ### 1234
+    define f {}
+    """)
+
+t.interpret_for_error("Verify dynaload works when done within a static list.",
+    """\
+    SyntaxError: Cannot anonymously call resulting type 'List[Function ( => List[String])]'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    [calltrace]("")
+    """)
+
+t.interpret_for_error("Forbid elif without if.",
+    """\
+    SyntaxError: 'elif' without 'if'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    elif
+    """)
+
+t.interpret_for_error("Forbid else without if.",
+    """\
+    SyntaxError: 'else' without 'if'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    else
+    """)
+
+t.interpret_for_error("Forbid same-branch expressions after raise.",
+    """\
+    SyntaxError: Statement(s) after 'raise' will not execute.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    raise ValueError("")
+    var v = 10
+    """)
+
+t.interpret_for_error("Forbid expression after return.",
+    """\
+    SyntaxError: Statement(s) after 'return' will not execute.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f : Integer
+    {
+        return 1
+        var v = 2
+    }
+    """)
+
+t.interpret_for_error("Forbid expression after return of Unit.",
+    """\
+    SyntaxError: Statement(s) after 'return' will not execute (no return type given).\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define test { return 0 }
+    """)
+
+t.interpret_for_error("Forbid redeclaration of function parameters.",
+    """\
+    SyntaxError: a has already been declared.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f(a: Integer, a: Integer) {}
+    """)
+
+t.interpret_for_error("Forbid redeclaration of a function.",
+    """\
+    SyntaxError: f has already been declared.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f {}
+    define f {}
+    """)
+
+t.interpret_for_error("Forbid use of constructor on non-native builtin class.",
+    """\
+    SyntaxError: Class Integer does not have a constructor.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = Integer(10)
+    """)
+
+t.interpret_for_error("Invalid + operation.",
+    """\
+    SyntaxError: Invalid operation: String + String.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Example {
+        var @v = "test"
+        define tryit(other: Example) {
+            var combine =
+                "a" ++ other.v ++ "b" ++
+                "c" + @v ++ "d" ++ other.v ++ "e"
+        }
+    }
+
+    var a = Example()
+    a.tryit(a)
+    """)
+
+t.interpret_for_error("Forbid assignment to parenth expression.",
+    """\
+    SyntaxError: Left side of = is not assignable.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var a = 1
+    if 1:
+        (a + a) = 1
+    """)
+
+t.interpret_for_error("Forbid assignment to call expression.",
+    """\
+    SyntaxError: Left side of = is not assignable.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    define f : List[Integer] {
+        return [1]
+    }
+
+    f()[0] = 1
+    """)
+
+t.interpret_for_error("Forbid == on different types.",
+    """\
+    SyntaxError: Invalid operation: List[Integer] == List[String].\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    var v1 = [1]
+    var v2 = ["1"]
+
+    v1 == v2
+    """)
+
+t.interpret_for_error("Forbid 'var' on right side of assign.",
+    """\
+    SyntaxError: var has not been declared.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = var
+    """)
+
+t.interpret_for_error("Function parameter using class that doesn't exist.",
+    """\
+    SyntaxError: Class 'asdf' does not exist.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f(g: asdf) {
+    }
+    """)
+
+t.interpret_for_error("Tuple subscript out of range.",
+    """\
+    SyntaxError: Index 3 is out of range for Tuple[Integer, String].\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var s: String = <[1, "2"]> [3]
+    """)
+
+t.interpret_for_error("Require list arguments to have commas between them.",
+    """\
+    SyntaxError: Unexpected token 'a string'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var s = ["1" "2"]
+    """)
+
+t.interpret_for_error("Verify expressions don't finish with mismatched parentheses.",
+    """\
+    SyntaxError: Unexpected token 'end of file'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var a: Integer = 0
+    a = ((a)
+    """)
+
+t.interpret_for_error("Verify functions claiming to return a value do so.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f : Integer {  }
+    """)
+
+t.interpret_for_error("Forbid single-quote byte literals from being multi-byte.",
+    """\
+    SyntaxError: Multi-character byte literal.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = '12'
+    """)
+
+t.interpret_for_error("Multi-line try within single-line try.",
+    """\
+    SyntaxError: Multi-line block within single-line block.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    var a = 10
+
+    try:
+        1
+    except ValueError:
+        try: {
+        }
+    """)
+
+t.interpret_for_error("Forbid scoop types outside dynaload.",
+    """\
+    SyntaxError: Expected 'a label', not 'an integer'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define test: 0 {}
+    """)
+
+t.interpret_for_error("Broken return fold with if.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:10:\
+    """,
+    """\
+    define f(a: Integer) : Integer
+    {
+        if a == 1:
+            return 1
+        elif a == 1:
+            a = 2
+        else:
+            return 3
+    }
+    """)
+
+t.interpret_for_error("Broken return fold on match.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:10:\
+    """,
+    """\
+    define f(a: Option[Integer]) : Integer
+    {
+        match a: {
+            case Some(s):
+                s = 1
+            case None:
+                return 2
+        }
+    }
+    """)
+
+t.interpret_for_error("Broken return fold on try.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:8:\
+    """,
+    """\
+    define f(a: Integer) : Integer
+    {
+        try:
+            a = 1
+        except Exception:
+            return 2
+    }
+    """)
+
+t.interpret_for_error("Forbid return of Unit when a value is wanted.",
+    """\
+    SyntaxError: return expected type 'Integer' but got type 'Unit'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f {  } define g : Integer { return f() }
+    """)
+
+t.interpret_for_error("Forbid a variable from initializing itself.",
+    """\
+    SyntaxError: Attempt to use uninitialized value 'v'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = v
+    """)
+
+t.interpret_for_error("Bytestring subscript out of range.",
+    """\
+    IndexError: Subscript index -50 is out of range.\n\
+    Traceback:\n    \
+        from test\/[subinterp]:1: in __main__\
+    """,
+    """\
+    B"Ā ā Ă ă Ą"[-50]
+    """)
+
+t.interpret_for_error("Unterminated multi-line if.",
+    """\
+    SyntaxError: Unexpected token 'end of file'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+    """)
+
+t.interpret_for_error("Unterminated single-line if.",
+    """\
+    SyntaxError: Unexpected token 'end of file'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1:
+    """)
+
+t.interpret_for_error("Wrong argument count to inner function.",
+    """\
+    SyntaxError: Wrong number of arguments to g (1 for 0).\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f(a: Integer) {
+        define g { a += 1 }
+        g(1)
+    }
+    """)
+
+t.interpret_for_error("Wrong argument count to class method.",
+    """\
+    SyntaxError: Wrong number of arguments to Test.method (1 for 0).\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class Test
+    {
+        define method {  }
+    }
+
+    var t = Test()
+    t.method(123)
+    """)
+
+t.interpret_for_error("Wrong argument count for vararg.",
+    """\
+    SyntaxError: Wrong number of arguments to Test.method (0 for 1+).\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class Test
+    {
+        define method(x: Integer, y: Integer...) {  }
+    }
+
+    var t = Test()
+    t.method()
+    """)
+
+t.interpret_for_error("Wrong argument count to method from constructor.",
+    """\
+    SyntaxError: Wrong number of arguments to Test.method (0 for 1).\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    class Test
+    {
+        define method(x: Integer) {  }
+        method()
+    }
+    """)
+
+t.interpret_for_error("Wrong argument count to function passed as argument.",
+    """\
+    SyntaxError: Wrong number of arguments to g (3 for 1).\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f(g: Function(Integer)) {
+    	g(1, 2, 3)
+    }
+    """)
+
+t.interpret_for_error("Wrong argument count to plain call.",
+    """\
+    SyntaxError: Wrong number of arguments to f (1 for 0).\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f {}
+
+    f(1)
+    """)
+
+t.interpret_for_error("Wrong argument count to class property function.",
+    """\
+    SyntaxError: Wrong number of arguments to abc.a (2 for 0).\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class abc {
+        var @a = (|| 10)
+    }
+
+    var d = abc()
+    d.a(1)
+    """)
+
+t.interpret_for_error("Wrong argument count to anonymous function.",
+    """\
+    SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).\n    \
+        from test\/[subinterp]:9:\
+    """,
+    """\
+    class Test
+    {
+        define test : Function(Integer, Integer => Boolean)
+        {
+            return (|x, y| x == y)
+        }
+    }
+
+    var z = Test().test()()
+    """)
+
+t.interpret_for_error("Plain non-generic type as wrong argument type.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f(a: Integer) {} f("a")
+    """)
+
+t.interpret_for_error("Empty function as wrong argument type.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Function ()\n\
+    Received Type: Integer\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f(g: Function()) {  }
+
+    f(10)
+    """)

@@ -1,6 +1,0 @@
-#[
-SyntaxError: Expected closing token ')', not ']'.
-    from bad_close_token.lily:6:
-]#
-
-print("test.\\n"]

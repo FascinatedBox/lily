@@ -1,8 +1,0 @@
-enum Test[A] { Multi(A, A), Single(A) }
-
-var v = Multi(1, 2)
-
-match v: {
-    case Multi(s1, s2):
-    case Single(s3):
-}

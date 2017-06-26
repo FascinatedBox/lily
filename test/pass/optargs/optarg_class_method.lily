@@ -1,6 +1,0 @@
-class abc {
-    define ghi(a: *Integer=10) {
-    }
-}
-
-abc().ghi()

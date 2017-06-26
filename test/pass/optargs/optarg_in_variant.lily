@@ -1,5 +1,0 @@
-
-enum abc {
-    ghi(Function(*Integer)),
-    xyz
-}

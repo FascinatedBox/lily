@@ -1,0 +1,35 @@
+import test
+
+var t = test.t
+
+t.interpret("Verify importing to access a var.",
+    """\
+    import import_dir/var_access
+    """)
+
+t.interpret("Verify importing to access a deep var.",
+    """\
+    import import_dir/test_deep_access
+    """)
+
+t.interpret("Check importing a diamond.",
+    """\
+    import import_dir/diamond_a
+    """)
+
+t.interpret("Check importing with commas between names.",
+    """\
+    import import_dir/comma_import
+    """)
+
+t.interpret("Check importing a module as another name.",
+    """\
+    import import_dir/basic_import_as
+    """)
+
+t.interpret("Check getting a var from an imported target.",
+    """\
+    import import_dir/nest/deep_target
+
+    var v = deep_target.v
+    """)

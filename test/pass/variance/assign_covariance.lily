@@ -1,8 +1,0 @@
-class One {}
-class Two < One {}
-
-var v = One()
-v = Two()
-
-var v2 = [v]
-v2[0] = Two()

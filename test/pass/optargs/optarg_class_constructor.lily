@@ -1,3 +1,0 @@
-class Test(var @a: String, var @b: String, var @c: *Boolean = false)
-{
-}

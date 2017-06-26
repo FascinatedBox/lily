@@ -1,8 +1,0 @@
-class One {}
-class Two < One {}
-
-define f(a: One) {}
-define g(a: Two) {}
-
-var v = g
-v = f

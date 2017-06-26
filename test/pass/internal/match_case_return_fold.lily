@@ -1,9 +1,0 @@
-define f(a: Option[Integer]) : Integer
-{
-    match a: {
-        case Some(s):
-            return 1
-        case None:
-            return 2
-    }
-}

@@ -1,4 +1,0 @@
-var v = (|| ['a', 'b', 'c'])
-
-if v() != ['a', 'b', 'c']:
-    stderr.print("Failed.")

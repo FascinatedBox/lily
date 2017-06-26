@@ -1,9 +1,0 @@
-define f(
-        a: *Integer=10,
-        b: *Double=1.1,
-        c: *ByteString=B"",
-        d: *String="1",
-        e: *Boolean=true)
-{
-
-}

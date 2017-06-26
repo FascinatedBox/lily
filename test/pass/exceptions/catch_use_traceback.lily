@@ -1,4 +1,0 @@
-try:
-    raise ValueError("")
-except ValueError as e:
-    var v = e.traceback[0].split(":")[-1]

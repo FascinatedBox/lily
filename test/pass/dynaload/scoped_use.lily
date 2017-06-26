@@ -1,5 +1,0 @@
-define f {
-    var a = stdout
-}
-
-var b = stdout
