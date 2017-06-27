@@ -107,15 +107,8 @@ void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
         struct lily_value_stack_ *);
 void lily_setup_toplevel(lily_vm_state *, lily_function_val *);
 void lily_vm_execute(lily_vm_state *);
-uint64_t lily_siphash(lily_vm_state *, lily_value *);
-
-void lily_tag_value(lily_vm_state *, lily_value *);
 
 void lily_vm_ensure_class_table(lily_vm_state *, int);
 void lily_vm_add_class_unchecked(lily_vm_state *, lily_class *);
-void lily_vm_add_class(lily_vm_state *, lily_class *);
-
-lily_value *lily_foreign_call(lily_vm_state *, int *, int, lily_value *,
-        int, ...);
 
 #endif

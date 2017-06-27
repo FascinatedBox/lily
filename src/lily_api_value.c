@@ -82,11 +82,6 @@ uint16_t lily_arg_class_id(lily_state *s, int index)
     return s->call_chain->start[index]->class_id;
 }
 
-lily_value *lily_arg_nth_get(lily_state *s, int reg_i, int container_i)
-{
-    return s->call_chain->start[reg_i]->value.container->values[container_i];
-}
-
 int lily_arg_is_some(lily_state *s, int i)
 {
     return s->call_chain->start[i]->class_id == LILY_SOME_ID;
@@ -548,11 +543,6 @@ int lily_value_compare(lily_state *s, lily_value *left, lily_value *right)
 {
     int depth = 0;
     return lily_value_compare_raw(s, &depth, left, right);
-}
-
-int lily_value_is_derefable(lily_value *value)
-{
-    return value->flags & VAL_IS_DEREFABLE;
 }
 
 uint16_t lily_value_class_id(lily_value *value)

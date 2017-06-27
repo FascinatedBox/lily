@@ -408,12 +408,6 @@ static void store_function(lily_symtab *symtab, lily_var *func_var,
     lily_vs_push(symtab->literals, v);
 }
 
-void lily_store_builtin(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val)
-{
-    store_function(symtab, func_var, func_val, symtab->builtin_module);
-}
-
 void lily_store_function(lily_symtab *symtab, lily_var *func_var,
         lily_function_val *func_val)
 {

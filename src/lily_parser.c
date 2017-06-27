@@ -1391,28 +1391,8 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     else
         source = (lily_item *)cls;
 
-    lily_foreign_func func;
-
-    if (m->loader)
-        func = (lily_foreign_func)m->loader(parser->vm, dyna_index);
-    else {
-        lily_msgbuf *msgbuf = parser->msgbuf;
-        lily_mb_flush(msgbuf);
-
-        char *cls_name = "";
-        const char *search_name = name;
-
-        /* Constructors use <new> as their name to hide it. */
-        if (search_name[0] == '<')
-            search_name = "new";
-
-        if (cls)
-            cls_name = cls->name;
-
-        func = (lily_foreign_func)lily_library_get(m->handle,
-                lily_mb_sprintf(msgbuf, "lily_%s_%s_%s", m->loadname, cls_name,
-                search_name));
-    }
+    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
+            dyna_index);
 
     parser->symtab->active_module = m;
     int save_generic_start;
