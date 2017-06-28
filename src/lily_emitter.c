@@ -2735,14 +2735,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
     if (can_optimize && assign_optimize_check(ast)) {
-        int pos;
-        /* Most trees dump their result at the end, so that patching is easy.
-           Those that don't will write down where it should go. */
-        if (ast->right->maybe_result_pos == 0)
-            pos = lily_u16_pos(emit->code) - 1;
-        else
-            pos = ast->right->maybe_result_pos;
-
+        /* Trees always write the result as the last value. */
+        int pos = lily_u16_pos(emit->code) - 1;
         lily_u16_insert(emit->code, pos, left_sym->reg_spot);
     }
     else {
@@ -3827,7 +3821,6 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
             cs->arg_count);
     write_call_values(emit, cs, 0);
     lily_u16_write_1(emit->code, ast->result->reg_spot);
-    ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
 }
 
 /* This actually does the evaluating for calls. */
@@ -4035,8 +4028,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             padded_type = variant->parent->self_type;
     }
 
-    ast->maybe_result_pos = lily_u16_pos(emit->code);
-
     /* So here's the deal. It's quite possible that this result's type will have
        incomplete type information. It might be written as Option[?], and the
        vm doesn't have any '?' type. However, that doesn't matter because the vm
@@ -4186,7 +4177,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         lily_ast *start = ast->arg_start;
 
         eval_tree(emit, start, expect);
-        ast->maybe_result_pos = start->maybe_result_pos;
         ast->result = start->result;
    }
     else if (ast->tree_type == tree_unary)

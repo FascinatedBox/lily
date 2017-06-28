@@ -13,7 +13,6 @@ es->next_available = a->next_tree; \
 a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *es->lex_linenum; \
-a->maybe_result_pos = 0; \
 a->parent = NULL;
 
 #define AST_ENTERABLE_INIT(a, tt) \

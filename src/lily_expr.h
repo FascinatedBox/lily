@@ -61,7 +61,7 @@ typedef struct lily_ast_ {
     uint32_t line_num;
     /* Most opcodes will write the result down at the very end. For those that
        do not, this is the code position where that result is. */
-    uint16_t maybe_result_pos;
+    uint16_t pad2;
     uint16_t args_collected;
     union {
         uint32_t pile_pos;
