@@ -279,14 +279,6 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = buffer[4] + 5;
             break;
-        case o_variant_decompose:
-            iter->line = 1;
-            iter->special_1 = 1;
-            iter->counter_2 = 1;
-            iter->outputs_5 = buffer[3];
-
-            iter->round_total = buffer[3] + 4;
-            break;
         case o_get_upvalue:
             iter->line = 1;
             iter->special_1 = 1;

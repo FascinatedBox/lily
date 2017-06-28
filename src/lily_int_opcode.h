@@ -147,9 +147,6 @@ typedef enum {
        the given id subtracted from it. The value left determines which jump
        should be taken. An exhaustive set of jumps is provided. */
     o_match_dispatch,
-    /* This takes a variant, a count, and a number of output registers. Each
-       value within the variant is dumped into an output register. */
-    o_variant_decompose,
 
     /* Get a value where the target index is an upvalue index. */
     o_get_upvalue,

@@ -4212,14 +4212,9 @@ static void scoped_handler(lily_parse_state *parser, int multi)
                 lex->label);
 
     if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
-        lily_buffer_u16 *decompose_data = parser->data_stack;
-        int decompose_start = lily_u16_pos(decompose_data);
-
         lily_type *build_type = variant_case->build_type;
         lily_type_system *ts = parser->emit->ts;
 
-        lily_u16_write_2(decompose_data, match_sym->reg_spot,
-                build_type->subtype_count - 1);
         NEED_NEXT_TOK(tk_left_parenth)
         /* There should be as many identifiers as there are arguments to this
            variant's creation type.
@@ -4229,18 +4224,14 @@ static void scoped_handler(lily_parse_state *parser, int multi)
         for (i = 1;i < build_type->subtype_count;i++) {
             lily_type *var_type = lily_ts_resolve_by_second(ts,
                     match_input_type, build_type->subtypes[i]);
-            uint16_t spot;
 
-            if (strcmp(lex->label, "_") == 0) {
-                spot = lily_emit_get_storage_spot(parser->emit, var_type);
+            if (strcmp(lex->label, "_") == 0)
                 lily_lexer(lex);
-            }
             else {
                 lily_var *var = get_local_var(parser, var_type);
-                spot = var->reg_spot;
+                lily_emit_decompose(parser->emit, match_sym, i - 1,
+                        var->reg_spot);
             }
-
-            lily_u16_write_1(decompose_data, spot);
 
             if (i != build_type->subtype_count - 1) {
                 NEED_CURRENT_TOK(tk_comma)
@@ -4248,10 +4239,6 @@ static void scoped_handler(lily_parse_state *parser, int multi)
             }
         }
         NEED_CURRENT_TOK(tk_right_parenth)
-
-        lily_u16_write_1(decompose_data, decompose_start);
-        lily_emit_variant_decompose(parser->emit, decompose_data);
-        lily_u16_set_pos(decompose_data, decompose_start);
     }
     /* else the variant does not take arguments, and cannot decompose because
        there is nothing inside to decompose. */

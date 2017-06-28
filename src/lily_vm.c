@@ -2574,21 +2574,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += code[5 + i];
                 break;
             }
-            case o_variant_decompose:
-            {
-                rhs_reg = vm_regs[code[2]];
-                lily_value **decompose_values = rhs_reg->value.container->values;
-
-                /* Each variant value gets mapped away to a register. The
-                   emitter ensures that the decomposition won't go too far. */
-                for (i = 0;i < code[3];i++) {
-                    lhs_reg = vm_regs[code[4 + i]];
-                    lily_value_assign(lhs_reg, decompose_values[i]);
-                }
-
-                code += 4 + i;
-                break;
-            }
             case o_create_closure:
                 do_o_create_closure(vm, code);
                 upvalues = current_frame->function->upvalues;

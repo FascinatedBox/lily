@@ -1669,17 +1669,13 @@ static void grow_match_cases(lily_emit_state *emit, int new_size)
         sizeof(*emit->match_cases) * emit->match_case_size);
 }
 
-/* This writes a decomposition for a given variant type. The buffer is written
-   as the match sym spot, the count, and the values. This just needs to write
-   the initial o_variant_decompose and transfer the values over. */
-void lily_emit_variant_decompose(lily_emit_state *emit, lily_buffer_u16 *buffer)
+/* This is used by parser to decompose one element of a variant down into a
+   result register. */
+void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int pos,
+        uint16_t spot)
 {
-    int i = lily_u16_pop(buffer);
-    int stop = lily_u16_pos(buffer);
-    lily_u16_write_2(emit->code, o_variant_decompose, *emit->lex_linenum);
-
-    for (;i < stop;i++)
-        lily_u16_write_1(emit->code, lily_u16_get(buffer, i));
+    lily_u16_write_5(emit->code, o_get_property, *emit->lex_linenum,
+            pos, match_sym->reg_spot, spot);
 }
 
 static void write_match_exit_jump(lily_emit_state *emit)
