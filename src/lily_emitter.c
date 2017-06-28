@@ -1360,18 +1360,6 @@ static int count_transforms(lily_emit_state *emit, int start)
         }
     }
 
-    pos += ci.inputs_3 + ci.special_4 + ci.outputs_5;
-
-    if (op == o_native_call ||
-        op == o_foreign_call ||
-        op == o_function_call) {
-        int i;
-        for (i = 0;i < ci.special_6;i++) {
-            if (transform_table[buffer[pos + i]] != (uint16_t)-1)
-                count++;
-        }
-    }
-
     return count;
 }
 
@@ -1528,23 +1516,6 @@ static void perform_closure_transform(lily_emit_state *emit,
         if (ci.outputs_5) {
             output_start = pos;
             pos += ci.outputs_5;
-        }
-
-        if (ci.special_6) {
-            lily_opcode op = buffer[ci.offset];
-            switch (op) {
-                case o_native_call:
-                case o_foreign_call:
-                case o_function_call:
-                    for (i = 0;i < ci.special_6;i++) {
-                        MAYBE_TRANSFORM_INPUT(pos + i, o_get_upvalue)
-                    }
-                    pos += ci.special_6;
-                    break;
-                default:
-                    lily_raise_syn(emit->raiser,
-                            "Special value #6 for opcode %d not handled.", op);
-            }
         }
 
         i = ci.offset;
@@ -3852,11 +3823,11 @@ static void write_call(lily_emit_state *emit, lily_emit_call_state *cs)
         ast->result = (lily_sym *)storage;
     }
 
-    lily_u16_write_5(emit->code, opcode, ast->line_num, call_sym->reg_spot,
-            cs->arg_count, ast->result->reg_spot);
-    ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
-
+    lily_u16_write_4(emit->code, opcode, ast->line_num, call_sym->reg_spot,
+            cs->arg_count);
     write_call_values(emit, cs, 0);
+    lily_u16_write_1(emit->code, ast->result->reg_spot);
+    ast->maybe_result_pos = lily_u16_pos(emit->code) - 1;
 }
 
 /* This actually does the evaluating for calls. */

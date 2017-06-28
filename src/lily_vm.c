@@ -588,7 +588,7 @@ static void prep_registers(lily_call_frame *frame, uint16_t *code)
     /* A function's args always come first, so copy arguments over while clearing
        old values. */
     for (i = 0;i < code[3];i++) {
-        lily_value *get_reg = input_regs[code[5+i]];
+        lily_value *get_reg = input_regs[code[4+i]];
         lily_value *set_reg = target_regs[i];
 
         if (get_reg->flags & VAL_IS_DEREFABLE)
@@ -2285,7 +2285,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = NULL;
-                next_frame->return_target = vm_regs[code[4]];
+                next_frame->return_target = vm_regs[code[i + 4]];
 
                 if (next_frame->top >= next_frame->register_end) {
                     vm->call_chain = next_frame;
@@ -2339,7 +2339,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 next_frame->function = fval;
                 next_frame->line_num = -1;
                 next_frame->code = NULL;
-                next_frame->return_target = vm_regs[code[4]];
+                next_frame->return_target = vm_regs[code[i + 4]];
 
                 if (next_frame->top >= next_frame->register_end) {
                     vm->call_chain = next_frame;

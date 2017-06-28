@@ -99,8 +99,8 @@ int lily_ci_next(lily_code_iter *iter)
             iter->line = 1;
             iter->special_1 = 1;
             iter->counter_2 = 1;
+            iter->inputs_3 = buffer[3];
             iter->outputs_5 = 1;
-            iter->special_6 = buffer[3];
 
             iter->round_total = buffer[3] + 5;
             break;
