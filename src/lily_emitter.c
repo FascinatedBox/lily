@@ -2287,49 +2287,47 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_type, left_type);
 }
 
-static void get_error_name(lily_emit_state *emit, lily_ast *ast,
-        const char **class_name, const char **separator, const char **name)
+static void add_call_name_to_msgbuf(lily_msgbuf *msgbuf, lily_ast *ast)
 {
-    *class_name = "";
-    *separator = "";
-
-    if (ast->tree_type == tree_binary)
-        ast = ast->right;
-    else if (ast->tree_type != tree_variant)
+    if (ast->tree_type != tree_variant)
         ast = ast->arg_start;
 
-    /* This happens when incorrectly calling the result of a call. */
-    if (ast->tree_type == tree_call) {
-        *name = "(anonymous)";
-        return;
-    }
-
-    int item_kind = ast->item->item_kind;
-
-    /* Unfortunately, each of these kinds of things stores the name it holds at
-       a different offset. Maybe this will change one day. */
-    if (item_kind == ITEM_TYPE_VAR) {
-        lily_var *v = ((lily_var *)ast->item);
-        if (v->parent) {
-            *class_name = v->parent->name;
-            *separator = ".";
+    switch (ast->tree_type) {
+        case tree_method:
+        case tree_static_func: {
+            lily_var *v = (lily_var *)ast->item;
+            lily_mb_add_fmt(msgbuf, "%s.%s", v->parent->name, v->name);
+            break;
         }
-        *name = v->name;
-    }
-    else if (item_kind == ITEM_TYPE_VARIANT)
-        *name = ((lily_class *)ast->item)->name;
-    else if (item_kind == ITEM_TYPE_PROPERTY) {
-        lily_prop_entry *p = ((lily_prop_entry *)ast->item);
-        *class_name = p->cls->name;
-        *separator = ".";
-        *name = p->name;
-    }
-    else
-        *name = "(anonymous)";
-
-    if (strcmp(*name, "<new>") == 0) {
-        *separator = "";
-        *name = "";
+        case tree_inherited_new: {
+            lily_var *v = (lily_var *)ast->item;
+            lily_mb_add_fmt(msgbuf, "%s", v->parent->name);
+            break;
+        }
+        case tree_oo_access: {
+            if (ast->item->item_kind == ITEM_TYPE_VAR) {
+                lily_var *v = (lily_var *)ast->item;
+                lily_mb_add_fmt(msgbuf, "%s.%s", v->parent->name, v->name);
+            }
+            else {
+                lily_prop_entry *p = (lily_prop_entry *)ast->item;
+                lily_mb_add_fmt(msgbuf, "%s.%s", p->cls->name, p->name);
+            }
+            break;
+        }
+        case tree_defined_func:
+        case tree_variant:
+        case tree_local_var: {
+            lily_var *v = (lily_var *)ast->item;
+            lily_mb_add_fmt(msgbuf, "%s", v->name);
+            break;
+        }
+        case tree_call:
+            lily_mb_add(msgbuf, "(anonymous)");
+            break;
+        default:
+            lily_mb_add(msgbuf, "(?)");
+            break;
     }
 }
 
@@ -2338,13 +2336,6 @@ static void get_error_name(lily_emit_state *emit, lily_ast *ast,
 static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
         lily_type *expected, lily_type *got)
 {
-    const char *class_name, *separator, *name;
-    get_error_name(emit, cs->ast, &class_name, &separator, &name);
-
-    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-
-    emit->raiser->line_adjust = cs->ast->line_num;
-
     /* Ensure that generics that did not get a valid value are replaced with the
        ? type (instead of NULL, which will cause a problem). */
     lily_ts_resolve_as_question(emit->ts);
@@ -2354,16 +2345,18 @@ static void bad_arg_error(lily_emit_state *emit, lily_emit_call_state *cs,
     if ((expected->flags & TYPE_HAS_SCOOP) == 0)
         expected = lily_ts_resolve_with(emit->ts, expected, question);
 
-    /* These names are intentionally the same length and on separate lines so
-       that slight naming issues become more apparent. */
-    lily_mb_add_fmt(msgbuf,
-            "Argument #%d to %s%s%s is invalid:\n"
-            "Expected Type: ^T\n"
-            "Received Type: ^T",
-            cs->arg_count + 1,
-            class_name, separator, name, expected, got);
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+    lily_mb_flush(msgbuf);
 
-    lily_raise_syn(emit->raiser, lily_mb_get(msgbuf));
+    lily_mb_add_fmt(msgbuf, "Argument #%d to ", cs->arg_count + 1);
+    add_call_name_to_msgbuf(msgbuf, cs->ast);
+    lily_mb_add_fmt(msgbuf,
+            " is invalid:\n"
+            "Expected Type: ^T\n"
+            "Received Type: ^T", expected, got);
+
+    lily_raise_adjusted(emit->raiser, cs->ast->line_num, lily_mb_get(msgbuf),
+            "");
 }
 
 /***
@@ -3641,7 +3634,7 @@ static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
            (# for n)
            (# for n+)
            (# for n..m) */
-        const char *class_name, *separator, *name, *div_str = "";
+        const char *div_str = "";
         char arg_str[8], min_str[8] = "", max_str[8] = "";
 
         if (num_args == -1)
@@ -3660,12 +3653,16 @@ static void verify_argument_count(lily_emit_state *emit, lily_ast *target,
             snprintf(max_str, sizeof(max_str), "%d", max);
         }
 
-        get_error_name(emit, target, &class_name, &separator, &name);
+        lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+        lily_mb_flush(msgbuf);
+
+        lily_mb_add(msgbuf, "Wrong number of arguments to ");
+        add_call_name_to_msgbuf(msgbuf, target);
+        lily_mb_add_fmt(msgbuf, " (%s for %s%s%s).", arg_str, min_str, div_str,
+                max_str);
 
         lily_raise_adjusted(emit->raiser, target->line_num,
-                "Wrong number of arguments to %s%s%s (%s for %s%s%s).",
-                class_name, separator, name, arg_str,
-                min_str, div_str, max_str);
+                lily_mb_get(msgbuf), "");
     }
 }
 
