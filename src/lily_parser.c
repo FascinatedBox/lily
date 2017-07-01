@@ -4021,10 +4021,9 @@ static void parse_variant_header(lily_parse_state *parser,
     int i = 1;
     int flags = 0;
 
-    /* The return of a variant is always written as NULL. Since variants are
-       special cased (they emit as tuple-like things), the return of a variant
-       is NEVER checked or used. */
-    lily_tm_add(parser->tm, lily_unit_type);
+    /* For consistency with `Function`, the result of a variant is the
+       all-generic type of the parent enum. */
+    lily_tm_add(parser->tm, variant_cls->parent->self_type);
 
     while (1) {
         lily_tm_add(parser->tm, get_nameless_arg(parser, &flags));
