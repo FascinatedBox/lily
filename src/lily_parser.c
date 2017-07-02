@@ -292,7 +292,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     if (emit->closure_aux_code)
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
-    emit->call_values_pos = 0;
     emit->closed_pos = 0;
     emit->match_case_pos = 0;
     emit->top_var = emit->main_block->var_start;

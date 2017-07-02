@@ -99,46 +99,6 @@ typedef struct lily_block_ {
     struct lily_block_ *prev;
 } lily_block;
 
-typedef struct lily_emit_call_state_ {
-    /* This is what is going to be called. It is either:
-       * A storage  (ex: x[0]()
-       * A var      (ex: a())
-       * A property (ex: a.b() if b is a class property)
-       * A variant  (ex: Some(...))
-       One might notice that this is a lily_item, and not a lily_sym (item only
-       has flags). This is because variants are the oddball here: They're not
-       true syms (can't be passed around as bare values), and they don't
-       actually get called (they become tuples instead). */
-    union {
-        lily_item *item;
-        lily_sym *sym;
-        lily_var *var;
-        lily_prop_entry *property;
-        lily_storage *storage;
-        lily_class *variant;
-    };
-
-    /* This is the tree that the arguments are located in. */
-    lily_ast *ast;
-
-    /* This is the type of the thing being called. It's stored apart from the
-       union of stuff because variants do not store the type where syms store
-       the type. */
-    lily_type *call_type;
-
-    /* This is the type that vararg elements should be. It isn't solved. */
-    lily_type *vararg_elem_type;
-
-    /* This is either where varargs start at, or ((uint16_t)-1) if the current
-     * call does not take varargs. */
-    uint16_t vararg_start;
-
-    /* How many arguments have been written so far. */
-    uint16_t arg_count;
-
-    uint32_t pad;
-} lily_emit_call_state;
-
 typedef struct lily_storage_stack_
 {
     lily_storage **data;
@@ -163,8 +123,6 @@ typedef struct {
        twice or not seen at all. */
     int *match_cases;
 
-    lily_sym **call_values;
-
     /* All code is written initially to here. When a function is done, a block
        of the appropriate size is copied from here into the function value. */
     lily_buffer_u16 *code;
@@ -178,15 +136,9 @@ typedef struct {
 
     uint64_t transform_size;
 
-    uint16_t call_values_pos;
-
-    uint16_t call_values_size;
-
     uint16_t closed_pos;
 
     uint16_t closed_size;
-
-    uint32_t pad;
 
     uint16_t match_case_pos;
 
