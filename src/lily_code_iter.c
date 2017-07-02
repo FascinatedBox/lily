@@ -264,13 +264,6 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 4;
             break;
-        case o_optarg_dispatch:
-            iter->special_1 = 1;
-            iter->counter_2 = 1;
-            iter->jumps_7 = buffer[2];
-
-            iter->round_total = buffer[2] + 3;
-            break;
         case o_match_dispatch:
             iter->line = 1;
             iter->special_1 = 2;

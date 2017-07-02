@@ -347,58 +347,75 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 static void write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         int start)
 {
-    /* Optional arguments are sent in pairs of class id and some data (usually
-       the register spot of a value). The arguments have been added from left to
-       right. The thinking is that registers at vm-time will be scanned from
-       right to left.
+    /* Optarg values are sent in sets of three:
+     * [0] is the source register position
+     * [1] is the opcode used to write data
+     * [2] is the value for the opcode.
 
-       Supposing that there are 4 locals, the goal is to have something like
-       this happen:
+       ```
+       define f(a: *Integer=0, b: *String="", c: *Option[Integer]=None)
+       ```
 
-       switch(#regs)
-           case 0:
-               assign reg #1
-           case 1:
-               assign reg #2
-           case 2:
-               no-op
-       } */
-    int stop = optargs->pos;
-    uint16_t *stack = optargs->data;
+       The code here takes advantage of the vm making sure that uninitialized
+       values have their id set to class 0. This allows testing for class 0 as a
+       means of determining if a value is unset.
+
+       Arguments start from the left (a). What this does is to write a series of
+       checks from right to left (c to a). It ends up looking like this:
+
+
+       if a is set
+           if b is set
+               if c is set
+                   jump to done
+               else
+                   jump to set c
+           else
+               jump to set b
+       else
+           jump to set a
+
+       assign a
+       assign b
+       assign c
+       */
+
     uint16_t line_num = *emit->lex_linenum;
-    int count = ((stop - start) / 3) + 1;
+    uint16_t *buffer = optargs->data;
+    int optarg_patch_pos = lily_u16_pos(emit->patches);
+
     int i;
+    for (i = start; i < optargs->pos; i += 3) {
+        /* If this value is NOT unset, jump to the next test. */
+        lily_u16_write_4(emit->code, o_jump_if_not_class, buffer[i], 0, 6);
 
-    /* Optargs is -almost- always first. But sometimes there's an o_new_instance
-       that comes before it. So the jumps need to be relative, but to take into
-       account that they're not first. */
-    int offset = lily_u16_pos(emit->code);
+        /* Otherwise jump to the assign table. */
+        lily_u16_write_2(emit->code, o_jump, 1);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    }
 
-    /* This writes down the most recent register and the count. The count is
-       sent because the vm doesn't have an easy way to know how many to scan. */
-    lily_u16_write_3(emit->code, o_optarg_dispatch,
-            emit->block->next_reg_spot - 1, count);
+    /* Write one final jump for when all branches succeed. */
+    lily_u16_write_2(emit->code, o_jump, 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
-    /* Write a block of zeroes that will be patched later. */
-    for (i = 0;i < count;i++)
-        lily_u16_write_1(emit->code, 0);
+    for (i = start; i < optargs->pos; i += 3, optarg_patch_pos++) {
+        uint16_t target_reg = buffer[i];
+        uint16_t opcode = buffer[i + 1];
+        uint16_t value = buffer[i + 2];
 
-    int jump_target = lily_u16_pos(emit->code) - 1;
+        /* Fix the jump to go to this part in the assign set. */
+        uint16_t patch_spot = lily_u16_get(emit->patches, optarg_patch_pos);
 
-    for (i = start;i != stop;i += 3, jump_target--) {
-        int target_reg = stack[i];
-        int opcode = stack[i + 1];
-        int value = stack[i + 2];
+        lily_u16_set_at(emit->code, patch_spot,
+                lily_u16_pos(emit->code) - patch_spot + 1);
 
-        lily_u16_set_at(emit->code, jump_target,
-                lily_u16_pos(emit->code) - offset);
         lily_u16_write_4(emit->code, opcode, line_num, value, target_reg);
     }
 
-    /* The first jump will be cascading down all of the default assigns. The
-       offset this time is where code was originally (and not after the code for
-       the above has been written. */
-    lily_u16_set_at(emit->code, jump_target, lily_u16_pos(emit->code) - offset);
+    uint16_t patch_spot = lily_u16_get(emit->patches, optarg_patch_pos);
+
+    lily_u16_set_at(emit->code, patch_spot,
+            lily_u16_pos(emit->code) - patch_spot + 1);
 }
 
 /* This function writes the code necessary to get a for <var> in x...y style

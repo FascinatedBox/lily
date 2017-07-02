@@ -165,12 +165,6 @@ typedef enum {
     /* This joins a series of values together into a String, eventually
        returning that String. */
     o_interpolation,
-    /* This gets a stop register, and checks toward the front to find the last
-       register that was given a value. Based on that, a jump is returned for
-       code to go to. The emitter writes code between the jumps so that optional
-       arguments are fixed up in a similar manner to assignments down a switch
-       statement where there are no breaks. */
-    o_optarg_dispatch,
 
     /* Exit the vm. This is written at the end of __main__ to make it leave the
        vm exec function. It is also spoofed when entering foreign functions, so
