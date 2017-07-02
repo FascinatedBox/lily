@@ -2663,10 +2663,18 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         if (lhs_id == LILY_INTEGER_ID ||
             lhs_id == LILY_DOUBLE_ID ||
             lhs_id == LILY_STRING_ID) {
-            if (op == expr_lt_eq)
-                opcode = o_less_eq;
-            else if (op == expr_lt)
-                opcode = o_less;
+            if (op == expr_lt_eq) {
+                lily_sym *temp = rhs_sym;
+                rhs_sym = lhs_sym;
+                lhs_sym = temp;
+                opcode = o_greater_eq;
+            }
+            else if (op == expr_lt) {
+                lily_sym *temp = rhs_sym;
+                rhs_sym = lhs_sym;
+                lhs_sym = temp;
+                opcode = o_greater;
+            }
             else if (op == expr_gr_eq)
                 opcode = o_greater_eq;
             else if (op == expr_gr)

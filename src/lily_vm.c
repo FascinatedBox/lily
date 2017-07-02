@@ -2122,12 +2122,6 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_double_minus:
                 DOUBLE_OP(-)
                 break;
-            case o_less:
-                COMPARE_OP(<)
-                break;
-            case o_less_eq:
-                COMPARE_OP(<=)
-                break;
             case o_is_equal:
                 EQUALITY_COMPARE_OP(==)
                 break;

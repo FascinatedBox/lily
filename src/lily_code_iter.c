@@ -64,8 +64,6 @@ int lily_ci_next(lily_code_iter *iter)
         case o_double_div:
         case o_is_equal:
         case o_not_eq:
-        case o_less:
-        case o_less_eq:
         case o_greater:
         case o_greater_eq:
             iter->line = 1;

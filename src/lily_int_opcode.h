@@ -32,12 +32,10 @@ typedef enum {
     o_double_mul,
     o_double_div,
 
-    /* Comparison operations are general purpose, and work for any two values of
-       the same underlying class. */
+    /* Comparison operations. These don't include less/less equal, because the
+       emitter swaps the sides and emits greater/greater equal instead. */
     o_is_equal,
     o_not_eq,
-    o_less,
-    o_less_eq,
     o_greater,
     o_greater_eq,
 
