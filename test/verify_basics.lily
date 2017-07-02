@@ -351,24 +351,31 @@ t.assert("Vararg call with no prefix value and 0 values.",
          (|| just_vararg_total() == 0 ))
 
 
-t.assert("Dynamic cast to Integer.",
+t.assert("match against Dynamic success case.",
          (||
     var d = Dynamic(10)
-    var i = d.@(Integer).unwrap()
-    i == 10 ))
+    var ok = false
+    match d: {
+        case Integer(i):
+            ok = true
+        else:
+            ok = false
+    }
 
-t.assert("Dynamic cast to wrong type returns None.",
+    ok ))
+
+t.assert("match against Dynamic failure case.",
          (||
     var d = Dynamic(10)
-    var s = d.@(String)
-    s.is_none() ))
+    var ok = false
+    match d: {
+        case String(s):
+            ok = false
+        else:
+            ok = true
+    }
 
-t.assert("Dynamic cast with nested Dynamic.",
-         (||
-    var d = Dynamic(Dynamic("1"))
-    var d2 = d.@(Dynamic).unwrap()
-    var d3 = d2.@(String).unwrap()
-    d3 == "1" ))
+    ok ))
 
 
 class Test {

@@ -150,14 +150,6 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = buffer[3] + 5;
             break;
-        case o_dynamic_cast:
-            iter->line = 1;
-            iter->special_1 = 1;
-            iter->inputs_3 = 1;
-            iter->outputs_5 = 1;
-
-            iter->round_total = 5;
-            break;
         case o_integer_for:
             iter->line = 1;
             iter->inputs_3 = 3;

@@ -158,10 +158,6 @@ typedef enum {
     /* This creates a copy of a given function that has upvalues from the
        backing closure. */
     o_create_function,
-    /* Attempt to extract a value from a Dynamic. The wanted class is given as
-       an id into the vm's class table. Success yields a Some(class), whereas
-       failure provides a None. */
-    o_dynamic_cast,
     /* This joins a series of values together into a String, eventually
        returning that String. */
     o_interpolation,

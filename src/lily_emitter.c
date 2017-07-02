@@ -1866,8 +1866,20 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     if (match_class->flags & CLS_IS_ENUM)
         ;
     else if ((match_class->flags & CLS_IS_BUILTIN) == 0) {
-        /* Each class case will pop to get the last jump and then push
-           in their own.  */
+        /* Each case pops the last jump and writes in their own. */
+        lily_u16_write_1(emit->patches, 0);
+        return;
+    }
+    else if (match_class->id == LILY_DYNAMIC_ID) {
+        lily_storage *s = get_storage(emit, emit->ts->question_class_type);
+
+        /* Dynamic is laid out like a class with the content in slot 0. Extract
+           it out to match against. */
+        lily_u16_write_5(emit->code, o_get_property, ast->line_num, 0,
+                ast->result->reg_spot, s->reg_spot);
+
+        ast->result = (lily_sym *)s;
+
         lily_u16_write_1(emit->patches, 0);
         return;
     }
@@ -3112,24 +3124,8 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *var_type = right_tree->result->type;
 
-    if (var_type->cls->id == LILY_DYNAMIC_ID) {
-        /* Lily's emitter is designed so that it has full type information.
-           However, the vm only knows about classes. Because of that, casts that
-           use subtyping need to be forbidden. */
-        if (cast_type->cls->generic_count != 0)
-            lily_raise_syn(emit->raiser,
-                    "Casts from Dynamic cannot include subtypes.");
-
-        lily_storage *result = get_storage(emit, boxed_type);
-
-        lily_u16_write_5(emit->code, o_dynamic_cast, ast->line_num,
-                cast_type->cls->id, right_tree->result->reg_spot,
-                result->reg_spot);
-        ast->result = (lily_sym *)result;
-    }
-    else
-        lily_raise_adjusted(emit->raiser, ast->line_num,
-                "Cannot cast type '^T' to type '^T'.", var_type, cast_type);
+    lily_raise_adjusted(emit->raiser, ast->line_num,
+            "Cannot cast type '^T' to type '^T'.", var_type, cast_type);
 }
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)

@@ -4297,7 +4297,9 @@ static void process_class_match_case(lily_parse_state *parser,
     NEED_CURRENT_TOK(tk_word)
     lily_class *cls = resolve_class_name(parser);
 
-    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0) {
+    /* The second case only happens if the source is a Dynamic. */
+    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0 &&
+        match_sym->type->cls->id != LILY_QUESTION_ID) {
         lily_raise_syn(parser->raiser,
                 "Class %s does not inherit from matching class %s.", cls->name,
                 match_sym->type->cls->name);

@@ -60,15 +60,6 @@ t.interpret_for_error("Mismatched right brace after end of expression.",
     ]
     """)
 
-t.interpret_for_error("Typecast with no lineage.",
-    """\
-    SyntaxError: Cannot cast type 'Integer' to type 'String'.\n    \
-        from test\/[subinterp]:1:\
-    """,
-    """\
-    10.@(String)
-    """)
-
 t.interpret_for_error("Close brace outside of a block.",
     """\
     SyntaxError: '}' outside of a block.\n    \
@@ -103,16 +94,6 @@ t.interpret_for_error("Forbid return outside of define.",
     """,
     """\
     return
-    """)
-
-
-t.interpret_for_error("Forbid cast that uses subtypes.",
-    """\
-    SyntaxError: Casts from Dynamic cannot include subtypes.\n    \
-        from test\/[subinterp]:2:\
-    """,
-    """\
-    Dynamic(10).@(List[Integer])
     """)
 
 t.interpret_for_error("Verify line numbers.",

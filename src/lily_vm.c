@@ -1446,28 +1446,6 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     lily_move_string(result_reg, sv);
 }
 
-static void do_o_dynamic_cast(lily_vm_state *vm, uint16_t *code)
-{
-    lily_value **vm_regs = vm->call_chain->start;
-    lily_class *cast_class = vm->class_table[code[2]];
-    lily_value *rhs_reg = vm_regs[code[3]];
-    lily_value *lhs_reg = vm_regs[code[4]];
-
-    lily_value *inner = lily_con_get(rhs_reg->value.container, 0);
-    uint16_t id = inner->class_id;
-
-    if (inner->flags & VAL_IS_CONTAINER)
-        id = inner->value.container->class_id;
-
-    if (id == cast_class->id) {
-        lily_container_val *variant = new_container(LILY_SOME_ID, 1);
-        lily_con_set(variant, 0, inner);
-        lily_move_variant_f(MOVE_DEREF_SPECULATIVE, lhs_reg, variant);
-    }
-    else
-        lily_move_empty_variant(LILY_NONE_ID, lhs_reg);
-}
-
 /***
  *       ____ _
  *      / ___| | ___  ___ _   _ _ __ ___  ___
@@ -2438,10 +2416,6 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_build_enum:
                 do_o_build_enum(vm, code);
                 code += code[3] + 5;
-                break;
-            case o_dynamic_cast:
-                do_o_dynamic_cast(vm, code);
-                code += 5;
                 break;
             case o_create_function:
                 do_o_create_function(vm, code);
