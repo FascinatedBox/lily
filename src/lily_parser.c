@@ -339,7 +339,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     vm->catch_chain = catch_iter;
     vm->exception_value = NULL;
     vm->pending_line = 0;
-    vm->include_last_frame_in_trace = 1;
 
     lily_call_frame *call_iter = vm->call_chain;
     while (call_iter->prev)
@@ -4671,9 +4670,6 @@ static void build_error(lily_parse_state *parser)
         lily_call_frame *frame = parser->vm->call_chain;
 
         lily_mb_add(msgbuf, "Traceback:\n");
-
-        if (parser->vm->include_last_frame_in_trace == 0)
-            frame = frame->prev;
 
         while (frame->prev) {
             lily_function_val *func = frame->function;

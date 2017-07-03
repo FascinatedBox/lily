@@ -126,7 +126,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->stdout_reg = NULL;
     vm->exception_value = NULL;
     vm->pending_line = 0;
-    vm->include_last_frame_in_trace = 1;
 
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
     catch_entry->prev = NULL;
@@ -1086,8 +1085,15 @@ static lily_container_val *build_traceback_raw(lily_vm_state *);
 
 void lily_builtin__calltrace(lily_vm_state *vm)
 {
-    vm->include_last_frame_in_trace = 0;
+    /* Omit calltrace from the call stack since it's useless info. */
+    vm->call_depth--;
+    vm->call_chain = vm->call_chain->prev;
+
     lily_container_val *trace = build_traceback_raw(vm);
+
+    vm->call_depth++;
+    vm->call_chain = vm->call_chain->next;
+
     lily_move_list_f(MOVE_DEREF_NO_GC, vm->call_chain->return_target, trace);
 }
 
@@ -1597,12 +1603,6 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
     lily_call_frame *frame_iter = vm->call_chain;
     int depth = vm->call_depth;
     int i;
-
-    if (vm->include_last_frame_in_trace == 0) {
-        depth--;
-        frame_iter = frame_iter->prev;
-        vm->include_last_frame_in_trace = 1;
-    }
 
     lily_msgbuf *msgbuf = lily_get_clean_msgbuf(vm);
     lily_container_val *lv = new_container(LILY_LIST_ID, depth);

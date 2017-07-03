@@ -42,9 +42,7 @@ typedef struct lily_vm_state_ {
        value after a jump. This is used in a few cases to fix the value*/
     uint16_t pending_line;
 
-    /* Usually 1, but if 0 the caller doesn't want to be included in trace.
-       Traceback build resets this once it's done. */
-    uint16_t include_last_frame_in_trace;
+    uint16_t pad;
 
     lily_call_frame *call_chain;
 
