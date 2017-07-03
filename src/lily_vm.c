@@ -996,8 +996,7 @@ static const char *names[] = {
     "RuntimeError",
     "ValueError",
     "IndexError",
-    "DivisionByZeroError",
-    "AssertionError"
+    "DivisionByZeroError"
 };
 
 /* This raises an error in the vm that won't have a proper value backing it. The
@@ -1105,19 +1104,6 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
 
     fputc('\n', target);
     lily_return_unit(vm);
-}
-
-void lily_builtin__assert(lily_vm_state *vm)
-{
-    int condition = lily_arg_boolean(vm, 0);
-    if (condition == 0) {
-        char *message = "";
-        if (lily_arg_count(vm) == 2)
-            message = lily_arg_string_raw(vm, 1);
-
-        vm->include_last_frame_in_trace = 0;
-        vm_error(vm, LILY_ASSERTIONERROR_ID, message);
-    }
 }
 
 void lily_builtin__print(lily_vm_state *vm)

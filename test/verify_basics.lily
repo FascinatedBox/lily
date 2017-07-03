@@ -423,22 +423,3 @@ t.assert("1 +1 viewed as 1 + 1 when binary op needed.",
          (||
     var v = 1 +1
     v == 2 ))
-
-# Is assert okay?
-
-t.expect_error("Verify assert(false) raises AssertionError.",
-               "AssertionError",
-               (||
-    assert(false)
-    false ))
-
-t.expect_error("Verify assert(false, error) has the message.",
-               "AssertionError: Message",
-               (||
-    assert(false, "Message")
-    false ))
-
-t.assert("Verify assert(true) does nothing.",
-         (||
-    assert(true)
-    true ))

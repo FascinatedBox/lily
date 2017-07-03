@@ -21,8 +21,6 @@ foundation of Lily.
 /** Begin autogen section. **/
 const char *lily_builtin_table[] = {
     "\0\0"
-    ,"N\01AssertionError\0< Exception"
-    ,"m\0<new>\0(String):AssertionError"
     ,"N\02Boolean\0"
     ,"m\0to_i\0(Boolean):Integer"
     ,"m\0to_s\0(Boolean):String"
@@ -142,36 +140,33 @@ const char *lily_builtin_table[] = {
     ,"m\0<new>\0(String):ValueError"
     ,"F\0print\0[A](A)"
     ,"F\0calltrace\0:List[String]"
-    ,"F\0assert\0(Boolean,*String)"
     ,"R\0stdin\0File"
     ,"R\0stderr\0File"
     ,"R\0stdout\0File"
     ,"Z"
 };
-#define AssertionError_OFFSET 1
-#define Boolean_OFFSET 3
-#define Byte_OFFSET 6
-#define ByteString_OFFSET 8
-#define DivisionByZeroError_OFFSET 13
-#define Double_OFFSET 15
-#define Dynamic_OFFSET 17
-#define Exception_OFFSET 19
-#define File_OFFSET 23
-#define Function_OFFSET 31
-#define Hash_OFFSET 32
-#define IndexError_OFFSET 44
-#define Integer_OFFSET 46
-#define IOError_OFFSET 51
-#define KeyError_OFFSET 53
-#define List_OFFSET 55
-#define Option_OFFSET 74
-#define Result_OFFSET 87
-#define RuntimeError_OFFSET 94
-#define String_OFFSET 96
-#define Tuple_OFFSET 117
-#define ValueError_OFFSET 118
-#define toplevel_OFFSET 120
-void lily_builtin_AssertionError_new(lily_state *);
+#define Boolean_OFFSET 1
+#define Byte_OFFSET 4
+#define ByteString_OFFSET 6
+#define DivisionByZeroError_OFFSET 11
+#define Double_OFFSET 13
+#define Dynamic_OFFSET 15
+#define Exception_OFFSET 17
+#define File_OFFSET 21
+#define Function_OFFSET 29
+#define Hash_OFFSET 30
+#define IndexError_OFFSET 42
+#define Integer_OFFSET 44
+#define IOError_OFFSET 49
+#define KeyError_OFFSET 51
+#define List_OFFSET 53
+#define Option_OFFSET 72
+#define Result_OFFSET 85
+#define RuntimeError_OFFSET 92
+#define String_OFFSET 94
+#define Tuple_OFFSET 115
+#define ValueError_OFFSET 116
+#define toplevel_OFFSET 118
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -264,14 +259,12 @@ void lily_builtin_String_upper(lily_state *);
 void lily_builtin_ValueError_new(lily_state *);
 void lily_builtin__print(lily_state *);
 void lily_builtin__calltrace(lily_state *);
-void lily_builtin__assert(lily_state *);
 void lily_builtin_var_stdin(lily_state *);
 void lily_builtin_var_stderr(lily_state *);
 void lily_builtin_var_stdout(lily_state *);
 void *lily_builtin_loader(lily_state *s, int id)
 {
     switch (id) {
-        case AssertionError_OFFSET + 1: return lily_builtin_AssertionError_new;
         case Boolean_OFFSET + 1: return lily_builtin_Boolean_to_i;
         case Boolean_OFFSET + 2: return lily_builtin_Boolean_to_s;
         case Byte_OFFSET + 1: return lily_builtin_Byte_to_i;
@@ -364,10 +357,9 @@ void *lily_builtin_loader(lily_state *s, int id)
         case ValueError_OFFSET + 1: return lily_builtin_ValueError_new;
         case toplevel_OFFSET + 0: return lily_builtin__print;
         case toplevel_OFFSET + 1: return lily_builtin__calltrace;
-        case toplevel_OFFSET + 2: return lily_builtin__assert;
-        case toplevel_OFFSET + 3: lily_builtin_var_stdin(s); return NULL;
-        case toplevel_OFFSET + 4: lily_builtin_var_stderr(s); return NULL;
-        case toplevel_OFFSET + 5: lily_builtin_var_stdout(s); return NULL;
+        case toplevel_OFFSET + 2: lily_builtin_var_stdin(s); return NULL;
+        case toplevel_OFFSET + 3: lily_builtin_var_stderr(s); return NULL;
+        case toplevel_OFFSET + 4: lily_builtin_var_stdout(s); return NULL;
         default: return NULL;
     }
 }
@@ -468,12 +460,6 @@ define calltrace: List[String]
 Returns a `List` with one `String` for each function that is currently entered.
 */
 
-/**
-define assert(condition: Boolean, message: *String="")
-
-If `condition` is `false`, raise `AssertionError` using `message`.
-*/
-
 static void return_exception(lily_state *s, uint16_t id)
 {
     lily_container_val *result = lily_push_super(s, id, 2);
@@ -483,17 +469,6 @@ static void return_exception(lily_state *s, uint16_t id)
     lily_push_list(s, 0);
     lily_con_set_from_stack(s, result, 1);
     lily_return_super(s);
-}
-
-/**
-native class AssertionError(message: String) < Exception
-
-This is a subclass of `Exception` that is raised when an `assert` is passed
-`false` as the first argument.
-*/
-void lily_builtin_AssertionError_new(lily_state *s)
-{
-    return_exception(s, LILY_ASSERTIONERROR_ID);
 }
 
 /**

@@ -1629,8 +1629,6 @@ static lily_class *dynaload_native(lily_parse_state *parser,
             cls->id = LILY_RUNTIMEERROR_ID;
         else if (strcmp(cls->name, "ValueError") == 0)
             cls->id = LILY_VALUEERROR_ID;
-        else if (strcmp(cls->name, "AssertionError") == 0)
-            cls->id = LILY_ASSERTIONERROR_ID;
         else
             /* Shouldn't happen, but use an impossible id to make it stand out. */
             cls->id = 12345;
