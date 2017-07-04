@@ -1357,7 +1357,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     int pos = ci.offset + 1 + ci.line;
     int count = 0;
 
-    if ((op == o_function_call || op == o_match_dispatch) &&
+    if (op == o_function_call &&
         transform_table[buffer[pos]] != (uint16_t)-1)
         count++;
 
@@ -1492,7 +1492,6 @@ static void perform_closure_transform(lily_emit_state *emit,
         if (ci.special_1) {
             switch (op) {
                 case o_function_call:
-                case o_match_dispatch:
                     MAYBE_TRANSFORM_INPUT(pos, o_get_upvalue)
                 default:
                     pos += ci.special_1;
@@ -1665,80 +1664,83 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
 static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
         const char *);
 
-/** The primary use of match is to allow selection over an enum to get variants
-    as well as their values. The other use is for selection over classes: Giving
-    a base class, and selecting over some set of the inherited classes. This
-    isn't terrible, but it's not great either. **/
+/** Match blocks are given a symbol that each case checks for being of a certain
+    class. For enums, this pattern matching can include extraction of the
+    contents of variants if the variants have values. For classes, match will
+    assign class contents to a given variable.
 
-static void grow_match_cases(lily_emit_state *emit, int new_size)
+    The code here takes advantage of the following:
+    * At vm time, enum values have the id of a variant. Each case starts with
+      o_jump_if_not_class, and each of those instructions links to the next one.
+      The id test is against the identity of the variant or class that the user
+      is interested in.
+    * Variants and user classes have the same layout, so o_get_property is
+      written to extract variant values that the user is interested in. **/
+
+static void grow_match_cases(lily_emit_state *emit)
 {
-    /* todo: make this a u16 buffer in the future. */
-    while (emit->match_case_size < new_size)
-        emit->match_case_size *= 2;
-
+    emit->match_case_size *= 2;
     emit->match_cases = lily_realloc(emit->match_cases,
         sizeof(*emit->match_cases) * emit->match_case_size);
 }
 
-/* This is used by parser to decompose one element of a variant down into a
-   result register. */
-void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int pos,
-        uint16_t spot)
+/* This is written when match wants a value from the source. When matching on an
+   enum, 'index' is a spot to pull from. For matches on a user-class or a
+   Dynamic, this only needs to store the value over into another register. The
+   assign there is necessary so that the source var will have the right type. */
+void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int index,
+        uint16_t pos)
 {
-    lily_u16_write_5(emit->code, o_get_property, *emit->lex_linenum,
-            pos, match_sym->reg_spot, spot);
+    /* Note: 'pos' is the target of a local var, so no global/upvalue checks are
+       necessary here. */
+
+    if (match_sym->type->cls->flags & CLS_IS_ENUM)
+        lily_u16_write_5(emit->code, o_get_property, *emit->lex_linenum,
+                index, match_sym->reg_spot, pos);
+    else
+        lily_u16_write_4(emit->code, o_assign, *emit->lex_linenum,
+                match_sym->reg_spot, pos);
 }
 
-static void write_match_exit_jump(lily_emit_state *emit)
+int lily_emit_is_duplicate_case(lily_emit_state *emit, lily_class *cls)
 {
-    lily_u16_write_2(emit->code, o_jump, 1);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-}
-
-static void write_match_jump(lily_emit_state *emit, int pos)
-{
-    int target = emit->block->match_code_start + pos;
-    int value = lily_u16_pos(emit->code) - emit->block->match_code_start;
-
-    /* o_match_dispatch is written where the match cases are in an array
-       together. This writes a jump that is relative to where the
-       o_match_dispatch opcode is written. Add 5 because that's the size of the
-       header for o_match_dispatch. */
-    lily_u16_set_at(emit->code, target, value + 5);
-}
-
-void lily_emit_write_class_match_else(lily_emit_state *emit)
-{
-    uint16_t last_pos = lily_u16_pop(emit->patches);
-
-    /* This is an exit jump for the last branch. */
-    lily_u16_write_2(emit->code, o_jump, 1);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-
-    /* Fix the target of the last branch jump. */
-    uint16_t adjust = lily_u16_get(emit->code, last_pos);
-    lily_u16_set_at(emit->code, last_pos,
-            lily_u16_pos(emit->code) + adjust - last_pos);
-}
-
-int lily_emit_add_class_match_case(lily_emit_state *emit,
-        lily_class *cls)
-{
-    if (emit->match_case_pos > emit->match_case_size)
-        grow_match_cases(emit, emit->match_case_size * 2);
+    if (emit->match_case_pos >= emit->match_case_size)
+        grow_match_cases(emit);
 
     lily_block *block = emit->block;
-    int cls_id = cls->id, ret = 1;
+    int cls_id = cls->id, ret = 0;
     int i;
 
     for (i = block->match_case_start;i < emit->match_case_pos;i++) {
         if (emit->match_cases[i] == cls_id) {
-            ret = 0;
+            ret = 1;
             break;
         }
     }
 
-    if (i != block->match_case_start) {
+    return ret;
+}
+
+void lily_emit_write_match_case(lily_emit_state *emit, lily_sym *match_sym,
+        lily_class *cls)
+{
+    emit->match_cases[emit->match_case_pos] = cls->id;
+    emit->match_case_pos++;
+
+    lily_u16_write_4(emit->code, o_jump_if_not_class, match_sym->reg_spot,
+            cls->id, 3);
+
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+}
+
+void lily_emit_change_match_branch(lily_emit_state *emit)
+{
+    lily_block *block = emit->block;
+
+    if (block->match_case_start != emit->match_case_pos) {
+        if (emit->block->last_exit != lily_u16_pos(emit->code))
+            emit->block->all_branches_exit = 0;
+
         /* This is the jump of the last o_jump_if_not_class. */
         int pos = lily_u16_pop(emit->patches);
         int adjust = lily_u16_get(emit->code, pos);
@@ -1752,101 +1754,9 @@ int lily_emit_add_class_match_case(lily_emit_state *emit,
                 lily_u16_pos(emit->code) + adjust - pos);
     }
 
-    emit->match_cases[emit->match_case_pos] = cls_id;
-    emit->match_case_pos++;
-
     lily_var *v = emit->block->var_start;
     if (v != emit->symtab->active_module->var_chain)
         lily_hide_block_vars(emit->symtab, v);
-
-    return ret;
-}
-
-void lily_emit_write_class_case(lily_emit_state *emit, lily_class *cls,
-        lily_sym *match_sym, uint16_t storage_pos)
-{
-    lily_u16_write_4(emit->code, o_jump_if_not_class, match_sym->reg_spot,
-            cls->id, 3);
-
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-
-    /* o_assign is always ok here because:
-     * 'match' calls for an eval, so match_sym is always local.
-     * case values are always local vars. */
-    if (storage_pos != (uint16_t)-1)
-        lily_u16_write_4(emit->code, o_assign, *emit->lex_linenum,
-                match_sym->reg_spot, storage_pos);
-}
-
-/* This adds a match case to the current match block. 'pos' is the index of a
-   valid variant within the current match enum type. This will hide the current
-   block's vars. If 'pos' has been seen twice, then SyntaxError is raised. */
-int lily_emit_add_match_case(lily_emit_state *emit, int pos)
-{
-    int block_offset = emit->block->match_case_start;
-    int is_first_case = 1, ret = 1;
-    int i;
-
-    for (i = emit->block->match_case_start;
-         i < emit->match_case_pos;
-         i++) {
-        if (emit->match_cases[i] == 1) {
-            is_first_case = 0;
-            break;
-        }
-    }
-
-    if (emit->block->last_exit != lily_u16_pos(emit->code) &&
-        is_first_case == 0)
-        emit->block->all_branches_exit = 0;
-
-    if (emit->match_cases[block_offset + pos] == 0) {
-        emit->match_cases[block_offset + pos] = 1;
-
-        /* Every case added after the first needs to write an exit jump before
-           any code. This makes it so the previous branch jumps outside the
-           match instead of falling through (very bad, in this case). */
-        if (is_first_case == 0)
-            write_match_exit_jump(emit);
-
-        write_match_jump(emit, pos);
-
-        /* This is necessary to keep vars created from the decomposition of one
-           class from showing up in subsequent cases. */
-        lily_var *v = emit->block->var_start;
-        if (v != emit->symtab->active_module->var_chain)
-            lily_hide_block_vars(emit->symtab, v);
-    }
-    else
-        ret = 0;
-
-    return ret;
-}
-
-void lily_emit_do_match_else(lily_emit_state *emit)
-{
-    int offset = emit->block->match_case_start;
-    int first = emit->match_cases[offset];
-    int ok = 0;
-    int i;
-
-    /* This prevents the last branch from falling down into the 'else'. */
-    write_match_exit_jump(emit);
-
-    for (i = offset;i < emit->match_case_pos;i++) {
-        int entry = emit->match_cases[i];
-
-        if (entry != first)
-            ok = 1;
-
-        if (entry == 0) {
-            emit->match_cases[i] = 1;
-            write_match_jump(emit, i - offset);
-        }
-    }
-
-    if (ok == 0)
-        lily_raise_syn(emit->raiser, "'else' within an exhaustive match.");
 }
 
 /* This evaluates the expression to be sent to 'match' The resulting value is
@@ -1863,14 +1773,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
     lily_class *match_class = ast->result->type->cls;
 
-    if (match_class->flags & CLS_IS_ENUM)
-        ;
-    else if ((match_class->flags & CLS_IS_BUILTIN) == 0) {
-        /* Each case pops the last jump and writes in their own. */
-        lily_u16_write_1(emit->patches, 0);
-        return;
-    }
-    else if (match_class->id == LILY_DYNAMIC_ID) {
+    if (match_class->id == LILY_DYNAMIC_ID) {
         lily_storage *s = get_storage(emit, emit->ts->question_class_type);
 
         /* Dynamic is laid out like a class with the content in slot 0. Extract
@@ -1879,39 +1782,13 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
                 ast->result->reg_spot, s->reg_spot);
 
         ast->result = (lily_sym *)s;
-
-        lily_u16_write_1(emit->patches, 0);
-        return;
     }
-    else {
+    else if ((match_class->flags & CLS_IS_ENUM) == 0 &&
+             (match_class->flags & CLS_IS_BUILTIN))
         lily_raise_syn(emit->raiser, "Match expression is not an enum value.");
-    }
 
-    int match_cases_needed = match_class->variant_size;
-    int total_need = emit->match_case_pos + match_cases_needed;
-    if (total_need > emit->match_case_size)
-        grow_match_cases(emit, total_need);
-
-    /* This is how the emitter knows that no cases have been given yet. */
-    int i;
-    for (i = 0;i < match_cases_needed;i++)
-        emit->match_cases[emit->match_case_pos + i] = 0;
-
-    emit->match_case_pos += match_cases_needed;
-
-    block->match_code_start = lily_u16_pos(emit->code) + 5;
-
-    lily_u16_write_prep(emit->code, 5 + match_cases_needed);
-
-    /* o_match_dispatch needs the enum id + 1 because the enum gets a unique
-       id as well as the variants. Adding 1 to the id allows the vm to use
-       'variant id - x' instead of 'variant id - 1 - x' to find the spot to jump
-       to. */
-    lily_u16_write_5(emit->code, o_match_dispatch, *emit->lex_linenum,
-            ast->result->reg_spot, match_class->id + 1, match_cases_needed);
-
-    for (i = 0;i < match_cases_needed;i++)
-        lily_u16_write_1(emit->code, 0);
+    /* Each case pops the last jump and writes in their own. */
+    lily_u16_write_1(emit->patches, 0);
 }
 
 /***

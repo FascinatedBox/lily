@@ -405,6 +405,67 @@ t.interpret_for_error("Broken return fold on match.",
     }
     """)
 
+t.interpret_for_error("Broken return fold on match with else.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:10:\
+    """,
+    """\
+    define f(a: Option[Integer]) : Integer
+    {
+        match a: {
+            case Some(s):
+                s = 1
+            else:
+                return 2
+        }
+    }
+    """)
+
+t.interpret_for_error("Broken return fold on class match case.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:15:\
+    """,
+    """\
+    class One {}
+    class Two < One {}
+    class Three < Two {}
+
+    define f(input: One): Integer {
+        match input: {
+            case Three(t):
+                print(1)
+            case Two(t):
+                return 1
+            else:
+                return 2
+        }
+    }
+    """)
+
+t.interpret_for_error("Broken return fold on class match else.",
+    """\
+    SyntaxError: Missing return statement at end of function.\n    \
+        from test\/[subinterp]:15:\
+    """,
+    """\
+    class One {}
+    class Two < One {}
+    class Three < Two {}
+
+    define f(input: One): Integer {
+        match input: {
+            case Three(t):
+                return 0
+            case Two(t):
+                return 1
+            else:
+                print(1)
+        }
+    }
+    """)
+
 t.interpret_for_error("Broken return fold on try.",
     """\
     SyntaxError: Missing return statement at end of function.\n    \

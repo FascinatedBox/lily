@@ -141,11 +141,6 @@ typedef enum {
     /* Raise a value that emit-time has verified to be an exception. */
     o_raise,
 
-    /* This provides a series of jumps, and a class identity. The enum given has
-       the given id subtracted from it. The value left determines which jump
-       should be taken. An exhaustive set of jumps is provided. */
-    o_match_dispatch,
-
     /* Get a value where the target index is an upvalue index. */
     o_get_upvalue,
     /* Set a value where the target index is an upvalue index. */

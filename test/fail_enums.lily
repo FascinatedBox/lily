@@ -157,7 +157,7 @@ t.interpret_for_error("Forbid match having a duplicate case.",
     }
     """)
 
-t.interpret_for_error("Forbid match else in exhaustive match.",
+t.interpret_for_error("Forbid match else in exhaustive class match.",
     """\
     SyntaxError: 'else' in exhaustive match.\n    \
         from test\/[subinterp]:9:\
@@ -175,6 +175,24 @@ t.interpret_for_error("Forbid match else in exhaustive match.",
     }
     """)
 
+t.interpret_for_error("Forbid match case in exhaustive class match.",
+    """\
+    SyntaxError: 'case' in exhaustive match.\n    \
+        from test\/[subinterp]:9:\
+    """,
+    """\
+    class One {}
+    class Two < One {}
+
+    var v: One = Two()
+
+    match v: {
+        case One(o):
+        else:
+        case Two(t):
+    }
+    """)
+
 t.interpret_for_error("Forbid match on class using generics.",
     """\
     SyntaxError: Class matching only works for types without generics.\n    \
@@ -187,6 +205,32 @@ t.interpret_for_error("Forbid match on class using generics.",
 
     match v: {
         case One(o):
+    }
+    """)
+
+t.interpret_for_error("Forbid match else in exhaustive enum match.",
+    """\
+    SyntaxError: 'else' in exhaustive match.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    match Some(0): {
+        case Some(s):
+        else:
+        else:
+    }
+    """)
+
+t.interpret_for_error("Forbid match case in exhaustive enum match.",
+    """\
+    SyntaxError: 'case' in exhaustive match.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    match Some(0): {
+        case Some(s):
+        else:
+        case None:
     }
     """)
 

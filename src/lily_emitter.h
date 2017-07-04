@@ -72,9 +72,7 @@ typedef struct lily_block_ {
        regardless of the block type. */
     uint32_t jump_offset;
 
-    /* Match blocks: This is where the code for the match starts. Cases will
-       use this to write dispatching information. */
-    uint32_t match_code_start;
+    uint32_t pad;
 
     /* Define/class blocks: Where the symtab's register allocation was before
        entry. */
@@ -210,12 +208,9 @@ void lily_emit_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type 
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
-void lily_emit_write_class_match_else(lily_emit_state *);
-void lily_emit_write_class_case(lily_emit_state *, lily_class *, lily_sym *,
-        uint16_t);
-int lily_emit_add_class_match_case(lily_emit_state *, lily_class *);
-int lily_emit_add_match_case(lily_emit_state *, int);
-void lily_emit_do_match_else(lily_emit_state *);
+int lily_emit_is_duplicate_case(lily_emit_state *, lily_class *);
+void lily_emit_change_match_branch(lily_emit_state *);
+void lily_emit_write_match_case(lily_emit_state *, lily_sym *, lily_class *);
 void lily_emit_decompose(lily_emit_state *, lily_sym *, int, uint16_t);
 
 void lily_emit_break(lily_emit_state *);

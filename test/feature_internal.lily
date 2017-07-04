@@ -46,6 +46,24 @@ t.interpret("Return fold with match cases.",
     }
     """)
 
+t.interpret("Return fold with class match case.",
+    """
+    class One {}
+    class Two < One {}
+    class Three < Two {}
+
+    define f(input: One): Integer {
+        match input: {
+            case Three(t):
+                return 1
+            case Two(t):
+                raise ValueError("")
+            else:
+                return 2
+        }
+    }
+    """)
+
 t.interpret("Return fold with nested if.",
     """
     define f(a: Integer) : Integer

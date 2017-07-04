@@ -2490,20 +2490,6 @@ void lily_vm_execute(lily_vm_state *vm)
                     code += code[3];
 
                 break;
-            case o_match_dispatch:
-            {
-                /* This opcode is easy because emitter ensures that the match is
-                   exhaustive. It also writes down the jumps in order (even if
-                   they came out of order). What this does is take the class id
-                   of the variant, and drop it so that the first variant is 0,
-                   the second is 1, etc. */
-                lhs_reg = vm_regs[code[2]];
-                /* code[3] is the base enum id + 1. */
-                i = lhs_reg->class_id - code[3];
-
-                code += code[5 + i];
-                break;
-            }
             case o_create_closure:
                 do_o_create_closure(vm, code);
                 upvalues = current_frame->function->upvalues;

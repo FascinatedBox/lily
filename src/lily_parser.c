@@ -4172,7 +4172,7 @@ static void scoped_handler(lily_parse_state *parser, int multi)
     parse_enum(parser, 0, 1);
 }
 
- static void process_match_case(lily_parse_state *parser, lily_sym *match_sym)
+static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
 {
     lily_type *match_input_type = match_sym->type;
     lily_class *match_class = match_input_type->cls;
@@ -4202,9 +4202,13 @@ static void scoped_handler(lily_parse_state *parser, int multi)
         lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
                 lex->label, match_class->name);
 
-    if (lily_emit_add_match_case(parser->emit, i) == 0)
+    if (lily_emit_is_duplicate_case(parser->emit, (lily_class *)variant_case))
         lily_raise_syn(parser->raiser, "Already have a case for variant %s.",
                 lex->label);
+
+    lily_emit_change_match_branch(parser->emit);
+    lily_emit_write_match_case(parser->emit, match_sym,
+            (lily_class *)variant_case);
 
     if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
         lily_type *build_type = variant_case->build_type;
@@ -4242,52 +4246,37 @@ static void scoped_handler(lily_parse_state *parser, int multi)
     lily_lexer(lex);
 }
 
-static void process_match_else(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_colon)
-    lily_emit_do_match_else(parser->emit);
-    lily_lexer(lex);
-}
-
-/* This checks that the current match block (which is exiting) is exhaustive. IF
-   it is not, then a SyntaxError is raised. */
-static void ensure_proper_match_block(lily_parse_state *parser,
+/* This is called when an enum match block is missing one or more cases. An
+   error message as well as the classes that are missing are written to a
+   msgbuf. This finishes by raising a SyntaxError. */
+static void error_incomplete_match(lily_parse_state *parser,
         lily_sym *match_sym)
 {
-    int counter = 0, error = 0;
-    int match_case_start = parser->emit->block->match_case_start;
-    int i;
-    lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
     lily_class *match_class = match_sym->type->cls;
+    int match_case_start = parser->emit->block->match_case_start;
 
-    for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
-        if (parser->emit->match_cases[i] == 0)
-            counter++;
-    }
+    int i, j;
+    lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
+    lily_variant_class **variant_members = match_class->variant_members;
+    int *match_cases = parser->emit->match_cases + match_case_start;
 
-    for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
-        if (parser->emit->match_cases[i] == 0) {
-            if (error == 0) {
-                lily_mb_add(msgbuf,
-                        "Match pattern not exhaustive. The following case(s) are missing:\n");
-                error = 1;
-            }
+    lily_mb_add(msgbuf,
+            "Match pattern not exhaustive. The following case(s) are missing:");
 
-            lily_mb_add_fmt(msgbuf, "* %s",
-                    match_class->variant_members[i]->name);
-            if (counter > 1) {
-                lily_mb_add_char(msgbuf, '\n');
-                counter--;
-            }
+    for (i = 0;i < match_class->variant_size;i++) {
+        for (j = match_case_start;j < parser->emit->match_case_pos;j++) {
+            if (variant_members[i]->cls_id == match_cases[j])
+                break;
         }
+
+        if (j == parser->emit->match_case_pos)
+            lily_mb_add_fmt(msgbuf, "\n* %s", variant_members[i]->name);
     }
 
-    if (error)
-        lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
+    lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
 }
 
-static void process_class_match_case(lily_parse_state *parser,
+static void match_case_class(lily_parse_state *parser,
         lily_sym *match_sym)
 {
     lily_lex_state *lex = parser->lex;
@@ -4302,10 +4291,12 @@ static void process_class_match_case(lily_parse_state *parser,
                 match_sym->type->cls->name);
     }
 
-    if (lily_emit_add_class_match_case(parser->emit, cls) == 0) {
+    if (lily_emit_is_duplicate_case(parser->emit, cls))
         lily_raise_syn(parser->raiser, "Already have a case for class %s.",
                 cls->name);
-    }
+
+    lily_emit_change_match_branch(parser->emit);
+    lily_emit_write_match_case(parser->emit, match_sym, cls);
 
     /* Forbid non-monomorphic types to avoid the question of what to do
        if the match class has more generics. */
@@ -4318,73 +4309,16 @@ static void process_class_match_case(lily_parse_state *parser,
     NEED_NEXT_TOK(tk_left_parenth)
     NEED_NEXT_TOK(tk_word)
 
-    uint16_t spot;
-
-    if (strcmp(lex->label, "_") == 0) {
-        spot = (uint16_t)-1;
+    if (strcmp(lex->label, "_") == 0)
         lily_lexer(lex);
-    }
     else {
         lily_var *var = get_local_var(parser, cls->self_type);
-        spot = var->reg_spot;
+        lily_emit_decompose(parser->emit, match_sym, 0, var->reg_spot);
     }
 
     NEED_CURRENT_TOK(tk_right_parenth)
     NEED_NEXT_TOK(tk_colon)
     lily_lexer(lex);
-
-    lily_emit_write_class_case(parser->emit, cls, match_sym, spot);
-}
-
-static void parse_class_match(lily_parse_state *parser, int multi)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_sym *match_sym = parser->expr->root->result;
-    int case_count = 0, have_else = 0;
-
-    while (1) {
-        if (lex->token == tk_word) {
-            int key = keyword_by_name(lex->label);
-            if (key == KEY_CASE) {
-                if (have_else)
-                    lily_raise_syn(parser->raiser,
-                            "'case' in exhaustive match.");
-
-                lily_lexer(lex);
-                case_count++;
-                process_class_match_case(parser, match_sym);
-            }
-            else if (key == KEY_ELSE) {
-                if (have_else)
-                    lily_raise_syn(parser->raiser,
-                            "'else' in exhaustive match.");
-
-                have_else = 1;
-                lily_emit_write_class_match_else(parser->emit);
-                NEED_NEXT_TOK(tk_colon)
-                lily_lexer(lex);
-            }
-            else if (key != -1) {
-                lily_lexer(lex);
-                handlers[key](parser, multi);
-            }
-            else {
-                expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->expr);
-            }
-        }
-        else if (lex->token != tk_right_curly)
-            statement(parser, 0);
-        else
-            break;
-    }
-
-    if (have_else == 0)
-        lily_raise_syn(parser->raiser,
-                "Match against a class must have an 'else' case.");
-
-    lily_lexer(lex);
-    lily_emit_leave_block(parser->emit);
 }
 
 static void match_handler(lily_parse_state *parser, int multi)
@@ -4407,22 +4341,34 @@ static void match_handler(lily_parse_state *parser, int multi)
         lily_raise_syn(parser->raiser, "'match' must start with a case.");
 
     lily_sym *match_sym = parser->expr->root->result;
-
-    if ((match_sym->type->cls->flags & CLS_IS_ENUM) == 0) {
-        parse_class_match(parser, multi);
-        return;
-    }
+    int is_enum = match_sym->type->cls->flags & CLS_IS_ENUM;
+    int have_else = 0, case_count = 0;
 
     while (1) {
         if (lex->token == tk_word) {
             int key = keyword_by_name(lex->label);
             if (key == KEY_CASE) {
+                if (have_else)
+                    lily_raise_syn(parser->raiser,
+                            "'case' in exhaustive match.");
+
                 lily_lexer(lex);
-                process_match_case(parser, match_sym);
+                if (is_enum)
+                    match_case_enum(parser, match_sym);
+                else
+                    match_case_class(parser, match_sym);
+
+                case_count++;
             }
             else if (key == KEY_ELSE) {
+                if (have_else)
+                    lily_raise_syn(parser->raiser,
+                            "'else' in exhaustive match.");
+
+                NEED_NEXT_TOK(tk_colon)
+                lily_emit_change_match_branch(parser->emit);
                 lily_lexer(lex);
-                process_match_else(parser);
+                have_else = 1;
             }
             else if (key != -1) {
                 lily_lexer(lex);
@@ -4439,7 +4385,13 @@ static void match_handler(lily_parse_state *parser, int multi)
             break;
     }
 
-    ensure_proper_match_block(parser, match_sym);
+    if (have_else == 0) {
+        if (is_enum == 0)
+            lily_raise_syn(parser->raiser,
+                    "Match against a class must have an 'else' case.");
+        else if (case_count != match_sym->type->cls->variant_size)
+            error_incomplete_match(parser, match_sym);
+    }
 
     lily_lexer(lex);
     lily_emit_leave_block(parser->emit);
