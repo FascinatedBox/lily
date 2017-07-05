@@ -118,7 +118,8 @@ typedef struct {
     void *pad;
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t pad2;
+    uint16_t id;
+    uint16_t pad2;
 } lily_item;
 
 /* lily_sym is a subset of all symbol-related structs. Nothing should create
@@ -132,7 +133,8 @@ typedef struct lily_sym_ {
        parameters, and variables.
        Note that functions do not go into registers, and are instead loaded
        like literals. */
-    uint32_t reg_spot;
+    uint16_t reg_spot;
+    uint16_t pad2;
     lily_type *type;
 } lily_sym;
 
@@ -140,7 +142,8 @@ typedef struct lily_named_sym_ {
     struct lily_named_sym_ *next;
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t reg_spot;
+    uint16_t reg_spot;
+    uint16_t pad;
     lily_type *type;
     char *name;
     uint64_t name_shorthash;
@@ -153,7 +156,8 @@ typedef struct lily_prop_entry_ {
     struct lily_prop_entry_ *next;
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t id;
+    uint16_t id;
+    uint16_t pad;
     struct lily_type_ *type;
     char *name;
     uint64_t name_shorthash;
@@ -169,7 +173,8 @@ typedef struct lily_storage_ {
     struct lily_storage_ *next;
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t reg_spot;
+    uint16_t reg_spot;
+    uint16_t pad;
     /* Each expression has a different expr_num. This prevents the same
        expression from using the same storage twice (which could lead to
        incorrect data). */
@@ -182,7 +187,8 @@ typedef struct lily_var_ {
     struct lily_var_ *next;
     uint16_t item_kind;
     uint16_t flags;
-    uint32_t reg_spot;
+    uint16_t reg_spot;
+    uint16_t pad;
     lily_type *type;
     char *name;
     uint64_t shorthash;
