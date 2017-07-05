@@ -103,11 +103,13 @@ int main(int argc, char **argv)
             result = lily_parse_string(state, "[cli]", to_process);
     }
 
-    if (result == 0) {
+    if (result == 0)
         fputs(lily_get_error(state), stderr);
-        exit(EXIT_FAILURE);
-    }
 
     lily_free_state(state);
-    exit(EXIT_SUCCESS);
+
+    if (result == 0)
+        exit(EXIT_FAILURE);
+    else
+        exit(EXIT_SUCCESS);
 }
