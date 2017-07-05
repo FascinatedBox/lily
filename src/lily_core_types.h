@@ -60,9 +60,6 @@ typedef struct lily_class_ {
 
     struct lily_named_sym_ *members;
 
-    /* If it's an enum, then the variants are here. NULL otherwise. */
-    lily_variant_class **variant_members;
-
     uint16_t inherit_depth;
     /* If positive, how many subtypes are allowed in this type. This can also
        be -1 if an infinite number of types are allowed (ex: functions). */
@@ -142,7 +139,10 @@ typedef struct lily_named_sym_ {
     struct lily_named_sym_ *next;
     uint16_t item_kind;
     uint16_t flags;
-    uint16_t reg_spot;
+    union {
+        uint16_t reg_spot;
+        uint16_t id;
+    };
     uint16_t pad;
     lily_type *type;
     char *name;

@@ -848,7 +848,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
             NEED_NEXT_TOK(tk_word)
         }
 
-        lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
+        lily_variant_class *variant = lily_find_variant(cls, lex->label);
         if (variant == NULL)
             lily_raise_syn(parser->raiser,
                     "'%s' does not have a variant named '%s'.", cls->name, lex->label);
@@ -1942,7 +1942,7 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
 
     /* Enums allow scoped variants through `<enum>.<variant>`. */
     if (cls->flags & CLS_IS_ENUM) {
-        lily_variant_class *variant = lily_find_scoped_variant(cls, lex->label);
+        lily_variant_class *variant = lily_find_variant(cls, lex->label);
         if (variant) {
             lily_es_push_variant(parser->expr, variant);
             return;
@@ -4026,6 +4026,9 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
     lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label);
 
+    if (is_scoped)
+        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
+
     lily_lexer(lex);
 
     int save_generic_start;
@@ -4047,15 +4050,14 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        if (is_dynaload == 0) {
-            lily_class *cls = lily_find_class(parser->symtab, NULL, lex->label);
+        if (is_dynaload == 0 && variant_count) {
+            lily_class *cls = (lily_class *)lily_find_variant(enum_cls,
+                    lex->label);
 
-            /* Plain enums dump their variants into the same area that classes
-               go. So if there is a clash of any sort, reject this. But scoped
-               enums keep what they have behind themselves as a qualifier. So
-               for scoped enums, only consider it a problem if there are more
-               than two in the same scope. */
-            if (cls != NULL && (is_scoped == 0 || cls->parent == enum_cls)) {
+            if (cls == NULL && is_scoped == 0)
+                cls = lily_find_class(parser->symtab, NULL, lex->label);
+
+            if (cls) {
                 lily_raise_syn(parser->raiser,
                         "A class with the name '%s' already exists.",
                         lex->label);
@@ -4069,6 +4071,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
         lily_lexer(lex);
         if (lex->token == tk_left_parenth)
             parse_variant_header(parser, variant_cls);
+        else
+            enum_cls->flags |= CLS_VALID_OPTARG;
 
         if (lex->token == tk_right_curly)
             break;
@@ -4086,10 +4090,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
                 "An enum must have at least two variants.");
     }
 
-    /* This marks the enum as one (allowing match), and registers the variants
-       as being within the enum. Because of that, it has to go before pulling
-       the member functions. */
-    lily_finish_enum(parser->symtab, enum_cls, is_scoped, result_type);
+    /* Emitter uses this later to determine how many cases are allowed. */
+    enum_cls->variant_size = variant_count;
 
     if (is_dynaload == 0 && lex->token == tk_word) {
         while (1) {
@@ -4129,7 +4131,6 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
     lily_type *match_input_type = match_sym->type;
     lily_class *match_class = match_input_type->cls;
     lily_lex_state *lex = parser->lex;
-    lily_variant_class *variant_case = NULL;
 
     NEED_CURRENT_TOK(tk_word)
     if (match_class->flags & CLS_ENUM_IS_SCOPED) {
@@ -4142,15 +4143,10 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
         NEED_NEXT_TOK(tk_word)
     }
 
-    int i;
-    for (i = 0;i < match_class->variant_size;i++) {
-        if (strcmp(lex->label, match_class->variant_members[i]->name) == 0) {
-            variant_case = match_class->variant_members[i];
-            break;
-        }
-    }
+    lily_variant_class *variant_case = lily_find_variant(match_class,
+            lex->label);
 
-    if (i == match_class->variant_size)
+    if (variant_case == NULL)
         lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
                 lex->label, match_class->name);
 
@@ -4172,6 +4168,7 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
            Also, start at 1 so that the return at [0] is skipped. */
         NEED_NEXT_TOK(tk_word)
 
+        int i;
         for (i = 1;i < build_type->subtype_count;i++) {
             lily_type *var_type = lily_ts_resolve_by_second(ts,
                     match_input_type, build_type->subtypes[i]);
@@ -4207,22 +4204,26 @@ static void error_incomplete_match(lily_parse_state *parser,
     lily_class *match_class = match_sym->type->cls;
     int match_case_start = parser->emit->block->match_case_start;
 
-    int i, j;
+    int i;
     lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
-    lily_variant_class **variant_members = match_class->variant_members;
+    lily_named_sym *sym_iter = match_class->members;
     int *match_cases = parser->emit->match_cases + match_case_start;
 
     lily_mb_add(msgbuf,
             "Match pattern not exhaustive. The following case(s) are missing:");
 
-    for (i = 0;i < match_class->variant_size;i++) {
-        for (j = match_case_start;j < parser->emit->match_case_pos;j++) {
-            if (variant_members[i]->cls_id == match_cases[j])
-                break;
+    while (sym_iter) {
+        if (sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+            for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
+                if (sym_iter->id == match_cases[i])
+                    break;
+            }
+
+            if (i == parser->emit->match_case_pos)
+                lily_mb_add_fmt(msgbuf, "\n* %s", sym_iter->name);
         }
 
-        if (j == parser->emit->match_case_pos)
-            lily_mb_add_fmt(msgbuf, "\n* %s", variant_members[i]->name);
+        sym_iter = sym_iter->next;
     }
 
     lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));

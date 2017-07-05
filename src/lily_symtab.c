@@ -76,13 +76,6 @@ static void free_classes_until(lily_class *class_iter, lily_class *stop)
     while (class_iter != stop) {
         lily_free(class_iter->name);
 
-        if (class_iter->item_kind == ITEM_TYPE_VARIANT) {
-            lily_class *class_next = class_iter->next;
-            lily_free(class_iter);
-            class_iter = class_next;
-            continue;
-        }
-
         if (class_iter->members != NULL)
             free_properties(class_iter);
 
@@ -94,18 +87,6 @@ static void free_classes_until(lily_class *class_iter, lily_class *stop)
             lily_free(type_iter);
             type_iter = type_next;
         }
-
-        if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
-            /* Scoped enums pull their variants from the symtab's class chain so
-               that parser won't find them. */
-            int i;
-            for (i = 0;i < class_iter->variant_size;i++) {
-                lily_free(class_iter->variant_members[i]->name);
-                lily_free(class_iter->variant_members[i]);
-            }
-        }
-
-        lily_free(class_iter->variant_members);
 
         lily_class *class_next = class_iter->next;
         lily_free(class_iter);
@@ -557,7 +538,6 @@ lily_class *lily_new_raw_class(const char *name)
     new_class->name = name_copy;
     new_class->generic_count = 0;
     new_class->prop_count = 0;
-    new_class->variant_members = NULL;
     new_class->members = NULL;
     new_class->module = NULL;
     new_class->all_subtypes = NULL;
@@ -605,6 +585,19 @@ static lily_class *find_class(lily_class *class_iter, const char *name,
         if (class_iter->shorthash == shorthash &&
             strcmp(class_iter->name, name) == 0)
             break;
+
+        if (class_iter->flags & CLS_IS_ENUM &&
+            (class_iter->flags & CLS_ENUM_IS_SCOPED) == 0) {
+            lily_named_sym *sym_iter = class_iter->members;
+            while (sym_iter) {
+                if (sym_iter->name_shorthash == shorthash &&
+                    strcmp(sym_iter->name, name) == 0) {
+                    return (lily_class *)sym_iter;
+                }
+
+                sym_iter = sym_iter->next;
+            }
+        }
 
         class_iter = class_iter->next;
     }
@@ -774,76 +767,34 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);
 
+    variant->next = (lily_class *)enum_cls->members;
+    enum_cls->members = (lily_named_sym *)variant;
+
     variant->cls_id = symtab->next_class_id;
     symtab->next_class_id++;
-
-    variant->next = symtab->active_module->class_chain;
-    symtab->active_module->class_chain = (lily_class *)variant;
-
-    /* Variant classes do not need a unique class id because they are not
-       compared in ts. In vm, they're always accessed through their enum. */
 
     return variant;
 }
 
 /* Scoped variants are stored within the enum they're part of. This will try to
    find a variant stored within 'enum_cls'. */
-lily_variant_class *lily_find_scoped_variant(lily_class *enum_cls,
+lily_variant_class *lily_find_variant(lily_class *enum_cls,
         const char *name)
 {
-    int i;
     uint64_t shorthash = shorthash_for_name(name);
-    lily_variant_class *ret = NULL;
+    lily_named_sym *sym_iter = enum_cls->members;
 
-    for (i = 0;i < enum_cls->variant_size;i++) {
-        lily_variant_class *cls = enum_cls->variant_members[i];
-        if (cls->shorthash == shorthash &&
-            strcmp(cls->name, name) == 0) {
-            ret = cls;
+    while (sym_iter) {
+        if (sym_iter->name_shorthash == shorthash &&
+            strcmp(sym_iter->name, name) == 0 &&
+            sym_iter->item_kind != ITEM_TYPE_VAR) {
+            break;
         }
+
+        sym_iter = sym_iter->next;
     }
 
-    return ret;
-}
-
-/* This is called when an enum class has finished scanning the variant members.
-   If the enum is to be scoped, then the enums are bound within it. This is also
-   where some callbacks are set on the enum (gc, eq, etc.) */
-void lily_finish_enum(lily_symtab *symtab, lily_class *enum_cls, int is_scoped,
-        lily_type *enum_type)
-{
-    int i, variant_count = 0;
-    lily_class *class_iter = symtab->active_module->class_chain;
-    while (class_iter != enum_cls) {
-        variant_count++;
-        class_iter = class_iter->next;
-    }
-
-    lily_variant_class **members =
-            lily_malloc(variant_count * sizeof(lily_variant_class *));
-
-    /* The ordering is important here. This makes it so the first variant will
-       get the lowest id and be at 0. It makes indexing in vm sensible. */
-    for (i = 0, class_iter = symtab->active_module->class_chain;
-         i < variant_count;
-         i++, class_iter = class_iter->next) {
-        lily_variant_class *variant = (lily_variant_class *)class_iter;
-        members[variant_count - 1 - i] = variant;
-
-        if (variant->build_type == NULL)
-            enum_cls->flags |= CLS_VALID_OPTARG;
-    }
-
-    enum_cls->variant_members = members;
-    enum_cls->variant_size = variant_count;
-    enum_cls->flags |= CLS_IS_ENUM;
-
-    if (is_scoped) {
-        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
-        /* This removes the variants from symtab's classes, so that parser has
-           to get them from the enum. */
-        symtab->active_module->class_chain = enum_cls;
-    }
+    return (lily_variant_class *)sym_iter;
 }
 
 /***
@@ -868,11 +819,15 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
         while (class_iter) {
             lily_vm_add_class_unchecked(vm, class_iter);
 
-            if (class_iter->flags & CLS_ENUM_IS_SCOPED) {
-                int i;
-                for (i = 0;i < class_iter->variant_size;i++) {
-                    lily_class *v = (lily_class *)class_iter->variant_members[i];
-                    lily_vm_add_class_unchecked(vm, v);
+            if (class_iter->flags & CLS_IS_ENUM) {
+                lily_named_sym *sym_iter = class_iter->members;
+                while (sym_iter) {
+                    if (sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+                        lily_class *v = (lily_class *)sym_iter;
+                        lily_vm_add_class_unchecked(vm, v);
+                    }
+
+                    sym_iter = sym_iter->next;
                 }
             }
             class_iter = class_iter->next;

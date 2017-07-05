@@ -77,7 +77,7 @@ void lily_store_builtin(lily_symtab *, lily_var *, lily_function_val *);
 lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);
 lily_prop_entry *lily_find_property(lily_class *, const char *);
-lily_variant_class *lily_find_scoped_variant(lily_class *, const char *);
+lily_variant_class *lily_find_variant(lily_class *, const char *);
 lily_named_sym *lily_find_member(lily_class *, const char *);
 
 lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
@@ -95,7 +95,6 @@ void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, const char *, int);
-void lily_finish_enum(lily_symtab *, lily_class *, int, lily_type *);
 
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
