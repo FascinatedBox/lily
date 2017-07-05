@@ -117,6 +117,20 @@ typedef struct lily_ast_save_entry_ {
     struct lily_ast_save_entry_ *prev;
 } lily_ast_save_entry;
 
+/* Checkpoints are created when parser needs to run some expression without
+   modifying the current one. Parser uses these when running the body of a
+   lambda to make sure the current expression isn't damaged.
+   Save depth isn't included because checkpoints don't happen during expression
+   handling (only after). */
+typedef struct lily_ast_checkpoint_entry_ {
+    lily_ast *first_tree;
+    uint16_t pile_start;
+    uint16_t pad;
+    uint32_t pad2;
+    lily_ast *root;
+    lily_ast *active;
+} lily_ast_checkpoint_entry;
+
 typedef struct lily_expr_state_ {
     /* This is the tree with the lowest precedence. */
     lily_ast *root;
@@ -147,11 +161,16 @@ typedef struct lily_expr_state_ {
 
     uint16_t pad;
 
-    uint32_t *lex_linenum;
+    lily_ast_checkpoint_entry **checkpoints;
+    uint32_t checkpoint_pos;
+    uint32_t checkpoint_size;
 
-    /* The expression state to restore to when this one is done. */
-    struct lily_expr_state_ *prev;
+    uint32_t *lex_linenum;
 } lily_expr_state;
+
+void lily_es_flush(lily_expr_state *);
+void lily_es_checkpoint_save(lily_expr_state *);
+void lily_es_checkpoint_restore(lily_expr_state *);
 
 void lily_es_collect_arg(lily_expr_state *);
 void lily_es_enter_tree(lily_expr_state *, lily_tree_type);

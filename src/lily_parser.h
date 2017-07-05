@@ -37,11 +37,6 @@ typedef struct lily_parse_state_ {
     /* Pile strings are stored here. */
     lily_string_pile *expr_strings;
 
-    /* The first expression is malloc'd, while the rest are off the stack.
-       Holding the first one makes it easier to find and destroy both it and the
-       asts under it during teardown. */
-    lily_expr_state *first_expr;
-
     /* These are the values of vars that have been dynaloaded. They're stored
        here until the vm is ready to receive them. */
     lily_value_stack *foreign_values;

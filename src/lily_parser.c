@@ -120,7 +120,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->first_pass = 1;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
-    parser->first_expr = lily_new_expr_state();
+    parser->expr = lily_new_expr_state();
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
     parser->vm = lily_new_vm_state(raiser);
@@ -139,7 +139,6 @@ lily_state *lily_new_state(lily_config *config)
     parser->lex = lily_new_lex_state(raiser);
     parser->msgbuf = lily_new_msgbuf(64);
     parser->data_stack = lily_new_buffer_u16(4);
-    parser->expr = parser->first_expr;
     parser->foreign_values = lily_new_value_stack();
 
     /* Here's the awful part where parser digs in and links everything that different
@@ -211,9 +210,7 @@ void lily_free_state(lily_state *vm)
 
     lily_free_raiser(parser->raiser);
 
-    /* The root expression is the only one that is allocated (the rest are on
-       stack and thus vanish when the stack is gone). */
-    lily_free_expr_state(parser->first_expr);
+    lily_free_expr_state(parser->expr);
 
     lily_free_vm(parser->vm);
 
@@ -268,12 +265,16 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     gp->scope_end = 0;
 
     /* Rewind expression state */
-    lily_expr_state *es = parser->first_expr;
+    lily_expr_state *es = parser->expr;
     es->root = NULL;
     es->active = NULL;
-    es->next_available = es->first_tree;
 
-    parser->expr = es;
+    if (es->checkpoint_pos) {
+        es->first_tree = es->checkpoints[0]->first_tree;
+        es->checkpoint_pos = 0;
+    }
+
+    es->next_available = es->first_tree;
 
     lily_ast_save_entry *save_iter = es->save_chain;
     while (1) {
@@ -284,6 +285,8 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     }
     es->save_chain = save_iter;
     es->save_depth = 0;
+    es->pile_start = 0;
+    es->pile_current = 0;
 
     /* Rewind emit state */
     lily_emit_state *emit = parser->emit;
@@ -1239,9 +1242,6 @@ static lily_class *parse_enum(lily_parse_state *, int, int);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
 
-static void init_expr_state(lily_parse_state *, lily_expr_state *);
-static void fini_expr_state(lily_parse_state *);
-
 /* [0...1] of a dynaload are used for header information. */
 #define DYNA_NAME_OFFSET 2
 
@@ -1903,42 +1903,6 @@ static int keyword_by_name(const char *name)
    has already been pulled up. */
 #define ST_FORWARD              0x8
 
-/* This initializes a new expression state based off of the currently existing
-   one, and makes the new one the current one. No allocation is done. */
-static void init_expr_state(lily_parse_state *parser, lily_expr_state *new_es)
-{
-    lily_expr_state *old_es = parser->expr;
-
-    new_es->pile_start = old_es->pile_current;
-    new_es->pile_current = old_es->pile_current;
-    new_es->first_tree = old_es->next_available;
-    new_es->next_available = old_es->next_available;
-    new_es->prev = old_es;
-    new_es->lex_linenum = &parser->lex->line_num;
-    new_es->save_chain = old_es->save_chain;
-    new_es->save_depth = 0;
-    new_es->root = NULL;
-    new_es->active = NULL;
-
-    parser->expr = new_es;
-}
-
-/* Rewind the expression state for another run. This only needs to be done when
-   calling expression_raw. Most functions will call the toplevel expression
-   instead, which does this before expression_raw for them. */
-static void rewind_expr_state(lily_expr_state *es)
-{
-    es->root = NULL;
-    es->active = NULL;
-    es->next_available = es->first_tree;
-}
-
-/* Finishes the current expression state, restoring the last one. */
-static void fini_expr_state(lily_parse_state *parser)
-{
-    parser->expr = parser->expr->prev;
-}
-
 /* This handles when a class is seen within an expression. Any import qualifier
    has already been scanned and is unimportant. The key here is to figure out if
    this is `<class>.member` or `<class>()`. The first is a static access, while
@@ -2535,7 +2499,7 @@ static void expression_raw(lily_parse_state *parser, int state)
    callers do), then use this. If you don't, then call it raw. */
 static void expression(lily_parse_state *parser)
 {
-    rewind_expr_state(parser->expr);
+    lily_es_flush(parser->expr);
     expression_raw(parser, ST_DEMAND_VALUE);
 }
 
@@ -2715,12 +2679,11 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     else if (lex->token != tk_logical_or)
         lily_raise_syn(parser->raiser, "Unexpected token '%s'.", lex->token);
 
-    /* Evaluate the lambda within a new expression state so the old one's stuff
-       isn't trampled over. */
-    lily_expr_state es;
-    init_expr_state(parser, &es);
+    /* The current expression may not be done. This makes sure that the pool
+       won't use the same trees again. */
+    lily_es_checkpoint_save(parser->expr);
     root_result = parse_lambda_body(parser, expect_type);
-    fini_expr_state(parser);
+    lily_es_checkpoint_restore(parser->expr);
 
     if (root_result != NULL)
         lily_tm_insert(parser->tm, tm_return, root_result);
@@ -2852,7 +2815,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     }
 
     while (1) {
-        rewind_expr_state(parser->expr);
+        lily_es_flush(parser->expr);
 
         /* For this special case, give a useful error message. */
         if (lex->token == other_token)
@@ -3782,7 +3745,7 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
        directly. */
 
     lily_expr_state *es = parser->expr;
-    rewind_expr_state(es);
+    lily_es_flush(es);
     lily_es_enter_tree(es, tree_call);
     lily_es_push_inherited_new(es, class_new);
     lily_es_collect_arg(es);

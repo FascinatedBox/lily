@@ -22,6 +22,7 @@ a->arg_start = NULL; \
 a->result = NULL;
 
 static void add_save_entry(lily_expr_state *);
+static void grow_checkpoints(lily_expr_state *);
 
 /***
  *      ____       _
@@ -45,13 +46,20 @@ lily_expr_state *lily_new_expr_state(void)
         last_tree = new_tree;
     }
 
+    /* The grow will prepare 2 * the initial size of checkpoints. This should be
+       enough for most since they aren't used that often. */
+    es->checkpoints = NULL;
+    es->checkpoint_pos = 0;
+    es->checkpoint_size = 1;
+
+    grow_checkpoints(es);
+
     es->first_tree = last_tree;
     es->next_available = last_tree;
     es->save_chain = NULL;
     es->save_depth = 0;
     es->pile_start = 0;
     es->pile_current = 0;
-    es->prev = NULL;
     es->root = NULL;
     es->active = NULL;
 
@@ -62,8 +70,13 @@ lily_expr_state *lily_new_expr_state(void)
 
 void lily_free_expr_state(lily_expr_state *es)
 {
-    lily_ast *ast_iter = es->first_tree;
+    lily_ast *ast_iter;
     lily_ast *ast_temp;
+
+    if (es->checkpoint_pos)
+        ast_iter = es->checkpoints[0]->first_tree;
+    else
+        ast_iter = es->first_tree;
 
     while (ast_iter) {
         ast_temp = ast_iter->next_tree;
@@ -79,6 +92,11 @@ void lily_free_expr_state(lily_expr_state *es)
         save_iter = save_temp;
     }
 
+    int i;
+    for (i = 0;i < es->checkpoint_size;i++)
+        lily_free(es->checkpoints[i]);
+
+    lily_free(es->checkpoints);
     lily_free(es);
 }
 
@@ -99,6 +117,59 @@ static void add_save_entry(lily_expr_state *es)
     new_entry->active_tree = NULL;
     new_entry->entered_tree = NULL;
     new_entry->next = NULL;
+}
+
+static void grow_checkpoints(lily_expr_state *es)
+{
+    es->checkpoint_size *= 2;
+
+    es->checkpoints = lily_realloc(es->checkpoints,
+            es->checkpoint_size * sizeof(*es->checkpoints));
+
+    int i;
+    for (i = es->checkpoint_pos;i < es->checkpoint_size;i++) {
+        lily_ast_checkpoint_entry *new_point = lily_malloc(sizeof(*new_point));
+        es->checkpoints[i] = new_point;
+    }
+}
+
+void lily_es_flush(lily_expr_state *es)
+{
+    es->root = NULL;
+    es->active = NULL;
+    es->next_available = es->first_tree;
+    es->pile_current = es->pile_start;
+}
+
+void lily_es_checkpoint_save(lily_expr_state *es)
+{
+    if (es->checkpoint_pos == es->checkpoint_size)
+        grow_checkpoints(es);
+
+    lily_ast_checkpoint_entry *checkpoint = es->checkpoints[es->checkpoint_pos];
+
+    checkpoint->root = es->root;
+    checkpoint->active = es->active;
+    checkpoint->pile_start = es->pile_start;
+    checkpoint->first_tree = es->first_tree;
+
+    es->active = NULL;
+    es->root = NULL;
+    es->first_tree = es->next_available;
+
+    es->checkpoint_pos++;
+}
+
+void lily_es_checkpoint_restore(lily_expr_state *es)
+{
+    es->checkpoint_pos--;
+
+    lily_ast_checkpoint_entry *checkpoint = es->checkpoints[es->checkpoint_pos];
+
+    es->root = checkpoint->root;
+    es->active = checkpoint->active;
+    es->pile_start = checkpoint->pile_start;
+    es->first_tree = checkpoint->first_tree;
 }
 
 static void add_new_tree(lily_expr_state *es)
