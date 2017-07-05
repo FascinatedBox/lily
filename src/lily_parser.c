@@ -1932,21 +1932,10 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     NEED_NEXT_TOK(tk_word)
     lily_item *item = lily_find_or_dl_member(parser, cls, lex->label);
 
-    /* Breaking this down:
-       If there's a var, then it needs to be a member of THIS exact class, not
-       a subclass. I suspect that would be an unwelcome surprise.
-       No properties. Properties need to be accessed through a dot, since they
-       are per-instance. */
-
+    /* Allow only static methods that are exactly in this class. */
     if (item &&
-        (
-         (item->item_kind == ITEM_TYPE_VAR &&
-          ((lily_var *)item)->parent != cls) ||
-         (item->item_kind == ITEM_TYPE_PROPERTY)
-        ))
-        item = NULL;
-
-    if (item) {
+        item->item_kind == ITEM_TYPE_VAR &&
+        ((lily_var *)item)->parent == cls) {
         lily_es_push_static_func(parser->expr, (lily_var *)item);
         return;
     }
