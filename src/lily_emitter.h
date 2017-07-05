@@ -65,15 +65,6 @@ typedef struct lily_block_ {
        code block. */
     uint32_t code_start;
 
-    /* Since emit->code holds multiple code blocks, code->pos is not usable
-       for jumps as-is. Use emit->code_pos - code_jump_offset to get a jump
-       position appropriate for the current function.
-       This bubbles upward, and is thus always available on the current block,
-       regardless of the block type. */
-    uint32_t jump_offset;
-
-    uint32_t pad;
-
     /* Define/class blocks: Where the symtab's register allocation was before
        entry. */
     uint32_t next_reg_spot;

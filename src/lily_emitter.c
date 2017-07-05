@@ -146,7 +146,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->class_entry = NULL;
     main_block->self = NULL;
     main_block->code_start = 0;
-    main_block->jump_offset = 0;
     main_block->next_reg_spot = 0;
     main_block->loop_start = -1;
     main_block->make_closure = 0;
@@ -768,10 +767,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->make_closure = 0;
 
     if (block_type < block_define) {
-        /* Non-functions will continue using the storages that the parent uses.
-           Additionally, the same technique is used to allow loop starts to
-           bubble upward until a function gets in the way. */
-        new_block->jump_offset = emit->block->jump_offset;
         new_block->all_branches_exit = 1;
 
         if (IS_LOOP_BLOCK(block_type))
@@ -819,7 +814,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         new_block->storage_start = emit->storages->scope_end;
         new_block->function_var = v;
         new_block->code_start = lily_u16_pos(emit->code);
-        new_block->jump_offset = lily_u16_pos(emit->code);
         new_block->loop_start = -1;
 
         emit->top_var = v;
