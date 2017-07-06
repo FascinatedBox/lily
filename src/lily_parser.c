@@ -3250,9 +3250,7 @@ static int expecting_return_value(lily_parse_state *parser)
     return parser->emit->top_function_ret != lily_unit_type;
 }
 
-/* Call this to make sure there's no obviously-dead code. */
-static void ensure_no_code_after_exit(lily_parse_state *parser,
-        const char *name)
+static int code_is_after_exit(lily_parse_state *parser)
 {
     lily_token token = parser->lex->token;
 
@@ -3260,7 +3258,7 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
     if (token == tk_right_curly ||
         token == tk_eof ||
         token == tk_end_tag)
-        return;
+        return 0;
 
     if (token == tk_word) {
         int key_id = keyword_by_name(parser->lex->label);
@@ -3270,16 +3268,10 @@ static void ensure_no_code_after_exit(lily_parse_state *parser,
             key_id == KEY_ELSE ||
             key_id == KEY_EXCEPT ||
             key_id == KEY_CASE)
-            return;
+            return 0;
     }
 
-    if (strcmp(name, "return") != 0 ||
-        expecting_return_value(parser) == 1)
-        lily_raise_syn(parser->raiser,
-                "Statement(s) after '%s' will not execute.", name);
-    else
-        lily_raise_syn(parser->raiser,
-                "Statement(s) after 'return' will not execute (no return type given).");
+    return 1;
 }
 
 static void return_handler(lily_parse_state *parser, int multi)
@@ -3298,8 +3290,14 @@ static void return_handler(lily_parse_state *parser, int multi)
 
     lily_emit_eval_return(parser->emit, parser->expr);
 
-    if (multi)
-        ensure_no_code_after_exit(parser, "return");
+    if (multi && code_is_after_exit(parser)) {
+        const char *extra = ".";
+        if (expecting_return_value(parser) == 0)
+            extra = " (no return type given).";
+
+        lily_raise_syn(parser->raiser,
+                "Statement(s) after 'return' will not execute%s", extra);
+    }
 }
 
 static void while_handler(lily_parse_state *parser, int multi)
@@ -3325,16 +3323,18 @@ static void continue_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_continue(parser->emit);
 
-    if (multi)
-        ensure_no_code_after_exit(parser, "continue");
+    if (multi && code_is_after_exit(parser))
+        lily_raise_syn(parser->raiser,
+                "Statement(s) after 'continue' will not execute.");
 }
 
 static void break_handler(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
 
-    if (multi)
-        ensure_no_code_after_exit(parser, "break");
+    if (multi && code_is_after_exit(parser))
+        lily_raise_syn(parser->raiser,
+                "Statement(s) after 'break' will not execute.");
 }
 
 static void for_handler(lily_parse_state *parser, int multi)
@@ -3647,8 +3647,9 @@ static void raise_handler(lily_parse_state *parser, int multi)
     expression(parser);
     lily_emit_raise(parser->emit, parser->expr);
 
-    if (multi)
-        ensure_no_code_after_exit(parser, "raise");
+    if (multi && code_is_after_exit(parser))
+        lily_raise_syn(parser->raiser,
+                "Statement(s) after 'raise' will not execute.");
 }
 
 static void ensure_valid_class(lily_parse_state *parser, const char *name)
