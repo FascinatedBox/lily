@@ -137,9 +137,6 @@ typedef struct {
        done. */
     lily_var *top_var;
 
-    /* The return type of the current function. */
-    lily_type *top_function_ret;
-
     struct lily_storage_stack_ *storages;
 
     /* The block that __main__ is within. This is always the first block (the
@@ -206,13 +203,14 @@ void lily_emit_decompose(lily_emit_state *, lily_sym *, int, uint16_t);
 
 void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
-void lily_emit_eval_return(lily_emit_state *, lily_expr_state *);
+void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 void lily_emit_enter_simple_block(lily_emit_state *, int);
 
 void lily_emit_enter_block(lily_emit_state *, lily_block_type);
 void lily_emit_leave_block(lily_emit_state *);
+void lily_emit_function_end(lily_emit_state *, lily_type *, uint16_t);
 
 void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);

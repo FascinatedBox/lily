@@ -151,7 +151,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->make_closure = 0;
     main_block->storage_start = 0;
     emit->top_var = main_var;
-    emit->top_function_ret = lily_unit_type;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -867,6 +866,24 @@ static void finalize_function_block(lily_emit_state *emit,
     f->reg_count = register_count;
 }
 
+void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
+        uint16_t line_num)
+{
+    if (emit->block->block_type == block_class)
+        lily_u16_write_3(emit->code, o_return_val, line_num,
+                emit->block->self->reg_spot);
+    else if (emit->block->last_exit != lily_u16_pos(emit->code)) {
+        type = type->subtypes[0];
+
+        if (type == lily_unit_type ||
+            type == lily_self_class->self_type)
+            lily_u16_write_2(emit->code, o_return_unit, line_num);
+        else
+            lily_raise_syn(emit->raiser,
+                    "Missing return statement at end of function.");
+    }
+}
+
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
     if (block->block_type == block_class) {
@@ -880,22 +897,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
                 opcode = o_new_instance_tagged;
 
             lily_u16_set_at(emit->code, block->code_start, opcode);
-        }
-
-        lily_u16_write_3(emit->code, o_return_val, *emit->lex_linenum,
-                block->self->reg_spot);
-    }
-    else {
-        /* A lambda's return is whatever the last expression returns. */
-        if (block->block_type == block_lambda)
-            emit->top_function_ret = emit->top_var->type->subtypes[0];
-        if (emit->top_function_ret == lily_unit_type ||
-            emit->top_function_ret == lily_self_class->self_type)
-            lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
-        else if (block->block_type == block_define &&
-                 block->last_exit != lily_u16_pos(emit->code)) {
-            lily_raise_syn(emit->raiser,
-                    "Missing return statement at end of function.");
         }
     }
 
@@ -920,7 +921,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     lily_var *v = prev_function_block->function_var;
 
     emit->top_var = v;
-    emit->top_function_ret = v->type->subtypes[0];
     emit->function_block = prev_function_block;
 
     lily_u16_set_pos(emit->code, block->code_start);
@@ -4150,6 +4150,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
            of if there is one available. */
         lily_u16_write_3(emit->code, o_return_val, es->root->line_num,
                 es->root->result->reg_spot);
+        emit->block->last_exit = lily_u16_pos(emit->code);
     }
     else if (return_wanted == 0)
         es->root->result = NULL;
@@ -4158,20 +4159,19 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
 /* This handles the 'return' keyword. If parser has the pool filled with some
    expression, then run that expression (checking the result). The pool will be
    cleared out if there was an expression. */
-void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
+void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
+        lily_type *return_type)
 {
-    lily_type *ret_type = emit->top_function_ret;
-
-    if (ret_type != lily_unit_type) {
+    if (return_type != lily_unit_type) {
         lily_ast *ast = es->root;
 
-        eval_enforce_value(emit, ast, ret_type,
+        eval_enforce_value(emit, ast, return_type,
                 "'return' expression has no value.");
 
-        if (ast->result->type != ret_type &&
-            type_matchup(emit, ret_type, ast) == 0) {
+        if (ast->result->type != return_type &&
+            type_matchup(emit, return_type, ast) == 0) {
             lily_raise_adjusted(emit->raiser, ast->line_num,
-                    "return expected type '^T' but got type '^T'.", ret_type,
+                    "return expected type '^T' but got type '^T'.", return_type,
                     ast->result->type);
         }
 
@@ -4191,8 +4191,6 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es)
 void lily_emit_setup_call(lily_emit_state *emit, lily_type *self_type,
         lily_var *target, lily_buffer_u16 *data, int data_start)
 {
-    emit->top_function_ret = target->type->subtypes[0];
-
     if (self_type) {
         /* If there's a type for 'self', then this must be a class constructor.
            Create the storage that will represent 'self' and write the

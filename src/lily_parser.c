@@ -298,7 +298,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     emit->closed_pos = 0;
     emit->match_case_pos = 0;
     emit->top_var = emit->main_block->var_start;
-    emit->top_function_ret = NULL;
 
     lily_block *block_stop = emit->block->next;
     lily_block *block_iter = emit->main_block->next;
@@ -2685,6 +2684,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lambda_var->type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);
 
+    lily_emit_function_end(parser->emit, lambda_var->type, lex->line_num);
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(lex);
 
@@ -2941,7 +2941,7 @@ static void ensure_unique_method_name(lily_parse_state *parser,
     }
 }
 
-static void parse_define_header(lily_parse_state *parser, int modifiers)
+static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
@@ -3039,6 +3039,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     lily_emit_setup_call(parser->emit, NULL, define_var, parser->data_stack,
             data_start);
+
+    return define_var;
 }
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
@@ -3245,11 +3247,6 @@ static void else_handler(lily_parse_state *parser, int multi)
     lily_raise_syn(parser->raiser, "'else' without 'if'.");
     }
 
-static int expecting_return_value(lily_parse_state *parser)
-{
-    return parser->emit->top_function_ret != lily_unit_type;
-}
-
 static int code_is_after_exit(lily_parse_state *parser)
 {
     lily_token token = parser->lex->token;
@@ -3277,6 +3274,8 @@ static int code_is_after_exit(lily_parse_state *parser)
 static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->function_block;
+    lily_type *return_type;
+
     if (block->block_type == block_class)
         lily_raise_syn(parser->raiser,
                 "'return' not allowed in a class constructor.");
@@ -3284,15 +3283,17 @@ static void return_handler(lily_parse_state *parser, int multi)
         lily_raise_syn(parser->raiser, "'return' not allowed in a lambda.");
     else if (block->block_type == block_file)
         lily_raise_syn(parser->raiser, "'return' used outside of a function.");
+    else
+        return_type = block->function_var->type->subtypes[0];
 
-    if (expecting_return_value(parser))
+    if (return_type != lily_unit_type)
         expression(parser);
 
-    lily_emit_eval_return(parser->emit, parser->expr);
+    lily_emit_eval_return(parser->emit, parser->expr, return_type);
 
     if (multi && code_is_after_exit(parser)) {
         const char *extra = ".";
-        if (expecting_return_value(parser) == 0)
+        if (return_type == lily_unit_type)
             extra = " (no return type given).";
 
         lily_raise_syn(parser->raiser,
@@ -3461,6 +3462,8 @@ static void run_loaded_module(lily_parse_state *parser,
     if (parser->emit->block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Unterminated block(s) at end of file.");
 
+    lily_emit_function_end(parser->emit, parser->default_call_type,
+            lex->line_num);
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(parser->lex);
 
@@ -3762,7 +3765,7 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
 
 /* This handles everything needed to create a class, including the inheritance
    if that turns out to be necessary. */
-static void parse_class_header(lily_parse_state *parser, lily_class *cls)
+static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
     /* Use the default call type (function ()) in case one of the types listed
@@ -3826,6 +3829,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     if (super_cls)
         run_super_ctor(parser, cls, super_cls);
+
+    return call_var;
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
@@ -3928,7 +3933,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     int save_generic_start;
     lily_gp_save_and_hide(parser->generics, &save_generic_start);
 
-    parse_class_header(parser, cls);
+    lily_var *ctor_var = parse_class_header(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
@@ -3936,6 +3941,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     determine_class_gc_flag(parser, parser->class_self_type->cls);
 
     parser->class_self_type = save_class_self_type;
+    lily_emit_function_end(parser->emit, ctor_var->type, lex->line_num);
     lily_emit_leave_block(parser->emit);
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
@@ -4370,10 +4376,11 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     int save_generic_start;
     lily_gp_save(parser->generics, &save_generic_start);
 
-    parse_define_header(parser, modifiers);
+    lily_var *define_var = parse_define_header(parser, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
+    lily_emit_function_end(parser->emit, define_var->type, lex->line_num);
     lily_emit_leave_block(parser->emit);
     lily_gp_restore(parser->generics, save_generic_start);
 
