@@ -85,7 +85,6 @@ typedef struct lily_vm_state_ {
 
     /* This is used to dynaload exceptions when absolutely necessary. */
     struct lily_parse_state_ *parser;
-    lily_symtab *symtab;
     lily_raiser *raiser;
     /* This holds the 'data' blob passed in to the interpreter's options. The
        mod_lily module uses this to hold the request_rec so that server

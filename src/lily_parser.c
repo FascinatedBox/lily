@@ -146,7 +146,6 @@ lily_state *lily_new_state(lily_config *config)
        sections need. */
     parser->tm = parser->emit->tm;
 
-    parser->vm->symtab = parser->symtab;
     parser->vm->vm_buffer = parser->raiser->msgbuf;
 
     parser->symtab->lex_linenum = &parser->lex->line_num;

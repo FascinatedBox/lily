@@ -117,7 +117,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->gc_live_entry_count = 0;
     vm->gc_pass = 0;
     vm->catch_chain = NULL;
-    vm->symtab = NULL;
     vm->readonly_table = NULL;
     vm->readonly_count = 0;
     vm->call_chain = NULL;
