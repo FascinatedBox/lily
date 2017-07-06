@@ -66,6 +66,7 @@ static lily_module_entry *new_module(lily_parse_state *);
 void lily_register_package(lily_state *, const char *, const char **, void *);
 void lily_default_import_func(lily_state *, const char *, const char *,
         const char *);
+void lily_stdout_print(lily_vm_state *);
 
 typedef struct lily_rewind_state_
 {
@@ -4434,6 +4435,27 @@ static void protected_handler(lily_parse_state *parser, int multi)
     parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
 }
 
+static void maybe_fix_print(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *builtin = symtab->builtin_module;
+    lily_var *stdout_var = lily_find_var(symtab, builtin, "stdout");
+    lily_vm_state *vm = parser->vm;
+
+    if (stdout_var) {
+        lily_var *print_var = lily_find_var(symtab, builtin, "print");
+        if (print_var) {
+            /* Swap out the default implementation of print for one that will
+               check if stdin is closed first. */
+            lily_value *print_value = vm->readonly_table[print_var->reg_spot];
+            lily_function_val *print_func = print_value->value.function;
+
+            print_func->foreign_func = lily_stdout_print;
+            print_func->cid_table = &stdout_var->reg_spot;
+        }
+    }
+}
+
 static void setup_and_exec_vm(lily_parse_state *parser)
 {
     /* todo: Find a way to do some of this as-needed, instead of always. */
@@ -4442,6 +4464,7 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     lily_vm_prep(parser->vm, parser->symtab,
             parser->symtab->literals->data, parser->foreign_values);
 
+    maybe_fix_print(parser);
     update_all_cid_tables(parser);
 
     parser->executing = 1;

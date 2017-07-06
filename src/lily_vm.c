@@ -123,7 +123,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->call_chain = NULL;
     vm->class_count = 0;
     vm->class_table = NULL;
-    vm->stdout_reg = NULL;
     vm->exception_value = NULL;
     vm->pending_line = 0;
 
@@ -1120,9 +1119,14 @@ void lily_builtin__print(lily_vm_state *vm)
 /* Initially, print is implemented through lily_builtin__print. However, when
    stdout is dynaloaded, that doesn't work. When stdout is found, print needs to
    use the register holding Lily's stdout, not the plain C stdout. */
-static void builtin_stdout_print(lily_vm_state *vm)
+void lily_stdout_print(lily_vm_state *vm)
 {
-    lily_file_val *stdout_val = vm->stdout_reg->value.file;
+    /* This uses a couple of tricks not available to proper api functions.
+       First, it sets the cid table to point to the id of the var holding
+       stdin.
+       The other trick is to use regs_from_main to grab the globals. */
+    uint16_t spot = *vm->call_chain->function->cid_table;
+    lily_file_val *stdout_val = vm->regs_from_main[spot]->value.file;
     if (stdout_val->inner_file == NULL)
         vm_error(vm, LILY_VALUEERROR_ID, "IO operation on closed file.");
 
@@ -1943,29 +1947,6 @@ static void load_foreign_values(lily_vm_state *vm, lily_value_stack *values)
     }
 }
 
-static void maybe_fix_print(lily_vm_state *vm)
-{
-    lily_symtab *symtab = vm->symtab;
-    lily_module_entry *builtin = symtab->builtin_module;
-    lily_var *stdout_var = lily_find_var(symtab, builtin, "stdout");
-
-    if (stdout_var) {
-        lily_var *print_var = lily_find_var(symtab, builtin, "print");
-        if (print_var) {
-            /* Normally, the implementation of print will shoot directly to
-               raw stdout. It's really fast because it doesn't have to load
-               stdout from a register, and doesn't have to check for stdout
-               maybe being closed.
-               Now that stdout has been dynaloaded, swap the underlying function
-               for print to the safe one. */
-            lily_value *print_value = vm->readonly_table[print_var->reg_spot];
-            print_value->value.function->foreign_func = builtin_stdout_print;
-            lily_value *stdout_reg = vm->regs_from_main[stdout_var->reg_spot];
-            vm->stdout_reg = stdout_reg;
-        }
-    }
-}
-
 /* This must be called before lily_vm_execute if the parser has read any data
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
@@ -1982,9 +1963,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
         grow_vm_registers(vm, need);
 
     load_foreign_values(vm, foreign_values);
-
-    if (vm->stdout_reg == NULL)
-        maybe_fix_print(vm);
 
     lily_call_frame *toplevel_frame = vm->call_chain;
     toplevel_frame->top = vm->regs_from_main + symtab->next_global_id;

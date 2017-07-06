@@ -91,10 +91,6 @@ typedef struct lily_vm_state_ {
        mod_lily module uses this to hold the request_rec so that server
        functions can fetch it back out. */
     void *data;
-
-    /* If stdout has been dynaloaded, then this is the register that holds
-       Lily's stdout. Otherwise, this is NULL. */
-    lily_value *stdout_reg;
 } lily_vm_state;
 
 struct lily_value_stack_;
