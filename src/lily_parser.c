@@ -3282,7 +3282,7 @@ static void return_handler(lily_parse_state *parser, int multi)
                 "'return' not allowed in a class constructor.");
     else if (block->block_type == block_lambda)
         lily_raise_syn(parser->raiser, "'return' not allowed in a lambda.");
-    else if (block->block_type == block_file || block->prev == NULL)
+    else if (block->block_type == block_file)
         lily_raise_syn(parser->raiser, "'return' used outside of a function.");
 
     if (expecting_return_value(parser))
