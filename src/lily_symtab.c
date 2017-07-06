@@ -121,8 +121,7 @@ static void free_literals(lily_value_stack *literals)
         /* Literals are marked where their refcount won't be adjusted during
            the vm's run. Any literal that isn't primitive will have 1 ref, and
            can be destroyed by sending it to deref. */
-        if (lit->class_id != LILY_BOOLEAN_ID &&
-            lit->class_id != LILY_INTEGER_ID &&
+        if (lit->class_id != LILY_INTEGER_ID &&
             lit->class_id != LILY_DOUBLE_ID) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
