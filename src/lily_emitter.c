@@ -150,7 +150,6 @@ void lily_emit_enter_main(lily_emit_state *emit)
     main_block->loop_start = -1;
     main_block->make_closure = 0;
     main_block->storage_start = 0;
-    emit->top_var = main_var;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -814,8 +813,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         new_block->function_var = v;
         new_block->code_start = lily_u16_pos(emit->code);
         new_block->loop_start = -1;
-
-        emit->top_var = v;
     }
 
     emit->block = new_block;
@@ -918,9 +915,7 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
        functions in that block will vanish! */
 
     lily_block *prev_function_block = block->prev_function_block;
-    lily_var *v = prev_function_block->function_var;
 
-    emit->top_var = v;
     emit->function_block = prev_function_block;
 
     lily_u16_set_pos(emit->code, block->code_start);

@@ -133,10 +133,6 @@ typedef struct {
 
     uint16_t match_case_size;
 
-    /* The var that will receive the function value when the function block is
-       done. */
-    lily_var *top_var;
-
     struct lily_storage_stack_ *storages;
 
     /* The block that __main__ is within. This is always the first block (the

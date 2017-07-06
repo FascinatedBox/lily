@@ -297,7 +297,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 
     emit->closed_pos = 0;
     emit->match_case_pos = 0;
-    emit->top_var = emit->main_block->var_start;
 
     lily_block *block_stop = emit->block->next;
     lily_block *block_iter = emit->main_block->next;
@@ -2000,7 +1999,8 @@ static void push_constant(lily_parse_state *parser, int key_id)
         push_literal(parser, lit);
     }
     else if (key_id == CONST__FUNCTION__) {
-        lit = lily_get_string_literal(symtab, parser->emit->top_var->name);
+        lit = lily_get_string_literal(symtab,
+                parser->emit->function_block->function_var->name);
         push_literal(parser, lit);
     }
     else if (key_id == CONST_TRUE)
