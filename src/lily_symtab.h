@@ -55,8 +55,6 @@ typedef struct lily_symtab_ {
     lily_class *tuple_class;
     lily_class *optarg_class;
     lily_class *question_class;
-
-    uint32_t *lex_linenum;
 } lily_symtab;
 
 lily_symtab *lily_new_symtab(lily_generic_pool *);
@@ -71,17 +69,12 @@ lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
 lily_literal *lily_get_double_literal(lily_symtab *, double);
 lily_literal *lily_get_bytestring_literal(lily_symtab *, const char *, int);
 lily_literal *lily_get_string_literal(lily_symtab *, const char *);
-void lily_store_function(lily_symtab *, lily_var *, lily_function_val *);
-void lily_store_builtin(lily_symtab *, lily_var *, lily_function_val *);
 
 lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
 lily_var *lily_find_method(lily_class *, const char *);
 lily_prop_entry *lily_find_property(lily_class *, const char *);
 lily_variant_class *lily_find_variant(lily_class *, const char *);
 lily_named_sym *lily_find_member(lily_class *, const char *);
-
-lily_var *lily_new_raw_var(lily_symtab *, lily_type *, const char *);
-lily_var *lily_new_raw_unlinked_var(lily_symtab *, lily_type *, const char *);
 lily_var *lily_find_var(lily_symtab *, lily_module_entry *, const char *);
 
 void lily_hide_block_vars(lily_symtab *, lily_var *);

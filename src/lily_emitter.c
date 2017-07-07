@@ -74,6 +74,24 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->raiser = raiser;
     emit->expr_num = 1;
 
+    lily_block *main_block = lily_malloc(sizeof(*main_block));
+
+    main_block->prev = NULL;
+    main_block->next = NULL;
+    main_block->block_type = block_file;
+    main_block->class_entry = NULL;
+    main_block->self = NULL;
+    main_block->code_start = 0;
+    main_block->next_reg_spot = 0;
+    main_block->loop_start = -1;
+    main_block->make_closure = 0;
+    main_block->storage_start = 0;
+    emit->block = main_block;
+    emit->function_depth++;
+    emit->main_block = main_block;
+    emit->function_block = main_block;
+    emit->class_block_depth = 0;
+
     return emit;
 }
 
@@ -103,218 +121,6 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free_buffer_u16(emit->patches);
     lily_free_buffer_u16(emit->code);
     lily_free(emit);
-}
-
-lily_function_val *lily_emit_create_toplevel(lily_emit_state *emit,
-        lily_vm_state *vm)
-{
-    lily_function_val *toplevel_func = new_native_function_val(NULL, NULL);
-    lily_setup_toplevel(vm, toplevel_func);
-    return toplevel_func;
-}
-
-/* This is called once during parser init. It creates the first storage, and
-   enters the block that represents __main__. */
-void lily_emit_enter_main(lily_emit_state *emit)
-{
-    /* This creates the type for __main__. __main__ is a function that takes 0
-       arguments and does not return anything. */
-    lily_tm_add(emit->tm, lily_unit_type);
-    lily_type *main_type = lily_tm_make(emit->tm, 0,
-            emit->symtab->function_class, 1);
-
-    lily_var *main_var = lily_new_raw_var(emit->symtab, main_type, "__main__");
-    main_var->reg_spot = 0;
-    main_var->function_depth = 1;
-    main_var->flags |= VAR_IS_READONLY;
-
-    lily_block *main_block = lily_malloc(sizeof(*main_block));
-    lily_function_val *main_function = new_native_function_val(
-            NULL, main_var->name);
-
-    emit->symtab->main_var = main_var;
-    emit->symtab->main_function = main_function;
-
-    lily_store_function(emit->symtab, main_var, main_function);
-
-    /* Everything is set manually because creating a block requires taking info
-       from a previous block (for things such as self). */
-    main_block->prev = NULL;
-    main_block->next = NULL;
-    main_block->block_type = block_file;
-    main_block->function_var = main_var;
-    main_block->class_entry = NULL;
-    main_block->self = NULL;
-    main_block->code_start = 0;
-    main_block->next_reg_spot = 0;
-    main_block->loop_start = -1;
-    main_block->make_closure = 0;
-    main_block->storage_start = 0;
-    emit->block = main_block;
-    emit->function_depth++;
-    emit->main_block = main_block;
-    emit->function_block = main_block;
-    emit->class_block_depth = 0;
-}
-
-/***
- *     __     __
- *     \ \   / /_ _ _ __ ___
- *      \ \ / / _` | '__/ __|
- *       \ V / (_| | |  \__ \
- *        \_/ \__,_|_|  |___/
- *
- */
-
-/** Lily's vm is a register-based vm. This means that when a var is created, it
-    occupies a certain slot and will retain that slot through the lifetime of
-    the function. This has the benefit of having to set type information once,
-    but some drawbacks too. For one, it makes variable creation tougher. Just
-    creating a var is not possible.
-
-    One problem that this creates is that temporary values (termed storages) are
-    in one area (emitter), and vars are in another (symtab). The emitter must
-    make sure that vars always retain their position, but allow storages to be
-    used repeatedly.
-
-    One trick that is employed by Lily is that all imports capture their
-    toplevel code into a function called __import__. This allows error tracking
-    to know what file had a problem. It's important that vars within __import__
-    are available in other scopes, so __import__'s vars are registered as
-    globals instead of locals.
-
-    Lily also has an artificial requirement that define-d functions not be
-    altered. Vars that are associated with a define are put into a separate
-    table, and not loaded into any register (they'll never go out of scope,
-    after all). These vars have a register spot that is actually a spot in a
-    special read-only table within vm.
-
-    To simplify this, emitter is in charge of setting register spots for vars
-    and for storages too. Different kinds of vars will have different needs,
-    however, and thus have different entry functions. **/
-
-/* This is used to get a new var. The var that is allocated will NEVER be a
-   global, regardless of function depth. Use this to allocate intermediates,
-   since imports need to store their locals within themselves. */
-lily_var *lily_emit_new_local_var(lily_emit_state *emit, lily_type *type,
-        const char *name)
-{
-    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
-
-    new_var->reg_spot = emit->function_block->next_reg_spot;
-    emit->function_block->next_reg_spot++;
-
-    new_var->function_depth = emit->function_depth;
-
-    return new_var;
-}
-
-/* This is the most commonly-used function for creating a new var. This creates
-   a new var that will be destroyed when the current block is complete. */
-lily_var *lily_emit_new_scoped_var(lily_emit_state *emit, lily_type *type,
-        const char *name)
-{
-    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
-
-    if (emit->function_depth == 1) {
-        new_var->reg_spot = emit->symtab->next_global_id;
-        emit->symtab->next_global_id++;
-        new_var->flags |= VAR_IS_GLOBAL;
-    }
-    else {
-        new_var->reg_spot = emit->function_block->next_reg_spot;
-        emit->function_block->next_reg_spot++;
-    }
-
-    new_var->function_depth = emit->function_depth;
-
-    return new_var;
-}
-
-/* This creates a new var that will be associated with a 'define'. */
-lily_var *lily_emit_new_define_var(lily_emit_state *emit, lily_type *type,
-        lily_class *parent, const char *name)
-{
-    lily_var *new_var = lily_new_raw_var(emit->symtab, type, name);
-
-    new_var->reg_spot = lily_vs_pos(emit->symtab->literals);
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY;
-
-    char *class_name;
-    if (parent)
-        class_name = parent->name;
-    else
-        class_name = NULL;
-
-    /* Build a function and store it now, just in case a dynaload fires off
-       before the define is done. */
-    lily_function_val *f = new_native_function_val(class_name,
-            new_var->name);
-    lily_store_function(emit->symtab, new_var, f);
-
-    return new_var;
-}
-
-/* This is used to create a var that goes into a particular scope, and which has
-   a foreign function associated with it. */
-lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *emit,
-        lily_foreign_func func, lily_item *source, lily_type *type,
-        const char *name)
-{
-    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
-
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
-    new_var->reg_spot = lily_vs_pos(emit->symtab->literals);
-
-    lily_function_val *func_val;
-
-    if (source->item_kind == ITEM_TYPE_MODULE) {
-        lily_module_entry *module = (lily_module_entry *)source;
-
-        new_var->next = module->var_chain;
-        module->var_chain = new_var;
-
-        func_val = new_foreign_function_val(func, NULL, name);
-        func_val->cid_table = ((lily_module_entry *)source)->cid_table;
-    }
-    else {
-        lily_class *cls = (lily_class *)source;
-
-        new_var->next = (lily_var *)cls->members;
-        cls->members = (lily_named_sym *)new_var;
-        new_var->parent = cls;
-
-        func_val = new_foreign_function_val(func, cls->name, name);
-        func_val->cid_table = ((lily_class *)source)->module->cid_table;
-    }
-
-    /* Foreign functions need space for their inputs, and one extra to serve as
-       a reserve inner calls to return to. */
-    func_val->reg_count = type->subtype_count;
-
-    lily_store_function(emit->symtab, new_var, func_val);
-    return new_var;
-}
-
-/* This creates a var that will be put into some special non-current space. This
-   is used so that dynamically-loaded vars will be loaded once (and only once)
-   into their appropriate scope. */
-lily_var *lily_emit_new_dyna_var(lily_emit_state *emit,
-        lily_module_entry *module, lily_type *type, const char *name)
-{
-    lily_var *new_var = lily_new_raw_unlinked_var(emit->symtab, type, name);
-
-    new_var->reg_spot = emit->symtab->next_global_id;
-    emit->symtab->next_global_id++;
-    new_var->function_depth = 1;
-    new_var->flags |= VAR_IS_GLOBAL;
-
-    new_var->next = module->var_chain;
-    module->var_chain = new_var;
-
-    return new_var;
 }
 
 /***

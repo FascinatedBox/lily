@@ -372,28 +372,6 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     return (lily_literal *)v;
 }
 
-/* Literals and defined functions are both immutable, so they occupy the same
-   general. This stores a function in their shared area. */
-static void store_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val, lily_module_entry *module)
-{
-    /* This is done so that lily_debug can print line numbers. */
-    func_val->line_num = func_var->line_num;
-    func_val->module = module;
-
-    lily_value *v = lily_malloc(sizeof(*v));
-    v->flags = LILY_FUNCTION_ID;
-    v->value.function = func_val;
-
-    lily_vs_push(symtab->literals, v);
-}
-
-void lily_store_function(lily_symtab *symtab, lily_var *func_var,
-        lily_function_val *func_val)
-{
-    store_function(symtab, func_var, func_val, symtab->active_module);
-}
-
 /***
  *     __     __
  *     \ \   / /_ _ _ __ ___
@@ -403,9 +381,9 @@ void lily_store_function(lily_symtab *symtab, lily_var *func_var,
  *
  */
 
-/** Symtab is responsible for creating vars. However, emitter is the one that
-    knows about register positions and where the var will go. So the symtab may
-    make the vars but it that's about it. **/
+/** Symtab doesn't need to do much here since parser is responsible for creation
+    and placement of new vars. Symtab's job here is to provide lookup and
+    hiding of vars. **/
 
 /* This gets (up to) the first 8 bytes of a name and puts it into a numeric
    value. The numeric value is compared before comparing names to speed things
@@ -421,38 +399,6 @@ static uint64_t shorthash_for_name(const char *name)
         ret |= ((uint64_t)*ch) << shift;
     }
     return ret;
-}
-
-/* Create a new var, but leave it to the caller to link it somewhere. */
-lily_var *lily_new_raw_unlinked_var(lily_symtab *symtab, lily_type *type,
-        const char *name)
-{
-    lily_var *var = lily_malloc(sizeof(*var));
-
-    var->name = lily_malloc((strlen(name) + 1) * sizeof(*var->name));
-    var->item_kind = ITEM_TYPE_VAR;
-    var->flags = 0;
-    strcpy(var->name, name);
-    var->line_num = *symtab->lex_linenum;
-
-    var->shorthash = shorthash_for_name(name);
-    var->type = type;
-    var->next = NULL;
-    var->parent = NULL;
-
-    return var;
-}
-
-/* Create a new var that is immediately added to the current module. */
-lily_var *lily_new_raw_var(lily_symtab *symtab, lily_type *type,
-        const char *name)
-{
-    lily_var *var = lily_new_raw_unlinked_var(symtab, type, name);
-
-    var->next = symtab->active_module->var_chain;
-    symtab->active_module->var_chain = var;
-
-    return var;
 }
 
 static lily_var *find_var(lily_var *var_iter, const char *name,

@@ -217,24 +217,9 @@ void lily_emit_setup_call(lily_emit_state *, lily_type *, lily_var *,
 
 uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
 
-struct lily_vm_state_;
-
 void lily_prepare_main(lily_emit_state *);
 void lily_reset_main(lily_emit_state *);
-lily_function_val *lily_emit_create_toplevel(lily_emit_state *,
-        struct lily_vm_state_ *);
-
-lily_var *lily_emit_new_local_var(lily_emit_state *, lily_type *, const char *);
-lily_var *lily_emit_new_scoped_var(lily_emit_state *, lily_type *,
-        const char *);
-lily_var *lily_emit_new_define_var(lily_emit_state *, lily_type *, lily_class *,
-        const char *);
-lily_var *lily_emit_new_tied_dyna_var(lily_emit_state *, lily_foreign_func,
-        lily_item *, lily_type *, const char *);
-lily_var *lily_emit_new_dyna_var(lily_emit_state *, lily_module_entry *,
-        lily_type *, const char *);
 
 void lily_free_emit_state(lily_emit_state *);
-void lily_emit_enter_main(lily_emit_state *);
 lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 #endif

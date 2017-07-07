@@ -50,8 +50,8 @@ extern lily_type *lily_unit_type;
     * Load the builtin module.
     * Initialize other parts of the interpreter.
     * Link different parts of the interpreter up (sorry).
-    * Enter __main__, which will receive toplevel code from the first module.
     * Create the first module (parsed files/strings will become the root).
+    * Create __main__ to receive toplevel code from the first module.
 
     What's perhaps more interesting is that different functions within the
     parser will either take or return the vm. The reason for this is that it
@@ -63,6 +63,7 @@ extern lily_type *lily_unit_type;
 static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *);
+static void create_main_func(lily_parse_state *);
 void lily_register_package(lily_state *, const char *, const char **, void *);
 void lily_default_import_func(lily_state *, const char *, const char *,
         const char *);
@@ -148,8 +149,6 @@ lily_state *lily_new_state(lily_config *config)
 
     parser->vm->vm_buffer = parser->raiser->msgbuf;
 
-    parser->symtab->lex_linenum = &parser->lex->line_num;
-
     parser->expr->lex_linenum = &parser->lex->line_num;
 
     parser->emit->lex_linenum = &parser->lex->line_num;
@@ -160,27 +159,14 @@ lily_state *lily_new_state(lily_config *config)
 
     parser->expr_strings = parser->emit->expr_strings;
 
-    /* This creates the nameless toplevel function and gives it to the vm to
-       enter. The cid table is swapped out so that ID_ macros work in dynaload
-       as well as outside of it. */
-    parser->toplevel_func = lily_emit_create_toplevel(parser->emit, parser->vm);
-
-    /* All code that isn't within a function is grouped together in a special
-       function called __main__. Since that function is the first kind of a
-       block, it needs a special function to initialize that block. */
-    lily_emit_enter_main(parser->emit);
-
-    /* This type represents a function that has no input and no outputs. This is
-       used when creating new functions so that they have a type. */
-    parser->default_call_type = parser->symtab->main_var->type;
-
     lily_module_entry *main_package = new_module(parser);
-    parser->main_module = main_package;
 
-    /* This puts __main__ into the scope of the first thing to be executed, and
-       makes it the context for var/class/etc. searching. */
-    parser->symtab->main_function->module = parser->main_module;
+    parser->main_module = main_package;
     parser->symtab->active_module = parser->main_module;
+
+    /* This creates the var representing __main__ and registers it in areas that
+       need it. */
+    create_main_func(parser);
 
     lily_register_package(parser->vm, "sys", lily_sys_table, lily_sys_loader);
     lily_register_package(parser->vm, "random", lily_random_table, lily_random_loader);
@@ -250,7 +236,6 @@ void lily_free_state(lily_state *vm)
     lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
     lily_free(parser->rs);
-    lily_free(parser->toplevel_func);
 
     lily_free(parser);
 }
@@ -775,6 +760,227 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 }
 
 /***
+ *     __     __
+ *     \ \   / /_ _ _ __ ___
+ *      \ \ / / _` | '__/ __|
+ *       \ V / (_| | |  \__ \
+ *        \_/ \__,_|_|  |___/
+ *
+ */
+
+/** Parser is responsible for creating new vars and putting them where they need
+    to go. Most callers want to create a scoped var which will use the emitter
+    to determine if the var should be global or local.
+
+    This is also where vars created by `define` have their backing
+    lily_function_val struct stored. Native `define` vars will have their code
+    field filled when the `define` reaches the end. **/
+
+static void make_new_function(lily_parse_state *parser, const char *class_name,
+        lily_var *var, lily_foreign_func foreign_func)
+{
+    lily_function_val *f = lily_malloc(sizeof(*f));
+
+    /* This won't get a ref bump from being moved/assigned since all functions
+       are marked as literals. Start at 1 ref, not 0. */
+    f->refcount = 1;
+    f->class_name = class_name;
+    f->trace_name = var->name;
+    f->foreign_func = foreign_func;
+    f->code = NULL;
+    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
+    f->num_upvalues = (uint16_t) -1;
+    f->upvalues = NULL;
+    f->gc_entry = NULL;
+    f->locals = NULL;
+    f->line_num = var->line_num;
+    f->module = parser->symtab->active_module;
+
+    if (var->type)
+        f->reg_count = var->type->subtype_count;
+    else
+        f->reg_count = -1;
+
+    lily_value *v = lily_malloc(sizeof(*v));
+    v->flags = LILY_FUNCTION_ID;
+    v->value.function = f;
+
+    lily_vs_push(parser->symtab->literals, v);
+}
+
+/* This gets (up to) the first 8 bytes of a name and puts it into a numeric
+   value. The numeric value is compared before comparing names to speed things
+   up just a bit. */
+static uint64_t shorthash_for_name(const char *name)
+{
+    const char *ch = &name[0];
+    int i, shift;
+    uint64_t ret;
+    for (i = 0, shift = 0, ret = 0;
+         *ch != '\0' && i != 8;
+         ch++, i++, shift += 8) {
+        ret |= ((uint64_t)*ch) << shift;
+    }
+    return ret;
+}
+
+static lily_var *make_new_var(lily_type *type, const char *name,
+        uint16_t line_num)
+{
+    lily_var *var = lily_malloc(sizeof(*var));
+
+    var->name = lily_malloc((strlen(name) + 1) * sizeof(*var->name));
+    var->item_kind = ITEM_TYPE_VAR;
+    var->flags = 0;
+    strcpy(var->name, name);
+    var->line_num = line_num;
+    var->shorthash = shorthash_for_name(name);
+    var->type = type;
+    var->next = NULL;
+    var->parent = NULL;
+
+    return var;
+}
+
+/* Create a new var that must be local. Use this in cases where the target is
+   going to have some data extracted into it. In situations such as the except
+   clause of try, the target register has to be local. */
+static lily_var *new_local_var(lily_parse_state *parser, lily_type *type,
+        const char *name, uint16_t line_num)
+{
+    lily_var *var = make_new_var(type, name, line_num);
+
+    /* This is always a local var, so it gets an id from the current block. */
+    var->function_depth = parser->emit->function_depth;
+    var->reg_spot = parser->emit->function_block->next_reg_spot;
+    parser->emit->function_block->next_reg_spot++;
+    var->next = parser->symtab->active_module->var_chain;
+    parser->symtab->active_module->var_chain = var;
+
+    return var;
+}
+
+static lily_var *new_scoped_var(lily_parse_state *parser, lily_type *type,
+        const char *name, uint16_t line_num)
+{
+    lily_var *var = make_new_var(type, name, line_num);
+
+    var->next = parser->symtab->active_module->var_chain;
+    parser->symtab->active_module->var_chain = var;
+    var->function_depth = parser->emit->function_depth;
+
+    /* Depth is 1 if in __main__ or only __import__ functions. */
+    if (var->function_depth == 1) {
+        var->reg_spot = parser->symtab->next_global_id;
+        parser->symtab->next_global_id++;
+        var->flags |= VAR_IS_GLOBAL;
+    }
+    else {
+        var->reg_spot = parser->emit->function_block->next_reg_spot;
+        parser->emit->function_block->next_reg_spot++;
+    }
+
+    return var;
+}
+
+/* This is used when dynaloading a var. To make sure the dynaloaded var is
+   reachable anywhere later on, it's made into a global. */
+static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
+        const char *name)
+{
+    /* line_num is 0 because the source is always a dynaload. */
+    lily_var *var = make_new_var(type, name, 0);
+
+    var->next = parser->symtab->active_module->var_chain;
+    parser->symtab->active_module->var_chain = var;
+
+    var->function_depth = 1;
+    var->flags |= VAR_IS_GLOBAL;
+    var->reg_spot = parser->symtab->next_global_id;
+    parser->symtab->next_global_id++;
+
+    return var;
+}
+
+static lily_var *new_native_define_var(lily_parse_state *parser,
+        lily_class *parent, const char *name, uint16_t line_num)
+{
+    lily_var *var = make_new_var(NULL, name, line_num);
+
+    var->reg_spot = lily_vs_pos(parser->symtab->literals);
+    var->function_depth = 1;
+    var->flags |= VAR_IS_READONLY;
+    var->next = parser->symtab->active_module->var_chain;
+    parser->symtab->active_module->var_chain = var;
+
+    char *class_name;
+    if (parent)
+        class_name = parent->name;
+    else
+        class_name = NULL;
+
+    make_new_function(parser, class_name, var, NULL);
+
+    return var;
+}
+
+static lily_var *new_foreign_define_var(lily_parse_state *parser,
+        lily_class *parent, lily_type *type, const char *name, int dyna_index)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_var *var = make_new_var(type, name, 0);
+
+    var->reg_spot = lily_vs_pos(parser->symtab->literals);
+    var->function_depth = 1;
+    var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
+
+    if (parent) {
+        var->next = (lily_var *)parent->members;
+        parent->members = (lily_named_sym *)var;
+        var->parent = parent;
+    }
+    else {
+        var->next = m->var_chain;
+        m->var_chain = var;
+    }
+
+    char *class_name;
+    if (parent)
+        class_name = parent->name;
+    else
+        class_name = NULL;
+
+    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
+            dyna_index);
+
+    make_new_function(parser, class_name, var, func);
+
+    return var;
+}
+
+static void create_main_func(lily_parse_state *parser)
+{
+    lily_type_maker *tm = parser->emit->tm;
+
+    lily_tm_add(tm, lily_unit_type);
+    lily_type *main_type = lily_tm_make(tm, 0, parser->symtab->function_class,
+            1);
+
+    lily_var *main_var = new_native_define_var(parser, NULL, "__main__", 0);
+    lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
+    lily_function_val *f = v->value.function;
+
+    /* The vm carries a toplevel frame to hold globals, so that globals survive
+       when __main__ is done. The toplevel frame needs a function value to hold
+       module cid tables when dynaload executes. */
+    parser->vm->call_chain->function = f;
+    parser->symtab->main_var = main_var;
+    parser->symtab->main_function = f;
+    parser->toplevel_func = f;
+    parser->default_call_type = main_type;
+}
+
+/***
  *      _____                     ____      _ _           _   _
  *     |_   _|   _ _ __   ___    / ___|___ | | | ___  ___| |_(_) ___  _ __
  *       | || | | | '_ \ / _ \  | |   / _ \| | |/ _ \/ __| __| |/ _ \| '_ \
@@ -987,7 +1193,7 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 static lily_type *get_prop_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *var = lily_emit_new_scoped_var(parser->emit, NULL, "");
+    lily_var *var = new_scoped_var(parser, NULL, "", lex->line_num);
 
     NEED_NEXT_TOK(tk_prop_word)
     lily_prop_entry *prop = get_named_property(parser, 0);
@@ -1024,7 +1230,7 @@ static lily_type *get_named_arg(lily_parse_state *parser, int *flags)
         lily_raise_syn(parser->raiser, "%s has already been declared.",
                 lex->label);
 
-    var = lily_emit_new_scoped_var(parser->emit, NULL, lex->label);
+    var = new_scoped_var(parser, NULL, lex->label, lex->line_num);
     NEED_NEXT_TOK(tk_colon)
 
     lily_lexer(lex);
@@ -1365,32 +1571,18 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     return result;
 }
 
-
-static lily_var *dynaload_function(lily_parse_state *parser,
-        lily_module_entry *m, lily_class *cls, int dyna_index)
+static lily_type *dynaload_function(lily_parse_state *parser,
+        lily_module_entry *m, int dyna_index)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *call_var;
 
     const char *entry = m->dynaload_table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
     const char *body = name + strlen(name) + 1;
 
-    lily_module_entry *save_active = parser->symtab->active_module;
-
     lily_lexer_load(lex, et_shallow_string, body);
     lily_lexer(lex);
 
-    lily_item *source;
-    if (cls == NULL)
-        source = (lily_item *)m;
-    else
-        source = (lily_item *)cls;
-
-    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
-            dyna_index);
-
-    parser->symtab->active_module = m;
     int save_generic_start;
     lily_gp_save_and_hide(parser->generics, &save_generic_start);
     collect_generics(parser);
@@ -1428,19 +1620,14 @@ static lily_var *dynaload_function(lily_parse_state *parser,
     }
 
     flags &= ~F_SCOOP_OK;
-    lily_type *type = lily_tm_make(parser->tm, flags,
+
+    lily_type *result = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, i);
 
-    call_var = lily_emit_new_tied_dyna_var(parser->emit, func, source, type,
-            name);
-
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
-
     lily_pop_lex_entry(lex);
 
-    parser->symtab->active_module = save_active;
-
-    return call_var;
+    return result;
 }
 
 /* This dynaloads an enum that is represented by 'seed' with 'import' as the
@@ -1566,8 +1753,18 @@ lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
 
     lily_item *result;
 
-    if (entry[0] == 'm')
-        result = (lily_item *)dynaload_function(parser, m, cls, index);
+    if (entry[0] == 'm') {
+        lily_module_entry *save_active = parser->symtab->active_module;
+        parser->symtab->active_module = cls->module;
+
+        const char *name = entry + DYNA_NAME_OFFSET;
+        lily_type *dyna_type = dynaload_function(parser, cls->module, index);
+        lily_var *dyna_var = new_foreign_define_var(parser, cls, dyna_type,
+                name, index);
+
+        parser->symtab->active_module = save_active;
+        result = (lily_item *)dyna_var;
+    }
     else
         result = NULL;
 
@@ -1689,8 +1886,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            if that changes, this must change as well. */
         const char *name = entry + DYNA_NAME_OFFSET;
         lily_type *var_type = type_by_name(parser, name + strlen(name) + 1);
-        lily_var *new_var = lily_emit_new_dyna_var(parser->emit, m, var_type,
-                name);
+        lily_var *new_var = new_global_var(parser, var_type, name);
 
         /* Vars should not be uncommon, and they may need cid information.
            Make sure that cid information is up-to-date. */
@@ -1717,8 +1913,11 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
         result = (lily_item *)new_var;
     }
     else if (letter == 'F') {
-        lily_var *new_var = dynaload_function(parser, m, NULL, dyna_pos);
-        result = (lily_item *)new_var;
+        const char *name = m->dynaload_table[dyna_pos] + DYNA_NAME_OFFSET;
+        lily_type * dyna_type = dynaload_function(parser, m, dyna_pos);
+        lily_var *dyna_var = new_foreign_define_var(parser, NULL, dyna_type,
+                name, dyna_pos);
+        result = (lily_item *)dyna_var;
     }
     else if (letter == 'C') {
         lily_class *new_cls = dynaload_class(parser, m, dyna_pos);
@@ -1807,22 +2006,6 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
     return NULL;
 }
 
-/* This gets (up to) the first 8 bytes of a name and puts it into a numeric
-   value. The numeric value is compared before comparing names to speed things
-   up just a bit. */
-static uint64_t shorthash_for_name(const char *name)
-{
-    const char *ch = &name[0];
-    int i, shift;
-    uint64_t ret;
-    for (i = 0, shift = 0, ret = 0;
-         *ch != '\0' && i != 8;
-         ch++, i++, shift += 8) {
-        ret |= ((uint64_t)*ch) << shift;
-    }
-    return ret;
-}
-
 static int constant_by_name(const char *name)
 {
     int i;
@@ -1854,6 +2037,7 @@ static int keyword_by_name(const char *name)
 
     return -1;
 }
+
 
 /***
  *      _____                              _
@@ -2648,8 +2832,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the function to. For the type of the lambda, use the default call
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
-    lily_var *lambda_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "(lambda)");
+    lily_var *lambda_var = new_native_define_var(parser, NULL, "(lambda)",
+            lex->line_num);
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -2692,16 +2876,76 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 }
 
 /***
- *     __     __
- *     \ \   / /_ _ _ __ ___
- *      \ \ / / _` | '__/ __|
- *       \ V / (_| | |  \__ \
- *        \_/ \__,_|_|  |___/
+ *      ____  _        _                            _
+ *     / ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___
+ *     \___ \| __/ _` | __/ _ \ '_ ` _ \ / _ \ '_ \| __/ __|
+ *      ___) | || (_| | ||  __/ | | | | |  __/ | | | |_\__ \
+ *     |____/ \__\__,_|\__\___|_| |_| |_|\___|_| |_|\__|___/
  *
  */
 
-/** Var declaration gets a special block because there's a fair amount of
-    complexity involved in it. They're slightly annoying because of the **/
+/** The rest of this focuses on handling handling keywords and blocks. Much of
+    this is straightforward and kept in small functions that rely on the above
+    stuff. As such, there's no real special attention paid to the rest.
+    Near the bottom is parser_loop, which is the entry point of the parser. **/
+
+static void if_handler(lily_parse_state *, int);
+static void do_handler(lily_parse_state *, int);
+static void var_handler(lily_parse_state *, int);
+static void for_handler(lily_parse_state *, int);
+static void try_handler(lily_parse_state *, int);
+static void case_handler(lily_parse_state *, int);
+static void else_handler(lily_parse_state *, int);
+static void elif_handler(lily_parse_state *, int);
+static void enum_handler(lily_parse_state *, int);
+static void while_handler(lily_parse_state *, int);
+static void raise_handler(lily_parse_state *, int);
+static void match_handler(lily_parse_state *, int);
+static void break_handler(lily_parse_state *, int);
+static void class_handler(lily_parse_state *, int);
+static void scoped_handler(lily_parse_state *, int);
+static void define_handler(lily_parse_state *, int);
+static void return_handler(lily_parse_state *, int);
+static void except_handler(lily_parse_state *, int);
+static void import_handler(lily_parse_state *, int);
+static void private_handler(lily_parse_state *, int);
+static void protected_handler(lily_parse_state *, int);
+static void continue_handler(lily_parse_state *, int);
+
+typedef void (keyword_handler)(lily_parse_state *, int);
+
+/* This is setup so that handlers[key_id] is the handler for that keyword. */
+static keyword_handler *handlers[] = {
+    if_handler,
+    do_handler,
+    var_handler,
+    for_handler,
+    try_handler,
+    case_handler,
+    else_handler,
+    elif_handler,
+    enum_handler,
+    while_handler,
+    raise_handler,
+    match_handler,
+    break_handler,
+    class_handler,
+    scoped_handler,
+    define_handler,
+    return_handler,
+    except_handler,
+    import_handler,
+    private_handler,
+    protected_handler,
+    continue_handler,
+};
+
+/* This is used by lambda handling so that statements (and the handler
+   declarations) can come after lambdas. */
+static inline void handle_multiline(lily_parse_state *parser, int key_id)
+{
+    handlers[key_id](parser, 1);
+}
 
 /* This tries to make a var with the given type, but won't if a var with that
    name already exists. */
@@ -2715,7 +2959,7 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
         lily_raise_syn(parser->raiser, "%s has already been declared.",
                 lex->label);
 
-    var = lily_emit_new_scoped_var(parser->emit, var_type, lex->label);
+    var = new_scoped_var(parser, var_type, lex->label, lex->line_num);
 
     lily_lexer(lex);
     return var;
@@ -2732,7 +2976,7 @@ static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
         lily_raise_syn(parser->raiser, "%s has already been declared.",
                 lex->label);
 
-    var = lily_emit_new_local_var(parser->emit, var_type, lex->label);
+    var = new_local_var(parser, var_type, lex->label, lex->line_num);
 
     lily_lexer(lex);
     return var;
@@ -2847,78 +3091,6 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     }
 }
 
-/***
- *      ____  _        _                            _
- *     / ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___
- *     \___ \| __/ _` | __/ _ \ '_ ` _ \ / _ \ '_ \| __/ __|
- *      ___) | || (_| | ||  __/ | | | | |  __/ | | | |_\__ \
- *     |____/ \__\__,_|\__\___|_| |_| |_|\___|_| |_|\__|___/
- *
- */
-
-/** The rest of this focuses on handling handling keywords and blocks. Much of
-    this is straightforward and kept in small functions that rely on the above
-    stuff. As such, there's no real special attention paid to the rest.
-    Near the bottom is parser_loop, which is the entry point of the parser. **/
-
-static void if_handler(lily_parse_state *, int);
-static void do_handler(lily_parse_state *, int);
-static void var_handler(lily_parse_state *, int);
-static void for_handler(lily_parse_state *, int);
-static void try_handler(lily_parse_state *, int);
-static void case_handler(lily_parse_state *, int);
-static void else_handler(lily_parse_state *, int);
-static void elif_handler(lily_parse_state *, int);
-static void enum_handler(lily_parse_state *, int);
-static void while_handler(lily_parse_state *, int);
-static void raise_handler(lily_parse_state *, int);
-static void match_handler(lily_parse_state *, int);
-static void break_handler(lily_parse_state *, int);
-static void class_handler(lily_parse_state *, int);
-static void scoped_handler(lily_parse_state *, int);
-static void define_handler(lily_parse_state *, int);
-static void return_handler(lily_parse_state *, int);
-static void except_handler(lily_parse_state *, int);
-static void import_handler(lily_parse_state *, int);
-static void private_handler(lily_parse_state *, int);
-static void protected_handler(lily_parse_state *, int);
-static void continue_handler(lily_parse_state *, int);
-
-typedef void (keyword_handler)(lily_parse_state *, int);
-
-/* This is setup so that handlers[key_id] is the handler for that keyword. */
-static keyword_handler *handlers[] = {
-    if_handler,
-    do_handler,
-    var_handler,
-    for_handler,
-    try_handler,
-    case_handler,
-    else_handler,
-    elif_handler,
-    enum_handler,
-    while_handler,
-    raise_handler,
-    match_handler,
-    break_handler,
-    class_handler,
-    scoped_handler,
-    define_handler,
-    return_handler,
-    except_handler,
-    import_handler,
-    private_handler,
-    protected_handler,
-    continue_handler,
-};
-
-/* This is used by lambda handling so that statements (and the handler
-   declarations) can come after lambdas. */
-static inline void handle_multiline(lily_parse_state *parser, int key_id)
-{
-    handlers[key_id](parser, 1);
-}
-
 static void var_handler(lily_parse_state *parser, int multi)
 {
     parse_var(parser, 0);
@@ -2959,8 +3131,8 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
        The reason is that a dynaload may be triggered, which may push a block.
        The emitter will attempt to restore the return type via the type of the
        define var here. */
-    lily_var *define_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, parent, lex->label);
+    lily_var *define_var = new_native_define_var(parser, parent, lex->label,
+            lex->line_num);
 
     int i = 0;
     int arg_flags = 0;
@@ -2982,8 +3154,8 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
         lily_tm_add(parser->tm, parser->class_self_type);
         i++;
 
-        lily_var *self_var = lily_emit_new_local_var(parser->emit,
-                parser->class_self_type, "(self)");
+        lily_var *self_var = new_local_var(parser, parser->class_self_type,
+                "(self)", lex->line_num);
         define_var->parent = parser->class_self_type->cls;
         define_var->flags |= modifiers;
 
@@ -3063,7 +3235,8 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
     /* For loop values are created as vars so there's a name in case of a
        problem. This name doesn't have to be unique, since it will never be
        found by the user. */
-    lily_var *var = lily_emit_new_local_var(parser->emit, cls->self_type, name);
+    lily_var *var = new_local_var(parser, cls->self_type, name,
+            parser->lex->line_num);
 
     lily_emit_eval_expr_to_var(parser->emit, es, var);
 
@@ -3350,8 +3523,8 @@ static void for_handler(lily_parse_state *parser, int multi)
     loop_var = lily_find_var(parser->symtab, NULL, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
-        loop_var = lily_emit_new_local_var(parser->emit, cls->self_type,
-                lex->label);
+        loop_var = new_local_var(parser, cls->self_type, lex->label,
+                lex->line_num);
     }
     else if (loop_var->type->cls->id != LILY_INTEGER_ID) {
         lily_raise_syn(parser->raiser,
@@ -3384,8 +3557,9 @@ static void for_handler(lily_parse_state *parser, int multi)
         for_step = (lily_sym *)parse_for_range_value(parser, "(for step)");
     }
     else {
-        lily_var *step_var = lily_emit_new_local_var(parser->emit,
-                parser->symtab->integer_class->self_type, "(for step)");
+        lily_var *step_var = new_local_var(parser,
+                parser->symtab->integer_class->self_type, "(for step)",
+                lex->line_num);
         /* Must flush manually since expression isn't being called. */
         lily_es_flush(parser->expr);
         lily_es_push_integer(parser->expr, 1);
@@ -3451,8 +3625,8 @@ static void run_loaded_module(lily_parse_state *parser,
     parser->symtab->active_module = module;
 
     /* lily_emit_enter_block will write new code to this special var. */
-    lily_var *import_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, NULL, "__import__");
+    lily_var *import_var = new_native_define_var(parser, NULL, "__import__",
+            lex->line_num);
 
     lily_emit_enter_block(parser->emit, block_file);
 
@@ -3576,8 +3750,8 @@ static void process_except(lily_parse_state *parser)
             lily_raise_syn(parser->raiser, "%s has already been declared.",
                     exception_var->name);
 
-        exception_var = lily_emit_new_local_var(parser->emit,
-                except_cls->self_type, lex->label);
+        exception_var = new_local_var(parser, except_cls->self_type,
+                lex->label, lex->line_num);
 
         lily_lexer(lex);
     }
@@ -3778,8 +3952,8 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
     /* Use the default call type (function ()) in case one of the types listed
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
-    lily_var *call_var = lily_emit_new_define_var(parser->emit,
-            parser->default_call_type, cls, "<new>");
+    lily_var *call_var = new_native_define_var(parser, cls, "<new>",
+            lex->line_num);
 
     lily_lexer(lex);
     collect_generics(parser);

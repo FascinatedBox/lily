@@ -107,6 +107,46 @@ static void invoke_gc(lily_vm_state *);
 
 lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
+    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
+    catch_entry->prev = NULL;
+    catch_entry->next = NULL;
+
+    int i, count = 16;
+    lily_value **register_base = lily_malloc(count * sizeof(*register_base));
+
+    for (i = 0;i < count;i++) {
+        register_base[i] = lily_malloc(sizeof(*register_base[i]));
+        register_base[i]->flags = 0;
+    }
+
+    lily_value **register_end = register_base + count;
+
+    /* Globals are stored in this frame so they outlive __main__. This allows
+       direct calls from outside the interpreter. */
+    lily_call_frame *toplevel_frame = lily_malloc(sizeof(*toplevel_frame));
+
+    /* This usually holds __main__, unless something calls into the interpreter
+       after execution is done. */
+    lily_call_frame *first_frame = lily_malloc(sizeof(*toplevel_frame));
+
+    toplevel_frame->start = register_base;
+    toplevel_frame->top = register_base;
+    toplevel_frame->register_end = register_end;
+    toplevel_frame->code = NULL;
+    toplevel_frame->return_target = NULL;
+    toplevel_frame->line_num = 0;
+    toplevel_frame->prev = NULL;
+    toplevel_frame->next = first_frame;
+    first_frame->start = register_base;
+    first_frame->top = register_base;
+    first_frame->register_end = register_end;
+    first_frame->code = NULL;
+    first_frame->function = NULL;
+    first_frame->return_target = register_base[0];
+    first_frame->line_num = 0;
+    first_frame->prev = toplevel_frame;
+    first_frame->next = NULL;
+
     lily_vm_state *vm = lily_malloc(sizeof(*vm));
 
     vm->call_depth = 0;
@@ -124,64 +164,12 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->class_table = NULL;
     vm->exception_value = NULL;
     vm->pending_line = 0;
-
-    lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
-    catch_entry->prev = NULL;
-    catch_entry->next = NULL;
-
     vm->catch_chain = catch_entry;
-
-    return vm;
-}
-
-static void grow_vm_registers(lily_vm_state *, int);
-
-void lily_setup_toplevel(lily_vm_state *vm, lily_function_val *toplevel)
-{
-    int i, count = 16;
-    lily_value **register_base = lily_malloc(count * sizeof(*register_base));
-
-    for (i = 0;i < count;i++) {
-        register_base[i] = lily_malloc(sizeof(*register_base[i]));
-        register_base[i]->flags = 0;
-    }
-
-    lily_value **register_end = register_base + count;
-
-    /* Globals are stored in this frame so they outlive __main__. This allows
-       direct calls from outside the interpreter. */
-    lily_call_frame *toplevel_frame = lily_malloc(sizeof(*toplevel_frame));
-
-    toplevel_frame->start = register_base;
-    toplevel_frame->top = register_base;
-    toplevel_frame->register_end = register_end;
-    toplevel_frame->code = NULL;
-    toplevel_frame->function = toplevel;
-    toplevel_frame->return_target = NULL;
-    toplevel_frame->line_num = 0;
-    toplevel_frame->prev = NULL;
-
-    /* This usually holds __main__, unless something calls into the interpreter
-       after execution is done. */
-    lily_call_frame *first_frame = lily_malloc(sizeof(*toplevel_frame));
-
-    first_frame->start = register_base;
-    first_frame->top = register_base;
-    first_frame->register_end = register_end;
-    first_frame->code = NULL;
-    first_frame->function = NULL;
-    /* The absolute first register is reserved for */
-    first_frame->return_target = register_base[0];
-    first_frame->line_num = 0;
-    first_frame->prev = toplevel_frame;
-    first_frame->next = NULL;
-
-    toplevel_frame->next = first_frame;
-
     /* lily_vm_prep will handle entering __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
-
     vm->regs_from_main = register_base;
+
+    return vm;
 }
 
 static void destroy_gc_entries(lily_vm_state *vm)
