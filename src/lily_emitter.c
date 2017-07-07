@@ -421,25 +421,15 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         lily_var *for_start, lily_var *for_end, lily_sym *for_step,
         int line_num)
 {
-    lily_class *cls = emit->symtab->integer_class;
-
-    /* If no step is provided, provide '1' as a step. */
-    if (for_step == NULL) {
-        for_step = (lily_sym *)lily_emit_new_local_var(emit, cls->self_type,
-                "(for step)");
-        lily_u16_write_4(emit->code, o_get_integer, line_num, 1,
-                for_step->reg_spot);
-    }
-
     lily_sym *target;
-    int need_sync = user_loop_var && user_loop_var->flags & VAR_IS_GLOBAL;
+    int need_sync = user_loop_var->flags & VAR_IS_GLOBAL;
+
     if (need_sync) {
-        /* o_integer_for works by writing to both an intermediate, and to a
-           loop target. The intermediate is always a local, but the target may
-           not be. In the event that it isn't, create a local and do syncing
-           writes at the front and back. */
-        target = (lily_sym *)lily_emit_new_local_var(emit, cls->self_type,
-                "(for temp)");
+        lily_class *cls = emit->symtab->integer_class;
+        /* o_integer_for expects the target register to be a local. Since it
+           isn't, do syncing reads before and after to make sure the user's
+           loop var is what it should be. */
+        target = (lily_sym *)get_storage(emit, cls->self_type);
     }
     else
         target = (lily_sym *)user_loop_var;

@@ -3383,8 +3383,15 @@ static void for_handler(lily_parse_state *parser, int multi)
         lily_lexer(lex);
         for_step = (lily_sym *)parse_for_range_value(parser, "(for step)");
     }
-    else
-        for_step = NULL;
+    else {
+        lily_var *step_var = lily_emit_new_local_var(parser->emit,
+                parser->symtab->integer_class->self_type, "(for step)");
+        /* Must flush manually since expression isn't being called. */
+        lily_es_flush(parser->expr);
+        lily_es_push_integer(parser->expr, 1);
+        lily_emit_eval_expr_to_var(parser->emit, parser->expr, step_var);
+        for_step = (lily_sym *)step_var;
+    }
 
     lily_emit_finalize_for_in(parser->emit, loop_var, for_start, for_end,
                               for_step, parser->lex->line_num);
