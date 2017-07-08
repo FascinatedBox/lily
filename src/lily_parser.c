@@ -650,7 +650,7 @@ void lily_register_package(lily_state *s, const char *name, const char **table,
             (strlen(name) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, name);
     add_data_to_module(module, NULL, table, (lily_loader)loader);
-    module->cmp_len = strlen(name);
+    module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
 }
 
