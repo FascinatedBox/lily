@@ -18,8 +18,6 @@ extern lily_gc_entry *lily_gc_stopper;
 void lily_value_destroy(lily_value *);
 /* Same here: Safely escape string values for `KeyError`. */
 void lily_mb_escape_add_str(lily_msgbuf *, const char *);
-/* Only foreign value loading uses this. */
-void lily_value_assign_noref(lily_value *, lily_value *);
 
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[2]]; \
@@ -1918,27 +1916,11 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
     vm->class_table[cls->id] = cls;
 }
 
-/* Foreign values are created when Lily needs to dynaload a var. This receives
-   those values now that vm has the registers allocated. */
-static void load_foreign_values(lily_vm_state *vm, lily_value_stack *values)
-{
-    while (lily_vs_pos(values)) {
-        lily_literal *l = (lily_literal *)lily_vs_pop(values);
-        uint16_t reg_spot = l->reg_spot;
-
-        /* The value already has a ref from being made, so don't use regular
-           assign or it will have two refs. Since this is a transfer of
-           ownership, use noref and drop the old container. */
-        lily_value_assign_noref(vm->regs_from_main[reg_spot], (lily_value *)l);
-        lily_free(l);
-    }
-}
-
 /* This must be called before lily_vm_execute if the parser has read any data
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
 void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
-        lily_value **readonly_table, lily_value_stack *foreign_values)
+        lily_value **readonly_table)
 {
     vm->readonly_table = readonly_table;
 
@@ -1948,8 +1930,6 @@ void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
 
     if (need > total)
         grow_vm_registers(vm, need);
-
-    load_foreign_values(vm, foreign_values);
 
     lily_call_frame *toplevel_frame = vm->call_chain;
     toplevel_frame->top = vm->regs_from_main + symtab->next_global_id;

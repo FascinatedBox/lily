@@ -403,19 +403,6 @@ void lily_value_assign(lily_value *left, lily_value *right)
     left->flags = right->flags;
 }
 
-/* This assigns 'left' to the value within 'right', but does not give 'right' a
-   ref increase. One use case for this is List.pop, which takes the element out
-   of the List and places it into the result. The value has been assigned over,
-   (so all flags carry), but still has the same # of refs. */
-void lily_value_assign_noref(lily_value *left, lily_value *right)
-{
-    if (left->flags & VAL_IS_DEREFABLE)
-        lily_deref(left);
-
-    left->value = right->value;
-    left->flags = right->flags;
-}
-
 /* Create a copy of a value. It may get a ref. */
 lily_value *lily_value_copy(lily_value *input)
 {

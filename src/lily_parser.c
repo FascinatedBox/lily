@@ -141,7 +141,6 @@ lily_state *lily_new_state(lily_config *config)
     parser->lex = lily_new_lex_state(raiser);
     parser->msgbuf = lily_new_msgbuf(64);
     parser->data_stack = lily_new_buffer_u16(4);
-    parser->foreign_values = lily_new_value_stack();
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -233,7 +232,6 @@ void lily_free_state(lily_state *vm)
 
     lily_free_symtab(parser->symtab);
     lily_free_generic_pool(parser->generics);
-    lily_free_value_stack(parser->foreign_values);
     lily_free_msgbuf(parser->msgbuf);
     lily_free(parser->rs);
 
@@ -871,6 +869,9 @@ static lily_var *new_scoped_var(lily_parse_state *parser, lily_type *type,
 
     /* Depth is 1 if in __main__ or only __import__ functions. */
     if (var->function_depth == 1) {
+        /* This effectively reserves the current slot for this global in vm's
+           toplevel area. */
+        lily_push_unit(parser->vm);
         var->reg_spot = parser->symtab->next_global_id;
         parser->symtab->next_global_id++;
         var->flags |= VAR_IS_GLOBAL;
@@ -893,7 +894,6 @@ static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
 
     var->next = parser->symtab->active_module->var_chain;
     parser->symtab->active_module->var_chain = var;
-
     var->function_depth = 1;
     var->flags |= VAR_IS_GLOBAL;
     var->reg_spot = parser->symtab->next_global_id;
@@ -1896,19 +1896,10 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            the ids they need. */
         parser->toplevel_func->cid_table = m->cid_table;
 
-        /* todo: This is a roundabout way of doing it. The loader pushes a
-           value, so that parser can scrape it and re-add it later. Eventually,
-           get rid of the round trip so that the loader pushes in directly. */
+        /* This should push exactly one extra value onto the stack. Since
+           global vars have placeholder values inserted, the var ends up
+           exactly where it should be. */
         m->loader(parser->vm, dyna_pos);
-
-        lily_value *foreign = lily_stack_take(parser->vm);
-        lily_literal *value_copy = (lily_literal *)lily_value_copy(foreign);
-
-        /* Values are saved in parser space until the vm is ready to receive
-           them. Make use of the extra space in a lily_value to write down what
-           register this value will target later on. */
-        value_copy->reg_spot = new_var->reg_spot;
-        lily_vs_push(parser->foreign_values, (lily_value *)value_copy);
 
         result = (lily_item *)new_var;
     }
@@ -4642,7 +4633,7 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     lily_register_classes(parser->symtab, parser->vm);
     lily_prepare_main(parser->emit);
     lily_vm_prep(parser->vm, parser->symtab,
-            parser->symtab->literals->data, parser->foreign_values);
+            parser->symtab->literals->data);
 
     maybe_fix_print(parser);
     update_all_cid_tables(parser);

@@ -30,7 +30,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
     symtab->generics = gp;
-    symtab->next_global_id = 1;
+    symtab->next_global_id = 0;
 
     return symtab;
 }

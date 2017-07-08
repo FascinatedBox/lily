@@ -37,10 +37,6 @@ typedef struct lily_parse_state_ {
     /* Pile strings are stored here. */
     lily_string_pile *expr_strings;
 
-    /* These are the values of vars that have been dynaloaded. They're stored
-       here until the vm is ready to receive them. */
-    lily_value_stack *foreign_values;
-
     /* The parser uses this to hold and register generic classes. */
     lily_generic_pool *generics;
 

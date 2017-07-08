@@ -96,8 +96,7 @@ struct lily_value_stack_;
 
 lily_vm_state *lily_new_vm_state(lily_raiser *);
 void lily_free_vm(lily_vm_state *);
-void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **,
-        struct lily_value_stack_ *);
+void lily_vm_prep(lily_vm_state *, lily_symtab *, lily_value **);
 void lily_setup_toplevel(lily_vm_state *, lily_function_val *);
 void lily_vm_execute(lily_vm_state *);
 
