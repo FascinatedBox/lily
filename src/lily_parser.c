@@ -981,7 +981,6 @@ static void create_main_func(lily_parse_state *parser)
        when __main__ is done. The toplevel frame needs a function value to hold
        module cid tables when dynaload executes. */
     parser->vm->call_chain->function = f;
-    parser->symtab->main_var = main_var;
     parser->toplevel_func = f;
     parser->default_call_type = main_type;
 }

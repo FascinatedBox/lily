@@ -23,7 +23,6 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
     symtab->next_class_id = 1;
-    symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
     symtab->old_class_chain = NULL;
     symtab->hidden_class_chain = NULL;
