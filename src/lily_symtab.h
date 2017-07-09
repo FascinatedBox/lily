@@ -26,9 +26,6 @@ typedef struct lily_symtab_ {
 
     lily_class *hidden_class_chain;
 
-    /* The symtab keeps this because __main__ requires a special teardown. */
-    lily_function_val *main_function;
-
     /* Symtab uses this to search for generics. */
     lily_generic_pool *generics;
 

@@ -219,7 +219,7 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
 
 uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
 
-void lily_prepare_main(lily_emit_state *);
+void lily_prepare_main(lily_emit_state *, lily_function_val *);
 void lily_reset_main(lily_emit_state *);
 
 void lily_free_emit_state(lily_emit_state *);

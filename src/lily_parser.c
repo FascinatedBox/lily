@@ -193,6 +193,11 @@ void lily_free_state(lily_state *vm)
 {
     lily_parse_state *parser = vm->parser;
 
+    /* The code for the toplevel function (really __main__) is a pointer to
+       emitter's code that gets refreshed before every vm entry. Set it to NULL
+       so that these teardown functions don't double free the code. */
+    parser->toplevel_func->code = NULL;
+
     lily_free_raiser(parser->raiser);
 
     lily_free_expr_state(parser->expr);
@@ -975,7 +980,6 @@ static void create_main_func(lily_parse_state *parser)
        module cid tables when dynaload executes. */
     parser->vm->call_chain->function = f;
     parser->symtab->main_var = main_var;
-    parser->symtab->main_function = f;
     parser->toplevel_func = f;
     parser->default_call_type = main_type;
 }
@@ -4638,8 +4642,8 @@ static void setup_and_exec_vm(lily_parse_state *parser)
 {
     /* todo: Find a way to do some of this as-needed, instead of always. */
     lily_register_classes(parser->symtab, parser->vm);
-    lily_prepare_main(parser->emit);
-    lily_vm_prep(parser->vm, parser->symtab,
+    lily_prepare_main(parser->emit, parser->toplevel_func);
+    lily_vm_prep(parser->vm, parser->symtab, parser->toplevel_func,
             parser->symtab->literals->data);
 
     maybe_fix_print(parser);

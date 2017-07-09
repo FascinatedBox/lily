@@ -4034,14 +4034,13 @@ void lily_reset_main(lily_emit_state *emit)
 /* This function is to be called before lily_vm_prep. This will ensure that the
    register info for __main__ is up-to-date. If any text is parsed, then this
    has to be called before running the vm. */
-void lily_prepare_main(lily_emit_state *emit)
+void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 {
-    lily_function_val *f = emit->symtab->main_function;
     int register_count = emit->main_block->next_reg_spot;
 
     lily_u16_write_1(emit->code, o_return_from_vm);
 
-    f->code_len = lily_u16_pos(emit->code);
-    f->code = emit->code->data;
-    f->reg_count = register_count;
+    main_func->code_len = lily_u16_pos(emit->code);
+    main_func->code = emit->code->data;
+    main_func->reg_count = register_count;
 }

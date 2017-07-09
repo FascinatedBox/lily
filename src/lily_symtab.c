@@ -22,7 +22,6 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
 {
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
-    symtab->main_function = NULL;
     symtab->next_class_id = 1;
     symtab->main_var = NULL;
     symtab->old_function_chain = NULL;
@@ -168,10 +167,6 @@ void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
 
 void lily_free_symtab(lily_symtab *symtab)
 {
-    /* __main__'s code is a shallow copy of emitter's code, which has already
-       been torn down. */
-    symtab->main_function->code = NULL;
-
     free_literals(symtab->literals);
 
     free_classes(symtab->old_class_chain);

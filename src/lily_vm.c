@@ -1919,12 +1919,12 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
 /* This must be called before lily_vm_execute if the parser has read any data
    in. This makes sure that __main__ has enough register slots, that the
    vm->readonly_table is set, and that foreign ties are loaded. */
-void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab,
+void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab, lily_function_val *f,
         lily_value **readonly_table)
 {
     vm->readonly_table = readonly_table;
 
-    lily_function_val *main_function = symtab->main_function;
+    lily_function_val *main_function = f;
     int need = main_function->reg_count + symtab->next_global_id;
     int total = (int)(vm->call_chain->register_end - vm->regs_from_main);
 
