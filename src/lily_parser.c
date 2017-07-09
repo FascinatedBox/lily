@@ -975,6 +975,8 @@ static void create_main_func(lily_parse_state *parser)
     lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
     lily_function_val *f = v->value.function;
 
+    main_var->type = main_type;
+
     /* The vm carries a toplevel frame to hold globals, so that globals survive
        when __main__ is done. The toplevel frame needs a function value to hold
        module cid tables when dynaload executes. */
@@ -3622,6 +3624,8 @@ static void run_loaded_module(lily_parse_state *parser,
     /* lily_emit_enter_block will write new code to this special var. */
     lily_var *import_var = new_native_define_var(parser, NULL, "__import__",
             lex->line_num);
+
+    import_var->type = parser->default_call_type;
 
     lily_emit_enter_block(parser->emit, block_file);
 

@@ -33,3 +33,10 @@ t.interpret("Check getting a var from an imported target.",
 
     var v = deep_target.v
     """)
+
+t.interpret("Check using the type of __import__.",
+    """\
+    import import_dir/var_access
+
+    var v = [var_access.__import__]
+    """)

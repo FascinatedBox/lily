@@ -18,6 +18,10 @@ t.assert("Verify __function__ keyword within a plain definition.",
 t.assert("Verify __file__ keyword.",
          (|| __file__ == "test\/verify_basics.lily" ))
 
+t.interpret("Verify __main__ exists and has a type.",
+    """
+    var v = [__main__]
+    """)
 
 t.assert("Boolean false is false.",
          (||
