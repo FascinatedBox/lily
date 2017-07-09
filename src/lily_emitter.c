@@ -147,7 +147,7 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 
 /* This takes the stack of optional arguments and writes out the jumping
    necessary at the top. */
-static void write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
+void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         int start)
 {
     /* Optarg values are sent in sets of three:
@@ -219,6 +219,34 @@ static void write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
 
     lily_u16_set_at(emit->code, patch_spot,
             lily_u16_pos(emit->code) - patch_spot + 1);
+}
+
+void lily_emit_write_class_header(lily_emit_state *emit, lily_type *self_type,
+        uint16_t line_num)
+{
+    lily_storage *self = get_storage(emit, self_type);
+
+    emit->block->self = self;
+    lily_u16_write_4(emit->code, o_new_instance_basic, line_num,
+            self_type->cls->id, self->reg_spot);
+}
+
+void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
+        lily_var *var_iter, uint16_t line_num)
+{
+    lily_named_sym *prop_iter = cls->members;
+    uint16_t self_reg_spot = emit->block->self->reg_spot;
+
+    while (prop_iter) {
+        while (strcmp(var_iter->name, "") != 0)
+            var_iter = var_iter->next;
+
+        lily_u16_write_5(emit->code, o_set_property, *emit->lex_linenum,
+                prop_iter->reg_spot, self_reg_spot, var_iter->reg_spot);
+
+        var_iter = var_iter->next;
+        prop_iter = prop_iter->next;
+    }
 }
 
 /* This function writes the code necessary to get a for <var> in x...y style
@@ -3974,47 +4002,6 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
     else {
         write_pop_try_blocks_up_to(emit, emit->function_block);
         lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
-    }
-}
-
-/* This is called after parsing the header of a define or a class. Since blocks
-   are entered early, this does adjustments to block data. */
-void lily_emit_setup_call(lily_emit_state *emit, lily_type *self_type,
-        lily_var *target, lily_buffer_u16 *data, int data_start)
-{
-    if (self_type) {
-        /* If there's a type for 'self', then this must be a class constructor.
-           Create the storage that will represent 'self' and write the
-           instruction to actually make the class. */
-        lily_storage *self = get_storage(emit, self_type);
-        emit->block->self = self;
-
-        /* If this ends up not being a basic instance, then it will be patched
-           when the constructor closes. */
-        lily_u16_write_4(emit->code, o_new_instance_basic, *emit->lex_linenum,
-                self_type->cls->id, self->reg_spot);
-    }
-
-    if (lily_u16_pos(data) != data_start)
-        write_optargs(emit, data, data_start);
-
-    if (self_type && self_type->cls->members) {
-        /* These are all properties, because this call happens right after the
-           class header is parsed. */
-        lily_named_sym *prop_iter = self_type->cls->members;
-        lily_var *var_iter = emit->symtab->active_module->var_chain;
-        uint16_t self_reg_spot = emit->block->self->reg_spot;
-
-        while (prop_iter) {
-            while (strcmp(var_iter->name, "") != 0)
-                var_iter = var_iter->next;
-
-            lily_u16_write_5(emit->code, o_set_property, *emit->lex_linenum,
-                    prop_iter->reg_spot, self_reg_spot, var_iter->reg_spot);
-
-            var_iter = var_iter->next;
-            prop_iter = prop_iter->next;
-        }
     }
 }
 

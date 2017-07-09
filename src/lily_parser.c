@@ -3200,8 +3200,8 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
     define_var->type = lily_tm_make(parser->tm, arg_flags,
             parser->symtab->function_class, i + 1);
 
-    lily_emit_setup_call(parser->emit, NULL, define_var, parser->data_stack,
-            data_start);
+    if (lily_u16_pos(parser->data_stack) != data_start)
+        lily_emit_write_optargs(parser->emit, parser->data_stack, data_start);
 
     return define_var;
 }
@@ -3996,8 +3996,15 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
     if (lex->token == tk_lt)
         super_cls = parse_and_verify_super(parser, cls);
 
-    lily_emit_setup_call(parser->emit, parser->class_self_type, call_var,
-            parser->data_stack, data_start);
+    lily_emit_write_class_header(parser->emit, parser->class_self_type,
+            lex->line_num);
+
+    if (lily_u16_pos(parser->data_stack) != data_start)
+        lily_emit_write_optargs(parser->emit, parser->data_stack, data_start);
+
+    if (cls->members)
+        lily_emit_write_shorthand_ctor(parser->emit, cls,
+                parser->symtab->active_module->var_chain, lex->line_num);
 
     if (super_cls)
         run_super_ctor(parser, cls, super_cls);

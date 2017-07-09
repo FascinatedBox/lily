@@ -212,8 +212,10 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
-void lily_emit_setup_call(lily_emit_state *, lily_type *, lily_var *,
-        lily_buffer_u16 *, int);
+void lily_emit_write_optargs(lily_emit_state *, lily_buffer_u16 *, int);
+void lily_emit_write_class_header(lily_emit_state *, lily_type *, uint16_t);
+void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
+        uint16_t);
 
 uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
 
