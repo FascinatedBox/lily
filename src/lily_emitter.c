@@ -2061,8 +2061,7 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
     else
         expected = call_type->subtypes[index + 1];
 
-    /* For now, don't resolve with scoop because that causes a crash. */
-    if ((expected->flags & TYPE_HAS_SCOOP) == 0)
+    if (expected->flags & TYPE_IS_UNRESOLVED)
         expected = lily_ts_resolve_with(emit->ts, expected, question);
 
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
@@ -3271,7 +3270,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
         lily_ast *arg = ast->arg_start;
 
         if (arg->tree_type != tree_variant) {
-            if (return_type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) {
+            if (return_type->flags & TYPE_IS_UNRESOLVED) {
                 /* Force incomplete solutions to become Dynamic. */
                 lily_ts_default_incomplete_solves(emit->ts);
 

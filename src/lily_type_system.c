@@ -99,25 +99,6 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
             ts->types[ts->pos + type->generic_pos] = fallback;
         }
     }
-    else if (type->cls->id >= LOWEST_SCOOP_ID) {
-        int scoop_pos = UINT16_MAX - type->cls->id;
-        int stop = ts->scoop_starts[scoop_pos] - 1;
-        if (stop != 0) {
-            int target = ts->scoop_starts[scoop_pos - 1];
-
-            /* This starts from where the last one stopped (inclusively) and
-               goes up to (but not including) where the next one starts. */
-            for (;target < stop;target++)
-                lily_tm_add_unchecked(ts->tm, ts->types[target]);
-
-            /* Yield the last type, because all the other cases yield a type. */
-            ret = ts->types[stop];
-        }
-        else
-            /* This only happens when the emitter is showing an error. There's
-               nothing to scoop, so show the scoop type instead. */
-            ret = type;
-    }
 
     return ret;
 }
