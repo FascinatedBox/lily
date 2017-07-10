@@ -3396,7 +3396,7 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
 
         lily_ts_save_point p;
         lily_ts_scope_save(emit->ts, &p);
-        lily_ts_check(emit->ts, result_type, solved_want);
+        lily_ts_check(emit->ts, solved_want, result_type);
         lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
                 question_type);
         lily_ts_scope_restore(emit->ts, &p);
