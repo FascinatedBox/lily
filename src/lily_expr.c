@@ -10,6 +10,7 @@ if (a->next_tree == NULL) \
     add_new_tree(es); \
 \
 es->next_available = a->next_tree; \
+a->op = 0; \
 a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *es->lex_linenum; \
