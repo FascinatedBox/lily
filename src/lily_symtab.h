@@ -26,11 +26,11 @@ typedef struct lily_symtab_ {
 
     /* Each class gets a unique id. This is mostly for the builtin classes
        which have some special behavior sometimes. */
-    uint32_t next_class_id;
+    uint16_t next_class_id;
 
     uint16_t next_global_id;
 
-    uint16_t pad;
+    uint32_t pad;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */
