@@ -1,3 +1,44 @@
+Version 1.1 (2017-7-10)
+=======================
+
+What's new:
+
+* The `match` keyword now works against classes. It decomposes the value to one
+  new var instead of rewriting the origin var. It works against any class that
+  does not use generics.
+
+* `match` has also been extended to work on `Dynamic`. The old style of using
+  a cast (`.@(type)`) now effectively does nothing. It may do something in the
+  future or be removed.
+
+* Addition of `++` which stringifies and joins any two values together.
+
+* A configuration struct is now back. It includes an import hook that calls back
+  into a user-defined function. That user-defined function can supply the paths
+  that it wants to. This may be useful in the future for bootstrapping source
+  files.
+
+* `dyna_tools.py` no longer exists. Users should instead see the `lily-parsekit`
+  repo. That repo contains `bindgen.lily` for generating C bindings and
+  `docgen.lily` for generating docs from files with C bindings. This repo may be
+  the foundation of Lily's tooling suite in the future.
+
+* The testing suite is now run by an executable that is a thin layer over a
+  primarily Lily-driven test suite. The testing suite is mostly the passing and
+  failing tests from before. Failing tests are run through subinterpreters which
+  I find rather nifty.
+
+* Several adjustments have been made to closures to finally make them stable.
+
+* The value api has been changed so that users no longer create values out of a
+  register and push it on later. Instead, creating a value that holds other
+  values puts it into a register, then returns the raw value. This means values
+  are no longer created without a state object.
+
+* `\/` escape character added. It's `\\` on Windows and `/` elsewhere.
+
+* Lots of internal cleanups and a few performance improvements.
+
 Version 1.0 (2017-2-1)
 ======================
 
