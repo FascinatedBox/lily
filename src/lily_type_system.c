@@ -171,40 +171,49 @@ static int check_function(lily_type_system *ts, lily_type *left,
         }
     }
 
-    if (left->subtype_count > right->subtype_count) {
-        /* Special case: This is a temporary special case for when the wanted
-           type is only a scoop. Make it so that it matches anything and
-           everything. */
-        if (left->subtype_count == 2 &&
-            left->subtypes[1]->cls->id >= LOWEST_SCOOP_ID) {
-            return 1;
+    int i;
+    lily_type *left_type = NULL;
+    lily_type *right_type = NULL;
+    int count = left->subtype_count;
+
+    if (left->subtype_count > right->subtype_count)
+        count = right->subtype_count;
+
+    flags |= T_CONTRAVARIANT;
+
+    for (i = 1;i < count;i++) {
+        left_type = left->subtypes[i];
+        right_type = right->subtypes[i];
+
+        if (right_type->cls->id == LILY_OPTARG_ID &&
+            left_type->cls->id != LILY_OPTARG_ID) {
+            right_type = right_type->subtypes[0];
         }
+
+        if (check_raw(ts, left_type, right_type, flags) == 0) {
+            ret = 0;
+            break;
+        }
+    }
+
+    if (right->subtype_count < left->subtype_count) {
+        /* It could be that the left side is only a scoop type and the right
+           side is empty. Setup the left side just in case. */
+        if (left_type == NULL && left->subtype_count == 2)
+            left_type = left->subtypes[1];
+
         ret = 0;
     }
 
-    if (ret) {
-        flags |= T_CONTRAVARIANT;
-        int i;
-        for (i = 1;i < left->subtype_count;i++) {
-            lily_type *left_type = left->subtypes[i];
-            lily_type *right_type = right->subtypes[i];
-
-            if (right_type->cls->id == LILY_OPTARG_ID &&
-                left_type->cls->id != LILY_OPTARG_ID) {
-                right_type = right_type->subtypes[0];
-            }
-
-            if (check_raw(ts, left_type, right_type, flags) == 0) {
-                ret = 0;
-                break;
-            }
-        }
-
-        if (right->subtype_count > left->subtype_count &&
-            right->subtypes[i]->cls->id != LILY_OPTARG_ID) {
-            ret = 0;
-        }
-    }
+    /* Allow it if the last type was a scoop type (and not trying to unify
+       scoop types). */
+    if (left_type &&
+        left_type->cls->id >= LOWEST_SCOOP_ID &&
+        (flags & T_UNIFY) == 0)
+        ret = 1;
+    else if (right->subtype_count > left->subtype_count &&
+             right->subtypes[i]->cls->id != LILY_OPTARG_ID)
+        ret = 0;
 
     if (ret && flags & T_UNIFY)
         simple_unify(ts, left, right, left->subtype_count);
