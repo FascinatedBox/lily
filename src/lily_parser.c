@@ -4646,18 +4646,18 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     /* todo: Find a way to do some of this as-needed, instead of always. */
     lily_register_classes(parser->symtab, parser->vm);
     lily_prepare_main(parser->emit, parser->toplevel_func);
-    lily_vm_prep(parser->vm, parser->symtab, parser->toplevel_func,
-            parser->symtab->literals->data);
+
+    parser->vm->readonly_table = parser->symtab->literals->data;
 
     maybe_fix_print(parser);
     update_all_cid_tables(parser);
 
     parser->executing = 1;
-    lily_vm_execute(parser->vm);
-    /* The above execute call is usually within a call in the vm, so it doesn't
-       pop the call back to where it was. Fix that and the depth. */
-    parser->vm->call_chain = parser->vm->call_chain->prev;
-    parser->vm->call_depth = 0;
+    lily_call_prepare(parser->vm, parser->toplevel_func);
+    /* The above function pushes a Unit value to act as a sink for lily_call to
+       put a value into. __main__ won't return a value so get rid of it. */
+    lily_stack_delete_top(parser->vm);
+    lily_call(parser->vm, 0);
     parser->executing = 0;
 
     /* Clear __main__ for the next pass. */

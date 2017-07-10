@@ -4028,9 +4028,9 @@ void lily_reset_main(lily_emit_state *emit)
 }
 
 
-/* This function is to be called before lily_vm_prep. This will ensure that the
-   register info for __main__ is up-to-date. If any text is parsed, then this
-   has to be called before running the vm. */
+/* This function is to be called before executing __main__. It makes sure that
+   __main__'s code ends with exiting the vm, and that the code itself is
+   linked to emitter's code. */
 void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 {
     int register_count = emit->main_block->next_reg_spot;

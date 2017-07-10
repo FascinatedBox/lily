@@ -163,7 +163,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->exception_value = NULL;
     vm->pending_line = 0;
     vm->catch_chain = catch_entry;
-    /* lily_vm_prep will handle entering __main__ when the time comes. */
+    /* The parser will enter __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
     vm->regs_from_main = register_base;
 
@@ -1876,15 +1876,10 @@ void lily_call(lily_vm_state *vm, int count)
  *                    |_|
  */
 
-/** These functions are concerned with preparing lily_vm_execute to be called
-    after reading a script in. Lily stores both defined functions and literal
-    values in a giant array so that they can be accessed by index later.
-    However, to save memory, it holds them as a linked list during parsing so
-    that it doesn't aggressively over or under allocate array space. Now that
-    parsing is done, the linked list is mapped over to the array.
-
-    During non-tagged execute, this should happen only once. In tagged mode, it
-    happens for each closing ?> tag. **/
+/** These functions are used by symtab to help prepare the vm's class table. The
+    class table is used in different areas of the vm to provide a quick mapping
+    from class id to actual class. Usage examples include class initialization
+    and printing classes. **/
 
 void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
 {
@@ -1921,34 +1916,6 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
 {
     lily_vm_ensure_class_table(vm, cls->id + 1);
     vm->class_table[cls->id] = cls;
-}
-
-/* This must be called before lily_vm_execute if the parser has read any data
-   in. This makes sure that __main__ has enough register slots, that the
-   vm->readonly_table is set, and that foreign ties are loaded. */
-void lily_vm_prep(lily_vm_state *vm, lily_symtab *symtab, lily_function_val *f,
-        lily_value **readonly_table)
-{
-    vm->readonly_table = readonly_table;
-
-    lily_function_val *main_function = f;
-    int need = main_function->reg_count + symtab->next_global_id;
-    int total = (int)(vm->call_chain->register_end - vm->regs_from_main);
-
-    if (need > total)
-        grow_vm_registers(vm, need);
-
-    lily_call_frame *toplevel_frame = vm->call_chain;
-    toplevel_frame->top = vm->regs_from_main + symtab->next_global_id;
-
-    lily_call_frame *main_frame = vm->call_chain->next;
-    main_frame->start = toplevel_frame->top;
-    main_frame->top = vm->regs_from_main + need;
-    main_frame->function = main_function;
-    main_frame->code = main_function->code;
-
-    vm->call_chain = vm->call_chain->next;
-    vm->call_depth = 1;
 }
 
 /***
