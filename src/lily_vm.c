@@ -1685,8 +1685,9 @@ static int maybe_catch_exception(lily_vm_state *vm)
     lily_jump_link *raiser_jump = vm->raiser->all_jumps;
 
     lily_vm_catch_entry *catch_iter = vm->catch_chain->prev;
-    int jump_location, match;
-    uint16_t *code;
+    lily_value *catch_reg = NULL;
+    lily_value **stack_regs;
+    int do_unbox, jump_location, match;
 
     match = 0;
 
@@ -1700,22 +1701,33 @@ static int maybe_catch_exception(lily_vm_state *vm)
         }
 
         lily_call_frame *call_frame = catch_iter->call_frame;
-        code = call_frame->function->code;
+        uint16_t *code = call_frame->function->code;
         /* A try block is done when the next jump is at 0 (because 0 would
            always be going back, which is illogical otherwise). */
         jump_location = catch_iter->code_pos + code[catch_iter->code_pos] - 2;
+        stack_regs = call_frame->start;
 
         while (1) {
             lily_class *catch_class = vm->class_table[code[jump_location + 2]];
 
             if (lily_class_greater_eq(catch_class, raised_cls)) {
+                /* There are two exception opcodes:
+                 * o_except_catch will have #4 as a valid register, and is
+                   interested in having that register filled with data later on.
+                 * o_except_ignore doesn't care, so #4 is always 0. Having it as
+                   zero allows catch_reg do not need a condition check, since
+                   stack_regs[0] is always safe. */
+                do_unbox = code[jump_location] == o_except_catch;
+
+                catch_reg = stack_regs[code[jump_location + 3]];
+
                 /* ...So that execution resumes from within the except block. */
-                jump_location += 4;
+                jump_location += 5;
                 match = 1;
                 break;
             }
             else {
-                int move_by = code[jump_location + 3];
+                int move_by = code[jump_location + 4];
                 if (move_by == 0)
                     break;
 
@@ -1730,10 +1742,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
     }
 
     if (match) {
-        code += jump_location;
-        if (*code == o_store_exception) {
-            lily_value *catch_reg = catch_iter->call_frame->start[code[1]];
-
+        if (do_unbox) {
             /* There is a var that the exception needs to be dropped into. If
                this exception was triggered by raise, then use that (after
                dumping traceback into it). If not, create a new instance to
@@ -1742,8 +1751,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
                 fixup_exception_val(vm, catch_reg);
             else
                 make_proper_exception_val(vm, raised_cls, catch_reg);
-
-            code += 2;
         }
 
         /* Make sure any exception value that was held is gone. No ref/deref is
@@ -1751,7 +1758,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
         vm->exception_value = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
-        vm->call_chain->code = code;
+        vm->call_chain->code = vm->call_chain->function->code + jump_location;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
         vm->catch_chain = catch_iter;

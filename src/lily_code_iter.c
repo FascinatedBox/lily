@@ -227,17 +227,21 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 1;
             break;
-        case o_catch:
+        case o_except_catch:
             iter->line = 1;
             iter->special_1 = 1;
+            iter->outputs_5 = 1;
             iter->jumps_7 = 1;
 
-            iter->round_total = 4;
+            iter->round_total = 5;
             break;
-        case o_store_exception:
-            iter->outputs_5 = 1;
+        case o_except_ignore:
+            iter->line = 1;
+            iter->special_1 = 1;
+            iter->special_6 = 1;
+            iter->jumps_7 = 1;
 
-            iter->round_total = 2;
+            iter->round_total = 5;
             break;
         case o_raise:
             iter->line = 1;

@@ -132,12 +132,12 @@ typedef enum {
     o_push_try,
     /* Unregister the last position as having code that can catch. */
     o_pop_try,
-    /* Attempt to catch some class id. This includes a jump to the next catch
-       declared in the same try (or 0 if it's the last one). */
-    o_catch,
-    /* Store the exception that was just caught by o_catch into a given
-       register spot. */
-    o_store_exception,
+    /* Specify a class to attempt to catch. If successful, DO NOT BUILD stack
+       data, because the user does not want it. */
+    o_except_ignore,
+    /* Specify a class to attempt to catch. If successful, build a proper
+       exception and store it where the user asked. */
+    o_except_catch,
     /* Raise a value that emit-time has verified to be an exception. */
     o_raise,
 
