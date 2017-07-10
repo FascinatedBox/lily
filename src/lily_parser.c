@@ -3443,7 +3443,7 @@ static int code_is_after_exit(lily_parse_state *parser)
 static void return_handler(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->function_block;
-    lily_type *return_type;
+    lily_type *return_type = NULL;
 
     if (block->block_type == block_class)
         lily_raise_syn(parser->raiser,

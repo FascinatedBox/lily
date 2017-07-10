@@ -3575,7 +3575,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
 static void process_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    lily_type *call_type;
+    lily_type *call_type = NULL;
     begin_call(emit, ast, expect, &call_type);
 
     lily_ts_save_point p;
