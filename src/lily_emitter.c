@@ -3404,7 +3404,7 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
         /* Don't assume it succeeded, because it worsens the error message in
            the case that it didn't. */
         if (solved_result == solved_want ||
-            lily_ts_type_greater_eq(emit->ts, solved_result, solved_want))
+            lily_ts_type_greater_eq(emit->ts, solved_want, solved_result))
             result_type = solved_result;
     }
 
