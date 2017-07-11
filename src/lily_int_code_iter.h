@@ -11,15 +11,15 @@ typedef struct {
     uint16_t round_total;
     uint16_t opcode;
 
-    uint16_t line;
     uint16_t special_1;
     uint16_t counter_2;
     uint16_t inputs_3;
-
     uint16_t special_4;
+
     uint16_t outputs_5;
     uint16_t special_6;
     uint16_t jumps_7;
+    uint16_t line_8;
 } lily_code_iter;
 
 struct lily_function_val_;

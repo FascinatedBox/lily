@@ -42,9 +42,9 @@ int lily_ci_next(lily_code_iter *iter)
     switch ((lily_opcode)*buffer) {
         case o_fast_assign:
         case o_assign:
-            iter->line = 1;
             iter->inputs_3 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
@@ -66,9 +66,9 @@ int lily_ci_next(lily_code_iter *iter)
         case o_not_eq:
         case o_greater:
         case o_greater_eq:
-            iter->line = 1;
             iter->inputs_3 = 2;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
@@ -94,92 +94,92 @@ int lily_ci_next(lily_code_iter *iter)
         case o_native_call:
         case o_foreign_call:
         case o_function_call:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->counter_2 = 1;
-            iter->inputs_3 = buffer[3];
+            iter->inputs_3 = buffer[2];
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
-            iter->round_total = buffer[3] + 5;
+            iter->round_total = buffer[2] + 5;
             break;
         case o_return_val:
-            iter->line = 1;
             iter->inputs_3 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 3;
             break;
         case o_return_unit:
-            iter->line = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 2;
             break;
         case o_unary_not:
         case o_unary_minus:
-            iter->line = 1;
             iter->inputs_3 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_build_list:
         case o_build_tuple:
-            iter->line = 1;
+            iter->counter_2 = 1;
+            iter->inputs_3 = buffer[1];
+            iter->outputs_5 = 1;
+            iter->line_8 = 1;
+
+            iter->round_total = buffer[1] + 4;
+            break;
+        case o_build_hash:
+            iter->special_1 = 1;
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[2];
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
-            iter->round_total = buffer[2] + 4;
-            break;
-        case o_build_hash:
-            iter->line = 1;
-            iter->special_1 = 1;
-            iter->counter_2 = 1;
-            iter->inputs_3 = buffer[3];
-            iter->outputs_5 = 1;
-
-            iter->round_total = buffer[3] + 5;
+            iter->round_total = buffer[2] + 5;
             break;
         case o_build_enum:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->counter_2 = 1;
-            iter->inputs_3 = buffer[3];
+            iter->inputs_3 = buffer[2];
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
-            iter->round_total = buffer[3] + 5;
+            iter->round_total = buffer[2] + 5;
             break;
         case o_integer_for:
-            iter->line = 1;
             iter->inputs_3 = 3;
             iter->outputs_5 = 1;
             iter->jumps_7 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 7;
             break;
         case o_for_setup:
-            iter->line = 1;
             iter->inputs_3 = 3;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 6;
             break;
         case o_get_item:
-            iter->line = 1;
             iter->inputs_3 = 2;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_set_item:
-            iter->line = 1;
             iter->inputs_3 = 3;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_set_global:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->inputs_3 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
@@ -188,37 +188,37 @@ int lily_ci_next(lily_code_iter *iter)
         case o_get_integer:
         case o_get_boolean:
         case o_get_byte:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_get_empty_variant:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_get_property:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->inputs_3 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_set_property:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->inputs_3 = 2;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_push_try:
-            iter->line = 1;
             iter->jumps_7 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 3;
             break;
@@ -228,68 +228,69 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 1;
             break;
         case o_except_catch:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
             iter->jumps_7 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_except_ignore:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->special_6 = 1;
             iter->jumps_7 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 5;
             break;
         case o_raise:
-            iter->line = 1;
             iter->inputs_3 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 3;
             break;
         case o_new_instance_basic:
         case o_new_instance_speculative:
         case o_new_instance_tagged:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_get_upvalue:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_set_upvalue:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->inputs_3 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_create_closure:
-            iter->line = 1;
             iter->special_1 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = 4;
             break;
         case o_create_function:
             iter->special_4 = 1;
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
-            iter->round_total = 3;
+            iter->round_total = 4;
             break;
         case o_interpolation:
-            iter->line = 1;
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[2];
             iter->outputs_5 = 1;
+            iter->line_8 = 1;
 
             iter->round_total = buffer[2] + 4;
             break;

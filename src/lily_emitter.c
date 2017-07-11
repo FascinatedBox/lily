@@ -141,8 +141,8 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
     uint16_t spot = lily_emit_get_storage_spot(emit, lily_unit_type);
-    lily_u16_write_5(emit->code, o_native_call, *emit->lex_linenum,
-            var->reg_spot, 0, spot);
+    lily_u16_write_5(emit->code, o_native_call, var->reg_spot, 0, spot,
+            *emit->lex_linenum);
 }
 
 /* This takes the stack of optional arguments and writes out the jumping
@@ -212,7 +212,7 @@ void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
         lily_u16_set_at(emit->code, patch_spot,
                 lily_u16_pos(emit->code) - patch_spot + 1);
 
-        lily_u16_write_4(emit->code, opcode, line_num, value, target_reg);
+        lily_u16_write_4(emit->code, opcode, value, target_reg, line_num);
     }
 
     uint16_t patch_spot = lily_u16_get(emit->patches, optarg_patch_pos);
@@ -227,8 +227,8 @@ void lily_emit_write_class_header(lily_emit_state *emit, lily_type *self_type,
     lily_storage *self = get_storage(emit, self_type);
 
     emit->block->self = self;
-    lily_u16_write_4(emit->code, o_new_instance_basic, line_num,
-            self_type->cls->id, self->reg_spot);
+    lily_u16_write_4(emit->code, o_new_instance_basic, self_type->cls->id,
+            self->reg_spot, line_num);
 }
 
 void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
@@ -241,8 +241,8 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
         while (strcmp(var_iter->name, "") != 0)
             var_iter = var_iter->next;
 
-        lily_u16_write_5(emit->code, o_set_property, *emit->lex_linenum,
-                prop_iter->reg_spot, self_reg_spot, var_iter->reg_spot);
+        lily_u16_write_5(emit->code, o_set_property, prop_iter->reg_spot,
+                self_reg_spot, var_iter->reg_spot, *emit->lex_linenum);
 
         var_iter = var_iter->next;
         prop_iter = prop_iter->next;
@@ -268,28 +268,28 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
     else
         target = (lily_sym *)user_loop_var;
 
-    lily_u16_write_6(emit->code, o_for_setup, line_num, for_start->reg_spot,
-            for_end->reg_spot, for_step->reg_spot, target->reg_spot);
+    lily_u16_write_6(emit->code, o_for_setup, for_start->reg_spot,
+            for_end->reg_spot, for_step->reg_spot, target->reg_spot, line_num);
 
     if (need_sync) {
-        lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
-                user_loop_var->reg_spot);
+        lily_u16_write_4(emit->code, o_set_global, target->reg_spot,
+                user_loop_var->reg_spot, line_num);
     }
     /* for..in is entered right after 'for' is seen. However, range values can
        be expressions. This needs to be fixed, or the loop will jump back up to
        re-eval those expressions. */
     emit->block->loop_start = lily_u16_pos(emit->code);
 
-    lily_u16_write_5(emit->code, o_integer_for, line_num, for_start->reg_spot,
-            for_end->reg_spot, for_step->reg_spot);
+    lily_u16_write_5(emit->code, o_integer_for, for_start->reg_spot,
+            for_end->reg_spot, for_step->reg_spot, target->reg_spot);
 
-    lily_u16_write_2(emit->code, target->reg_spot, 6);
+    lily_u16_write_2(emit->code, 5, line_num);
 
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 
     if (need_sync) {
-        lily_u16_write_4(emit->code, o_set_global, line_num, target->reg_spot,
-                user_loop_var->reg_spot);
+        lily_u16_write_4(emit->code, o_set_global, target->reg_spot,
+                user_loop_var->reg_spot, line_num);
     }
 }
 
@@ -348,9 +348,9 @@ void lily_emit_continue(lily_emit_state *emit)
 /* The parser has a 'try' and wants the emitter to write the code. */
 void lily_emit_try(lily_emit_state *emit, int line_num)
 {
-    lily_u16_write_3(emit->code, o_push_try, line_num, 2);
+    lily_u16_write_3(emit->code, o_push_try, 1, line_num);
 
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 }
 
 /* The parser has an 'except' clause and wants emitter to write code for it. */
@@ -360,18 +360,18 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
     if (except_var)
         /* There's a register to dump the result into, so use this opcode to let
            the vm know to copy down the information to this var. */
-        lily_u16_write_5(emit->code, o_except_catch, line_num,
-                except_var->type->cls->id, except_var->reg_spot, 4);
+        lily_u16_write_5(emit->code, o_except_catch, except_var->type->cls->id,
+                except_var->reg_spot, 3, line_num);
     else
         /* It doesn't matter, so the vm shouldn't bother fixing up the exception
            stack. The last 0 is very important, because for both of these
            opcodes, the vm grabs the register at spot. Without setting a zero,
            the register would depend on the next opcode (or a condition check
            would be needed). */
-        lily_u16_write_5(emit->code, o_except_ignore, line_num,
-                except_type->cls->id, 0, 4);
+        lily_u16_write_5(emit->code, o_except_ignore, except_type->cls->id, 0,
+                3, line_num);
 
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
@@ -688,8 +688,8 @@ void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
         uint16_t line_num)
 {
     if (emit->block->block_type == block_class)
-        lily_u16_write_3(emit->code, o_return_val, line_num,
-                emit->block->self->reg_spot);
+        lily_u16_write_3(emit->code, o_return_val, emit->block->self->reg_spot,
+                line_num);
     else if (emit->block->last_exit != lily_u16_pos(emit->code)) {
         type = type->subtypes[0];
 
@@ -972,8 +972,8 @@ static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
 static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
         lily_storage *target)
 {
-    lily_u16_write_3(emit->code, o_create_function, func_sym->reg_spot,
-            target->reg_spot);
+    lily_u16_write_4(emit->code, o_create_function, func_sym->reg_spot,
+            target->reg_spot, *emit->lex_linenum);
     emit->function_block->make_closure = 1;
 }
 
@@ -1060,9 +1060,8 @@ static void ensure_params_in_closure(lily_emit_state *emit)
                is present in the closure by forcing a write. It might be a
                useless write, but that's hard to discover. Best to be safe. */
             lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
-                    function_var->line_num,
                     find_closed_sym_spot(emit, (lily_sym *)var_iter),
-                    var_iter->reg_spot);
+                    var_iter->reg_spot, function_var->line_num);
         }
 
         var_iter = var_iter->next;
@@ -1164,7 +1163,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     uint16_t *buffer = ci.buffer;
     uint16_t *transform_table = emit->transform_table;
     lily_opcode op = buffer[ci.offset];
-    int pos = ci.offset + 1 + ci.line;
+    int pos = ci.offset + 1;
     int count = 0;
 
     if (op == o_function_call &&
@@ -1207,8 +1206,8 @@ static void perform_closure_transform(lily_emit_state *emit,
         lily_storage *s = get_unique_storage(emit,
                 function_block->function_var->type);
 
-        lily_u16_write_4(emit->closure_aux_code, o_create_closure, f->line_num,
-                emit->closed_pos, s->reg_spot);
+        lily_u16_write_4(emit->closure_aux_code, o_create_closure,
+                emit->closed_pos, s->reg_spot, f->line_num);
 
         if (emit->class_block_depth) {
             uint16_t self_spot = find_closed_sym_spot(emit,
@@ -1216,7 +1215,7 @@ static void perform_closure_transform(lily_emit_state *emit,
             /* Load register 0 (self) into the closure. */
             if (self_spot != (uint16_t)-1) {
                 lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
-                        f->line_num, self_spot, 0);
+                        self_spot, 0, f->line_num);
             }
         }
     }
@@ -1232,7 +1231,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                     (lily_sym *)prev_block->self);
             if (self_spot != (uint16_t)-1)
                 lily_u16_write_4(emit->closure_aux_code, o_get_upvalue,
-                        f->line_num, self_spot, lambda_self->reg_spot);
+                        self_spot, lambda_self->reg_spot, f->line_num);
         }
     }
 
@@ -1255,8 +1254,8 @@ static void perform_closure_transform(lily_emit_state *emit,
 { \
     uint16_t id = transform_table[buffer[x]]; \
     if (id != (uint16_t)-1) { \
-        lily_u16_write_4(emit->closure_aux_code, z, f->line_num, id, \
-                buffer[x]); \
+        lily_u16_write_4(emit->closure_aux_code, z, id, \
+                buffer[x], f->line_num); \
         jump_adjust += 4; \
     } \
 }
@@ -1270,7 +1269,7 @@ static void perform_closure_transform(lily_emit_state *emit,
        jump is patched to. The spots will be filled during transformation. */
     while (lily_ci_next(&ci)) {
         if (ci.jumps_7) {
-            int stop = ci.offset + ci.round_total;
+            int stop = ci.offset + ci.round_total - ci.line_8;
 
             for (i = stop - ci.jumps_7;i < stop;i++) {
                 int jump = (int16_t)buffer[i];
@@ -1297,7 +1296,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         lily_opcode op = buffer[ci.offset];
         /* +1 to skip over the opcode itself. */
-        pos = ci.offset + 1 + ci.line;
+        pos = ci.offset + 1;
 
         if (ci.special_1) {
             switch (op) {
@@ -1313,7 +1312,12 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         if (ci.inputs_3) {
             for (i = 0;i < ci.inputs_3;i++) {
-                MAYBE_TRANSFORM_INPUT(pos + i, o_get_upvalue)
+    uint16_t id = transform_table[buffer[pos + i]];
+    if (id != (uint16_t)-1) {
+        lily_u16_write_4(emit->closure_aux_code, o_get_upvalue, id,
+                buffer[pos + i], f->line_num);
+        jump_adjust += 4;
+    }
             }
 
             pos += ci.inputs_3;
@@ -1350,12 +1354,11 @@ static void perform_closure_transform(lily_emit_state *emit,
             next_jump = lily_u16_get(emit->patches, patch_iter);
         }
 
-        int stop = ci.offset + ci.round_total - ci.jumps_7;
+        int stop = ci.offset + ci.round_total - ci.jumps_7 - ci.line_8;
         for (;i < stop;i++)
             lily_u16_write_1(emit->closure_aux_code, buffer[i]);
 
         if (ci.jumps_7) {
-            int i;
             for (i = 0;i < ci.jumps_7;i++) {
                 /* This is the absolute position of this jump, but within the
                    original buffer. */
@@ -1374,7 +1377,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                        the opcode for use in the calculation. */
                     lily_u16_write_2(emit->patches,
                             lily_u16_pos(emit->closure_aux_code),
-                            ci.round_total - ci.jumps_7 + i);
+                            ci.round_total - ci.jumps_7 - ci.line_8 + i);
 
                     lily_u16_write_1(emit->closure_aux_code, destination);
                 }
@@ -1382,6 +1385,9 @@ static void perform_closure_transform(lily_emit_state *emit,
                     lily_u16_write_1(emit->closure_aux_code, 0);
             }
         }
+
+        if (ci.line_8)
+            lily_u16_write_1(emit->closure_aux_code, 5);
 
         if (ci.outputs_5) {
             int stop = output_start + ci.outputs_5;
@@ -1505,11 +1511,11 @@ void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int index,
        necessary here. */
 
     if (match_sym->type->cls->flags & CLS_IS_ENUM)
-        lily_u16_write_5(emit->code, o_get_property, *emit->lex_linenum,
-                index, match_sym->reg_spot, pos);
+        lily_u16_write_5(emit->code, o_get_property, index, match_sym->reg_spot,
+                pos, *emit->lex_linenum);
     else
-        lily_u16_write_4(emit->code, o_assign, *emit->lex_linenum,
-                match_sym->reg_spot, pos);
+        lily_u16_write_4(emit->code, o_assign, match_sym->reg_spot, pos,
+                *emit->lex_linenum);
 }
 
 int lily_emit_is_duplicate_case(lily_emit_state *emit, lily_class *cls)
@@ -1588,8 +1594,8 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
         /* Dynamic is laid out like a class with the content in slot 0. Extract
            it out to match against. */
-        lily_u16_write_5(emit->code, o_get_property, ast->line_num, 0,
-                ast->result->reg_spot, s->reg_spot);
+        lily_u16_write_5(emit->code, o_get_property, 0, ast->result->reg_spot,
+                s->reg_spot, ast->line_num);
 
         ast->result = (lily_sym *)s;
     }
@@ -1766,7 +1772,7 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     lily_ast *arg;
     lily_u16_write_prep(emit->code, 5 + num_values);
 
-    lily_u16_write_2(emit->code, opcode, line_num);
+    lily_u16_write_1(emit->code, opcode);
 
     if (opcode == o_build_hash)
         /* The vm the key's id to decide what hashing functions to use. */
@@ -1777,7 +1783,7 @@ static void write_build_op(lily_emit_state *emit, int opcode,
     for (i = 0, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
 
-    lily_u16_write_1(emit->code, s->reg_spot);
+    lily_u16_write_2(emit->code, s->reg_spot, line_num);
 }
 
 
@@ -2228,8 +2234,8 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
 
     /* This function is only called on trees of type tree_oo_access which have
        a property into the ast's item. */
-    lily_u16_write_5(emit->code, o_get_property, ast->line_num,
-            prop->id, ast->arg_start->result->reg_spot, result->reg_spot);
+    lily_u16_write_5(emit->code, o_get_property, prop->id,
+            ast->arg_start->result->reg_spot, result->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)result;
 }
@@ -2244,8 +2250,8 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
         oo_property_read(emit, ast);
     else {
         lily_storage *result = get_storage(emit, ast->sym->type);
-        lily_u16_write_4(emit->code, o_get_readonly, ast->line_num,
-                ast->sym->reg_spot, result->reg_spot);
+        lily_u16_write_4(emit->code, o_get_readonly, ast->sym->reg_spot,
+                result->reg_spot, ast->line_num);
         ast->result = (lily_sym *)result;
     }
 }
@@ -2280,9 +2286,9 @@ static void eval_oo_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    lily_u16_write_5(emit->code, o_set_property, ast->line_num,
-            ast->left->property->id, ast->left->arg_start->result->reg_spot,
-            rhs->reg_spot);
+    lily_u16_write_5(emit->code, o_set_property, ast->left->property->id,
+            ast->left->arg_start->result->reg_spot, rhs->reg_spot,
+            ast->line_num);
 
     ast->result = rhs;
 }
@@ -2411,8 +2417,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         s->flags |= SYM_NOT_ASSIGNABLE;
     }
 
-    lily_u16_write_5(emit->code, opcode, ast->line_num, lhs_sym->reg_spot,
-            rhs_sym->reg_spot, s->reg_spot);
+    lily_u16_write_5(emit->code, opcode, lhs_sym->reg_spot, rhs_sym->reg_spot,
+            s->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)s;
 }
@@ -2510,13 +2516,14 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     /* If assign can be optimized out, then rewrite the last result to point to
        the left side. */
     if (can_optimize && assign_optimize_check(ast)) {
-        /* Trees always write the result as the last value. */
-        int pos = lily_u16_pos(emit->code) - 1;
+        /* Trees always finish by writing a result and then the line number.
+           Optimize out by patching the result to target the left side. */
+        int pos = lily_u16_pos(emit->code) - 2;
         lily_u16_set_at(emit->code, pos, left_sym->reg_spot);
     }
     else {
-        lily_u16_write_4(emit->code, opcode, ast->line_num, right_sym->reg_spot,
-                left_sym->reg_spot);
+        lily_u16_write_4(emit->code, opcode, right_sym->reg_spot,
+                left_sym->reg_spot, ast->line_num);
     }
     ast->result = right_sym;
 }
@@ -2536,8 +2543,8 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 
     lily_storage *result = get_storage(emit, ast->property->type);
 
-    lily_u16_write_5(emit->code, o_get_property, ast->line_num,
-            ast->property->id, emit->block->self->reg_spot, result->reg_spot);
+    lily_u16_write_5(emit->code, o_get_property, ast->property->id,
+            emit->block->self->reg_spot, result->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)result;
 }
@@ -2582,9 +2589,8 @@ static void eval_property_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    lily_u16_write_5(emit->code, o_set_property, ast->line_num,
-            ast->left->property->id, emit->block->self->reg_spot,
-            rhs->reg_spot);
+    lily_u16_write_5(emit->code, o_set_property, ast->left->property->id,
+            emit->block->self->reg_spot, rhs->reg_spot, ast->line_num);
 
     ast->result = rhs;
 }
@@ -2611,8 +2617,8 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     lily_storage *s = get_storage(emit, lambda_result->type);
 
     if (emit->function_block->make_closure == 0)
-        lily_u16_write_4(emit->code, o_get_readonly, ast->line_num,
-                lambda_result->reg_spot, s->reg_spot);
+        lily_u16_write_4(emit->code, o_get_readonly, lambda_result->reg_spot,
+                s->reg_spot, ast->line_num);
     else
         emit_create_function(emit, lambda_result, s);
 
@@ -2633,15 +2639,15 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->op > expr_assign) {
         lily_storage *s = get_storage(emit, ast->left->sym->type);
-        lily_u16_write_4(emit->code, o_get_upvalue, ast->line_num, spot,
-                s->reg_spot);
+        lily_u16_write_4(emit->code, o_get_upvalue, spot, s->reg_spot,
+                ast->line_num);
         ast->left->result = (lily_sym *)s;
         emit_op_for_compound(emit, ast);
         rhs = ast->result;
     }
 
-    lily_u16_write_4(emit->code, o_set_upvalue, ast->line_num, spot,
-            rhs->reg_spot);
+    lily_u16_write_4(emit->code, o_set_upvalue, spot, rhs->reg_spot,
+            ast->line_num);
 
     ast->result = ast->right->result;
 }
@@ -2684,8 +2690,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         int truthy = (ast->op == expr_logical_and);
 
-        lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, truthy,
-                result->reg_spot);
+        lily_u16_write_4(emit->code, o_get_boolean, truthy, result->reg_spot,
+                ast->line_num);
 
         /* The jump will be patched as soon as patches are written, so don't
            bother writing a count. */
@@ -2694,8 +2700,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         write_patches_since(emit, andor_start);
 
-        lily_u16_write_4(emit->code, o_get_boolean, ast->line_num, !truthy,
-                result->reg_spot);
+        lily_u16_write_4(emit->code, o_get_boolean, !truthy, result->reg_spot,
+                ast->line_num);
 
         /* Fix the jump that was written. Normally, patches have an offset in
            them that accounts for the header. But the jump of o_jump is always
@@ -2727,9 +2733,8 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *result = get_storage(emit, type_for_result);
 
-    lily_u16_write_5(emit->code, o_get_item, ast->line_num,
-            var_ast->result->reg_spot, index_ast->result->reg_spot,
-            result->reg_spot);
+    lily_u16_write_5(emit->code, o_get_item, var_ast->result->reg_spot,
+            index_ast->result->reg_spot, result->reg_spot, ast->line_num);
 
     if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
         result->flags |= SYM_NOT_ASSIGNABLE;
@@ -2790,9 +2795,9 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
         lily_storage *subs_storage = get_storage(emit, elem_type);
 
-        lily_u16_write_5(emit->code, o_get_item, ast->line_num,
-                var_ast->result->reg_spot, index_ast->result->reg_spot,
-                subs_storage->reg_spot);
+        lily_u16_write_5(emit->code, o_get_item, var_ast->result->reg_spot,
+                index_ast->result->reg_spot, subs_storage->reg_spot,
+                ast->line_num);
 
         ast->left->result = (lily_sym *)subs_storage;
 
@@ -2801,9 +2806,8 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
         rhs = ast->result;
     }
 
-    lily_u16_write_5(emit->code, o_set_item, ast->line_num,
-            var_ast->result->reg_spot, index_ast->result->reg_spot,
-            rhs->reg_spot);
+    lily_u16_write_5(emit->code, o_set_item, var_ast->result->reg_spot,
+            index_ast->result->reg_spot, rhs->reg_spot, ast->line_num);
 
     ast->result = rhs;
 }
@@ -2853,8 +2857,8 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     storage = get_storage(emit, lhs_class->self_type);
     storage->flags |= SYM_NOT_ASSIGNABLE;
 
-    lily_u16_write_4(emit->code, opcode, ast->line_num,
-            ast->left->result->reg_spot, storage->reg_spot);
+    lily_u16_write_4(emit->code, opcode, ast->left->result->reg_spot,
+            storage->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)storage;
 }
@@ -2913,8 +2917,8 @@ static void emit_literal(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *s = get_storage(emit, ast->type);
 
-    lily_u16_write_4(emit->code, o_get_readonly, ast->line_num,
-            ast->literal_reg_spot, s->reg_spot);
+    lily_u16_write_4(emit->code, o_get_readonly, ast->literal_reg_spot,
+            s->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)s;
 }
@@ -2951,8 +2955,8 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 
     if ((sym->flags & VAR_NEEDS_CLOSURE) == 0 ||
         ast->tree_type == tree_upvalue) {
-        lily_u16_write_4(emit->code, opcode, ast->line_num, spot,
-                ret->reg_spot);
+        lily_u16_write_4(emit->code, opcode, spot, ret->reg_spot,
+                ast->line_num);
     }
     else
         emit_create_function(emit, sym, ret);
@@ -2964,8 +2968,8 @@ static void emit_integer(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *s = get_storage(emit, emit->symtab->integer_class->self_type);
 
-    lily_u16_write_4(emit->code, o_get_integer, ast->line_num,
-            ast->backing_value, s->reg_spot);
+    lily_u16_write_4(emit->code, o_get_integer, ast->backing_value, s->reg_spot,
+            ast->line_num);
 
     ast->result = (lily_sym *)s;
 }
@@ -2974,8 +2978,8 @@ static void emit_boolean(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *s = get_storage(emit, emit->symtab->boolean_class->self_type);
 
-    lily_u16_write_4(emit->code, o_get_boolean, ast->line_num,
-            ast->backing_value, s->reg_spot);
+    lily_u16_write_4(emit->code, o_get_boolean, ast->backing_value, s->reg_spot,
+            ast->line_num);
 
     ast->result = (lily_sym *)s;
 }
@@ -2984,8 +2988,8 @@ static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *s = get_storage(emit, emit->symtab->byte_class->self_type);
 
-    lily_u16_write_4(emit->code, o_get_byte, ast->line_num, ast->backing_value,
-            s->reg_spot);
+    lily_u16_write_4(emit->code, o_get_byte, ast->backing_value, s->reg_spot,
+            ast->line_num);
 
     ast->result = (lily_sym *)s;
 }
@@ -3336,7 +3340,7 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
         target = arg->variant->cls_id;
     }
 
-    lily_u16_write_4(emit->code, opcode, ast->line_num, target,
+    lily_u16_write_3(emit->code, opcode, target,
             argument_count + (vararg_s != NULL));
 
     int i = 0;
@@ -3358,7 +3362,7 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
     if (vararg_s)
         lily_u16_write_1(emit->code, vararg_s->reg_spot);
 
-    lily_u16_write_1(emit->code, ast->result->reg_spot);
+    lily_u16_write_2(emit->code, ast->result->reg_spot, ast->line_num);
 }
 
 /* Evaluate the call argument 'arg'. The type 'want_type' is -not- solved by the
@@ -3489,11 +3493,11 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
             vararg_type = lily_ts_resolve(emit->ts, vararg_type);
 
         vararg_s = get_storage(emit, vararg_type);
-        lily_u16_write_3(emit->code, o_build_list, ast->line_num, vararg_i - i);
+        lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
         for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
             lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
 
-        lily_u16_write_1(emit->code, vararg_s->reg_spot);
+        lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
     }
 
     setup_call_result(emit, ast, arg_types[0]);
@@ -3652,8 +3656,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             error_argument_count(emit, ast, -1, min, max);
         }
 
-        lily_u16_write_3(emit->code, o_get_empty_variant, ast->line_num,
-                variant->cls_id);
+        lily_u16_write_2(emit->code, o_get_empty_variant, variant->cls_id);
 
         lily_type *storage_type;
 
@@ -3676,7 +3679,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             storage_type = variant->parent->self_type;
 
         lily_storage *s = get_storage(emit, storage_type);
-        lily_u16_write_1(emit->code, s->reg_spot);
+        lily_u16_write_2(emit->code, s->reg_spot, ast->line_num);
         ast->result = (lily_sym *)s;
     }
 
@@ -3718,7 +3721,7 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
     if (ast->parent == NULL ||
         (ast->parent->tree_type != tree_binary ||
          ast->parent->op != expr_plus_plus)) {
-        lily_u16_write_3(emit->code, o_interpolation, ast->line_num, 0);
+        lily_u16_write_2(emit->code, o_interpolation, 0);
 
         int fix_spot = lily_u16_pos(emit->code) - 1;
         lily_ast *iter_ast = ast->left;
@@ -3746,7 +3749,7 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
         lily_u16_set_at(emit->code, fix_spot,
                 lily_u16_pos(emit->code) - fix_spot - 1);
 
-        lily_u16_write_1(emit->code, s->reg_spot);
+        lily_u16_write_2(emit->code, s->reg_spot, ast->line_num);
 
         ast->result = (lily_sym *)s;
     }
@@ -3899,8 +3902,8 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
 
     /* Note: This works because the only time this is called is to handle
              for..in range expressions, which are always integers. */
-    lily_u16_write_4(emit->code, o_fast_assign, ast->line_num,
-            ast->result->reg_spot, var->reg_spot);
+    lily_u16_write_4(emit->code, o_fast_assign, ast->result->reg_spot,
+            var->reg_spot, ast->line_num);
 }
 
 /* Evaluate the root of the given pool, making sure that the result is something
@@ -3963,8 +3966,8 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
     if (return_wanted && root_result != NULL) {
         /* If the caller doesn't want a return, then don't give one...regardless
            of if there is one available. */
-        lily_u16_write_3(emit->code, o_return_val, es->root->line_num,
-                es->root->result->reg_spot);
+        lily_u16_write_3(emit->code, o_return_val, es->root->result->reg_spot,
+                es->root->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
     }
     else if (return_wanted == 0)
@@ -3991,8 +3994,8 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
         }
 
         write_pop_try_blocks_up_to(emit, emit->function_block);
-        lily_u16_write_3(emit->code, o_return_val, ast->line_num,
-                ast->result->reg_spot);
+        lily_u16_write_3(emit->code, o_return_val, ast->result->reg_spot,
+                ast->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
     }
     else {
@@ -4015,7 +4018,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
                 result_cls->name);
     }
 
-    lily_u16_write_3(emit->code, o_raise, ast->line_num, ast->result->reg_spot);
+    lily_u16_write_3(emit->code, o_raise, ast->result->reg_spot, ast->line_num);
     emit->block->last_exit = lily_u16_pos(emit->code);
 }
 
