@@ -11,12 +11,20 @@ typedef struct lily_call_frame_ {
     lily_value **top;
     /* Starts at the last register available. Grow when top == end. */
     lily_value **register_end;
+    /* With foreign functions, this is always set to an instruction to leave the
+       vm.
 
+       For all native functions except the top one, this is where that frame
+       will continue when it has control again. On the other hand, the top frame
+       only sets this field if the vm is executing an instruction that might
+       raise an error.
+
+       Since emitter writes line numbers at the end of instructions, the line
+       number of any native frame can be obtained through code[-1]. */
     uint16_t *code;
     lily_function_val *function;
     /* A value from the previous frame to return back into. */
     lily_value *return_target;
-    int line_num;
 
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;
@@ -38,11 +46,7 @@ typedef struct lily_vm_state_ {
 
     uint32_t call_depth;
 
-    /* Compiler optimizations can make lily_vm_execute's code have the wrong
-       value after a jump. This is used in a few cases to fix the value*/
-    uint16_t pending_line;
-
-    uint16_t pad;
+    uint32_t pad;
 
     lily_call_frame *call_chain;
 

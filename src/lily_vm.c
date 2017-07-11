@@ -64,7 +64,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     toplevel_frame->register_end = register_end;
     toplevel_frame->code = NULL;
     toplevel_frame->return_target = NULL;
-    toplevel_frame->line_num = 0;
     toplevel_frame->prev = NULL;
     toplevel_frame->next = first_frame;
     first_frame->start = register_base;
@@ -73,7 +72,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     first_frame->code = NULL;
     first_frame->function = NULL;
     first_frame->return_target = register_base[0];
-    first_frame->line_num = 0;
     first_frame->prev = toplevel_frame;
     first_frame->next = NULL;
 
@@ -93,7 +91,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->class_count = 0;
     vm->class_table = NULL;
     vm->exception_value = NULL;
-    vm->pending_line = 0;
     vm->catch_chain = catch_entry;
     /* The parser will enter __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
@@ -506,12 +503,10 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
     }
 
     int i = code[2];
-    current_frame->line_num = code[i + 4];
     current_frame->code = code + i + 5;
 
     lily_call_frame *next_frame = current_frame->next;
     next_frame->start = current_frame->top;
-    next_frame->line_num = -1;
     next_frame->code = NULL;
     next_frame->return_target = current_frame->start[code[i + 3]];
 }
@@ -986,8 +981,6 @@ LILY_ERROR(Value,          LILY_VALUEERROR_ID)
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 {
-    vm->pending_line = line_num;
-
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
 
     if (key->class_id == LILY_STRING_ID)
@@ -1001,8 +994,6 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
 static void boundary_error(lily_vm_state *vm, int bad_index, uint16_t line_num)
 {
-    vm->pending_line = line_num;
-
     lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
     lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
@@ -1565,7 +1556,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
         const char *name = func_val->trace_name;
         if (func_val->code) {
             path = func_val->module->path;
-            sprintf(line, "%d:", frame_iter->line_num);
+            sprintf(line, "%d:", frame_iter->code[-1]);
         }
         else
             path = "[C]";
@@ -1763,7 +1754,6 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
     lily_call_frame *target_frame = caller_frame->next;
     target_frame->code = func->code;
     target_frame->function = func;
-    target_frame->line_num = 0;
     target_frame->return_target = *caller_frame->top;
 
     lily_push_unit(vm);
@@ -1882,6 +1872,13 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
  *
  */
 
+/* Operations called from the vm that may raise an error must set the current
+   frame's code first. This allows parser and vm to assume that any native
+   function's line number exists at code[-1].
+   to_add should be the same value added to code at the end of the branch. */
+#define SAVE_LINE(to_add) \
+current_frame->code = code + to_add
+
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
@@ -1924,7 +1921,7 @@ else if (lhs_reg->class_id == LILY_STRING_ID) { \
            rhs_reg->value.string->string) OP 0; \
 } \
 else { \
-    vm->pending_line = code[4]; \
+    SAVE_LINE(+5); \
     vm_regs[code[3]]->value.integer = \
     lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
 } \
@@ -1967,17 +1964,6 @@ void lily_vm_execute(lily_vm_state *vm)
 
     lily_jump_link *link = lily_jump_setup(vm->raiser);
     if (setjmp(link->jump) != 0) {
-        /* If the current function is a native one, then fix the line
-           number of it. Otherwise, leave the line number alone. */
-        if (vm->call_chain->function->code != NULL) {
-            if (vm->pending_line) {
-                current_frame->line_num = vm->pending_line;
-                vm->pending_line = 0;
-            }
-            else
-                vm->call_chain->line_num = vm->call_chain->code[1];
-        }
-
         if (maybe_catch_exception(vm) == 0)
             /* Couldn't catch it. Jump back into parser, which will jump
                back to the caller to give them the bad news. */
@@ -2078,7 +2064,7 @@ void lily_vm_execute(lily_vm_state *vm)
                    INTEGER_OP for the special case of division. */
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.integer == 0) {
-                    vm->pending_line = code[4];
+                    SAVE_LINE(+5);
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 }
@@ -2088,7 +2074,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 /* x % 0 will do the same thing as x / 0... */
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.integer == 0) {
-                    vm->pending_line = code[4];
+                    SAVE_LINE(+5);
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 }
@@ -2113,7 +2099,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_double_div:
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.doubleval == 0) {
-                    vm->pending_line = code[4];
+                    SAVE_LINE(+5);
                     vm_error(vm, LILY_DBZERROR_ID,
                             "Attempt to divide by zero.");
                 }
@@ -2271,6 +2257,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_get_item:
+                /* Might raise IndexError or KeyError. */
+                SAVE_LINE(+5);
                 do_o_get_item(vm, code);
                 code += 5;
                 break;
@@ -2279,6 +2267,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 5;
                 break;
             case o_set_item:
+                /* Might raise IndexError or KeyError. */
+                SAVE_LINE(+5);
                 do_o_set_item(vm, code);
                 code += 5;
                 break;
@@ -2369,7 +2359,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code++;
                 break;
             case o_raise:
-                vm->pending_line = code[2];
+                SAVE_LINE(+3);
                 lhs_reg = vm_regs[code[1]];
                 do_o_raise(vm, lhs_reg);
                 code += 3;

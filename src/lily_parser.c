@@ -327,7 +327,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 
     vm->catch_chain = catch_iter;
     vm->exception_value = NULL;
-    vm->pending_line = 0;
 
     lily_call_frame *call_iter = vm->call_chain;
     while (call_iter->prev)
@@ -4812,7 +4811,7 @@ static void build_error(lily_parse_state *parser)
             else
                 lily_mb_add_fmt(msgbuf,
                         "    from %s:%d: in %s%s%s\n",
-                        func->module->path, frame->line_num, class_name,
+                        func->module->path, frame->code[-1], class_name,
                         separator, func_name);
 
             frame = frame->prev;
