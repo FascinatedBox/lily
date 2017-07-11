@@ -2064,17 +2064,8 @@ static int keyword_by_name(const char *name)
 #define ST_WANT_OPERATOR        2
 /* A value is nice, but not required (ex: call arguments). */
 #define ST_WANT_VALUE           3
-/* This is a special value that's passed to expression, but never set by
-   expression internally. If this is initially passed to expression, then ')'
-   can finish the expression.
-   This is needed because otherwise...
-   class Bird(...) > Animal(...)[0]
-                                ^^^
-                                This is allowed. */
-#define ST_MAYBE_END_ON_PARENTH 4
-
-#define ST_DONE                 5
-#define ST_BAD_TOKEN            6
+#define ST_DONE                 4
+#define ST_BAD_TOKEN            5
 /* Normally, the next token is pulled up after an expression_* helper has been
    called. If this is or'd onto the state, then it's assumed that the next token
    has already been pulled up. */
@@ -2528,14 +2519,10 @@ static void expression_dot(lily_parse_state *parser, int *state)
 
 /* This is the magic function that handles expressions. The states it uses are
    defined above. Most callers will use expression instead of this. */
-static void expression_raw(lily_parse_state *parser, int state)
+static void expression_raw(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int maybe_end_on_parenth = 0;
-    if (state == ST_MAYBE_END_ON_PARENTH) {
-        maybe_end_on_parenth = 1;
-        state = ST_WANT_VALUE;
-    }
+    int state = ST_DEMAND_VALUE;
 
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
@@ -2603,13 +2590,7 @@ static void expression_raw(lily_parse_state *parser, int state)
             else {
                 check_valid_close_tok(parser);
                 lily_es_leave_tree(parser->expr);
-                if (maybe_end_on_parenth == 0 ||
-                    lex->token != tk_right_parenth ||
-                    parser->expr->save_depth != 0)
-                    state = ST_WANT_OPERATOR;
-                else {
-                    state = ST_DONE;
-                }
+                state = ST_WANT_OPERATOR;
             }
         }
         else if (lex->token == tk_integer || lex->token == tk_double ||
@@ -2668,7 +2649,7 @@ static void expression_raw(lily_parse_state *parser, int state)
 static void expression(lily_parse_state *parser)
 {
     lily_es_flush(parser->expr);
-    expression_raw(parser, ST_DEMAND_VALUE);
+    expression_raw(parser);
 }
 
 /***
@@ -3077,7 +3058,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
         lily_es_push_binary_op(parser->expr, expr_assign);
         lily_lexer(lex);
-        expression_raw(parser, ST_DEMAND_VALUE);
+        expression_raw(parser);
         lily_emit_eval_expr(parser->emit, parser->expr);
 
         if (lex->token != tk_comma)
@@ -3908,19 +3889,29 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
     lily_lex_state *lex = parser->lex;
     lily_var *class_new = lily_find_method(super_class, "<new>");
 
-    /* There's a small problem here. The idea of being able to pass expressions
-       as well as values is great. However, expression cannot be trusted to
-       collect what's inside of the parentheses because it may allow a subscript
-       afterward.
-       Ex: class Point(integer value) > Parent(value)[0].
-       This is avoided by passing a special flag to expression and calling it
-       directly. */
+    /* It's time to process the constructor to be sent. The constructor function
+       is inserted as a special 'inherited_new' tree. That will let emitter know
+       that generics have to solve as themselves. Such a guarantee ensures that
+       the A of one class is not the B of an upward class.
+
+       Normally it's fine for expressions to go on after a call. But in this
+       case, no expressions should occur after the parentheses.
+
+       ```
+       class Two(value: Integer) > One(value)[0]
+       ```
+
+       Because of the above two requirements, expressions need to be handled
+       directly instead of using a simpler call to expression_raw. */
 
     lily_expr_state *es = parser->expr;
     lily_es_flush(es);
     lily_es_enter_tree(es, tree_call);
     lily_es_push_inherited_new(es, class_new);
     lily_es_collect_arg(es);
+    /* This causes expression to stop on ',' and ')'. It's safe to do this
+       because dynaload doesn't come through here. */
+    es->save_depth = 0;
 
     lily_lexer(parser->lex);
 
@@ -3932,13 +3923,27 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
             lily_raise_syn(parser->raiser,
                     "Empty () not needed here for inherited new.");
 
-        expression_raw(parser, ST_MAYBE_END_ON_PARENTH);
-
-        lily_lexer(lex);
+        while (1) {
+            expression_raw(parser);
+            lily_es_collect_arg(parser->expr);
+            if (lex->token == tk_comma) {
+                lily_lexer(lex);
+                continue;
+            }
+            else if (lex->token == tk_right_parenth) {
+                lily_lexer(lex);
+                break;
+            }
+            else
+                lily_raise_syn(parser->raiser,
+                        "Expected either ',' or ')', not '%s'.\n",
+                        tokname(lex->token));
+        }
     }
-    else
-        lily_es_leave_tree(parser->expr);
 
+    /* Tree exit will drop the depth down by 1, so fix it first. */
+    parser->expr->save_depth = 1;
+    lily_es_leave_tree(parser->expr);
     lily_emit_eval_expr(parser->emit, es);
 }
 
