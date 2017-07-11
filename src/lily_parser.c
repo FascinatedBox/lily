@@ -2595,10 +2595,11 @@ static void expression_raw(lily_parse_state *parser, int state)
         else if (lex->token == tk_right_parenth ||
                  lex->token == tk_right_bracket ||
                  lex->token == tk_tuple_close) {
-            if (state == ST_DEMAND_VALUE ||
-                parser->expr->save_depth == 0) {
+            if (state == ST_DEMAND_VALUE)
                 state = ST_BAD_TOKEN;
-            }
+            else if (state == ST_WANT_OPERATOR &&
+                     parser->expr->save_depth == 0)
+                state = ST_DONE;
             else {
                 check_valid_close_tok(parser);
                 lily_es_leave_tree(parser->expr);
