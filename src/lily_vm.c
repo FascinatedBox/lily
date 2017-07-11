@@ -19,74 +19,6 @@ void lily_value_destroy(lily_value *);
 /* Same here: Safely escape string values for `KeyError`. */
 void lily_mb_escape_add_str(lily_msgbuf *, const char *);
 
-#define INTEGER_OP(OP) \
-lhs_reg = vm_regs[code[1]]; \
-rhs_reg = vm_regs[code[2]]; \
-vm_regs[code[3]]->value.integer = \
-lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[3]]->flags = LILY_INTEGER_ID; \
-code += 5;
-
-#define DOUBLE_OP(OP) \
-lhs_reg = vm_regs[code[1]]; \
-rhs_reg = vm_regs[code[2]]; \
-vm_regs[code[3]]->value.doubleval = \
-lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
-vm_regs[code[3]]->flags = LILY_DOUBLE_ID; \
-code += 5;
-
-/* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
-   The difference is that this will allow op on any type, so long as the lhs
-   and rhs agree on the full type. This allows comparing functions, hashes
-   lists, and more.
-
-   Arguments are:
-   * op:       The operation to perform relative to the values given. This will
-               be substituted like: lhs->value OP rhs->value
-               Do it for string too, but against 0. */
-#define EQUALITY_COMPARE_OP(OP) \
-lhs_reg = vm_regs[code[1]]; \
-rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-} \
-else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
-    vm_regs[code[3]]->value.integer =  \
-    (lhs_reg->value.integer OP rhs_reg->value.integer); \
-} \
-else if (lhs_reg->class_id == LILY_STRING_ID) { \
-    vm_regs[code[3]]->value.integer = \
-    strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) OP 0; \
-} \
-else { \
-    vm->pending_line = code[4]; \
-    vm_regs[code[3]]->value.integer = \
-    lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
-} \
-vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
-code += 5;
-
-#define COMPARE_OP(OP) \
-lhs_reg = vm_regs[code[1]]; \
-rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-} \
-else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.integer OP rhs_reg->value.integer); \
-} \
-else if (lhs_reg->class_id == LILY_STRING_ID) { \
-    vm_regs[code[3]]->value.integer = \
-    strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) OP 0; \
-} \
-vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
-code += 5;
-
 /* Foreign functions set this as their code so that the vm will exit when they
    are to be returned from. */
 static uint16_t foreign_code[1] = {o_return_from_vm};
@@ -1949,6 +1881,74 @@ void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
  *     |_____/_/\_\___|\___|\__,_|\__\___|
  *
  */
+
+#define INTEGER_OP(OP) \
+lhs_reg = vm_regs[code[1]]; \
+rhs_reg = vm_regs[code[2]]; \
+vm_regs[code[3]]->value.integer = \
+lhs_reg->value.integer OP rhs_reg->value.integer; \
+vm_regs[code[3]]->flags = LILY_INTEGER_ID; \
+code += 5;
+
+#define DOUBLE_OP(OP) \
+lhs_reg = vm_regs[code[1]]; \
+rhs_reg = vm_regs[code[2]]; \
+vm_regs[code[3]]->value.doubleval = \
+lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
+vm_regs[code[3]]->flags = LILY_DOUBLE_ID; \
+code += 5;
+
+/* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
+   The difference is that this will allow op on any type, so long as the lhs
+   and rhs agree on the full type. This allows comparing functions, hashes
+   lists, and more.
+
+   Arguments are:
+   * op:       The operation to perform relative to the values given. This will
+               be substituted like: lhs->value OP rhs->value
+               Do it for string too, but against 0. */
+#define EQUALITY_COMPARE_OP(OP) \
+lhs_reg = vm_regs[code[1]]; \
+rhs_reg = vm_regs[code[2]]; \
+if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
+} \
+else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
+    vm_regs[code[3]]->value.integer =  \
+    (lhs_reg->value.integer OP rhs_reg->value.integer); \
+} \
+else if (lhs_reg->class_id == LILY_STRING_ID) { \
+    vm_regs[code[3]]->value.integer = \
+    strcmp(lhs_reg->value.string->string, \
+           rhs_reg->value.string->string) OP 0; \
+} \
+else { \
+    vm->pending_line = code[4]; \
+    vm_regs[code[3]]->value.integer = \
+    lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
+} \
+vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
+code += 5;
+
+#define COMPARE_OP(OP) \
+lhs_reg = vm_regs[code[1]]; \
+rhs_reg = vm_regs[code[2]]; \
+if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
+} \
+else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.integer OP rhs_reg->value.integer); \
+} \
+else if (lhs_reg->class_id == LILY_STRING_ID) { \
+    vm_regs[code[3]]->value.integer = \
+    strcmp(lhs_reg->value.string->string, \
+           rhs_reg->value.string->string) OP 0; \
+} \
+vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
+code += 5;
 
 void lily_vm_execute(lily_vm_state *vm)
 {
