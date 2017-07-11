@@ -514,6 +514,8 @@ void lily_value_tag(lily_vm_state *vm, lily_value *v)
     a register with a seed type of, say, A, into whatever it should be for the
     given invocation. **/
 
+static void vm_error(lily_vm_state *, uint8_t, const char *);
+
 /* A function has checked and knows it doesn't have enough size left. Ensure
    that there are 'size' more empty spots available. This grows by powers of 2
    so that grows are not frequent.
@@ -559,6 +561,27 @@ static void grow_vm_registers(lily_vm_state *vm, int need)
         frame->register_end = end;
         frame = frame->next;
     }
+}
+
+static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
+{
+    lily_call_frame *current_frame = vm->call_chain;
+    if (current_frame->next == NULL) {
+        if (vm->call_depth > 100)
+            vm_error(vm, LILY_RUNTIMEERROR_ID,
+                    "Function call recursion limit reached.");
+        add_call_frame(vm);
+    }
+
+    int i = code[3];
+    current_frame->line_num = code[1];
+    current_frame->code = code + i + 5;
+
+    lily_call_frame *next_frame = current_frame->next;
+    next_frame->start = current_frame->top;
+    next_frame->line_num = -1;
+    next_frame->code = NULL;
+    next_frame->return_target = current_frame->start[code[i + 4]];
 }
 
 static void prep_registers(lily_call_frame *frame, uint16_t *code)
@@ -2123,53 +2146,31 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 foreign_func_body: ;
 
-                if (current_frame->next == NULL) {
-                    if (vm->call_depth > 100)
-                        vm_error(vm, LILY_RUNTIMEERROR_ID,
-                                "Function call recursion limit reached.");
-                    add_call_frame(vm);
-                }
-
-                next_frame = current_frame->next;
+                vm_setup_before_call(vm, code);
 
                 i = code[3];
-                current_frame->line_num = code[1];
-                current_frame->code = code + i + 5;
 
-                next_frame->start = current_frame->top;
-                next_frame->top = next_frame->start + i;
+                next_frame = current_frame->next;
                 next_frame->function = fval;
-                next_frame->line_num = -1;
-                next_frame->code = NULL;
-                next_frame->return_target = vm_regs[code[i + 4]];
+                next_frame->top = next_frame->start + i;
 
                 if (next_frame->top >= next_frame->register_end) {
                     vm->call_chain = next_frame;
                     grow_vm_registers(vm, i + 1);
                 }
 
-                lily_foreign_func func = fval->foreign_func;
-
-                /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);
+
                 vm_regs = next_frame->start;
-
-                /* !PAST HERE TARGETS THE NEW FRAME! */
-
-                current_frame = next_frame;
-                vm->call_chain = current_frame;
-
+                vm->call_chain = next_frame;
                 vm->call_depth++;
-                func(vm);
 
-                current_frame = current_frame->prev;
+                fval->foreign_func(vm);
 
-                vm_regs = current_frame->start;
-
-                vm->call_chain = current_frame;
-
-                code += 5 + i;
                 vm->call_depth--;
+                vm->call_chain = current_frame;
+                vm_regs = current_frame->start;
+                code = current_frame->code;
 
                 break;
             case o_native_call: {
@@ -2177,42 +2178,24 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 native_func_body: ;
 
-                if (current_frame->next == NULL) {
-                    if (vm->call_depth > 100)
-                        vm_error(vm, LILY_RUNTIMEERROR_ID,
-                                "Function call recursion limit reached.");
-                    add_call_frame(vm);
-                }
+                vm_setup_before_call(vm, code);
 
                 next_frame = current_frame->next;
-
-                i = code[3];
-                current_frame->line_num = code[1];
-                current_frame->code = code + i + 5;
-
-                next_frame->start = current_frame->top;
-                next_frame->top = next_frame->start + fval->reg_count;
                 next_frame->function = fval;
-                next_frame->line_num = -1;
-                next_frame->code = NULL;
-                next_frame->return_target = vm_regs[code[i + 4]];
+                next_frame->top = next_frame->start + fval->reg_count;
 
                 if (next_frame->top >= next_frame->register_end) {
                     vm->call_chain = next_frame;
                     grow_vm_registers(vm, fval->reg_count);
                 }
 
-                /* Prepare the registers for what the function wants. */
                 prep_registers(current_frame, code);
-
-                vm_regs = next_frame->start;
-
-                /* !PAST HERE TARGETS THE NEW FRAME! */
 
                 current_frame = current_frame->next;
                 vm->call_chain = current_frame;
-
                 vm->call_depth++;
+
+                vm_regs = current_frame->start;
                 code = fval->code;
                 upvalues = fval->upvalues;
 
