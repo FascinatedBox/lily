@@ -4700,7 +4700,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
         }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             if (in_template == 0 && lex->token == tk_end_tag)
-                lily_raise_syn(parser->raiser, "Unexpected token %s.",
+                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(lex->token));
 
             if (parser->emit->block->prev != NULL) {
@@ -4732,7 +4732,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
         else
-            lily_raise_syn(parser->raiser, "Unexpected token %s.",
+            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                        tokname(lex->token));
     }
 }
