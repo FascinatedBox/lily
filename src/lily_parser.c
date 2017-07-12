@@ -997,6 +997,7 @@ static lily_type *get_type_raw(lily_parse_state *, int);
 static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
 static lily_prop_entry *get_named_property(lily_parse_state *, int);
+static void expression_raw(lily_parse_state *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -1012,78 +1013,15 @@ static lily_prop_entry *get_named_property(lily_parse_state *, int);
    optional value. */
 static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
 {
-    lily_lex_state *lex = parser->lex;
-    lily_symtab *symtab = parser->symtab;
-    lily_token expect;
-    lily_buffer_u16 *data_stack = parser->data_stack;
-    lily_class *cls = var->type->cls;
+    /* This saves either the expression before optargs runs, or the previous
+       optarg expression. The last expression will be saved by whatever function
+       ends up writing optargs. */
+    lily_es_checkpoint_save(parser->expr);
 
-    if (cls == symtab->integer_class)
-        expect = tk_integer;
-    else if (cls == symtab->double_class)
-        expect = tk_double;
-    else if (cls == symtab->string_class)
-        expect = tk_double_quote;
-    else if (cls == symtab->byte_class)
-        expect = tk_byte;
-    else if (cls == symtab->bytestring_class)
-        expect = tk_bytestring;
-    else
-        expect = tk_word;
-
-    NEED_CURRENT_TOK(tk_equal)
-    NEED_NEXT_TOK(expect)
-
-    lily_u16_write_1(data_stack, var->reg_spot);
-
-    if (cls == symtab->boolean_class) {
-        int key_id = constant_by_name(lex->label);
-        if (key_id != CONST_TRUE && key_id != CONST_FALSE)
-            lily_raise_syn(parser->raiser,
-                    "'%s' is not a valid default value for a Boolean.",
-                    lex->label);
-
-        lily_u16_write_2(data_stack, o_get_boolean, key_id == CONST_TRUE);
-    }
-    else if (expect == tk_word) {
-        if (cls->flags & CLS_ENUM_IS_SCOPED) {
-            if (strcmp(cls->name, lex->label) != 0)
-                lily_raise_syn(parser->raiser,
-                        "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
-                        cls->name, lex->label, cls->name);
-
-            NEED_NEXT_TOK(tk_dot)
-            NEED_NEXT_TOK(tk_word)
-        }
-
-        lily_variant_class *variant = lily_find_variant(cls, lex->label);
-        if (variant == NULL)
-            lily_raise_syn(parser->raiser,
-                    "'%s' does not have a variant named '%s'.", cls->name, lex->label);
-
-        if ((variant->flags & CLS_EMPTY_VARIANT) == 0)
-            lily_raise_syn(parser->raiser,
-                    "Only variants that take no arguments can be default arguments.");
-
-        lily_u16_write_2(data_stack, o_get_empty_variant, variant->cls_id);
-    }
-    else if (expect == tk_byte)
-        lily_u16_write_2(data_stack, o_get_byte, (uint8_t)lex->last_integer);
-    else if (expect != tk_integer) {
-        lily_u16_write_2(data_stack, o_get_readonly,
-                lex->last_literal->reg_spot);
-    }
-    else if (lex->last_integer <= INT16_MAX &&
-             lex->last_integer >= INT16_MIN) {
-        lily_u16_write_2(data_stack, o_get_integer,
-                (uint16_t)lex->last_integer);
-    }
-    else {
-        lily_literal *lit = lily_get_integer_literal(symtab, lex->last_integer);
-        lily_u16_write_2(data_stack, o_get_readonly, lit->reg_spot);
-    }
-
-    lily_lexer(lex);
+    lily_es_push_local_var(parser->expr, var);
+    lily_es_push_binary_op(parser->expr, expr_assign);
+    lily_lexer(parser->lex);
+    expression_raw(parser);
 }
 
 /* This takes a class that takes a single subtype and creates a new type which
@@ -1163,33 +1101,29 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 
     /* get_type ends with a call to lily_lexer, so don't call that again. */
 
-    if (*flags & TYPE_HAS_OPTARGS) {
-        if ((type->cls->flags & CLS_VALID_OPTARG) == 0)
-            lily_raise_syn(parser->raiser,
-                    "Type '^T' cannot have a default value.", type);
-
-        type = make_type_of_class(parser, parser->symtab->optarg_class, type);
-    }
-    else if (lex->token == tk_three_dots) {
-        type = make_type_of_class(parser, parser->symtab->list_class, type);
-
-        lily_lexer(lex);
-        /* Varargs can't be optional, and they have to be at the end. So the
-           next thing should be either ')' to close, or an '=>' to designate
-           the return type. */
-        if (lex->token != tk_arrow && lex->token != tk_right_parenth)
-            lily_raise_syn(parser->raiser,
-                    "Expected either '=>' or ')' after varargs.");
-
-        *flags |= TYPE_IS_VARARGS;
-    }
-    else if (type->flags & TYPE_HAS_SCOOP) {
+    if (type->flags & TYPE_HAS_SCOOP) {
         if ((*flags & F_SCOOP_OK) == 0)
             lily_raise_syn(parser->raiser,
                     "Numeric scooping types only available to the backend.");
 
         *flags |= TYPE_HAS_SCOOP;
     }
+
+    if (lex->token == tk_three_dots) {
+        type = make_type_of_class(parser, parser->symtab->list_class, type);
+
+        lily_lexer(lex);
+        if (lex->token != tk_arrow &&
+            lex->token != tk_right_parenth &&
+            lex->token != tk_equal)
+            lily_raise_syn(parser->raiser,
+                    "Expected either '=>' or ')' after varargs.");
+
+        *flags |= TYPE_IS_VARARGS;
+    }
+
+    if (*flags & TYPE_HAS_OPTARGS)
+        type = make_type_of_class(parser, parser->symtab->optarg_class, type);
 
     return type;
 }
@@ -2090,6 +2024,12 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             lily_raise_syn(parser->raiser,
                     "Class %s does not have a constructor.", cls->name);
 
+        /* This happens when an optional argument of a constructor tries to use
+           that same constructor. */
+        if (target->flags & SYM_NOT_INITIALIZED)
+            lily_raise_syn(parser->raiser,
+                    "Constructor for class %s is not initialized.", cls->name);
+
         lily_es_push_static_func(parser->expr, (lily_var *)target);
         *state = ST_FORWARD | ST_WANT_OPERATOR;
         return;
@@ -2784,6 +2724,23 @@ static int collect_lambda_args(lily_parse_state *parser,
     return num_args;
 }
 
+/* Make sure that this lambda isn't the default value for an optional argument.
+   This prevents 'creative' uses of optional arguments. */
+static void ensure_not_in_optargs(lily_parse_state *parser, int line)
+{
+    lily_block *block = parser->emit->block;
+
+    if (block->block_type != block_define &&
+        block->block_type != block_class)
+        return;
+
+    if (block->patch_start != lily_u16_pos(parser->emit->patches)) {
+        parser->lex->line_num = line;
+        lily_raise_syn(parser->raiser,
+                "Optional arguments are not allowed to use lambdas.");
+    }
+}
+
 /* This is the main workhorse of lambda handling. It takes the lambda body and
    works through it. This is fairly complicated, because this happens during
    tree eval. As such, the current state has to be saved and a lambda has to be
@@ -2795,6 +2752,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
+
+    ensure_not_in_optargs(parser, lambda_start_line);
 
     /* Process the lambda as if it were a file with a slightly adjusted
        starting line number. The line number is patched so that multi-line
@@ -3090,6 +3049,26 @@ static void ensure_unique_method_name(lily_parse_state *parser,
     }
 }
 
+static void send_optargs_for(lily_parse_state *parser, lily_type *type)
+{
+    int count, i;
+
+    lily_emit_write_optarg_header(parser->emit, type, &count);
+    lily_es_checkpoint_save(parser->expr);
+
+    /* This reorders optarg expressions to be last to first, so they can be
+       popped. */
+    lily_es_checkpoint_reverse_n(parser->expr, count);
+
+    for (i = 0;i < count;i++) {
+        lily_es_checkpoint_restore(parser->expr);
+        lily_emit_eval_optarg(parser->emit, parser->expr->root);
+    }
+
+    /* Restore the original expression. */
+    lily_es_checkpoint_restore(parser->expr);
+}
+
 static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
@@ -3111,10 +3090,12 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
     lily_var *define_var = new_native_define_var(parser, parent, lex->label,
             lex->line_num);
 
+    /* This prevents optargs from using function they're declared in. */
+    define_var->flags |= SYM_NOT_INITIALIZED;
+
     int i = 0;
     int arg_flags = 0;
     int result_pos = parser->tm->pos;
-    int data_start = parser->data_stack->pos;
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
@@ -3186,8 +3167,10 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
     define_var->type = lily_tm_make(parser->tm, arg_flags,
             parser->symtab->function_class, i + 1);
 
-    if (lily_u16_pos(parser->data_stack) != data_start)
-        lily_emit_write_optargs(parser->emit, parser->data_stack, data_start);
+    if (define_var->type->flags & TYPE_HAS_OPTARGS)
+        send_optargs_for(parser, define_var->type);
+
+    define_var->flags &= ~SYM_NOT_INITIALIZED;
 
     return define_var;
 }
@@ -3958,6 +3941,9 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_var *call_var = new_native_define_var(parser, cls, "<new>",
             lex->line_num);
 
+    /* Prevent optargs from using this function. */
+    call_var->flags |= SYM_NOT_INITIALIZED;
+
     lily_lexer(lex);
     collect_generics(parser);
     cls->generic_count = lily_gp_num_in_scope(parser->generics);
@@ -3968,7 +3954,6 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     int i = 1;
     int flags = 0;
-    int data_start = parser->data_stack->pos;
     lily_tm_add(parser->tm, parser->class_self_type);
 
     if (lex->token == tk_left_parenth) {
@@ -4011,8 +3996,10 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_emit_write_class_header(parser->emit, parser->class_self_type,
             lex->line_num);
 
-    if (lily_u16_pos(parser->data_stack) != data_start)
-        lily_emit_write_optargs(parser->emit, parser->data_stack, data_start);
+    if (call_var->type->flags & TYPE_HAS_OPTARGS)
+        send_optargs_for(parser, call_var->type);
+
+    call_var->flags &= ~SYM_NOT_INITIALIZED;
 
     if (cls->members)
         lily_emit_write_shorthand_ctor(parser->emit, cls,
@@ -4269,8 +4256,6 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
         lily_lexer(lex);
         if (lex->token == tk_left_parenth)
             parse_variant_header(parser, variant_cls);
-        else
-            enum_cls->flags |= CLS_VALID_OPTARG;
 
         if (lex->token == tk_right_curly)
             break;

@@ -135,6 +135,7 @@ void lily_free_emit_state(lily_emit_state *emit)
 static lily_storage *get_storage(lily_emit_state *, lily_type *);
 static lily_block *find_deepest_loop(lily_emit_state *);
 static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
+static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
 /* This is called from parser to get emitter to write a function call targeting
    a var. The var should always be an __import__ function. */
@@ -145,78 +146,82 @@ void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
             *emit->lex_linenum);
 }
 
-/* This takes the stack of optional arguments and writes out the jumping
-   necessary at the top. */
-void lily_emit_write_optargs(lily_emit_state *emit, lily_buffer_u16 *optargs,
-        int start)
+void lily_emit_eval_optarg(lily_emit_state *emit, lily_ast *ast)
 {
-    /* Optarg values are sent in sets of three:
-     * [0] is the source register position
-     * [1] is the opcode used to write data
-     * [2] is the value for the opcode.
+    eval_tree(emit, ast, NULL);
+    emit->expr_num++;
+
+    uint16_t patch_spot = lily_u16_pop(emit->patches);
+
+    lily_u16_set_at(emit->code, patch_spot,
+            lily_u16_pos(emit->code) - patch_spot + 1);
+}
+
+void lily_emit_write_optarg_header(lily_emit_state *emit, lily_type *type,
+        int *count)
+{
+    /* Optargs are always together and always after any required arguments.
+       This figures out where they start, and begins writing o_jump_if_not_class
+       instructions. As it goes along, jumps are written to target the
+       initialization expressions that optargs wrote. Given this:
 
        ```
        define f(a: *Integer=0, b: *String="", c: *Option[Integer]=None)
        ```
 
-       The code here takes advantage of the vm making sure that uninitialized
-       values have their id set to class 0. This allows testing for class 0 as a
-       means of determining if a value is unset.
-
-       Arguments start from the left (a). What this does is to write a series of
-       checks from right to left (c to a). It ends up looking like this:
-
+       The result looks like:
 
        if a is set
            if b is set
                if c is set
                    jump to done
                else
-                   jump to set c
+                   jump to init c
            else
-               jump to set b
+               jump to init b
        else
-           jump to set a
+           jump to init a
 
-       assign a
-       assign b
-       assign c
+       init a
+       init b
+       init c
        */
 
-    uint16_t line_num = *emit->lex_linenum;
-    uint16_t *buffer = optargs->data;
-    int optarg_patch_pos = lily_u16_pos(emit->patches);
-
     int i;
-    for (i = start; i < optargs->pos; i += 3) {
+    for (i = type->subtype_count - 1;i > 0;i--) {
+        lily_type *inner = type->subtypes[i];
+        if (inner->cls->id != LILY_OPTARG_ID)
+            break;
+    }
+
+    int patch_start = lily_u16_pos(emit->patches);
+    uint16_t first_reg = (uint16_t)i;
+
+    i = type->subtype_count - i - 1;
+
+    for (;i > 0;i--, first_reg++) {
         /* If this value is NOT unset, jump to the next test. */
-        lily_u16_write_4(emit->code, o_jump_if_not_class, buffer[i], 0, 6);
+        lily_u16_write_4(emit->code, o_jump_if_not_class, first_reg, 0, 6);
 
         /* Otherwise jump to the assign table. */
         lily_u16_write_2(emit->code, o_jump, 1);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+        lily_u16_inject(emit->patches, patch_start,
+                lily_u16_pos(emit->code) - 1);
     }
+
+    *count = lily_u16_pos(emit->patches) - patch_start;
 
     /* Write one final jump for when all branches succeed. */
     lily_u16_write_2(emit->code, o_jump, 1);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    lily_u16_inject(emit->patches, patch_start,
+            lily_u16_pos(emit->code) - 1);
 
-    for (i = start; i < optargs->pos; i += 3, optarg_patch_pos++) {
-        uint16_t target_reg = buffer[i];
-        uint16_t opcode = buffer[i + 1];
-        uint16_t value = buffer[i + 2];
+    /* Patches are injected making them first in first out (instead of last
+       out). The first patch is a jump to 'init a', which happens when none of
+       the optarg values are set. That's right now, so that patch can be taken
+       care of. */
 
-        /* Fix the jump to go to this part in the assign set. */
-        uint16_t patch_spot = lily_u16_get(emit->patches, optarg_patch_pos);
-
-        lily_u16_set_at(emit->code, patch_spot,
-                lily_u16_pos(emit->code) - patch_spot + 1);
-
-        lily_u16_write_4(emit->code, opcode, value, target_reg, line_num);
-    }
-
-    uint16_t patch_spot = lily_u16_get(emit->patches, optarg_patch_pos);
-
+    uint16_t patch_spot = lily_u16_pop(emit->patches);
     lily_u16_set_at(emit->code, patch_spot,
             lily_u16_pos(emit->code) - patch_spot + 1);
 }
@@ -2152,7 +2157,6 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
  *
  */
 
-static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 static void emit_op_for_compound(lily_emit_state *, lily_ast *);
 
 /** Member access for classes is quite annoying. The parser doesn't have type
@@ -3244,8 +3248,6 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
     *min = call_type->subtype_count - 1;
     *max = *min;
 
-    /* For now, it's currently not possible to have a function that has optional
-       arguments and variable arguments too. */
     if (call_type->flags & TYPE_HAS_OPTARGS) {
         int i;
         for (i = 1;i < call_type->subtype_count;i++) {
@@ -3254,9 +3256,12 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
         }
         *min = i - 1;
     }
-    else if (call_type->flags & TYPE_IS_VARARGS) {
+
+    if (call_type->flags & TYPE_IS_VARARGS) {
         *max = (unsigned int)-1;
-        *min = *min - 1;
+
+        if ((call_type->flags & TYPE_HAS_OPTARGS) == 0)
+            *min = *min - 1;
     }
 }
 
@@ -3473,10 +3478,25 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *vararg_s = NULL;
 
-    if (call_type->flags & TYPE_IS_VARARGS) {
+    /* The second check prevents running varargs when there are unfilled
+       optional arguments that come before the varargs. */
+    if (call_type->flags & TYPE_IS_VARARGS &&
+        (num_args + 2) >= call_type->subtype_count) {
+
         /* Don't solve this yet, because eval_call_arg solves it (and double
            solving is bad). */
-        lily_type *vararg_type = arg_types[i + 1]->subtypes[0];
+        lily_type *vararg_type = arg_types[i + 1];
+        int is_optarg = 0;
+
+        /* Varargs are presented as a `List` of their inner values, so use
+           subtypes[0] to get the real type. If this vararg is optional, then do
+           a double unwrap. */
+        if (vararg_type->cls->id == LILY_OPTARG_ID) {
+            is_optarg = 1;
+            vararg_type = vararg_type->subtypes[0]->subtypes[0];
+        }
+        else
+            vararg_type = vararg_type->subtypes[0];
 
         lily_ast *vararg_iter = arg;
 
@@ -3492,12 +3512,14 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
         if (vararg_type->flags & TYPE_IS_UNRESOLVED)
             vararg_type = lily_ts_resolve(emit->ts, vararg_type);
 
-        vararg_s = get_storage(emit, vararg_type);
-        lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
-        for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
-            lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
+        if (vararg_i != i || is_optarg == 0) {
+            vararg_s = get_storage(emit, vararg_type);
+            lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
+            for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
+                lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
 
-        lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
+            lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
+        }
     }
 
     setup_call_result(emit, ast, arg_types[0]);

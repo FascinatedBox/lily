@@ -300,7 +300,7 @@ t.interpret_for_error("Require that 'match' starts with a case.",
 
 t.interpret_for_error("Forbid optarg using a bare variant for a scoped enum.",
     """\
-    SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.\n    \
+    SyntaxError: One has not been declared.\n    \
         from test\/[subinterp]:6:\
     """,
     """\

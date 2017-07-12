@@ -173,6 +173,25 @@ void lily_es_checkpoint_restore(lily_expr_state *es)
     es->first_tree = checkpoint->first_tree;
 }
 
+/* This is called by parser before evaluating optional arguments. Optional
+   argument expressions need to be evaluated from first to last, but they're in
+   last to first order. This flips them into order so that checkpoint restore
+   can be used.
+   Note that optargs starts by saving the initial expression, which does not get
+   included in the rotation. */
+void lily_es_checkpoint_reverse_n(lily_expr_state *es, int count)
+{
+    int to = es->checkpoint_pos - 1;
+    int from = to - count + 1;
+    int range = (to + 1 - from) / 2;
+
+    for (;range;range--, from++, to--) {
+        lily_ast_checkpoint_entry *temp = es->checkpoints[from];
+        es->checkpoints[from] = es->checkpoints[to];
+        es->checkpoints[to] = temp;
+    }
+}
+
 static void add_new_tree(lily_expr_state *es)
 {
     lily_ast *new_tree = lily_malloc(sizeof(*new_tree));

@@ -3390,11 +3390,8 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     scoop1->self_type->flags |= TYPE_HAS_SCOOP;
     scoop2->self_type->flags |= TYPE_HAS_SCOOP;
 
-    symtab->integer_class->flags    |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
-    symtab->double_class->flags     |= CLS_VALID_OPTARG;
-    symtab->string_class->flags     |= CLS_VALID_OPTARG | CLS_VALID_HASH_KEY;
-    symtab->bytestring_class->flags |= CLS_VALID_OPTARG;
-    symtab->boolean_class->flags    |= CLS_VALID_OPTARG;
+    symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
+    symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
 
     /* These need to be set here so type finalization can bubble them up. */
     symtab->question_class->self_type->flags |= TYPE_IS_INCOMPLETE;

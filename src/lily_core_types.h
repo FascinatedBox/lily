@@ -290,23 +290,22 @@ typedef struct lily_module_entry_ {
    not conflict with TYPE_* fields. */
 
 
-#define CLS_VALID_HASH_KEY 0x001
-#define CLS_VALID_OPTARG   0x002
-#define CLS_IS_ENUM        0x004
+#define CLS_VALID_HASH_KEY 0x01
+#define CLS_IS_ENUM        0x02
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x008
-#define CLS_EMPTY_VARIANT  0x010
+#define CLS_ENUM_IS_SCOPED 0x04
+#define CLS_EMPTY_VARIANT  0x08
 /* This class can become circular, so instances must have a gc tag. */
-#define CLS_GC_TAGGED      0x020
+#define CLS_GC_TAGGED      0x10
 /* This class might have circular data inside of it. */
-#define CLS_GC_SPECULATIVE 0x040
+#define CLS_GC_SPECULATIVE 0x20
 /* This class does not have an inheritable representation. */
-#define CLS_IS_BUILTIN     0x080
+#define CLS_IS_BUILTIN     0x40
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
-#define CLS_VISITED        0x100
+#define CLS_VISITED        0x80
 
 /* TYPE_* defines are for lily_type.
    Since classes without generics can act as their own type, these flags start

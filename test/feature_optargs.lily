@@ -111,3 +111,40 @@ t.interpret("Class constructor with optional non-shorthand arguments.",
     Point(1)
     Point(1, 1)
     """)
+
+t.interpret("Function with optargs and varargs.",
+    """
+    define f(a: *Integer...=[1, 2, 3]): List[Integer] { return a }
+
+    if f() != [1, 2, 3]:
+        raise Exception("Empty case failed.")
+
+    if f(3, 2, 1) != [3, 2, 1]:
+        raise Exception("Non-empty case failed.")
+    """)
+
+t.interpret("Function with optargs and varargs.",
+    """
+    define f(a: *Integer...=[1, 2, 3]): List[Integer] { return a }
+
+    define g(a: Function(*Integer... => List[Integer])) {
+        if a() != [1, 2, 3]:
+            raise Exception("Parameter empty case failed.")
+
+        if a(3, 2, 1) != [3, 2, 1]:
+            raise Exception("Parameter non-empty case failed.")
+    }
+
+    g(f)
+    """)
+
+t.interpret("Function with one optarg before varargs.",
+    """
+    define f(a: Integer, b: *Integer = 10, c: *Integer...=[]) {
+
+    }
+
+    f(1)
+    f(1, 2)
+    f(1, 2, 3, 4, 5)
+    """)

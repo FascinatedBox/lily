@@ -171,6 +171,7 @@ typedef struct lily_expr_state_ {
 void lily_es_flush(lily_expr_state *);
 void lily_es_checkpoint_save(lily_expr_state *);
 void lily_es_checkpoint_restore(lily_expr_state *);
+void lily_es_checkpoint_reverse_n(lily_expr_state *, int);
 
 void lily_es_collect_arg(lily_expr_state *);
 void lily_es_enter_tree(lily_expr_state *, lily_tree_type);
