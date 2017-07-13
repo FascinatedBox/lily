@@ -1058,9 +1058,17 @@ static void ensure_params_in_closure(lily_emit_state *emit)
         return;
 
     lily_var *var_iter = emit->symtab->active_module->var_chain;
-    while (var_iter != function_var) {
-        if (var_iter->flags & SYM_CLOSED_OVER &&
-            var_iter->reg_spot < local_count) {
+
+    while (1) {
+        if (var_iter->reg_spot == (local_count - 1) &&
+            var_iter->function_depth == emit->function_depth)
+            break;
+
+        var_iter = var_iter->next;
+    }
+
+    for (;local_count;local_count--, var_iter = var_iter->next) {
+        if (var_iter->flags & SYM_CLOSED_OVER) {
             /* Make absolutely sure that a parameter that has been closed over
                is present in the closure by forcing a write. It might be a
                useless write, but that's hard to discover. Best to be safe. */
@@ -1068,8 +1076,6 @@ static void ensure_params_in_closure(lily_emit_state *emit)
                     find_closed_sym_spot(emit, (lily_sym *)var_iter),
                     var_iter->reg_spot, function_var->line_num);
         }
-
-        var_iter = var_iter->next;
     }
 }
 
