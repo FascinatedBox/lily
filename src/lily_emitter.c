@@ -554,7 +554,7 @@ uint16_t lily_emit_get_storage_spot(lily_emit_state *emit, lily_type *type)
  */
 
 static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
-static lily_function_val *create_code_block_for(lily_emit_state *, lily_block *);
+static void write_final_code_for_block(lily_emit_state *, lily_block *);
 
 /** The emitter's blocks keep track of the current context of things. Is the
     current block an if with or without an else? Where do storages start? Were
@@ -644,18 +644,11 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     emit->block = new_block;
 }
 
-/* This is called when a function-like block is exiting. The function value
-   that the block needs is made, the register info is made, and storages are
-   freed up. */
+/* This is called when the function block is exiting. This drops the vars inside
+   and clears out the inner storages. */
 static void finalize_function_block(lily_emit_state *emit,
         lily_block *function_block)
 {
-    /* This must run before the rest, because if this call needs to be a
-       closure, it will require a unique storage. */
-    lily_function_val *f = create_code_block_for(emit, function_block);
-
-    int register_count = emit->function_block->next_reg_spot;
-
     if (emit->function_depth > 1) {
         lily_var *var_stop = function_block->function_var;
         /* todo: Reuse the var shells instead of destroying. Seems petty, but
@@ -686,16 +679,30 @@ static void finalize_function_block(lily_emit_state *emit,
     }
 
     emit->storages->scope_end = function_block->storage_start;
-    f->reg_count = register_count;
 }
 
 void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
         uint16_t line_num)
 {
-    if (emit->block->block_type == block_class)
+    lily_block *function_block = emit->block;
+
+    if (function_block->block_type == block_class) {
+        int class_flags = function_block->class_entry->flags;
+
+        if (class_flags & (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)) {
+            uint16_t opcode;
+            if (class_flags & CLS_GC_SPECULATIVE)
+                opcode = o_new_instance_speculative;
+            else
+                opcode = o_new_instance_tagged;
+
+            lily_u16_set_at(emit->code, function_block->code_start, opcode);
+        }
+
         lily_u16_write_3(emit->code, o_return_val, emit->block->self->reg_spot,
                 line_num);
-    else if (emit->block->last_exit != lily_u16_pos(emit->code)) {
+    }
+    else if (function_block->last_exit != lily_u16_pos(emit->code)) {
         type = type->subtypes[0];
 
         if (type == lily_unit_type ||
@@ -705,24 +712,12 @@ void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
             lily_raise_syn(emit->raiser,
                     "Missing return statement at end of function.");
     }
+
+    write_final_code_for_block(emit, function_block);
 }
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    if (block->block_type == block_class) {
-        int class_flags = block->class_entry->flags;
-
-        if (class_flags & (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)) {
-            uint16_t opcode;
-            if (class_flags & CLS_GC_SPECULATIVE)
-                opcode = o_new_instance_speculative;
-            else
-                opcode = o_new_instance_tagged;
-
-            lily_u16_set_at(emit->code, block->code_start, opcode);
-        }
-    }
-
     finalize_function_block(emit, block);
 
     /* If this function was the .new for a class, move it over into that class
@@ -740,26 +735,12 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
     /* For file 'blocks', don't fix the var_chain or all of the toplevel
        functions in that block will vanish! */
 
-    lily_block *prev_function_block = block->prev_function_block;
-
-    emit->function_block = prev_function_block;
-
-    lily_u16_set_pos(emit->code, block->code_start);
+    emit->function_block = block->prev_function_block;
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
-    if (block->block_type != block_file) {
+    if (block->block_type != block_file)
         emit->function_depth--;
-
-        /* If this function needs a closure, then make sure the parent will end
-           up making a closure to pass downward. But don't bubble that flag up
-           to __import__ or __main__, which are never closures. */
-        if (block->make_closure == 1 &&
-            prev_function_block->block_type != block_file &&
-            prev_function_block->prev != NULL) {
-            emit->function_block->make_closure = 1;
-        }
-    }
 }
 
 /* This leaves the current block. If there is a function-like entity that has
@@ -1447,7 +1428,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 /* This makes the function value that will be needed by the current code
    block. If the current function is a closure, then the appropriate transform
    is done to it. */
-static lily_function_val *create_code_block_for(lily_emit_state *emit,
+static void write_final_code_for_block(lily_emit_state *emit,
         lily_block *function_block)
 {
     lily_var *var = function_block->function_var;
@@ -1464,7 +1445,12 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
         source = emit->code->data;
     }
     else {
+        lily_block *prev = function_block->prev_function_block;
+
         perform_closure_transform(emit, function_block, f);
+
+        if (prev->block_type != block_file)
+            prev->make_closure = 1;
 
         code_start = 0;
         code_size = lily_u16_pos(emit->closure_aux_code);
@@ -1476,7 +1462,9 @@ static lily_function_val *create_code_block_for(lily_emit_state *emit,
 
     f->code_len = code_size;
     f->code = code;
-    return f;
+    f->reg_count = function_block->next_reg_spot;
+
+    lily_u16_set_pos(emit->code, function_block->code_start);
 }
 
 /***
