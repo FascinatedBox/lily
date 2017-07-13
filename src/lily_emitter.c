@@ -3202,8 +3202,6 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
  *
  */
 
-static void eval_variant(lily_emit_state *emit, lily_ast *, lily_type *);
-
 /** Lily allows the following kinds of calls:
 
     * x()
@@ -3575,9 +3573,15 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                case. */
             first_arg->result = first_arg->arg_start->result;
             break;
-        case tree_variant:
+        case tree_variant: {
+            lily_variant_class *variant = first_arg->variant;
+            if (variant->flags & CLS_EMPTY_VARIANT)
+                lily_raise_syn(emit->raiser, "Variant %s should not get args.",
+                        variant->name);
+
             *call_type = first_arg->variant->build_type;
             break;
+        }
         default:
             eval_tree(emit, ast->arg_start, NULL);
             call_sym = (lily_sym *)ast->arg_start->result;
@@ -3597,8 +3601,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
 
 /* This does everything a call needs from start to finish. At the end of this,
    the 'ast' given will have a result set and code written. */
-static void process_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect)
+static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     lily_type *call_type = NULL;
     begin_call(emit, ast, expect, &call_type);
@@ -3635,81 +3638,44 @@ static void process_call(lily_emit_state *emit, lily_ast *ast,
     lily_ts_scope_restore(emit->ts, &p);
 }
 
-/* This is the gateway to call handling, though much of the work is done by
-   other functions. */
-static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
-{
-    lily_tree_type first_tt = ast->arg_start->tree_type;
-
-    if (first_tt == tree_variant) {
-        eval_variant(emit, ast, expect);
-        return;
-    }
-
-    process_call(emit, ast, expect);
-}
-
-
-/* This evaluates a variant type. Variant types are interesting because some of
-   them take arguments (and thus look like calls). However, for the sake of
-   simplicity, they're actually tuples with a different name and in a box (the
-   enum). */
+/* This handles variants that are used when they don't receive arguments. Any
+   variants that are passed arguments are handled by call processing. */
 static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    /* tree_binary is only if the caller is really |>. */
-    if (ast->tree_type == tree_call || ast->tree_type == tree_binary) {
-        /* The first arg is actually the variant. */
-        lily_ast *variant_tree = ast->arg_start;
-        lily_variant_class *variant = variant_tree->variant;
-
-        if (variant->flags & CLS_EMPTY_VARIANT)
-            lily_raise_syn(emit->raiser, "Variant %s should not get args.",
-                    variant->name);
-
-        process_call(emit, ast, expect);
-    }
-    else {
-        lily_variant_class *variant = ast->variant;
-        /* Did this need arguments? It was used incorrectly if so. */
-        if ((variant->flags & CLS_EMPTY_VARIANT) == 0) {
-            unsigned int min, max;
-            get_func_min_max(variant->build_type, &min, &max);
-            error_argument_count(emit, ast, -1, min, max);
-        }
-
-        lily_u16_write_2(emit->code, o_get_empty_variant, variant->cls_id);
-
-        lily_type *storage_type;
-
-        if (variant->parent->generic_count) {
-            lily_type *self_type = variant->parent->self_type;
-            lily_ts_save_point p;
-            lily_ts_scope_save(emit->ts, &p);
-
-            /* Since the variant has no opinion on generics, try to pull any
-               inference possible before defaulting to ?. */
-            if (expect && expect->cls == variant->parent)
-                lily_ts_check(emit->ts, self_type, expect);
-
-            storage_type = lily_ts_resolve_with(emit->ts, self_type,
-                    emit->ts->question_class_type);
-
-            lily_ts_scope_restore(emit->ts, &p);
-        }
-        else
-            storage_type = variant->parent->self_type;
-
-        lily_storage *s = get_storage(emit, storage_type);
-        lily_u16_write_2(emit->code, s->reg_spot, ast->line_num);
-        ast->result = (lily_sym *)s;
+    lily_variant_class *variant = ast->variant;
+    /* Did this need arguments? It was used incorrectly if so. */
+    if ((variant->flags & CLS_EMPTY_VARIANT) == 0) {
+        unsigned int min, max;
+        get_func_min_max(variant->build_type, &min, &max);
+        error_argument_count(emit, ast, -1, min, max);
     }
 
-    /* So here's the deal. It's quite possible that this result's type will have
-       incomplete type information. It might be written as Option[?], and the
-       vm doesn't have any '?' type. However, that doesn't matter because the vm
-       works off of type erasure, and thus doesn't care. The parent is given the
-       task of determining the full, completed type. */
+    lily_u16_write_2(emit->code, o_get_empty_variant, variant->cls_id);
+
+    lily_type *storage_type;
+
+    if (variant->parent->generic_count) {
+        lily_type *self_type = variant->parent->self_type;
+        lily_ts_save_point p;
+        lily_ts_scope_save(emit->ts, &p);
+
+        /* Since the variant has no opinion on generics, try to pull any
+           inference possible before defaulting to ?. */
+        if (expect && expect->cls == variant->parent)
+            lily_ts_check(emit->ts, self_type, expect);
+
+        storage_type = lily_ts_resolve_with(emit->ts, self_type,
+                emit->ts->question_class_type);
+
+        lily_ts_scope_restore(emit->ts, &p);
+    }
+    else
+        storage_type = variant->parent->self_type;
+
+    lily_storage *s = get_storage(emit, storage_type);
+    lily_u16_write_2(emit->code, s->reg_spot, ast->line_num);
+    ast->result = (lily_sym *)s;
 }
 
 /* This handles function pipes by faking them as calls and running them as a
