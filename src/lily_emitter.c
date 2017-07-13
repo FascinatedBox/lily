@@ -83,7 +83,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->next_reg_spot = 0;
-    main_block->loop_start = -1;
     main_block->make_closure = 0;
     main_block->storage_start = 0;
     emit->block = main_block;
@@ -280,10 +279,9 @@ void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
         lily_u16_write_4(emit->code, o_set_global, target->reg_spot,
                 user_loop_var->reg_spot, line_num);
     }
-    /* for..in is entered right after 'for' is seen. However, range values can
-       be expressions. This needs to be fixed, or the loop will jump back up to
-       re-eval those expressions. */
-    emit->block->loop_start = lily_u16_pos(emit->code);
+
+    /* Fix the start so the continue doesn't reinitialize loop vars. */
+    emit->block->code_start = lily_u16_pos(emit->code);
 
     lily_u16_write_5(emit->code, o_integer_for, for_start->reg_spot,
             for_end->reg_spot, for_step->reg_spot, target->reg_spot);
@@ -325,10 +323,10 @@ static void write_pop_try_blocks_up_to(lily_emit_state *emit,
 /* The parser has a 'break' and wants the emitter to write the code. */
 void lily_emit_break(lily_emit_state *emit)
 {
-    if (emit->block->loop_start == (uint16_t)-1)
-        lily_raise_syn(emit->raiser, "'break' used outside of a loop.");
-
     lily_block *loop_block = find_deepest_loop(emit);
+
+    if (loop_block == NULL)
+        lily_raise_syn(emit->raiser, "'break' used outside of a loop.");
 
     write_pop_try_blocks_up_to(emit, loop_block);
 
@@ -341,12 +339,14 @@ void lily_emit_break(lily_emit_state *emit)
 /* The parser has a 'continue' and wants the emitter to write the code. */
 void lily_emit_continue(lily_emit_state *emit)
 {
-    if (emit->block->loop_start == (uint16_t)-1)
+    lily_block *loop_block = find_deepest_loop(emit);
+
+    if (loop_block == NULL)
         lily_raise_syn(emit->raiser, "'continue' used outside of a loop.");
 
-    write_pop_try_blocks_up_to(emit, find_deepest_loop(emit));
+    write_pop_try_blocks_up_to(emit, loop_block);
 
-    int where = emit->block->loop_start - lily_u16_pos(emit->code);
+    int where = emit->block->code_start - lily_u16_pos(emit->code);
     lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
 }
 
@@ -587,20 +587,15 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->self = emit->block->self;
     new_block->patch_start = emit->patches->pos;
     new_block->last_exit = -1;
-    new_block->loop_start = emit->block->loop_start;
     new_block->make_closure = 0;
 
     if (block_type < block_define) {
         new_block->all_branches_exit = 1;
 
-        if (IS_LOOP_BLOCK(block_type))
-            new_block->loop_start = lily_u16_pos(emit->code);
-        else if (block_type == block_enum) {
+        if (block_type == block_enum)
             /* Enum entries are not considered function-like, because they do
                not have a class .new. */
             new_block->class_entry = emit->symtab->active_module->class_chain;
-            new_block->loop_start = -1;
-        }
     }
     else {
         lily_var *v = emit->symtab->active_module->var_chain;
@@ -638,7 +633,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
         new_block->storage_start = emit->storages->scope_end;
         new_block->function_var = v;
         new_block->code_start = lily_u16_pos(emit->code);
-        new_block->loop_start = -1;
     }
 
     emit->block = new_block;
@@ -759,7 +753,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == block_while || block_type == block_for_in) {
-        int x = block->loop_start - lily_u16_pos(emit->code);
+        int x = block->code_start - lily_u16_pos(emit->code);
         lily_u16_write_2(emit->code, o_jump, (uint16_t)x);
     }
     else if (block_type == block_match)
@@ -3919,7 +3913,7 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
         }
         else {
             /* A do-while block is negative because it jumps back up. */
-            int location = lily_u16_pos(emit->code) - emit->block->loop_start;
+            int location = lily_u16_pos(emit->code) - emit->block->code_start;
             lily_u16_write_2(emit->code, o_jump, (uint16_t)-location);
         }
     }

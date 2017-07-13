@@ -44,9 +44,7 @@ typedef struct lily_block_ {
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
 
-    /* This is the start of the most currently entered loop block. If not
-       currently in a loop block, this is -1. */
-    uint16_t loop_start;
+    uint16_t pad;
 
     /* Define blocks: Initially 0, but set to 1 if the current define requires
        closure information. During block exit, if this is 1, then that value
