@@ -49,9 +49,10 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->code = lily_new_buffer_u16(32);
     emit->closure_aux_code = NULL;
 
+    emit->closure_spots = lily_new_buffer_u16(4);
+
     emit->storages = new_storage_stack(4);
 
-    emit->closed_syms = lily_malloc(sizeof(*emit->closed_syms) * 4);
     emit->transform_table = NULL;
     emit->transform_size = 0;
 
@@ -60,9 +61,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     /* tm uses Dynamic's type as a special default, so it needs that. */
     emit->tm->dynamic_class_type = symtab->dynamic_class->self_type;
     emit->tm->question_class_type = symtab->question_class->self_type;
-
-    emit->closed_pos = 0;
-    emit->closed_size = 4;
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
@@ -112,11 +110,11 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free_string_pile(emit->expr_strings);
     lily_free_type_maker(emit->tm);
     lily_free(emit->transform_table);
-    lily_free(emit->closed_syms);
     lily_free_type_system(emit->ts);
     lily_free(emit->match_cases);
     if (emit->closure_aux_code)
         lily_free_buffer_u16(emit->closure_aux_code);
+    lily_free_buffer_u16(emit->closure_spots);
     lily_free_buffer_u16(emit->patches);
     lily_free_buffer_u16(emit->code);
     lily_free(emit);
@@ -927,20 +925,9 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     However, it carries a side-effect of making method access need to check for
     self existing either closed over or not. **/
 
-static void grow_closed_syms(lily_emit_state *emit)
+static void close_over_sym(lily_emit_state *emit, uint16_t depth, lily_sym *sym)
 {
-    emit->closed_size *= 2;
-    emit->closed_syms = lily_realloc(emit->closed_syms,
-        sizeof(*emit->closed_syms) * emit->closed_size);
-}
-
-static void close_over_sym(lily_emit_state *emit, lily_sym *sym)
-{
-    if (emit->closed_pos == emit->closed_size)
-        grow_closed_syms(emit);
-
-    emit->closed_syms[emit->closed_pos] = sym;
-    emit->closed_pos++;
+    lily_u16_write_2(emit->closure_spots, sym->reg_spot, depth);
     sym->flags |= SYM_CLOSED_OVER;
     emit->function_block->make_closure = 1;
 }
@@ -974,19 +961,24 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
                 "Not allowed to close over variables from a class constructor.",
                 "");
 
-    close_over_sym(emit, (lily_sym *)var);
-    return emit->closed_pos - 1;
+    close_over_sym(emit, var->function_depth, (lily_sym *)var);
+    return (lily_u16_pos(emit->closure_spots) - 1) / 2;
 }
 
 /* See if the given sym has been closed over.
    Success: The spot
    Failure: -1 */
-static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
+static int find_closed_sym_spot(lily_emit_state *emit, uint16_t depth,
+        lily_sym *sym)
 {
     int result = -1, i;
-    for (i = 0;i < emit->closed_pos;i++) {
-        if (emit->closed_syms[i] == sym) {
-            result = i;
+
+    for (i = 0;
+         i < lily_u16_pos(emit->closure_spots);
+         i += 2) {
+        if (lily_u16_get(emit->closure_spots, i) == sym->reg_spot &&
+            lily_u16_get(emit->closure_spots, i + 1) == depth) {
+            result = i / 2;
             break;
         }
     }
@@ -998,9 +990,12 @@ static int find_closed_sym_spot(lily_emit_state *emit, lily_sym *sym)
    do that. */
 static void maybe_close_over_class_self(lily_emit_state *emit, lily_ast *ast)
 {
+    uint16_t depth = emit->function_depth;
     lily_block *block = emit->function_block->prev_function_block;
-    while (block->block_type != block_class)
+    while (block->block_type != block_class) {
         block = block->prev_function_block;
+        depth--;
+    }
 
     block = block->next;
 
@@ -1012,8 +1007,8 @@ static void maybe_close_over_class_self(lily_emit_state *emit, lily_ast *ast)
 
     lily_sym *self = (lily_sym *)block->self;
 
-    if (find_closed_sym_spot(emit, self) == -1)
-        close_over_sym(emit, self);
+    if (find_closed_sym_spot(emit, depth, self) == -1)
+        close_over_sym(emit, depth, self);
 
     if (emit->block->self == NULL)
         emit->block->self = get_storage(emit, self->type);
@@ -1048,7 +1043,8 @@ static void ensure_params_in_closure(lily_emit_state *emit)
                is present in the closure by forcing a write. It might be a
                useless write, but that's hard to discover. Best to be safe. */
             lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
-                    find_closed_sym_spot(emit, (lily_sym *)var_iter),
+                    find_closed_sym_spot(emit, var_iter->function_depth,
+                            (lily_sym *)var_iter),
                     var_iter->reg_spot, function_var->line_num);
         }
     }
@@ -1059,34 +1055,35 @@ static void ensure_params_in_closure(lily_emit_state *emit)
 static void setup_transform_table_and_locals(lily_emit_state *emit,
         lily_function_val *f, int is_backing)
 {
+    int next_reg_spot = emit->function_block->next_reg_spot;
+
     if (emit->transform_size < emit->function_block->next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
-                emit->function_block->next_reg_spot *
-                sizeof(*emit->transform_table));
+                next_reg_spot * sizeof(*emit->transform_table));
         emit->transform_size = emit->function_block->next_reg_spot;
     }
 
     memset(emit->transform_table, (uint16_t)-1,
-            sizeof(*emit->transform_table) *
-            emit->function_block->next_reg_spot);
+            next_reg_spot * sizeof(*emit->transform_table));
 
     int i, count = 0;
-    for (i = 0;i < emit->closed_pos;i++) {
-        lily_sym *s = (lily_sym *)emit->closed_syms[i];
-        if (s && s->item_kind == ITEM_TYPE_VAR) {
-            lily_var *v = (lily_var *)s;
-            if (v->function_depth == emit->function_depth) {
-                emit->transform_table[v->reg_spot] = i;
-                count++;
 
-                /* Each var can only be transformed once, and within the scope
-                   it was declared. This prevents two nested functions from
-                   trying to transform the same (now-dead) vars. */
-                emit->closed_syms[i] = NULL;
-            }
+    for (i = 0;
+         i < lily_u16_pos(emit->closure_spots);
+         i += 2) {
+        if (lily_u16_get(emit->closure_spots, i + 1) == emit->function_depth) {
+            uint16_t spot = lily_u16_get(emit->closure_spots, i);
+
+            if (spot == (uint16_t)-1)
+                continue;
+
+            emit->transform_table[spot] = i / 2;
+            count++;
+            /* This prevents other closures at this level from thinking this
+               local belongs to them. */
+            lily_u16_set_at(emit->closure_spots, i + 1, (uint16_t)-1);
         }
     }
-
     /* If there are locals in one of the inner functions, write them down. This
        is later used by the vm to make sure the cells of inner functions are
        fresh. */
@@ -1096,7 +1093,7 @@ static void setup_transform_table_and_locals(lily_emit_state *emit,
         locals[0] = count + 1;
 
         int pos = 1;
-        for (i = 0;i < emit->closed_pos;i++) {
+        for (i = 0;i < next_reg_spot;i++) {
             if (emit->transform_table[i] != (uint16_t) -1) {
                 locals[pos] = i;
                 pos++;
@@ -1193,11 +1190,12 @@ static void perform_closure_transform(lily_emit_state *emit,
                 function_block->function_var->type);
 
         lily_u16_write_4(emit->closure_aux_code, o_create_closure,
-                emit->closed_pos, s->reg_spot, f->line_num);
+                lily_u16_pos(emit->closure_spots) / 2, s->reg_spot,
+                f->line_num);
 
-        if (emit->class_block_depth) {
+        if (emit->class_block_depth && function_block->self) {
             uint16_t self_spot = find_closed_sym_spot(emit,
-                    (lily_sym *)function_block->self);
+                    emit->function_depth, (lily_sym *)function_block->self);
             /* Load register 0 (self) into the closure. */
             if (self_spot != (uint16_t)-1) {
                 lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
@@ -1214,7 +1212,7 @@ static void perform_closure_transform(lily_emit_state *emit,
             prev_block = prev_block->next;
 
             uint16_t self_spot = find_closed_sym_spot(emit,
-                    (lily_sym *)prev_block->self);
+                    emit->class_block_depth, (lily_sym *)prev_block->self);
             if (self_spot != (uint16_t)-1)
                 lily_u16_write_4(emit->closure_aux_code, o_get_upvalue,
                         self_spot, lambda_self->reg_spot, f->line_num);
@@ -1225,7 +1223,7 @@ static void perform_closure_transform(lily_emit_state *emit,
     setup_transform_table_and_locals(emit, f, is_backing);
 
     if (is_backing)
-        emit->closed_pos = 0;
+        lily_u16_set_pos(emit->closure_spots, 0);
 
     lily_code_iter ci;
     lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
@@ -2622,10 +2620,11 @@ static void eval_upvalue_assign(lily_emit_state *emit, lily_ast *ast)
 {
     eval_tree(emit, ast->right, NULL);
 
-    lily_sym *left_sym = ast->left->sym;
-    int spot = find_closed_sym_spot(emit, left_sym);
+    lily_var *left_var = (lily_var *)ast->left->sym;
+    int spot = find_closed_sym_spot(emit, left_var->function_depth,
+            (lily_sym *)left_var);
     if (spot == -1)
-        spot = checked_close_over_var(emit, (lily_var *)left_sym);
+        spot = checked_close_over_var(emit, left_var);
 
     lily_sym *rhs = ast->right->result;
 
@@ -2928,14 +2927,17 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             opcode = o_get_global;
             spot = sym->reg_spot;
             break;
-        case tree_upvalue:
+        case tree_upvalue: {
             opcode = o_get_upvalue;
-            spot = find_closed_sym_spot(emit, sym);
+            lily_var *v = (lily_var *)sym;
+
+            spot = find_closed_sym_spot(emit, v->function_depth, (lily_sym *)v);
             if (spot == (uint16_t)-1)
-                spot = checked_close_over_var(emit, (lily_var *)sym);
+                spot = checked_close_over_var(emit, v);
 
             emit->function_block->make_closure = 1;
             break;
+        }
         case tree_static_func:
             ensure_valid_scope(emit, ast->sym);
         default:

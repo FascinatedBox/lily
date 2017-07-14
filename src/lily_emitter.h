@@ -117,19 +117,17 @@ typedef struct {
     /* This is a buffer used when transforming code to build a closure. */
     lily_buffer_u16 *closure_aux_code;
 
-    lily_sym **closed_syms;
+    lily_buffer_u16 *closure_spots;
 
     uint16_t *transform_table;
 
     uint64_t transform_size;
 
-    uint16_t closed_pos;
-
-    uint16_t closed_size;
-
     uint16_t match_case_pos;
 
     uint16_t match_case_size;
+
+    uint32_t pad;
 
     struct lily_storage_stack_ *storages;
 
