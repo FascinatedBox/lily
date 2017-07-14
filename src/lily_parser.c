@@ -810,6 +810,38 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     lily_vs_push(parser->symtab->literals, v);
 }
 
+static void hide_block_vars(lily_parse_state *parser)
+{
+    int count = parser->emit->block->var_count;
+
+    if (count == 0)
+        return;
+
+    lily_var *var_iter = parser->symtab->active_module->var_chain;
+    lily_var *var_next;
+
+    while (count) {
+        var_next = var_iter->next;
+
+        if (var_iter->flags & VAR_IS_READONLY) {
+            var_iter->next = parser->symtab->old_function_chain;
+            parser->symtab->old_function_chain = var_iter;
+            count--;
+        }
+        else {
+            /* todo: Store vars that are out of scope instead of destroying them. */
+            lily_free(var_iter->name);
+            lily_free(var_iter);
+            count--;
+        }
+
+        var_iter = var_next;
+    }
+
+    parser->symtab->active_module->var_chain = var_iter;
+    parser->emit->block->var_count = 0;
+}
+
 /* This gets (up to) the first 8 bytes of a name and puts it into a numeric
    value. The numeric value is compared before comparing names to speed things
    up just a bit. */
@@ -858,6 +890,7 @@ static lily_var *new_local_var(lily_parse_state *parser, lily_type *type,
     parser->emit->function_block->next_reg_spot++;
     var->next = parser->symtab->active_module->var_chain;
     parser->symtab->active_module->var_chain = var;
+    parser->emit->block->var_count++;
 
     return var;
 }
@@ -884,6 +917,8 @@ static lily_var *new_scoped_var(lily_parse_state *parser, lily_type *type,
         var->reg_spot = parser->emit->function_block->next_reg_spot;
         parser->emit->function_block->next_reg_spot++;
     }
+
+    parser->emit->block->var_count++;
 
     return var;
 }
@@ -914,14 +949,20 @@ static lily_var *new_native_define_var(lily_parse_state *parser,
     var->reg_spot = lily_vs_pos(parser->symtab->literals);
     var->function_depth = 1;
     var->flags |= VAR_IS_READONLY;
-    var->next = parser->symtab->active_module->var_chain;
-    parser->symtab->active_module->var_chain = var;
 
     char *class_name;
-    if (parent)
+    if (parent) {
         class_name = parent->name;
-    else
+        var->parent = parent;
+        var->next = (lily_var *)parent->members;
+        parent->members = (lily_named_sym *)var;
+    }
+    else {
         class_name = NULL;
+        var->next = parser->symtab->active_module->var_chain;
+        parser->symtab->active_module->var_chain = var;
+        parser->emit->block->var_count++;
+    }
 
     make_new_function(parser, class_name, var, NULL);
 
@@ -2773,7 +2814,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
-    lily_emit_enter_block(parser->emit, block_lambda);
+    lily_emit_enter_call_block(parser->emit, block_lambda, lambda_var);
 
     lily_lexer(lex);
 
@@ -2805,6 +2846,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
             parser->symtab->function_class, args_collected + 1);
 
     lily_emit_function_end(parser->emit, lambda_var->type, lex->line_num);
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(lex);
 
@@ -3103,7 +3145,7 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
 
     lily_lexer(lex);
     collect_generics(parser);
-    lily_emit_enter_block(parser->emit, block_define);
+    lily_emit_enter_call_block(parser->emit, block_define, define_var);
 
     if (parser->class_self_type) {
         /* This is a method of a class. It should implicitly take 'self' as
@@ -3114,7 +3156,6 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
 
         lily_var *self_var = new_local_var(parser, parser->class_self_type,
                 "(self)", lex->line_num);
-        define_var->parent = parser->class_self_type->cls;
         define_var->flags |= modifiers;
 
         parser->emit->block->self = (lily_storage *)self_var;
@@ -3291,6 +3332,7 @@ static void parse_multiline_block_body(lily_parse_state *parser,
 static void do_elif(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
+    hide_block_vars(parser);
     lily_emit_change_block_to(parser->emit, block_if_elif);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
@@ -3304,6 +3346,7 @@ static void do_else(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    hide_block_vars(parser);
     lily_emit_change_block_to(parser->emit, block_if_else);
 
     NEED_CURRENT_TOK(tk_colon)
@@ -3367,6 +3410,7 @@ static void if_handler(lily_parse_state *parser, int multi)
     if (multi_this_block == 1)
         lily_lexer(lex);
 
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -3450,6 +3494,7 @@ static void while_handler(lily_parse_state *parser, int multi)
     else
         statement(parser, 0);
 
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -3537,6 +3582,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     else
         statement(parser, 0);
 
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -3564,12 +3610,17 @@ static void do_handler(lily_parse_state *parser, int multi)
        it can be eval'd specially. */
     lily_lexer(lex);
 
-    /* This is important, because it prevents the condition of this block from
-       using variables declared within it. This is necessary because, like with
-       try+except, it cannot be determined that all the variables declared
-       within this block have been initialized.
-       Ex: 'do: { continue var v = 10 } while v == 10'. */
-    lily_hide_block_vars(parser->symtab, parser->emit->block->var_start);
+    /* Hide vars before running the expression to prevent using inner vars in
+       the condition. This is necessary because vars declared in the block
+       cannot be guaranteed to be initialized:
+       ```
+       do: {
+           if a == b:
+               continue
+           var v = 10
+       } while v == 10
+       ``` */
+    hide_block_vars(parser);
 
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
@@ -3590,7 +3641,7 @@ static void run_loaded_module(lily_parse_state *parser,
 
     import_var->type = parser->default_call_type;
 
-    lily_emit_enter_block(parser->emit, block_file);
+    lily_emit_enter_call_block(parser->emit, block_file, import_var);
 
     /* The whole of the file can be thought of as one large statement. */
     lily_lexer(lex);
@@ -3607,6 +3658,7 @@ static void run_loaded_module(lily_parse_state *parser,
 
     lily_emit_function_end(parser->emit, parser->default_call_type,
             lex->line_num);
+    /* __import__ vars and functions become global, so don't hide them. */
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(parser->lex);
 
@@ -3696,8 +3748,7 @@ static void process_except(lily_parse_state *parser)
     else if (except_cls->generic_count != 0)
         lily_raise_syn(parser->raiser, "'except' type cannot have subtypes.");
 
-    /* The block change has to come before the var is made, or the var will be
-       made in the wrong scope. */
+    hide_block_vars(parser);
     lily_emit_change_block_to(parser->emit, new_type);
 
     lily_var *exception_var = NULL;
@@ -3777,6 +3828,7 @@ static void try_handler(lily_parse_state *parser, int multi)
     if (multi_this_block)
         lily_lexer(lex);
 
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -3948,7 +4000,7 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
     collect_generics(parser);
     cls->generic_count = lily_gp_num_in_scope(parser->generics);
 
-    lily_emit_enter_block(parser->emit, block_class);
+    lily_emit_enter_call_block(parser->emit, block_class, call_var);
 
     parser->class_self_type = build_self_type(parser, cls);
 
@@ -4001,7 +4053,7 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     call_var->flags &= ~SYM_NOT_INITIALIZED;
 
-    if (cls->members)
+    if (cls->members->item_kind == ITEM_TYPE_PROPERTY)
         lily_emit_write_shorthand_ctor(parser->emit, cls,
                 parser->symtab->active_module->var_chain, lex->line_num);
 
@@ -4120,6 +4172,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
 
     parser->class_self_type = save_class_self_type;
     lily_emit_function_end(parser->emit, ctor_var->type, lex->line_num);
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
@@ -4290,6 +4343,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
         }
     }
 
+    /* Enums don't have a constructor, so don't bother hiding block vars. */
     lily_emit_leave_block(parser->emit);
     parser->class_self_type = save_self_type;
 
@@ -4337,6 +4391,7 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
         lily_raise_syn(parser->raiser, "Already have a case for variant %s.",
                 lex->label);
 
+    hide_block_vars(parser);
     lily_emit_change_match_branch(parser->emit);
     lily_emit_write_match_case(parser->emit, match_sym,
             (lily_class *)variant_case);
@@ -4431,6 +4486,7 @@ static void match_case_class(lily_parse_state *parser,
         lily_raise_syn(parser->raiser, "Already have a case for class %s.",
                 cls->name);
 
+    hide_block_vars(parser);
     lily_emit_change_match_branch(parser->emit);
     lily_emit_write_match_case(parser->emit, match_sym, cls);
 
@@ -4529,6 +4585,7 @@ static void match_handler(lily_parse_state *parser, int multi)
             error_incomplete_match(parser, match_sym);
     }
 
+    hide_block_vars(parser);
     lily_lexer(lex);
     lily_emit_leave_block(parser->emit);
 }
@@ -4557,19 +4614,9 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
     lily_emit_function_end(parser->emit, define_var->type, lex->line_num);
+    hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
     lily_gp_restore(parser->generics, save_generic_start);
-
-    /* If the function defined is at the top level of a class, then immediately
-       make that function a member of the class.
-       This is safe because 'define' always exits with the top-most variable
-       being what was just defined. */
-    if (parser->emit->block->block_type == block_class ||
-        parser->emit->block->block_type == block_enum) {
-        lily_add_class_method(parser->symtab,
-                parser->class_self_type->cls,
-                parser->symtab->active_module->var_chain);
-    }
 }
 
 static void define_handler(lily_parse_state *parser, int multi)
@@ -4686,6 +4733,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
         if (lex->token == tk_word)
             statement(parser, 1);
         else if (lex->token == tk_right_curly) {
+            hide_block_vars(parser);
             lily_emit_leave_block(parser->emit);
             lily_lexer(lex);
         }

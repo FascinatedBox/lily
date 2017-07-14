@@ -399,11 +399,7 @@ static lily_var *find_var(lily_var *var_iter, const char *name,
         uint64_t shorthash)
 {
     while (var_iter != NULL) {
-        /* TODO: Emitter marks vars as being out of scope so that it can grab
-           their types later during function finalize. While that's fine, the
-           vars shouldn't be left for the symtab to have to jump over. */
         if (var_iter->shorthash == shorthash &&
-            ((var_iter->flags & VAR_OUT_OF_SCOPE) == 0) &&
             strcmp(var_iter->name, name) == 0) {
 
             break;
@@ -433,16 +429,6 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_module_entry *module,
         result = find_var(module->var_chain, name, shorthash);
 
     return result;
-}
-
-/* Hide all vars that occur until 'var_stop'. */
-void lily_hide_block_vars(lily_symtab *symtab, lily_var *var_stop)
-{
-    lily_var *var_iter = symtab->active_module->var_chain;
-    while (var_iter != var_stop) {
-        var_iter->flags |= VAR_OUT_OF_SCOPE;
-        var_iter = var_iter->next;
-    }
 }
 
 /***

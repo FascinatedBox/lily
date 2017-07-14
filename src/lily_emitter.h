@@ -29,9 +29,6 @@ typedef enum {
 } lily_block_type;
 
 typedef struct lily_block_ {
-    /* Vars declared in this block are at var_start->next. */
-    lily_var *var_start;
-
     /* Define/class blocks: This is saved because the var has the name of the
        current function. */
     lily_var *function_var;
@@ -44,7 +41,7 @@ typedef struct lily_block_ {
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
 
-    uint16_t pad;
+    uint16_t var_count;
 
     /* Define blocks: Initially 0, but set to 1 if the current define requires
        closure information. During block exit, if this is 1, then that value
@@ -71,6 +68,7 @@ typedef struct lily_block_ {
        from the block (a return or a raise). This is used to help figure out if
        a function claiming to return a value will actually do so. */
     int32_t last_exit;
+
     /* This is the most recently-entered class. While Lily does not allow users
        to create nested classes, it is possible for a class to be within a class
        if there is a dynaload. */
@@ -199,9 +197,9 @@ void lily_emit_continue(lily_emit_state *);
 void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 
 void lily_emit_change_block_to(lily_emit_state *emit, int);
-void lily_emit_enter_simple_block(lily_emit_state *, int);
 
 void lily_emit_enter_block(lily_emit_state *, lily_block_type);
+void lily_emit_enter_call_block(lily_emit_state *, lily_block_type, lily_var *);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_function_end(lily_emit_state *, lily_type *, uint16_t);
 

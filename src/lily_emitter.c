@@ -83,6 +83,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->next_reg_spot = 0;
     main_block->make_closure = 0;
     main_block->storage_start = 0;
+    main_block->var_count = 0;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -239,7 +240,10 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
     lily_named_sym *prop_iter = cls->members;
     uint16_t self_reg_spot = emit->block->self->reg_spot;
 
-    while (prop_iter) {
+    /* The class constructor always inserts itself as the first property. Make
+       sure to not include that. */
+
+    while (prop_iter->item_kind == ITEM_TYPE_PROPERTY) {
         while (strcmp(var_iter->name, "") != 0)
             var_iter = var_iter->next;
 
@@ -563,10 +567,7 @@ static void write_final_code_for_block(lily_emit_state *, lily_block *);
     function, an if block, etc. Some blocks don't necessarily use all of the
     items that are inside. **/
 
-/* This enters a block of the given block type. A block's vars are considered to
-   be any vars created after the block has been entered. Information such as the
-   current class entered and self's location is inferred from existing info. */
-void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
+static lily_block *block_enter_common(lily_emit_state *emit)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
@@ -579,98 +580,72 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     else
         new_block = emit->block->next;
 
-    new_block->block_type = block_type;
-    new_block->var_start = emit->symtab->active_module->var_chain;
     new_block->class_entry = emit->block->class_entry;
     new_block->self = emit->block->self;
     new_block->patch_start = emit->patches->pos;
     new_block->last_exit = -1;
     new_block->make_closure = 0;
+    new_block->var_count = 0;
 
-    if (block_type < block_define) {
-        new_block->all_branches_exit = 1;
+    return new_block;
+}
 
-        if (block_type == block_enum)
-            /* Enum entries are not considered function-like, because they do
-               not have a class .new. */
-            new_block->class_entry = emit->symtab->active_module->class_chain;
-    }
-    else {
-        lily_var *v = emit->symtab->active_module->var_chain;
-        if (block_type == block_class) {
-            new_block->class_entry = emit->symtab->active_module->class_chain;
-            emit->class_block_depth = emit->function_depth + 1;
-        }
+/* This enters a block of the given block type. A block's vars are considered to
+   be any vars created after the block has been entered. Information such as the
+   current class entered and self's location is inferred from existing info. */
+void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
+{
+    lily_block *new_block = block_enter_common(emit);
+    new_block->block_type = block_type;
+    new_block->all_branches_exit = 1;
 
-        v->parent = new_block->class_entry;
-
-        /* Nested functions are marked this way so that any call to them is
-           guaranteed to give them the upvalues they need. */
-        if (emit->block->block_type == block_define)
-            v->flags |= VAR_NEEDS_CLOSURE;
-
-        new_block->next_reg_spot = 0;
-
-        /* This causes vars within this imported file to be seen as global
-           vars, instead of locals. Without this, the interpreter gets confused
-           and thinks the imported file's globals are really upvalues. */
-        if (block_type != block_file) {
-            if (block_type == block_lambda) {
-                /* A lambda cannot be guaranteed to have the 'self' of a class
-                   as the first parameter. If it wants 'self', it can close over
-                   it when it needs to. */
-                new_block->self = NULL;
-            }
-            emit->function_depth++;
-        }
-
-        new_block->prev_function_block = emit->function_block;
-
-        emit->function_block = new_block;
-
-        new_block->storage_start = emit->storages->scope_end;
-        new_block->function_var = v;
-        new_block->code_start = lily_u16_pos(emit->code);
-    }
+    if (block_type == block_enum)
+        /* Enum entries are not considered function-like, because they do
+            not have a class .new. */
+        new_block->class_entry = emit->symtab->active_module->class_chain;
 
     emit->block = new_block;
 }
 
-/* This is called when the function block is exiting. This drops the vars inside
-   and clears out the inner storages. */
-static void finalize_function_block(lily_emit_state *emit,
-        lily_block *function_block)
+void lily_emit_enter_call_block(lily_emit_state *emit,
+        lily_block_type block_type, lily_var *call_var)
 {
-    if (emit->function_depth > 1) {
-        lily_var *var_stop = function_block->function_var;
-        /* todo: Reuse the var shells instead of destroying. Seems petty, but
-                 malloc isn't cheap if there are a lot of vars. */
-        lily_var *var_iter = emit->symtab->active_module->var_chain;
-        lily_var *var_temp;
-        while (var_iter != var_stop) {
-            var_temp = var_iter->next;
-            if ((var_iter->flags & VAR_IS_READONLY) == 0) {
-                lily_free(var_iter->name);
-                lily_free(var_iter);
-            }
-            else {
-                /* This is a function declared within the current function. Hide it
-                   in symtab's old functions since it's going out of scope. */
-                var_iter->next = emit->symtab->old_function_chain;
-                emit->symtab->old_function_chain = var_iter;
-            }
+    lily_block *new_block = block_enter_common(emit);
+    new_block->block_type = block_type;
 
-            /* The function value now owns the var names, so don't free them. */
-            var_iter = var_temp;
+    if (block_type == block_class) {
+        new_block->class_entry = emit->symtab->active_module->class_chain;
+        emit->class_block_depth = emit->function_depth + 1;
+    }
+
+    /* Nested functions are marked this way so that any call to them is
+       guaranteed to give them the upvalues they need. */
+    if (emit->block->block_type == block_define)
+        call_var->flags |= VAR_NEEDS_CLOSURE;
+
+    /* This causes vars within this imported file to be seen as global
+       vars, instead of locals. Without this, the interpreter gets confused
+       and thinks the imported file's globals are really upvalues. */
+    if (block_type != block_file) {
+        if (block_type == block_lambda) {
+            /* A lambda cannot be guaranteed to have the 'self' of a class
+               as the first parameter. If it wants 'self', it can close over
+               it when it needs to. */
+            new_block->self = NULL;
         }
+        emit->function_depth++;
     }
 
-    int i;
-    for (i = function_block->storage_start;i < emit->storages->scope_end;i++) {
-        emit->storages->data[i]->type = NULL;
-    }
+    new_block->prev_function_block = emit->function_block;
 
-    emit->storages->scope_end = function_block->storage_start;
+    emit->function_block = new_block;
+
+    new_block->next_reg_spot = 0;
+    new_block->storage_start = emit->storages->scope_end;
+    new_block->function_var = call_var;
+    new_block->code_start = lily_u16_pos(emit->code);
+
+    emit->block = new_block;
 }
 
 void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
@@ -710,22 +685,14 @@ void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
 
 static void leave_function(lily_emit_state *emit, lily_block *block)
 {
-    finalize_function_block(emit, block);
+    int i;
+    for (i = block->storage_start;i < emit->storages->scope_end;i++)
+        emit->storages->data[i]->type = NULL;
 
-    /* If this function was the .new for a class, move it over into that class
-       since the class is about to close. */
-    if (emit->block->block_type == block_class) {
-        lily_class *cls = emit->block->class_entry;
+    emit->storages->scope_end = block->storage_start;
 
-        emit->symtab->active_module->var_chain = block->function_var;
-        lily_add_class_method(emit->symtab, cls, block->function_var);
-
+    if (emit->block->block_type == block_class)
         emit->class_block_depth = 0;
-    }
-    else if (emit->block->block_type != block_file)
-        emit->symtab->active_module->var_chain = block->function_var;
-    /* For file 'blocks', don't fix the var_chain or all of the toplevel
-       functions in that block will vanish! */
 
     emit->function_block = block->prev_function_block;
 
@@ -739,7 +706,6 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
    been left, then it's prepared and cleaned up. */
 void lily_emit_leave_block(lily_emit_state *emit)
 {
-    lily_var *v;
     lily_block *block;
     int block_type;
 
@@ -773,13 +739,8 @@ void lily_emit_leave_block(lily_emit_state *emit)
         emit->block->prev->last_exit = lily_u16_pos(emit->code);
     }
 
-    v = block->var_start;
-
-    if (block_type < block_define) {
+    if (block_type < block_define)
         write_patches_since(emit, block->patch_start);
-
-        lily_hide_block_vars(emit->symtab, v);
-    }
     else
         leave_function(emit, block);
 
@@ -855,10 +816,6 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
         if (current_type == block_try)
             lily_u16_write_1(emit->code, o_pop_try);
     }
-
-    lily_var *v = block->var_start;
-    if (v != emit->symtab->active_module->var_chain)
-        lily_hide_block_vars(emit->symtab, v);
 
     int save_jump;
 
@@ -1560,10 +1517,6 @@ void lily_emit_change_match_branch(lily_emit_state *emit)
         lily_u16_set_at(emit->code, pos,
                 lily_u16_pos(emit->code) + adjust - pos);
     }
-
-    lily_var *v = emit->block->var_start;
-    if (v != emit->symtab->active_module->var_chain)
-        lily_hide_block_vars(emit->symtab, v);
 }
 
 /* This evaluates the expression to be sent to 'match' The resulting value is

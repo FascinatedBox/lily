@@ -352,30 +352,25 @@ typedef struct lily_module_entry_ {
    where lily_sym's flags leave off. */
 
 
-/* This is a var that is no longer in scope. It is kept around until the
-   function it is within is done so type information can be loaded up into the
-   registers later. */
-#define VAR_OUT_OF_SCOPE        0x020
-
 /* This is set on vars which will be used to hold the value of a defined
    function, a lambda, or a class constructor. Vars with this flag cannot be
    assigned to. Additionally, the reg_spot they contain is actually a spot in
    the vm's 'readonly_table'. */
-#define VAR_IS_READONLY         0x040
+#define VAR_IS_READONLY         0x020
 
 /* This flag is set on defined functions that are found inside of other defined
    functions. Calling a function with this tag may involve the use of closures,
    so the emitter needs to wrap the given function so that it will have closure
    information. */
-#define VAR_NEEDS_CLOSURE       0x100
+#define VAR_NEEDS_CLOSURE       0x040
 
 /* Global vars need o_get_global/o_set_global opcodes to get/set them. */
-#define VAR_IS_GLOBAL           0x200
+#define VAR_IS_GLOBAL           0x080
 
 /* This var holds a function that isn't defined in Lily. This is used by the
    emitter to write specialized code when the target is known to be a foreign
    function. */
-#define VAR_IS_FOREIGN_FUNC     0x400
+#define VAR_IS_FOREIGN_FUNC     0x100
 
 /* This module was added by being registered. */
 #define MODULE_IS_REGISTERED 0x1
