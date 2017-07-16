@@ -1421,7 +1421,6 @@ static void parse_class_body(lily_parse_state *, lily_class *);
 static lily_class *find_run_class_dynaload(lily_parse_state *,
         lily_module_entry *, const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
-static lily_class *parse_enum(lily_parse_state *, int, int);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
 
@@ -1612,47 +1611,15 @@ static lily_type *dynaload_function(lily_parse_state *parser,
 static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         int dyna_index)
 {
+    lily_lex_state *lex = parser->lex;
     const char **table = m->dynaload_table;
     const char *entry = table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
     int entry_index = dyna_index;
+    uint16_t save_next_class_id;
 
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_mb_flush(msgbuf);
-    lily_mb_add(msgbuf, name);
-    lily_mb_add(msgbuf, name + strlen(name) + 1);
-    lily_mb_add_char(msgbuf, '{');
-
-    do {
-        entry_index++;
-        entry = table[entry_index];
-    } while (entry[0] != 'V');
-
-    int is_scoped = entry[0] != 'V';
-
-    while (entry[0] == 'V') {
-        name = entry + DYNA_NAME_OFFSET;
-        lily_mb_add(msgbuf, name);
-        lily_mb_add(msgbuf, name + strlen(name) + 1);
-        lily_mb_add_char(msgbuf, ' ');
-
-        entry_index++;
-        entry = table[entry_index];
-        if (entry[0] == 'V')
-            lily_mb_add_char(msgbuf, ',');
-    }
-
-    lily_mb_add_char(msgbuf, '}');
-
-    lily_lexer_load(parser->lex, et_copied_string, lily_mb_get(msgbuf));
-    lily_lexer(parser->lex);
-
-    int save_next_class_id;
-    /* Option and Result have specific ids set aside for them so they don't need
-       to be included in cid tables.
-       The id must be set -before- parsing the enum, because variant default
-       values rely on the id of an enum. If it's fixed later, they'll have the
-       wrong id, and possibly crash. */
+    /* If this is Option or Result, do a save+restore of symtab's next class id
+       so the right ids are given. */
     if (m == parser->module_start) {
         save_next_class_id = parser->symtab->next_class_id;
 
@@ -1666,19 +1633,58 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         save_next_class_id = 0;
 
     uint16_t save_generics = lily_gp_save_and_hide(parser->generics);
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, name);
+    const char *body = name + strlen(name) + 1;
 
-    lily_class *result = parse_enum(parser, 1, is_scoped);
+    lily_lexer_load(lex, et_shallow_string, body);
+    lily_lexer(lex);
+    collect_generics(parser);
+    lily_pop_lex_entry(lex);
 
+    enum_cls->generic_count = lily_gp_num_in_scope(parser->generics);
+    lily_type *save_self_type = parser->class_self_type;
+    parser->class_self_type = build_self_type(parser, enum_cls);
+
+    do {
+        entry_index++;
+        entry = table[entry_index];
+    } while (entry[0] != 'V');
+
+    if (entry[0] != 'V')
+        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
+
+    enum_cls->dyna_start = dyna_index + 1;
+
+    int variant_count = 0;
+
+    while (entry[0] == 'V') {
+        name = entry + DYNA_NAME_OFFSET;
+
+        lily_variant_class *variant_cls = lily_new_variant_class(parser->symtab,
+                enum_cls, name);
+
+        body = name + strlen(name) + 1;
+        lily_lexer_load(lex, et_shallow_string, body);
+        lily_lexer(lex);
+
+        if (lex->token == tk_left_parenth)
+            parse_variant_header(parser, variant_cls);
+
+        entry_index++;
+        variant_count++;
+        entry = table[entry_index];
+        lily_pop_lex_entry(lex);
+    }
+
+    enum_cls->variant_size = variant_count;
     lily_gp_restore_and_unhide(parser->generics, save_generics);
-
-    result->dyna_start = dyna_index + 1;
 
     if (save_next_class_id)
         parser->symtab->next_class_id = save_next_class_id;
 
-    lily_pop_lex_entry(parser->lex);
+    parser->class_self_type = save_self_type;
 
-    return result;
+    return enum_cls;
 }
 
 /* Dynaload a variant, represented by 'seed', into the context 'import'. The
@@ -4229,27 +4235,24 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->flags &= ~CLS_EMPTY_VARIANT;
 }
 
-static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
-        int is_scoped)
+static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 {
     lily_block *block = parser->emit->block;
-    if (is_dynaload == 0 &&
-        block->block_type != block_file &&
+    if (block->block_type != block_file &&
         block->prev != NULL)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
 
-    if (is_scoped == 1 && is_dynaload == 0) {
+    if (is_scoped == 1) {
         if (strcmp(lex->label, "enum") != 0)
             lily_raise_syn(parser->raiser, "Expected 'enum' after flat.");
 
         NEED_NEXT_TOK(tk_word)
     }
 
-    if (is_dynaload == 0)
-        ensure_valid_class(parser, lex->label);
+    ensure_valid_class(parser, lex->label);
 
     lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label);
 
@@ -4265,9 +4268,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
     lily_emit_enter_block(parser->emit, block_enum);
 
-    lily_type *result_type = build_self_type(parser, enum_cls);
-    lily_type *save_self_type = parser->class_self_type;
-    parser->class_self_type = result_type;
+    parser->class_self_type = build_self_type(parser, enum_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_lexer(lex);
@@ -4276,7 +4277,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        if (is_dynaload == 0 && variant_count) {
+        if (variant_count) {
             lily_class *cls = (lily_class *)lily_find_variant(enum_cls,
                     lex->label);
 
@@ -4317,7 +4318,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
     /* Emitter uses this later to determine how many cases are allowed. */
     enum_cls->variant_size = variant_count;
 
-    if (is_dynaload == 0 && lex->token == tk_word) {
+    if (lex->token == tk_word) {
         while (1) {
             lily_lexer(lex);
             define_handler(parser, 1);
@@ -4333,7 +4334,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
     /* Enums don't have a constructor, so don't bother hiding block vars. */
     lily_emit_leave_block(parser->emit);
-    parser->class_self_type = save_self_type;
+    parser->class_self_type = NULL;
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
     lily_lexer(lex);
@@ -4343,12 +4344,12 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
 
 static void enum_handler(lily_parse_state *parser, int multi)
 {
-    parse_enum(parser, 0, 0);
+    parse_enum(parser, 0);
 }
 
 static void scoped_handler(lily_parse_state *parser, int multi)
 {
-    parse_enum(parser, 0, 1);
+    parse_enum(parser, 1);
 }
 
 static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
