@@ -648,8 +648,7 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     emit->block = new_block;
 }
 
-void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
-        uint16_t line_num)
+void lily_emit_function_end(lily_emit_state *emit, uint16_t line_num)
 {
     lily_block *function_block = emit->block;
 
@@ -670,7 +669,7 @@ void lily_emit_function_end(lily_emit_state *emit, lily_type *type,
                 line_num);
     }
     else if (function_block->last_exit != lily_u16_pos(emit->code)) {
-        type = type->subtypes[0];
+        lily_type *type = function_block->function_var->type->subtypes[0];
 
         if (type == lily_unit_type ||
             type == lily_self_class->self_type)

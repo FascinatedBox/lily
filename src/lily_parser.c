@@ -2845,7 +2845,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lambda_var->type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);
 
-    lily_emit_function_end(parser->emit, lambda_var->type, lex->line_num);
+    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(lex);
@@ -3111,7 +3111,7 @@ static void send_optargs_for(lily_parse_state *parser, lily_type *type)
     lily_es_checkpoint_restore(parser->expr);
 }
 
-static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
+static void parse_define_header(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
@@ -3212,8 +3212,6 @@ static lily_var *parse_define_header(lily_parse_state *parser, int modifiers)
         send_optargs_for(parser, define_var->type);
 
     define_var->flags &= ~SYM_NOT_INITIALIZED;
-
-    return define_var;
 }
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
@@ -3656,8 +3654,7 @@ static void run_loaded_module(lily_parse_state *parser,
     if (parser->emit->block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Unterminated block(s) at end of file.");
 
-    lily_emit_function_end(parser->emit, parser->default_call_type,
-            lex->line_num);
+    lily_emit_function_end(parser->emit, lex->line_num);
     /* __import__ vars and functions become global, so don't hide them. */
     lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(parser->lex);
@@ -3984,7 +3981,7 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
 
 /* This handles everything needed to create a class, including the inheritance
    if that turns out to be necessary. */
-static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
+static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
     /* Use the default call type (function ()) in case one of the types listed
@@ -4059,8 +4056,6 @@ static lily_var *parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     if (super_cls)
         run_super_ctor(parser, cls, super_cls);
-
-    return call_var;
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
@@ -4163,7 +4158,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     int save_generic_start;
     lily_gp_save_and_hide(parser->generics, &save_generic_start);
 
-    lily_var *ctor_var = parse_class_header(parser, cls);
+    parse_class_header(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
@@ -4171,7 +4166,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     determine_class_gc_flag(parser, parser->class_self_type->cls);
 
     parser->class_self_type = save_class_self_type;
-    lily_emit_function_end(parser->emit, ctor_var->type, lex->line_num);
+    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 
@@ -4609,11 +4604,11 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     int save_generic_start;
     lily_gp_save(parser->generics, &save_generic_start);
 
-    lily_var *define_var = parse_define_header(parser, modifiers);
+    parse_define_header(parser, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
-    lily_emit_function_end(parser->emit, define_var->type, lex->line_num);
+    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
     lily_gp_restore(parser->generics, save_generic_start);
