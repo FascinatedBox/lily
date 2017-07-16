@@ -81,9 +81,9 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->next_reg_spot = 0;
-    main_block->make_closure = 0;
     main_block->storage_start = 0;
     main_block->var_count = 0;
+    main_block->flags = 0;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -584,7 +584,7 @@ static lily_block *block_enter_common(lily_emit_state *emit)
     new_block->self = emit->block->self;
     new_block->patch_start = emit->patches->pos;
     new_block->last_exit = -1;
-    new_block->make_closure = 0;
+    new_block->flags = 0;
     new_block->var_count = 0;
 
     return new_block;
@@ -597,7 +597,7 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
 {
     lily_block *new_block = block_enter_common(emit);
     new_block->block_type = block_type;
-    new_block->all_branches_exit = 1;
+    new_block->flags |= BLOCK_ALWAYS_EXITS;
 
     if (block_type == block_enum)
         /* Enum entries are not considered function-like, because they do
@@ -733,7 +733,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     if ((block_type == block_if_else ||
          block_type == block_match ||
          block_type == block_try_except_all) &&
-        block->all_branches_exit &&
+        block->flags & BLOCK_ALWAYS_EXITS &&
         block->last_exit == lily_u16_pos(emit->code)) {
         emit->block->prev->last_exit = lily_u16_pos(emit->code);
     }
@@ -793,7 +793,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     lily_block_type current_type = block->block_type;
 
     if (block->last_exit != lily_u16_pos(emit->code))
-        block->all_branches_exit = 0;
+        block->flags &= ~BLOCK_ALWAYS_EXITS;
 
     if (new_type == block_if_elif || new_type == block_if_else) {
         char *block_name;
@@ -885,7 +885,7 @@ static void close_over_sym(lily_emit_state *emit, uint16_t depth, lily_sym *sym)
 {
     lily_u16_write_2(emit->closure_spots, sym->reg_spot, depth);
     sym->flags |= SYM_CLOSED_OVER;
-    emit->function_block->make_closure = 1;
+    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
 /* This writes o_create_function which will create a copy of 'func_sym' but
@@ -897,7 +897,7 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
 {
     lily_u16_write_4(emit->code, o_create_function, func_sym->reg_spot,
             target->reg_spot, *emit->lex_linenum);
-    emit->function_block->make_closure = 1;
+    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
 /* This function closes over a var, but has a requirement. The requirement is
@@ -969,7 +969,7 @@ static void maybe_close_over_class_self(lily_emit_state *emit, lily_ast *ast)
     if (emit->block->self == NULL)
         emit->block->self = get_storage(emit, self->type);
 
-    emit->function_block->make_closure = 1;
+    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
 /* The parameters of a function are never assigned anywhere. As a result, the
@@ -1381,7 +1381,7 @@ static void write_final_code_for_block(lily_emit_state *emit,
     int code_start, code_size;
     uint16_t *source, *code;
 
-    if (function_block->make_closure == 0) {
+    if ((function_block->flags & BLOCK_MAKE_CLOSURE) == 0) {
         code_start = emit->block->code_start;
         code_size = lily_u16_pos(emit->code) - emit->block->code_start;
 
@@ -1393,7 +1393,7 @@ static void write_final_code_for_block(lily_emit_state *emit,
         perform_closure_transform(emit, function_block, f);
 
         if (prev->block_type != block_file)
-            prev->make_closure = 1;
+            prev->flags |= BLOCK_MAKE_CLOSURE;
 
         code_start = 0;
         code_size = lily_u16_pos(emit->closure_aux_code);
@@ -1497,7 +1497,7 @@ void lily_emit_change_match_branch(lily_emit_state *emit)
 
     if (block->match_case_start != emit->match_case_pos) {
         if (emit->block->last_exit != lily_u16_pos(emit->code))
-            emit->block->all_branches_exit = 0;
+            emit->block->flags &= ~BLOCK_ALWAYS_EXITS;
 
         /* This is the jump of the last o_jump_if_not_class. */
         int pos = lily_u16_pop(emit->patches);
@@ -2553,7 +2553,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *s = get_storage(emit, lambda_result->type);
 
-    if (emit->function_block->make_closure == 0)
+    if ((emit->function_block->flags & BLOCK_MAKE_CLOSURE) == 0)
         lily_u16_write_4(emit->code, o_get_readonly, lambda_result->reg_spot,
                 s->reg_spot, ast->line_num);
     else
@@ -2882,7 +2882,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             if (spot == (uint16_t)-1)
                 spot = checked_close_over_var(emit, v);
 
-            emit->function_block->make_closure = 1;
+            emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
             break;
         }
         case tree_static_func:

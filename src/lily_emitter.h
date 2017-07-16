@@ -28,6 +28,12 @@ typedef enum {
     block_file
 } lily_block_type;
 
+/* This block uses upvalues and thus needs a closure made. */
+# define BLOCK_MAKE_CLOSURE 0x1
+/* If this is set on a block, then don't warn about a function not having a
+   return value at the end. */
+# define BLOCK_ALWAYS_EXITS 0x2
+
 typedef struct lily_block_ {
     /* Define/class blocks: This is saved because the var has the name of the
        current function. */
@@ -43,16 +49,9 @@ typedef struct lily_block_ {
 
     uint16_t var_count;
 
-    /* Define blocks: Initially 0, but set to 1 if the current define requires
-       closure information. During block exit, if this is 1, then that value
-       bubbles up to the parent so that the parent is forced to capture closure
-       data as well. */
-    uint8_t make_closure;
+    uint8_t flags;
 
-    /* This is used by if/elif/else, match, and try+except. If every branch of
-       a block returns a value or exits, then that information bubbles up to the
-       parent block. */
-    uint8_t all_branches_exit;
+    uint8_t pad;
 
     lily_block_type block_type : 16;
 
