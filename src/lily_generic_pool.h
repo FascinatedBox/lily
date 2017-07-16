@@ -31,18 +31,18 @@ int lily_gp_num_in_scope(lily_generic_pool *);
 
 /* Save the end of the current scope, to restore later. The generics from the
    old scope are still visible. */
-void lily_gp_save(lily_generic_pool *, int *);
+uint16_t lily_gp_save(lily_generic_pool *);
 
 /* Save the start of the current scope, to unhide later. You should only use
    this if there cannot be a prior scope (such as how classes and enums do not
    allow nesting OR when running a dynaload). */
-void lily_gp_save_and_hide(lily_generic_pool *, int *);
+uint16_t lily_gp_save_and_hide(lily_generic_pool *);
 
 /* Restore the end of the current scope. */
-void lily_gp_restore(lily_generic_pool *, int);
+void lily_gp_restore(lily_generic_pool *, uint16_t);
 
 /* Unhide generics from the old scope. */
-void lily_gp_restore_and_unhide(lily_generic_pool *, int);
+void lily_gp_restore_and_unhide(lily_generic_pool *, uint16_t);
 
 void lily_free_generic_pool(lily_generic_pool *);
 

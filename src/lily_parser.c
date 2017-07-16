@@ -1562,14 +1562,12 @@ static lily_type *dynaload_function(lily_parse_state *parser,
     lily_lexer_load(lex, et_shallow_string, body);
     lily_lexer(lex);
 
-    int save_generic_start;
-    lily_gp_save_and_hide(parser->generics, &save_generic_start);
-    collect_generics(parser);
-
+    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
     int result_pos = parser->tm->pos;
     int i = 1;
     int flags = 0 | F_SCOOP_OK;
 
+    collect_generics(parser);
     lily_tm_add(parser->tm, lily_unit_type);
 
     if (lex->token == tk_left_parenth) {
@@ -1667,8 +1665,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     else
         save_next_class_id = 0;
 
-    int save_generics;
-    lily_gp_save_and_hide(parser->generics, &save_generics);
+    uint16_t save_generics = lily_gp_save_and_hide(parser->generics);
 
     lily_class *result = parse_enum(parser, 1, is_scoped);
 
@@ -1765,9 +1762,8 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     lily_lexer(lex);
 
     lily_class *cls = lily_new_class(parser->symtab, name);
+    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
-    int save_generic_start;
-    lily_gp_save_and_hide(parser->generics, &save_generic_start);
     collect_generics(parser);
     cls->generic_count = lily_gp_num_in_scope(parser->generics);
 
@@ -4154,9 +4150,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *save_class_self_type = parser->class_self_type;
-
-    int save_generic_start;
-    lily_gp_save_and_hide(parser->generics, &save_generic_start);
+    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
     parse_class_header(parser, cls);
 
@@ -4262,10 +4256,9 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_dynaload,
     if (is_scoped)
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;
 
-    lily_lexer(lex);
+    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
-    int save_generic_start;
-    lily_gp_save_and_hide(parser->generics, &save_generic_start);
+    lily_lexer(lex);
     collect_generics(parser);
 
     enum_cls->generic_count = lily_gp_num_in_scope(parser->generics);
@@ -4601,8 +4594,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
     lily_lex_state *lex = parser->lex;
-    int save_generic_start;
-    lily_gp_save(parser->generics, &save_generic_start);
+    uint16_t save_generic_start = lily_gp_save(parser->generics);
 
     parse_define_header(parser, modifiers);
 

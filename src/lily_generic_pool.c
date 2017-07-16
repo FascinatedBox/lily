@@ -123,23 +123,24 @@ int lily_gp_num_in_scope(lily_generic_pool *gp)
     return gp->scope_end - gp->scope_start;
 }
 
-void lily_gp_save(lily_generic_pool *gp, int *save_end)
+uint16_t lily_gp_save(lily_generic_pool *gp)
 {
-    *save_end = gp->scope_end;
+    return gp->scope_end;
 }
 
-void lily_gp_restore(lily_generic_pool *gp, int old_end)
+void lily_gp_restore(lily_generic_pool *gp, uint16_t old_end)
 {
     gp->scope_end = old_end;
 }
 
-void lily_gp_save_and_hide(lily_generic_pool *gp, int *save_start)
+uint16_t lily_gp_save_and_hide(lily_generic_pool *gp)
 {
-    *save_start = gp->scope_start;
+    uint16_t result = gp->scope_start;
     gp->scope_start = gp->scope_end;
+    return result;
 }
 
-void lily_gp_restore_and_unhide(lily_generic_pool *gp, int old_start)
+void lily_gp_restore_and_unhide(lily_generic_pool *gp, uint16_t old_start)
 {
     gp->scope_end = gp->scope_start;
     gp->scope_start = old_start;
