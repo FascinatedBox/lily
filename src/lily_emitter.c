@@ -1252,12 +1252,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         if (ci.inputs_3) {
             for (i = 0;i < ci.inputs_3;i++) {
-    uint16_t id = transform_table[buffer[pos + i]];
-    if (id != (uint16_t)-1) {
-        lily_u16_write_4(emit->closure_aux_code, o_get_upvalue, id,
-                buffer[pos + i], f->line_num);
-        jump_adjust += 4;
-    }
+                MAYBE_TRANSFORM_INPUT(pos + i, o_get_upvalue)
             }
 
             pos += ci.inputs_3;
