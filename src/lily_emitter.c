@@ -648,12 +648,12 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     emit->block = new_block;
 }
 
-void lily_emit_function_end(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
 {
-    lily_block *function_block = emit->block;
+    lily_block *block = emit->block;
 
-    if (function_block->block_type == block_class) {
-        int class_flags = function_block->class_entry->flags;
+    if (block->block_type == block_class) {
+        int class_flags = block->class_entry->flags;
 
         if (class_flags & (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)) {
             uint16_t opcode;
@@ -662,14 +662,14 @@ void lily_emit_function_end(lily_emit_state *emit, uint16_t line_num)
             else
                 opcode = o_new_instance_tagged;
 
-            lily_u16_set_at(emit->code, function_block->code_start, opcode);
+            lily_u16_set_at(emit->code, block->code_start, opcode);
         }
 
-        lily_u16_write_3(emit->code, o_return_val, emit->block->self->reg_spot,
+        lily_u16_write_3(emit->code, o_return_val, block->self->reg_spot,
                 line_num);
     }
-    else if (function_block->last_exit != lily_u16_pos(emit->code)) {
-        lily_type *type = function_block->function_var->type->subtypes[0];
+    else if (block->last_exit != lily_u16_pos(emit->code)) {
+        lily_type *type = block->function_var->type->subtypes[0];
 
         if (type == lily_unit_type ||
             type == lily_self_class->self_type)
@@ -679,11 +679,8 @@ void lily_emit_function_end(lily_emit_state *emit, uint16_t line_num)
                     "Missing return statement at end of function.");
     }
 
-    write_final_code_for_block(emit, function_block);
-}
+    write_final_code_for_block(emit, block);
 
-static void leave_function(lily_emit_state *emit, lily_block *block)
-{
     int i;
     for (i = block->storage_start;i < emit->storages->scope_end;i++)
         emit->storages->data[i]->type = NULL;
@@ -699,10 +696,10 @@ static void leave_function(lily_emit_state *emit, lily_block *block)
        if something is a global or not. */
     if (block->block_type != block_file)
         emit->function_depth--;
+
+    emit->block = emit->block->prev;
 }
 
-/* This leaves the current block. If there is a function-like entity that has
-   been left, then it's prepared and cleaned up. */
 void lily_emit_leave_block(lily_emit_state *emit)
 {
     lily_block *block;
@@ -738,11 +735,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
         emit->block->prev->last_exit = lily_u16_pos(emit->code);
     }
 
-    if (block_type < block_define)
-        write_patches_since(emit, block->patch_start);
-    else
-        leave_function(emit, block);
-
+    write_patches_since(emit, block->patch_start);
     emit->block = emit->block->prev;
 }
 

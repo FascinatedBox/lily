@@ -2847,9 +2847,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lambda_var->type = lily_tm_make(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);
 
-    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
-    lily_emit_leave_block(parser->emit);
+    lily_emit_leave_call_block(parser->emit, lex->line_num);
     lily_pop_lex_entry(lex);
 
     return lambda_var;
@@ -3656,9 +3655,8 @@ static void run_loaded_module(lily_parse_state *parser,
     if (parser->emit->block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Unterminated block(s) at end of file.");
 
-    lily_emit_function_end(parser->emit, lex->line_num);
+    lily_emit_leave_call_block(parser->emit, lex->line_num);
     /* __import__ vars and functions become global, so don't hide them. */
-    lily_emit_leave_block(parser->emit);
     lily_pop_lex_entry(parser->lex);
 
     lily_emit_write_import_call(parser->emit, import_var);
@@ -4166,9 +4164,8 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     determine_class_gc_flag(parser, parser->class_self_type->cls);
 
     parser->class_self_type = save_class_self_type;
-    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
-    lily_emit_leave_block(parser->emit);
+    lily_emit_leave_call_block(parser->emit, lex->line_num);
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
 }
@@ -4601,9 +4598,8 @@ static void parse_define(lily_parse_state *parser, int modifiers)
 
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
-    lily_emit_function_end(parser->emit, lex->line_num);
     hide_block_vars(parser);
-    lily_emit_leave_block(parser->emit);
+    lily_emit_leave_call_block(parser->emit, lex->line_num);
     lily_gp_restore(parser->generics, save_generic_start);
 }
 
