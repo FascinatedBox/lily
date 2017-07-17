@@ -1126,9 +1126,10 @@ static void perform_closure_transform(lily_emit_state *emit,
                 lily_u16_pos(emit->closure_spots) / 2, s->reg_spot,
                 f->line_num);
 
-        if (emit->class_block_depth && function_block->self) {
-            uint16_t self_spot = find_closed_sym_spot(emit,
-                    emit->function_depth, (lily_sym *)function_block->self);
+        if (function_block->self) {
+            /* Use raw search because 'self' is always at 0. */
+            uint16_t self_spot = find_closed_sym_spot_raw(emit,
+                    emit->function_depth, 0);
             /* Load register 0 (self) into the closure. */
             if (self_spot != (uint16_t)-1) {
                 lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
