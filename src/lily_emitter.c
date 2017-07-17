@@ -972,43 +972,9 @@ static void maybe_close_over_class_self(lily_emit_state *emit, lily_ast *ast)
     emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
-/* The parameters of a function are never assigned anywhere. As a result, the
-   values won't have a shadowing assignment. If any parameters are closed over,
-   this will write a direct upvalue assignment to them. This ensures that they
-   will be in the closure. */
-static void ensure_params_in_closure(lily_emit_state *emit)
-{
-    lily_var *function_var = emit->block->function_var;
-    int local_count = function_var->type->subtype_count - 1;
-    if (local_count == 0)
-        return;
-
-    lily_var *var_iter = emit->symtab->active_module->var_chain;
-
-    while (1) {
-        if (var_iter->reg_spot == (local_count - 1) &&
-            var_iter->function_depth == emit->function_depth)
-            break;
-
-        var_iter = var_iter->next;
-    }
-
-    for (;local_count;local_count--, var_iter = var_iter->next) {
-        if (var_iter->flags & SYM_CLOSED_OVER) {
-            /* Make absolutely sure that a parameter that has been closed over
-               is present in the closure by forcing a write. It might be a
-               useless write, but that's hard to discover. Best to be safe. */
-            lily_u16_write_4(emit->closure_aux_code, o_set_upvalue,
-                    find_closed_sym_spot(emit, var_iter->function_depth,
-                            (lily_sym *)var_iter),
-                    var_iter->reg_spot, function_var->line_num);
-        }
-    }
-}
-
 /* This sets up the table used to map from a register spot to where that spot is
    in the closure. */
-static void setup_transform_table_and_locals(lily_emit_state *emit,
+static void setup_for_transform(lily_emit_state *emit,
         lily_function_val *f, int is_backing)
 {
     int next_reg_spot = emit->function_block->next_reg_spot;
@@ -1022,6 +988,9 @@ static void setup_transform_table_and_locals(lily_emit_state *emit,
     memset(emit->transform_table, (uint16_t)-1,
             next_reg_spot * sizeof(*emit->transform_table));
 
+    lily_var *func_var = emit->function_block->function_var;
+    uint16_t line_num = func_var->line_num;
+    uint16_t local_count = func_var->type->subtype_count - 1;
     int i, count = 0;
 
     for (i = 0;
@@ -1032,6 +1001,11 @@ static void setup_transform_table_and_locals(lily_emit_state *emit,
 
             if (spot == (uint16_t)-1)
                 continue;
+            else if (spot < local_count) {
+                /* Make sure this parameter always exists in the closure. */
+                lily_u16_write_4(emit->closure_aux_code, o_set_upvalue, i / 2,
+                    spot, line_num);
+            }
 
             emit->transform_table[spot] = i / 2;
             count++;
@@ -1175,8 +1149,7 @@ static void perform_closure_transform(lily_emit_state *emit,
         }
     }
 
-    ensure_params_in_closure(emit);
-    setup_transform_table_and_locals(emit, f, is_backing);
+    setup_for_transform(emit, f, is_backing);
 
     if (is_backing)
         lily_u16_set_pos(emit->closure_spots, 0);
