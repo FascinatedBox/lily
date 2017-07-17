@@ -1342,14 +1342,17 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
+    uint32_t flags =
+        (instance_class->flags & CLS_GC_FLAGS) << VAL_FROM_CLS_GC_SHIFT;
+
     lily_container_val *iv = new_container(cls_id, total_entries);
     iv->instance_ctor_need = instance_class->inherit_depth;
 
-    if (code[0] == o_new_instance_speculative)
+    if (flags == VAL_IS_GC_SPECULATIVE)
         lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, iv);
     else {
         lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
-        if (code[0] == o_new_instance_tagged)
+        if (flags == VAL_IS_GC_SWEEPABLE)
             lily_value_tag(vm, result);
     }
 }
@@ -2365,8 +2368,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 3;
                 break;
             case o_new_instance_basic:
-            case o_new_instance_speculative:
-            case o_new_instance_tagged:
             {
                 do_o_new_instance(vm, code);
                 code += 4;

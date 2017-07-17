@@ -307,6 +307,10 @@ typedef struct lily_module_entry_ {
    gc mark/interest flag set on it. */
 #define CLS_VISITED        0x80
 
+/* If either of these flag values change, then VAL_FROM_CLS_GC_SHIFT must be
+   updated. */
+#define CLS_GC_FLAGS       (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)
+
 /* TYPE_* defines are for lily_type.
    Since classes without generics can act as their own type, these flags start
    where class flags leave off. */

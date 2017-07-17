@@ -250,8 +250,6 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 3;
             break;
         case o_new_instance_basic:
-        case o_new_instance_speculative:
-        case o_new_instance_tagged:
             iter->special_1 = 1;
             iter->outputs_5 = 1;
             iter->line_8 = 1;

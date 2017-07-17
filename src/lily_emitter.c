@@ -652,22 +652,9 @@ void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
 {
     lily_block *block = emit->block;
 
-    if (block->block_type == block_class) {
-        int class_flags = block->class_entry->flags;
-
-        if (class_flags & (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)) {
-            uint16_t opcode;
-            if (class_flags & CLS_GC_SPECULATIVE)
-                opcode = o_new_instance_speculative;
-            else
-                opcode = o_new_instance_tagged;
-
-            lily_u16_set_at(emit->code, block->code_start, opcode);
-        }
-
+    if (block->block_type == block_class)
         lily_u16_write_3(emit->code, o_return_val, block->self->reg_spot,
                 line_num);
-    }
     else if (block->last_exit != lily_u16_pos(emit->code)) {
         lily_type *type = block->function_var->type->subtypes[0];
 

@@ -15,4 +15,8 @@
 #define VAL_IS_ENUM             0x200000
 #define VAL_IS_CONTAINER        0x400000
 
+/* How much do the CLS flags from lily_class need to be shifted to become vm
+   VAL gc flags? */
+#define VAL_FROM_CLS_GC_SHIFT   12
+
 #endif
