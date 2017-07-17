@@ -924,15 +924,15 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
 /* See if the given sym has been closed over.
    Success: The spot
    Failure: -1 */
-static int find_closed_sym_spot(lily_emit_state *emit, uint16_t depth,
-        lily_sym *sym)
+static int find_closed_sym_spot_raw(lily_emit_state *emit, uint16_t depth,
+        uint16_t spot)
 {
     int result = -1, i;
 
     for (i = 0;
          i < lily_u16_pos(emit->closure_spots);
          i += 2) {
-        if (lily_u16_get(emit->closure_spots, i) == sym->reg_spot &&
+        if (lily_u16_get(emit->closure_spots, i) == spot &&
             lily_u16_get(emit->closure_spots, i + 1) == depth) {
             result = i / 2;
             break;
@@ -941,6 +941,9 @@ static int find_closed_sym_spot(lily_emit_state *emit, uint16_t depth,
 
     return result;
 }
+
+#define find_closed_sym_spot(emit, depth, sym) \
+find_closed_sym_spot_raw(emit, depth, (sym)->reg_spot)
 
 /* Called if the current block is a lambda. If `self` can be closed over, then
    do that. */
