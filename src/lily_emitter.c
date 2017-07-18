@@ -9,10 +9,6 @@
 #include "lily_int_opcode.h"
 #include "lily_int_code_iter.h"
 
-# define IS_LOOP_BLOCK(b) (b == block_while || \
-                           b == block_do_while || \
-                           b == block_for_in)
-
 # define lily_raise_adjusted(r, adjust, message, ...) \
 { \
     r->line_adjust = adjust; \
@@ -730,7 +726,9 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     ret = NULL;
 
     for (block = emit->block; block; block = block->prev) {
-        if (IS_LOOP_BLOCK(block->block_type)) {
+        if (block->block_type == block_while ||
+            block->block_type == block_do_while ||
+            block->block_type == block_for_in) {
             ret = block;
             break;
         }
