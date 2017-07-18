@@ -26,6 +26,7 @@ static const lily_tok_info parser_tok_table[] =
     {tk_right_curly,      1          , -1},
     {tk_left_bracket,     0          , -1},
     {tk_colon,            1          , -1},
+    {tk_tilde,            0          , -1},
     {tk_bitwise_xor,      0          , expr_bitwise_xor},
     {tk_bitwise_xor_eq,   0          , expr_bitwise_xor_assign},
     {tk_not,              0          , -1},

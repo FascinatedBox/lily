@@ -13,6 +13,7 @@ typedef enum {
     tk_right_curly,
     tk_left_bracket,
     tk_colon,
+    tk_tilde,
     tk_bitwise_xor,
     tk_bitwise_xor_eq,
     tk_not,

@@ -42,6 +42,7 @@ typedef enum {
     /* Simple unary operations. */
     o_unary_not,
     o_unary_minus,
+    o_unary_bitwise_not,
 
     /* An absolute jump. A motion is done relative to the current position. The
        value is usually positive, but can be negative for backward jumps. */

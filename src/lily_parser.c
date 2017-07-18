@@ -2453,6 +2453,8 @@ static void expression_unary(lily_parse_state *parser, int *state)
             lily_es_push_unary_op(parser->expr, expr_unary_minus);
         else if (token == tk_not)
             lily_es_push_unary_op(parser->expr, expr_unary_not);
+        else if (token == tk_tilde)
+            lily_es_push_unary_op(parser->expr, expr_unary_bitwise_not);
 
         *state = ST_DEMAND_VALUE;
     }
@@ -2582,7 +2584,9 @@ static void expression_raw(lily_parse_state *parser)
             expression_literal(parser, &state);
         else if (lex->token == tk_dot)
             expression_dot(parser, &state);
-        else if (lex->token == tk_minus || lex->token == tk_not)
+        else if (lex->token == tk_minus ||
+                 lex->token == tk_not ||
+                 lex->token == tk_tilde)
             expression_unary(parser, &state);
         else if (lex->token == tk_lambda) {
             /* This is to allow `x.some_call{|x| ... }`

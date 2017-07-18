@@ -1546,8 +1546,8 @@ static const char *opname(lily_expr_op op)
 {
     static const char *opnames[] =
     {"+", "++", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<",
-     ">>", "&", "|", "^", "!", "-", "&&", "||", "|>", "=", "+=", "-=", "%=",
-     "*=", "/=", "<<=", ">>=", "&=", "|=", "^="};
+     ">>", "&", "|", "^", "!", "-", "~", "&&", "||", "|>", "=", "+=", "-=",
+     "%=", "*=", "/=", "<<=", ">>=", "&=", "|=", "^="};
 
     return opnames[op];
 }
@@ -2728,6 +2728,8 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
             opcode = o_unary_minus;
         else if (op == expr_unary_not)
             opcode = o_unary_not;
+        else if (op == expr_unary_bitwise_not)
+            opcode = o_unary_bitwise_not;
     }
 
     if (opcode == -1)

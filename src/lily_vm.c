@@ -2212,6 +2212,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code += 4;
                 break;
+            case o_unary_bitwise_not:
+                lhs_reg = vm_regs[code[1]];
+
+                rhs_reg = vm_regs[code[2]];
+                rhs_reg->flags = lhs_reg->flags;
+                rhs_reg->value.integer = ~(lhs_reg->value.integer);
+                code += 4;
+                break;
             case o_return_unit:
                 lily_move_unit(current_frame->return_target);
                 goto return_common;

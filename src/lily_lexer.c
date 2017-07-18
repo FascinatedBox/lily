@@ -19,42 +19,43 @@
 #define CC_RIGHT_CURLY   3
 #define CC_LEFT_BRACKET  4
 #define CC_COLON         5
-#define CC_G_ONE_LAST    5
+#define CC_TILDE         6
+#define CC_G_ONE_LAST    6
 
 /* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  6
-#define CC_CARET         6
-#define CC_NOT           7
-#define CC_PERCENT       8
-#define CC_MULTIPLY      9
-#define CC_DIVIDE        10
-#define CC_G_TWO_LAST    10
+#define CC_G_TWO_OFFSET  7
+#define CC_CARET         7
+#define CC_NOT           8
+#define CC_PERCENT       9
+#define CC_MULTIPLY      10
+#define CC_DIVIDE        11
+#define CC_G_TWO_LAST    11
 
 /* Greater and Less are able to do shifts, self=, and self. < can become <[,
    but the reverse of that is ]>, so these two aren't exactly the same. So
    there's no group for them. */
-#define CC_GREATER       11
-#define CC_LESS          12
-#define CC_PLUS          13
-#define CC_MINUS         14
-#define CC_WORD          15
-#define CC_DOUBLE_QUOTE  16
-#define CC_NUMBER        17
-#define CC_LEFT_PARENTH  18
-#define CC_RIGHT_BRACKET 19
+#define CC_GREATER       12
+#define CC_LESS          13
+#define CC_PLUS          14
+#define CC_MINUS         15
+#define CC_WORD          16
+#define CC_DOUBLE_QUOTE  17
+#define CC_NUMBER        18
+#define CC_LEFT_PARENTH  19
+#define CC_RIGHT_BRACKET 20
 
-#define CC_EQUAL         20
-#define CC_NEWLINE       21
-#define CC_SHARP         22
-#define CC_DOT           23
-#define CC_AT            24
-#define CC_AMPERSAND     25
-#define CC_VBAR          26
-#define CC_QUESTION      27
-#define CC_B             28
-#define CC_DOLLAR        29
-#define CC_SINGLE_QUOTE  30
-#define CC_INVALID       31
+#define CC_EQUAL         21
+#define CC_NEWLINE       22
+#define CC_SHARP         23
+#define CC_DOT           24
+#define CC_AT            25
+#define CC_AMPERSAND     26
+#define CC_VBAR          27
+#define CC_QUESTION      28
+#define CC_B             29
+#define CC_DOLLAR        30
+#define CC_SINGLE_QUOTE  31
+#define CC_INVALID       32
 
 static int read_line(lily_lex_state *);
 static void close_entry(lily_lex_entry *);
@@ -165,6 +166,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
     ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
     ch_class[(unsigned char)'$'] = CC_DOLLAR;
+    ch_class[(unsigned char)'~'] = CC_TILDE;
     ch_class[(unsigned char)'\n'] = CC_NEWLINE;
 
     /* This is set so that token is never unset, which allows parser to check
@@ -1633,12 +1635,13 @@ next_line:
 char *tokname(lily_token t)
 {
     static char *toknames[] =
-    {")", ",", "{", "}", "[", ":", "^", "^=", "!", "!=", "%", "%=", "*", "*=",
-     "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">", ">=",
-     ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>", "a label",
-     "a property name", "a string", "a bytestring", "a byte", "an integer",
-     "a double", "a docstring", ".", "&", "&=", "&&", "|", "|=", "||", "@(",
-     "...", "|>", "invalid token", "end of lambda", "?>", "end of file"};
+    {")", ",", "{", "}", "[", ":", "~", "^", "^=", "!", "!=", "%", "%=", "*",
+     "*=", "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">",
+     ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
+     "a label", "a property name", "a string", "a bytestring", "a byte",
+     "an integer", "a double", "a docstring", ".", "&", "&=", "&&", "|", "|=",
+     "||", "@(", "...", "|>", "invalid token", "end of lambda", "?>",
+     "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

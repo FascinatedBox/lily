@@ -25,6 +25,7 @@ typedef enum {
     expr_bitwise_xor,
     expr_unary_not,
     expr_unary_minus,
+    expr_unary_bitwise_not,
     expr_logical_and,
     expr_logical_or,
     expr_func_pipe,
