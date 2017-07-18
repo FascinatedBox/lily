@@ -595,9 +595,7 @@ int lily_load_library(lily_state *s, const char *path)
     if (handle == NULL)
         return 0;
 
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_mb_flush(msgbuf);
-
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     char *loadname = loadname_from_path(path);
 
     char *path_copy = lily_malloc((strlen(path) + 1) * sizeof(*path_copy));
@@ -737,8 +735,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
     parser->config->import_func(parser->vm, root, current, name);
 
     if (parser->last_import == NULL) {
-        lily_msgbuf *msgbuf = parser->msgbuf;
-        lily_mb_flush(parser->msgbuf);
+        lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
         lily_mb_add_fmt(msgbuf, "Cannot import '%s':\n", name);
         lily_mb_add_fmt(msgbuf, "    no preloaded package '%s'", name);
 
@@ -3678,8 +3675,6 @@ static void import_handler(lily_parse_state *parser, int multi)
 
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_mb_flush(msgbuf);
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
@@ -4783,9 +4778,7 @@ static void fix_first_file_name(lily_parse_state *parser,
 static void build_error(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
-    lily_msgbuf *msgbuf = parser->msgbuf;
-
-    lily_mb_flush(parser->msgbuf);
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
 
     if (raiser->exception_cls) {
         lily_module_entry *m = raiser->exception_cls->module;
@@ -4954,9 +4947,8 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
         if (sym && text) {
             /* This grabs the symbol from __main__. */
             lily_value *reg = s->call_chain->next->start[sym->reg_spot];
-            lily_msgbuf *msgbuf = parser->msgbuf;
+            lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
 
-            lily_mb_flush(msgbuf);
             lily_mb_add_fmt(msgbuf, "(^T): ", sym->type);
 
             /* Add value doesn't quote String values, because most callers do

@@ -223,10 +223,11 @@ void add_double(lily_msgbuf *msgbuf, double d)
 }
 
 /* This erases what the msgbuf currently holds. */
-void lily_mb_flush(lily_msgbuf *msgbuf)
+lily_msgbuf *lily_mb_flush(lily_msgbuf *msgbuf)
 {
     msgbuf->pos = 0;
     msgbuf->message[0] = '\0';
+    return msgbuf;
 }
 
 static void add_type(lily_msgbuf *msgbuf, lily_type *type)

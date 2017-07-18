@@ -960,9 +960,8 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 #define LILY_ERROR(err, id) \
 void lily_##err##Error(lily_vm_state *vm, const char *fmt, ...) \
 { \
-    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf; \
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf); \
  \
-    lily_mb_flush(msgbuf); \
     va_list var_args; \
     va_start(var_args, fmt); \
     lily_mb_add_fmt_va(msgbuf, fmt, var_args); \
@@ -994,8 +993,7 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
 static void boundary_error(lily_vm_state *vm, int bad_index, uint16_t line_num)
 {
-    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
-    lily_mb_flush(msgbuf);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
     lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
             bad_index);
 
@@ -1032,8 +1030,7 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
     if (source->class_id == LILY_STRING_ID)
         fputs(source->value.string->string, target);
     else {
-        lily_msgbuf *msgbuf = vm->vm_buffer;
-        lily_mb_flush(msgbuf);
+        lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
         lily_mb_add_value(msgbuf, vm, source);
         fputs(lily_mb_get(msgbuf), target);
     }
@@ -1361,8 +1358,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     int count = code[1];
-    lily_msgbuf *vm_buffer = vm->vm_buffer;
-    lily_mb_flush(vm_buffer);
+    lily_msgbuf *vm_buffer = lily_mb_flush(vm->vm_buffer);
 
     int i;
     for (i = 0;i < count;i++) {
@@ -1720,9 +1716,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
 lily_msgbuf *lily_get_clean_msgbuf(lily_vm_state *vm)
 {
-    lily_msgbuf *msgbuf = vm->vm_buffer;
-    lily_mb_flush(msgbuf);
-    return msgbuf;
+    return lily_mb_flush(vm->vm_buffer);
 }
 
 void lily_get_dirty_msgbuf(lily_vm_state *vm, lily_msgbuf **msgbuf)

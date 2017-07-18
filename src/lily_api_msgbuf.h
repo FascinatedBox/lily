@@ -14,7 +14,7 @@ typedef struct lily_msgbuf_ lily_msgbuf;
 
 void lily_free_msgbuf(lily_msgbuf *);
 lily_msgbuf *lily_new_msgbuf(uint32_t);
-void lily_mb_flush(lily_msgbuf *);
+lily_msgbuf *lily_mb_flush(lily_msgbuf *);
 const char *lily_mb_get(lily_msgbuf *);
 int lily_mb_pos(lily_msgbuf *);
 
