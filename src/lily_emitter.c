@@ -2330,6 +2330,8 @@ static void emit_op_for_compound(lily_emit_state *emit, lily_ast *ast)
         spoof_op = expr_bitwise_and;
     else if (ast->op == expr_bitwise_or_assign)
         spoof_op = expr_bitwise_or;
+    else if (ast->op == expr_bitwise_xor_assign)
+        spoof_op = expr_bitwise_xor;
     else {
         lily_raise_syn(emit->raiser, "Invalid compound op: %s.",
                 opname(ast->op));
