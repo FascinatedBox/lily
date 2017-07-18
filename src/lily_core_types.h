@@ -285,52 +285,52 @@ typedef struct lily_module_entry_ {
 #define ITEM_TYPE_TYPE     6
 #define ITEM_TYPE_CLASS    7
 
+/* TYPE_* defines are for lily_type.
+   Since classes without generics can act as their own type, class flags will
+   need to start where these leave off. */
+
+
+/* If set, the type is a function that takes a variable number of values. */
+#define TYPE_IS_VARARGS    0x01
+/* This is set on a type when it is a generic (ex: A, B, ...), or when it
+   contains generics at some point. Emitter and vm use this as a fast way of
+   checking if a type needs to be resolved or not. */
+#define TYPE_IS_UNRESOLVED 0x02
+/* This is set on function types that have at least one optional argument. This
+   is set so that emitter and ts can easily figure out if the function doesn't
+   have to take some arguments. */
+#define TYPE_HAS_OPTARGS   0x04
+/* This is set on a type that either is the ? type, or has a type that contains
+   the ? type within it. */
+#define TYPE_IS_INCOMPLETE 0x10
+/* This is a scoop type, or has one inside somewhere. */
+#define TYPE_HAS_SCOOP     0x20
+
 /* CLS_* defines are for lily_class.
    Since classes without generics can act as their own type, these fields must
    not conflict with TYPE_* fields. */
 
 
-#define CLS_VALID_HASH_KEY 0x01
-#define CLS_IS_ENUM        0x02
+#define CLS_VALID_HASH_KEY 0x0040
+#define CLS_IS_ENUM        0x0080
+/* This class can become circular, so instances must have a gc tag. */
+#define CLS_GC_TAGGED      0x0100
+/* This class might have circular data inside of it. */
+#define CLS_GC_SPECULATIVE 0x0200
 /* This class is an enum AND the variants within are scoped. The difference is
    that scoped variants are accessed using 'enum.variant', while normal
    variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x04
-#define CLS_EMPTY_VARIANT  0x08
-/* This class can become circular, so instances must have a gc tag. */
-#define CLS_GC_TAGGED      0x10
-/* This class might have circular data inside of it. */
-#define CLS_GC_SPECULATIVE 0x20
+#define CLS_ENUM_IS_SCOPED 0x0400
+#define CLS_EMPTY_VARIANT  0x0800
 /* This class does not have an inheritable representation. */
-#define CLS_IS_BUILTIN     0x40
+#define CLS_IS_BUILTIN     0x1000
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
-#define CLS_VISITED        0x80
+#define CLS_VISITED        0x2000
 
 /* If either of these flag values change, then VAL_FROM_CLS_GC_SHIFT must be
    updated. */
 #define CLS_GC_FLAGS       (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)
-
-/* TYPE_* defines are for lily_type.
-   Since classes without generics can act as their own type, these flags start
-   where class flags leave off. */
-
-
-/* If set, the type is a function that takes a variable number of values. */
-#define TYPE_IS_VARARGS    0x0200
-/* This is set on a type when it is a generic (ex: A, B, ...), or when it
-   contains generics at some point. Emitter and vm use this as a fast way of
-   checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED 0x0400
-/* This is set on function types that have at least one optional argument. This
-   is set so that emitter and ts can easily figure out if the function doesn't
-   have to take some arguments. */
-#define TYPE_HAS_OPTARGS   0x0800
-/* This is set on a type that either is the ? type, or has a type that contains
-   the ? type within it. */
-#define TYPE_IS_INCOMPLETE 0x1000
-/* This is a scoop type, or has one inside somewhere. */
-#define TYPE_HAS_SCOOP     0x2000
 
 /* SYM_* flags are for things based off of lily_sym. */
 
