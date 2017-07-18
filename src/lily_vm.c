@@ -2367,8 +2367,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             }
             case o_jump_if_not_class:
-                lhs_reg = vm_regs[code[1]];
-                i = code[2];
+                i = code[1];
+                lhs_reg = vm_regs[code[2]];
 
                 if (lhs_reg->class_id == i)
                     code += 4;

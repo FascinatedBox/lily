@@ -199,7 +199,7 @@ void lily_emit_write_optarg_header(lily_emit_state *emit, lily_type *type,
 
     for (;i > 0;i--, first_reg++) {
         /* If this value is NOT unset, jump to the next test. */
-        lily_u16_write_4(emit->code, o_jump_if_not_class, first_reg, 0, 6);
+        lily_u16_write_4(emit->code, o_jump_if_not_class, 0, first_reg, 6);
 
         /* Otherwise jump to the assign table. */
         lily_u16_write_2(emit->code, o_jump, 1);
@@ -1163,10 +1163,10 @@ static void perform_closure_transform(lily_emit_state *emit,
        from lowest to highest. Each entry has a spot after it to hold where that
        jump is patched to. The spots will be filled during transformation. */
     while (lily_ci_next(&ci)) {
-        if (ci.jumps_7) {
-            int stop = ci.offset + ci.round_total - ci.line_8;
+        if (ci.jumps_5) {
+            int stop = ci.offset + ci.round_total - ci.line_6;
 
-            for (i = stop - ci.jumps_7;i < stop;i++) {
+            for (i = stop - ci.jumps_5;i < stop;i++) {
                 int jump = (int16_t)buffer[i];
                 /* Catching opcodes write a jump to 0 to let vm know that there
                    is no next catch branch. Do not patch those. */
@@ -1213,23 +1213,9 @@ static void perform_closure_transform(lily_emit_state *emit,
             pos += ci.inputs_3;
         }
 
-        if (ci.special_4) {
-            switch (op) {
-                case o_create_function:
-                    pos += ci.special_4;
-                    break;
-                case o_jump_if_not_class:
-                    pos += 1;
-                    break;
-                default:
-                    lily_raise_syn(emit->raiser,
-                            "Special value #4 for opcode %d not handled.", op);
-            }
-        }
-
-        if (ci.outputs_5) {
+        if (ci.outputs_4) {
             output_start = pos;
-            pos += ci.outputs_5;
+            pos += ci.outputs_4;
         }
 
         i = ci.offset;
@@ -1244,12 +1230,12 @@ static void perform_closure_transform(lily_emit_state *emit,
             next_jump = lily_u16_get(emit->patches, patch_iter);
         }
 
-        int stop = ci.offset + ci.round_total - ci.jumps_7 - ci.line_8;
+        int stop = ci.offset + ci.round_total - ci.jumps_5 - ci.line_6;
         for (;i < stop;i++)
             lily_u16_write_1(emit->closure_aux_code, buffer[i]);
 
-        if (ci.jumps_7) {
-            for (i = 0;i < ci.jumps_7;i++) {
+        if (ci.jumps_5) {
+            for (i = 0;i < ci.jumps_5;i++) {
                 /* This is the absolute position of this jump, but within the
                    original buffer. */
                 int distance = (int16_t)buffer[stop + i];
@@ -1267,7 +1253,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                        the opcode for use in the calculation. */
                     lily_u16_write_2(emit->patches,
                             lily_u16_pos(emit->closure_aux_code),
-                            ci.round_total - ci.jumps_7 - ci.line_8 + i);
+                            ci.round_total - ci.jumps_5 - ci.line_6 + i);
 
                     lily_u16_write_1(emit->closure_aux_code, destination);
                 }
@@ -1276,11 +1262,11 @@ static void perform_closure_transform(lily_emit_state *emit,
             }
         }
 
-        if (ci.line_8)
+        if (ci.line_6)
             lily_u16_write_1(emit->closure_aux_code, 5);
 
-        if (ci.outputs_5) {
-            int stop = output_start + ci.outputs_5;
+        if (ci.outputs_4) {
+            int stop = output_start + ci.outputs_4;
 
             for (i = output_start;i < stop;i++) {
                 MAYBE_TRANSFORM_INPUT(i, o_set_upvalue)
@@ -1440,8 +1426,8 @@ void lily_emit_write_match_case(lily_emit_state *emit, lily_sym *match_sym,
     emit->match_cases[emit->match_case_pos] = cls->id;
     emit->match_case_pos++;
 
-    lily_u16_write_4(emit->code, o_jump_if_not_class, match_sym->reg_spot,
-            cls->id, 3);
+    lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id,
+            match_sym->reg_spot, 3);
 
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
