@@ -344,7 +344,7 @@ void lily_emit_continue(lily_emit_state *emit)
 
     write_pop_try_blocks_up_to(emit, loop_block);
 
-    int where = emit->block->code_start - lily_u16_pos(emit->code);
+    int where = loop_block->code_start - lily_u16_pos(emit->code);
     lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
 }
 
@@ -580,6 +580,7 @@ static lily_block *block_enter_common(lily_emit_state *emit)
     new_block->last_exit = -1;
     new_block->flags = 0;
     new_block->var_count = 0;
+    new_block->code_start = lily_u16_pos(emit->code);
 
     return new_block;
 }
