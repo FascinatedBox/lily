@@ -40,32 +40,36 @@ int lily_ci_next(lily_code_iter *iter)
 
     /* The cast is so the compiler will warn about missing switch cases. */
     switch ((lily_opcode)*buffer) {
-        case o_fast_assign:
         case o_assign:
+        case o_assign_noref:
+        case o_unary_not:
+        case o_unary_minus:
+        case o_unary_bitwise_not:
             iter->inputs_3 = 1;
             iter->outputs_4 = 1;
             iter->line_6 = 1;
 
             iter->round_total = 4;
             break;
-        case o_integer_add:
-        case o_integer_minus:
-        case o_modulo:
-        case o_integer_mul:
-        case o_integer_div:
-        case o_left_shift:
-        case o_right_shift:
-        case o_bitwise_and:
-        case o_bitwise_or:
-        case o_bitwise_xor:
-        case o_double_add:
-        case o_double_minus:
-        case o_double_mul:
-        case o_double_div:
-        case o_is_equal:
-        case o_not_eq:
-        case o_greater:
-        case o_greater_eq:
+        case o_int_add:
+        case o_int_minus:
+        case o_int_modulo:
+        case o_int_multiply:
+        case o_int_divide:
+        case o_int_left_shift:
+        case o_int_right_shift:
+        case o_int_bitwise_and:
+        case o_int_bitwise_or:
+        case o_int_bitwise_xor:
+        case o_number_add:
+        case o_number_minus:
+        case o_number_multiply:
+        case o_number_divide:
+        case o_compare_eq:
+        case o_compare_not_eq:
+        case o_compare_greater:
+        case o_compare_greater_eq:
+        case o_subscript_get:
             iter->inputs_3 = 2;
             iter->outputs_4 = 1;
             iter->line_6 = 1;
@@ -78,12 +82,6 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 2;
             break;
         case o_jump_if:
-            iter->special_1 = 1;
-            iter->inputs_3 = 1;
-            iter->jumps_5 = 1;
-
-            iter->round_total = 4;
-            break;
         case o_jump_if_not_class:
             iter->special_1 = 1;
             iter->inputs_3 = 1;
@@ -91,9 +89,9 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 4;
             break;
-        case o_native_call:
-        case o_foreign_call:
-        case o_function_call:
+        case o_call_native:
+        case o_call_foreign:
+        case o_call_register:
             iter->special_1 = 1;
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[2];
@@ -102,7 +100,8 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = buffer[2] + 5;
             break;
-        case o_return_val:
+        case o_return_value:
+        case o_exception_raise:
             iter->inputs_3 = 1;
             iter->line_6 = 1;
 
@@ -113,16 +112,9 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 2;
             break;
-        case o_unary_not:
-        case o_unary_minus:
-            iter->inputs_3 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
         case o_build_list:
         case o_build_tuple:
+        case o_interpolation:
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[1];
             iter->outputs_4 = 1;
@@ -131,6 +123,7 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = buffer[1] + 4;
             break;
         case o_build_hash:
+        case o_build_variant:
             iter->special_1 = 1;
             iter->counter_2 = 1;
             iter->inputs_3 = buffer[2];
@@ -139,16 +132,7 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = buffer[2] + 5;
             break;
-        case o_build_enum:
-            iter->special_1 = 1;
-            iter->counter_2 = 1;
-            iter->inputs_3 = buffer[2];
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = buffer[2] + 5;
-            break;
-        case o_integer_for:
+        case o_for_integer:
             iter->inputs_3 = 3;
             iter->outputs_4 = 1;
             iter->jumps_5 = 1;
@@ -163,45 +147,37 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 6;
             break;
-        case o_get_item:
-            iter->inputs_3 = 2;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 5;
-            break;
-        case o_set_item:
+        case o_subscript_set:
             iter->inputs_3 = 3;
             iter->line_6 = 1;
 
             iter->round_total = 5;
             break;
-        case o_set_global:
+        case o_global_set:
+        case o_closure_set:
             iter->special_1 = 1;
             iter->inputs_3 = 1;
             iter->line_6 = 1;
 
             iter->round_total = 4;
             break;
-        case o_get_global:
-        case o_get_readonly:
-        case o_get_integer:
-        case o_get_boolean:
-        case o_get_byte:
+        case o_global_get:
+        case o_load_readonly:
+        case o_load_integer:
+        case o_load_boolean:
+        case o_load_byte:
+        case o_load_empty_variant:
+        case o_closure_get:
+        case o_instance_new:
+        case o_closure_new:
+        case o_closure_function:
             iter->special_1 = 1;
             iter->outputs_4 = 1;
             iter->line_6 = 1;
 
             iter->round_total = 4;
             break;
-        case o_get_empty_variant:
-            iter->special_1 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_get_property:
+        case o_property_get:
             iter->special_1 = 1;
             iter->inputs_3 = 1;
             iter->outputs_4 = 1;
@@ -209,84 +185,35 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 5;
             break;
-        case o_set_property:
+        case o_property_set:
             iter->special_1 = 1;
             iter->inputs_3 = 2;
             iter->line_6 = 1;
 
             iter->round_total = 5;
             break;
-        case o_push_try:
+        case o_catch_push:
             iter->jumps_5 = 1;
             iter->line_6 = 1;
 
             iter->round_total = 3;
             break;
-        case o_pop_try:
-        case o_return_from_vm:
+        case o_catch_pop:
+        case o_vm_exit:
 
             iter->round_total = 1;
             break;
-        case o_catch:
+        case o_exception_catch:
             iter->special_1 = 1;
             iter->jumps_5 = 1;
             iter->line_6 = 1;
 
             iter->round_total = 4;
             break;
-        case o_store_exception:
+        case o_exception_store:
             iter->outputs_4 = 1;
 
             iter->round_total = 2;
-            break;
-        case o_raise:
-            iter->inputs_3 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 3;
-            break;
-        case o_new_instance_basic:
-            iter->special_1 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_get_upvalue:
-            iter->special_1 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_set_upvalue:
-            iter->special_1 = 1;
-            iter->inputs_3 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_create_closure:
-            iter->special_1 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_create_function:
-            iter->special_1 = 1;
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = 4;
-            break;
-        case o_interpolation:
-            iter->counter_2 = 1;
-            iter->inputs_3 = buffer[2];
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = buffer[2] + 4;
             break;
         default:
             return 0;

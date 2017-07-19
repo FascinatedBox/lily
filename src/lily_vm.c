@@ -21,7 +21,7 @@ void lily_mb_escape_add_str(lily_msgbuf *, const char *);
 
 /* Foreign functions set this as their code so that the vm will exit when they
    are to be returned from. */
-static uint16_t foreign_code[1] = {o_return_from_vm};
+static uint16_t foreign_code[1] = {o_vm_exit};
 
 /***
  *      ____       _
@@ -1087,7 +1087,7 @@ void lily_builtin_Dynamic_new(lily_vm_state *vm)
 /* Internally, classes are really just tuples. So assigning them is like
    accessing a tuple, except that the index is a raw int instead of needing to
    be loaded from a register. */
-static void do_o_set_property(lily_vm_state *vm, uint16_t *code)
+static void do_o_property_set(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *rhs_reg;
@@ -1101,7 +1101,7 @@ static void do_o_set_property(lily_vm_state *vm, uint16_t *code)
     lily_value_assign(ival->values[index], rhs_reg);
 }
 
-static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
+static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *result_reg;
@@ -1117,7 +1117,7 @@ static void do_o_get_property(lily_vm_state *vm, uint16_t *code)
 
 /* This handles subscript assignment. The index is a register, and needs to be
    validated. */
-static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
+static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *lhs_reg, *index_reg, *rhs_reg;
@@ -1166,7 +1166,7 @@ static void do_o_set_item(lily_vm_state *vm, uint16_t *code)
 
 /* This handles subscript access. The index is a register, and needs to be
    validated. */
-static void do_o_get_item(lily_vm_state *vm, uint16_t *code)
+static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *lhs_reg, *index_reg, *result_reg;
@@ -1276,7 +1276,7 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     }
 }
 
-static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
+static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     int variant_id = code[1];
@@ -1297,7 +1297,7 @@ static void do_o_build_enum(lily_vm_state *vm, uint16_t *code)
 
 /* This raises a user-defined exception. The emitter has verified that the thing
    to be raised is raiseable (extends Exception). */
-static void do_o_raise(lily_vm_state *vm, lily_value *exception_val)
+static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
 {
     /* The Exception class has values[0] as the message, values[1] as the
        container for traceback. */
@@ -1424,7 +1424,7 @@ static lily_function_val *new_function_copy(lily_function_val *to_copy)
 
 /* This opcode is the bottom level of closure creation. It is responsible for
    creating the original closure. */
-static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
+static lily_value **do_o_closure_new(lily_vm_state *vm, uint16_t *code)
 {
     int count = code[1];
     lily_value *result = vm->call_chain->start[code[2]];
@@ -1435,7 +1435,7 @@ static lily_value **do_o_create_closure(lily_vm_state *vm, uint16_t *code)
 
     lily_value **upvalues = lily_malloc(sizeof(*upvalues) * count);
 
-    /* Cells are initially NULL so that o_set_upvalue knows to copy a new value
+    /* Cells are initially NULL so that o_closure_set knows to copy a new value
        into a cell. */
     int i;
     for (i = 0;i < count;i++)
@@ -1482,7 +1482,7 @@ static void copy_upvalues(lily_function_val *target, lily_function_val *source)
 
 /* This opcode will create a copy of a given function that pulls upvalues from
    the specified closure. */
-static void do_o_create_function(lily_vm_state *vm, uint16_t *code)
+static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
     lily_function_val *input_closure = vm->call_chain->function;
@@ -1676,7 +1676,7 @@ static int maybe_catch_exception(lily_vm_state *vm)
 
     if (match) {
         code += jump_location;
-        if (*code == o_store_exception) {
+        if (*code == o_exception_store) {
             lily_value *catch_reg = catch_iter->call_frame->start[code[1]];
 
             /* There is a var that the exception needs to be dropped into. If
@@ -1970,14 +1970,14 @@ void lily_vm_execute(lily_vm_state *vm)
 
     while (1) {
         switch(code[0]) {
-            case o_fast_assign:
+            case o_assign_noref:
                 rhs_reg = vm_regs[code[1]];
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->flags = rhs_reg->flags;
                 lhs_reg->value = rhs_reg->value;
                 code += 4;
                 break;
-            case o_get_readonly:
+            case o_load_readonly:
                 rhs_reg = vm->readonly_table[code[1]];
                 lhs_reg = vm_regs[code[2]];
 
@@ -1987,7 +1987,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->flags = rhs_reg->flags;
                 code += 4;
                 break;
-            case o_get_empty_variant:
+            case o_load_empty_variant:
                 lhs_reg = vm_regs[code[2]];
 
                 lily_deref(lhs_reg);
@@ -1996,58 +1996,58 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg->flags = VAL_IS_ENUM | code[1];
                 code += 4;
                 break;
-            case o_get_integer:
+            case o_load_integer:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (int16_t)code[1];
                 lhs_reg->flags = LILY_INTEGER_ID;
                 code += 4;
                 break;
-            case o_get_boolean:
+            case o_load_boolean:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = code[1];
                 lhs_reg->flags = LILY_BOOLEAN_ID;
                 code += 4;
                 break;
-            case o_get_byte:
+            case o_load_byte:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (uint8_t)code[1];
                 lhs_reg->flags = LILY_BYTE_ID;
                 code += 4;
                 break;
-            case o_integer_add:
+            case o_int_add:
                 INTEGER_OP(+)
                 break;
-            case o_integer_minus:
+            case o_int_minus:
                 INTEGER_OP(-)
                 break;
-            case o_double_add:
+            case o_number_add:
                 DOUBLE_OP(+)
                 break;
-            case o_double_minus:
+            case o_number_minus:
                 DOUBLE_OP(-)
                 break;
-            case o_is_equal:
+            case o_compare_eq:
                 EQUALITY_COMPARE_OP(==)
                 break;
-            case o_greater:
+            case o_compare_greater:
                 COMPARE_OP(>)
                 break;
-            case o_greater_eq:
+            case o_compare_greater_eq:
                 COMPARE_OP(>=)
                 break;
-            case o_not_eq:
+            case o_compare_not_eq:
                 EQUALITY_COMPARE_OP(!=)
                 break;
             case o_jump:
                 code += (int16_t)code[1];
                 break;
-            case o_integer_mul:
+            case o_int_multiply:
                 INTEGER_OP(*)
                 break;
-            case o_double_mul:
+            case o_number_multiply:
                 DOUBLE_OP(*)
                 break;
-            case o_integer_div:
+            case o_int_divide:
                 /* Before doing INTEGER_OP, check for a division by zero. This
                    will involve some redundant checking of the rhs, but better
                    than dumping INTEGER_OP's contents here or rewriting
@@ -2060,7 +2060,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 INTEGER_OP(/)
                 break;
-            case o_modulo:
+            case o_int_modulo:
                 /* x % 0 will do the same thing as x / 0... */
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.integer == 0) {
@@ -2071,22 +2071,22 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 INTEGER_OP(%)
                 break;
-            case o_left_shift:
+            case o_int_left_shift:
                 INTEGER_OP(<<)
                 break;
-            case o_right_shift:
+            case o_int_right_shift:
                 INTEGER_OP(>>)
                 break;
-            case o_bitwise_and:
+            case o_int_bitwise_and:
                 INTEGER_OP(&)
                 break;
-            case o_bitwise_or:
+            case o_int_bitwise_or:
                 INTEGER_OP(|)
                 break;
-            case o_bitwise_xor:
+            case o_int_bitwise_xor:
                 INTEGER_OP(^)
                 break;
-            case o_double_div:
+            case o_number_divide:
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.doubleval == 0) {
                     SAVE_LINE(+5);
@@ -2117,7 +2117,7 @@ void lily_vm_execute(lily_vm_state *vm)
                         code += 4;
                 }
                 break;
-            case o_foreign_call:
+            case o_call_foreign:
                 fval = vm->readonly_table[code[1]]->value.function;
 
                 foreign_func_body: ;
@@ -2149,7 +2149,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = current_frame->code;
 
                 break;
-            case o_native_call: {
+            case o_call_native: {
                 fval = vm->readonly_table[code[1]]->value.function;
 
                 native_func_body: ;
@@ -2177,7 +2177,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 break;
             }
-            case o_function_call:
+            case o_call_register:
                 fval = vm_regs[code[1]]->value.function;
 
                 if (fval->code != NULL)
@@ -2218,7 +2218,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_move_unit(current_frame->return_target);
                 goto return_common;
 
-            case o_return_val:
+            case o_return_value:
                 lhs_reg = current_frame->return_target;
                 rhs_reg = vm_regs[code[1]];
                 lily_value_assign(lhs_reg, rhs_reg);
@@ -2233,14 +2233,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 upvalues = current_frame->function->upvalues;
                 code = current_frame->code;
                 break;
-            case o_get_global:
+            case o_global_get:
                 rhs_reg = vm->regs_from_main[code[1]];
                 lhs_reg = vm_regs[code[2]];
 
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
-            case o_set_global:
+            case o_global_set:
                 rhs_reg = vm_regs[code[1]];
                 lhs_reg = vm->regs_from_main[code[2]];
 
@@ -2254,24 +2254,24 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
-            case o_get_item:
+            case o_subscript_get:
                 /* Might raise IndexError or KeyError. */
                 SAVE_LINE(+5);
-                do_o_get_item(vm, code);
+                do_o_subscript_get(vm, code);
                 code += 5;
                 break;
-            case o_get_property:
-                do_o_get_property(vm, code);
+            case o_property_get:
+                do_o_property_get(vm, code);
                 code += 5;
                 break;
-            case o_set_item:
+            case o_subscript_set:
                 /* Might raise IndexError or KeyError. */
                 SAVE_LINE(+5);
-                do_o_set_item(vm, code);
+                do_o_subscript_set(vm, code);
                 code += 5;
                 break;
-            case o_set_property:
-                do_o_set_property(vm, code);
+            case o_property_set:
+                do_o_property_set(vm, code);
                 code += 5;
                 break;
             case o_build_hash:
@@ -2283,15 +2283,15 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_build_list_tuple(vm, code);
                 code += code[1] + 4;
                 break;
-            case o_build_enum:
-                do_o_build_enum(vm, code);
+            case o_build_variant:
+                do_o_build_variant(vm, code);
                 code += code[2] + 5;
                 break;
-            case o_create_function:
-                do_o_create_function(vm, code);
+            case o_closure_function:
+                do_o_closure_function(vm, code);
                 code += 4;
                 break;
-            case o_set_upvalue:
+            case o_closure_set:
                 lhs_reg = upvalues[code[1]];
                 rhs_reg = vm_regs[code[2]];
                 if (lhs_reg == NULL)
@@ -2301,13 +2301,13 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 code += 4;
                 break;
-            case o_get_upvalue:
+            case o_closure_get:
                 lhs_reg = vm_regs[code[2]];
                 rhs_reg = upvalues[code[1]];
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
-            case o_integer_for:
+            case o_for_integer:
                 /* loop_reg is an internal counter, while lhs_reg is an external
                    counter. rhs_reg is the stopping point. */
                 loop_reg = vm_regs[code[1]];
@@ -2336,7 +2336,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     code += code[5];
 
                 break;
-            case o_push_try:
+            case o_catch_push:
             {
                 if (vm->catch_chain->next == NULL)
                     add_catch_entry(vm);
@@ -2351,18 +2351,18 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 3;
                 break;
             }
-            case o_pop_try:
+            case o_catch_pop:
                 vm->catch_chain = vm->catch_chain->prev;
 
                 code++;
                 break;
-            case o_raise:
+            case o_exception_raise:
                 SAVE_LINE(+3);
                 lhs_reg = vm_regs[code[1]];
-                do_o_raise(vm, lhs_reg);
+                do_o_exception_raise(vm, lhs_reg);
                 code += 3;
                 break;
-            case o_new_instance_basic:
+            case o_instance_new:
             {
                 do_o_new_instance(vm, code);
                 code += 4;
@@ -2378,8 +2378,8 @@ void lily_vm_execute(lily_vm_state *vm)
                     code += code[3];
 
                 break;
-            case o_create_closure:
-                do_o_create_closure(vm, code);
+            case o_closure_new:
+                do_o_closure_new(vm, code);
                 upvalues = current_frame->function->upvalues;
                 code += 4;
                 break;
@@ -2402,7 +2402,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 code += 6;
                 break;
-            case o_return_from_vm:
+            case o_vm_exit:
                 lily_release_jump(vm->raiser);
                 return;
             default:
