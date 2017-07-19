@@ -1097,10 +1097,6 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 
 static lily_class *get_scoop_class(lily_parse_state *parser, int which)
 {
-    if (which > 2 || which == 0)
-        lily_raise_syn(parser->raiser,
-                "Numeric scoop type must be between 0 and 2.");
-
     lily_class *old_class_iter = parser->symtab->old_class_chain;
     int id = UINT16_MAX - which;
 
@@ -1240,7 +1236,10 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
     if (lex->token == tk_word)
         cls = resolve_class_name(parser);
-    else if (lex->token == tk_integer && (flags & F_SCOOP_OK))
+    else if ((flags & F_SCOOP_OK) &&
+             (lex->token == tk_integer ||
+              lex->token == tk_scoop_1 ||
+              lex->token == tk_scoop_2))
         cls = get_scoop_class(parser, lex->last_integer);
     else {
         NEED_CURRENT_TOK(tk_word)

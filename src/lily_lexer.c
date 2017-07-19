@@ -1543,6 +1543,22 @@ void lily_lexer(lily_lex_state *lexer)
             else
                 token = tk_invalid;
         }
+        else if (group == CC_DOLLAR) {
+            ch++;
+            input_pos++;
+            if (*ch == '1') {
+                input_pos++;
+                lexer->last_integer = 1;
+                token = tk_scoop_1;
+            }
+            else if (*ch == '2') {
+                input_pos++;
+                lexer->last_integer = 2;
+                token = tk_scoop_2;
+            }
+            else
+                token = tk_invalid;
+        }
         else
             token = tk_invalid;
 
@@ -1640,8 +1656,8 @@ char *tokname(lily_token t)
      ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
      "a label", "a property name", "a string", "a bytestring", "a byte",
      "an integer", "a double", "a docstring", ".", "&", "&=", "&&", "|", "|=",
-     "||", "@(", "...", "|>", "invalid token", "end of lambda", "?>",
-     "end of file"};
+     "||", "@(", "...", "|>", "$1", "$2", "invalid token", "end of lambda",
+     "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

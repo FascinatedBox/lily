@@ -3382,8 +3382,8 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
 
     symtab->question_class = build_special(symtab, "?", 0, LILY_QUESTION_ID);
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_OPTARG_ID);
-    lily_class *scoop1     = build_special(symtab, "~1", 0, LILY_SCOOP_1_ID);
-    lily_class *scoop2     = build_special(symtab, "~2", 0, LILY_SCOOP_2_ID);
+    lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_SCOOP_1_ID);
+    lily_class *scoop2     = build_special(symtab, "$2", 0, LILY_SCOOP_2_ID);
 
     scoop1->self_type->flags |= TYPE_HAS_SCOOP;
     scoop2->self_type->flags |= TYPE_HAS_SCOOP;
