@@ -47,7 +47,7 @@ if(WITH_SANDBOX)
     add_subdirectory(sandbox)
 endif(WITH_SANDBOX)
 
-set(TEST_COMMAND cd .. && python pre-commit-hook.py --verbose)
+set(TEST_COMMAND cd .. && ./pre-commit-tests)
 add_custom_target(check ${CMAKE_CTEST_COMMAND}
   COMMAND ${TEST_COMMAND}
   DEPENDS lily VERBATIM)
