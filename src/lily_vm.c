@@ -1115,6 +1115,17 @@ static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
     lily_value_assign(result_reg, ival->values[index]);
 }
 
+#define RELATIVE_INDEX(limit) \
+    if (index_int < 0) { \
+        int new_index = limit + index_int; \
+        if (new_index < 0) \
+            boundary_error(vm, index_int, code[4]); \
+ \
+        index_int = new_index; \
+    } \
+    else if (index_int >= limit) \
+        boundary_error(vm, index_int, code[4]);
+
 /* This handles subscript assignment. The index is a register, and needs to be
    validated. */
 static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
@@ -1131,32 +1142,13 @@ static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
 
         if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
             lily_string_val *bytev = lhs_reg->value.string;
-            if (index_int < 0) {
-                int new_index = bytev->size + index_int;
-                if (new_index < 0)
-                    boundary_error(vm, index_int, code[4]);
-
-                index_int = new_index;
-            }
-            else if (index_int >= bytev->size)
-                boundary_error(vm, index_int, code[4]);
-
+            RELATIVE_INDEX(bytev->size)
             bytev->string[index_int] = (char)rhs_reg->value.integer;
         }
         else {
             /* List and Tuple have the same internal representation. */
             lily_container_val *list_val = lhs_reg->value.container;
-
-            if (index_int < 0) {
-                int new_index = list_val->num_values + index_int;
-                if (new_index < 0)
-                    boundary_error(vm, index_int, code[4]);
-
-                index_int = new_index;
-            }
-            else if (index_int >= list_val->num_values)
-                boundary_error(vm, index_int, code[4]);
-
+            RELATIVE_INDEX(list_val->num_values)
             lily_value_assign(list_val->values[index_int], rhs_reg);
         }
     }
@@ -1180,32 +1172,13 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
 
         if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
             lily_string_val *bytev = lhs_reg->value.string;
-            if (index_int < 0) {
-                int new_index = bytev->size + index_int;
-                if (new_index < 0)
-                    boundary_error(vm, index_int, code[4]);
-
-                index_int = new_index;
-            }
-            else if (index_int >= bytev->size)
-                boundary_error(vm, index_int, code[4]);
-
+            RELATIVE_INDEX(bytev->size)
             lily_move_byte(result_reg, (uint8_t) bytev->string[index_int]);
         }
         else {
             /* List and Tuple have the same internal representation. */
             lily_container_val *list_val = lhs_reg->value.container;
-
-            if (index_int < 0) {
-                int new_index = list_val->num_values + index_int;
-                if (new_index < 0)
-                    boundary_error(vm, index_int, code[4]);
-
-                index_int = new_index;
-            }
-            else if (index_int >= list_val->num_values)
-                boundary_error(vm, index_int, code[4]);
-
+            RELATIVE_INDEX(list_val->num_values)
             lily_value_assign(result_reg, list_val->values[index_int]);
         }
     }
@@ -1219,6 +1192,8 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
         lily_value_assign(result_reg, elem);
     }
 }
+
+#undef RELATIVE_INDEX
 
 static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 {
