@@ -115,7 +115,7 @@ const char *lily_builtin_table[] = {
     ,"N\01RuntimeError\0< Exception"
     ,"m\0<new>\0(String):RuntimeError"
     ,"N\024String\0"
-    ,"m\0format\0(String,1...):String"
+    ,"m\0format\0(String,$1...):String"
     ,"m\0ends_with\0(String,String):Boolean"
     ,"m\0find\0(String,String,*Integer):Option[Integer]"
     ,"m\0html_encode\0(String):String"
