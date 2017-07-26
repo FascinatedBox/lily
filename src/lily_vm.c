@@ -980,7 +980,7 @@ LILY_ERROR(Value,          LILY_VALUEERROR_ID)
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 {
-    lily_msgbuf *msgbuf = vm->raiser->aux_msgbuf;
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
 
     if (key->class_id == LILY_STRING_ID)
         lily_mb_escape_add_str(msgbuf, key->value.string->string);
