@@ -985,16 +985,17 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
     if (key->class_id == LILY_STRING_ID)
         lily_mb_escape_add_str(msgbuf, key->value.string->string);
     else
-        lily_mb_add_fmt(msgbuf, "%d", key->value.integer);
+        lily_mb_add_fmt(msgbuf, "%ld", key->value.integer);
 
     vm_error(vm, LILY_KEYERROR_ID, lily_mb_get(msgbuf));
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
-static void boundary_error(lily_vm_state *vm, int bad_index, uint16_t line_num)
+static void boundary_error(lily_vm_state *vm, int64_t bad_index,
+        uint16_t line_num)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
-    lily_mb_add_fmt(msgbuf, "Subscript index %d is out of range.",
+    lily_mb_add_fmt(msgbuf, "Subscript index %ld is out of range.",
             bad_index);
 
     vm_error(vm, LILY_INDEXERROR_ID, lily_mb_get(msgbuf));
@@ -1117,7 +1118,7 @@ static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
 
 #define RELATIVE_INDEX(limit) \
     if (index_int < 0) { \
-        int new_index = limit + index_int; \
+        int64_t new_index = limit + index_int; \
         if (new_index < 0) \
             boundary_error(vm, index_int, code[4]); \
  \
@@ -1138,7 +1139,7 @@ static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
     rhs_reg = vm_regs[code[3]];
 
     if (lhs_reg->class_id != LILY_HASH_ID) {
-        int index_int = index_reg->value.integer;
+        int64_t index_int = index_reg->value.integer;
 
         if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
             lily_string_val *bytev = lhs_reg->value.string;
@@ -1168,7 +1169,7 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
     result_reg = vm_regs[code[3]];
 
     if (lhs_reg->class_id != LILY_HASH_ID) {
-        int index_int = index_reg->value.integer;
+        int64_t index_int = index_reg->value.integer;
 
         if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
             lily_string_val *bytev = lhs_reg->value.string;

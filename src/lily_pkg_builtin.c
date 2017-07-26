@@ -1574,13 +1574,13 @@ static int64_t get_relative_index(lily_state *s, lily_container_val *list_val,
     if (pos < 0) {
         uint64_t unsigned_pos = -(int64_t)pos;
         if (unsigned_pos > list_val->num_values)
-            lily_IndexError(s, "Index %d is too small for list (minimum: %d)",
+            lily_IndexError(s, "Index %ld is too small for list (minimum: %ld)",
                     pos, -(int64_t)list_val->num_values);
 
         pos = list_val->num_values - unsigned_pos;
     }
     else if (pos > list_val->num_values)
-        lily_IndexError(s, "Index %d is too large for list (maximum: %d)", pos,
+        lily_IndexError(s, "Index %ld is too large for list (maximum: %d)", pos,
                 list_val->num_values);
 
     return pos;
@@ -1845,7 +1845,7 @@ void lily_builtin_List_repeat(lily_state *s)
 {
     int n = lily_arg_integer(s, 0);
     if (n < 0)
-        lily_ValueError(s, "Repeat count must be >= 0 (%d given).", n);
+        lily_ValueError(s, "Repeat count must be >= 0 (%ld given).", n);
 
     lily_value *to_repeat = lily_arg_value(s, 1);
     lily_container_val *lv = lily_push_list(s, n);
