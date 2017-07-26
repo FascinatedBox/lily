@@ -190,7 +190,7 @@ static void add_boolean(lily_msgbuf *msgbuf, int b)
         lily_mb_add(msgbuf, "true");
 }
 
-void lily_mb_add_byte(lily_msgbuf *msgbuf, uint8_t i)
+static void add_byte(lily_msgbuf *msgbuf, uint8_t i)
 {
     char buf[64];
     char ch = (char)i;
@@ -206,7 +206,7 @@ void lily_mb_add_byte(lily_msgbuf *msgbuf, uint8_t i)
     lily_mb_add(msgbuf, buf);
 }
 
-void lily_mb_add_int(lily_msgbuf *msgbuf, int64_t i)
+static void add_int(lily_msgbuf *msgbuf, int64_t i)
 {
     char buf[64];
     sprintf(buf, "%" PRId64, i);
@@ -214,7 +214,7 @@ void lily_mb_add_int(lily_msgbuf *msgbuf, int64_t i)
     lily_mb_add(msgbuf, buf);
 }
 
-void add_double(lily_msgbuf *msgbuf, double d)
+static void add_double(lily_msgbuf *msgbuf, double d)
 {
     char buf[64];
     sprintf(buf, "%g", d);
@@ -323,7 +323,7 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             }
             else if (c == 'd') {
                 int d = va_arg(var_args, int);
-                lily_mb_add_int(msgbuf, d);
+                add_int(msgbuf, d);
             }
             else if (c == 'c') {
                 char ch = va_arg(var_args, int);
@@ -437,9 +437,9 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     if (v->class_id == LILY_BOOLEAN_ID)
         add_boolean(msgbuf, v->value.integer);
     else if (v->class_id == LILY_INTEGER_ID)
-        lily_mb_add_int(msgbuf, v->value.integer);
+        add_int(msgbuf, v->value.integer);
     else if (v->class_id == LILY_BYTE_ID)
-        lily_mb_add_byte(msgbuf, (uint8_t) v->value.integer);
+        add_byte(msgbuf, (uint8_t) v->value.integer);
     else if (v->class_id == LILY_DOUBLE_ID)
         add_double(msgbuf, v->value.doubleval);
     else if (v->class_id == LILY_STRING_ID)
