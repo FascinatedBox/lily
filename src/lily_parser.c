@@ -102,6 +102,10 @@ void lily_init_config(lily_config *conf)
     conf->gc_start = 100;
     conf->gc_multiplier = 4;
 
+    char key[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+
+    memcpy(conf->sipkey, key, sizeof(key));
+
     conf->import_func = lily_default_import_func;
     conf->render_func = (lily_render_func)fputs;
     conf->data = stdout;

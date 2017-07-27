@@ -113,8 +113,8 @@ typedef struct lily_container_val_ {
 } lily_container_val;
 
 typedef struct lily_hash_entry_ {
-    unsigned int hash;
-    char *raw_key;
+    uint64_t hash;
+    lily_raw_value raw_key;
     lily_value *boxed_key;
     lily_value *record;
     struct lily_hash_entry_ *next;
@@ -123,8 +123,7 @@ typedef struct lily_hash_entry_ {
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
-    int (*compare_fn)();
-    int (*hash_fn)();
+    int (*compare_fn)(lily_raw_value, lily_raw_value);
     int num_bins;
     int num_entries;
     lily_hash_entry **bins;

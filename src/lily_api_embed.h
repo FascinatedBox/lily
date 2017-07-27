@@ -20,6 +20,8 @@ typedef struct lily_config_ {
     lily_render_func render_func;
     lily_import_func import_func;
 
+    char sipkey[16];
+
     void *data;
 } lily_config;
 

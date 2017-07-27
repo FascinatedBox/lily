@@ -1216,7 +1216,7 @@ void lily_builtin_Hash_get(lily_state *s)
     lily_value *key = lily_arg_value(s, 1);
     lily_value *default_value = lily_arg_value(s, 2);
 
-    lily_value *v = lily_hash_get(hash_val, key);
+    lily_value *v = lily_hash_get(s, hash_val, key);
     if (v == NULL)
         v = default_value;
 
@@ -1233,7 +1233,7 @@ void lily_builtin_Hash_has_key(lily_state *s)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
 
-    lily_value *entry = lily_hash_get(hash_val, key);
+    lily_value *entry = lily_hash_get(s, hash_val, key);
 
     lily_return_boolean(s, entry != NULL);
 }
@@ -1287,7 +1287,7 @@ void lily_builtin_Hash_map_values(lily_state *s)
                 lily_push_value(s, entry->record);
                 lily_call(s, 1);
 
-                lily_hash_set(h, entry->boxed_key, result);
+                lily_hash_set(s, h, entry->boxed_key, result);
                 entry = entry->next;
             }
         }
@@ -1321,7 +1321,7 @@ void lily_builtin_Hash_merge(lily_state *s)
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         while (entry) {
-            lily_hash_set(result_hash, entry->boxed_key,
+            lily_hash_set(s, result_hash, entry->boxed_key,
                     entry->record);
             entry = entry->next;
         }
@@ -1333,7 +1333,7 @@ void lily_builtin_Hash_merge(lily_state *s)
         for (j = 0;j < merging_hash->num_bins;j++) {
             lily_hash_entry *entry = merging_hash->bins[j];
             while (entry) {
-                lily_hash_set(result_hash, entry->boxed_key,
+                lily_hash_set(s, result_hash, entry->boxed_key,
                         entry->record);
                 entry = entry->next;
             }

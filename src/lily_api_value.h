@@ -158,8 +158,8 @@ int lily_function_is_foreign(lily_function_val *);
 int lily_function_is_native(lily_function_val *);
 
 /* Hash operations */
-lily_value *lily_hash_get(lily_hash_val *, lily_value *);
-void lily_hash_set(lily_hash_val *, lily_value *, lily_value *);
+lily_value *lily_hash_get(lily_state *, lily_hash_val *, lily_value *);
+void lily_hash_set(lily_state *, lily_hash_val *, lily_value *, lily_value *);
 void lily_hash_set_from_stack(lily_state *, lily_hash_val *);
 int lily_hash_take(lily_state *, lily_hash_val *, lily_value *);
 

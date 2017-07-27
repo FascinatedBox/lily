@@ -1154,7 +1154,7 @@ static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
         }
     }
     else
-        lily_hash_set(lhs_reg->value.hash, index_reg, rhs_reg);
+        lily_hash_set(vm, lhs_reg->value.hash, index_reg, rhs_reg);
 }
 
 /* This handles subscript access. The index is a register, and needs to be
@@ -1184,7 +1184,7 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
         }
     }
     else {
-        lily_value *elem = lily_hash_get(lhs_reg->value.hash, index_reg);
+        lily_value *elem = lily_hash_get(vm, lhs_reg->value.hash, index_reg);
 
         /* Give up if the key doesn't exist. */
         if (elem == NULL)
@@ -1220,7 +1220,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
         key_reg = vm_regs[code[3 + i]];
         value_reg = vm_regs[code[3 + i + 1]];
 
-        lily_hash_set(hash_val, key_reg, value_reg);
+        lily_hash_set(vm, hash_val, key_reg, value_reg);
     }
 }
 
