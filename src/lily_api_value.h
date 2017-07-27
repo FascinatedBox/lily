@@ -76,9 +76,7 @@ lily_container_val *lily_push_failure      (lily_state *);
 void                lily_push_file         (lily_state *, FILE *, const char *);
 lily_foreign_val *  lily_push_foreign      (lily_state *, uint16_t,
                                             lily_destroy_func, size_t);
-lily_hash_val *     lily_push_hash_integer (lily_state *, int);
-lily_hash_val *     lily_push_hash_like    (lily_state *, lily_hash_val *, int);
-lily_hash_val *     lily_push_hash_string  (lily_state *, int);
+lily_hash_val *     lily_push_hash         (lily_state *, int);
 lily_container_val *lily_push_instance     (lily_state *, uint16_t, uint32_t);
 void                lily_push_integer      (lily_state *, int64_t);
 lily_container_val *lily_push_list         (lily_state *, int);

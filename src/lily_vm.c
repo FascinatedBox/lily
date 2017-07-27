@@ -685,27 +685,10 @@ lily_foreign_val *lily_push_foreign(lily_state *s, uint16_t id,
     return fv;
 }
 
-lily_hash_val *lily_push_hash_integer(lily_state *s, int size)
+lily_hash_val *lily_push_hash(lily_state *s, int size)
 {
     PUSH_PREAMBLE
-    lily_hash_val *h = lily_new_hash_integer_raw(size);
-    SET_TARGET(LILY_HASH_ID | VAL_IS_DEREFABLE, hash, h);
-    return h;
-}
-
-lily_hash_val *lily_push_hash_like(lily_state *s, lily_hash_val *other,
-        int size)
-{
-    PUSH_PREAMBLE
-    lily_hash_val *h = lily_new_hash_like_raw(other, size);
-    SET_TARGET(LILY_HASH_ID | VAL_IS_DEREFABLE, hash, h);
-    return h;
-}
-
-lily_hash_val *lily_push_hash_string(lily_state *s, int size)
-{
-    PUSH_PREAMBLE
-    lily_hash_val *h = lily_new_hash_string_raw(size);
+    lily_hash_val *h = lily_new_hash_raw(size);
     SET_TARGET(LILY_HASH_ID | VAL_IS_DEREFABLE, hash, h);
     return h;
 }
@@ -1202,15 +1185,10 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
     int i, num_values;
     lily_value *result, *key_reg, *value_reg;
 
-    int id = code[1];
     num_values = code[2];
     result = vm_regs[code[3 + num_values]];
 
-    lily_hash_val *hash_val;
-    if (id == LILY_STRING_ID)
-        hash_val = lily_new_hash_string_raw(num_values / 2);
-    else
-        hash_val = lily_new_hash_integer_raw(num_values / 2);
+    lily_hash_val *hash_val = lily_new_hash_raw(num_values / 2);
 
     lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
 

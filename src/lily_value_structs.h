@@ -123,7 +123,6 @@ typedef struct lily_hash_entry_ {
 typedef struct lily_hash_val_ {
     uint32_t refcount;
     uint32_t iter_count;
-    int (*compare_fn)(lily_raw_value, lily_raw_value);
     int num_bins;
     int num_entries;
     lily_hash_entry **bins;

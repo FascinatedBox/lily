@@ -1277,7 +1277,7 @@ void lily_builtin_Hash_map_values(lily_state *s)
     lily_value *result = lily_call_result(s);
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);
-    lily_hash_val *h = lily_push_hash_like(s, hash_val, hash_val->num_entries);
+    lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
 
     if (setjmp(link->jump) == 0) {
         int i;
@@ -1314,7 +1314,7 @@ void lily_builtin_Hash_merge(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
-    lily_hash_val *result_hash = lily_push_hash_like(s, hash_val,hash_val->num_entries);
+    lily_hash_val *result_hash = lily_push_hash(s, hash_val->num_entries);
 
     int i, j;
 
@@ -1348,7 +1348,7 @@ static void hash_select_reject_common(lily_state *s, int expect)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
-    lily_hash_val *h = lily_push_hash_like(s, hash_val, hash_val->num_entries);
+    lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
 
     hash_val->iter_count++;
     lily_jump_link *link = lily_jump_setup(s->raiser);

@@ -9,9 +9,7 @@ lily_container_val *lily_new_tuple_raw(int);
 lily_container_val *lily_new_instance_raw(uint16_t, int);
 lily_bytestring_val *lily_new_bytestring_raw(const char *, int);
 lily_string_val *lily_new_string_raw(const char *);
-lily_hash_val *lily_new_hash_integer_raw(int);
-lily_hash_val *lily_new_hash_like_raw(lily_hash_val *, int);
-lily_hash_val *lily_new_hash_string_raw(int);
+lily_hash_val *lily_new_hash_raw(int);
 
 void lily_deref(lily_value *);
 void lily_value_assign(lily_value *, lily_value *);
