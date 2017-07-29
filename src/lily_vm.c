@@ -431,17 +431,10 @@ void lily_value_tag(lily_vm_state *vm, lily_value *v)
  *                |___/
  */
 
-/** Lily is a register-based vm. This means that each call has a block of values
-    that belong to it. Upon a call's entry, the types of the registers are set,
-    and values are put into the registers. Each register has a type that it will
-    retain through the lifetime of the call.
-
-    This section deals with operations concerning registers. One area that is
-    moderately difficult is handling generics. Lily does not create specialized
-    concretely-typed functions in place of generic ones, but instead checks for
-    soundness and defers things to vm-time. The vm is then tasked with changing
-    a register with a seed type of, say, A, into whatever it should be for the
-    given invocation. **/
+/** This section handles growing registers and also copying register values over
+    for calls. This is also where pushing functions are, which push new values
+    onto the stack and increase the top pointer. Those functions are called
+    from outside the vm. **/
 
 static void vm_error(lily_vm_state *, uint8_t, const char *);
 
