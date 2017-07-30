@@ -3,6 +3,7 @@
 
 # include "lily_raiser.h"
 # include "lily_symtab.h"
+# include "lily_api_value.h"
 
 typedef struct lily_call_frame_ {
     /* This frame's registers start here. */
@@ -30,12 +31,21 @@ typedef struct lily_call_frame_ {
     struct lily_call_frame_ *next;
 } lily_call_frame;
 
+typedef enum {
+    catch_native,
+    catch_callback
+} lily_catch_kind;
+
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
     int code_pos;
     uint32_t call_frame_depth;
-    uint32_t pad;
-    lily_jump_link *jump_entry;
+    lily_catch_kind catch_kind : 32;
+
+    union {
+        lily_jump_link *jump_entry;
+        lily_error_callback_fn callback_func;
+    };
 
     struct lily_vm_catch_entry_ *next;
     struct lily_vm_catch_entry_ *prev;

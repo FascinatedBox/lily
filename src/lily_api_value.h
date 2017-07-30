@@ -27,6 +27,8 @@ typedef struct lily_hash_val_       lily_hash_val;
 typedef struct lily_string_val_     lily_string_val;
 typedef struct lily_value_          lily_value;
 
+typedef void (*lily_error_callback_fn)(lily_state *);
+
 /* Put this macro at the top of any struct that you'll send to Lily as a foreign
    value. Don't rely on 'do_not_use', in case it changes in the future. */
 #define LILY_FOREIGN_HEADER \
@@ -179,6 +181,9 @@ void lily_IOError(lily_state *, const char *, ...);
 void lily_KeyError(lily_state *, const char *, ...);
 void lily_RuntimeError(lily_state *, const char *, ...);
 void lily_ValueError(lily_state *, const char *, ...);
+
+void lily_error_callback_push(lily_state *, lily_error_callback_fn);
+void lily_error_callback_pop(lily_state *);
 
 /* Stack operations */
 void lily_stack_delete_top(lily_state *);

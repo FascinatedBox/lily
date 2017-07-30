@@ -1167,6 +1167,12 @@ void lily_builtin_Hash_delete(lily_state *s)
     lily_return_unit(s);
 }
 
+static void hash_iter_callback(lily_state *s)
+{
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    hash_val->iter_count--;
+}
+
 /**
 define Hash.each_pair(fn: Function(A, B))
 
@@ -1177,30 +1183,24 @@ void lily_builtin_Hash_each_pair(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
+    lily_error_callback_push(s, hash_iter_callback);
     lily_call_prepare(s, lily_arg_function(s, 1));
-
     hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(s->raiser);
-    if (setjmp(link->jump) == 0) {
-        int i;
-        for (i = 0;i < hash_val->num_bins;i++) {
-            lily_hash_entry *entry = hash_val->bins[i];
-            while (entry) {
-                lily_push_value(s, entry->boxed_key);
-                lily_push_value(s, entry->record);
-                lily_call(s, 2);
 
-                entry = entry->next;
-            }
+    int i;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        while (entry) {
+            lily_push_value(s, entry->boxed_key);
+            lily_push_value(s, entry->record);
+            lily_call(s, 2);
+
+            entry = entry->next;
         }
+    }
 
-        hash_val->iter_count--;
-        lily_release_jump(s->raiser);
-    }
-    else {
-        hash_val->iter_count--;
-        lily_jump_back(s->raiser);
-    }
+    lily_error_callback_pop(s);
+    hash_val->iter_count--;
 }
 
 /**
@@ -1275,31 +1275,26 @@ void lily_builtin_Hash_map_values(lily_state *s)
 
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
-    hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(s->raiser);
+
+    lily_error_callback_push(s, hash_iter_callback);
+
     lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
 
-    if (setjmp(link->jump) == 0) {
-        int i;
-        for (i = 0;i < hash_val->num_bins;i++) {
-            lily_hash_entry *entry = hash_val->bins[i];
-            while (entry) {
-                lily_push_value(s, entry->record);
-                lily_call(s, 1);
+    int i;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        while (entry) {
+            lily_push_value(s, entry->record);
+            lily_call(s, 1);
 
-                lily_hash_set(s, h, entry->boxed_key, result);
-                entry = entry->next;
-            }
+            lily_hash_set(s, h, entry->boxed_key, result);
+            entry = entry->next;
         }
+    }
 
-        hash_val->iter_count--;
-        lily_release_jump(s->raiser);
-        lily_return_top(s);
-    }
-    else {
-        hash_val->iter_count--;
-        lily_jump_back(s->raiser);
-    }
+    hash_val->iter_count--;
+    lily_error_callback_pop(s);
+    lily_return_top(s);
 }
 
 /**
@@ -1350,40 +1345,35 @@ static void hash_select_reject_common(lily_state *s, int expect)
     lily_value *result = lily_call_result(s);
     lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
 
+    lily_error_callback_push(s, hash_iter_callback);
+
     hash_val->iter_count++;
-    lily_jump_link *link = lily_jump_setup(s->raiser);
 
-    if (setjmp(link->jump) == 0) {
-        int i;
-        for (i = 0;i < hash_val->num_bins;i++) {
-            lily_hash_entry *entry = hash_val->bins[i];
-            while (entry) {
-                lily_push_value(s, entry->boxed_key);
-                lily_push_value(s, entry->record);
+    int i;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+        while (entry) {
+            lily_push_value(s, entry->boxed_key);
+            lily_push_value(s, entry->record);
 
-                lily_push_value(s, entry->boxed_key);
-                lily_push_value(s, entry->record);
+            lily_push_value(s, entry->boxed_key);
+            lily_push_value(s, entry->record);
 
-                lily_call(s, 2);
-                if (lily_as_boolean(result) != expect) {
-                    lily_stack_delete_top(s);
-                    lily_stack_delete_top(s);
-                }
-                else
-                    lily_hash_set_from_stack(s, h);
-
-                entry = entry->next;
+            lily_call(s, 2);
+            if (lily_as_boolean(result) != expect) {
+                lily_stack_delete_top(s);
+                lily_stack_delete_top(s);
             }
-        }
+            else
+                lily_hash_set_from_stack(s, h);
 
-        hash_val->iter_count--;
-        lily_release_jump(s->raiser);
-        lily_return_top(s);
+            entry = entry->next;
+        }
     }
-    else {
-        hash_val->iter_count--;
-        lily_jump_back(s->raiser);
-    }
+
+    hash_val->iter_count--;
+    lily_error_callback_pop(s);
+    lily_return_top(s);
 }
 
 /**

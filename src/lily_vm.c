@@ -1583,6 +1583,17 @@ static int maybe_catch_exception(lily_vm_state *vm)
     match = 0;
 
     while (catch_iter != NULL) {
+        /* Foreign functions register callbacks so they can fix values when
+           there is an error. Put the state where it was when the callback was
+           registered and go back. The callback shouldn't execute code. */
+        if (catch_iter->catch_kind == catch_callback) {
+            vm->call_chain = catch_iter->call_frame;
+            vm->call_depth = catch_iter->call_frame_depth;
+            catch_iter->callback_func(vm);
+            catch_iter = catch_iter->prev;
+            continue;
+        }
+
         /* It's extremely important that the vm not attempt to catch exceptions
            that were not made in the same jump level. If it does, the vm could
            be called from a foreign function, but think it isn't. */
@@ -1748,6 +1759,24 @@ void lily_call(lily_vm_state *vm, int count)
     }
 }
 
+void lily_error_callback_push(lily_state *s, lily_error_callback_fn func)
+{
+    if (s->catch_chain->next == NULL)
+        add_catch_entry(s);
+
+    lily_vm_catch_entry *catch_entry = s->catch_chain;
+    catch_entry->call_frame = s->call_chain;
+    catch_entry->call_frame_depth = s->call_depth;
+    catch_entry->callback_func = func;
+    catch_entry->catch_kind = catch_callback;
+
+    s->catch_chain = s->catch_chain->next;
+}
+
+void lily_error_callback_pop(lily_state *s)
+{
+    s->catch_chain = s->catch_chain->prev;
+}
 
 /***
  *      ____
@@ -2293,6 +2322,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = 1 + (code - current_frame->function->code);
                 catch_entry->jump_entry = vm->raiser->all_jumps;
+                catch_entry->catch_kind = catch_native;
 
                 vm->catch_chain = vm->catch_chain->next;
                 code += 3;
