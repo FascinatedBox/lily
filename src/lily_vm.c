@@ -1183,8 +1183,6 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 
     lily_hash_val *hash_val = lily_new_hash_raw(num_values / 2);
 
-    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
-
     for (i = 0;
          i < num_values;
          i += 2) {
@@ -1193,6 +1191,8 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 
         lily_hash_set(vm, hash_val, key_reg, value_reg);
     }
+
+    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
 }
 
 /* Lists and tuples are effectively the same thing internally, since the list
@@ -1207,11 +1207,9 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 
     if (code[0] == o_build_list) {
         lv = new_container(LILY_LIST_ID, num_elems);
-        lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
     }
     else {
         lv = (lily_container_val *)new_container(LILY_TUPLE_ID, num_elems);
-        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, (lily_container_val *)lv);
     }
 
     lily_value **elems = lv->values;
@@ -1221,6 +1219,11 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
         lily_value *rhs_reg = vm_regs[code[2+i]];
         lily_value_assign(elems[i], rhs_reg);
     }
+
+    if (code[0] == o_build_list)
+        lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
+    else
+        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, (lily_container_val *)lv);
 }
 
 static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
@@ -1233,13 +1236,13 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
     lily_container_val *ival = new_container(variant_id, count);
     lily_value **slots = ival->values;
 
-    lily_move_variant_f(MOVE_DEREF_SPECULATIVE, result, ival);
-
     int i;
     for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
         lily_value_assign(slots[i], rhs_reg);
     }
+
+    lily_move_variant_f(MOVE_DEREF_SPECULATIVE, result, ival);
 }
 
 /* This raises a user-defined exception. The emitter has verified that the thing
