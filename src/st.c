@@ -200,8 +200,8 @@ int lily_hash_take(lily_state *s, lily_hash_val *table, lily_value *boxed_key)
             ptr->next = ptr->next->next;
             table->num_entries--;
 
-            lily_stack_push_and_destroy(s, ptr->boxed_key);
-            lily_stack_push_and_destroy(s, ptr->record);
+            lily_stack_push_and_destroy(s, tmp->boxed_key);
+            lily_stack_push_and_destroy(s, tmp->record);
             lily_free(tmp);
             return 1;
         }
