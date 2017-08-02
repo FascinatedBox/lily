@@ -321,6 +321,8 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_mb_flush(raiser->aux_msgbuf);
     raiser->line_adjust = 0;
     raiser->exception_cls = NULL;
+    while (raiser->all_jumps->prev)
+        raiser->all_jumps = raiser->all_jumps->prev;
 
     /* Rewind the parts of the vm that can be rewound. */
     lily_vm_state *vm = parser->vm;
