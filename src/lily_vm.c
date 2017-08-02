@@ -91,6 +91,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->class_count = 0;
     vm->class_table = NULL;
     vm->exception_value = NULL;
+    vm->exception_cls = NULL;
     vm->catch_chain = catch_entry;
     /* The parser will enter __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
@@ -930,6 +931,7 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
         vm->class_table[id] = c;
     }
 
+    vm->exception_cls = c;
     lily_raise_class(vm->raiser, c, message);
 }
 
@@ -1259,6 +1261,8 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
     /* There's no need for a ref/deref here, because the gc cannot trigger
        foreign stack unwind and/or exception capture. */
     vm->exception_value = exception_val;
+    vm->exception_cls = raise_cls;
+
     lily_raise_class(vm->raiser, raise_cls, message);
 }
 
@@ -1570,7 +1574,7 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
    Returns 1 if the exception has been caught, 0 otherwise. */
 static int maybe_catch_exception(lily_vm_state *vm)
 {
-    lily_class *raised_cls = vm->raiser->exception_cls;
+    lily_class *raised_cls = vm->exception_cls;
 
     /* The catch entry pointer is always one spot ahead of the last entry that
        was inserted. So this is safe. */

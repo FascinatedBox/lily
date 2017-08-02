@@ -320,7 +320,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_mb_flush(raiser->msgbuf);
     lily_mb_flush(raiser->aux_msgbuf);
     raiser->line_adjust = 0;
-    raiser->exception_cls = NULL;
     while (raiser->all_jumps->prev)
         raiser->all_jumps = raiser->all_jumps->prev;
 
@@ -333,6 +332,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 
     vm->catch_chain = catch_iter;
     vm->exception_value = NULL;
+    vm->exception_cls = NULL;
 
     lily_call_frame *call_iter = vm->call_chain;
     while (call_iter->prev)
@@ -4783,18 +4783,22 @@ static void build_error(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    lily_vm_state *vm = parser->vm;
+    const char *msg = lily_mb_get(raiser->msgbuf);
 
-    if (raiser->exception_cls) {
-        lily_module_entry *m = raiser->exception_cls->module;
+    if (vm->exception_cls) {
+        lily_module_entry *m = vm->exception_cls->module;
         /* If this doesn't come from the first package (or the builtin one),
            then add the plain name of the module for clarity. */
         if (m != parser->module_start &&
             m != parser->module_start->root_next)
-            lily_mb_add_fmt(msgbuf, "%s.", m->loadname);
-    }
+            lily_mb_add_fmt(msgbuf, "%s", m->loadname);
 
-    const char *msg = lily_mb_get(raiser->msgbuf);
-    lily_mb_add(msgbuf, lily_name_for_error(raiser));
+        lily_mb_add(msgbuf, vm->exception_cls->name);
+    }
+    else
+        lily_mb_add(msgbuf, lily_name_for_error(raiser));
+
     if (msg[0] != '\0')
         lily_mb_add_fmt(msgbuf, ": %s\n", msg);
     else

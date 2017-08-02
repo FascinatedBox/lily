@@ -94,6 +94,8 @@ typedef struct lily_vm_state_ {
        not need to do anything. */
     lily_value *exception_value;
 
+    lily_class *exception_cls;
+
     /* This buffer is used as an intermediate storage for String values. */
     lily_msgbuf *vm_buffer;
 

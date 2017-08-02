@@ -26,8 +26,6 @@ typedef struct lily_raiser_ {
        *  */
     lily_msgbuf *aux_msgbuf;
 
-    lily_class *exception_cls;
-
     /* This is set when the emitter raises an error and that error does not
        reference the current line. This will be set to the actual line. It can
        be ignored when 0. */

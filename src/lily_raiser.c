@@ -15,7 +15,6 @@ lily_raiser *lily_new_raiser(void)
     raiser->aux_msgbuf = lily_new_msgbuf(64);
     raiser->all_jumps = first_jump;
     raiser->line_adjust = 0;
-    raiser->exception_cls = NULL;
 
     return raiser;
 }
@@ -73,7 +72,6 @@ void lily_jump_back(lily_raiser *raiser)
 void lily_raise_syn(lily_raiser *raiser, const char *fmt, ...)
 {
     lily_mb_flush(raiser->msgbuf);
-    raiser->exception_cls = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
@@ -87,7 +85,6 @@ void lily_raise_syn(lily_raiser *raiser, const char *fmt, ...)
 void lily_raise_err(lily_raiser *raiser, const char *fmt, ...)
 {
     lily_mb_flush(raiser->msgbuf);
-    raiser->exception_cls = NULL;
 
     va_list var_args;
     va_start(var_args, fmt);
@@ -103,7 +100,6 @@ void lily_raise_err(lily_raiser *raiser, const char *fmt, ...)
 void lily_raise_class(lily_raiser *raiser, lily_class *raise_cls,
         const char *msg)
 {
-    raiser->exception_cls = raise_cls;
     lily_mb_flush(raiser->msgbuf);
     lily_mb_add(raiser->msgbuf, msg);
 
@@ -115,9 +111,7 @@ const char *lily_name_for_error(lily_raiser *raiser)
 {
     const char *result;
 
-    if (raiser->exception_cls)
-        result = raiser->exception_cls->name;
-    else if (raiser->is_syn_error)
+    if (raiser->is_syn_error)
         result = "SyntaxError";
     else
         result = "Error";
