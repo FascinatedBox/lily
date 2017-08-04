@@ -61,14 +61,6 @@ void lily_release_jump(lily_raiser *raiser)
     raiser->all_jumps = raiser->all_jumps->prev;
 }
 
-/* This will execute a jump to the most recently-held jump. This should only be
-   called if an error has been set. */
-void lily_jump_back(lily_raiser *raiser)
-{
-    raiser->all_jumps = raiser->all_jumps->prev;
-    longjmp(raiser->all_jumps->jump, 1);
-}
-
 void lily_raise_syn(lily_raiser *raiser, const char *fmt, ...)
 {
     lily_mb_flush(raiser->msgbuf);
@@ -92,17 +84,6 @@ void lily_raise_err(lily_raiser *raiser, const char *fmt, ...)
     va_end(var_args);
 
     raiser->is_syn_error = 0;
-    longjmp(raiser->all_jumps->jump, 1);
-}
-
-/* This is called by the vm to raise an exception via a class and a message. If
-   the exception is a proper Lily value, then the vm will hold that value. */
-void lily_raise_class(lily_raiser *raiser, lily_class *raise_cls,
-        const char *msg)
-{
-    lily_mb_flush(raiser->msgbuf);
-    lily_mb_add(raiser->msgbuf, msg);
-
     longjmp(raiser->all_jumps->jump, 1);
 }
 

@@ -96,6 +96,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     /* The parser will enter __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
     vm->regs_from_main = register_base;
+    vm->vm_buffer = lily_new_msgbuf(64);
 
     return vm;
 }
@@ -173,6 +174,7 @@ void lily_free_vm(lily_vm_state *vm)
     destroy_gc_entries(vm);
 
     lily_free(vm->class_table);
+    lily_free_msgbuf(vm->vm_buffer);
     lily_free(vm);
 }
 
@@ -909,6 +911,8 @@ static const char *names[] = {
     "DivisionByZeroError"
 };
 
+static void dispatch_exception(lily_vm_state *vm);
+
 /* This raises an error in the vm that won't have a proper value backing it. The
    id should be the id of some exception class. This may run a faux dynaload of
    the error, so that printing has a class name to go by. */
@@ -932,7 +936,10 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
     }
 
     vm->exception_cls = c;
-    lily_raise_class(vm->raiser, c, message);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
+    lily_mb_add(msgbuf, message);
+
+    dispatch_exception(vm);
 }
 
 #define LILY_ERROR(err, id) \
@@ -1263,7 +1270,10 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
     vm->exception_value = exception_val;
     vm->exception_cls = raise_cls;
 
-    lily_raise_class(vm->raiser, raise_cls, message);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
+    lily_mb_add(msgbuf, message);
+
+    dispatch_exception(vm);
 }
 
 /* This creates a new instance of a class. This checks if the current call is
@@ -1563,31 +1573,18 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
     lily_move_list_f(MOVE_DEREF_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
 }
 
-/* This attempts to catch the exception that the raiser currently holds. If it
-   succeeds, then the vm's state is updated and the exception is cleared out.
-
-   This function will refuse to catch exceptions that are not on the current
-   internal lily_vm_execute depth. This is so that the vm will return out. To do
-   otherwise leaves the vm thinking it is N levels deep but being, say, N - 2
-   levels deep.
-
-   Returns 1 if the exception has been caught, 0 otherwise. */
-static int maybe_catch_exception(lily_vm_state *vm)
+/* This is called when the vm has raised an exception. This changes control to
+   a jump that handles the error (some `except` clause), or parser. */
+static void dispatch_exception(lily_vm_state *vm)
 {
+    lily_raiser *raiser = vm->raiser;
     lily_class *raised_cls = vm->exception_cls;
-
-    /* The catch entry pointer is always one spot ahead of the last entry that
-       was inserted. So this is safe. */
-    if (vm->catch_chain->prev == NULL)
-        return 0;
-
-    lily_jump_link *raiser_jump = vm->raiser->all_jumps;
-
     lily_vm_catch_entry *catch_iter = vm->catch_chain->prev;
-    int jump_location, match;
+    int match = 0;
+    int jump_location;
     uint16_t *code;
 
-    match = 0;
+    vm->exception_cls = raised_cls;
 
     while (catch_iter != NULL) {
         /* Foreign functions register callbacks so they can fix values when
@@ -1599,14 +1596,6 @@ static int maybe_catch_exception(lily_vm_state *vm)
             catch_iter->callback_func(vm);
             catch_iter = catch_iter->prev;
             continue;
-        }
-
-        /* It's extremely important that the vm not attempt to catch exceptions
-           that were not made in the same jump level. If it does, the vm could
-           be called from a foreign function, but think it isn't. */
-        if (catch_iter->jump_entry != raiser_jump) {
-            vm->catch_chain = catch_iter->next;
-            break;
         }
 
         lily_call_frame *call_frame = catch_iter->call_frame;
@@ -1639,6 +1628,8 @@ static int maybe_catch_exception(lily_vm_state *vm)
         catch_iter = catch_iter->prev;
     }
 
+    lily_jump_link *jump_stop;
+
     if (match) {
         code += jump_location;
         if (*code == o_exception_store) {
@@ -1659,15 +1650,25 @@ static int maybe_catch_exception(lily_vm_state *vm)
         /* Make sure any exception value that was held is gone. No ref/deref is
            necessary, because the value was saved somewhere in a register. */
         vm->exception_value = NULL;
+        vm->exception_cls = NULL;
         vm->call_chain = catch_iter->call_frame;
         vm->call_depth = catch_iter->call_frame_depth;
         vm->call_chain->code = code;
         /* Each try block can only successfully handle one exception, so use
            ->prev to prevent using the same block again. */
         vm->catch_chain = catch_iter;
-    }
 
-    return match;
+        jump_stop = catch_iter->jump_entry->prev;
+    }
+    else
+        /* Since nothing in vm can capture the error, go to the first jump. The
+           first jump is always parser's jump. */
+        jump_stop = NULL;
+
+    while (raiser->all_jumps->prev != jump_stop)
+        raiser->all_jumps = raiser->all_jumps->prev;
+
+    longjmp(raiser->all_jumps->jump, 1);
 }
 
 /***
@@ -1937,15 +1938,9 @@ void lily_vm_execute(lily_vm_state *vm)
 
     lily_jump_link *link = lily_jump_setup(vm->raiser);
     if (setjmp(link->jump) != 0) {
-        if (maybe_catch_exception(vm) == 0)
-            /* Couldn't catch it. Jump back into parser, which will jump
-               back to the caller to give them the bad news. */
-            lily_jump_back(vm->raiser);
-        else {
-            /* The exception was caught, so resync local data. */
-            current_frame = vm->call_chain;
-            code = current_frame->code;
-        }
+        /* This section happens when an exception is caught. */
+        current_frame = vm->call_chain;
+        code = current_frame->code;
     }
 
     upvalues = current_frame->function->upvalues;

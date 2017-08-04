@@ -150,8 +150,6 @@ lily_state *lily_new_state(lily_config *config)
        sections need. */
     parser->tm = parser->emit->tm;
 
-    parser->vm->vm_buffer = parser->raiser->msgbuf;
-
     parser->expr->lex_linenum = &parser->lex->line_num;
 
     parser->emit->lex_linenum = &parser->lex->line_num;
