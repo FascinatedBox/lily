@@ -4,13 +4,12 @@
 #include <ctype.h>
 #include <inttypes.h>
 
+#include "lily.h"
+
 #include "lily_core_types.h"
 #include "lily_value_flags.h"
 #include "lily_vm.h"
 #include "lily_alloc.h"
-
-#include "lily_api_msgbuf.h"
-#include "lily_api_value.h"
 
 extern lily_type *lily_unit_type;
 
@@ -129,7 +128,7 @@ void lily_free_msgbuf(lily_msgbuf *msgbuf)
 }
 
 /* This allows getting the contents without knowing the struct. */
-const char *lily_mb_get(lily_msgbuf *msgbuf)
+const char *lily_mb_raw(lily_msgbuf *msgbuf)
 {
     return msgbuf->message;
 }
@@ -242,7 +241,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
     lily_mb_add(msgbuf, type->cls->name);
 
-    if (type->cls->id == LILY_FUNCTION_ID) {
+    if (type->cls->id == LILY_ID_FUNCTION) {
         if (type->generic_pos) {
             int i;
             char ch = 'A';
@@ -287,7 +286,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
     }
     else if (type->cls->generic_count != 0) {
         int i;
-        int is_optarg = type->cls->id == LILY_OPTARG_ID;
+        int is_optarg = type->cls->id == LILY_ID_OPTARG;
 
         if (is_optarg == 0)
             lily_mb_add(msgbuf, "[");
@@ -447,19 +446,19 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         t = &new_tag;
     }
 
-    if (v->class_id == LILY_BOOLEAN_ID)
+    if (v->class_id == LILY_ID_BOOLEAN)
         add_boolean(msgbuf, v->value.integer);
-    else if (v->class_id == LILY_INTEGER_ID)
+    else if (v->class_id == LILY_ID_INTEGER)
         add_int64(msgbuf, v->value.integer);
-    else if (v->class_id == LILY_BYTE_ID)
+    else if (v->class_id == LILY_ID_BYTE)
         add_byte(msgbuf, (uint8_t) v->value.integer);
-    else if (v->class_id == LILY_DOUBLE_ID)
+    else if (v->class_id == LILY_ID_DOUBLE)
         add_double(msgbuf, v->value.doubleval);
-    else if (v->class_id == LILY_STRING_ID)
+    else if (v->class_id == LILY_ID_STRING)
         lily_mb_escape_add_str(msgbuf, v->value.string->string);
-    else if (v->class_id == LILY_BYTESTRING_ID)
+    else if (v->class_id == LILY_ID_BYTESTRING)
         add_bytestring(msgbuf, v->value.string);
-    else if (v->class_id == LILY_FUNCTION_ID) {
+    else if (v->class_id == LILY_ID_FUNCTION) {
         lily_function_val *fv = v->value.function;
         const char *builtin = "";
         const char *class_name = "";
@@ -476,11 +475,11 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
                 separator, fv->trace_name);
     }
-    else if (v->class_id == LILY_LIST_ID)
+    else if (v->class_id == LILY_ID_LIST)
         add_list_like(vm, msgbuf, t, v, "[", "]");
-    else if (v->class_id == LILY_TUPLE_ID)
+    else if (v->class_id == LILY_ID_TUPLE)
         add_list_like(vm, msgbuf, t, v, "<[", "]>");
-    else if (v->class_id == LILY_HASH_ID) {
+    else if (v->class_id == LILY_ID_HASH) {
         lily_hash_val *hv = v->value.hash;
         lily_mb_add_char(msgbuf, '[');
         int i, j;
@@ -500,9 +499,9 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         }
         lily_mb_add_char(msgbuf, ']');
     }
-    else if (v->class_id == LILY_UNIT_ID)
+    else if (v->class_id == LILY_ID_UNIT)
         lily_mb_add(msgbuf, "unit");
-    else if (v->class_id == LILY_FILE_ID) {
+    else if (v->class_id == LILY_ID_FILE) {
         lily_file_val *fv = v->value.file;
         const char *state = fv->inner_file ? "open" : "closed";
         lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
@@ -535,7 +534,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 void lily_mb_add_value(lily_msgbuf *msgbuf, lily_vm_state *vm,
         lily_value *value)
 {
-    if (value->class_id == LILY_STRING_ID)
+    if (value->class_id == LILY_ID_STRING)
         lily_mb_add(msgbuf, value->value.string->string);
     else
         add_value_to_msgbuf(vm, msgbuf, NULL, value);

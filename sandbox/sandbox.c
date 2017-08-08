@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "lily_api_embed.h"
+#include "lily.h"
 
 /* This file is to be compiled only by emscripten, and serves as a bridge
    between the js of a browser and Lily's C code.
@@ -20,7 +20,7 @@ sandbox *get_parser()
 {
     sandbox *box = malloc(sizeof(*box));
 
-    lily_init_config(&box->config);
+    lily_config_init(&box->config);
     box->config.import_func = import_noop;
 
     box->state = lily_new_state(&box->config);
@@ -41,5 +41,5 @@ void destroy_parser(sandbox *box)
 
 char *get_parser_error(sandbox *box)
 {
-    return lily_get_error(box->state);
+    return lily_error_message(box->state);
 }

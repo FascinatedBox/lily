@@ -3,9 +3,9 @@
 
 # include <setjmp.h>
 
-# include "lily_core_types.h"
+# include "lily.h"
 
-# include "lily_api_msgbuf.h"
+# include "lily_core_types.h"
 
 typedef struct lily_jump_link_ {
     struct lily_jump_link_ *prev;

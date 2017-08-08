@@ -9,14 +9,14 @@ foundation of Lily.
 #include <stdio.h>
 #include <string.h>
 
+#include "lily.h"
+
 #include "lily_parser.h"
 #include "lily_symtab.h"
 #include "lily_utf8.h"
 #include "lily_value_structs.h"
 #include "lily_value_raw.h"
 #include "lily_alloc.h"
-#include "lily_api_embed.h"
-#include "lily_api_value.h"
 
 /** Begin autogen section. **/
 const char *lily_builtin_table[] = {
@@ -383,7 +383,7 @@ static const lily_class raw_self =
     NULL,
     ITEM_TYPE_CLASS,
     0,
-    LILY_SELF_ID,
+    LILY_ID_SELF,
     0,
     (lily_type *)&raw_self,
     "self",
@@ -406,7 +406,7 @@ static const lily_class raw_unit =
     NULL,
     ITEM_TYPE_CLASS,
     0,
-    LILY_UNIT_ID,
+    LILY_ID_UNIT,
     0,
     (lily_type *)&raw_unit,
     "Unit",
@@ -697,7 +697,7 @@ trying to divide or modulo by zero.
 */
 void lily_builtin_DivisionByZeroError_new(lily_state *s)
 {
-    return_exception(s, LILY_DBZERROR_ID);
+    return_exception(s, LILY_ID_DBZERROR);
 }
 
 /**
@@ -744,7 +744,7 @@ properties: A `message` as `String`, and a `traceback` as `List[String]`. The
 */
 void lily_builtin_Exception_new(lily_state *s)
 {
-    return_exception(s, LILY_EXCEPTION_ID);
+    return_exception(s, LILY_ID_EXCEPTION);
 }
 
 /**
@@ -789,7 +789,7 @@ Read each line of text from `self`, passing it down to `fn` for processing.
 void lily_builtin_File_each_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_get_clean_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
     char read_buffer[128];
     int ch = 0, pos = 0;
 
@@ -820,7 +820,7 @@ void lily_builtin_File_each_line(lily_state *s)
                 pos = 0;
             }
 
-            const char *text = lily_mb_get(vm_buffer);
+            const char *text = lily_mb_raw(vm_buffer);
             int pos = lily_mb_pos(vm_buffer);
 
             lily_push_bytestring(s, text, pos);
@@ -986,7 +986,7 @@ should check the result against `B""`. This will be fixed in a future release.
 void lily_builtin_File_read_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_get_clean_msgbuf(s);
+    lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
     char read_buffer[128];
     int ch = 0, pos = 0, total_pos = 0;
 
@@ -1020,7 +1020,7 @@ void lily_builtin_File_read_line(lily_state *s)
         total_pos += pos;
     }
 
-    const char *text = lily_mb_get(vm_buffer);
+    const char *text = lily_mb_raw(vm_buffer);
     lily_push_bytestring(s, text, total_pos);
     lily_return_top(s);
 }
@@ -1041,12 +1041,12 @@ void lily_builtin_File_write(lily_state *s)
 
     FILE *inner_file = lily_file_for_write(s, filev);
 
-    if (to_write->class_id == LILY_STRING_ID)
+    if (to_write->class_id == LILY_ID_STRING)
         fputs(to_write->value.string->string, inner_file);
     else {
         lily_msgbuf *msgbuf = lily_mb_flush(s->vm_buffer);
         lily_mb_add_value(msgbuf, s, to_write);
-        fputs(lily_mb_get(msgbuf), inner_file);
+        fputs(lily_mb_raw(msgbuf), inner_file);
     }
 
     lily_return_unit(s);
@@ -1160,8 +1160,8 @@ void lily_builtin_Hash_delete(lily_state *s)
     lily_value *key = lily_arg_value(s, 1);
 
     if (lily_hash_take(s, hash_val, key)) {
-        lily_stack_delete_top(s);
-        lily_stack_delete_top(s);
+        lily_stack_drop_top(s);
+        lily_stack_drop_top(s);
     }
 
     lily_return_unit(s);
@@ -1361,8 +1361,8 @@ static void hash_select_reject_common(lily_state *s, int expect)
 
             lily_call(s, 2);
             if (lily_as_boolean(result) != expect) {
-                lily_stack_delete_top(s);
-                lily_stack_delete_top(s);
+                lily_stack_drop_top(s);
+                lily_stack_drop_top(s);
             }
             else
                 lily_hash_set_from_stack(s, h);
@@ -1420,7 +1420,7 @@ trying to divide or modulo by zero.
 */
 void lily_builtin_IndexError_new(lily_state *s)
 {
-    return_exception(s, LILY_INDEXERROR_ID);
+    return_exception(s, LILY_ID_INDEXERROR);
 }
 
 /**
@@ -1488,7 +1488,7 @@ or does not have permission.
 */
 void lily_builtin_IOError_new(lily_state *s)
 {
-    return_exception(s, LILY_IOERROR_ID);
+    return_exception(s, LILY_ID_IOERROR);
 }
 
 /**
@@ -1499,7 +1499,7 @@ item from a `Hash` that does not exist.
 */
 void lily_builtin_KeyError_new(lily_state *s)
 {
-    return_exception(s, LILY_KEYERROR_ID);
+    return_exception(s, LILY_ID_KEYERROR);
 }
 
 /**
@@ -1727,7 +1727,7 @@ void lily_builtin_List_join(lily_state *s)
             lily_mb_add_value(vm_buffer, s, values[i]);
     }
 
-    lily_push_string(s, lily_mb_get(vm_buffer));
+    lily_push_string(s, lily_mb_raw(vm_buffer));
     lily_return_top(s);
 }
 
@@ -2222,7 +2222,7 @@ limit is exceeded, or when trying to modify a `Hash` while iterating over it.
 */
 void lily_builtin_RuntimeError_new(lily_state *s)
 {
-    return_exception(s, LILY_RUNTIMEERROR_ID);
+    return_exception(s, LILY_ID_RUNTIMEERROR);
 }
 
 /**
@@ -2270,7 +2270,7 @@ void lily_builtin_String_format(lily_state *s)
     lily_container_val *lv = lily_arg_container(s, 1);
 
     int lsize = lily_con_size(lv);
-    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
 
     int idx, last_idx = 0;
 
@@ -2320,7 +2320,7 @@ void lily_builtin_String_format(lily_state *s)
         }
     }
 
-    lily_push_string(s, lily_mb_get(msgbuf));
+    lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
 }
 
@@ -2445,7 +2445,7 @@ void lily_builtin_String_html_encode(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
     const char *raw = lily_as_string_raw(input_arg);
-    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
 
     /* If nothing was escaped, output what was input. */
     if (lily_mb_html_escape(msgbuf, raw) == raw)
@@ -2453,7 +2453,7 @@ void lily_builtin_String_html_encode(lily_state *s)
            instead of making a new `String`. */
         lily_return_value(s, input_arg);
     else {
-        lily_push_string(s, lily_mb_get(msgbuf));
+        lily_push_string(s, lily_mb_raw(msgbuf));
         lily_return_top(s);
     }
 }
@@ -2527,7 +2527,7 @@ void lily_builtin_String_lower(lily_state *s)
     int i;
 
     lily_push_string(s, lily_as_string_raw(input_arg));
-    char *raw_out = lily_as_string_raw(lily_stack_top(s));
+    char *raw_out = lily_as_string_raw(lily_stack_get_top(s));
 
     for (i = 0;i < input_length;i++) {
         char ch = raw_out[i];
@@ -2791,7 +2791,7 @@ void lily_builtin_String_replace(lily_state *s)
         return;
     }
 
-    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
     char *source = lily_string_raw(source_sv);
     char *needle = lily_string_raw(needle_sv);
     char *replace_with = lily_arg_string_raw(s, 2);
@@ -2825,7 +2825,7 @@ void lily_builtin_String_replace(lily_state *s)
     if (i != start)
         lily_mb_add_slice(msgbuf, source, start, i);
 
-    lily_push_string(s, lily_mb_get(msgbuf));
+    lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
 }
 
@@ -3261,7 +3261,7 @@ void lily_builtin_String_upper(lily_state *s)
     int i;
 
     lily_push_string(s, lily_as_string_raw(input_arg));
-    char *raw_out = lily_as_string_raw(lily_stack_top(s));
+    char *raw_out = lily_as_string_raw(lily_stack_get_top(s));
 
     for (i = 0;i < input_length;i++) {
         char ch = raw_out[i];
@@ -3293,13 +3293,13 @@ negative amount.
 */
 void lily_builtin_ValueError_new(lily_state *s)
 {
-    return_exception(s, LILY_VALUEERROR_ID);
+    return_exception(s, LILY_ID_VALUEERROR);
 }
 
 static void new_builtin_file(lily_state *s, FILE *source, const char *mode)
 {
     lily_push_file(s, source, mode);
-    lily_file_val *file_val = lily_as_file(lily_stack_top(s));
+    lily_file_val *file_val = lily_as_file(lily_stack_get_top(s));
     file_val->is_builtin = 1;
 }
 
@@ -3351,8 +3351,7 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
 void lily_register_pkg_builtin(lily_state *s)
 {
-    lily_register_package(s, "", lily_builtin_table,
-            lily_builtin_loader);
+    lily_module_register(s, "", lily_builtin_table, lily_builtin_loader);
 }
 
 void lily_init_pkg_builtin(lily_symtab *symtab)
@@ -3370,10 +3369,10 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
                                build_class(symtab, "File",        0, File_OFFSET);
 
-    symtab->question_class = build_special(symtab, "?", 0, LILY_QUESTION_ID);
-    symtab->optarg_class   = build_special(symtab, "*", 1, LILY_OPTARG_ID);
-    lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_SCOOP_1_ID);
-    lily_class *scoop2     = build_special(symtab, "$2", 0, LILY_SCOOP_2_ID);
+    symtab->question_class = build_special(symtab, "?", 0, LILY_ID_QUESTION);
+    symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
+    lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_ID_SCOOP_1);
+    lily_class *scoop2     = build_special(symtab, "$2", 0, LILY_ID_SCOOP_2);
 
     scoop1->self_type->flags |= TYPE_HAS_SCOOP;
     scoop2->self_type->flags |= TYPE_HAS_SCOOP;

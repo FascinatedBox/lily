@@ -59,9 +59,9 @@ number generation.
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
-#include "lily_alloc.h"
-#include "lily_api_embed.h"
-#include "lily_api_value.h"
+
+
+#include "lily.h"
 
 #define NN 312
 #define MM 156

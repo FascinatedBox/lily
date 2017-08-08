@@ -73,7 +73,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
         t->flags |= TYPE_IS_UNRESOLVED;
         t->generic_pos = generic_pos;
 
-        new_generic->id = LILY_GENERIC_ID;
+        new_generic->id = LILY_ID_GENERIC;
         new_generic->self_type = t;
         new_generic->all_subtypes = t;
 

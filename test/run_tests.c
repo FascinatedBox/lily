@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "lily_api_embed.h"
-#include "lily_api_value.h"
+#include "lily.h"
 
 extern const char *lily_extend_table[];
 void *lily_extend_loader(lily_state *s, int);
@@ -11,21 +10,22 @@ int main(int argc, char **argv)
 {
     lily_config config;
 
-    lily_init_config(&config);
+    lily_config_init(&config);
 
     lily_state *state = lily_new_state(&config);
-    LILY_REGISTER_PACKAGE(state, extend);
+    lily_module_register(state, "extend", lily_extend_table,
+            lily_extend_loader);
 
 #ifdef _WIN32
     if (lily_parse_file(state, "test\\test_main.lily") == 0) {
 #else
     if (lily_parse_file(state, "test/test_main.lily") == 0) {
 #endif
-        fputs(lily_get_error(state), stderr);
+        fputs(lily_error_message(state), stderr);
         exit(EXIT_FAILURE);
     }
 
-    lily_function_val *f = lily_get_func(state, "did_pass");
+    lily_function_val *f = lily_find_function(state, "did_pass");
     lily_call_prepare(state, f);
     lily_call(state, 0);
 

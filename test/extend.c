@@ -3,8 +3,8 @@ library extend
 
 This provides extension functions to the testing suite.
 */
-#include "lily_api_value.h"
-#include "lily_api_embed.h"
+
+#include "lily.h"
 
 /** Begin autogen section. **/
 const char *lily_extend_table[] = {
@@ -39,7 +39,7 @@ static void run_interp(lily_state *s, int parse)
 
     lily_config config;
 
-    lily_init_config(&config);
+    lily_config_init(&config);
     config.render_func = noop_render;
 
     lily_state *subinterp = lily_new_state(&config);
@@ -54,7 +54,7 @@ static void run_interp(lily_state *s, int parse)
 
     if (result == 0) {
         con = lily_push_failure(s);
-        lily_push_string(s, lily_get_error(subinterp));
+        lily_push_string(s, lily_error_message(subinterp));
     }
     else {
         con = lily_push_success(s);

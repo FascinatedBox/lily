@@ -1,13 +1,13 @@
 #include <string.h>
 
+#include "lily.h"
+
 #include "lily_value_structs.h"
 #include "lily_move.h"
 #include "lily_vm.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
 #include "lily_value_raw.h"
-
-#include "lily_api_value.h"
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \
@@ -77,19 +77,9 @@ int lily_arg_count(lily_state *s)
     return (int)(s->call_chain->top - s->call_chain->start);
 }
 
-uint16_t lily_arg_class_id(lily_state *s, int index)
+int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
 {
-    return s->call_chain->start[index]->class_id;
-}
-
-int lily_arg_is_some(lily_state *s, int i)
-{
-    return s->call_chain->start[i]->class_id == LILY_SOME_ID;
-}
-
-int lily_arg_is_success(lily_state *s, int i)
-{
-    return s->call_chain->start[i]->class_id == LILY_SUCCESS_ID;
+    return s->call_chain->start[index]->class_id == class_id;
 }
 
 /* Stack operations
@@ -109,12 +99,12 @@ void lily_stack_push_and_destroy(lily_state *s, lily_value *v)
     lily_free(v);
 }
 
-lily_value *lily_stack_top(lily_state *s)
+lily_value *lily_stack_get_top(lily_state *s)
 {
     return *(s->call_chain->top - 1);
 }
 
-void lily_stack_delete_top(lily_state *s)
+void lily_stack_drop_top(lily_state *s)
 {
     s->call_chain->top--;
     lily_value *z = *s->call_chain->top;
@@ -360,17 +350,17 @@ static void destroy_file(lily_value *v)
 void lily_value_destroy(lily_value *v)
 {
     int class_id = v->class_id;
-    if (class_id == LILY_LIST_ID || class_id == LILY_TUPLE_ID)
+    if (class_id == LILY_ID_LIST || class_id == LILY_ID_TUPLE)
         destroy_list(v);
     else if (v->flags & VAL_IS_CONTAINER)
         destroy_container(v);
-    else if (class_id == LILY_STRING_ID || class_id == LILY_BYTESTRING_ID)
+    else if (class_id == LILY_ID_STRING || class_id == LILY_ID_BYTESTRING)
         destroy_string(v);
-    else if (class_id == LILY_FUNCTION_ID)
+    else if (class_id == LILY_ID_FUNCTION)
         destroy_function(v);
-    else if (class_id == LILY_HASH_ID)
+    else if (class_id == LILY_ID_HASH)
         lily_destroy_hash(v);
-    else if (class_id == LILY_FILE_ID)
+    else if (class_id == LILY_ID_FILE)
         destroy_file(v);
     else if (v->flags & VAL_IS_FOREIGN) {
         v->value.foreign->destroy_func(v->value.generic);
@@ -460,14 +450,14 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
 
     if (left_tag != right_tag)
         return 0;
-    else if (left_tag == LILY_INTEGER_ID || left_tag == LILY_BOOLEAN_ID)
+    else if (left_tag == LILY_ID_INTEGER || left_tag == LILY_ID_BOOLEAN)
         return left->value.integer == right->value.integer;
-    else if (left_tag == LILY_DOUBLE_ID)
+    else if (left_tag == LILY_ID_DOUBLE)
         return left->value.doubleval == right->value.doubleval;
-    else if (left_tag == LILY_STRING_ID)
+    else if (left_tag == LILY_ID_STRING)
         return strcmp(left->value.string->string,
                 right->value.string->string) == 0;
-    else if (left_tag == LILY_BYTESTRING_ID) {
+    else if (left_tag == LILY_ID_BYTESTRING) {
         lily_string_val *left_sv = left->value.string;
         lily_string_val *right_sv = right->value.string;
         char *left_s = left_sv->string;
@@ -476,10 +466,10 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         return (left_size == right_sv->size &&
                 memcmp(left_s, right_s, left_size) == 0);
     }
-    else if (left_tag == LILY_LIST_ID || left_tag == LILY_TUPLE_ID) {
+    else if (left_tag == LILY_ID_LIST || left_tag == LILY_ID_TUPLE) {
         return subvalue_eq(s, depth, left, right);
     }
-    else if (left_tag == LILY_HASH_ID) {
+    else if (left_tag == LILY_ID_HASH) {
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 

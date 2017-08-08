@@ -4,11 +4,10 @@ library sys
 The sys package provides access to the arguments given to Lily.
 */
 
+#include <stdlib.h>
 #include <string.h>
 
-#include "lily_alloc.h"
-#include "lily_api_embed.h"
-#include "lily_api_value.h"
+#include "lily.h"
 
 /** Begin autogen section. **/
 const char *lily_sys_table[] = {
@@ -38,7 +37,7 @@ was not invoked from the command-line (ex: mod_lily), then this is empty.
 */
 void lily_sys_var_argv(lily_state *s)
 {
-    lily_config *config = lily_get_config(s);
+    lily_config *config = lily_config_get(s);
     int opt_argc = config->argc;
     char **opt_argv = config->argv;
     lily_container_val *lv = lily_push_list(s, opt_argc);

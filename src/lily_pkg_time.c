@@ -5,9 +5,8 @@ The time package provides access to basic time information on the system.
 */
 
 #include <time.h>
-#include "lily_alloc.h"
-#include "lily_api_embed.h"
-#include "lily_api_value.h"
+
+#include "lily.h"
 
 /** Begin autogen section. **/
 typedef struct lily_time_Time_ {

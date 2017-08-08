@@ -382,42 +382,12 @@ typedef struct lily_module_entry_ {
 /* Parser's import handler needs to execute this module's code. */
 #define MODULE_NOT_EXECUTED  0x2
 
-#define LILY_INTEGER_ID     1
-#define LILY_DOUBLE_ID      2
-#define LILY_STRING_ID      3
-#define LILY_BYTE_ID        4
-#define LILY_BYTESTRING_ID  5
-#define LILY_BOOLEAN_ID     6
-#define LILY_FUNCTION_ID    7
-#define LILY_DYNAMIC_ID     8
-#define LILY_LIST_ID        9
-#define LILY_HASH_ID       10
-#define LILY_TUPLE_ID      11
-#define LILY_FILE_ID       12
-#define LILY_OPTION_ID     13
-#define LILY_SOME_ID       14
-#define LILY_NONE_ID       15
-#define LILY_RESULT_ID     16
-#define LILY_FAILURE_ID    17
-#define LILY_SUCCESS_ID    18
-
-#define LILY_EXCEPTION_ID      19
-#define LILY_IOERROR_ID        20
-#define LILY_KEYERROR_ID       21
-#define LILY_RUNTIMEERROR_ID   22
-#define LILY_VALUEERROR_ID     23
-#define LILY_INDEXERROR_ID     24
-#define LILY_DBZERROR_ID       25 /* > 9000 */
-
-#define LILY_UNIT_ID       26
-#define START_CLASS_ID     27
-
 /* Instances of these are never made, so these ids will never be seen by vm. */
-#define LILY_SELF_ID       65529
-#define LILY_QUESTION_ID   65530
-#define LILY_GENERIC_ID    65531
-#define LILY_OPTARG_ID     65532
-#define LILY_SCOOP_2_ID    65533
-#define LILY_SCOOP_1_ID    65534
+#define LILY_ID_SELF       65529
+#define LILY_ID_QUESTION   65530
+#define LILY_ID_GENERIC    65531
+#define LILY_ID_OPTARG     65532
+#define LILY_ID_SCOOP_2    65533
+#define LILY_ID_SCOOP_1    65534
 #define LOWEST_SCOOP_ID    65533
 #endif

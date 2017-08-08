@@ -1,9 +1,10 @@
 #ifndef LILY_VM_H
 # define LILY_VM_H
 
+# include "lily.h"
+
 # include "lily_raiser.h"
 # include "lily_symtab.h"
-# include "lily_api_value.h"
 
 typedef struct lily_call_frame_ {
     /* This frame's registers start here. */
@@ -44,7 +45,7 @@ typedef struct lily_vm_catch_entry_ {
 
     union {
         lily_jump_link *jump_entry;
-        lily_error_callback_fn callback_func;
+        lily_error_callback_func callback_func;
     };
 
     struct lily_vm_catch_entry_ *next;

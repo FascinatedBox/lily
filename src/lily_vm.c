@@ -1,6 +1,8 @@
-
+#include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
+
+#include "lily.h"
 
 #include "lily_alloc.h"
 #include "lily_vm.h"
@@ -11,7 +13,6 @@
 #include "lily_move.h"
 
 #include "lily_int_opcode.h"
-#include "lily_api_value.h"
 
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */
@@ -378,15 +379,15 @@ static void gc_mark(int pass, lily_value *v)
 {
     if (v->flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
         int class_id = v->class_id;
-        if (class_id == LILY_LIST_ID ||
-            class_id == LILY_TUPLE_ID ||
+        if (class_id == LILY_ID_LIST ||
+            class_id == LILY_ID_TUPLE ||
             v->flags & (VAL_IS_ENUM | VAL_IS_INSTANCE))
             list_marker(pass, v);
-        else if (class_id == LILY_HASH_ID)
+        else if (class_id == LILY_ID_HASH)
             hash_marker(pass, v);
-        else if (class_id == LILY_DYNAMIC_ID)
+        else if (class_id == LILY_ID_DYNAMIC)
             dynamic_marker(pass, v);
-        else if (class_id == LILY_FUNCTION_ID)
+        else if (class_id == LILY_ID_FUNCTION)
             function_marker(pass, v);
     }
 }
@@ -493,7 +494,7 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
     lily_call_frame *current_frame = vm->call_chain;
     if (current_frame->next == NULL) {
         if (vm->call_depth > 100)
-            vm_error(vm, LILY_RUNTIMEERROR_ID,
+            vm_error(vm, LILY_ID_RUNTIMEERROR,
                     "Function call recursion limit reached.");
         add_call_frame(vm);
     }
@@ -609,7 +610,7 @@ return c
 void lily_push_boolean(lily_state *s, int v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_BOOLEAN_ID, integer, v);
+    SET_TARGET(LILY_ID_BOOLEAN, integer, v);
 }
 
 void lily_push_bytestring(lily_state *s, const char *source, int len)
@@ -621,35 +622,30 @@ void lily_push_bytestring(lily_state *s, const char *source, int len)
 
     lily_string_val *sv = new_sv(buffer, len);
 
-    SET_TARGET(LILY_BYTESTRING_ID | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_BYTESTRING | VAL_IS_DEREFABLE, string, sv);
 }
 
 void lily_push_byte(lily_state *s, uint8_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_BYTE_ID, integer, v);
+    SET_TARGET(LILY_ID_BYTE, integer, v);
 }
 
 void lily_push_double(lily_state *s, double v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_DOUBLE_ID, doubleval, v);
+    SET_TARGET(LILY_ID_DOUBLE, doubleval, v);
 }
 
 lily_container_val *lily_push_dynamic(lily_state *s)
 {
-    PUSH_CONTAINER(LILY_DYNAMIC_ID, VAL_IS_INSTANCE, 1);
+    PUSH_CONTAINER(LILY_ID_DYNAMIC, VAL_IS_INSTANCE, 1);
 }
 
 void lily_push_empty_variant(lily_state *s, uint16_t id)
 {
     PUSH_PREAMBLE
     SET_TARGET(id | VAL_IS_ENUM, container, NULL);
-}
-
-lily_container_val *lily_push_failure(lily_state *s)
-{
-    PUSH_CONTAINER(LILY_FAILURE_ID, VAL_IS_ENUM, 1);
 }
 
 void lily_push_file(lily_state *s, FILE *inner_file, const char *mode)
@@ -665,7 +661,7 @@ void lily_push_file(lily_state *s, FILE *inner_file, const char *mode)
     filev->write_ok = (*mode == 'w' || plus);
     filev->is_builtin = 0;
 
-    SET_TARGET(LILY_FILE_ID | VAL_IS_DEREFABLE, file, filev);
+    SET_TARGET(LILY_ID_FILE | VAL_IS_DEREFABLE, file, filev);
 }
 
 lily_foreign_val *lily_push_foreign(lily_state *s, uint16_t id,
@@ -685,7 +681,7 @@ lily_hash_val *lily_push_hash(lily_state *s, int size)
 {
     PUSH_PREAMBLE
     lily_hash_val *h = lily_new_hash_raw(size);
-    SET_TARGET(LILY_HASH_ID | VAL_IS_DEREFABLE, hash, h);
+    SET_TARGET(LILY_ID_HASH | VAL_IS_DEREFABLE, hash, h);
     return h;
 }
 
@@ -698,22 +694,12 @@ lily_container_val *lily_push_instance(lily_state *s, uint16_t id,
 void lily_push_integer(lily_state *s, int64_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_INTEGER_ID, integer, v);
+    SET_TARGET(LILY_ID_INTEGER, integer, v);
 }
 
-lily_container_val *lily_push_list(lily_state *s, int size)
+lily_container_val *lily_push_list(lily_state *s, uint32_t size)
 {
-    PUSH_CONTAINER(LILY_LIST_ID, 0, size);
-}
-
-lily_container_val *lily_push_some(lily_state *s)
-{
-    PUSH_CONTAINER(LILY_SOME_ID, VAL_IS_ENUM, 1);
-}
-
-lily_container_val *lily_push_success(lily_state *s)
-{
-    PUSH_CONTAINER(LILY_SUCCESS_ID, VAL_IS_ENUM, 1);
+    PUSH_CONTAINER(LILY_ID_LIST, 0, size);
 }
 
 lily_container_val *lily_push_super(lily_state *s, uint16_t id,
@@ -742,7 +728,7 @@ void lily_push_string(lily_state *s, const char *source)
 
     lily_string_val *sv = new_sv(buffer, len);
 
-    SET_TARGET(LILY_STRING_ID | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_STRING | VAL_IS_DEREFABLE, string, sv);
 }
 
 void lily_push_string_sized(lily_state *s, const char *source, int len)
@@ -754,18 +740,18 @@ void lily_push_string_sized(lily_state *s, const char *source, int len)
 
     lily_string_val *sv = new_sv(buffer, len);
 
-    SET_TARGET(LILY_STRING_ID | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_STRING | VAL_IS_DEREFABLE, string, sv);
 }
 
-lily_container_val *lily_push_tuple(lily_state *s, int size)
+lily_container_val *lily_push_tuple(lily_state *s, uint32_t size)
 {
-    PUSH_CONTAINER(LILY_TUPLE_ID, 0, size);
+    PUSH_CONTAINER(LILY_ID_TUPLE, 0, size);
 }
 
 void lily_push_unit(lily_state *s)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_UNIT_ID, integer, 0);
+    SET_TARGET(LILY_ID_UNIT, integer, 0);
 }
 
 void lily_push_value(lily_state *s, lily_value *v)
@@ -778,7 +764,7 @@ void lily_push_value(lily_state *s, lily_value *v)
     target->value = v->value;
 }
 
-lily_container_val *lily_push_variant(lily_state *s, uint16_t id, int size)
+lily_container_val *lily_push_variant(lily_state *s, uint16_t id, uint32_t size)
 {
     PUSH_CONTAINER(id, VAL_IS_ENUM, size);
 }
@@ -791,31 +777,31 @@ if (target->flags & VAL_IS_DEREFABLE) \
 void lily_return_boolean(lily_state *s, int v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_BOOLEAN_ID, integer, v);
+    SET_TARGET(LILY_ID_BOOLEAN, integer, v);
 }
 
 void lily_return_byte(lily_state *s, uint8_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_BYTE_ID, integer, v);
+    SET_TARGET(LILY_ID_BYTE, integer, v);
 }
 
 void lily_return_double(lily_state *s, double v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_DOUBLE_ID, doubleval, v);
+    SET_TARGET(LILY_ID_DOUBLE, doubleval, v);
 }
 
 void lily_return_integer(lily_state *s, int64_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_INTEGER_ID, integer, v);
+    SET_TARGET(LILY_ID_INTEGER, integer, v);
 }
 
 void lily_return_none(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_NONE_ID | VAL_IS_ENUM, container, NULL);
+    SET_TARGET(LILY_ID_NONE | VAL_IS_ENUM, container, NULL);
 }
 
 void lily_return_super(lily_state *s)
@@ -850,7 +836,7 @@ void lily_return_top(lily_state *s)
 void lily_return_unit(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_UNIT_ID, container, NULL);
+    SET_TARGET(LILY_ID_UNIT, container, NULL);
 }
 
 void lily_return_value(lily_state *s, lily_value *v)
@@ -925,7 +911,7 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
            unfortunate, but the vm doesn't have a sane and easy way to properly
            build classes here. */
         c = lily_dynaload_exception(vm->parser,
-                names[id - LILY_EXCEPTION_ID]);
+                names[id - LILY_ID_EXCEPTION]);
 
         /* The above will store at least one new function. It's extremely rare,
            but possible, for that to trigger a grow of symtab's literals. If
@@ -952,27 +938,27 @@ void lily_##err##Error(lily_vm_state *vm, const char *fmt, ...) \
     lily_mb_add_fmt_va(msgbuf, fmt, var_args); \
     va_end(var_args); \
  \
-    vm_error(vm, id, lily_mb_get(msgbuf)); \
+    vm_error(vm, id, lily_mb_raw(msgbuf)); \
 }
 
-LILY_ERROR(DivisionByZero, LILY_DBZERROR_ID)
-LILY_ERROR(Index,          LILY_INDEXERROR_ID)
-LILY_ERROR(IO,             LILY_IOERROR_ID)
-LILY_ERROR(Key,            LILY_KEYERROR_ID)
-LILY_ERROR(Runtime,        LILY_RUNTIMEERROR_ID)
-LILY_ERROR(Value,          LILY_VALUEERROR_ID)
+LILY_ERROR(DivisionByZero, LILY_ID_DBZERROR)
+LILY_ERROR(Index,          LILY_ID_INDEXERROR)
+LILY_ERROR(IO,             LILY_ID_IOERROR)
+LILY_ERROR(Key,            LILY_ID_KEYERROR)
+LILY_ERROR(Runtime,        LILY_ID_RUNTIMEERROR)
+LILY_ERROR(Value,          LILY_ID_VALUEERROR)
 
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
 
-    if (key->class_id == LILY_STRING_ID)
+    if (key->class_id == LILY_ID_STRING)
         lily_mb_escape_add_str(msgbuf, key->value.string->string);
     else
         lily_mb_add_fmt(msgbuf, "%ld", key->value.integer);
 
-    vm_error(vm, LILY_KEYERROR_ID, lily_mb_get(msgbuf));
+    vm_error(vm, LILY_ID_KEYERROR, lily_mb_raw(msgbuf));
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
@@ -983,7 +969,7 @@ static void boundary_error(lily_vm_state *vm, int64_t bad_index,
     lily_mb_add_fmt(msgbuf, "Subscript index %ld is out of range.",
             bad_index);
 
-    vm_error(vm, LILY_INDEXERROR_ID, lily_mb_get(msgbuf));
+    vm_error(vm, LILY_ID_INDEXERROR, lily_mb_raw(msgbuf));
 }
 
 /***
@@ -1013,12 +999,12 @@ void lily_builtin__calltrace(lily_vm_state *vm)
 
 static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
 {
-    if (source->class_id == LILY_STRING_ID)
+    if (source->class_id == LILY_ID_STRING)
         fputs(source->value.string->string, target);
     else {
         lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
         lily_mb_add_value(msgbuf, vm, source);
-        fputs(lily_mb_get(msgbuf), target);
+        fputs(lily_mb_raw(msgbuf), target);
     }
 
     fputc('\n', target);
@@ -1042,7 +1028,7 @@ void lily_stdout_print(lily_vm_state *vm)
     uint16_t spot = *vm->call_chain->function->cid_table;
     lily_file_val *stdout_val = vm->regs_from_main[spot]->value.file;
     if (stdout_val->inner_file == NULL)
-        vm_error(vm, LILY_VALUEERROR_ID, "IO operation on closed file.");
+        vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
 }
@@ -1123,10 +1109,10 @@ static void do_o_subscript_set(lily_vm_state *vm, uint16_t *code)
     index_reg = vm_regs[code[2]];
     rhs_reg = vm_regs[code[3]];
 
-    if (lhs_reg->class_id != LILY_HASH_ID) {
+    if (lhs_reg->class_id != LILY_ID_HASH) {
         int64_t index_int = index_reg->value.integer;
 
-        if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
+        if (lhs_reg->class_id == LILY_ID_BYTESTRING) {
             lily_string_val *bytev = lhs_reg->value.string;
             RELATIVE_INDEX(bytev->size)
             bytev->string[index_int] = (char)rhs_reg->value.integer;
@@ -1153,10 +1139,10 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
     index_reg = vm_regs[code[2]];
     result_reg = vm_regs[code[3]];
 
-    if (lhs_reg->class_id != LILY_HASH_ID) {
+    if (lhs_reg->class_id != LILY_ID_HASH) {
         int64_t index_int = index_reg->value.integer;
 
-        if (lhs_reg->class_id == LILY_BYTESTRING_ID) {
+        if (lhs_reg->class_id == LILY_ID_BYTESTRING) {
             lily_string_val *bytev = lhs_reg->value.string;
             RELATIVE_INDEX(bytev->size)
             lily_move_byte(result_reg, (uint8_t) bytev->string[index_int]);
@@ -1215,10 +1201,10 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     lily_container_val *lv;
 
     if (code[0] == o_build_list) {
-        lv = new_container(LILY_LIST_ID, num_elems);
+        lv = new_container(LILY_ID_LIST, num_elems);
     }
     else {
-        lv = (lily_container_val *)new_container(LILY_TUPLE_ID, num_elems);
+        lv = (lily_container_val *)new_container(LILY_ID_TUPLE, num_elems);
     }
 
     lily_value **elems = lv->values;
@@ -1332,7 +1318,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
 
     lily_value *result_reg = vm_regs[code[2 + i]];
 
-    lily_string_val *sv = lily_new_string_raw(lily_mb_get(vm_buffer));
+    lily_string_val *sv = lily_new_string_raw(lily_mb_raw(vm_buffer));
     lily_move_string(result_reg, sv);
 }
 
@@ -1502,8 +1488,8 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
     int depth = vm->call_depth;
     int i;
 
-    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(vm);
-    lily_container_val *lv = new_container(LILY_LIST_ID, depth);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(vm);
+    lily_container_val *lv = new_container(LILY_ID_LIST, depth);
 
     /* The call chain goes from the most recent to least. Work around that by
        allocating elements in reverse order. It's safe to do this because
@@ -1550,7 +1536,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
-    const char *raw_message = lily_mb_get(vm->raiser->msgbuf);
+    const char *raw_message = lily_mb_raw(vm->raiser->msgbuf);
     lily_container_val *ival = new_container(raised_cls->id, 2);
 
     lily_string_val *sv = lily_new_string_raw(raw_message);
@@ -1680,14 +1666,9 @@ static void dispatch_exception(lily_vm_state *vm)
  *                           |___/
  */
 
-lily_msgbuf *lily_get_clean_msgbuf(lily_vm_state *vm)
+lily_msgbuf *lily_msgbuf_get(lily_vm_state *vm)
 {
     return lily_mb_flush(vm->vm_buffer);
-}
-
-void lily_get_dirty_msgbuf(lily_vm_state *vm, lily_msgbuf **msgbuf)
-{
-    *msgbuf = vm->vm_buffer;
 }
 
 /** Foreign functions that are looking to interact with the interpreter can use
@@ -1767,7 +1748,7 @@ void lily_call(lily_vm_state *vm, int count)
     }
 }
 
-void lily_error_callback_push(lily_state *s, lily_error_callback_fn func)
+void lily_error_callback_push(lily_state *s, lily_error_callback_func func)
 {
     if (s->catch_chain->next == NULL)
         add_catch_entry(s);
@@ -1821,7 +1802,7 @@ void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
        (and relies on holes being set aside for these exceptions). */
     if (old_count == 0) {
         int i;
-        for (i = LILY_EXCEPTION_ID;i < START_CLASS_ID;i++)
+        for (i = LILY_ID_EXCEPTION;i < START_CLASS_ID;i++)
             vm->class_table[i] = NULL;
     }
 }
@@ -1858,7 +1839,7 @@ lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 vm_regs[code[3]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[3]]->flags = LILY_INTEGER_ID; \
+vm_regs[code[3]]->flags = LILY_ID_INTEGER; \
 code += 5;
 
 #define DOUBLE_OP(OP) \
@@ -1866,7 +1847,7 @@ lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 vm_regs[code[3]]->value.doubleval = \
 lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
-vm_regs[code[3]]->flags = LILY_DOUBLE_ID; \
+vm_regs[code[3]]->flags = LILY_ID_DOUBLE; \
 code += 5;
 
 /* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
@@ -1881,15 +1862,15 @@ code += 5;
 #define EQUALITY_COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
+if (lhs_reg->class_id == LILY_ID_DOUBLE) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
+else if (lhs_reg->class_id == LILY_ID_INTEGER) { \
     vm_regs[code[3]]->value.integer =  \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->class_id == LILY_STRING_ID) { \
+else if (lhs_reg->class_id == LILY_ID_STRING) { \
     vm_regs[code[3]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) OP 0; \
@@ -1899,26 +1880,26 @@ else { \
     vm_regs[code[3]]->value.integer = \
     lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
 } \
-vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
+vm_regs[code[3]]->flags = LILY_ID_BOOLEAN; \
 code += 5;
 
 #define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->class_id == LILY_DOUBLE_ID) { \
+if (lhs_reg->class_id == LILY_ID_DOUBLE) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->class_id == LILY_INTEGER_ID) { \
+else if (lhs_reg->class_id == LILY_ID_INTEGER) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \
-else if (lhs_reg->class_id == LILY_STRING_ID) { \
+else if (lhs_reg->class_id == LILY_ID_STRING) { \
     vm_regs[code[3]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) OP 0; \
 } \
-vm_regs[code[3]]->flags = LILY_BOOLEAN_ID; \
+vm_regs[code[3]]->flags = LILY_ID_BOOLEAN; \
 code += 5;
 
 void lily_vm_execute(lily_vm_state *vm)
@@ -1977,19 +1958,19 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_load_integer:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (int16_t)code[1];
-                lhs_reg->flags = LILY_INTEGER_ID;
+                lhs_reg->flags = LILY_ID_INTEGER;
                 code += 4;
                 break;
             case o_load_boolean:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = code[1];
-                lhs_reg->flags = LILY_BOOLEAN_ID;
+                lhs_reg->flags = LILY_ID_BOOLEAN;
                 code += 4;
                 break;
             case o_load_byte:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (uint8_t)code[1];
-                lhs_reg->flags = LILY_BYTE_ID;
+                lhs_reg->flags = LILY_ID_BYTE;
                 code += 4;
                 break;
             case o_int_add:
@@ -2033,7 +2014,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.integer == 0) {
                     SAVE_LINE(+5);
-                    vm_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_ID_DBZERROR,
                             "Attempt to divide by zero.");
                 }
                 INTEGER_OP(/)
@@ -2043,7 +2024,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.integer == 0) {
                     SAVE_LINE(+5);
-                    vm_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_ID_DBZERROR,
                             "Attempt to divide by zero.");
                 }
 
@@ -2068,7 +2049,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[2]];
                 if (rhs_reg->value.doubleval == 0) {
                     SAVE_LINE(+5);
-                    vm_error(vm, LILY_DBZERROR_ID,
+                    vm_error(vm, LILY_ID_DBZERROR,
                             "Attempt to divide by zero.");
                 }
 
@@ -2080,11 +2061,11 @@ void lily_vm_execute(lily_vm_state *vm)
                     int id = lhs_reg->class_id;
                     int result;
 
-                    if (id == LILY_INTEGER_ID || id == LILY_BOOLEAN_ID)
+                    if (id == LILY_ID_INTEGER || id == LILY_ID_BOOLEAN)
                         result = (lhs_reg->value.integer == 0);
-                    else if (id == LILY_STRING_ID)
+                    else if (id == LILY_ID_STRING)
                         result = (lhs_reg->value.string->size == 0);
-                    else if (id == LILY_LIST_ID)
+                    else if (id == LILY_ID_LIST)
                         result = (lhs_reg->value.container->num_values == 0);
                     else
                         result = 1;
@@ -2180,7 +2161,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[1]];
 
                 rhs_reg = vm_regs[code[2]];
-                rhs_reg->flags = LILY_INTEGER_ID;
+                rhs_reg->flags = LILY_ID_INTEGER;
                 rhs_reg->value.integer = -(lhs_reg->value.integer);
                 code += 4;
                 break;
@@ -2370,14 +2351,14 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg = vm_regs[code[4]];
 
                 if (step_reg->value.integer == 0)
-                    vm_error(vm, LILY_VALUEERROR_ID,
+                    vm_error(vm, LILY_ID_VALUEERROR,
                                "for loop step cannot be 0.");
 
                 /* Do a negative step to offset falling into o_for_loop. */
                 loop_reg->value.integer =
                         lhs_reg->value.integer - step_reg->value.integer;
                 lhs_reg->value.integer = loop_reg->value.integer;
-                loop_reg->flags = LILY_INTEGER_ID;
+                loop_reg->flags = LILY_ID_INTEGER;
 
                 code += 6;
                 break;

@@ -1,13 +1,13 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "lily.h"
+
 #include "lily_symtab.h"
 #include "lily_vm.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
 #include "lily_value_raw.h"
-
-#include "lily_api_value.h"
 
 /***
  *      ____       _
@@ -119,8 +119,8 @@ static void free_literals(lily_value_stack *literals)
         /* Literals are marked where their refcount won't be adjusted during
            the vm's run. Any literal that isn't primitive will have 1 ref, and
            can be destroyed by sending it to deref. */
-        if (lit->class_id != LILY_INTEGER_ID &&
-            lit->class_id != LILY_DOUBLE_ID) {
+        if (lit->class_id != LILY_ID_INTEGER &&
+            lit->class_id != LILY_ID_DOUBLE) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
         }
@@ -196,7 +196,7 @@ static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_BYTESTRING_ID | VAL_IS_DEREFABLE;
+    v->flags = LILY_ID_BYTESTRING | VAL_IS_DEREFABLE;
     v->value.string = (lily_string_val *)bv;
     return v;
 }
@@ -205,7 +205,7 @@ static lily_value *new_value_of_double(double d)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_DOUBLE_ID;
+    v->flags = LILY_ID_DOUBLE;
     v->value.doubleval = d;
     return v;
 }
@@ -214,7 +214,7 @@ static lily_value *new_value_of_integer(int64_t i)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_INTEGER_ID;
+    v->flags = LILY_ID_INTEGER;
     v->value.integer = i;
     return v;
 }
@@ -223,7 +223,7 @@ static lily_value *new_value_of_string(lily_string_val *sv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_STRING_ID | VAL_IS_DEREFABLE;
+    v->flags = LILY_ID_STRING | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
 }
@@ -247,7 +247,7 @@ static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 
 lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_INTEGER_ID);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_INTEGER);
 
     while (iter) {
         if (iter->value.integer == int_val)
@@ -274,7 +274,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 
 lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_DOUBLE_ID);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_DOUBLE);
 
     while (iter) {
         if (iter->value.doubleval == dbl_val)
@@ -302,7 +302,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
         const char *want_string, int len)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_BYTESTRING_ID);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_BYTESTRING);
 
     while (iter) {
         if (iter->value.string->size == len &&
@@ -324,7 +324,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
-    v->flags = LILY_BYTESTRING_ID;
+    v->flags = LILY_ID_BYTESTRING;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -335,7 +335,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
 lily_literal *lily_get_string_literal(lily_symtab *symtab,
         const char *want_string)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_STRING_ID);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_STRING);
     size_t want_string_len = strlen(want_string);
 
     while (iter) {
@@ -358,7 +358,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
     /* Drop the derefable marker. */
-    v->flags = LILY_STRING_ID;
+    v->flags = LILY_ID_STRING;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 

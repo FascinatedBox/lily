@@ -1,6 +1,8 @@
 #ifndef LILY_PARSER_H
 # define LILY_PARSER_H
 
+# include "lily.h"
+
 # include "lily_raiser.h"
 # include "lily_expr.h"
 # include "lily_lexer.h"
@@ -11,9 +13,6 @@
 # include "lily_buffer_u16.h"
 # include "lily_value_stack.h"
 # include "lily_generic_pool.h"
-
-# include "lily_api_msgbuf.h"
-# include "lily_api_embed.h"
 
 struct lily_rewind_state_;
 

@@ -3,6 +3,8 @@
 #include <string.h>
 #include <errno.h>
 
+#include "lily.h"
+
 #include "lily_config.h"
 #include "lily_library.h"
 #include "lily_parser.h"
@@ -14,8 +16,6 @@
 #include "lily_alloc.h"
 
 #include "lily_int_opcode.h"
-
-#include "lily_api_value.h"
 
 #define NEED_NEXT_TOK(expected) \
 lily_lexer(lex); \
@@ -64,7 +64,7 @@ static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
-void lily_register_package(lily_state *, const char *, const char **, void *);
+void lily_module_register(lily_state *, const char *, const char **, void *);
 void lily_default_import_func(lily_state *, const char *, const char *,
         const char *);
 void lily_stdout_print(lily_vm_state *);
@@ -93,7 +93,7 @@ void *lily_time_loader(lily_state *s, int);
 
 void lily_init_pkg_builtin(lily_symtab *);
 
-void lily_init_config(lily_config *conf)
+void lily_config_init(lily_config *conf)
 {
     conf->argc = 0;
     conf->argv = NULL;
@@ -137,7 +137,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gc_multiplier = config->gc_multiplier;
     parser->vm->gc_threshold = config->gc_start;
 
-    lily_register_package(parser->vm, "", lily_builtin_table, lily_builtin_loader);
+    lily_module_register(parser->vm, "", lily_builtin_table, lily_builtin_loader);
     lily_set_builtin(parser->symtab, parser->module_top);
     lily_init_pkg_builtin(parser->symtab);
 
@@ -169,9 +169,9 @@ lily_state *lily_new_state(lily_config *config)
        need it. */
     create_main_func(parser);
 
-    lily_register_package(parser->vm, "sys", lily_sys_table, lily_sys_loader);
-    lily_register_package(parser->vm, "random", lily_random_table, lily_random_loader);
-    lily_register_package(parser->vm, "time", lily_time_table, lily_time_loader);
+    lily_module_register(parser->vm, "sys", lily_sys_table, lily_sys_loader);
+    lily_module_register(parser->vm, "random", lily_random_table, lily_random_loader);
+    lily_module_register(parser->vm, "time", lily_time_table, lily_time_loader);
 
     parser->executing = 0;
 
@@ -644,7 +644,7 @@ int lily_load_library_data(lily_state *s, const char *path, const char **table,
     return 1;
 }
 
-void lily_register_package(lily_state *s, const char *name, const char **table,
+void lily_module_register(lily_state *s, const char *name, const char **table,
         void *loader)
 {
     lily_parse_state *parser = s->parser;
@@ -691,7 +691,7 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
 void lily_default_import_func(lily_state *s, const char *root,
         const char *source, const char *name)
 {
-    lily_msgbuf *msgbuf = lily_get_clean_msgbuf(s);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
     const char *path;
 
     path = lily_mb_sprintf(msgbuf, FIRST_PATH, source, name);
@@ -752,7 +752,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
                     lily_sp_get(parser->expr_strings, check_pos));
         }
 
-        lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
+        lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
     }
     else
         /* Nothing needs to be done for the string pool, because the pool
@@ -805,7 +805,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
         f->reg_count = -1;
 
     lily_value *v = lily_malloc(sizeof(*v));
-    v->flags = LILY_FUNCTION_ID;
+    v->flags = LILY_ID_FUNCTION;
     v->value.function = f;
 
     lily_vs_push(parser->symtab->literals, v);
@@ -1093,7 +1093,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     if (type->cls == parser->symtab->hash_class) {
         lily_type *check_type = type->subtypes[0];
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
-            check_type->cls->id != LILY_GENERIC_ID)
+            check_type->cls->id != LILY_ID_GENERIC)
             lily_raise_syn(parser->raiser, "'^T' is not a valid hash key.",
                     check_type);
     }
@@ -1254,7 +1254,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
     if (cls->generic_count == 0)
         result = cls->self_type;
-    else if (cls->id != LILY_FUNCTION_ID) {
+    else if (cls->id != LILY_ID_FUNCTION) {
         NEED_NEXT_TOK(tk_left_bracket)
         int i = 0;
         while (1) {
@@ -1275,7 +1275,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         result = lily_tm_make(parser->tm, 0, cls, i);
         ensure_valid_type(parser, result);
     }
-    else if (cls->id == LILY_FUNCTION_ID) {
+    else if (cls->id == LILY_ID_FUNCTION) {
         NEED_NEXT_TOK(tk_left_parenth)
         lily_lexer(lex);
         int arg_flags = flags & F_SCOOP_OK;
@@ -1624,9 +1624,9 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
         name = table[dyna_index] + DYNA_NAME_OFFSET;
         if (name[0] == 'O')
-            parser->symtab->next_class_id = LILY_OPTION_ID;
+            parser->symtab->next_class_id = LILY_ID_OPTION;
         else
-            parser->symtab->next_class_id = LILY_RESULT_ID;
+            parser->symtab->next_class_id = LILY_ID_RESULT;
     }
     else
         save_next_class_id = 0;
@@ -1790,19 +1790,19 @@ static lily_class *dynaload_native(lily_parse_state *parser,
         parser->symtab->next_class_id--;
 
         if (strcmp(cls->name, "DivisionByZeroError") == 0)
-            cls->id = LILY_DBZERROR_ID;
+            cls->id = LILY_ID_DBZERROR;
         else if (strcmp(cls->name, "Exception") == 0)
-            cls->id = LILY_EXCEPTION_ID;
+            cls->id = LILY_ID_EXCEPTION;
         else if (strcmp(cls->name, "IndexError") == 0)
-            cls->id = LILY_INDEXERROR_ID;
+            cls->id = LILY_ID_INDEXERROR;
         else if (strcmp(cls->name, "IOError") == 0)
-            cls->id = LILY_IOERROR_ID;
+            cls->id = LILY_ID_IOERROR;
         else if (strcmp(cls->name, "KeyError") == 0)
-            cls->id = LILY_KEYERROR_ID;
+            cls->id = LILY_ID_KEYERROR;
         else if (strcmp(cls->name, "RuntimeError") == 0)
-            cls->id = LILY_RUNTIMEERROR_ID;
+            cls->id = LILY_ID_RUNTIMEERROR;
         else if (strcmp(cls->name, "ValueError") == 0)
-            cls->id = LILY_VALUEERROR_ID;
+            cls->id = LILY_ID_VALUEERROR;
         else
             /* Shouldn't happen, but use an impossible id to make it stand out. */
             cls->id = 12345;
@@ -2110,13 +2110,13 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
 {
     lily_class *literal_cls;
 
-    if (lit->class_id == LILY_INTEGER_ID)
+    if (lit->class_id == LILY_ID_INTEGER)
         literal_cls = parser->symtab->integer_class;
-    else if (lit->class_id == LILY_DOUBLE_ID)
+    else if (lit->class_id == LILY_ID_DOUBLE)
         literal_cls = parser->symtab->double_class;
-    else if (lit->class_id == LILY_STRING_ID)
+    else if (lit->class_id == LILY_ID_STRING)
         literal_cls = parser->symtab->string_class;
-    else if (lit->class_id == LILY_BYTESTRING_ID)
+    else if (lit->class_id == LILY_ID_BYTESTRING)
         literal_cls = parser->symtab->bytestring_class;
     else
         /* Impossible, but keeps the compiler from complaining. */
@@ -2843,7 +2843,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         lily_tm_insert(parser->tm, tm_return, root_result);
 
     int flags = 0;
-    if (expect_type && expect_type->cls->id == LILY_FUNCTION_ID &&
+    if (expect_type && expect_type->cls->id == LILY_ID_FUNCTION &&
         expect_type->flags & TYPE_IS_VARARGS)
         flags = TYPE_IS_VARARGS;
 
@@ -3533,7 +3533,7 @@ static void for_handler(lily_parse_state *parser, int multi)
         loop_var = new_local_var(parser, cls->self_type, lex->label,
                 lex->line_num);
     }
-    else if (loop_var->type->cls->id != LILY_INTEGER_ID) {
+    else if (loop_var->type->cls->id != LILY_ID_INTEGER) {
         lily_raise_syn(parser->raiser,
                    "Loop var must be type integer, not type '^T'.",
                    loop_var->type);
@@ -3738,9 +3738,9 @@ static void process_except(lily_parse_state *parser)
     lily_block_type new_type = block_try_except;
 
     /* If it's 'except Exception', then all possible cases have been handled. */
-    if (except_cls->id == LILY_EXCEPTION_ID)
+    if (except_cls->id == LILY_ID_EXCEPTION)
         new_type = block_try_except_all;
-    else if (lily_class_greater_eq_id(LILY_EXCEPTION_ID, except_cls) == 0)
+    else if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, except_cls) == 0)
         lily_raise_syn(parser->raiser, "'%s' is not a valid exception class.",
                 except_cls->name);
     else if (except_cls->generic_count != 0)
@@ -4069,7 +4069,7 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
 
     int result_flag = 0;
 
-    if (target->cls->id == LILY_GENERIC_ID) {
+    if (target->cls->id == LILY_ID_GENERIC) {
         /* If a class has generic types, then it can't be fetched from Dynamic.
            A generic type will always resolve to some bottom, but that bottom
            will not be equal to itself. Based on that assumption, the class does
@@ -4451,7 +4451,7 @@ static void error_incomplete_match(lily_parse_state *parser,
         sym_iter = sym_iter->next;
     }
 
-    lily_raise_syn(parser->raiser, lily_mb_get(msgbuf));
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
 static void match_case_class(lily_parse_state *parser,
@@ -4463,7 +4463,7 @@ static void match_case_class(lily_parse_state *parser,
 
     /* The second case only happens if the source is a Dynamic. */
     if (lily_class_greater_eq(match_sym->type->cls, cls) == 0 &&
-        match_sym->type->cls->id != LILY_QUESTION_ID) {
+        match_sym->type->cls->id != LILY_ID_QUESTION) {
         lily_raise_syn(parser->raiser,
                 "Class %s does not inherit from matching class %s.", cls->name,
                 match_sym->type->cls->name);
@@ -4678,7 +4678,7 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     lily_call_prepare(parser->vm, parser->toplevel_func);
     /* The above function pushes a Unit value to act as a sink for lily_call to
        put a value into. __main__ won't return a value so get rid of it. */
-    lily_stack_delete_top(parser->vm);
+    lily_stack_drop_top(parser->vm);
     lily_call(parser->vm, 0);
     parser->executing = 0;
 
@@ -4782,7 +4782,7 @@ static void build_error(lily_parse_state *parser)
     lily_raiser *raiser = parser->raiser;
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     lily_vm_state *vm = parser->vm;
-    const char *msg = lily_mb_get(raiser->msgbuf);
+    const char *msg = lily_mb_raw(raiser->msgbuf);
 
     if (vm->exception_cls) {
         lily_module_entry *m = vm->exception_cls->module;
@@ -4959,12 +4959,12 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
-            if (reg->class_id == LILY_STRING_ID)
+            if (reg->class_id == LILY_ID_STRING)
                 lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
             else
                 lily_mb_add_value(msgbuf, s, reg);
 
-            *text = lily_mb_get(msgbuf);
+            *text = lily_mb_raw(msgbuf);
         }
 
         return 1;
@@ -4985,7 +4985,7 @@ int lily_render_file(lily_state *s, const char *filename)
     return parse_file(s->parser, filename, 1);
 }
 
-lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
+lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
 {
     /* todo: Handle scope access, class methods, and so forth. Ideally, it can
        be done without loading any fake files (like dynaloading does), as this
@@ -5001,27 +5001,22 @@ lily_function_val *lily_get_func(lily_vm_state *vm, const char *name)
     return result;
 }
 
-/* Return the message of the last error encountered by the interpreter. */
-const char *lily_get_error_message(lily_state *s)
-{
-    return lily_mb_get(s->raiser->msgbuf);
-}
-
-void *lily_get_data(lily_vm_state *vm)
-{
-    return vm->data;
-}
-
 /* Return a string describing the last error encountered by the interpreter.
    This string is guaranteed to be valid until the next execution of the
    interpreter. */
-const char *lily_get_error(lily_state *s)
+const char *lily_error_message(lily_state *s)
 {
     build_error(s->parser);
-    return lily_mb_get(s->parser->msgbuf);
+    return lily_mb_raw(s->parser->msgbuf);
 }
 
-lily_config *lily_get_config(lily_state *s)
+/* Return the message of the last error encountered by the interpreter. */
+const char *lily_error_message_no_trace(lily_state *s)
+{
+    return lily_mb_raw(s->raiser->msgbuf);
+}
+
+lily_config *lily_config_get(lily_state *s)
 {
     return s->parser->config;
 }

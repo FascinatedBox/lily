@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lily_api_embed.h"
+#include "lily.h"
 
 static void usage()
 {
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 
     lily_config config;
 
-    lily_init_config(&config);
+    lily_config_init(&config);
 
     if (gc_start != -1)
         config.gc_start = gc_start;
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     }
 
     if (result == 0)
-        fputs(lily_get_error(state), stderr);
+        fputs(lily_error_message(state), stderr);
 
     lily_free_state(state);
 
