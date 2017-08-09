@@ -305,7 +305,7 @@ t.interpret_for_error("Wrong arg count with class method.",
 t.interpret_for_error("Class var without scope.",
     """\
     SyntaxError: Class var declaration must start with a scope.\n    \
-        from test/[subinterp]:2:\
+        from test\/[subinterp]:2:\
     """,
     """\
     class Test {
@@ -316,7 +316,7 @@ t.interpret_for_error("Class var without scope.",
 t.interpret_for_error("Class method without scope.",
     """\
     SyntaxError: Class method declaration must start with a scope.\n    \
-        from test/[subinterp]:2:\
+        from test\/[subinterp]:2:\
     """,
     """\
     class Test {
