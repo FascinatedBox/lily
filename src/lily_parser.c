@@ -685,8 +685,10 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
 
 #define FIRST_PATH "%s" LILY_PATH_SLASH "%s.lily"
 #define SECOND_PATH "%s" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
-#define THIRD_PATH "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "%s.lily"
-#define FOURTH_PATH "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
+#define THIRD_PATH \
+    "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "src" LILY_PATH_SLASH "%s.lily"
+#define FOURTH_PATH \
+    "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "src" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
 
 void lily_default_import_func(lily_state *s, const char *root,
         const char *source, const char *name)
