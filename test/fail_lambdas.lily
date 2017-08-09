@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Error when unable to infer a lambda's argument type.",
     """\
     SyntaxError: Cannot infer type of 'a'.\n    \

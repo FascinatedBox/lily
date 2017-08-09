@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("Hash.clear on non-empty hash.",
          (||
     var h = [1 => 1, 2 => 2]

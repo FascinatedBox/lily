@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("Option.is_none with None.",
          (|| None.is_none() ))
 

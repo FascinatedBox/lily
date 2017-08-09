@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Forbid plain arguments after optargs.",
     """\
     SyntaxError: Non-optional argument follows optional argument.\n    \

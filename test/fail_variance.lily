@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Verify function inputs are contravariant.",
     """\
     SyntaxError: Cannot assign type 'Function (Two)' to type 'Function (One)'.\n    \

@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret("Check generics with and_then",
     """
     # This test checks that lambdas can pull inference information when they are

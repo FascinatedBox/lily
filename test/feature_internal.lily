@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret("Verify hashes getting a new String key doesn't corrupt.",
     """
     var hash: Hash[String, Integer] = []

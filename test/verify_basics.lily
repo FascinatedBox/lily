@@ -2,10 +2,12 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 # Keep this at the top so the value doesn't need to change a lot.
 
 t.assert("Verify __line__ keyword.",
-         (|| __line__ == 8 ))
+         (|| __line__ == 10 ))
 
 define function_keyword_check: String
 {

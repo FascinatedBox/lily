@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.render("Basic template usage.",
     """\
     <?lily   ?>\

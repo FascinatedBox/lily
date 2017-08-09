@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret("Check jump patching of closures.",
     """
     # This is an internal-ish test that makes sure that the jumps are correct.

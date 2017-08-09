@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("Either.is_failure for Failure.",
          (|| Failure(1).is_failure() ))
 

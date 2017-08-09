@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Forbid import within define.",
     """\
     SyntaxError: Cannot import a file here.\n    \

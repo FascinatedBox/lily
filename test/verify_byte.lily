@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("Byte.to_i for 0t.",
          (|| 0t.to_i() == 0 ))
 

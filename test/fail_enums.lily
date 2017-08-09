@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Wrong arg count empty variant",
     """\
     SyntaxError: Variant Gamma should not get args.\n    \

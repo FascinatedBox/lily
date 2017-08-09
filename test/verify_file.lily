@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("File.close does nothing if called on closed file.",
          (||
     var f = File.open("io_test_file.txt", "w")

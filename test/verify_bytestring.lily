@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("ByteString.encode with invalid mode fails.",
          (|| B"0".encode("invalidmode").is_none() ))
 

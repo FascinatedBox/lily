@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret_for_error("Forbid nested assignments.",
     """\
     SyntaxError: Cannot nest an assignment within an expression.\n    \

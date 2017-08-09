@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("Boolean.to_i() == 1.",
          (|| true.to_i() == 1 ))
 

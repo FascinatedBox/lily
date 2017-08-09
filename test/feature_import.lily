@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret("Verify importing to access a var.",
     """\
     import import_dir/var_access

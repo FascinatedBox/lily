@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.assert("List.clear with Integer values.",
          (||
     var v = [1, 2, 3]

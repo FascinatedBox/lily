@@ -2,6 +2,8 @@ import test
 
 var t = test.t
 
+t.scope(__file__)
+
 t.interpret("Shorthand lambda application.",
     """
     define f(g: Function(Integer => String)): String
