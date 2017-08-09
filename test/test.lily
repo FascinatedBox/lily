@@ -12,32 +12,32 @@ class TestGroup {
     private var @tests_failed = 0
     private var @test_scope = ""
 
-    define pass_count : Integer { return @tests_passed }
-    define fail_count : Integer { return @tests_failed }
+    public define pass_count : Integer { return @tests_passed }
+    public define fail_count : Integer { return @tests_failed }
 
-    define scope(path: String) {
+    public define scope(path: String) {
         @test_scope = path
     }
 
-    define assert(message: String, f: Function( => Boolean)) {
+    public define assert(message: String, f: Function( => Boolean)) {
         @tests.push(<[@test_scope, message, "true", TestAction.Expect(f)]>)
     }
 
-    define expect_error(message: String, expect: String,
+    public define expect_error(message: String, expect: String,
                         f: Function( => Boolean)) {
         @tests.push(<[@test_scope, message, expect, TestAction.Expect(f)]>)
     }
 
-    define interpret(message: String, to_interpret: String) {
+    public define interpret(message: String, to_interpret: String) {
         @tests.push(<[@test_scope, message, "", TestAction.Interpret(to_interpret)]>)
     }
 
-    define interpret_for_error(message: String, expect: String,
+    public define interpret_for_error(message: String, expect: String,
                                to_interpret: String) {
         @tests.push(<[@test_scope, message, expect, TestAction.Interpret(to_interpret)]>)
     }
 
-    define render(message: String, to_interpret: String) {
+    public define render(message: String, to_interpret: String) {
         @tests.push(<[@test_scope, message, "", TestAction.Render(to_interpret)]>)
     }
 
@@ -59,7 +59,7 @@ class TestGroup {
                     .join("\n")
     }
 
-    define run {
+    public define run {
         var i = 0
 
         for i in 0...@tests.size() - 1: {

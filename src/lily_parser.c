@@ -2885,6 +2885,7 @@ static void raise_handler(lily_parse_state *, int);
 static void match_handler(lily_parse_state *, int);
 static void break_handler(lily_parse_state *, int);
 static void class_handler(lily_parse_state *, int);
+static void public_handler(lily_parse_state *, int);
 static void scoped_handler(lily_parse_state *, int);
 static void define_handler(lily_parse_state *, int);
 static void return_handler(lily_parse_state *, int);
@@ -2912,6 +2913,7 @@ static keyword_handler *handlers[] = {
     match_handler,
     break_handler,
     class_handler,
+    public_handler,
     scoped_handler,
     define_handler,
     return_handler,
@@ -2921,6 +2923,12 @@ static keyword_handler *handlers[] = {
     protected_handler,
     continue_handler,
 };
+
+/* Public scope is defined by the absense of either protected or private. This
+   flag is intentionally high so that it can be set by the public keyword to
+   denote that some modifier was sent at all. The modifier will be stripped by
+   both keywords. */
+#define PUBLIC_SCOPE 0x10000
 
 /* This is used by lambda handling so that statements (and the handler
    declarations) can come after lambdas. */
@@ -3016,11 +3024,15 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     lily_sym *sym = NULL;
-    /* This prevents variables from being used to initialize themselves. */
-    int flags = SYM_NOT_INITIALIZED | modifiers;
 
     lily_token want_token, other_token;
     if (parser->emit->block->block_type == block_class) {
+        if (modifiers == 0)
+            lily_raise_syn(parser->raiser,
+                    "Class var declaration must start with a scope.");
+
+        modifiers &= ~PUBLIC_SCOPE;
+
         want_token = tk_prop_word;
         other_token = tk_word;
     }
@@ -3028,6 +3040,9 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         want_token = tk_word;
         other_token = tk_prop_word;
     }
+
+    /* This prevents variables from being used to initialize themselves. */
+    int flags = SYM_NOT_INITIALIZED | modifiers;
 
     while (1) {
         lily_es_flush(parser->expr);
@@ -4592,6 +4607,12 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         block->prev != NULL)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
+    if (block->block_type == block_class && modifiers == 0)
+        lily_raise_syn(parser->raiser,
+                "Class method declaration must start with a scope.");
+
+    modifiers &= ~PUBLIC_SCOPE;
+
     lily_lex_state *lex = parser->lex;
     uint16_t save_generic_start = lily_gp_save(parser->generics);
 
@@ -4630,6 +4651,11 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
         lily_raise_syn(parser->raiser,
                 "Expected either 'var' or 'define', but got '%s'.",
                 lex->label);
+}
+
+static void public_handler(lily_parse_state *parser, int multi)
+{
+    parse_modifier(parser, "public", PUBLIC_SCOPE);
 }
 
 static void private_handler(lily_parse_state *parser, int multi)

@@ -115,7 +115,7 @@ t.interpret("Return fold with if.",
 t.interpret("Generic solving for property member of generic class.",
     """
     class Box[A](input: A) {
-        var @contents = [input]
+        public var @contents = [input]
     }
 
     define f[A, B](in: Box[B])

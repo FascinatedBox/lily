@@ -1,8 +1,8 @@
 # fibonacci numbers
 class Fib {
-  var @a=0
-  var @b=1
-  define next:Integer{
+  public var @a=0
+  public var @b=1
+  public define next:Integer{
     var c=@a+@b
     @a=@b
     @b=c

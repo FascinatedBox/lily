@@ -5,7 +5,7 @@ var t = test.t
 t.interpret("Verify catch of custom exception.",
     """
     class Error(code: Integer, message: String) < Exception(message)    {
-        var @code = code
+        public var @code = code
     }
 
     try: {

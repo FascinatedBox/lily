@@ -81,7 +81,7 @@ t.interpret("Check lambda storage save and restore.",
     """
     class Box[A](input: A)
     {
-        var @input = input
+        public var @input = input
     }
 
     var v =

@@ -291,9 +291,9 @@ t.assert("Expressions can start with __line__.",
 
 class Triad(a: Integer, b: Integer, c: Integer)
 {
-    var @a = a
-    var @b = b
-    var @c = c
+    public var @a = a
+    public var @b = b
+    public var @c = c
     @a = @b = @c
 }
 
@@ -383,7 +383,7 @@ t.assert("match against Dynamic failure case.",
 
 
 class Test {
-    define add(v: Integer) {}
+    public define add(v: Integer) {}
     10 |> add
 }
 

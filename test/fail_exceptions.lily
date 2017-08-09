@@ -10,7 +10,7 @@ t.interpret_for_error("Forbid catch for exceptions with generics.",
     """\
     class Ex[A](message: String, v: A) < Exception(message)
     {
-        var @value = v
+        public var @value = v
     }
 
     try: {
@@ -70,7 +70,7 @@ t.interpret_for_error("Throw exception from a method.",
     """,
     """\
     class Example {
-        define action {
+        public define action {
             if 1: {
                 var k = ValueError("Message.")
                 raise k

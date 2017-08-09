@@ -12,7 +12,7 @@ t.interpret("Shorthand class constructor with optional argument.",
 t.interpret("Class method with optional argument.",
     """
     class abc {
-        define ghi(a: *Integer=10) {
+        public define ghi(a: *Integer=10) {
         }
     }
 
@@ -103,8 +103,8 @@ t.interpret("Class constructor with optional non-shorthand arguments.",
     """
     class Point(x: *Integer=0, y: *Integer=0)
     {
-        var @x = x
-        var @y = y
+        public var @x = x
+        public var @y = y
     }
 
     Point()

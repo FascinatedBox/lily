@@ -1,15 +1,15 @@
 class Point(x: Integer, y: Integer)
 {
-    var @x = x
-    var @y = y
+    public var @x = x
+    public var @y = y
 
-    define move2D(moveX: Integer, moveY: Integer)
+    public define move2D(moveX: Integer, moveY: Integer)
     {
         @x += moveX
         @y += moveY
     }
 
-    define compare(other: Point): Boolean
+    public define compare(other: Point): Boolean
     {
         if @x == other.x && @y == other.y:
             return true
@@ -17,7 +17,7 @@ class Point(x: Integer, y: Integer)
             return false
     }
 
-    define to_s: String
+    public define to_s: String
     {
         return "Point({0}, {1})".format(@x, @y)
     }

@@ -14,9 +14,9 @@ scoped enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
 # Class properties and methods are public by default.
 class Terminal(var @foreground: Color, width_str: String)
 {
-    var @width = width_str.parse_i().unwrap_or(80)
+    public var @width = width_str.parse_i().unwrap_or(80)
 
-    define set_fg(new_color: Color) {
+    public define set_fg(new_color: Color) {
         @foreground = new_color
     }
 }

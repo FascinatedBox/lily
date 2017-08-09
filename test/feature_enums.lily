@@ -5,7 +5,7 @@ var t = test.t
 t.interpret("Verify basics of generic enums.",
     """
     class Test {
-        var @value = None
+        public var @value = None
     }
 
     define check_assigning {

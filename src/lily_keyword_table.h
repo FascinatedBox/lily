@@ -38,6 +38,7 @@ keyword_entry keywords[] = {
     {"match",        448345170285},
     {"break",        461195539042},
     {"class",        495857003619},
+    {"public",       109304441107824},
     {"scoped",       110386840822643},
     {"define",       111524889126244},
     {"return",       121437875889522},
@@ -62,14 +63,15 @@ keyword_entry keywords[] = {
 # define KEY_MATCH        11
 # define KEY_BREAK        12
 # define KEY_CLASS        13
-# define KEY_SCOPED       14
-# define KEY_DEFINE       15
-# define KEY_RETURN       16
-# define KEY_EXCEPT       17
-# define KEY_IMPORT       18
-# define KEY_PRIVATE      19
-# define KEY_PROTECTED    20
-# define KEY_CONTINUE     21
-# define KEY_LAST_ID      21
+# define KEY_PUBLIC       14
+# define KEY_SCOPED       15
+# define KEY_DEFINE       16
+# define KEY_RETURN       17
+# define KEY_EXCEPT       18
+# define KEY_IMPORT       19
+# define KEY_PRIVATE      20
+# define KEY_PROTECTED    21
+# define KEY_CONTINUE     22
+# define KEY_LAST_ID      22
 
 #endif

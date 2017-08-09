@@ -34,21 +34,21 @@ t.interpret("Match against class.",
 t.interpret("Verify that inherited classes have the right layout.",
     """
     class First {
-    	var @prop_1 = 10
-    	var @prop_2 = 5.5
-    	var @prop_3 = "1"
+        public var @prop_1 = 10
+        public var @prop_2 = 5.5
+        public var @prop_3 = "1"
     }
 
     class Second < First {
-    	var @prop_4 = 20
-    	var @prop_5 = 55.55
-    	var @prop_6 = "11"
+        public var @prop_4 = 20
+        public var @prop_5 = 55.55
+        public var @prop_6 = "11"
     }
 
     class Third < Second {
-    	var @prop_7 = 40
-    	var @prop_8 = 777.777
-    	var @prop_9 = "333"
+        public var @prop_7 = 40
+        public var @prop_8 = 777.777
+        public var @prop_9 = "333"
     }
 
     var v = Third()
@@ -63,20 +63,20 @@ t.interpret("Verify class basics.",
     # The call to f is to make sure classes don't always blindly inject self into
     # every call that is made.
 
-    class One(a: Integer) { var @a = a  f() }
-    class Two(a: Integer, b: String) < One(a) { var @b = b }
-    class Three(a: Integer, b: String, c: List[Integer]) < Two(a, b) { var @c = c }
+    class One(a: Integer) { public var @a = a  f() }
+    class Two(a: Integer, b: String) < One(a) { public var @b = b }
+    class Three(a: Integer, b: String, c: List[Integer]) < Two(a, b) { public var @c = c }
 
     class Four {
-        var @a: Integer = 10
+        public var @a: Integer = 10
         @a = 11
 
-        var @b = 12
+        public var @b = 12
         @b = 13
     }
 
     class AccessCheck {
-        define g {
+        public define g {
             AccessCheck.g(self)
             self.g()
         }
@@ -103,9 +103,9 @@ t.interpret("Verify class basics.",
 t.interpret("Verify calls to class methods.",
     """
     class One {
-        define check {}
+        public define check {}
 
-        define clone: One {
+        public define clone: One {
             One.check(self)
             return One()
         }
@@ -125,7 +125,7 @@ t.interpret("Verify calls to class methods.",
         f()
         One.f(self)
 
-        define add {
+        public define add {
             if 1:
                 @a += 1
         }
@@ -136,19 +136,19 @@ t.interpret("Verify class generics.",
     """
     class Box[A](a: A)
     {
-        var @a = a
+        public var @a = a
     }
 
     class BoxTwo[A, B](a: A, b: B) < Box(a)
     {
-        var @b = b
-        define f {
+        public var @b = b
+        public define f {
             BoxTwo(1, 2)
         }
     }
 
     class Container[A](value: A) {
-        var @v: List[A] = [value]
+        public var @v: List[A] = [value]
     }
 
     var v = Box(10)
@@ -183,9 +183,9 @@ t.interpret("Verify class inheritance shorthand.",
 
 t.interpret("Verify class match by calling class methods.",
     """
-    class Base { define base_str: String { return "B" } }
-    class Left < Base { define left_str: String { return "L" } }
-    class Right < Base { define right_str: String { return "R" } }
+    class Base { public define base_str: String { return "B" } }
+    class Left < Base { public define left_str: String { return "L" } }
+    class Right < Base { public define right_str: String { return "R" } }
     class Up < Base {  }
 
     define f(input: Base): String {
@@ -222,7 +222,7 @@ t.interpret("Verify properties being naturally covariant.",
     class Two < One {}
 
     class Test {
-        var @a: One = Two()
+        public var @a: One = Two()
         @a = One()
     }
     """)
@@ -232,14 +232,14 @@ t.interpret("Verify unrelated classes not marked as related by accident.",
     # This ensures that the vm does not try to say that Alpha inherits from Beta
     # because Alpha was first (and there is no lineage).
     class Alpha(s: String) {
-       var @s = s
-       define upper: String {
+       public var @s = s
+       public define upper: String {
           return @s.upper()
        }
     }
     class Beta(s: String) {
-       var @a = Alpha(s)
-       var @b = @a.upper()
+       public var @a = Alpha(s)
+       public var @b = @a.upper()
     }
     var b = Beta("hello")
     """)
@@ -247,9 +247,9 @@ t.interpret("Verify unrelated classes not marked as related by accident.",
 t.interpret("Verify subscript assignment to property.",
     """
     class Test {
-        var @map = ["one" => ["1"]]
+        public var @map = ["one" => ["1"]]
 
-        define add(key: String, val: String) {
+        public define add(key: String, val: String) {
             if ! @map.has_key(key):
                 @map[key] = []
             @map[key].push(val)
@@ -260,11 +260,11 @@ t.interpret("Verify subscript assignment to property.",
 t.interpret("Verify that return of 'self' keeps type information.",
     """
     class First {
-        define doit: self { }
+        public define doit: self { }
     }
 
     class Second < First {
-        define amethod {}
+        public define amethod {}
     }
 
     Second().doit().amethod()

@@ -234,8 +234,8 @@ t.interpret_for_error("Invalid + operation.",
     """,
     """\
     class Example {
-        var @v = "test"
-        define tryit(other: Example) {
+        public var @v = "test"
+        public define tryit(other: Example) {
             var combine =
                 "a" ++ other.v ++ "b" ++
                 "c" + @v ++ "d" ++ other.v ++ "e"
@@ -547,7 +547,7 @@ t.interpret_for_error("Wrong argument count to class method.",
     """\
     class Test
     {
-        define method {  }
+        public define method {  }
     }
 
     var t = Test()
@@ -562,7 +562,7 @@ t.interpret_for_error("Wrong argument count for vararg.",
     """\
     class Test
     {
-        define method(x: Integer, y: Integer...) {  }
+        public define method(x: Integer, y: Integer...) {  }
     }
 
     var t = Test()
@@ -577,7 +577,7 @@ t.interpret_for_error("Wrong argument count to method from constructor.",
     """\
     class Test
     {
-        define method(x: Integer) {  }
+        public define method(x: Integer) {  }
         method()
     }
     """)
@@ -611,7 +611,7 @@ t.interpret_for_error("Wrong argument count to class property function.",
     """,
     """\
     class abc {
-        var @a = (|| 10)
+        public var @a = (|| 10)
     }
 
     var d = abc()
@@ -626,7 +626,7 @@ t.interpret_for_error("Wrong argument count to anonymous function.",
     """\
     class Test
     {
-        define test : Function(Integer, Integer => Boolean)
+        public define test : Function(Integer, Integer => Boolean)
         {
             return (|x, y| x == y)
         }
