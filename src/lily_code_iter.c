@@ -28,7 +28,7 @@ int lily_ci_next(lily_code_iter *iter)
 {
     iter->offset += iter->round_total;
 
-    if (iter->offset == iter->stop)
+    if (iter->offset >= iter->stop)
         return 0;
 
     memset(&iter->round_total, 0,
@@ -215,8 +215,6 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 2;
             break;
-        default:
-            return 0;
     }
 
     return 1;
