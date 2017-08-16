@@ -1569,9 +1569,10 @@ static int64_t get_relative_index(lily_state *s, lily_container_val *list_val,
 
         pos = list_val->num_values - unsigned_pos;
     }
-    else if (pos > list_val->num_values)
-        lily_IndexError(s, "Index %ld is too large for list (maximum: %d)", pos,
-                list_val->num_values);
+    else if (pos > list_val->num_values) {
+        lily_IndexError(s, "Index %ld is too large for list (maximum: %ld)",
+                pos, (uint64_t)list_val->num_values);
+    }
 
     return pos;
 }
