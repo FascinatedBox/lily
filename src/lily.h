@@ -432,11 +432,6 @@ int lily_mb_pos(lily_msgbuf *msgbuf);
 const char *lily_mb_html_escape(lily_msgbuf *msgbuf, const char *input);
 /* Equivalent to flushing the msgbuf, then add_fmt with the arguments given. */
 const char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *format, ...);
-/* Push the msgbuf's content as a `ByteString` onto the stack. */
-void lily_mb_push_bytestring(lily_msgbuf *msgbuf, lily_state *s);
-/* Push the msgbuf's content as a `String` onto the stack.
-   No error checking or utf-8 validation is performed. */
-void lily_mb_push_string(lily_msgbuf *msgbuf, lily_state *s);
 /* This flushes and returns the state's msgbuf. */
 lily_msgbuf *lily_msgbuf_get(lily_state *);
 
