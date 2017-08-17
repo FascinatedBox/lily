@@ -17,6 +17,7 @@ import fail_generics
 import fail_import
 import fail_lambdas
 import fail_optargs
+import fail_template
 import verify_basics
 import verify_boolean
 import verify_byte

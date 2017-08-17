@@ -4708,6 +4708,10 @@ static void setup_and_exec_vm(lily_parse_state *parser)
        put a value into. __main__ won't return a value so get rid of it. */
     lily_stack_drop_top(parser->vm);
     lily_call(parser->vm, 0);
+
+    /* This is to undo preparing __main__. */
+    parser->vm->call_chain = parser->vm->call_chain->prev;
+    parser->vm->call_depth = 1;
     parser->executing = 0;
 
     /* Clear __main__ for the next pass. */
@@ -4767,6 +4771,8 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
 
             if (lex->token == tk_eof)
                 break;
+
+            lily_lexer(lex);
         }
         else if (lex->token == tk_docstring) {
             process_docstring(parser);

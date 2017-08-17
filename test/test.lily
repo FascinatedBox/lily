@@ -33,12 +33,17 @@ class TestGroup {
     }
 
     public define interpret_for_error(message: String, expect: String,
-                               to_interpret: String) {
+                                to_interpret: String) {
         @tests.push(<[@test_scope, message, expect, TestAction.Interpret(to_interpret)]>)
     }
 
     public define render(message: String, to_interpret: String) {
         @tests.push(<[@test_scope, message, "", TestAction.Render(to_interpret)]>)
+    }
+
+    public define render_for_error(message: String, expect: String,
+                                to_interpret: String) {
+        @tests.push(<[@test_scope, message, expect, TestAction.Render(to_interpret)]>)
     }
 
     private define exception_to_s(e: Exception): String {
