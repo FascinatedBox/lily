@@ -1,6 +1,7 @@
 #ifndef LILY_H
 # define LILY_H
 
+# include <stdarg.h>
 # include <stdint.h>
 # include <stdio.h>
 
