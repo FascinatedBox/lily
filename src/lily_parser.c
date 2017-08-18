@@ -4822,16 +4822,8 @@ static void build_error(lily_parse_state *parser)
     lily_vm_state *vm = parser->vm;
     const char *msg = lily_mb_raw(raiser->msgbuf);
 
-    if (vm->exception_cls) {
-        lily_module_entry *m = vm->exception_cls->module;
-        /* If this doesn't come from the first package (or the builtin one),
-           then add the plain name of the module for clarity. */
-        if (m != parser->module_start &&
-            m != parser->module_start->root_next)
-            lily_mb_add_fmt(msgbuf, "%s", m->loadname);
-
+    if (vm->exception_cls)
         lily_mb_add(msgbuf, vm->exception_cls->name);
-    }
     else
         lily_mb_add(msgbuf, lily_name_for_error(raiser));
 
