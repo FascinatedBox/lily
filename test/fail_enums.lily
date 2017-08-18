@@ -430,3 +430,18 @@ t.interpret_for_error("Wrong arg count flat variant.",
     """\
     var v = Some(1, 2)
     """)
+
+t.interpret_for_error("'else' in exhaustive match.",
+    """\
+    SyntaxError: 'else' in exhaustive match.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    var v = Some(1)
+
+    match v: {
+        case Some(_):
+        case None:
+        else:
+    }
+    """)

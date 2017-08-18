@@ -4538,7 +4538,10 @@ static void match_handler(lily_parse_state *parser, int multi)
 
     lily_sym *match_sym = parser->expr->root->result;
     int is_enum = match_sym->type->cls->flags & CLS_IS_ENUM;
-    int have_else = 0, case_count = 0;
+    int have_else = 0, case_count = 0, enum_case_max = 0;
+
+    if (is_enum)
+        enum_case_max = match_sym->type->cls->variant_size;
 
     while (1) {
         if (lex->token == tk_word) {
@@ -4557,7 +4560,8 @@ static void match_handler(lily_parse_state *parser, int multi)
                 case_count++;
             }
             else if (key == KEY_ELSE) {
-                if (have_else)
+                if (have_else ||
+                    (is_enum && case_count == enum_case_max))
                     lily_raise_syn(parser->raiser,
                             "'else' in exhaustive match.");
 
@@ -4585,7 +4589,7 @@ static void match_handler(lily_parse_state *parser, int multi)
         if (is_enum == 0)
             lily_raise_syn(parser->raiser,
                     "Match against a class must have an 'else' case.");
-        else if (case_count != match_sym->type->cls->variant_size)
+        else if (case_count != enum_case_max)
             error_incomplete_match(parser, match_sym);
     }
 
