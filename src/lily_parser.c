@@ -800,6 +800,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->locals = NULL;
     f->line_num = var->line_num;
     f->module = parser->symtab->active_module;
+    f->cid_table = f->module->cid_table;
 
     if (var->type)
         f->reg_count = var->type->subtype_count;

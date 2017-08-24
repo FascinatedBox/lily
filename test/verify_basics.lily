@@ -429,3 +429,9 @@ t.assert("1 +1 viewed as 1 + 1 when binary op needed.",
          (||
     var v = 1 +1
     v == 2 ))
+
+t.interpret("Using time.Time.now() to create a foreign Time class.",
+    """
+    import time
+    var v = time.Time.now()
+    """)
