@@ -149,6 +149,15 @@ typedef struct lily_named_sym_ {
     uint64_t name_shorthash;
 } lily_named_sym;
 
+/* Boxed symbols are created by direct imports `import (x, y) from z`. They're
+   necessary because classes may have pending dynaloads. Since they're kept
+   internal to symtab, these don't need an item kind or flags. */
+typedef struct lily_boxed_sym_ {
+    struct lily_boxed_sym_ *next;
+    uint64_t pad;
+    lily_named_sym *inner_sym;
+} lily_boxed_sym;
+
 /* This represents a property within a class that isn't "primitive" to the
    interpreter (lists, tuples, integer, string, etc.).
    User-defined classes and Exception both support these. */
@@ -257,6 +266,8 @@ typedef struct lily_module_entry_ {
 
     /* The vars declared within this module. */
     lily_var *var_chain;
+
+    lily_boxed_sym *boxed_chain;
 
     /* For modules backed by a shared library, the handle of that library. */
     void *handle;

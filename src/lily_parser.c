@@ -73,6 +73,7 @@ typedef struct lily_rewind_state_
 {
     lily_class *main_class_start;
     lily_var *main_var_start;
+    lily_boxed_sym *main_boxed_start;
     lily_module_link *main_last_module_link;
     lily_module_entry *main_last_module;
     uint32_t line_num;
@@ -124,6 +125,7 @@ lily_state *lily_new_state(lily_config *config)
     lily_raiser *raiser = lily_new_raiser();
 
     parser->first_pass = 1;
+    parser->import_pile_current = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->expr = lily_new_expr_state();
@@ -159,6 +161,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->lex->symtab = parser->symtab;
 
     parser->expr_strings = parser->emit->expr_strings;
+    parser->import_ref_strings = lily_new_string_pile();
 
     lily_module_entry *main_package = new_module(parser);
 
@@ -237,6 +240,7 @@ void lily_free_state(lily_state *vm)
         module_iter = module_next;
     }
 
+    lily_free_string_pile(parser->import_ref_strings);
     lily_free_symtab(parser->symtab);
     lily_free_generic_pool(parser->generics);
     lily_free_msgbuf(parser->msgbuf);
@@ -248,6 +252,7 @@ void lily_free_state(lily_state *vm)
 static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 {
     lily_u16_set_pos(parser->data_stack, 0);
+    parser->import_pile_current = 0;
 
     /* Rewind generics */
     lily_generic_pool *gp = parser->generics;
@@ -343,7 +348,8 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
        not executing). New vars are destroyed, and the main module is made
        active again. */
     lily_rewind_symtab(parser->symtab, parser->main_module,
-            rs->main_class_start, rs->main_var_start, parser->executing);
+            rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
+            parser->executing);
 }
 
 static void handle_rewind(lily_parse_state *parser)
@@ -358,6 +364,7 @@ static void handle_rewind(lily_parse_state *parser)
     lily_module_entry *main_module = parser->main_module;
     rs->main_class_start = main_module->class_chain;
     rs->main_var_start = main_module->var_chain;
+    rs->main_boxed_start = main_module->boxed_chain;
 
     rs->main_last_module_link = main_module->module_chain;
     rs->main_last_module = parser->module_top;
@@ -465,6 +472,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->var_chain = NULL;
     module->handle = NULL;
     module->loader = NULL;
+    module->boxed_chain = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
     module->flags = 0;
 
@@ -3685,6 +3693,80 @@ static void run_loaded_module(lily_parse_state *parser,
     parser->symtab->active_module = save_active;
 }
 
+static lily_sym *find_existing_sym(lily_parse_state *parser,
+        lily_module_entry *source, const char *search_name)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_sym *sym;
+
+    sym = (lily_sym *)lily_find_var(symtab, source, search_name);
+
+    if (sym == NULL)
+        sym = (lily_sym *)lily_find_class(symtab, source, search_name);
+
+    if (sym == NULL)
+        sym = (lily_sym *)lily_find_module(symtab, source, search_name);
+
+    if (sym == NULL && source->dynaload_table)
+        sym = (lily_sym *)try_toplevel_dynaload(parser, source, search_name);
+
+    return sym;
+}
+
+static void link_import_syms(lily_parse_state *parser,
+        lily_module_entry *source, uint16_t start, int count)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *active = symtab->active_module;
+
+    do {
+        char *search_name = lily_sp_get(parser->import_ref_strings, start);
+        lily_sym *sym = find_existing_sym(parser, active, search_name);
+
+        if (sym)
+            lily_raise_syn(parser->raiser, "'%s' has already been declared.",
+                    search_name);
+
+        sym = find_existing_sym(parser, source, search_name);
+
+        if (sym == NULL)
+            lily_raise_syn(parser->raiser,
+                    "Cannot find symbol '%s' inside of module '%s'.",
+                    search_name, source->loadname);
+        else if (sym->item_kind == ITEM_TYPE_MODULE)
+            lily_raise_syn(parser->raiser,
+                    "Not allowed to directly import modules ('%s').",
+                    search_name);
+
+        lily_add_symbol_ref(active, sym);
+        start += strlen(search_name) + 1;
+        count--;
+    } while (count);
+}
+
+static void collect_import_refs(lily_parse_state *parser, int *count)
+{
+    lily_lex_state *lex = parser->lex;
+    uint16_t top = parser->import_pile_current;
+
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
+        lily_sp_insert(parser->import_ref_strings, lex->label, &top);
+        (*count)++;
+
+        lily_lexer(lex);
+
+        if (lex->token == tk_right_parenth)
+            break;
+        else if (lex->token != tk_comma)
+            lily_raise_syn(parser->raiser,
+                    "Expected either ',' or ')', not '%s'.",
+                    tokname(lex->token));
+    }
+
+    lily_lexer(lex);
+}
+
 static void import_handler(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
@@ -3695,8 +3777,13 @@ static void import_handler(lily_parse_state *parser, int multi)
 
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
+    uint32_t save_import_current = parser->import_pile_current;
+    int import_sym_count = 0;
 
     while (1) {
+        if (lex->token == tk_left_parenth)
+            collect_import_refs(parser, &import_sym_count);
+
         NEED_CURRENT_TOK(tk_word)
         /* The import path may include slashes. Use this to scan the path,
            because it won't allow spaces in between. */
@@ -3730,11 +3817,21 @@ static void import_handler(lily_parse_state *parser, int multi)
 
         lily_lexer(parser->lex);
         if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
+            if (import_sym_count)
+                lily_raise_err(parser->raiser,
+                        "Cannot use 'as' when only specific items are being imported.");
+
             NEED_NEXT_TOK(tk_word)
             /* This link must be done now, because the next token may be a word
                and lex->label would be modified. */
             link_module_to(active, module, lex->label);
             lily_lexer(lex);
+        }
+        else if (import_sym_count) {
+            link_import_syms(parser, module, save_import_current,
+                    import_sym_count);
+            parser->import_pile_current = save_import_current;
+            import_sym_count = 0;
         }
         else
             link_module_to(active, module, NULL);

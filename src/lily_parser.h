@@ -28,13 +28,18 @@ typedef struct lily_parse_state_ {
 
     uint16_t executing;
     uint16_t first_pass;
-    uint32_t pad;
+
+    /* The next import should store temp names here. */
+    uint32_t import_pile_current;
 
     /* The current expression state. */
     lily_expr_state *expr;
 
     /* Pile strings are stored here. */
     lily_string_pile *expr_strings;
+
+    /* For code like `import (a, b) c`, this stores a and b. */
+    lily_string_pile *import_ref_strings;
 
     /* The parser uses this to hold and register generic classes. */
     lily_generic_pool *generics;

@@ -39,6 +39,21 @@ void lily_set_builtin(lily_symtab *symtab, lily_module_entry *builtin)
     symtab->active_module = builtin;
 }
 
+static void free_boxed_syms_since(lily_boxed_sym *sym, lily_boxed_sym *stop)
+{
+    lily_boxed_sym *sym_next;
+
+    while (sym != stop) {
+        sym_next = sym->next;
+
+        lily_free(sym);
+
+        sym = sym_next;
+    }
+}
+
+#define free_boxed_syms(s) free_boxed_syms_since(s, NULL)
+
 static void free_vars_since(lily_var *var, lily_var *stop)
 {
     lily_var *var_next;
@@ -135,6 +150,8 @@ void lily_hide_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
 {
     hide_classes(symtab, entry->class_chain, NULL);
     free_vars(entry->var_chain);
+    if (entry->boxed_chain)
+        free_boxed_syms(entry->boxed_chain);
 }
 
 void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
@@ -142,12 +159,20 @@ void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
     (void) symtab;
     free_classes(entry->class_chain);
     free_vars(entry->var_chain);
+    if (entry->boxed_chain)
+        free_boxed_syms(entry->boxed_chain);
 }
 
 void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
-        lily_class *stop_class, lily_var *stop_var, int hide)
+        lily_class *stop_class, lily_var *stop_var, lily_boxed_sym *stop_box,
+        int hide)
 {
     symtab->active_module = main_module;
+
+    if (main_module->boxed_chain != stop_box) {
+        free_boxed_syms_since(main_module->boxed_chain, stop_box);
+        main_module->boxed_chain = stop_box;
+    }
 
     if (main_module->var_chain != stop_var) {
         free_vars_since(main_module->var_chain, stop_var);
@@ -395,9 +420,60 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
-static lily_var *find_var(lily_var *var_iter, const char *name,
+static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
         uint64_t shorthash)
 {
+    lily_boxed_sym *boxed_iter = m->boxed_chain;
+    lily_sym *result = NULL;
+
+    while (boxed_iter) {
+        lily_named_sym *sym = boxed_iter->inner_sym;
+
+        if (sym->name_shorthash == shorthash &&
+            strcmp(sym->name, name) == 0) {
+            result = (lily_sym *)sym;
+            break;
+        }
+
+        if (sym->item_kind == ITEM_TYPE_CLASS &&
+            sym->flags & CLS_IS_ENUM &&
+            (sym->flags & CLS_ENUM_IS_SCOPED) == 0) {
+            lily_named_sym *member_iter = ((lily_class *)sym)->members;
+            while (member_iter) {
+                if (member_iter->name_shorthash == shorthash &&
+                    strcmp(member_iter->name, name) == 0) {
+                    result = (lily_sym *)member_iter;
+                }
+
+                member_iter = member_iter->next;
+            }
+
+            if (result)
+                break;
+        }
+
+        boxed_iter = boxed_iter->next;
+    }
+
+    return result;
+}
+
+static lily_var *find_boxed_var(lily_module_entry *m, const char *name,
+        uint64_t shorthash)
+{
+    lily_sym *sym = find_boxed_sym(m, name, shorthash);
+
+    if (sym && sym->item_kind != ITEM_TYPE_VAR)
+        sym = NULL;
+
+    return (lily_var *)sym;
+}
+
+static lily_var *find_var(lily_module_entry *m, const char *name,
+        uint64_t shorthash)
+{
+    lily_var *var_iter = m->var_chain;
+
     while (var_iter != NULL) {
         if (var_iter->shorthash == shorthash &&
             strcmp(var_iter->name, name) == 0) {
@@ -420,13 +496,20 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_module_entry *module,
     lily_var *result;
 
     if (module == NULL) {
-        result = find_var(symtab->builtin_module->var_chain, name,
+        result = find_var(symtab->builtin_module, name,
                     shorthash);
-        if (result == NULL)
-            result = find_var(symtab->active_module->var_chain, name, shorthash);
+        if (result == NULL) {
+            result = find_var(symtab->active_module, name, shorthash);
+
+            if (result == NULL && symtab->active_module->boxed_chain)
+                result = find_boxed_var(symtab->active_module, name, shorthash);
+        }
     }
-    else
-        result = find_var(module->var_chain, name, shorthash);
+    else {
+        result = find_var(module, name, shorthash);
+        if (result == NULL && module->boxed_chain)
+            result = find_boxed_var(module, name, shorthash);
+    }
 
     return result;
 }
@@ -503,9 +586,22 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name)
     return new_class;
 }
 
-static lily_class *find_class(lily_class *class_iter, const char *name,
+static lily_class *find_boxed_class(lily_module_entry *m, const char *name,
         uint64_t shorthash)
 {
+    lily_sym *sym = find_boxed_sym(m, name, shorthash);
+
+    if (sym && sym->item_kind == ITEM_TYPE_VAR)
+        sym = NULL;
+
+    return (lily_class *)sym;
+}
+
+static lily_class *find_class(lily_module_entry *m, const char *name,
+        uint64_t shorthash)
+{
+    lily_class *class_iter = m->class_chain;
+
     while (class_iter) {
         if (class_iter->shorthash == shorthash &&
             strcmp(class_iter->name, name) == 0)
@@ -530,7 +626,6 @@ static lily_class *find_class(lily_class *class_iter, const char *name,
     return class_iter;
 }
 
-
 /* Try to find a class. If 'module' is NULL, then search through both the
    current module AND the builtin module. In all other cases, search just the
    module given. */
@@ -542,17 +637,24 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
 
     if (module == NULL) {
         if (name[1] != '\0') {
-            result = find_class(symtab->builtin_module->class_chain, name,
+            result = find_class(symtab->builtin_module, name,
                     shorthash);
-            if (result == NULL)
-                result = find_class(symtab->active_module->class_chain, name,
+            if (result == NULL) {
+                result = find_class(symtab->active_module, name,
                         shorthash);
+                if (result == NULL && symtab->active_module->boxed_chain)
+                    result = find_boxed_class(symtab->active_module, name,
+                            shorthash);
+            }
         }
         else
             result = lily_gp_find(symtab->generics, name);
     }
-    else
-        result = find_class(module->class_chain, name, shorthash);
+    else {
+        result = find_class(module, name, shorthash);
+        if (result == NULL && module->boxed_chain)
+            result = find_boxed_class(module, name, shorthash);
+    }
 
     return result;
 }
@@ -795,4 +897,15 @@ lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
     }
 
     return module_iter;
+}
+
+void lily_add_symbol_ref(lily_module_entry *m, lily_sym *sym)
+{
+    lily_boxed_sym *box = lily_malloc(sizeof(*box));
+
+    /* lily_boxed_sym is kept internal to symtab, so it doesn't need an id or
+       an item kind set. */
+    box->inner_sym = (lily_named_sym *)sym;
+    box->next = m->boxed_chain;
+    m->boxed_chain = box;
 }

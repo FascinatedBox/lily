@@ -449,5 +449,42 @@ print(point.Point(10, 20).stringified())
 print(time.Time.now())
 ```
 
-Unlike Python, Lily has way to import into the current namespace (no
-`from <name> import *`). That may be added in a future version of the language.
+Namespaces are often useful for making the source of a symbol clear and also to
+prevent conflicts. But there are times when namespaces can feel like they're in
+the way. In the above code, the user is forced to repeat `fib.fib` and
+`time.Time`. To avoid that, Lily also provides direct imports of symbols from a
+module like so:
+
+```
+# fib.lily
+
+define fib(n: Integer): Integer { ... }
+
+# example.lily
+
+class Example { ... }
+
+define example_fn { ... }
+
+# start.lily
+
+import (fib) fib
+import (Example, example_fn) example
+import (Time) time
+
+print(fib(5))
+print(Example())
+print(Time.now())
+# print(time.Time.now()) # Invalid: 'time' not loaded.
+```
+
+The above provides access to the symbols inside of the modules. However, the
+modules themselves are not made available. This allows the function fib to take
+the place of module fib despite Lily normally preventing duplicate names.
+
+It should be noted that there is no intention of supporting wildcards with
+imports (ex: no `import (*) from x`). In doing so, one does not have to refer to
+another file to discover the symbols that have been added.
+
+Regardless of the import method used, a module's toplevel code will only execute
+the first time it is loaded.

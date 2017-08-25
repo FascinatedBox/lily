@@ -54,7 +54,7 @@ void lily_set_builtin(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
-        lily_var *, int);
+        lily_var *, lily_boxed_sym *, int);
 void lily_free_symtab(lily_symtab *);
 
 lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
@@ -78,6 +78,7 @@ void lily_add_class_method(lily_symtab *, lily_class *, lily_var *);
 
 lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, const char *, int);
+void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
