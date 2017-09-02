@@ -672,3 +672,12 @@ t.interpret_for_error("Empty function as wrong argument type.",
 
     f(10)
     """)
+
+t.interpret_for_error("Invalid .@(type) cast.",
+    """\
+    SyntaxError: Cannot cast type 'Integer' to type 'Tuple[Integer]'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 1.@(Tuple[Integer])
+    """)

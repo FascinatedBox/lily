@@ -445,3 +445,17 @@ t.assert("Check a basic do-while loop.",
     while v != 10
 
     v == 10 ))
+
+t.assert("Casting [] to List[Integer].",
+         (||
+    var v = [].@(List[Integer])
+
+    v.push(1)
+    v == [1] ))
+
+t.assert("Casting [] to Hash[String, Integer].",
+         (||
+    var v = [].@(Hash[String, Integer])
+
+    v["a"] = 1
+    v == ["a" => 1] ))

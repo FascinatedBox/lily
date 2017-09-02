@@ -2698,16 +2698,18 @@ static void eval_sub_assign(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_type *boxed_type = ast->arg_start->next_arg->type;
+    lily_type *cast_type = ast->arg_start->next_arg->type;
     lily_ast *right_tree = ast->arg_start;
-    lily_type *cast_type = boxed_type->subtypes[0];
 
     eval_tree(emit, right_tree, cast_type);
 
-    lily_type *var_type = right_tree->result->type;
+    ast->result = right_tree->result;
 
-    lily_raise_adjusted(emit->raiser, ast->line_num,
-            "Cannot cast type '^T' to type '^T'.", var_type, cast_type);
+    if (cast_type != ast->result->type &&
+        type_matchup(emit, cast_type, ast->right) == 0)
+        lily_raise_adjusted(emit->raiser, ast->line_num,
+                "Cannot cast type '^T' to type '^T'.",
+                ast->result->type, cast_type);
 }
 
 static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
