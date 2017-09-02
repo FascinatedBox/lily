@@ -1911,6 +1911,7 @@ static void add_call_name_to_msgbuf(lily_msgbuf *msgbuf, lily_ast *ast)
         }
         case tree_defined_func:
         case tree_variant:
+        case tree_global_var:
         case tree_local_var: {
             lily_var *v = (lily_var *)ast->item;
             lily_mb_add_fmt(msgbuf, "%s", v->name);

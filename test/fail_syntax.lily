@@ -637,6 +637,18 @@ t.interpret_for_error("Wrong argument count to anonymous function.",
     var z = Test().test()()
     """)
 
+t.interpret_for_error("Wrong argument count to global var function.",
+    """\
+    SyntaxError: Argument #1 to v is invalid:\n\
+    Expected Type: String\n\
+    Received Type: Integer\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = String.parse_i
+    v(1)
+    """)
+
 t.interpret_for_error("Plain non-generic type as wrong argument type.",
     """\
     SyntaxError: Argument #1 to f is invalid:\n\
