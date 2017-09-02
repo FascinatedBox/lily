@@ -521,13 +521,11 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
                 tree = tree->parent;
             }
             if (tree->parent != NULL) {
-                /* Think 'linked list insertion'. */
+                /* This always happens from the right side, so take over the
+                   right tree. It will later become the new tree's left. */
                 lily_ast *parent = tree->parent;
-                if (parent->left == tree)
-                    parent->left = new_ast;
-                else
-                    parent->right = new_ast;
 
+                parent->right = new_ast;
                 new_ast->parent = parent;
             }
             else
