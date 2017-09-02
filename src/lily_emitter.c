@@ -3813,9 +3813,9 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
 }
 
 /* This is called from parser to evaluate the last expression that is within a
-   lambda. This is rather tricky, because 'full_type' is supposed to describe
-   the full type of the lambda, but may be NULL. If it isn't NULL, then use that
-   to infer what the result of the lambda should be. */
+   lambda. 'full_type' is either a type describing what the lambda wants, or
+   NULL if the lambda has no opinion. The latter can happen with a lambda is on
+   the right side of a newly-declared var with no inference information. */
 void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
         lily_type *full_type)
 {
@@ -3823,24 +3823,19 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
     if (full_type)
         wanted_type = full_type->subtypes[0];
 
-    /* If full_type is NULL, then the parent is considered to have no particular
-       opinion as to if the lambda should or should not return a value. Default
-       to returning something. In the case that the parent has an opinion, and
-       the opinion is to not return anything, respect that. */
-    int return_wanted = (full_type == NULL || full_type->subtypes[0] != NULL);
-
     eval_tree(emit, es->root, wanted_type);
+
     lily_sym *root_result = es->root->result;
 
-    if (return_wanted && root_result != NULL) {
-        /* If the caller doesn't want a return, then don't give one...regardless
-           of if there is one available. */
-        lily_u16_write_3(emit->code, o_return_value, es->root->result->reg_spot,
+    /* The only time there isn't a result is if the top expression was an
+       assignment. For all other cases, write the resulting output. If the
+       output isn't what the caller wants, then it can always use ts to narrow
+       the output to Unit. */
+    if (root_result) {
+        lily_u16_write_3(emit->code, o_return_value, root_result->reg_spot,
                 es->root->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
     }
-    else if (return_wanted == 0)
-        es->root->result = NULL;
 }
 
 /* This handles the 'return' keyword. If parser has the pool filled with some
