@@ -1122,11 +1122,14 @@ static void perform_closure_transform(lily_emit_state *emit,
 
             prev_block = prev_block->next;
 
+            /* The backing closure is always a class method, never the class
+               constructor itself. Use +1 for the right depth. This search
+               should never fail. */
             uint16_t self_spot = find_closed_sym_spot(emit,
-                    emit->class_block_depth, (lily_sym *)prev_block->self);
-            if (self_spot != (uint16_t)-1)
-                lily_u16_write_4(emit->closure_aux_code, o_closure_get,
-                        self_spot, lambda_self->reg_spot, f->line_num);
+                    emit->class_block_depth + 1, (lily_sym *)prev_block->self);
+
+            lily_u16_write_4(emit->closure_aux_code, o_closure_get,
+                    self_spot, lambda_self->reg_spot, f->line_num);
         }
     }
 

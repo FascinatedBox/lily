@@ -260,3 +260,20 @@ t.interpret("Verify closure jump patching for simple 'if'.",
 
     f()
     """)
+
+t.interpret("Verify lambda closing over class self.",
+    """
+    class Example {
+        public var @a = 1
+
+        public define f: Function() {
+            return (|| @a = 2 )
+        }
+    }
+
+    var v = Example()
+    var func = v.f()
+    func()
+    if v.a != 2:
+        raise Exception("Failed.")
+    """)
