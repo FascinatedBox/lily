@@ -3792,10 +3792,13 @@ void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
                 "Conditional expression has no value.");
         ensure_valid_condition_type(emit, ast->result->type);
 
-        /* For a do...while block, on success the target jumps back up and thus
-           stays within the loop. Everything else checks for failure, and will
-           jump to the next branch on failure. */
-        emit_jump_if(emit, ast, current_type == block_do_while);
+        if (current_type != block_do_while)
+            emit_jump_if(emit, ast, 0);
+        else {
+            int location = lily_u16_pos(emit->code) - emit->block->code_start;
+            lily_u16_write_4(emit->code, o_jump_if, 1, ast->result->reg_spot,
+                    (uint16_t)-location);
+        }
     }
     else {
         if (current_type != block_do_while) {

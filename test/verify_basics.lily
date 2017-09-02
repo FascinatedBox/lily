@@ -435,3 +435,13 @@ t.interpret("Using time.Time.now() to create a foreign Time class.",
     import time
     var v = time.Time.now()
     """)
+
+t.assert("Check a basic do-while loop.",
+         (||
+    var v = 5
+
+    do:
+        v += 1
+    while v != 10
+
+    v == 10 ))
