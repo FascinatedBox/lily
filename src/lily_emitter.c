@@ -2778,12 +2778,6 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
             elem_type = expect->subtypes[i];
 
         eval_tree(emit, arg, elem_type);
-
-        if (elem_type && elem_type != arg->result->type)
-            /* Attempt to fix the type to what's wanted. If it fails, the parent
-               tree will note a type mismatch. Can't do anything else here
-               though. */
-            type_matchup(emit, elem_type, arg);
     }
 
     for (i = 0, arg = ast->arg_start;
