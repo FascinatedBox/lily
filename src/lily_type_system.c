@@ -46,7 +46,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->max_seen = 1;
     ts->num_used = 0;
     ts->dynamic_class_type = dynamic_type;
-    ts->types[0] = NULL;
+    ts->types[0] = lily_question_type;
     memset(ts->scoop_starts, 0, sizeof(ts->scoop_starts));
 
     return ts;
@@ -72,8 +72,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
 {
     lily_type *ret = type;
 
-    if (type == NULL ||
-        (type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
+    if ((type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         ;
     else if (type->cls->generic_count != 0) {
         /* Resolve handles solving generics and is thus hit pretty often. So
@@ -94,7 +93,7 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
         ret = ts->types[ts->pos + type->generic_pos];
         /* Sometimes, a generic is wanted that was never filled in. In such a
            case, use Dynamic because it is the most accepting of values. */
-        if (ret == NULL || ret->cls->id == LILY_ID_QUESTION) {
+        if (ret->cls->id == LILY_ID_QUESTION) {
             ret = fallback;
             /* This allows lambdas to determine that a given generic was not
                resolved (and prevent it). */
@@ -139,7 +138,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         int generic_pos = ts->pos + left->generic_pos;
         lily_type *cmp_type = ts->types[generic_pos];
         ret = 1;
-        if (cmp_type == NULL || cmp_type == lily_question_type)
+        if (cmp_type == lily_question_type)
             ts->types[generic_pos] = right;
         else if (cmp_type == right)
             ;
@@ -365,12 +364,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 {
     int ret = 0;
 
-    if (left == NULL || right == NULL) {
-        ret = (left == right);
-        if (ret && flags & T_UNIFY)
-            lily_tm_add(ts->tm, left);
-    }
-    else if (left->cls->id == LILY_ID_QUESTION) {
+    if (left->cls->id == LILY_ID_QUESTION) {
         ret = 1;
         if (flags & T_UNIFY)
             lily_tm_add(ts->tm, right);
@@ -444,12 +438,6 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
 
 void lily_ts_resolve_as_question(lily_type_system *ts)
 {
-    int i, stop = ts->scoop_starts[0];
-    for (i = ts->pos;i < stop;i++) {
-        if (ts->types[i] == NULL)
-            ts->types[i] = lily_question_type;
-    }
-
     /* This function gets called as a prelude to emitter dumping an error
        message. Make sure the scoops are all set to zero, so that resolve will
        write down the scoop types back instead of crashing. */
@@ -496,7 +484,7 @@ void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 
     int i;
     for (i = 0;i < ts->num_used;i++)
-        ts->types[ts->pos + i] = NULL;
+        ts->types[ts->pos + i] = lily_question_type;
 }
 
 void lily_ts_scope_restore(lily_type_system *ts, lily_ts_save_point *p)
