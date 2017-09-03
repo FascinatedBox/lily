@@ -28,6 +28,7 @@ if (lex->token != expected) \
     lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", \
                tokname(expected), tokname(lex->token));
 
+extern lily_type *lily_question_type;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
 
@@ -2131,7 +2132,7 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
         literal_cls = parser->symtab->bytestring_class;
     else
         /* Impossible, but keeps the compiler from complaining. */
-        literal_cls = parser->symtab->question_class;
+        literal_cls = lily_question_type->cls;
 
     lily_es_push_literal(parser->expr, literal_cls->self_type, lit->reg_spot);
 }

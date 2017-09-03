@@ -423,6 +423,29 @@ static const lily_class raw_unit =
 
 const lily_type *lily_unit_type = (lily_type *)&raw_unit;
 
+/* The ? type is a placeholder used mostly by emitter. */
+static const lily_class raw_question =
+{
+    NULL,
+    ITEM_TYPE_CLASS,
+    TYPE_IS_INCOMPLETE,
+    LILY_ID_QUESTION,
+    0,
+    (lily_type *)&raw_question,
+    "?",
+    0,
+    NULL,
+    NULL,
+    0,
+    0,
+    {0},
+    0,
+    NULL,
+    NULL,
+};
+
+const lily_type *lily_question_type = (lily_type *)&raw_question;
+
 /**
 var stdin: File
 
@@ -3370,7 +3393,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
                                build_class(symtab, "File",        0, File_OFFSET);
 
-    symtab->question_class = build_special(symtab, "?", 0, LILY_ID_QUESTION);
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
     lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_ID_SCOOP_1);
     lily_class *scoop2     = build_special(symtab, "$2", 0, LILY_ID_SCOOP_2);
@@ -3382,7 +3404,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
 
     /* These need to be set here so type finalization can bubble them up. */
-    symtab->question_class->self_type->flags |= TYPE_IS_INCOMPLETE;
     symtab->function_class->flags |= CLS_GC_TAGGED;
     symtab->dynamic_class->flags |= CLS_GC_SPECULATIVE;
     /* HACK: This ensures that there is space to dynaload builtin classes and

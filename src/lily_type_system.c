@@ -7,6 +7,7 @@
 #include "lily_type_system.h"
 #include "lily_alloc.h"
 
+extern lily_type *lily_question_type;
 extern lily_type *lily_unit_type;
 
 # define ENSURE_TYPE_STACK(new_size) \
@@ -33,7 +34,7 @@ if (new_size >= ts->max) \
 #define T_UNIFY 0x8
 
 lily_type_system *lily_new_type_system(lily_type_maker *tm,
-        lily_type *dynamic_type, lily_type *question_type)
+        lily_type *dynamic_type)
 {
     lily_type_system *ts = lily_malloc(sizeof(*ts));
     lily_type **types = lily_malloc(4 * sizeof(*types));
@@ -45,7 +46,6 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->max_seen = 1;
     ts->num_used = 0;
     ts->dynamic_class_type = dynamic_type;
-    ts->question_class_type = question_type;
     ts->types[0] = NULL;
     memset(ts->scoop_starts, 0, sizeof(ts->scoop_starts));
 
@@ -139,7 +139,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         int generic_pos = ts->pos + left->generic_pos;
         lily_type *cmp_type = ts->types[generic_pos];
         ret = 1;
-        if (cmp_type == NULL || cmp_type == ts->question_class_type)
+        if (cmp_type == NULL || cmp_type == lily_question_type)
             ts->types[generic_pos] = right;
         else if (cmp_type == right)
             ;
@@ -447,7 +447,7 @@ void lily_ts_resolve_as_question(lily_type_system *ts)
     int i, stop = ts->scoop_starts[0];
     for (i = ts->pos;i < stop;i++) {
         if (ts->types[i] == NULL)
-            ts->types[i] = ts->question_class_type;
+            ts->types[i] = lily_question_type;
     }
 
     /* This function gets called as a prelude to emitter dumping an error
@@ -461,11 +461,10 @@ void lily_ts_default_incomplete_solves(lily_type_system *ts)
     /* This isn't quite the same as lily_ts_resolve_with_question, because there
        are also enums which could have been solved with any. */
     int i, stop = ts->scoop_starts[0];
-    lily_type *question = ts->question_class_type;
 
     for (i = ts->pos;i < stop;i++) {
         lily_type *t = ts->types[i];
-        if (t && t != question && t->flags & TYPE_IS_INCOMPLETE) {
+        if (t && t != lily_question_type && t->flags & TYPE_IS_INCOMPLETE) {
             int j;
             for (j = 0;j < t->subtype_count;j++) {
                 lily_type *subtype = t->subtypes[j];

@@ -46,7 +46,6 @@ typedef struct lily_symtab_ {
     lily_class *hash_class;
     lily_class *tuple_class;
     lily_class *optarg_class;
-    lily_class *question_class;
 } lily_symtab;
 
 lily_symtab *lily_new_symtab(lily_generic_pool *);

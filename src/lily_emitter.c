@@ -15,6 +15,7 @@
     lily_raise_syn(r, message, __VA_ARGS__); \
 }
 
+extern lily_type *lily_question_type;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
 
@@ -40,8 +41,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->patches = lily_new_buffer_u16(4);
     emit->match_cases = lily_malloc(sizeof(*emit->match_cases) * 4);
     emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->self_type,
-            symtab->question_class->self_type);
+    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->self_type);
     emit->code = lily_new_buffer_u16(32);
     emit->closure_aux_code = NULL;
 
@@ -56,7 +56,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 
     /* tm uses Dynamic's type as a special default, so it needs that. */
     emit->tm->dynamic_class_type = symtab->dynamic_class->self_type;
-    emit->tm->question_class_type = symtab->question_class->self_type;
 
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
@@ -1471,7 +1470,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     lily_class *match_class = ast->result->type->cls;
 
     if (match_class->id == LILY_ID_DYNAMIC) {
-        lily_storage *s = get_storage(emit, emit->ts->question_class_type);
+        lily_storage *s = get_storage(emit, lily_question_type);
 
         /* Dynamic is laid out like a class with the content in slot 0. Extract
            it out to match against. */
@@ -1940,7 +1939,6 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
     /* Ensure that generics that did not get a valid value are replaced with the
        ? type (instead of NULL, which will cause a problem). */
     lily_ts_resolve_as_question(emit->ts);
-    lily_type *question = emit->ts->question_class_type;
 
     lily_type *expected;
 
@@ -1950,7 +1948,7 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
         expected = call_type->subtypes[index + 1];
 
     if (expected->flags & TYPE_IS_UNRESOLVED)
-        expected = lily_ts_resolve_with(emit->ts, expected, question);
+        expected = lily_ts_resolve_with(emit->ts, expected, lily_question_type);
 
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
@@ -2970,21 +2968,20 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ast *tree_iter;
 
-    lily_type *key_type, *question_type, *value_type;
-    question_type = emit->symtab->question_class->self_type;
+    lily_type *key_type, *value_type;
 
     if (expect && expect->cls->id == LILY_ID_HASH) {
         key_type = expect->subtypes[0];
         value_type = expect->subtypes[1];
         if (key_type == NULL)
-            key_type = question_type;
+            key_type = lily_question_type;
 
         if (value_type == NULL)
-            value_type = question_type;
+            value_type = lily_question_type;
     }
     else {
-        key_type = question_type;
-        value_type = question_type;
+        key_type = lily_question_type;
+        value_type = lily_question_type;
     }
 
     for (tree_iter = ast->arg_start;
@@ -3047,7 +3044,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         elem_type = expect->subtypes[0];
 
     if (elem_type == NULL || elem_type->cls->id == LILY_ID_SCOOP_1)
-        elem_type = emit->ts->question_class_type;
+        elem_type = lily_question_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         eval_tree(emit, arg, elem_type);
@@ -3170,7 +3167,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
                as `[None, None, Some(1)]` to work. */
             if (return_type->flags & TYPE_IS_UNRESOLVED)
                 return_type = lily_ts_resolve_with(emit->ts, return_type,
-                        emit->ts->question_class_type);
+                        lily_question_type);
 
             /* Variant trees don't have a result so skip over them. */
             arg = arg->next_arg;
@@ -3261,7 +3258,7 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
     lily_type *eval_type = want_type;
     if (eval_type->flags & TYPE_IS_UNRESOLVED) {
         eval_type = lily_ts_resolve_with(emit->ts, want_type,
-                emit->ts->question_class_type);
+                lily_question_type);
     }
 
     eval_tree(emit, arg, eval_type);
@@ -3276,17 +3273,16 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
         (arg->tree_type == tree_static_func ||
          arg->tree_type == tree_defined_func))
     {
-        lily_type *question_type = emit->ts->question_class_type;
         /* Figure out what the caller REALLY wants, and make sure to do it
            BEFORE changing scope. */
         lily_type *solved_want = lily_ts_resolve_with(emit->ts, want_type,
-                question_type);
+                lily_question_type);
 
         lily_ts_save_point p;
         lily_ts_scope_save(emit->ts, &p);
         lily_ts_check(emit->ts, solved_want, result_type);
         lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
-                question_type);
+                lily_question_type);
         lily_ts_scope_restore(emit->ts, &p);
         /* Don't assume it succeeded, because it worsens the error message in
            the case that it didn't. */
@@ -3547,7 +3543,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
             lily_ts_check(emit->ts, self_type, expect);
 
         storage_type = lily_ts_resolve_with(emit->ts, self_type,
-                emit->ts->question_class_type);
+                lily_question_type);
 
         lily_ts_scope_restore(emit->ts, &p);
     }

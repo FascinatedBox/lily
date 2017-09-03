@@ -29,12 +29,10 @@ typedef struct {
     uint16_t scoop_starts[4];
 
     lily_type *dynamic_class_type;
-    lily_type *question_class_type;
     lily_type_maker *tm;
 } lily_type_system;
 
-lily_type_system *lily_new_type_system(lily_type_maker *, lily_type *,
-        lily_type *);
+lily_type_system *lily_new_type_system(lily_type_maker *, lily_type *);
 
 void lily_free_type_system(lily_type_system *);
 
