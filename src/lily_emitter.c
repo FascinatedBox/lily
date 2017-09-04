@@ -41,7 +41,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->patches = lily_new_buffer_u16(4);
     emit->match_cases = lily_malloc(sizeof(*emit->match_cases) * 4);
     emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm, symtab->dynamic_class->self_type);
+    emit->ts = lily_new_type_system(emit->tm);
     emit->code = lily_new_buffer_u16(32);
     emit->closure_aux_code = NULL;
 
@@ -53,10 +53,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->transform_size = 0;
 
     emit->expr_strings = lily_new_string_pile();
-
-    /* tm uses Dynamic's type as a special default, so it needs that. */
-    emit->tm->dynamic_class_type = symtab->dynamic_class->self_type;
-
     emit->match_case_pos = 0;
     emit->match_case_size = 4;
 
@@ -1866,6 +1862,14 @@ static void bad_assign_error(lily_emit_state *emit, int line_num,
             right_type, left_type);
 }
 
+static void incomplete_type_assign_error(lily_emit_state *emit, int line_num,
+        lily_type *right_type)
+{
+    lily_raise_adjusted(emit->raiser, line_num,
+            "Right side of assignment is incomplete type '^T'.",
+            right_type);
+}
+
 static void add_call_name_to_msgbuf(lily_msgbuf *msgbuf, lily_ast *ast)
 {
     if (ast->tree_type != tree_variant)
@@ -1919,9 +1923,10 @@ static void add_call_name_to_msgbuf(lily_msgbuf *msgbuf, lily_ast *ast)
 static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, int index, lily_type *got)
 {
-    /* Ensure that generics that did not get a valid value are replaced with the
-       ? type (instead of NULL, which will cause a problem). */
-    lily_ts_resolve_as_question(emit->ts);
+    /* If either type contains a scoop, ts resolve will replace it with what the
+       scoop ate. This resets the counters to prevent that, since the error
+       message should include the real type used. */
+    lily_ts_reset_scoops(emit->ts);
 
     lily_type *expected;
 
@@ -1931,7 +1936,7 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
         expected = call_type->subtypes[index + 1];
 
     if (expected->flags & TYPE_IS_UNRESOLVED)
-        expected = lily_ts_resolve_with(emit->ts, expected, lily_question_type);
+        expected = lily_ts_resolve(emit->ts, expected);
 
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
@@ -2372,6 +2377,9 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *right_type = ast->right->result->type;
 
+    if (right_type->flags & TYPE_IS_INCOMPLETE)
+        incomplete_type_assign_error(emit, ast->line_num, right_type);
+
     if (left_type != right_type &&
         type_matchup(emit, left_type, ast->right) == 0) {
         emit->raiser->line_adjust = ast->line_num;
@@ -2423,6 +2431,9 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     lily_type *elem_type = get_subscript_result(emit, var_ast->result->type,
             index_ast);
     lily_type *right_type = ast->right->result->type;
+
+    if (right_type->flags & TYPE_IS_INCOMPLETE)
+        incomplete_type_assign_error(emit, ast->line_num, right_type);
 
     if (type_matchup(emit, elem_type, ast->right) == 0) {
         emit->raiser->line_adjust = ast->line_num;
@@ -2481,6 +2492,9 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     else
         lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Left side of %s is not assignable.", opname(ast->op));
+
+    if (right_sym->type->flags & TYPE_IS_INCOMPLETE)
+        incomplete_type_assign_error(emit, ast->line_num, right_sym->type);
 
     if (left_sym->type != right_sym->type &&
         lily_ts_type_greater_eq(emit->ts, left_sym->type, right_sym->type) == 0)
@@ -2907,10 +2921,7 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
     and it isn't easy here.
 
     Unification is currently done after lists and hashes have evaluated all of
-    their members. This is unfortunate, because it means that certain cases will
-    not work as well as they could. Another problem with the current unification
-    is that it only works for enums and variants. Anything else gets sent
-    straight to type Dynamic. It's unfortunate. **/
+    their members. **/
 
 /* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
    inference. If 'key_type' is not suitable to be a hash key, then raise a
@@ -2918,22 +2929,21 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
-    if (key_type == NULL || key_type->cls->id == LILY_ID_QUESTION)
-        key_type = emit->symtab->dynamic_class->self_type;
+    if (key_type == NULL)
+        key_type = lily_question_type;
 
-    if (key_type == NULL || (key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
+    if ((key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Type '^T' is not a valid hash key.", key_type);
 }
 
 /* Build an empty something. It's an empty hash only if the caller wanted a
-   hash. In any other case, it becomes an empty list. Use Dynamic as a default
-   where it's needed. The purpose of this function is to make it so list and
-   hash build do not need to worry about missing information. */
+   hash. In any other case, it becomes an empty list. Use ? as a default where
+   it's needed. The purpose of this function is to make it so list and hash
+   build do not need to worry about missing information. */
 static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    lily_type *dynamic_type = emit->symtab->dynamic_class->self_type;
     lily_class *cls;
     int num, op;
 
@@ -2942,8 +2952,8 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *value_type = expect->subtypes[1];
         ensure_valid_key_type(emit, ast, key_type);
 
-        if (value_type == NULL || value_type->cls->id == LILY_ID_QUESTION)
-            value_type = dynamic_type;
+        if (value_type == NULL)
+            value_type = lily_question_type;
 
         lily_tm_add(emit->tm, key_type);
         lily_tm_add(emit->tm, value_type);
@@ -2959,7 +2969,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
             elem_type = expect->subtypes[0];
         }
         else
-            elem_type = dynamic_type;
+            elem_type = lily_question_type;
 
         lily_tm_add(emit->tm, elem_type);
 
@@ -3024,9 +3034,6 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
             value_type = unify_type;
     }
 
-    if (value_type->flags & TYPE_IS_INCOMPLETE)
-        value_type = lily_tm_make_dynamicd_copy(emit->tm, value_type);
-
     lily_class *hash_cls = emit->symtab->hash_class;
     lily_tm_add(emit->tm, key_type);
     lily_tm_add(emit->tm, value_type);
@@ -3066,9 +3073,6 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
 
         elem_type = new_elem_type;
     }
-
-    if (elem_type->flags & TYPE_IS_INCOMPLETE)
-        elem_type = lily_tm_make_dynamicd_copy(emit->tm, elem_type);
 
     lily_tm_add(emit->tm, elem_type);
     lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,
@@ -3164,21 +3168,10 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
     else {
         lily_ast *arg = ast->arg_start;
 
-        if (arg->tree_type != tree_variant) {
-            if (return_type->flags & TYPE_IS_UNRESOLVED) {
-                /* Force incomplete solutions to become Dynamic. */
-                lily_ts_default_incomplete_solves(emit->ts);
+        if (return_type->flags & TYPE_IS_UNRESOLVED)
+            return_type = lily_ts_resolve(emit->ts, return_type);
 
-                return_type = lily_ts_resolve(emit->ts, return_type);
-            }
-        }
-        else {
-            /* Variants are allowed to be incomplete. Doing so allows code such
-               as `[None, None, Some(1)]` to work. */
-            if (return_type->flags & TYPE_IS_UNRESOLVED)
-                return_type = lily_ts_resolve_with(emit->ts, return_type,
-                        lily_question_type);
-
+        if (arg->tree_type == tree_variant) {
             /* Variant trees don't have a result so skip over them. */
             arg = arg->next_arg;
         }
@@ -3266,10 +3259,8 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
         want_type = want_type->subtypes[0];
 
     lily_type *eval_type = want_type;
-    if (eval_type->flags & TYPE_IS_UNRESOLVED) {
-        eval_type = lily_ts_resolve_with(emit->ts, want_type,
-                lily_question_type);
-    }
+    if (eval_type->flags & TYPE_IS_UNRESOLVED)
+        eval_type = lily_ts_resolve(emit->ts, want_type);
 
     eval_tree(emit, arg, eval_type);
     lily_type *result_type = arg->result->type;
@@ -3292,14 +3283,12 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
            That will produce `Function (Option[Integer] => Integer)` which
            satisfies the constraint. */
 
-        lily_type *solved_want = lily_ts_resolve_with(emit->ts, want_type,
-                lily_question_type);
+        lily_type *solved_want = lily_ts_resolve(emit->ts, want_type);
 
         lily_ts_save_point p;
         lily_ts_scope_save(emit->ts, &p);
         lily_ts_check(emit->ts, result_type, solved_want);
-        lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
-                lily_question_type);
+        lily_type *solved_result = lily_ts_resolve(emit->ts, result_type);
         lily_ts_scope_restore(emit->ts, &p);
 
         /* Don't assume it succeeded, because it worsens the error message in
@@ -3560,8 +3549,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         if (expect && expect->cls == variant->parent)
             lily_ts_check(emit->ts, self_type, expect);
 
-        storage_type = lily_ts_resolve_with(emit->ts, self_type,
-                lily_question_type);
+        storage_type = lily_ts_resolve(emit->ts, self_type);
 
         lily_ts_scope_restore(emit->ts, &p);
     }

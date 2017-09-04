@@ -7,7 +7,7 @@ t.scope(__file__)
 t.interpret("Verify basics of generic enums.",
     """
     class Test {
-        public var @value = None
+        public var @value: Option[String] = None
     }
 
     define check_assigning {
@@ -15,7 +15,7 @@ t.interpret("Verify basics of generic enums.",
         v = None
 
         var t = Test()
-        t.value = Some(Dynamic(1))
+        t.value = Some("")
     }
 
     define check_variant_returning {

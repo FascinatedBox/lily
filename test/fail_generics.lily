@@ -90,7 +90,7 @@ t.interpret_for_error("Allow function returning A to always raise an error.",
     """\
     define f[A] : A { raise ValueError("Test.") }
 
-    var v = [f()]
+    var v: List[Integer] = [f()]
     """)
 
 t.interpret_for_error("Verify usage of ? for unknown type.",

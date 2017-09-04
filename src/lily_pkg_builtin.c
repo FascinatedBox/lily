@@ -3387,7 +3387,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->bytestring_class = build_class(symtab, "ByteString",  0, ByteString_OFFSET);
     symtab->boolean_class    = build_class(symtab, "Boolean",     0, Boolean_OFFSET);
     symtab->function_class   = build_class(symtab, "Function",   -1, Function_OFFSET);
-    symtab->dynamic_class    = build_class(symtab, "Dynamic",     0, Dynamic_OFFSET);
+    lily_class *dynamic_cls  = build_class(symtab, "Dynamic",     0, Dynamic_OFFSET);
     symtab->list_class       = build_class(symtab, "List",        1, List_OFFSET);
     symtab->hash_class       = build_class(symtab, "Hash",        2, Hash_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
@@ -3405,7 +3405,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
 
     /* These need to be set here so type finalization can bubble them up. */
     symtab->function_class->flags |= CLS_GC_TAGGED;
-    symtab->dynamic_class->flags |= CLS_GC_SPECULATIVE;
+    dynamic_cls->flags |= CLS_GC_SPECULATIVE;
     /* HACK: This ensures that there is space to dynaload builtin classes and
        enums into. */
     symtab->next_class_id = START_CLASS_ID;

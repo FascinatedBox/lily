@@ -33,8 +33,7 @@ if (new_size >= ts->max) \
 /* Add the narrowest of the two matching types during match. */
 #define T_UNIFY 0x8
 
-lily_type_system *lily_new_type_system(lily_type_maker *tm,
-        lily_type *dynamic_type)
+lily_type_system *lily_new_type_system(lily_type_maker *tm)
 {
     lily_type_system *ts = lily_malloc(sizeof(*ts));
     lily_type **types = lily_malloc(4 * sizeof(*types));
@@ -45,7 +44,6 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm,
     ts->max = 4;
     ts->max_seen = 1;
     ts->num_used = 0;
-    ts->dynamic_class_type = dynamic_type;
     ts->types[0] = lily_question_type;
     memset(ts->scoop_starts, 0, sizeof(ts->scoop_starts));
 
@@ -67,8 +65,7 @@ static void grow_types(lily_type_system *ts)
             sizeof(*ts->types) * ts->max);;
 }
 
-lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
-        lily_type *fallback)
+lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 {
     lily_type *ret = type;
 
@@ -84,29 +81,14 @@ lily_type *lily_ts_resolve_with(lily_type_system *ts, lily_type *type,
         int i = 0;
 
         for (;i < type->subtype_count;i++)
-            lily_tm_add_unchecked(ts->tm,
-                    lily_ts_resolve_with(ts, subtypes[i], fallback));
+            lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
 
         ret = lily_tm_make(ts->tm, type->flags, type->cls, ts->tm->pos - start);
     }
-    else if (type->cls->id == LILY_ID_GENERIC) {
+    else if (type->cls->id == LILY_ID_GENERIC)
         ret = ts->types[ts->pos + type->generic_pos];
-        /* Sometimes, a generic is wanted that was never filled in. In such a
-           case, use Dynamic because it is the most accepting of values. */
-        if (ret->cls->id == LILY_ID_QUESTION) {
-            ret = fallback;
-            /* This allows lambdas to determine that a given generic was not
-               resolved (and prevent it). */
-            ts->types[ts->pos + type->generic_pos] = fallback;
-        }
-    }
 
     return ret;
-}
-
-lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
-{
-    return lily_ts_resolve_with(ts, type, ts->dynamic_class_type);
 }
 
 static void simple_unify(lily_type_system *ts, lily_type *left,
@@ -436,35 +418,9 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
     return result_type;
 }
 
-void lily_ts_resolve_as_question(lily_type_system *ts)
+void lily_ts_reset_scoops(lily_type_system *ts)
 {
-    /* This function gets called as a prelude to emitter dumping an error
-       message. Make sure the scoops are all set to zero, so that resolve will
-       write down the scoop types back instead of crashing. */
     memset(ts->scoop_starts, 0, 4 * sizeof(uint16_t));
-}
-
-void lily_ts_default_incomplete_solves(lily_type_system *ts)
-{
-    /* This isn't quite the same as lily_ts_resolve_with_question, because there
-       are also enums which could have been solved with any. */
-    int i, stop = ts->scoop_starts[0];
-
-    for (i = ts->pos;i < stop;i++) {
-        lily_type *t = ts->types[i];
-        if (t && t != lily_question_type && t->flags & TYPE_IS_INCOMPLETE) {
-            int j;
-            for (j = 0;j < t->subtype_count;j++) {
-                lily_type *subtype = t->subtypes[j];
-                if (subtype && subtype->flags & TYPE_IS_INCOMPLETE)
-                    lily_tm_add(ts->tm, ts->dynamic_class_type);
-                else
-                    lily_tm_add(ts->tm, subtype);
-            }
-
-            ts->types[i] = lily_tm_make(ts->tm, 0, t->cls, j);
-        }
-    }
 }
 
 #define COPY(to, from) \

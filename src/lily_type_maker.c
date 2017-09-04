@@ -168,21 +168,6 @@ lily_type *lily_tm_make(lily_type_maker *tm, int flags, lily_class *cls,
     return result_type;
 }
 
-lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *tm, lily_type *t)
-{
-    lily_type *dynamic_type = tm->dynamic_class_type;
-    int j;
-    for (j = 0;j < t->subtype_count;j++) {
-        lily_type *subtype = t->subtypes[j];
-        if (subtype->flags & TYPE_IS_INCOMPLETE)
-            lily_tm_add(tm, dynamic_type);
-        else
-            lily_tm_add(tm, subtype);
-    }
-
-    return lily_tm_make(tm, 0, t->cls, j);
-}
-
 int lily_tm_pos(lily_type_maker *tm)
 {
     return tm->pos;

@@ -28,11 +28,10 @@ typedef struct {
     uint16_t max;
     uint16_t scoop_starts[4];
 
-    lily_type *dynamic_class_type;
     lily_type_maker *tm;
 } lily_type_system;
 
-lily_type_system *lily_new_type_system(lily_type_maker *, lily_type *);
+lily_type_system *lily_new_type_system(lily_type_maker *);
 
 void lily_free_type_system(lily_type_system *);
 
@@ -48,14 +47,16 @@ lily_type *lily_ts_unify(lily_type_system *, lily_type *, lily_type *);
    to the second type. This understands variance, but will not solve any generics. */
 int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);
 
+/* This is called when there is an error. This fixes the scoop counters so that
+   the error prints the scoop types themselves. */
+void lily_ts_reset_scoops(lily_type_system *);
+
 /* This recurses through the given type, building up a new, completely resolved
    type whereever the given type has generics.
    In the event that the given type specifies generics that are not solved,
-   this function will solve them as Dynamic.
+   this function will solve them as ?.
    The result is never NULL. */
 lily_type *lily_ts_resolve(lily_type_system *, lily_type *);
-
-lily_type *lily_ts_resolve_with(lily_type_system *, lily_type *, lily_type *);
 
 /* This function is called when the first type (left) needs to be solved BUT
    the generics within left are not within the type stack.
@@ -64,16 +65,6 @@ lily_type *lily_ts_resolve_with(lily_type_system *, lily_type *, lily_type *);
    provides all generic info), and the right is the type of the member.
    The result is a solved type, and never NULL. */
 lily_type *lily_ts_resolve_by_second(lily_type_system *, lily_type *, lily_type *);
-
-/* This is called when there is an error. It replaces the NULL in unsolved
-   generics with the ? type. */
-void lily_ts_resolve_as_question(lily_type_system *);
-
-/* If a type has been resolved as something but that resolution isn't complete,
-   this replaces the resolution with something that does ? to Dynamic. This is
-   called after evaluating arguments to make sure that the emitter does not
-   create types with ? inside. */
-void lily_ts_default_incomplete_solves(lily_type_system *);
 
 /* This saves information for the current scope down to the save point, and
    reserves a fresh set of types for a new scope. */

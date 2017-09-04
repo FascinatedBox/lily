@@ -85,7 +85,7 @@ t.interpret_for_error("Require decomposition for variants taking arguments.",
         from test\/[subinterp]:4:\
     """,
     """\
-    var v = None
+    var v: Option[Integer] = None
 
     match v: {
         case Some:
@@ -99,7 +99,7 @@ t.interpret_for_error("Forbid decomposition on empty variant.",
         from test\/[subinterp]:4:\
     """,
     """\
-    var v = None
+    var v: Option[Integer] = None
 
     match v: {
         case None(a):
@@ -243,7 +243,7 @@ t.interpret_for_error("Forbid incomplete match.",
         from test\/[subinterp]:6:\
     """,
     """\
-    var v = None
+    var v: Option[Integer] = None
 
     match v: {
         case Some(s):
@@ -291,7 +291,7 @@ t.interpret_for_error("Require that 'match' starts with a case.",
         from test\/[subinterp]:4:\
     """,
     """\
-    var v = None
+    var v: Option[Integer] = None
 
     match v: {
         v = Some(1)

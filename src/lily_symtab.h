@@ -40,7 +40,6 @@ typedef struct lily_symtab_ {
     lily_class *byte_class;
     lily_class *bytestring_class;
     lily_class *boolean_class;
-    lily_class *dynamic_class;
     lily_class *function_class;
     lily_class *list_class;
     lily_class *hash_class;

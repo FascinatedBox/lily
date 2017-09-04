@@ -7,11 +7,6 @@ typedef struct {
     lily_type **types;
     uint32_t pos;
     uint32_t size;
-
-    lily_type *question_class_type;
-    /* This is Dynamic's default type. It's used as a filler when a type needs
-       to be made but there's no opinion on it. */
-    lily_type *dynamic_class_type;
 } lily_type_maker;
 
 lily_type_maker *lily_new_type_maker(void);
@@ -22,7 +17,6 @@ void lily_tm_reserve(lily_type_maker *, int);
 lily_type *lily_tm_pop(lily_type_maker *);
 lily_type *lily_tm_get(lily_type_maker *, int);
 lily_type *lily_tm_make(lily_type_maker *, int, lily_class *, int);
-lily_type *lily_tm_make_dynamicd_copy(lily_type_maker *, lily_type *);
 int lily_tm_pos(lily_type_maker *);
 void lily_tm_restore(lily_type_maker *, int);
 
