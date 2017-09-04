@@ -164,3 +164,15 @@ t.interpret_for_error("Forbid quantified A filling in for Integer.",
         f([1], a)
     }
     """)
+
+t.interpret_for_error("Check result of unquantified solving.",
+    """\
+    SyntaxError: Argument #2 to List.push is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = [Some(1)].map(Option.unwrap)
+    v.push("")
+    """)

@@ -3264,26 +3264,34 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
     eval_tree(emit, arg, eval_type);
     lily_type *result_type = arg->result->type;
 
-    /* Here's an interesting case where the result type doesn't match but where
-       the result is some global generic function. Since the result function is
-       global, the generics inside of it are unquantified. For this special
-       case, see if the generic function provided can narrow down to be what is
-       wanted. */
+    /* For these two, the generics are not confined to the current scope.
+       Instead, the generics should be treated as being unquantified. */
     if ((result_type->flags & TYPE_IS_UNRESOLVED) &&
         (arg->tree_type == tree_static_func ||
          arg->tree_type == tree_defined_func))
     {
-        /* Figure out what the caller REALLY wants, and make sure to do it
-           BEFORE changing scope. */
+        /* Example:
+           `[Some(1)].map(Option.unwrap)`
+
+           The type wanted is `Function (A => B)`, with A solved as
+           `Option[Integer]`. It'll solve with B as `?`.
+
+           The type given (`Option.unwrap`) is `Function (Option[A] => A)`.
+
+           The check will solve the type given using the solved result above.
+           That will produce `Function (Option[Integer] => Integer)` which
+           satisfies the constraint. */
+
         lily_type *solved_want = lily_ts_resolve_with(emit->ts, want_type,
                 lily_question_type);
 
         lily_ts_save_point p;
         lily_ts_scope_save(emit->ts, &p);
-        lily_ts_check(emit->ts, solved_want, result_type);
+        lily_ts_check(emit->ts, result_type, solved_want);
         lily_type *solved_result = lily_ts_resolve_with(emit->ts, result_type,
                 lily_question_type);
         lily_ts_scope_restore(emit->ts, &p);
+
         /* Don't assume it succeeded, because it worsens the error message in
            the case that it didn't. */
         if (solved_result == solved_want ||
