@@ -681,3 +681,16 @@ t.interpret_for_error("Invalid .@(type) cast.",
     """\
     var v = 1.@(Tuple[Integer])
     """)
+
+t.interpret_for_error("Invalid assign to upvalue.",
+    """\
+    SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f(a: Integer) {
+        define g {
+            a = ""
+        }
+    }
+    """)
