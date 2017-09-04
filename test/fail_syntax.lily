@@ -694,3 +694,45 @@ t.interpret_for_error("Invalid assign to upvalue.",
         }
     }
     """)
+
+t.interpret_for_error("Wrong type past the end of a vararg call.",
+    """\
+    SyntaxError: Argument #4 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer...) {
+    }
+
+    f(1, 2, 3, "4")
+    """)
+
+t.interpret_for_error("Wrong type at the end of a vararg call.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer...) {
+    }
+
+    f("4")
+    """)
+
+t.interpret_for_error("Wrong type before the end of a vararg call.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer, b: String...) {
+    }
+
+    f("4")
+    """)

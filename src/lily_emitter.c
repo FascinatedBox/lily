@@ -1930,10 +1930,15 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *expected;
 
-    if (index >= call_type->subtype_count)
-        expected = call_type->subtypes[call_type->subtype_count];
-    else
+    if ((call_type->flags & TYPE_IS_VARARGS) == 0 ||
+        index < call_type->subtype_count - 2)
         expected = call_type->subtypes[index + 1];
+    else {
+        /* Varargs are represented by having the last argument be a `List` of
+           the type that's wanted. That's the type that was really wanted. */
+        expected = call_type->subtypes[call_type->subtype_count - 1];
+        expected = expected->subtypes[0];
+    }
 
     if (expected->flags & TYPE_IS_UNRESOLVED)
         expected = lily_ts_resolve(emit->ts, expected);
