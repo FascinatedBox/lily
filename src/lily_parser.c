@@ -1972,13 +1972,6 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
         const char *name)
 {
-    /* The var search needs to come first because this may be a .new call. If it
-       is, then the var is in the current var chain. Doing the member lookup
-       first means that the .new of a parent class might instead be found. */
-    lily_var *var = lily_find_var(parser->symtab, NULL, name);
-    if (var && var->parent == cls)
-        return (lily_item *)var;
-
     lily_named_sym *member = lily_find_member(cls, name);
     if (member)
         return (lily_item *)member;
@@ -2189,19 +2182,6 @@ static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
         expression_class_access(parser, cls, state);
 }
 
-/* This function is to be called when 'func' could be a class method or just a
-   plain function. The emitter's call handling special-cases tree_method to
-   do an auto-injection of 'self'.  */
-static void push_maybe_method(lily_parse_state *parser, lily_var *func)
-{
-    if (func->parent &&
-        parser->class_self_type &&
-        lily_class_greater_eq(func->parent, parser->class_self_type->cls))
-        lily_es_push_method(parser->expr, func);
-    else
-        lily_es_push_defined_func(parser->expr, func);
-}
-
 /* This function takes a var and determines what kind of tree to put it into.
    The tree type is used by emitter to group vars into different types as a
    small optimization. */
@@ -2215,7 +2195,7 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
 
     /* Defined functions have a depth of one, so they have to be first. */
     else if (var->flags & VAR_IS_READONLY)
-        push_maybe_method(parser, var);
+        lily_es_push_defined_func(parser->expr, var);
     else if (var->flags & VAR_IS_GLOBAL)
         lily_es_push_global_var(parser->expr, var);
     else if (var->function_depth == parser->emit->function_depth)
