@@ -1970,9 +1970,9 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
    If the entity exists as a dynaload, then the dynaload is run (hence the dl
    part of the name). */
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
-        const char *name)
+        const char *name, lily_class *scope)
 {
-    lily_named_sym *member = lily_find_member(cls, name);
+    lily_named_sym *member = lily_find_member(cls, name, scope);
     if (member)
         return (lily_item *)member;
 
@@ -2066,7 +2066,9 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
             lily_raise_syn(parser->raiser,
                     "Cannot implicitly use the constructor of an enum.");
 
-        lily_item *target = lily_find_or_dl_member(parser, cls, "<new>");
+        /* To be extra safe, the second 'cls' prevents using the <new> of a
+           parent class. */
+        lily_item *target = lily_find_or_dl_member(parser, cls, "<new>", cls);
         if (target == NULL)
             lily_raise_syn(parser->raiser,
                     "Class %s does not have a constructor.", cls->name);
@@ -2085,12 +2087,11 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
     *state = ST_WANT_OPERATOR;
 
     NEED_NEXT_TOK(tk_word)
-    lily_item *item = lily_find_or_dl_member(parser, cls, lex->label);
+    /* The second 'cls' ensures that the lookup is static (only entries in this
+       class). */
+    lily_item *item = lily_find_or_dl_member(parser, cls, lex->label, cls);
 
-    /* Allow only static methods that are exactly in this class. */
-    if (item &&
-        item->item_kind == ITEM_TYPE_VAR &&
-        ((lily_var *)item)->parent == cls) {
+    if (item && item->item_kind == ITEM_TYPE_VAR) {
         lily_es_push_static_func(parser->expr, (lily_var *)item);
         return;
     }
@@ -2958,7 +2959,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
 
-    lily_named_sym *sym = lily_find_member(current_class, name);
+    lily_named_sym *sym = lily_find_member(current_class, name, NULL);
     if (sym) {
         if (sym->item_kind == ITEM_TYPE_VAR)
             lily_raise_syn(parser->raiser,

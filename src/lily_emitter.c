@@ -2062,7 +2062,7 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
     lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
-            oo_name);
+            oo_name, NULL);
 
     if (item == NULL) {
         lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
