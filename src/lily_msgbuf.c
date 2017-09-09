@@ -242,20 +242,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
     lily_mb_add(msgbuf, type->cls->name);
 
     if (type->cls->id == LILY_ID_FUNCTION) {
-        if (type->generic_pos) {
-            int i;
-            char ch = 'A';
-            lily_mb_add(msgbuf, "[");
-            for (i = 0;i < type->generic_pos - 1;i++, ch++) {
-                lily_mb_add_char(msgbuf, ch);
-                lily_mb_add(msgbuf, ", ");
-            }
-
-            lily_mb_add_char(msgbuf, ch);
-            lily_mb_add(msgbuf, "](");
-        }
-        else
-            lily_mb_add(msgbuf, " (");
+        lily_mb_add(msgbuf, " (");
 
         if (type->subtype_count > 1) {
             int i;
