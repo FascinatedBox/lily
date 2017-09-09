@@ -52,3 +52,34 @@ t.interpret_for_error("Forbid return within a lambda.",
     """\
     var v = (|| return )
     """)
+
+t.interpret_for_error("Lambda args don't finish with '|'.",
+    """\
+    SyntaxError: Expected either ',' or '|', not '+'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v: Function(Integer) = (|a + return )
+    """)
+
+t.interpret_for_error("')' is invalid if expecting a value.",
+    """\
+    SyntaxError: Unexpected token ')'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = !)
+    """)
+
+t.interpret_for_error("Unterminated lambda after # comment.",
+    """\
+    SyntaxError: Unterminated lambda (started at line 2).\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+
+    var v = (||
+        var w
+        =
+        #
+    """)

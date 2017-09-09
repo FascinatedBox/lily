@@ -176,3 +176,21 @@ t.interpret_for_error("Check result of unquantified solving.",
     var v = [Some(1)].map(Option.unwrap)
     v.push("")
     """)
+
+t.interpret_for_error("Wrong token collecting generics.",
+    """\
+    SyntaxError: Expected either ',' or ']', not '&&'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f[A, B &&
+    """)
+
+t.interpret_for_error("Wrong generic name.",
+    """\
+    SyntaxError: Invalid generic name (wanted B, got Q).\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f[A, Q]
+    """)

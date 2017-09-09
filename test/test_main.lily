@@ -22,6 +22,7 @@ import verify_basics
 import verify_boolean
 import verify_byte
 import verify_bytestring
+import verify_coverage
 import verify_file
 import verify_hash
 import verify_list

@@ -459,3 +459,131 @@ t.assert("Casting [] to Hash[String, Integer].",
 
     v["a"] = 1
     v == ["a" => 1] ))
+
+t.assert("Simple left shift.",
+         (|| 1 << 1 == 2 ))
+
+t.assert("Simple right shift.",
+         (|| 1 >> 1 == 0 ))
+
+t.assert("Unary bitwise not.",
+         (|| ~0 == -1 ))
+
+t.assert("Left shift equal.",
+         (||
+    var v = 1
+    v <<= 1
+    v == 2 ))
+
+t.assert("Right shift equal.",
+         (||
+    var v = 1
+    v >>= 1
+    v == 0 ))
+
+t.assert("Bitwise and equal.",
+         (||
+    var v = 0xf
+    v &= 0x0
+    v == 0 ))
+
+t.assert("Bitwise and.",
+         (||
+    var v = 0xf
+    v = v & 0x0
+    v == 0 ))
+
+t.assert("Bitwise or equal.",
+         (||
+    var v = 0x1
+    v |= 0x2
+    v == 0x3 ))
+
+t.assert("Bitwise xor equal.",
+         (||
+    var v = 0x1
+    v ^= 0x1
+    v == 0x0 ))
+
+t.assert("Left shift equal.",
+         (||
+    var v = 1
+    v <<= 1
+    v == 2 ))
+
+t.assert("Minus equal.",
+         (||
+    var v = 1
+    v -= 1
+    v == 0 ))
+
+#[ Block comment (1) ]#
+
+#[ Block
+comment
+(2)
+]#
+
+t.assert("Break inside of a loop.",
+         (||
+    var a = 1
+    var count = 0
+
+    while count != 5: {
+        if a == 1:
+            break
+
+        count += 1
+    }
+
+    count == 0 ))
+
+t.assert("Simple do-while loop.",
+         (||
+    var count = 0
+
+    do: {
+        count += 1
+    } while count != 5
+
+    count == 5 ))
+
+t.assert("for loop with by clause.",
+         (||
+    var count = 0
+
+    do: {
+        count += 1
+    } while count != 5
+
+    count == 5 ))
+
+t.assert("Lists are falsey if empty.",
+         (||
+    var l: List[Integer] = []
+    var ok = true
+
+    if l:
+        ok = false
+
+    ok ))
+
+t.assert("Lists are truthy if not empty.",
+         (||
+    var l: List[Integer] = [1]
+    var ok = false
+
+    if l:
+        ok = true
+
+    ok ))
+
+t.assert("Lists are truthy if not empty.",
+         (||
+    var l: List[Integer] = [1]
+    var ok = false
+
+    if l:
+        ok = true
+
+    ok ))

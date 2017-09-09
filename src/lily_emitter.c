@@ -767,17 +767,7 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     if (block->last_exit != lily_u16_pos(emit->code))
         block->flags &= ~BLOCK_ALWAYS_EXITS;
 
-    if (new_type == block_if_elif || new_type == block_if_else) {
-        char *block_name;
-        if (new_type == block_if_elif)
-            block_name = "elif";
-        else
-            block_name = "else";
-
-        if (current_type == block_if_else)
-            lily_raise_syn(emit->raiser, "'%s' after 'else'.", block_name);
-    }
-    else if (new_type == block_try_except || new_type == block_try_except_all) {
+    if (new_type == block_try_except || new_type == block_try_except_all) {
         if (current_type == block_try_except_all)
             lily_raise_syn(emit->raiser, "'except' clause is unreachable.");
 
@@ -973,13 +963,10 @@ static void setup_for_transform(lily_emit_state *emit,
          i += 2) {
         if (lily_u16_get(emit->closure_spots, i + 1) == emit->function_depth) {
             uint16_t spot = lily_u16_get(emit->closure_spots, i);
-
-            if (spot == (uint16_t)-1)
-                continue;
-            else if (spot < local_count) {
+            if (spot < local_count) {
                 /* Make sure this parameter always exists in the closure. */
                 lily_u16_write_4(emit->closure_aux_code, o_closure_set, i / 2,
-                    spot, line_num);
+                        spot, line_num);
             }
 
             emit->transform_table[spot] = i / 2;
@@ -1477,7 +1464,8 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     }
     else if ((match_class->flags & CLS_IS_ENUM) == 0 &&
              (match_class->flags & CLS_IS_BUILTIN))
-        lily_raise_syn(emit->raiser, "Match expression is not an enum value.");
+        lily_raise_syn(emit->raiser,
+                "Match expression is not a user class, enum, or Dynamic.");
 
     /* Each case pops the last jump and writes in their own. */
     lily_u16_write_1(emit->patches, 0);
@@ -1494,49 +1482,6 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
 /** These are various helping functions collected together. There's no real
     organization other than that. **/
-
-/* This creates a new function value that wraps over a foreign (C) function. */
-lily_function_val *new_foreign_function_val(lily_foreign_func func,
-        const char *class_name, const char *name)
-{
-    lily_function_val *f = lily_malloc(sizeof(*f));
-
-    /* This won't get a ref bump from being moved/assigned since all functions
-       are marked as literals. Start at 1 ref, not 0. */
-    f->refcount = 1;
-    f->class_name = class_name;
-    f->trace_name = name;
-    f->foreign_func = func;
-    f->code = NULL;
-    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
-    f->num_upvalues = (uint16_t) -1;
-    f->upvalues = NULL;
-    f->gc_entry = NULL;
-    f->reg_count = -1;
-    f->locals = NULL;
-    return f;
-}
-
-/* This creates a new function value representing a native function. */
-lily_function_val *new_native_function_val(char *class_name, char *name)
-{
-    lily_function_val *f = lily_malloc(sizeof(*f));
-
-    /* This won't get a ref bump from being moved/assigned since all functions
-       are marked as literals. Start at 1 ref, not 0. */
-    f->refcount = 1;
-    f->class_name = class_name;
-    f->trace_name = name;
-    f->foreign_func = NULL;
-    f->code = NULL;
-    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
-    f->num_upvalues = (uint16_t)-1;
-    f->upvalues = NULL;
-    f->gc_entry = NULL;
-    f->reg_count = -1;
-    f->locals = NULL;
-    return f;
-}
 
 /* Return a string representation of the given op. */
 static const char *opname(lily_expr_op op)
@@ -1574,7 +1519,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING) {
         if (index_ast->result->type->cls->id != LILY_ID_INTEGER)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    "%s index is not an integer.",
+                    "%s index is not an Integer.",
                     var_ast->result->type->cls->name);
     }
     else if (var_cls_id == LILY_ID_HASH) {
@@ -1583,14 +1528,14 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 
         if (want_key != have_key) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    "hash index should be type '^T', not type '^T'.",
+                    "Hash index should be type '^T', not type '^T'.",
                     want_key, have_key);
         }
     }
     else if (var_cls_id == LILY_ID_TUPLE) {
         if (index_ast->tree_type != tree_integer) {
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    "tuple subscripts must be integer literals.", "");
+                    "Tuple subscripts must be Integer literals.", "");
         }
 
         int index_value = index_ast->backing_value;
@@ -2784,7 +2729,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     if (ast->args_collected == 0)
-        lily_raise_syn(emit->raiser, "Cannot create an empty tuple.");
+        lily_raise_syn(emit->raiser, "Cannot create an empty Tuple.");
 
     if (expect != NULL &&
         (expect->cls->id != LILY_ID_TUPLE ||
@@ -2939,7 +2884,7 @@ static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
 
     if ((key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num,
-                "Type '^T' is not a valid hash key.", key_type);
+                "Type '^T' is not a valid key for Hash.", key_type);
 }
 
 /* Build an empty something. It's an empty hash only if the caller wanted a
@@ -3734,12 +3679,6 @@ void lily_emit_eval_expr(lily_emit_state *emit, lily_expr_state *es)
     emit->expr_num++;
 }
 
-lily_sym *lily_emit_eval_interp_expr(lily_emit_state *emit, lily_expr_state *es)
-{
-    eval_tree(emit, es->root, NULL);
-    return es->root->result;
-}
-
 /* This is used by 'for...in'. It evaluates an expression, then writes an
    assignment that targets 'var'.
    Since this is used by 'for...in', it checks to make sure that the expression
@@ -3755,7 +3694,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
 
     if (ast->result->type->cls->id != LILY_ID_INTEGER) {
         lily_raise_syn(emit->raiser,
-                   "Expected type 'integer', but got type '^T'.",
+                   "Expected type 'Integer', but got type '^T'.",
                    ast->result->type);
     }
 

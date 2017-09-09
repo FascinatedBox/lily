@@ -768,7 +768,7 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
             if (integer_value <= max)
                 yield_val.integer = -(int64_t)integer_value;
             else
-                lily_raise_syn(lexer->raiser, "Integer value is too large.");
+                lily_raise_syn(lexer->raiser, "Integer value is too small.");
         }
 
         lexer->last_integer = yield_val.integer;
@@ -785,9 +785,8 @@ static void scan_number(lily_lex_state *lexer, int *pos, lily_token *tok,
         lexer->label[str_size] = '\0';
         errno = 0;
         double_result = strtod(lexer->label, NULL);
-        if (errno == ERANGE) {
-            lily_raise_syn(lexer->raiser, "Double value is too large.");
-        }
+        if (errno == ERANGE)
+            lily_raise_syn(lexer->raiser, "Double value is out of range.");
 
         yield_val.doubleval = double_result;
         lexer->last_literal = lily_get_double_literal(lexer->symtab,
@@ -1550,11 +1549,6 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos++;
                 lexer->last_integer = 1;
                 token = tk_scoop_1;
-            }
-            else if (*ch == '2') {
-                input_pos++;
-                lexer->last_integer = 2;
-                token = tk_scoop_2;
             }
             else
                 token = tk_invalid;

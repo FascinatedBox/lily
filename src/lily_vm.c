@@ -1812,12 +1812,6 @@ void lily_vm_add_class_unchecked(lily_vm_state *vm, lily_class *cls)
     vm->class_table[cls->id] = cls;
 }
 
-void lily_vm_add_class(lily_vm_state *vm, lily_class *cls)
-{
-    lily_vm_ensure_class_table(vm, cls->id + 1);
-    vm->class_table[cls->id] = cls;
-}
-
 /***
  *      _____                     _
  *     | ____|_  _____  ___ _   _| |_ ___

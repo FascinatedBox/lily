@@ -269,3 +269,52 @@ t.interpret("Verify that return of 'self' keeps type information.",
 
     Second().doit().amethod()
     """)
+
+t.interpret("Get class method through instance",
+    """
+    class Example {
+        public define f: List[Integer] { return [1, 2, 3] }
+    }
+
+    var v = Example().f
+
+    if v(Example()) != [1, 2, 3]:
+        raise Exception("Failed.")
+    """)
+
+t.interpret("Verify class match allowing _ to skip decomposition.",
+    """
+    class Bottom { }
+    class Left < Bottom { }
+    class Right < Bottom { }
+
+    var v: Bottom = Right()
+
+    match v: {
+        case Left(_):
+            raise Exception("Failed.")
+        case Right(_):
+        else:
+            raise Exception("Failed.")
+    }
+    """)
+
+t.interpret("Verify that a lambda can call class methods through 'self'.",
+    """
+    class Test {
+        public var @v = 10
+        public define f {
+            @v += 10
+        }
+        public define g: Function() {
+            return (|| self.f() )
+        }
+    }
+
+    var v = Test()
+    var f = v.g()
+
+    f()
+    if v.v != 20:
+        raise Exception("Failed.")
+    """)

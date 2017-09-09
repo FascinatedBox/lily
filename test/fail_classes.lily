@@ -325,3 +325,178 @@ t.interpret_for_error("Class method without scope.",
         define f {}
     }
     """)
+
+t.interpret_for_error("Invalid use of public.",
+    """\
+    SyntaxError: 'public' is not allowed here.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    public define f {}
+    """)
+
+t.interpret_for_error("Invalid use of protected.",
+    """\
+    SyntaxError: 'protected' is not allowed here.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    protected define f {}
+    """)
+
+t.interpret_for_error("Invalid use of private.",
+    """\
+    SyntaxError: 'private' is not allowed here.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    private define f {}
+    """)
+
+t.interpret_for_error("Wrong token after a class qualifier.",
+    """\
+    SyntaxError: Expected 'a label', not '+'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Example {
+        public + f {}
+    }
+    """)
+
+t.interpret_for_error("Class decl wrong token.",
+    """\
+    SyntaxError: Expected either ',' or ')', not '>='.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Example(a: Integer >=
+    """)
+
+t.interpret_for_error("Class decl empty ().",
+    """\
+    SyntaxError: Empty () not needed for a class.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Example() {}
+    """)
+
+t.interpret_for_error("Constructor wrong token.",
+    """\
+    SyntaxError: Expected either ',' or ')', not '}'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class One(a: Integer, b: Integer) {}
+    class Two(a: Integer, b: Integer) < One(a }
+    """)
+
+t.interpret_for_error("Constructor empty ().",
+    """\
+    SyntaxError: Empty () not needed here for inherited new.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class One {}
+    class Two < One() {}
+    """)
+
+t.interpret_for_error("Inherit class that doesn't exist.",
+    """\
+    SyntaxError: Class 'DoesNotExist' does not exist.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class One < DoesNotExist {}
+    """)
+
+t.interpret_for_error("Override built-in class.",
+    """\
+    SyntaxError: A built-in class named 'Exception' already exists.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Exception {}
+    """)
+
+t.interpret_for_error("Duplicate class declaration.",
+    """\
+    SyntaxError: Class 'AlreadyExists' has already been declared.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class AlreadyExists {}
+    class AlreadyExists {}
+    """)
+
+t.interpret_for_error("Invalid class declaration location.",
+    """\
+    SyntaxError: Cannot define a class here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+        class NotAllowed {}
+    }
+    """)
+
+t.interpret_for_error("Prop use outside of a class.",
+    """\
+    SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = @abc
+    """)
+
+t.interpret_for_error("Dot assign with invalid type.",
+    """\
+    SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Test {
+        public var @v = 0
+    }
+
+    var v = Test()
+    v.v = None
+    """)
+
+t.interpret_for_error("Dot assign to method.",
+    """\
+    SyntaxError: Left side of = is not assignable.\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class Test {
+        public define f: Integer { return 10 }
+        public define g: Integer { return 20 }
+    }
+
+    var v = Test()
+    v.f = Test.g
+    """)
+
+t.interpret_for_error("Inherit class that does not exist.",
+    """\
+    SyntaxError: Class 'asdf' does not exist.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test < asdf {
+    }
+    """)
+
+t.interpret_for_error("Invalid class declaration location.",
+    """\
+    SyntaxError: Cannot define a class here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+        class Test {
+        }
+    }
+    """)

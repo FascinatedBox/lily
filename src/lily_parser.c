@@ -1106,7 +1106,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
         lily_type *check_type = type->subtypes[0];
         if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
             check_type->cls->id != LILY_ID_GENERIC)
-            lily_raise_syn(parser->raiser, "'^T' is not a valid hash key.",
+            lily_raise_syn(parser->raiser, "'^T' is not a valid key for Hash.",
                     check_type);
     }
 }
@@ -2802,17 +2802,14 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        this binds a function value to lambda_var. */
     lily_emit_enter_call_block(parser->emit, block_lambda, lambda_var);
 
-    lily_lexer(lex);
-
     lily_tm_add(parser->tm, lily_unit_type);
 
+    lily_lexer(lex);
+
+    /* The lambda body starts at the first `|` of the `(| ... `. The only tokens
+       possible are `|` (with args following), or `||` if there are no args. */
     if (lex->token == tk_bitwise_or)
         args_collected = collect_lambda_args(parser, expect_type);
-    else if (lex->token == tk_bitwise_or) {
-        NEED_NEXT_TOK(tk_bitwise_or)
-    }
-    else if (lex->token != tk_logical_or)
-        lily_raise_syn(parser->raiser, "Unexpected token '%s'.", lex->token);
 
     /* The current expression may not be done. This makes sure that the pool
        won't use the same trees again. */
@@ -3531,7 +3528,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     }
     else if (loop_var->type->cls->id != LILY_ID_INTEGER) {
         lily_raise_syn(parser->raiser,
-                   "Loop var must be type integer, not type '^T'.",
+                   "Loop var must be type Integer, not type '^T'.",
                    loop_var->type);
     }
 
@@ -3651,8 +3648,8 @@ static void run_loaded_module(lily_parse_state *parser,
     if (lex->token == tk_right_curly)
         lily_raise_syn(parser->raiser, "'}' outside of a block.");
 
-    if (parser->emit->block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Unterminated block(s) at end of file.");
+    if (lex->token == tk_end_tag)
+        lily_raise_syn(parser->raiser, "Unexpected token '?>'.");
 
     lily_emit_leave_call_block(parser->emit, lex->line_num);
     /* __import__ vars and functions become global, so don't hide them. */
@@ -3788,7 +3785,7 @@ static void import_handler(lily_parse_state *parser, int multi)
         lily_lexer(parser->lex);
         if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
             if (import_sym_count)
-                lily_raise_err(parser->raiser,
+                lily_raise_syn(parser->raiser,
                         "Cannot use 'as' when only specific items are being imported.");
 
             NEED_NEXT_TOK(tk_word)
@@ -3941,9 +3938,8 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
 
     lily_block *block = parser->emit->block;
 
-    if (block->block_type != block_file && block->prev != NULL) {
+    if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot declare a class here.");
-    }
 
     lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
     if (lookup_class != NULL) {
@@ -4054,7 +4050,7 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
             }
             else
                 lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ')', not '%s'.\n",
+                        "Expected either ',' or ')', not '%s'.",
                         tokname(lex->token));
         }
     }
@@ -4330,7 +4326,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     if (is_scoped == 1) {
         if (strcmp(lex->label, "enum") != 0)
-            lily_raise_syn(parser->raiser, "Expected 'enum' after flat.");
+            lily_raise_syn(parser->raiser, "Expected 'enum' after 'scoped'.");
 
         NEED_NEXT_TOK(tk_word)
     }
@@ -4677,8 +4673,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     if (block->block_type != block_file &&
         block->block_type != block_define &&
         block->block_type != block_class &&
-        block->block_type != block_enum &&
-        block->prev != NULL)
+        block->block_type != block_enum)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
     if (block->block_type == block_class && modifiers == 0)
@@ -4821,20 +4816,15 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
     while (1) {
         if (lex->token == tk_word)
             statement(parser, 1);
-        else if (lex->token == tk_right_curly) {
-            hide_block_vars(parser);
+        else if (lex->token == tk_right_curly)
+            /* This brace is mismatched so the call to leave will raise. */
             lily_emit_leave_block(parser->emit);
-            lily_lexer(lex);
-        }
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
+            /* Block handling is recursive, so this can't be reached if there
+               are unterminated blocks. */
             if (in_template == 0 && lex->token == tk_end_tag)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(lex->token));
-
-            if (parser->emit->block->prev != NULL) {
-                lily_raise_syn(parser->raiser,
-                           "Unterminated block(s) at end of parsing.");
-            }
 
             setup_and_exec_vm(parser);
 
@@ -4857,6 +4847,7 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
                  lex->token == tk_left_bracket ||
                  lex->token == tk_bytestring ||
                  lex->token == tk_lambda ||
+                 lex->token == tk_tuple_open ||
                  lex->token == tk_byte) {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);

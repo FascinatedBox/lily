@@ -253,3 +253,19 @@ t.interpret("Check decomposition of variants with multiple arguments.",
         case Single(s3):
     }
     """)
+
+t.interpret("Check using _ with class match.",
+    """
+    enum Test[A] { Multi(A, A), Single(A) }
+
+    var v = Multi(1, 2)
+
+    match v: {
+        case Multi(s1, s2):
+        case Single(s3):
+    }
+    """)
+
+t.assert("Variants use the enum for method lookup.",
+         (||
+    Some(1).is_some() ))

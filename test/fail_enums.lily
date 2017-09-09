@@ -445,3 +445,99 @@ t.interpret_for_error("'else' in exhaustive match.",
         else:
     }
     """)
+
+t.interpret_for_error("case outside of match.",
+    """\
+    SyntaxError: 'case' not allowed outside of 'match'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    case 1
+    """)
+
+t.interpret_for_error("Single-line match block.",
+    """\
+    SyntaxError: Match block cannot be in a single-line block.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    var v = Some(1)
+
+    if 1:
+        match v: {
+            case Some(s):
+            case None:
+        }
+    """)
+
+t.interpret_for_error("Duplicate enum match member.",
+    """\
+    SyntaxError: Already have a case for variant Some.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    match Some(1): {
+        case Some(s):
+        case Some(s):
+    }
+    """)
+
+t.interpret_for_error("Enum match with non-variant.",
+    """\
+    SyntaxError: DoesNotExist is not a member of enum Option.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    match Some(1): {
+        case DoesNotExist:
+    }
+    """)
+
+t.interpret_for_error("Enum match with non-variant.",
+    """\
+    SyntaxError: Expected 'enum' after 'scoped'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    scoped asdf
+    """)
+
+t.interpret_for_error("Variant decl wrong token.",
+    """\
+    SyntaxError: Expected either ',' or ')', not '+'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    enum Example {
+        One(Integer +
+    """)
+
+t.interpret_for_error("Variant decl empty ().",
+    """\
+    SyntaxError: Empty () not needed for a variant.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    enum Example {
+        One()
+    }
+    """)
+
+t.interpret_for_error("Decomposition case with duplicate vars.",
+    """\
+    SyntaxError: asdf has already been declared.\n    \
+        from test\/[subinterp]:9:\
+    """,
+    """\
+    enum Test {
+        One(Integer, Integer),
+        Two
+    }
+
+    var v = Two
+
+    match v: {
+        case One(asdf, asdf):
+        case Two:
+    }
+    """)

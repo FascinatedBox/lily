@@ -24,6 +24,16 @@ t.interpret_for_error("Forbid import ending with '}'.",
     import import_dir/brace_at_end
     """)
 
+t.interpret_for_error("Forbid import ending with '?>'.",
+    """\
+    SyntaxError: Unexpected token '?>'.\n    \
+        from test\/import_dir\/close_tag_at_end.lily:1:\
+    """,
+    """\
+    import import_dir/close_tag_at_end
+    """)
+
+
 t.interpret_for_error("Forbid import of duplicate name (with renamed import).",
     """\
     SyntaxError: A module named 'var_access' has already been imported here.\n    \
@@ -115,4 +125,13 @@ t.interpret_for_error("Duplicate import of symbol.",
     """,
     """\
     import (ref_var, ref_var) import_dir/ref_spectrum
+    """)
+
+t.interpret_for_error("Use 'as' with direct import.",
+    """\
+    SyntaxError: Cannot use 'as' when only specific items are being imported.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import (ref_var) import_dir/ref_spectrum as asdf
     """)

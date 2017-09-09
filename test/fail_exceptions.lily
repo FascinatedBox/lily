@@ -178,3 +178,56 @@ t.interpret_for_error("Forbid unreachable except clauses.",
         2
     }
     """)
+
+t.interpret_for_error("Forbid invalid raise class.",
+    """\
+    SyntaxError: Invalid class 'String' given to raise.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    raise "abc"
+    """)
+
+t.interpret_for_error("Forbid except outside try.",
+    """\
+    SyntaxError: 'except' outside 'try'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    except
+    """)
+
+t.interpret_for_error("Except var already declared.",
+    """\
+    SyntaxError: v has already been declared.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    var v = 10
+    try:
+        1
+    except Exception as v:
+        1
+    """)
+
+t.interpret_for_error("A label after except class should be 'as'.",
+    """\
+    SyntaxError: Expected 'as', not 'asdf'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    try:
+        1
+    except Exception asdf:
+        1
+    """)
+
+t.interpret_for_error("Raise exception with empty message.",
+    """\
+    ValueError\n\
+    Traceback:\n    \
+        from test\/[subinterp]:1: in __main__\
+    """,
+    """\
+    raise ValueError("")
+    """)

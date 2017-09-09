@@ -123,3 +123,77 @@ t.interpret("Repeatedly try and catch inside of a loop.",
         i += 1
     }
     """)
+
+t.interpret("Verify contents of an exception raised by vm.",
+    """
+    define h {
+        0 % 0
+    }
+
+    define g {
+        var v = ["1", "a", "3", "-4"]
+        var w = v.map(String.parse_i)
+        var x = w.select(Option.is_some)
+        var y = x.map(Option.unwrap)
+        h()
+    }
+
+    define f {
+        var v = 10
+        var w = v + v
+        g()
+    }
+
+    try: {
+        f()
+    except DivisionByZeroError as e:
+        if e.message != "Attempt to divide by zero.":
+            raise Exception("Exception message is incorrect.")
+
+        var expected_trace =
+        ["test.lily:21: from __main__",
+         "test.lily:17: from f",
+         "test.lily:11: from g",
+         "test.lily:3: from h"]
+
+        if e.traceback != expected_trace:
+            raise Exception("Traceback is incorrect.")
+    }
+    """)
+
+t.interpret("Verify contents of an exception raised the user.",
+    """
+    define h {
+        raise RuntimeError("This is the message.")
+    }
+
+    define g {
+        var v = ["1", "a", "3", "-4"]
+        var w = v.map(String.parse_i)
+        var x = w.select(Option.is_some)
+        var y = x.map(Option.unwrap)
+        h()
+    }
+
+    define f {
+        var v = 10
+        var w = v + v
+        g()
+    }
+
+    try: {
+        f()
+    except RuntimeError as e:
+        if e.message != "This is the message.":
+            raise Exception("Exception message is incorrect.")
+
+        var expected_trace =
+        ["test.lily:21: from __main__",
+         "test.lily:17: from f",
+         "test.lily:11: from g",
+         "test.lily:3: from h"]
+
+        if e.traceback != expected_trace:
+            raise Exception("Traceback is incorrect.")
+    }
+    """)

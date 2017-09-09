@@ -129,3 +129,30 @@ t.interpret("Verify heavily-nested lambdas.",
         ]
     )
     """)
+
+t.interpret("Comment block inside of a lambda.",
+    """\
+    var v = (|| #[
+
+
+    ]#
+    __line__ )
+
+    if v() != 5:
+        raise Exception("Failed. {0}".format(v()))
+    """)
+
+t.interpret("Comment lines inside of a lambda.",
+    """\
+    var v = (||
+        var
+        #
+        #
+        w = #
+        # !@#$%^&*()
+        __line__
+        w )
+
+    if v() != 7:
+        raise Exception("Failed. {0}".format(v()))
+    """)

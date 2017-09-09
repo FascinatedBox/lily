@@ -261,7 +261,7 @@ t.interpret("Verify closure jump patching for simple 'if'.",
     f()
     """)
 
-t.interpret("Verify lambda closing over class self.",
+t.interpret("Verify lambda closing over class self for prop assign.",
     """
     class Example {
         public var @a = 1
@@ -275,5 +275,34 @@ t.interpret("Verify lambda closing over class self.",
     var func = v.f()
     func()
     if v.a != 2:
+        raise Exception("Failed.")
+    """)
+
+t.interpret("Verify lambda closing over class self for prop get.",
+    """
+    class Example {
+        public var @a = 10
+
+        public define f: Integer {
+            return (|| @a )()
+        }
+    }
+
+    if Example().f() != 10:
+        raise Exception("Failed.")
+    """)
+
+t.interpret("Verify lambda closing over class self for a method call.",
+    """
+    class Example {
+        public var @a = 1
+
+        public define g: Integer { return 10 }
+        public define f: Integer {
+            return (|| g() )()
+        }
+    }
+
+    if Example().f() != 10:
         raise Exception("Failed.")
     """)

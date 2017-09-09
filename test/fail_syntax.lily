@@ -736,3 +736,750 @@ t.interpret_for_error("Wrong type before the end of a vararg call.",
 
     f("4")
     """)
+
+t.interpret_for_error("Require for loop start to be Integer.",
+    """\
+    SyntaxError: Unexpected token 'invalid token'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    ;
+    """)
+
+t.interpret_for_error("Require for loop start to be Integer.",
+    """\
+    SyntaxError: Unexpected token 'invalid token'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    ?
+    """)
+
+t.interpret_for_error("Require for loop start to be Integer.",
+    """\
+    SyntaxError: Unexpected token 'invalid token'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    @1
+    """)
+
+t.interpret_for_error("Require for loop start to be Integer.",
+    """\
+    SyntaxError: '..' is not a valid token (expected 1 or 3 dots).\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    ..
+    """)
+
+t.interpret_for_error("Require for loop start to be Integer.",
+    """\
+    SyntaxError: Expected type 'Integer', but got type 'String'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    for i in "a"...0: {
+    }
+    """)
+
+t.interpret_for_error("Invalid match expression.",
+    """\
+    SyntaxError: Match expression is not a user class, enum, or Dynamic.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    match <[1, "2", 3.3]>: {
+    }
+    """)
+
+t.interpret_for_error("Invalid condition type.",
+    """\
+    SyntaxError: Tuple[Integer, String] is not a valid condition type.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    if <[1, "2"]>: {
+    }
+    """)
+
+t.interpret_for_error("Invalid List subscript type.",
+    """\
+    SyntaxError: List index is not an Integer.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = [1]
+    v[v]
+    """)
+
+t.interpret_for_error("Invalid ByteString subscript type.",
+    """\
+    SyntaxError: ByteString index is not an Integer.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = B"1"
+    v[v]
+    """)
+
+t.interpret_for_error("Invalid Hash subscript type.",
+    """\
+    SyntaxError: Hash index should be type 'Integer', not type 'String'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    [1 => 1, 2 => 2]["1"]
+    """)
+
+t.interpret_for_error("Tuple subscript not a literal.",
+    """\
+    SyntaxError: Hash index should be type 'Integer', not type 'String'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    [1 => 1, 2 => 2]["1"]
+    """)
+
+t.interpret_for_error("Invalid Tuple subscript.",
+    """\
+    SyntaxError: Tuple subscripts must be Integer literals.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var a = 1
+    var v = <[1, 2]>
+    v[a] = 0
+    """)
+
+t.interpret_for_error("Invalid negative subscript on Tuple.",
+    """\
+    SyntaxError: Index -1 is out of range for Tuple[Integer].\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = <[1]>
+    v[-1] = 0
+    """)
+
+t.interpret_for_error("Invalid positive subscript on Tuple.",
+    """\
+    SyntaxError: Index 5 is out of range for Tuple[Integer].\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = <[1]>
+    v[5] = 1
+    """)
+
+t.interpret_for_error("Subscript a type that doesn't support it.",
+    """\
+    SyntaxError: Cannot subscript type 'Option[Integer]'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    Some(1)[1]
+    """)
+
+t.interpret_for_error("Cover error trying to use incomplete var.",
+    """\
+    SyntaxError: Cannot close over a var of an incomplete type in this scope.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f[A](a: A) {
+        define g {
+            var v = a
+        }
+    }
+    """)
+
+t.interpret_for_error("Wrong type past the end of a vararg call.",
+    """\
+    SyntaxError: Argument #4 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer...) {
+    }
+
+    f(1, 2, 3, "4")
+    """)
+
+t.interpret_for_error("Wrong type at the end of a vararg call.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer...) {
+    }
+
+    f("4")
+    """)
+
+t.interpret_for_error("Wrong type before the end of a vararg call.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Integer\n\
+    Received Type: String\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    define f(a: Integer, b: String...) {
+    }
+
+    f("4")
+    """)
+
+t.interpret_for_error("Invalid assign to class method through dot.",
+    """\
+    SyntaxError: Left side of = is not assignable.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    class Example {
+        public define f {}
+    }
+
+    Example.f = 10
+    """)
+
+t.interpret_for_error("Wrong type for @ assign.",
+    """\
+    SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Example {
+        public var @a = 10
+    }
+
+    var v = Example()
+    v.a = "5"
+    """)
+
+t.interpret_for_error("Invalid type for unary op.",
+    """\
+    SyntaxError: Invalid operation: !String.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = !"a"
+    """)
+
+t.interpret_for_error("Empty tuple not allowed.",
+    """\
+    SyntaxError: Cannot create an empty Tuple.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = <[]>
+    """)
+
+t.interpret_for_error("Empty tuple not allowed.",
+    """\
+    SyntaxError: Conditional expression has no value.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = 10
+    if v = 5:
+        v = 1
+
+    raise Exception("Failed.")
+    """)
+
+t.interpret_for_error("Invalid define declaration.",
+    """\
+    SyntaxError: Cannot define a function here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+        define f {}
+    }
+    """)
+
+t.interpret_for_error("Require 'while' after 'do'.",
+    """\
+    SyntaxError: Expected 'while', not 'asdf'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    do: {
+    } asdf
+    """)
+
+t.interpret_for_error("Require 'by' in a for loop.",
+    """\
+    SyntaxError: Expected 'by', not 'asdf'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    for i in 0...10 asdf
+    """)
+
+t.interpret_for_error("Require 'in' in a for loop.",
+    """\
+    SyntaxError: Expected 'in', not 'asdf'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    for i asdf 0...10: {}
+    """)
+
+t.interpret_for_error("Non-Integer for loop var.",
+    """\
+    SyntaxError: Loop var must be type Integer, not type 'String'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var i = ""
+    for i in 0...10: {}
+    """)
+
+t.interpret_for_error("Forbid assignment in for range expression.",
+    """\
+    SyntaxError: For range value expression contains an assignment.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = 10
+    for i in v = 5...10:
+        1
+    """)
+
+t.interpret_for_error("'break' checks for dead code.",
+    """\
+    SyntaxError: Statement(s) after 'break' will not execute.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    for i in 0...10: {
+        break
+        print(i)
+    }
+    """)
+
+t.interpret_for_error("'continue' checks for dead code.",
+    """\
+    SyntaxError: Statement(s) after 'continue' will not execute.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    for i in 0...10: {
+        continue
+        print(i)
+    }
+    """)
+
+t.interpret_for_error("Statement expects a value.",
+    """\
+    SyntaxError: Expected a value, not '-='.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    for i in 0...10:
+        -=
+    """)
+
+t.interpret_for_error("Define wrong token.",
+    """\
+    SyntaxError: Expected either ',' or ')', not '!'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f(a: Integer !
+    """)
+
+t.interpret_for_error("Define empty ().",
+    """\
+    SyntaxError: Empty () not needed for a define.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f() {}
+    """)
+
+t.interpret_for_error("Require init expression for vars.",
+    """\
+    SyntaxError: An initialization expression is required here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v
+    """)
+
+t.interpret_for_error("Redeclare a var.",
+    """\
+    SyntaxError: v has already been declared.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = 10
+    var v = 10
+    """)
+
+t.interpret_for_error("Forbid binary op when demanding a value.",
+    """\
+    SyntaxError: Unexpected token '-='.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = ! -=
+    """)
+
+t.interpret_for_error("Forbid unary op when expecting a binary one.",
+    """\
+    SyntaxError: Unexpected token '!'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 1 !
+    """)
+
+t.interpret_for_error("Comma when expecting a value.",
+    """\
+    SyntaxError: Expected a value, not ','.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [,]
+    """)
+
+t.interpret_for_error("Class member does not exist.",
+    """\
+    SyntaxError: Example.DoesNotExist does not exist.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Example {}
+    var v = Example.DoesNotExist
+    """)
+
+t.interpret_for_error("Container as argument wrong token.",
+    """\
+    SyntaxError: Expected either ',' or ']', not ']>'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Container[A] {}
+    var v: Container[Integer ]>
+    """)
+
+t.interpret_for_error("Wrong token after varargs.",
+    """\
+    SyntaxError: Expected either '=>' or ')' after varargs.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f(a: Integer... ""
+    """)
+
+t.interpret_for_error("Scoop type in native code.",
+    """\
+    SyntaxError: Expected 'a label', not '$1'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v: Function($1) = 10
+    """)
+
+t.interpret_for_error("Invalid key for a Hash.",
+    """\
+    SyntaxError: 'Option[Integer]' is not a valid key for Hash.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v: Hash[Option[Integer], String] = [Some(1) => "a"]
+    """)
+
+t.interpret_for_error("Container with too few types.",
+    """\
+    SyntaxError: Class Container expects 2 type(s), but got 1 type(s).\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Container[A, B] {}
+    var v: Container[Integer] = Container()
+    """)
+
+t.interpret_for_error("Container with too many types.",
+    """\
+    SyntaxError: Class Container expects 1 type(s), but got 3 type(s).\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Container[A] {}
+    var v: Container[Integer, Integer, Integer] = Container()
+    """)
+
+t.interpret_for_error("$ by itself is invalid.",
+    """\
+    SyntaxError: Unexpected token 'invalid token'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = $
+    """)
+
+t.interpret_for_error("++= isn't a valid token.",
+    """\
+    SyntaxError: '++=' is not a valid token.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = "a"
+    v ++= "b"
+    """)
+
+t.interpret_for_error("Unterminated multi-line string.",
+    """\
+    SyntaxError: Unterminated string (started at line 3).\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+
+
+    var v = \"\"\"
+
+
+    """)
+
+t.interpret_for_error("Newline in single-line string.",
+    """\
+    SyntaxError: Newline in single-line string.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = "
+    """)
+
+t.interpret_for_error("Invalid zero escape on non-ByteString.",
+    """\
+    SyntaxError: Invalid escape sequence.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = "\\0"
+    """)
+
+t.interpret_for_error("Invalid high bit escape on non-ByteString.",
+    """\
+    SyntaxError: Invalid escape sequence.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = "\\128"
+    """)
+
+t.interpret_for_error("Unterminated multi-line comment.",
+    """\
+    SyntaxError: Unterminated multi-line comment (started at line 2).\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+
+    #[
+
+
+
+    """)
+
+t.interpret_for_error("Really big Integer value.",
+    """\
+    SyntaxError: Integer value is too large.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 9223372036854775809
+    """)
+
+t.interpret_for_error("Really small Integer value.",
+    """\
+    SyntaxError: Integer value is too small.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = -9223372036854775809
+    """)
+
+t.interpret_for_error("Double out of range.",
+    """\
+    SyntaxError: Double value is out of range.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 9e999
+    """)
+
+t.interpret_for_error("Invalid suffix for Double.",
+    """\
+    SyntaxError: Double value with Byte suffix.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 1.1t
+    """)
+
+t.interpret_for_error("Byte value with - sign.",
+    """\
+    SyntaxError: Byte values cannot have a sign.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = -1t
+    """)
+
+t.interpret_for_error("Byte value with + sign.",
+    """\
+    SyntaxError: Byte values cannot have a sign.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = +1t
+    """)
+
+t.interpret_for_error("Byte value out of range.",
+    """\
+    SyntaxError: Byte value is too large.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 256t
+    """)
+
+t.interpret_for_error("Invalid exponent value.",
+    """\
+    SyntaxError: Expected a base 10 number after exponent.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 1e?
+    """)
+
+t.interpret_for_error("Invalid exponent value",
+    """\
+    SyntaxError: Exponent is too large.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = 1e3000
+    """)
+
+t.interpret_for_error("Invalid escape sequence.",
+    """\
+    SyntaxError: Invalid escape sequence.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = "\\?"
+    """)
+
+t.interpret_for_error("Incomplete subscript assign.",
+    """\
+    SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = [0]
+    v[0] = None
+    """)
+
+t.interpret_for_error("Incomplete assign.",
+    """\
+    SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = None
+    """)
+
+t.interpret_for_error("Invalid key for Hash.",
+    """\
+    SyntaxError: Type 'Option[Integer]' is not a valid key for Hash.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [Some(1) => 1]
+    """)
+
+t.interpret_for_error("Invalid key for Hash.",
+    """\
+    SyntaxError: Type 'Option[Integer]' is not a valid key for Hash.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [Some(1) => 1]
+    """)
+
+t.interpret_for_error("Invalid keyword after scope qualifier.",
+    """\
+    SyntaxError: Expected either 'var' or 'define', but got 'asdf'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Test {
+        public asdf
+    }
+    """)
+
+t.interpret_for_error("Prevent 'var v = =>' from crashing.",
+    """\
+    SyntaxError: Unexpected token '=>'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = =>
+    """)
+
+t.interpret_for_error("Subscript with comma.",
+    """\
+    SyntaxError: Subscripts cannot contain ','.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = [1]
+    v[0,] = 0
+    """)
+
+t.interpret_for_error("Arrow in List constructor.",
+    """\
+    SyntaxError: Unexpected token '=>'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [1, 2 => 3]
+    """)
+
+t.interpret_for_error("Arrow in List constructor.",
+    """\
+    SyntaxError: Unexpected token '=>'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [1, 2 => 3]
+    """)
+
+t.interpret_for_error("Arrow in wrong place in Hash constructor.",
+    """\
+    SyntaxError: Unexpected token '=>'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [1 => 2 => 3]
+    """)
+
+t.interpret_for_error("Comma in wrong place in Hash constructor.",
+    """\
+    SyntaxError: Expected a key => value pair before ','.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = [1 => 2, 3, 4]
+    """)

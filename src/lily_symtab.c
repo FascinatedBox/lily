@@ -715,20 +715,6 @@ lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
     return (lily_prop_entry *)sym;
 }
 
-/* Add a var as a method to the current class. The var should be at the top of
-   whatever list it is in, since it is to be taken out of it's current list. */
-void lily_add_class_method(lily_symtab *symtab, lily_class *cls,
-        lily_var *method_var)
-{
-    /* Prevent class methods from being accessed globally, because they're now
-       longer globals. */
-    if (method_var == symtab->active_module->var_chain)
-        symtab->active_module->var_chain = method_var->next;
-
-    method_var->next = (lily_var *)cls->members;
-    cls->members = (lily_named_sym *)method_var;
-}
-
 static lily_module_entry *find_module(lily_module_entry *module,
         const char *name)
 {

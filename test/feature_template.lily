@@ -22,3 +22,18 @@ t.render("Templates can use globals from old scope.",
     <?lily v += 1 ?>\
     <?lily if v != 11: raise ValueError("") ?>\
     """)
+
+t.render_for_error("Template not starting with <?lily.",
+    """\
+    SyntaxError: Files in template mode must start with '<?lily'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    print(1)
+    """)
+
+t.render("Template with content afterward.",
+    """\
+    <?lily ?>
+    test
+    """)
