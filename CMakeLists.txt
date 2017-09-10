@@ -19,8 +19,13 @@ else()
     endif(NOT QUICK_BUILD)
 
     set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -Wall")
+
+    if(WITH_COVERAGE)
+        set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -O0 -fprofile-arcs -ftest-coverage")
+    endif(WITH_COVERAGE)
 endif()
 
+set(CMAKE_MODULE_PATH      "${PROJECT_SOURCE_DIR}/cmake")
 set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 
@@ -50,6 +55,17 @@ if(WITH_SANDBOX)
     endif()
     add_subdirectory(sandbox)
 endif(WITH_SANDBOX)
+
+if(WITH_COVERAGE)
+    if(CMAKE_COMPILER_IS_GNUCXX)
+        include(CodeCoverage)
+        setup_target_for_coverage(${PROJECT_NAME}_coverage tests coverage)
+    endif()
+
+    include(CTest)
+    enable_testing()
+    add_test(NAME pre-commit-tests COMMAND pre-commit-tests)
+endif(WITH_COVERAGE)
 
 set(TEST_COMMAND cd .. && ./pre-commit-tests)
 add_custom_target(check ${CMAKE_CTEST_COMMAND}
