@@ -22,9 +22,10 @@ lily_raiser *lily_new_raiser(void)
 void lily_free_raiser(lily_raiser *raiser)
 {
     lily_jump_link *jump_next;
-    while (raiser->all_jumps->prev)
-        raiser->all_jumps = raiser->all_jumps->prev;
 
+    /* The vm pulls back all_jumps during exception capture and native function
+       exit. By the time this function is called, all_jumps is always the first
+       in the chain. */
     while (raiser->all_jumps) {
         jump_next = raiser->all_jumps->next;
         lily_free(raiser->all_jumps);
