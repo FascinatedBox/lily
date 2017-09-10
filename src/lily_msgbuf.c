@@ -510,11 +510,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else {
         lily_container_val *cv = v->value.container;
         lily_class *cls = vm->class_table[cv->class_id];
-        const char *package_name = "";
-        const char *separator = "";
 
-        lily_mb_add_fmt(msgbuf, "<%s%s%s at %p>", package_name, separator,
-                cls->name, v->value.generic);
+        lily_mb_add_fmt(msgbuf, "<%s at %p>", cls->name, v->value.generic);
     }
 }
 
