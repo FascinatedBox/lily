@@ -87,6 +87,10 @@ void lily_free_expr_state(lily_expr_state *es)
 
     lily_ast_save_entry *save_iter = es->save_chain;
     lily_ast_save_entry *save_temp;
+
+    while (save_iter->prev)
+        save_iter = save_iter->prev;
+
     while (save_iter) {
         save_temp = save_iter->next;
         lily_free(save_iter);

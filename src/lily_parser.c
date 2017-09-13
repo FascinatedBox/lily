@@ -307,13 +307,16 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     emit->block = emit->main_block;
     emit->function_block = emit->main_block;
     emit->function_depth = 1;
+    emit->class_block_depth = 0;
 
     /* Rewind ts */
     lily_type_system *ts = parser->emit->ts;
-    /* ts blasts types on entry (instead of cleaning up on exit), so there's no
-       need to alter existing ts state. */
+    /* ts types can be left alone since ts blasts types on entry instead of
+       cleaning up on exit. Rewind the scoops though, just in case an error was
+       hit during scoop collect. */
     ts->num_used = 0;
     ts->pos = 0;
+    lily_ts_reset_scoops(parser->emit->ts);
 
     /* Rewind lex state */
     lily_rewind_lex_state(parser->lex);

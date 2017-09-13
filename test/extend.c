@@ -12,18 +12,21 @@ const char *lily_extend_table[] = {
     ,"F\0render_string\0(String,String):Result[String,Boolean]"
     ,"F\0parse_string\0(String,String):Result[String,Boolean]"
     ,"F\0parse_expr\0(String,String):Result[String,String]"
+    ,"F\0parse_rewind\0(String,String,String):String"
     ,"Z"
 };
 #define toplevel_OFFSET 1
 void lily_extend__render_string(lily_state *);
 void lily_extend__parse_string(lily_state *);
 void lily_extend__parse_expr(lily_state *);
+void lily_extend__parse_rewind(lily_state *);
 void *lily_extend_loader(lily_state *s, int id)
 {
     switch (id) {
         case toplevel_OFFSET + 0: return lily_extend__render_string;
         case toplevel_OFFSET + 1: return lily_extend__parse_string;
         case toplevel_OFFSET + 2: return lily_extend__parse_expr;
+        case toplevel_OFFSET + 3: return lily_extend__parse_rewind;
         default: return NULL;
     }
 }
@@ -126,5 +129,37 @@ void lily_extend__parse_expr(lily_state *s)
     lily_free_state(subinterp);
 
     lily_con_set_from_stack(s, con, 0);
+    lily_return_top(s);
+}
+
+/**
+define parse_rewind(context: String, prelude: String, to_interpret: String): String
+
+This function processes `prelude` once, then `to_interpret` twice. This checks
+if the error message from `to_interpret` is the same for each pass.
+*/
+void lily_extend__parse_rewind(lily_state *s)
+{
+    const char *context = lily_arg_string_raw(s, 0);
+    char *header = (char *)lily_arg_string_raw(s, 1);
+    char *data = (char *)lily_arg_string_raw(s, 2);
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+    lily_config config;
+
+    lily_config_init(&config);
+    config.render_func = noop_render;
+
+    lily_state *subinterp = lily_new_state(&config);
+
+    lily_parse_string(subinterp, context, header);
+    lily_parse_string(subinterp, context, data);
+    lily_mb_add(msgbuf, lily_error_message(subinterp));
+    lily_parse_string(subinterp, context, data);
+    lily_mb_add(msgbuf, lily_error_message(subinterp));
+
+    /* The prelude shouldn't fail, and the two passes both should. Return the
+       output of both parses in case they fail for different reasons. */
+    lily_free_state(subinterp);
+    lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
 }

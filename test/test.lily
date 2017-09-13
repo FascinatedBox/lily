@@ -4,7 +4,8 @@ scoped enum TestAction {
     Expect(Function( => Boolean)),
     Interpret(String),
     Expression(String),
-    Render(String)
+    Render(String),
+    Rewind(String, String)
 }
 
 class TestGroup {
@@ -54,6 +55,11 @@ class TestGroup {
 
     public define expression(message: String, expect: String, to_interpret: String) {
         @tests.push(<[@test_scope, message, expect, TestAction.Expression(to_interpret)]>)
+    }
+
+    public define rewind(message: String, expect: String, prelude: String,
+                         to_interpret: String) {
+        @tests.push(<[@test_scope, message, expect ++ "\n" ++ expect, TestAction.Rewind(prelude, to_interpret)]>)
     }
 
     private define exception_to_s(e: Exception): String {
@@ -117,6 +123,9 @@ class TestGroup {
                             # Same as above.
                             receive_str = f.slice(0, -1)
                     }
+                case TestAction.Rewind(prelude, to_interpret):
+                    receive_str = extend.parse_rewind("test\/[subinterp]", prelude, to_interpret)
+                    receive_str = receive_str.slice(0, -1)
             }
 
             if expect_str != receive_str: {
