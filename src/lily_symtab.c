@@ -29,6 +29,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     symtab->literals = lily_new_value_stack();
     symtab->generics = gp;
     symtab->next_global_id = 0;
+    symtab->next_reverse_id = LILY_LAST_ID;
 
     return symtab;
 }
@@ -168,6 +169,7 @@ void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
         int hide)
 {
     symtab->active_module = main_module;
+    symtab->next_reverse_id = LILY_LAST_ID;
 
     if (main_module->boxed_chain != stop_box) {
         free_boxed_syms_since(main_module->boxed_chain, stop_box);
@@ -581,7 +583,11 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name)
 {
     lily_class *new_class = lily_new_class(symtab, name);
+
+    symtab->next_class_id--;
     new_class->flags |= CLS_IS_ENUM;
+    new_class->id = symtab->next_reverse_id;
+    symtab->next_reverse_id--;
 
     return new_class;
 }
@@ -791,8 +797,8 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->next = (lily_class *)enum_cls->members;
     enum_cls->members = (lily_named_sym *)variant;
 
-    variant->cls_id = symtab->next_class_id;
-    symtab->next_class_id++;
+    variant->cls_id = symtab->next_reverse_id;
+    symtab->next_reverse_id--;
 
     return variant;
 }
@@ -816,6 +822,34 @@ lily_variant_class *lily_find_variant(lily_class *enum_cls,
     }
 
     return (lily_variant_class *)sym_iter;
+}
+
+/* This is called after all variants of an enum are collected, but before
+   methods are parsed. This function transforms the reverse ids that have been
+   held so far into proper symtab ids.
+
+   Handing out enum and variant ids this way ensures that variant ids always
+   occur exactly after their enum parent ids. */
+void lily_fix_enum_variant_ids(lily_symtab *symtab, lily_class *enum_cls)
+{
+    uint16_t next_id = symtab->next_class_id;
+
+    enum_cls->id = next_id;
+    next_id += enum_cls->variant_size;
+    symtab->next_class_id = next_id + 1;
+    symtab->next_reverse_id += enum_cls->variant_size + 1;
+
+    lily_named_sym *member_iter = enum_cls->members;
+
+    /* Method collection hasn't happened yet, so all members are variants. */
+    while (member_iter) {
+        lily_variant_class *variant = (lily_variant_class *)member_iter;
+
+        variant->cls_id = next_id;
+        next_id--;
+
+        member_iter = member_iter->next;
+    }
 }
 
 /***

@@ -393,6 +393,7 @@ typedef struct lily_module_entry_ {
 /* Parser's import handler needs to execute this module's code. */
 #define MODULE_NOT_EXECUTED  0x2
 
+#define LILY_LAST_ID       65528
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_ID_SELF       65529
 #define LILY_ID_QUESTION   65530

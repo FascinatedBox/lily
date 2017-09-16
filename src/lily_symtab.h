@@ -30,7 +30,11 @@ typedef struct lily_symtab_ {
 
     uint16_t next_global_id;
 
-    uint32_t pad;
+    /* Enums and variants are initially given a fake id that counts down from
+       the end. */
+    uint16_t next_reverse_id;
+
+    uint16_t pad;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */
@@ -77,6 +81,7 @@ lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
         lily_type *, const char *, int);
 void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
+void lily_fix_enum_variant_ids(lily_symtab *, lily_class *);
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 
 lily_module_entry *lily_find_module(lily_symtab *, lily_module_entry *,

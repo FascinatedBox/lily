@@ -1691,6 +1691,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     }
 
     enum_cls->variant_size = variant_count;
+    lily_fix_enum_variant_ids(parser->symtab, enum_cls);
     lily_gp_restore_and_unhide(parser->generics, save_generics);
 
     if (save_next_class_id)
@@ -4399,6 +4400,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     /* Emitter uses this later to determine how many cases are allowed. */
     enum_cls->variant_size = variant_count;
+
+    lily_fix_enum_variant_ids(parser->symtab, enum_cls);
 
     if (lex->token == tk_word) {
         while (1) {
