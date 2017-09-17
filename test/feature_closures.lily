@@ -306,3 +306,28 @@ t.interpret("Verify lambda closing over class self for a method call.",
     if Example().f() != 10:
         raise Exception("Failed.")
     """)
+
+t.interpret_for_error("Verify closure traceback.",
+    """\
+    DivisionByZeroError: Attempt to divide by zero.\n\
+    Traceback:\n    \
+        from test\/[subinterp]:4: in h\n    \
+        from test\/[subinterp]:7: in g\n    \
+        from test\/[subinterp]:10: in f\n    \
+        from test\/[subinterp]:13: in __main__\
+    """,
+    """\
+    define f {
+        define g {
+            define h {
+                0 / 0
+            }
+
+            h()
+        }
+
+        g()
+    }
+
+    f()
+    """)

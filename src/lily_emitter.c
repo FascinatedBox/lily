@@ -1247,7 +1247,7 @@ static void perform_closure_transform(lily_emit_state *emit,
         }
 
         if (ci.line_6)
-            lily_u16_write_1(emit->closure_aux_code, 5);
+            lily_u16_write_1(emit->closure_aux_code, buffer[pos]);
 
         if (ci.outputs_4) {
             int stop = output_start + ci.outputs_4;
