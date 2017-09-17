@@ -287,6 +287,13 @@ typedef struct lily_proto_ {
     const char *module_path;
     /* The qualified name of the function. */
     char *name;
+    /* For closures, these are indexes of locals that need to be wiped. Wiping
+       these positions ensures that the cells are fresh on each invocation. */
+    uint16_t *locals;
+    /* This points to the code that the function is using. This makes it easier
+       to free code, since there may be multiple closure function vals pointing
+       at the same code. */
+    uint16_t *code;
 } lily_proto;
 
 

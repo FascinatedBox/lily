@@ -174,17 +174,11 @@ typedef struct lily_function_val_ {
     /* Here's where the function's code is stored. */
     uint16_t *code;
 
-    union {
-        struct lily_value_ **upvalues;
-        /* A function's cid table holds a mapping that's used to obtain class
-           ids for dynaloaded classes. */
-        uint16_t *cid_table;
-    };
+    struct lily_value_ **upvalues;
 
-    /* Closures: Upvalue indexes of locals in this function, with [0] being the
-       count. When a closure copy is created, the cells listed in here are
-       cleared out. */
-    uint16_t *locals;
+    /* A function's cid table holds a mapping that's used to obtain class ids
+       for dynaloaded classes. */
+    uint16_t *cid_table;
 } lily_function_val;
 
 /* Every value that is refcounted is a superset of this. */

@@ -202,7 +202,7 @@ void lily_free_state(lily_state *vm)
     /* The code for the toplevel function (really __main__) is a pointer to
        emitter's code that gets refreshed before every vm entry. Set it to NULL
        so that these teardown functions don't double free the code. */
-    parser->toplevel_func->code = NULL;
+    parser->toplevel_func->proto->code = NULL;
 
     lily_free_raiser(parser->raiser);
 
@@ -806,11 +806,9 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->refcount = 1;
     f->foreign_func = foreign_func;
     f->code = NULL;
-    /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
-    f->num_upvalues = (uint16_t) -1;
+    f->num_upvalues = 0;
     f->upvalues = NULL;
     f->gc_entry = NULL;
-    f->locals = NULL;
     f->cid_table = m->cid_table;
     f->proto = proto;
 

@@ -298,43 +298,36 @@ static void destroy_function(lily_value *v)
     if (fv->gc_entry == lily_gc_stopper)
         return;
 
-    if (fv->num_upvalues == (uint16_t)-1) {
-        lily_free(fv->locals);
-        lily_free(fv->code);
+    int full_destroy = 1;
+
+    if (fv->gc_entry) {
+        if (fv->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            fv->gc_entry = lily_gc_stopper;
+        }
+        else
+            fv->gc_entry->value.generic = NULL;
+    }
+
+    lily_value **upvalues = fv->upvalues;
+    int count = fv->num_upvalues;
+    int i;
+
+    for (i = 0;i < count;i++) {
+        lily_value *up = upvalues[i];
+        if (up) {
+            up->cell_refcount--;
+
+            if (up->cell_refcount == 0) {
+                lily_deref(up);
+                lily_free(up);
+            }
+        }
+    }
+    lily_free(upvalues);
+
+    if (full_destroy)
         lily_free(fv);
-    }
-    else {
-        int full_destroy = 1;
-
-        if (fv->gc_entry) {
-            if (fv->gc_entry->last_pass == -1) {
-                full_destroy = 0;
-                fv->gc_entry = lily_gc_stopper;
-            }
-            else
-                fv->gc_entry->value.generic = NULL;
-        }
-
-        lily_value **upvalues = fv->upvalues;
-        int count = fv->num_upvalues;
-        int i;
-
-        for (i = 0;i < count;i++) {
-            lily_value *up = upvalues[i];
-            if (up) {
-                up->cell_refcount--;
-
-                if (up->cell_refcount == 0) {
-                    lily_deref(up);
-                    lily_free(up);
-                }
-            }
-        }
-        lily_free(upvalues);
-
-        if (full_destroy)
-            lily_free(fv);
-    }
 }
 
 static void destroy_file(lily_value *v)

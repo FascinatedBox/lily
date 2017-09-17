@@ -993,7 +993,7 @@ static void setup_for_transform(lily_emit_state *emit,
             }
         }
 
-        f->locals = locals;
+        f->proto->locals = locals;
     }
 }
 
@@ -1348,6 +1348,7 @@ static void write_final_code_for_block(lily_emit_state *emit,
 
     f->code_len = code_size;
     f->code = code;
+    f->proto->code = code;
     f->reg_count = function_block->next_reg_spot;
 
     lily_u16_set_pos(emit->code, function_block->code_start);
@@ -1519,6 +1520,8 @@ static void free_proto_stack(lily_proto_stack *stack)
     for (i = 0;i < stack->pos;i++) {
         lily_proto *p = stack->data[i];
         lily_free(p->name);
+        lily_free(p->locals);
+        lily_free(p->code);
         lily_free(p);
     }
 
@@ -1567,6 +1570,8 @@ lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
 
     p->module_path = module_path;
     p->name = proto_name;
+    p->locals = NULL;
+    p->code = NULL;
 
     protos->data[protos->pos] = p;
     protos->pos++;
@@ -3929,5 +3934,6 @@ void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 
     main_func->code_len = lily_u16_pos(emit->code);
     main_func->code = emit->code->data;
+    main_func->proto->code = main_func->code;
     main_func->reg_count = register_count;
 }

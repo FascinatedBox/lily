@@ -1445,7 +1445,7 @@ static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
 
     copy_upvalues(new_closure, input_closure);
 
-    uint16_t *locals = new_closure->locals;
+    uint16_t *locals = new_closure->proto->locals;
     if (locals) {
         lily_value **upvalues = new_closure->upvalues;
         int i, end = locals[0];
