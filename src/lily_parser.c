@@ -810,7 +810,6 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->locals = NULL;
-    f->line_num = var->line_num;
     f->module = parser->symtab->active_module;
     f->cid_table = f->module->cid_table;
 

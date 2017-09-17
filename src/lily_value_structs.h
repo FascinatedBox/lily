@@ -151,9 +151,9 @@ typedef struct lily_file_val_ {
    arguments to a function themselves. */
 typedef struct lily_function_val_ {
     uint32_t refcount;
-    uint32_t line_num;
+    uint32_t pad1;
 
-    uint16_t pad;
+    uint16_t pad2;
 
     uint16_t code_len;
 

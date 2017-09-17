@@ -1058,6 +1058,23 @@ static int count_transforms(lily_emit_state *emit, int start)
     return count;
 }
 
+uint16_t iter_for_first_line(lily_emit_state *emit, int pos)
+{
+    uint16_t result = 0;
+    lily_code_iter ci;
+    lily_ci_init(&ci, emit->code->data, pos, lily_u16_pos(emit->code));
+
+    while (lily_ci_next(&ci)) {
+        if (ci.line_6) {
+            pos = ci.offset + ci.round_total - ci.line_6;
+            result = ci.buffer[pos];
+            break;
+        }
+    }
+
+    return result;
+}
+
 /* This function is called to transform the currently available segment of code
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures. */
@@ -1070,7 +1087,7 @@ static void perform_closure_transform(lily_emit_state *emit,
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
     int iter_start = emit->block->code_start;
-
+    uint16_t first_line = iter_for_first_line(emit, iter_start);
     lily_block *prev_block = function_block->prev_function_block;
     int is_backing = (prev_block->block_type == block_class ||
                       prev_block->block_type == block_file);
@@ -1083,7 +1100,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         lily_u16_write_4(emit->closure_aux_code, o_closure_new,
                 lily_u16_pos(emit->closure_spots) / 2, s->reg_spot,
-                f->line_num);
+                first_line);
 
         if (function_block->self) {
             /* Use raw search because 'self' is always at 0. */
@@ -1092,7 +1109,7 @@ static void perform_closure_transform(lily_emit_state *emit,
             /* Load register 0 (self) into the closure. */
             if (self_spot != (uint16_t)-1) {
                 lily_u16_write_4(emit->closure_aux_code, o_closure_set,
-                        self_spot, 0, f->line_num);
+                        self_spot, 0, first_line);
             }
         }
     }
@@ -1111,7 +1128,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                     emit->class_block_depth + 1, (lily_sym *)prev_block->self);
 
             lily_u16_write_4(emit->closure_aux_code, o_closure_get,
-                    self_spot, lambda_self->reg_spot, f->line_num);
+                    self_spot, lambda_self->reg_spot, first_line);
         }
     }
 
@@ -1134,7 +1151,7 @@ static void perform_closure_transform(lily_emit_state *emit,
     uint16_t id = transform_table[buffer[x]]; \
     if (id != (uint16_t)-1) { \
         lily_u16_write_4(emit->closure_aux_code, z, id, \
-                buffer[x], f->line_num); \
+                buffer[x], first_line); \
         jump_adjust += 4; \
     } \
 }
