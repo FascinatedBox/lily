@@ -1498,29 +1498,18 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
          i >= 1;
          i--, frame_iter = frame_iter->prev) {
         lily_function_val *func_val = frame_iter->function;
-        char *path;
+        lily_proto *proto = func_val->proto;
+        const char *path;
         char line[16] = "";
-        const char *class_name;
-        char *separator;
-        const char *name = func_val->trace_name;
         if (func_val->code) {
-            path = func_val->module->path;
+            path = proto->module_path;
             sprintf(line, "%d:", frame_iter->code[-1]);
         }
         else
             path = "[C]";
 
-        if (func_val->class_name == NULL) {
-            class_name = "";
-            separator = "";
-        }
-        else {
-            separator = ".";
-            class_name = func_val->class_name;
-        }
-
-        const char *str = lily_mb_sprintf(msgbuf, "%s:%s from %s%s%s", path,
-                line, class_name, separator, name);
+        const char *str = lily_mb_sprintf(msgbuf, "%s:%s from %s", path,
+                line, proto->name);
 
         lily_string_val *sv = lily_new_string_raw(str);
         lily_move_string(lv->values[i - 1], sv);

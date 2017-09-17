@@ -281,6 +281,15 @@ typedef struct lily_module_entry_ {
     uint16_t *cid_table;
 } lily_module_entry;
 
+/* Each function holds a prototype that holds debugging information. */
+typedef struct lily_proto_ {
+    /* Points to the path of the module that the function resides in. */
+    const char *module_path;
+    /* The qualified name of the function. */
+    char *name;
+} lily_proto;
+
+
 /* Finally, various definitions. */
 
 

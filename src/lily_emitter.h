@@ -83,13 +83,18 @@ typedef struct lily_block_ {
     struct lily_block_ *prev;
 } lily_block;
 
-typedef struct lily_storage_stack_
-{
+typedef struct lily_storage_stack_ {
     lily_storage **data;
     uint16_t scope_end;
     uint16_t size;
     uint32_t pad;
 } lily_storage_stack;
+
+typedef struct lily_proto_stack_ {
+    lily_proto **data;
+    uint32_t pos;
+    uint32_t size;
+} lily_proto_stack;
 
 /* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
 struct lily_parse_state_t;
@@ -127,6 +132,8 @@ typedef struct {
     uint32_t pad;
 
     struct lily_storage_stack_ *storages;
+
+    struct lily_proto_stack_ *protos;
 
     /* The block that __main__ is within. This is always the first block (the
        only one where prev is NULL). New global vars will use this to figure
@@ -211,6 +218,9 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
 
 uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
+
+lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, const char *,
+        const char *);
 
 void lily_prepare_main(lily_emit_state *, lily_function_val *);
 void lily_reset_main(lily_emit_state *);

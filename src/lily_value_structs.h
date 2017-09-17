@@ -162,16 +162,10 @@ typedef struct lily_function_val_ {
     /* This is how many registers that this function uses. */
     uint16_t reg_count;
 
-    /* The module that this function was created within. */
-    struct lily_module_entry_ *module;
+    /* Information for debugging. */
+    struct lily_proto_ *proto;
 
     struct lily_gc_entry_ *gc_entry;
-
-    /* The name of the class that this function belongs to OR "". */
-    const char *class_name;
-
-    /* The name of this function, for use by debug and stack trace. */
-    const char *trace_name;
 
     /* Foreign functions only. To determine if a function is foreign, simply
        check 'foreign_func == NULL'. */

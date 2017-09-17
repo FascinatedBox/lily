@@ -448,19 +448,11 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     else if (v->class_id == LILY_ID_FUNCTION) {
         lily_function_val *fv = v->value.function;
         const char *builtin = "";
-        const char *class_name = "";
-        const char *separator = "";
 
         if (fv->code == NULL)
             builtin = "built-in ";
 
-        if (fv->class_name) {
-            class_name = fv->class_name;
-            separator = ".";
-        }
-
-        lily_mb_add_fmt(msgbuf, "<%sfunction %s%s%s>", builtin, class_name,
-                separator, fv->trace_name);
+        lily_mb_add_fmt(msgbuf, "<%sfunction %s>", builtin, fv->proto->name);
     }
     else if (v->class_id == LILY_ID_LIST)
         add_list_like(vm, msgbuf, t, v, "[", "]");

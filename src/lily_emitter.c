@@ -28,11 +28,10 @@ extern lily_type *lily_unit_type;
  *                          |_|
  */
 
+static lily_proto_stack *new_proto_stack(int);
+static void free_proto_stack(lily_proto_stack *);
 static lily_storage_stack *new_storage_stack(int);
 static void free_storage_stack(lily_storage_stack *);
-lily_function_val *new_native_function_val(char *, char *);
-lily_function_val *new_foreign_function_val(lily_foreign_func, const char *,
-        const char *);
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
@@ -48,6 +47,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->closure_spots = lily_new_buffer_u16(4);
 
     emit->storages = new_storage_stack(4);
+    emit->protos = new_proto_stack(4);
 
     emit->transform_table = NULL;
     emit->transform_size = 0;
@@ -98,6 +98,7 @@ void lily_free_emit_state(lily_emit_state *emit)
     }
 
     free_storage_stack(emit->storages);
+    free_proto_stack(emit->protos);
 
     lily_free_string_pile(emit->expr_strings);
     lily_free_type_maker(emit->tm);
@@ -1499,6 +1500,79 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
 /** These are various helping functions collected together. There's no real
     organization other than that. **/
+
+static lily_proto_stack *new_proto_stack(int initial)
+{
+    lily_proto_stack *result = lily_malloc(sizeof(*result));
+
+    result->data = lily_malloc(initial * sizeof(*result->data));
+    result->pos = 0;
+    result->size = initial;
+
+    return result;
+}
+
+static void free_proto_stack(lily_proto_stack *stack)
+{
+    int i;
+    /* Stop at pos instead of size because there's no eager init here. */
+    for (i = 0;i < stack->pos;i++) {
+        lily_proto *p = stack->data[i];
+        lily_free(p->name);
+        lily_free(p);
+    }
+
+    lily_free(stack->data);
+    lily_free(stack);
+}
+
+static void grow_protos(lily_proto_stack *stack)
+{
+    int new_size = stack->size * 2;
+    lily_proto **new_data = lily_realloc(stack->data,
+            sizeof(*new_data) * stack->size * 2);
+
+    stack->data = new_data;
+    stack->size = new_size;
+}
+
+lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
+        const char *class_name, const char *name)
+{
+    lily_proto_stack *protos = emit->protos;
+
+    if (protos->pos == protos->size)
+        grow_protos(protos);
+
+    lily_proto *p = lily_malloc(sizeof(*p));
+    char *proto_name;
+
+    if (class_name != NULL) {
+        if (name[0] != '<') {
+            proto_name = lily_malloc(strlen(class_name) + strlen(name) + 2);
+            strcpy(proto_name, class_name);
+            strcat(proto_name, ".");
+            strcat(proto_name, name);
+        }
+        else {
+            /* Instead of Class.<new>, use just Class. */
+            proto_name = lily_malloc(strlen(class_name) + 1);
+            strcpy(proto_name, class_name);
+        }
+    }
+    else {
+        proto_name = lily_malloc(strlen(name) + 1);
+        strcpy(proto_name, name);
+    }
+
+    p->module_path = module_path;
+    p->name = proto_name;
+
+    protos->data[protos->pos] = p;
+    protos->pos++;
+
+    return p;
+}
 
 /* Return a string representation of the given op. */
 static const char *opname(lily_expr_op op)

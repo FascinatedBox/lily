@@ -797,12 +797,13 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
         lily_var *var, lily_foreign_func foreign_func)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_proto *proto = lily_emit_new_proto(parser->emit, m->path, class_name,
+            var->name);
 
     /* This won't get a ref bump from being moved/assigned since all functions
        are marked as literals. Start at 1 ref, not 0. */
     f->refcount = 1;
-    f->class_name = class_name;
-    f->trace_name = var->name;
     f->foreign_func = foreign_func;
     f->code = NULL;
     /* Closures can have zero upvalues, so use -1 to mean no upvalues at all. */
@@ -810,8 +811,8 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->upvalues = NULL;
     f->gc_entry = NULL;
     f->locals = NULL;
-    f->module = parser->symtab->active_module;
-    f->cid_table = f->module->cid_table;
+    f->cid_table = m->cid_table;
+    f->proto = proto;
 
     if (var->type)
         f->reg_count = var->type->subtype_count;
@@ -4873,6 +4874,8 @@ static void fix_first_file_name(lily_parse_state *parser,
     module->loadname = loadname_from_path(filename);
     module->cmp_len = strlen(filename);
 
+    parser->emit->protos->data[0]->module_path = filename;
+
     parser->first_pass = 0;
 }
 
@@ -4912,27 +4915,14 @@ static void build_error(lily_parse_state *parser)
         lily_mb_add(msgbuf, "Traceback:\n");
 
         while (frame->prev) {
-            lily_function_val *func = frame->function;
-            const char *class_name = func->class_name;
-            const char *func_name = func->trace_name;
-            char *separator = ".";
-            if (class_name == NULL) {
-                class_name = "";
-                separator = "";
-            }
-            else if (strcmp(func_name, "<new>") == 0) {
-                func_name = "";
-                separator = "";
-            }
+            lily_proto *proto = frame->function->proto;
 
             if (frame->function->code == NULL)
-                lily_mb_add_fmt(msgbuf, "    from [C]: in %s%s%s\n",
-                        class_name, separator, func_name);
+                lily_mb_add_fmt(msgbuf, "    from [C]: in %s\n", proto->name);
             else
                 lily_mb_add_fmt(msgbuf,
-                        "    from %s:%d: in %s%s%s\n",
-                        func->module->path, frame->code[-1], class_name,
-                        separator, func_name);
+                        "    from %s:%d: in %s\n",
+                        proto->module_path, frame->code[-1], proto->name);
 
             frame = frame->prev;
         }
