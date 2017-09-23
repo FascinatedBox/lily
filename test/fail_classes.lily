@@ -18,7 +18,7 @@ t.interpret_for_error("Return within a class constructor.",
 
 t.interpret_for_error("Redeclare a class property.",
     """\
-    SyntaxError: A property in class 'Test' already has the name 'abc'.\n    \
+    SyntaxError: A property in class Test already has the name @abc.\n    \
         from test\/[subinterp]:3:\
     """,
     """\
@@ -70,11 +70,20 @@ t.interpret_for_error("Redeclare property as method.",
 
 t.interpret_for_error("Declare property twice.",
     """\
-    SyntaxError: Property a already exists in class ABC.\n    \
+    SyntaxError: A property in class ABC already has the name @a.\n    \
         from test\/[subinterp]:1:\
     """,
     """\
     class ABC { public var @a = 1 public var @a = 1 }
+    """)
+
+t.interpret_for_error("Declare method twice.",
+    """\
+    SyntaxError: A method in class 'ABC' already has the name 'a'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class ABC { public define a {} public define a {} }
     """)
 
 t.interpret_for_error("Attempt to close construct parameters.",

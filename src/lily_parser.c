@@ -2952,13 +2952,12 @@ static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
     return var;
 }
 
-/* The same thing as get_named_var, but with a property instead. */
-static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
+static void ensure_unique_class_member(lily_parse_state *parser,
+        const char *name)
 {
-    char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
-
     lily_named_sym *sym = lily_find_member(current_class, name, NULL);
+
     if (sym) {
         if (sym->item_kind == ITEM_TYPE_VAR)
             lily_raise_syn(parser->raiser,
@@ -2966,9 +2965,18 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
                     current_class->name, name);
         else
             lily_raise_syn(parser->raiser,
-                    "Property %s already exists in class %s.", name,
-                    current_class->name);
+                    "A property in class %s already has the name @%s.",
+                    current_class->name, name);
     }
+}
+
+/* The same thing as get_named_var, but with a property instead. */
+static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
+{
+    char *name = parser->lex->label;
+    lily_class *current_class = parser->class_self_type->cls;
+
+    ensure_unique_class_member(parser, name);
 
     lily_prop_entry *prop;
     prop = lily_add_class_property(parser->symtab, current_class, NULL, name,
@@ -3073,23 +3081,6 @@ static void var_handler(lily_parse_state *parser, int multi)
     parse_var(parser, 0);
 }
 
-static void ensure_unique_method_name(lily_parse_state *parser,
-        const char *name)
-{
-    if (lily_find_var(parser->symtab, NULL, name) != NULL)
-        lily_raise_syn(parser->raiser, "%s has already been declared.", name);
-
-    if (parser->class_self_type) {
-        lily_class *current_class = parser->class_self_type->cls;
-
-        if (lily_find_property(current_class, name)) {
-            lily_raise_syn(parser->raiser,
-                "A property in class '%s' already has the name '%s'.",
-                current_class->name, name);
-        }
-    }
-}
-
 static void send_optargs_for(lily_parse_state *parser, lily_type *type)
 {
     int count, i;
@@ -3115,11 +3106,16 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
 
-    ensure_unique_method_name(parser, lex->label);
+    if (lily_find_var(parser->symtab, NULL, lex->label) != NULL)
+        lily_raise_syn(parser->raiser, "%s has already been declared.",
+                lex->label);
 
     lily_class *parent;
-    if (parser->class_self_type)
+
+    if (parser->class_self_type) {
+        ensure_unique_class_member(parser, lex->label);
         parent = parser->class_self_type->cls;
+    }
     else
         parent = NULL;
 
