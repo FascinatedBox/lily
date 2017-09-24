@@ -509,3 +509,37 @@ t.interpret_for_error("Invalid class declaration location.",
         }
     }
     """)
+
+t.interpret_for_error("Private member used directly.",
+    """\
+    SyntaxError: f is a private member of class One, and not visible here.\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class One {
+        private define f {}
+    }
+
+    class Two < One {
+        public define g {
+            f()
+        }
+    }
+    """)
+
+t.interpret_for_error("Private member used through dot access.",
+    """\
+    SyntaxError: f is a private member of class One, and not visible here.\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class One {
+        private define f {}
+    }
+
+    class Two < One {
+        public define g {
+            self.f()
+        }
+    }
+    """)

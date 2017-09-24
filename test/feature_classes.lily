@@ -318,3 +318,22 @@ t.interpret("Verify that a lambda can call class methods through 'self'.",
     if v.v != 20:
         raise Exception("Failed.")
     """)
+
+t.interpret("Redeclare private member with new linkage.",
+    """
+    class One {
+        private var @a = 10
+        public define one_a: Integer { return @a }
+    }
+
+    class Two < One {
+        private var @a = 20
+        public define two_a: Integer { return @a }
+
+    }
+
+    var v = Two()
+
+    if v.two_a() != 20 || v.one_a() != 10:
+        raise Exception("Failed.")
+    """)

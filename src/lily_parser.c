@@ -2235,6 +2235,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     lily_module_entry *search_module = resolve_module(parser);
+    lily_module_entry *original_module = search_module;
 
     lily_var *var = lily_find_var(symtab, search_module, lex->label);
     if (var) {
@@ -2282,6 +2283,16 @@ static void expression_word(lily_parse_state *parser, int *state)
             dispatch_dynaload(parser, dl_result, state);
             return;
         }
+    }
+
+    if (original_module == NULL && parser->class_self_type) {
+        lily_class *cls = lily_find_class_of_member(
+                parser->class_self_type->cls, lex->label);
+
+        if (cls)
+            lily_raise_syn(parser->raiser,
+                    "%s is a private member of class %s, and not visible here.",
+                    lex->label, cls->name);
     }
 
     lily_raise_syn(parser->raiser, "%s has not been declared.", lex->label);

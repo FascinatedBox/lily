@@ -2106,9 +2106,17 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
             oo_name, NULL);
 
     if (item == NULL) {
-        lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
-                "Class %s has no method or property named %s.",
-                lookup_class->name, oo_name);
+        lily_class *cls = lily_find_class_of_member(lookup_class, oo_name);
+        if (cls) {
+            lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
+                    "%s is a private member of class %s, and not visible here.",
+                    oo_name, cls->name);
+        }
+        else {
+            lily_raise_adjusted(emit->raiser, ast->arg_start->line_num,
+                    "Class %s has no method or property named %s.",
+                    lookup_class->name, oo_name);
+        }
     }
     else if (item->item_kind == ITEM_TYPE_PROPERTY &&
              ast->arg_start->tree_type == tree_self) {

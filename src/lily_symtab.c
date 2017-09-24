@@ -666,13 +666,14 @@ lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
 }
 
 /* Does 'name' exist within 'cls' as either a var or a name? If so, return it.
-   If not, then return NULL.
+   If not, or if a private member, return NULL.
    If 'scope' is NULL, this does a full recursive search through 'cls'.
    Otherwise, this stops after searching through 'scope'. Calling this with
    the same scope as the class allows for static lookups. */
 lily_named_sym *lily_find_member(lily_class *cls, const char *name,
         lily_class *scope)
 {
+    lily_class *start_cls = cls;
     lily_named_sym *ret = NULL;
 
     while (1) {
@@ -682,7 +683,11 @@ lily_named_sym *lily_find_member(lily_class *cls, const char *name,
             while (sym_iter) {
                 if (sym_iter->name_shorthash == shorthash &&
                     strcmp(sym_iter->name, name) == 0) {
-                    ret = (lily_named_sym *)sym_iter;
+
+                    if ((sym_iter->flags & SYM_SCOPE_PRIVATE) == 0 ||
+                        cls == start_cls)
+                        ret = (lily_named_sym *)sym_iter;
+
                     break;
                 }
 
@@ -691,6 +696,34 @@ lily_named_sym *lily_find_member(lily_class *cls, const char *name,
         }
 
         if (ret || scope == cls || cls->parent == NULL)
+            break;
+
+        cls = cls->parent;
+    }
+
+    return ret;
+}
+
+lily_class *lily_find_class_of_member(lily_class *cls, const char *name)
+{
+    lily_class *ret = NULL;
+
+    while (1) {
+        if (cls->members != NULL) {
+            uint64_t shorthash = shorthash_for_name(name);
+            lily_named_sym *sym_iter = cls->members;
+            while (sym_iter) {
+                if (sym_iter->name_shorthash == shorthash &&
+                    strcmp(sym_iter->name, name) == 0) {
+                    ret = cls;
+                    break;
+                }
+
+                sym_iter = sym_iter->next;
+            }
+        }
+
+        if (ret || cls->parent == NULL)
             break;
 
         cls = cls->parent;
