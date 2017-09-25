@@ -369,13 +369,11 @@ typedef struct lily_proto_ {
    to. This is to prevent things like '[1,2,3][0] = 4'. */
 #define SYM_NOT_ASSIGNABLE      0x02
 
-#define SYM_CLOSED_OVER         0x04
-
 /* properties, vars: This is 'private' to the class it was declared within. */
-#define SYM_SCOPE_PRIVATE       0x08
+#define SYM_SCOPE_PRIVATE       0x04
 
 /* properties, vars: This is 'protected' to the class it was declared within. */
-#define SYM_SCOPE_PROTECTED     0x10
+#define SYM_SCOPE_PROTECTED     0x08
 
 /* There is no 'SYM_SCOPE_PUBLIC', because public is the default. */
 

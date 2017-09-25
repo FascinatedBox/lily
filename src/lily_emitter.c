@@ -847,7 +847,6 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 static void close_over_sym(lily_emit_state *emit, uint16_t depth, lily_sym *sym)
 {
     lily_u16_write_2(emit->closure_spots, sym->reg_spot, depth);
-    sym->flags |= SYM_CLOSED_OVER;
     emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
