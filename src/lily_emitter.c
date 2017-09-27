@@ -649,9 +649,11 @@ void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
     else if (block->last_exit != lily_u16_pos(emit->code)) {
         lily_type *type = block->function_var->type->subtypes[0];
 
-        if (type == lily_unit_type ||
-            type == lily_self_class->self_type)
+        if (type == lily_unit_type)
             lily_u16_write_2(emit->code, o_return_unit, line_num);
+        else if (type == lily_self_class->self_type)
+            /* The implicit 'self' of a class method is always first (at 0). */
+            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
         else
             lily_raise_syn(emit->raiser,
                     "Missing return statement at end of function.");

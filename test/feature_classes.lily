@@ -337,3 +337,27 @@ t.interpret("Redeclare private member with new linkage.",
     if v.two_a() != 20 || v.one_a() != 10:
         raise Exception("Failed.")
     """)
+
+t.interpret("Returning the special self type works.",
+    """\
+    class One {
+        public var @a = 1
+        public define f: self { @a += 100 }
+    }
+
+    class Two < One {
+        public var @b = 2
+        public define g: self { @b += 1000 }
+    }
+
+    var a = Two()
+
+    a = a.f()
+         .g()
+
+    a = a.g()
+         .f()
+
+    if a.a != 201 || a.b != 2002:
+        raise Exception("Failed.")
+    """)
