@@ -83,3 +83,23 @@ t.interpret_for_error("Unterminated lambda after # comment.",
         =
         #
     """)
+
+t.interpret_for_error("Lambdas must not be marked as returning 'self'.",
+    """\
+    SyntaxError: Lambdas cannot return the self type (not a class method).\n    \
+        from test\/[subinterp]:8:\
+    """,
+    """\
+    class Abc {
+        public define f: self {  }
+        public define g[A](a: Function(Abc => A), b: Function( => A)): Function( => A) {
+            return b
+        }
+
+        public define h {
+            g(f, (|| 10 ))()()
+        }
+    }
+
+    Abc().h()
+    """)
