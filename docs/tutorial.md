@@ -3,18 +3,18 @@ Lily Tutorial
 
 This tutorial provides a brief overview of the following:
 
-* [Install](#Install)
-* [Modes](#Modes)
-* [Comments](#Comments)
-* [Literals](#Literals)
-* [Variables](#Variables)
-* [Blocks](#Blocks)
-* [Functions](#Functions)
-* [Classes](#Classes)
-* [Generics](#Generics)
-* [Lambdas](#Lambdas)
-* [Enums](#Enums)
-* [Import](#Import)
+* [Install](#install)
+* [Modes](#modes)
+* [Comments](#comments)
+* [Literals](#literals)
+* [Variables](#variables)
+* [Blocks](#blocks)
+* [Functions](#functions)
+* [Classes](#classes)
+* [Generics](#generics)
+* [Lambdas](#lambdas)
+* [Enums](#enums)
+* [Import](#import)
 
 ### Install
 
