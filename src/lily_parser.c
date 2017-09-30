@@ -3763,7 +3763,7 @@ static void import_handler(lily_parse_state *parser, int multi)
 
         /* The import path may include slashes. Use this to scan the path,
            because it won't allow spaces in between. */
-        char *full_path = (char *) malloc(256);
+        char full_path[256];
         lily_scan_import_path(lex, full_path);
 
         lily_module_entry *module = NULL;
