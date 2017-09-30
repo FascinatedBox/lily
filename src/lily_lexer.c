@@ -1131,7 +1131,7 @@ void lily_scan_import_path(lily_lex_state *lexer, char *path)
     int found_first_token = 0;
 
     while (1) {
-        if(lexer->token == tk_three_dots) {
+        if(lexer->token == tk_two_dots) {
             *path = '.';
             path++;
             *path = '.';
@@ -1144,7 +1144,7 @@ void lily_scan_import_path(lily_lex_state *lexer, char *path)
             path += strlen(lexer->label);
         } else {
             if(!found_first_token)
-                lily_raise_syn(lexer->raiser, "Expected ., ... or word, not '%s'.", tokname(lexer->token));
+                lily_raise_syn(lexer->raiser, "Expected ., .. or word, not '%s'.", tokname(lexer->token));
         }
 
         found_first_token = 1;
@@ -1374,8 +1374,7 @@ void lily_lexer(lily_lex_state *lexer)
                         token = tk_three_dots;
                     }
                     else
-                        lily_raise_syn(lexer->raiser,
-                                "'..' is not a valid token (expected 1 or 3 dots).");
+                        token = tk_two_dots;
                 }
             }
         }

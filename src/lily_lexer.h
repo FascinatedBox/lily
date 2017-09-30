@@ -72,7 +72,8 @@ typedef enum {
     tk_invalid,
     tk_end_lambda,
     tk_end_tag,
-    tk_eof
+    tk_eof,
+    tk_two_dots
 } lily_token;
 
 typedef enum {
