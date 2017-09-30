@@ -36,6 +36,14 @@ t.interpret("Check getting a var from an imported target.",
     var v = deep_target.v
     """)
 
+t.interpret("Check getting a var from a parent directory.",
+    """\
+    import ../../lily/test/import_dir/var_exporter
+
+    if var_exporter.v != 10:
+        raise Exception("Failed.")
+    """)
+
 t.interpret("Check using the type of __import__.",
     """\
     import import_dir/var_access

@@ -1,4 +1,0 @@
-import ../../lily/test/import_dir/var_exporter
-
-if var_exporter.v != 10:
-	stderr.print("Failed!")
