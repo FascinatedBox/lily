@@ -135,6 +135,7 @@ const char *lily_mb_raw(lily_msgbuf *msgbuf)
 
 void lily_mb_add(lily_msgbuf *msgbuf, const char *str)
 {
+    if (str == 0) str = "(null)";
     size_t len = strlen(str);
 
     if ((msgbuf->pos + len + 1) > msgbuf->size)
