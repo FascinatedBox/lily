@@ -9,6 +9,7 @@ typedef struct {
 keyword_entry constants[] = {
     {"true",         1702195828},
     {"self",         1718379891},
+    {"unit",         1953066613},
     {"false",        435728179558},
     {"__file__",     6872323072689856351},
     {"__line__",     6872323081280184159},
@@ -17,11 +18,12 @@ keyword_entry constants[] = {
 
 #define CONST_TRUE        0
 #define CONST_SELF        1
-#define CONST_FALSE       2
-#define CONST__FILE__     3
-#define CONST__LINE__     4
-#define CONST__FUNCTION__ 5
-#define CONST_LAST_ID     5
+#define CONST_UNIT        2
+#define CONST_FALSE       3
+#define CONST__FILE__     4
+#define CONST__LINE__     5
+#define CONST__FUNCTION__ 6
+#define CONST_LAST_ID     6
 
 keyword_entry keywords[] = {
     {"if",           26217},

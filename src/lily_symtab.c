@@ -136,7 +136,8 @@ static void free_literals(lily_value_stack *literals)
            the vm's run. Any literal that isn't primitive will have 1 ref, and
            can be destroyed by sending it to deref. */
         if (lit->class_id != LILY_ID_INTEGER &&
-            lit->class_id != LILY_ID_DOUBLE) {
+            lit->class_id != LILY_ID_DOUBLE &&
+            lit->class_id != LILY_ID_UNIT) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
         }
@@ -252,6 +253,15 @@ static lily_value *new_value_of_string(lily_string_val *sv)
 
     v->flags = LILY_ID_STRING | VAL_IS_DEREFABLE;
     v->value.string = sv;
+    return v;
+}
+
+static lily_value *new_value_of_unit(void)
+{
+    lily_value *v = lily_malloc(sizeof(*v));
+
+    v->flags = LILY_ID_UNIT;
+    v->value.integer = 0;
     return v;
 }
 
@@ -391,6 +401,22 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
 
     lily_vs_push(symtab->literals, (lily_value *)v);
     return (lily_literal *)v;
+}
+
+lily_literal *lily_get_unit_literal(lily_symtab *symtab)
+{
+    lily_literal *lit = first_lit_of(symtab->literals, LILY_ID_UNIT);
+
+    if (lit == NULL) {
+        lily_literal *v = (lily_literal *)new_value_of_unit();
+        v->reg_spot = lily_vs_pos(symtab->literals);
+        v->next_index = 0;
+
+        lit = v;
+        lily_vs_push(symtab->literals, (lily_value *)v);
+    }
+
+    return lit;
 }
 
 /***

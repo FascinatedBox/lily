@@ -530,3 +530,11 @@ t.interpret("Cover declaring a var of type Unit.",
 
     var v: Unit = f()
     """)
+
+t.interpret("Cover equality of an empty function return and 'unit'.",
+    """
+    define f { }
+
+    if f() != unit:
+        raise Exception("Failed.")
+    """)

@@ -2142,6 +2142,8 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
         literal_cls = parser->symtab->string_class;
     else if (lit->class_id == LILY_ID_BYTESTRING)
         literal_cls = parser->symtab->bytestring_class;
+    else if (lit->class_id == LILY_ID_UNIT)
+        literal_cls = lily_unit_type->cls;
     else
         /* Impossible, but keeps the compiler from complaining. */
         literal_cls = lily_question_type->cls;
@@ -2185,6 +2187,10 @@ static void push_constant(lily_parse_state *parser, int key_id)
         lily_es_push_boolean(es, 0);
     else if (key_id == CONST_SELF)
         lily_es_push_self(es);
+    else if (key_id == CONST_UNIT) {
+        lit = lily_get_unit_literal(symtab);
+        push_literal(parser, lit);
+    }
 }
 
 /* This is called when a class (enum or regular) is found. This determines how
