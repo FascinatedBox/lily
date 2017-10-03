@@ -1553,6 +1553,14 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
             result = find_run_class_dynaload(parser, symtab->active_module,
                     lex->label);
 
+        /* Unit is a special case because it's global+readonly because the type
+           system needs to use it often. Since the Unit type isn't common, the
+           search is written manually here. */
+        if (result == NULL && search_module == symtab->builtin_module) {
+            if (strcmp(lex->label, "Unit") == 0)
+                result = lily_unit_type->cls;
+        }
+
         if (result == NULL)
             lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
                     lex->label);

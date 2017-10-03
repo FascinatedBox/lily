@@ -523,3 +523,10 @@ t.interpret_raw("Cover use of an imported scoped enum.",
     if v2 != [3, 1, 2]:
         raise Exception("Failed to match and transform.")
     """)
+
+t.interpret("Cover declaring a var of type Unit.",
+    """
+    define f { }
+
+    var v: Unit = f()
+    """)
