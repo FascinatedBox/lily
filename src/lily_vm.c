@@ -10,7 +10,6 @@
 #include "lily_value_stack.h"
 #include "lily_value_flags.h"
 #include "lily_value_raw.h"
-#include "lily_move.h"
 
 #include "lily_int_opcode.h"
 
@@ -585,6 +584,87 @@ static lily_container_val *new_container(uint16_t class_id, int num_values)
     return cv;
 }
 
+static void move_byte(lily_value *v, uint8_t z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.integer = z;
+    v->flags = LILY_ID_BYTE;
+}
+
+static void move_function_f(uint32_t f, lily_value *v, lily_function_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.function = z;
+    v->flags = f | LILY_ID_FUNCTION | VAL_IS_DEREFABLE;
+}
+
+static void move_hash_f(uint32_t f, lily_value *v, lily_hash_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.hash = z;
+    v->flags = f | LILY_ID_HASH | VAL_IS_DEREFABLE;
+}
+
+static void move_instance_f(uint32_t f, lily_value *v, lily_container_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.container = z;
+    v->flags = f | z->class_id | VAL_IS_INSTANCE | VAL_IS_CONTAINER | VAL_IS_DEREFABLE;
+}
+
+static void move_list_f(uint32_t f, lily_value *v, lily_container_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.container = z;
+    v->flags = f | LILY_ID_LIST | VAL_IS_INSTANCE | VAL_IS_DEREFABLE;
+}
+
+static void move_string(lily_value *v, lily_string_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.string = z;
+    v->flags = LILY_ID_STRING | VAL_IS_DEREFABLE;
+}
+
+static void move_tuple_f(uint32_t f, lily_value *v, lily_container_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.container = z;
+    v->flags = f | LILY_ID_TUPLE | VAL_IS_CONTAINER | VAL_IS_DEREFABLE;
+}
+
+static void move_unit(lily_value *v)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.integer = 0;
+    v->flags = LILY_ID_UNIT;
+}
+
+static void move_variant_f(uint32_t f, lily_value *v, lily_container_val *z)
+{
+    if (v->flags & VAL_IS_DEREFABLE)
+        lily_deref(v);
+
+    v->value.container = z;
+    v->flags = f | z->class_id | VAL_IS_ENUM | VAL_IS_CONTAINER | VAL_IS_DEREFABLE;
+}
+
 #define PUSH_PREAMBLE \
 lily_call_frame *frame = s->call_chain; \
 if (frame->top == frame->register_end) { \
@@ -994,7 +1074,7 @@ void lily_builtin__calltrace(lily_vm_state *vm)
     vm->call_depth++;
     vm->call_chain = vm->call_chain->next;
 
-    lily_move_list_f(MOVE_DEREF_NO_GC, vm->call_chain->return_target, trace);
+    move_list_f(0, vm->call_chain->return_target, trace);
 }
 
 static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
@@ -1145,7 +1225,7 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
         if (lhs_reg->class_id == LILY_ID_BYTESTRING) {
             lily_string_val *bytev = lhs_reg->value.string;
             RELATIVE_INDEX(bytev->size)
-            lily_move_byte(result_reg, (uint8_t) bytev->string[index_int]);
+            move_byte(result_reg, (uint8_t) bytev->string[index_int]);
         }
         else {
             /* List and Tuple have the same internal representation. */
@@ -1187,7 +1267,7 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
         lily_hash_set(vm, hash_val, key_reg, value_reg);
     }
 
-    lily_move_hash_f(MOVE_DEREF_SPECULATIVE, result, hash_val);
+    move_hash_f(VAL_IS_GC_SPECULATIVE, result, hash_val);
 }
 
 /* Lists and tuples are effectively the same thing internally, since the list
@@ -1216,9 +1296,9 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     }
 
     if (code[0] == o_build_list)
-        lily_move_list_f(MOVE_DEREF_SPECULATIVE, result, lv);
+        move_list_f(VAL_IS_GC_SPECULATIVE, result, lv);
     else
-        lily_move_tuple_f(MOVE_DEREF_SPECULATIVE, result, (lily_container_val *)lv);
+        move_tuple_f(VAL_IS_GC_SPECULATIVE, result, (lily_container_val *)lv);
 }
 
 static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
@@ -1237,7 +1317,7 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
         lily_value_assign(slots[i], rhs_reg);
     }
 
-    lily_move_variant_f(MOVE_DEREF_SPECULATIVE, result, ival);
+    move_variant_f(VAL_IS_GC_SPECULATIVE, result, ival);
 }
 
 /* This raises a user-defined exception. The emitter has verified that the thing
@@ -1296,9 +1376,9 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     iv->instance_ctor_need = instance_class->inherit_depth;
 
     if (flags == VAL_IS_GC_SPECULATIVE)
-        lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, iv);
+        move_instance_f(VAL_IS_GC_SPECULATIVE, result, iv);
     else {
-        lily_move_instance_f(MOVE_DEREF_NO_GC, result, iv);
+        move_instance_f(0, result, iv);
         if (flags == VAL_IS_GC_SWEEPABLE)
             lily_value_tag(vm, result);
     }
@@ -1319,7 +1399,7 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     lily_value *result_reg = vm_regs[code[2 + i]];
 
     lily_string_val *sv = lily_new_string_raw(lily_mb_raw(vm_buffer));
-    lily_move_string(result_reg, sv);
+    move_string(result_reg, sv);
 }
 
 /***
@@ -1397,7 +1477,7 @@ static lily_value **do_o_closure_new(lily_vm_state *vm, uint16_t *code)
     /* Put the closure into a register so that the gc has an easy time of
        finding it. This also helps to ensure it goes away in a more predictable
        manner, in case there aren't many gc objects. */
-    lily_move_function_f(MOVE_DEREF_NO_GC, result, closure_func);
+    move_function_f(0, result, closure_func);
     lily_value_tag(vm, result);
 
     /* Swap out the currently-entered function. This will make it so that all
@@ -1459,7 +1539,7 @@ static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
         }
     }
 
-    lily_move_function_f(MOVE_DEREF_SPECULATIVE, result_reg, new_closure);
+    move_function_f(VAL_IS_GC_SPECULATIVE, result_reg, new_closure);
     lily_value_tag(vm, result_reg);
 }
 
@@ -1512,7 +1592,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
                 line, proto->name);
 
         lily_string_val *sv = lily_new_string_raw(str);
-        lily_move_string(lv->values[i - 1], sv);
+        move_string(lv->values[i - 1], sv);
     }
 
     return lv;
@@ -1529,11 +1609,11 @@ static void make_proper_exception_val(lily_vm_state *vm,
     lily_container_val *ival = new_container(raised_cls->id, 2);
 
     lily_string_val *sv = lily_new_string_raw(raw_message);
-    lily_move_string(ival->values[0], sv);
+    move_string(ival->values[0], sv);
 
-    lily_move_list_f(MOVE_DEREF_NO_GC, ival->values[1], build_traceback_raw(vm));
+    move_list_f(0, ival->values[1], build_traceback_raw(vm));
 
-    lily_move_instance_f(MOVE_DEREF_SPECULATIVE, result, ival);
+    move_instance_f(VAL_IS_GC_SPECULATIVE, result, ival);
 }
 
 /* This is called when 'raise' raises an error. The traceback property is
@@ -1545,7 +1625,7 @@ static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
     lily_container_val *raw_trace = build_traceback_raw(vm);
     lily_container_val *iv = result->value.container;
 
-    lily_move_list_f(MOVE_DEREF_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
+    move_list_f(VAL_IS_GC_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
 }
 
 /* This is called when the vm has raised an exception. This changes control to
@@ -2157,7 +2237,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_return_unit:
-                lily_move_unit(current_frame->return_target);
+                move_unit(current_frame->return_target);
                 goto return_common;
 
             case o_return_value:

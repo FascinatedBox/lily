@@ -3,7 +3,6 @@
 #include "lily.h"
 
 #include "lily_value_structs.h"
-#include "lily_move.h"
 #include "lily_vm.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
