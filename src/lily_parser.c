@@ -1657,17 +1657,20 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     lily_type *save_self_type = parser->class_self_type;
     parser->class_self_type = build_self_type(parser, enum_cls);
 
-    do {
-        entry_index++;
-        entry = table[entry_index];
-    } while (entry[0] != 'V');
-
-    if (entry[0] != 'V')
+    /* A flat enum like Option will have a header that points past any methods
+       to the variants. On the other hand, scoped enums will have a header that
+       points past the variants. */
+    if (m->dynaload_table[entry_index + 1 + entry[1]][0] != 'V')
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;
 
     enum_cls->dyna_start = dyna_index + 1;
 
     int variant_count = 0;
+
+    do {
+        entry_index++;
+        entry = table[entry_index];
+    } while (entry[0] != 'V');
 
     while (entry[0] == 'V') {
         name = entry + DYNA_NAME_OFFSET;
@@ -1708,14 +1711,19 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
 {
     int enum_pos = dyna_index - 1;
     const char **table = m->dynaload_table;
-    const char *entry = table[dyna_index - 1];
-    while (entry[0] != 'E') {
+    const char *entry;
+
+    while (1) {
         entry = table[enum_pos];
+
+        if (entry[0] == 'E')
+            break;
+
         enum_pos--;
     }
 
+    dynaload_enum(parser, m, enum_pos);
     entry = table[dyna_index];
-    dynaload_enum(parser, m, enum_pos + 1);
     return lily_find_class(parser->symtab, m, entry + DYNA_NAME_OFFSET);
 }
 

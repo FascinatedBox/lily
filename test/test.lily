@@ -3,6 +3,7 @@ import extend
 scoped enum TestAction {
     Expect(Function( => Boolean)),
     Interpret(String),
+    InterpretRaw(String),
     Expression(String),
     Render(String),
     Rewind(String, String)
@@ -32,6 +33,10 @@ class TestGroup {
 
     public define interpret(message: String, to_interpret: String) {
         @tests.push(<[@test_scope, message, "", TestAction.Interpret(to_interpret)]>)
+    }
+
+    public define interpret_raw(message: String, to_interpret: String) {
+        @tests.push(<[@test_scope, message, "", TestAction.InterpretRaw(to_interpret)]>)
     }
 
     public define interpret_for_error(message: String, expect: String,
@@ -121,6 +126,13 @@ class TestGroup {
                 case TestAction.Rewind(prelude, to_interpret):
                     receive_str = extend.parse_rewind("test\/[subinterp]", prelude, to_interpret)
                     receive_str = receive_str.slice(0, -1)
+                case TestAction.InterpretRaw(to_interpret):
+                    match extend.parse_string("", to_interpret): {
+                        case Success(s):
+                            receive_str = ""
+                        case Failure(f):
+                            receive_str = f.slice(0, -1)
+                    }
             }
 
             if expect_str != receive_str: {
