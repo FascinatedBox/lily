@@ -462,6 +462,7 @@ t.expression("Broken expression.",
     1 +
     """)
 
+#[
 t.interpret_raw("Cover use of an imported flat enum.",
     """
     import (FlatEnum, FlatOne, FlatTwo, FlatThree) lib/covlib
@@ -523,6 +524,7 @@ t.interpret_raw("Cover use of an imported scoped enum.",
     if v2 != [3, 1, 2]:
         raise Exception("Failed to match and transform.")
     """)
+]#
 
 t.interpret("Cover declaring a var of type Unit.",
     """
