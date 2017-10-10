@@ -1,3 +1,27 @@
+Version 1.2 (2017-10-10)
+========================
+
+What's new:
+
+* Optional arguments can now be whole expressions. Previously, they could only
+  be a single value.
+
+* Get around to implementing bitwise not `~` and making `^=` work right.
+
+* The backend scoop types are now `$1` and `$2` instead of `1` and `2`.
+
+* Class methods no longer have `public` as a default scope. Instead, a user must
+  explicitly specify `public` / `protected` / `private`.
+
+* Expressions such as `var v = []` no longer use `Dynamic` to solve for unknown
+  types. Code such as the above is now a syntax error.
+
+* It is now possible to directly import symbols from another module through
+  `import (x, y) z`.
+
+* A large number of tests were added which resulted a few bugs showing up and
+  being fixed.
+
 Version 1.1 (2017-7-10)
 =======================
 
