@@ -3430,6 +3430,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
         /* Don't solve this yet, because eval_call_arg solves it (and double
            solving is bad). */
         lily_type *vararg_type = arg_types[i + 1];
+        lily_type *original_vararg = vararg_type;
         int is_optarg = 0;
 
         /* Varargs are presented as a `List` of their inner values, so use
@@ -3437,7 +3438,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
            a double unwrap. */
         if (vararg_type->cls->id == LILY_ID_OPTARG) {
             is_optarg = 1;
-            vararg_type = vararg_type->subtypes[0]->subtypes[0];
+            original_vararg = original_vararg->subtypes[0];
+            vararg_type = original_vararg->subtypes[0];
         }
         else
             vararg_type = vararg_type->subtypes[0];
@@ -3457,7 +3459,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
             vararg_type = lily_ts_resolve(emit->ts, vararg_type);
 
         if (vararg_i != i || is_optarg == 0) {
-            vararg_s = get_storage(emit, vararg_type);
+            vararg_s = get_storage(emit, original_vararg);
             lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
             for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
                 lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
