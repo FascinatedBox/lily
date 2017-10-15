@@ -543,3 +543,12 @@ t.interpret_for_error("Private member used through dot access.",
         }
     }
     """)
+
+t.interpret_for_error("Shorthand constructor var self-init.",
+    """\
+    SyntaxError: Invalid use of uninitialized property '@a'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test(var @a: *Integer = @a) { }
+    """)
