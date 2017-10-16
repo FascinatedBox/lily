@@ -1099,7 +1099,7 @@ t.interpret_for_error("Define wrong token.",
 
 t.interpret_for_error("Define empty ().",
     """\
-    SyntaxError: Empty () not needed for a define.\n    \
+    SyntaxError: Empty () found while reading input arguments. Omit instead.\n    \
         from test\/[subinterp]:1:\
     """,
     """\

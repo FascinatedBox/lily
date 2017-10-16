@@ -514,7 +514,7 @@ t.interpret_for_error("Variant decl wrong token.",
 
 t.interpret_for_error("Variant decl empty ().",
     """\
-    SyntaxError: Empty () not needed for a variant.\n    \
+    SyntaxError: Empty () found while reading input arguments. Omit instead.\n    \
         from test\/[subinterp]:2:\
     """,
     """\

@@ -384,7 +384,7 @@ t.interpret_for_error("Class decl wrong token.",
 
 t.interpret_for_error("Class decl empty ().",
     """\
-    SyntaxError: Empty () not needed for a class.\n    \
+    SyntaxError: Empty () found while reading input arguments. Omit instead.\n    \
         from test\/[subinterp]:1:\
     """,
     """\
