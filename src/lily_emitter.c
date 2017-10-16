@@ -2870,7 +2870,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_tm_add(emit->tm, arg->result->type);
     }
 
-    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->tuple_class,
+    lily_type *new_type = lily_tm_make(emit->tm, emit->symtab->tuple_class,
             i);
     lily_storage *s = get_storage(emit, new_type);
 
@@ -3040,7 +3040,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         num = 1;
     }
 
-    lily_storage *s = get_storage(emit, lily_tm_make(emit->tm, 0, cls, num));
+    lily_storage *s = get_storage(emit, lily_tm_make(emit->tm, cls, num));
     write_build_op(emit, op, ast->arg_start, ast->line_num, 0, s);
     ast->result = (lily_sym *)s;
 }
@@ -3099,7 +3099,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     lily_class *hash_cls = emit->symtab->hash_class;
     lily_tm_add(emit->tm, key_type);
     lily_tm_add(emit->tm, value_type);
-    lily_type *new_type = lily_tm_make(emit->tm, 0, hash_cls, 2);
+    lily_type *new_type = lily_tm_make(emit->tm, hash_cls, 2);
 
     lily_storage *s = get_storage(emit, new_type);
 
@@ -3137,7 +3137,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     }
 
     lily_tm_add(emit->tm, elem_type);
-    lily_type *new_type = lily_tm_make(emit->tm, 0, emit->symtab->list_class,
+    lily_type *new_type = lily_tm_make(emit->tm, emit->symtab->list_class,
             1);
 
     lily_storage *s = get_storage(emit, new_type);

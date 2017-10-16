@@ -1022,8 +1022,8 @@ static void create_main_func(lily_parse_state *parser)
     lily_type_maker *tm = parser->emit->tm;
 
     lily_tm_add(tm, lily_unit_type);
-    lily_type *main_type = lily_tm_make(tm, 0, parser->symtab->function_class,
-            1);
+    lily_type *main_type = lily_tm_make_call(tm, 0,
+            parser->symtab->function_class, 1);
 
     lily_var *main_var = new_native_define_var(parser, NULL, "__main__", 0);
     lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
@@ -1086,7 +1086,7 @@ static lily_type *make_type_of_class(lily_parse_state *parser, lily_class *cls,
         lily_type *type)
 {
     lily_tm_add(parser->tm, type);
-    return lily_tm_make(parser->tm, 0, cls, 1);
+    return lily_tm_make(parser->tm, cls, 1);
 }
 
 /* This checks to see if 'type' got as many subtypes as it was supposed to. If
@@ -1318,7 +1318,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
                         tokname(lex->token));
         }
 
-        result = lily_tm_make(parser->tm, 0, cls, i);
+        result = lily_tm_make(parser->tm, cls, i);
         ensure_valid_type(parser, result);
     }
     else if (cls->id == LILY_ID_FUNCTION) {
@@ -1351,7 +1351,8 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        result = lily_tm_make(parser->tm, arg_flags & ~F_SCOOP_OK, cls, i + 1);
+        result = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT, cls,
+                i + 1);
     }
     else
         result = NULL;
@@ -1444,7 +1445,7 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
             generics_used--;
         }
 
-        result = lily_tm_make(parser->tm, 0, cls, (name[0] - 'A'));
+        result = lily_tm_make(parser->tm, cls, (name[0] - 'A'));
         cls->self_type = result;
     }
     else
@@ -1521,7 +1522,7 @@ static lily_type *collect_call_args(lily_parse_state *parser, int arg_flags)
         }
     }
 
-    return lily_tm_make(parser->tm, arg_flags & F_NO_COLLECT,
+    return lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
             parser->symtab->function_class, i + 1);
 }
 
@@ -2929,7 +2930,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
         expect_type->flags & TYPE_IS_VARARGS)
         flags = TYPE_IS_VARARGS;
 
-    lambda_var->type = lily_tm_make(parser->tm, flags,
+    lambda_var->type = lily_tm_make_call(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);
 
     hide_block_vars(parser);

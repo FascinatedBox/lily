@@ -146,7 +146,28 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     return new_type;
 }
 
-lily_type *lily_tm_make(lily_type_maker *tm, int flags, lily_class *cls,
+lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls, int num_entries)
+{
+    lily_type fake_type;
+
+    fake_type.cls = cls;
+    fake_type.generic_pos = 0;
+    fake_type.subtypes = tm->types + (tm->pos - num_entries);
+    fake_type.subtype_count = num_entries;
+    fake_type.flags = 0;
+    fake_type.next = NULL;
+
+    lily_type *result_type = lookup_type(&fake_type);
+    if (result_type == NULL) {
+        fake_type.item_kind = ITEM_TYPE_TYPE;
+        result_type = build_real_type_for(&fake_type);
+    }
+
+    tm->pos -= num_entries;
+    return result_type;
+}
+
+lily_type *lily_tm_make_call(lily_type_maker *tm, int flags, lily_class *cls,
         int num_entries)
 {
     lily_type fake_type;

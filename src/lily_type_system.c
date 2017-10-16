@@ -83,7 +83,11 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
         for (;i < type->subtype_count;i++)
             lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
 
-        ret = lily_tm_make(ts->tm, type->flags, type->cls, ts->tm->pos - start);
+        if (type->cls->id == LILY_ID_FUNCTION)
+            ret = lily_tm_make_call(ts->tm, type->flags, type->cls,
+                    ts->tm->pos - start);
+        else
+            ret = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
     }
     else if (type->cls->id == LILY_ID_GENERIC)
         ret = ts->types[ts->pos + type->generic_pos];
@@ -91,16 +95,22 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
     return ret;
 }
 
-static void simple_unify(lily_type_system *ts, lily_type *left,
+static void unify_call(lily_type_system *ts, lily_type *left,
+        lily_type *right, int num_subtypes)
+{
+    lily_class *cls = left->cls->id < right->cls->id ? left->cls : right->cls;
+    int flags = (left->flags & TYPE_IS_VARARGS) &
+                (right->flags & TYPE_IS_VARARGS);
+    lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, cls, num_subtypes));
+}
+
+static void unify_simple(lily_type_system *ts, lily_type *left,
         lily_type *right, int num_subtypes)
 {
     lily_class *cls = left->cls->id < right->cls->id ? left->cls : right->cls;
 
-    if (num_subtypes) {
-        int flags = (left->flags & TYPE_IS_VARARGS) &
-                    (right->flags & TYPE_IS_VARARGS);
-        lily_tm_add(ts->tm, lily_tm_make(ts->tm, flags, cls, num_subtypes));
-    }
+    if (num_subtypes)
+        lily_tm_add(ts->tm, lily_tm_make(ts->tm, cls, num_subtypes));
     else
         lily_tm_add(ts->tm, cls->self_type);
 }
@@ -199,7 +209,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
         ret = 0;
 
     if (ret && flags & T_UNIFY)
-        simple_unify(ts, left, right, left->subtype_count);
+        unify_call(ts, left, right, left->subtype_count);
 
     return ret;
 }
@@ -273,7 +283,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
     }
 
     if (ret && flags & T_UNIFY)
-        simple_unify(ts, left, right, num_subtypes);
+        unify_simple(ts, left, right, num_subtypes);
 
     return ret;
 }
