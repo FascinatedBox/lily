@@ -1417,7 +1417,8 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
 
 typedef lily_type *(*collect_fn)(lily_parse_state *, int *);
 
-static lily_type *collect_call_args(lily_parse_state *parser, int arg_flags)
+static void collect_call_args(lily_parse_state *parser, void *target,
+        int arg_flags)
 {
     lily_lex_state *lex = parser->lex;
     /* -1 because Unit is injected at the front beforehand. */
@@ -1483,15 +1484,24 @@ static lily_type *collect_call_args(lily_parse_state *parser, int arg_flags)
         }
     }
 
-    return lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
+    lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
             parser->symtab->function_class, i + 1);
+
+    if ((arg_flags & F_COLLECT_VARIANT) == 0) {
+        lily_var *var = (lily_var *)target;
+        var->type = t;
+    }
+    else {
+        lily_variant_class *cls = (lily_variant_class *)target;
+        cls->build_type = t;
+    }
 }
 
 /***
  *      ____                    _                 _
  *     |  _ \ _   _ _ __   __ _| | ___   __ _  __| |
  *     | | | | | | | '_ \ / _` | |/ _ \ / _` |/ _` |
- *     | |_| | |_| | | | | (_| | | (_) | (_| | (_| |
+ *     | |_| | |_| | | | | (_| | p| (_) | (_| | (_| |
  *     |____/ \__, |_| |_|\__,_|_|\___/ \__,_|\__,_|
  *            |___/
  */
@@ -1636,8 +1646,8 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     return result;
 }
 
-static lily_type *dynaload_function(lily_parse_state *parser,
-        lily_module_entry *m, int dyna_index)
+static void dynaload_function(lily_parse_state *parser, lily_module_entry *m,
+        lily_var *var, int dyna_index)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -1650,11 +1660,9 @@ static lily_type *dynaload_function(lily_parse_state *parser,
     lily_lexer(lex);
     collect_generics(parser);
     lily_tm_add(parser->tm, lily_unit_type);
-    lily_type *result = collect_call_args(parser, F_COLLECT_DYNALOAD);
+    collect_call_args(parser, var, F_COLLECT_DYNALOAD);
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
     lily_pop_lex_entry(lex);
-
-    return result;
 }
 
 static lily_var *new_foreign_define_var(lily_parse_state *parser,
@@ -1690,13 +1698,12 @@ static lily_var *new_foreign_define_var(lily_parse_state *parser,
             dyna_index);
 
     make_new_function(parser, class_name, var, func);
+    dynaload_function(parser, m, var, dyna_index);
 
-    lily_type *dyna_type = dynaload_function(parser, m, dyna_index);
     lily_value *v = lily_vs_nth(parser->symtab->literals, var->reg_spot);
     lily_function_val *f = v->value.function;
 
-    var->type = dyna_type;
-    f->reg_count = dyna_type->subtype_count;
+    f->reg_count = var->type->subtype_count;
     parser->symtab->active_module = saved_active;
 
     return var;
@@ -3250,7 +3257,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         parser->emit->block->self = (lily_storage *)self_var;
     }
 
-    define_var->type = collect_call_args(parser, F_COLLECT_DEFINE);
+    collect_call_args(parser, define_var, F_COLLECT_DEFINE);
 
     NEED_CURRENT_TOK(tk_left_curly)
 
@@ -4133,7 +4140,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     parser->class_self_type = build_self_type(parser, cls);
 
     lily_tm_add(parser->tm, parser->class_self_type);
-    call_var->type = collect_call_args(parser, F_COLLECT_CLASS);
+    collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
     lily_class *super_cls = NULL;
 
@@ -4292,9 +4299,8 @@ static void parse_variant_header(lily_parse_state *parser,
     /* For consistency with `Function`, the result of a variant is the
        all-generic type of the parent enum. */
     lily_tm_add(parser->tm, variant_cls->parent->self_type);
-    lily_type *build_type = collect_call_args(parser, F_COLLECT_VARIANT);
+    collect_call_args(parser, variant_cls, F_COLLECT_VARIANT);
 
-    variant_cls->build_type = build_type;
     variant_cls->flags &= ~CLS_EMPTY_VARIANT;
 }
 
