@@ -83,9 +83,9 @@ typedef struct lily_random_Random_ {
 
 const char *lily_random_table[] = {
     "\01Random\0"
-    ,"C\02Random"
-    ,"m\0<new>\0(*Integer):Random"
-    ,"m\0between\0(Random,Integer,Integer):Integer"
+    ,"C\02Random\0"
+    ,"m\0<new>\0(*Integer): Random"
+    ,"m\0between\0(Random,Integer,Integer): Integer"
     ,"Z"
 };
 #define Random_OFFSET 1

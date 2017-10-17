@@ -9,10 +9,10 @@ This provides extension functions to the testing suite.
 /** Begin autogen section. **/
 const char *lily_extend_table[] = {
     "\0\0"
-    ,"F\0render_string\0(String,String):Result[String,Boolean]"
-    ,"F\0parse_string\0(String,String):Result[String,Boolean]"
-    ,"F\0parse_expr\0(String,String):Result[String,String]"
-    ,"F\0parse_rewind\0(String,String,String):String"
+    ,"F\0render_string\0(String,String): Result[String,Boolean]"
+    ,"F\0parse_string\0(String,String): Result[String,Boolean]"
+    ,"F\0parse_expr\0(String,String): Result[String,String]"
+    ,"F\0parse_rewind\0(String,String,String): String"
     ,"Z"
 };
 #define toplevel_OFFSET 1

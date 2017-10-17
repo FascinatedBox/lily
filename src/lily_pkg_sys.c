@@ -12,7 +12,7 @@ The sys package provides access to the arguments given to Lily.
 /** Begin autogen section. **/
 const char *lily_sys_table[] = {
     "\0\0"
-    ,"F\0getenv\0(String):Option[String]"
+    ,"F\0getenv\0(String): Option[String]"
     ,"R\0argv\0List[String]"
     ,"Z"
 };
