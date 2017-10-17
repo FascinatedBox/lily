@@ -3642,6 +3642,7 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
     /* This particular operation is a special case. In nearly any other case,
        evaluating a tree should not damage the subtrees in any way. I'm doing it
        this way only because calls are hard. */
+    ast->tree_type = tree_call;
     eval_call(emit, ast, expect);
 }
 
