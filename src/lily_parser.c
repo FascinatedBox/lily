@@ -812,11 +812,6 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->cid_table = m->cid_table;
     f->proto = proto;
 
-    if (var->type)
-        f->reg_count = var->type->subtype_count;
-    else
-        f->reg_count = -1;
-
     lily_value *v = lily_malloc(sizeof(*v));
     v->flags = LILY_ID_FUNCTION;
     v->value.function = f;
@@ -979,40 +974,6 @@ static lily_var *new_native_define_var(lily_parse_state *parser,
     }
 
     make_new_function(parser, class_name, var, NULL);
-
-    return var;
-}
-
-static lily_var *new_foreign_define_var(lily_parse_state *parser,
-        lily_class *parent, lily_type *type, const char *name, int dyna_index)
-{
-    lily_module_entry *m = parser->symtab->active_module;
-    lily_var *var = make_new_var(type, name, 0);
-
-    var->reg_spot = lily_vs_pos(parser->symtab->literals);
-    var->function_depth = 1;
-    var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
-
-    if (parent) {
-        var->next = (lily_var *)parent->members;
-        parent->members = (lily_named_sym *)var;
-        var->parent = parent;
-    }
-    else {
-        var->next = m->var_chain;
-        m->var_chain = var;
-    }
-
-    char *class_name;
-    if (parent)
-        class_name = parent->name;
-    else
-        class_name = NULL;
-
-    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
-            dyna_index);
-
-    make_new_function(parser, class_name, var, func);
 
     return var;
 }
@@ -1696,6 +1657,51 @@ static lily_type *dynaload_function(lily_parse_state *parser,
     return result;
 }
 
+static lily_var *new_foreign_define_var(lily_parse_state *parser,
+        lily_module_entry *m, lily_class *parent, int dyna_index)
+{
+    const char *name = m->dynaload_table[dyna_index] + DYNA_NAME_OFFSET;
+    lily_module_entry *saved_active = parser->symtab->active_module;
+    lily_var *var = make_new_var(NULL, name, 0);
+
+    parser->symtab->active_module = m;
+
+    var->reg_spot = lily_vs_pos(parser->symtab->literals);
+    var->function_depth = 1;
+    var->flags |= VAR_IS_READONLY | VAR_IS_FOREIGN_FUNC;
+
+    if (parent) {
+        var->next = (lily_var *)parent->members;
+        parent->members = (lily_named_sym *)var;
+        var->parent = parent;
+    }
+    else {
+        var->next = m->var_chain;
+        m->var_chain = var;
+    }
+
+    char *class_name;
+    if (parent)
+        class_name = parent->name;
+    else
+        class_name = NULL;
+
+    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
+            dyna_index);
+
+    make_new_function(parser, class_name, var, func);
+
+    lily_type *dyna_type = dynaload_function(parser, m, dyna_index);
+    lily_value *v = lily_vs_nth(parser->symtab->literals, var->reg_spot);
+    lily_function_val *f = v->value.function;
+
+    var->type = dyna_type;
+    f->reg_count = dyna_type->subtype_count;
+    parser->symtab->active_module = saved_active;
+
+    return var;
+}
+
 /* This dynaloads an enum that is represented by 'seed' with 'import' as the
    context. The result of this is the enum class that was dynaloaded. */
 static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
@@ -1835,15 +1841,8 @@ lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
     lily_item *result;
 
     if (entry[0] == 'm') {
-        lily_module_entry *save_active = parser->symtab->active_module;
-        parser->symtab->active_module = cls->module;
-
-        const char *name = entry + DYNA_NAME_OFFSET;
-        lily_type *dyna_type = dynaload_function(parser, cls->module, index);
-        lily_var *dyna_var = new_foreign_define_var(parser, cls, dyna_type,
-                name, index);
-
-        parser->symtab->active_module = save_active;
+        lily_var *dyna_var = new_foreign_define_var(parser, cls->module, cls,
+                index);
         result = (lily_item *)dyna_var;
     }
     else
@@ -1984,10 +1983,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
         result = (lily_item *)new_var;
     }
     else if (letter == 'F') {
-        const char *name = m->dynaload_table[dyna_pos] + DYNA_NAME_OFFSET;
-        lily_type * dyna_type = dynaload_function(parser, m, dyna_pos);
-        lily_var *dyna_var = new_foreign_define_var(parser, NULL, dyna_type,
-                name, dyna_pos);
+        lily_var *dyna_var = new_foreign_define_var(parser, m, NULL, dyna_pos);
         result = (lily_item *)dyna_var;
     }
     else if (letter == 'C') {
