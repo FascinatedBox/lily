@@ -4076,9 +4076,8 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
 
     lily_expr_state *es = parser->expr;
     lily_es_flush(es);
-    lily_es_enter_tree(es, tree_call);
     lily_es_push_inherited_new(es, class_new);
-    lily_es_collect_arg(es);
+    lily_es_enter_tree(es, tree_call);
     /* This causes expression to stop on ',' and ')'. It's safe to do this
        because dynaload doesn't come through here. */
     es->save_depth = 0;
