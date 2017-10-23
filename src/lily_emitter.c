@@ -1912,49 +1912,32 @@ static void incomplete_type_assign_error(lily_emit_state *emit, int line_num,
             right_type);
 }
 
-static void add_call_name_to_msgbuf(lily_msgbuf *msgbuf, lily_ast *ast)
+static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
+        lily_ast *ast)
 {
-    if (ast->tree_type != tree_variant)
-        ast = ast->arg_start;
+    lily_item *item = ast->item;
 
-    switch (ast->tree_type) {
-        case tree_method:
-        case tree_static_func: {
-            lily_var *v = (lily_var *)ast->item;
-            lily_mb_add_fmt(msgbuf, "%s.%s", v->parent->name, v->name);
-            break;
+    if (item->item_kind == ITEM_TYPE_VAR) {
+        lily_var *v = (lily_var *)item;
+
+        if (v->flags & VAR_IS_READONLY) {
+            lily_value *val = lily_vs_nth(emit->symtab->literals, v->reg_spot);
+            lily_proto *p = val->value.function->proto;
+            lily_mb_add(msgbuf, p->name);
         }
-        case tree_inherited_new: {
-            lily_var *v = (lily_var *)ast->item;
-            lily_mb_add_fmt(msgbuf, "%s", v->parent->name);
-            break;
-        }
-        case tree_oo_access: {
-            if (ast->item->item_kind == ITEM_TYPE_VAR) {
-                lily_var *v = (lily_var *)ast->item;
-                lily_mb_add_fmt(msgbuf, "%s.%s", v->parent->name, v->name);
-            }
-            else {
-                lily_prop_entry *p = (lily_prop_entry *)ast->item;
-                lily_mb_add_fmt(msgbuf, "%s.%s", p->cls->name, p->name);
-            }
-            break;
-        }
-        case tree_defined_func:
-        case tree_variant:
-        case tree_global_var:
-        case tree_local_var: {
-            lily_var *v = (lily_var *)ast->item;
-            lily_mb_add_fmt(msgbuf, "%s", v->name);
-            break;
-        }
-        case tree_call:
-            lily_mb_add(msgbuf, "(anonymous)");
-            break;
-        default:
-            lily_mb_add(msgbuf, "(?)");
-            break;
+        else
+            lily_mb_add(msgbuf, v->name);
     }
+    else if (item->item_kind == ITEM_TYPE_PROPERTY) {
+        lily_prop_entry *p = (lily_prop_entry *)ast->item;
+        lily_mb_add_fmt(msgbuf, "%s.%s", p->cls->name, p->name);
+    }
+    else if (item->item_kind == ITEM_TYPE_VARIANT) {
+        lily_variant_class *v = (lily_variant_class *)ast->item;
+        lily_mb_add_fmt(msgbuf, "%s", v->name);
+    }
+    else
+        lily_mb_add(msgbuf, "(anonymous)");
 }
 
 /* This is called when call processing has an argument of the wrong type. This
@@ -1989,7 +1972,7 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
     lily_mb_flush(msgbuf);
 
     lily_mb_add_fmt(msgbuf, "Argument #%d to ", index + 1);
-    add_call_name_to_msgbuf(msgbuf, ast);
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
     lily_mb_add_fmt(msgbuf,
             " is invalid:\n"
             "Expected Type: ^T\n"
@@ -2050,7 +2033,7 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
     lily_mb_flush(msgbuf);
 
     lily_mb_add(msgbuf, "Wrong number of arguments to ");
-    add_call_name_to_msgbuf(msgbuf, ast);
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
     lily_mb_add_fmt(msgbuf, " (%s for %s%s%s).", arg_str, min_str, div_str,
             max_str);
 
@@ -3264,29 +3247,8 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ast *arg = ast->arg_start;
     lily_tree_type first_tt = arg->tree_type;
-    uint16_t opcode = 0;
-    uint16_t target = 0;
 
-    if (first_tt != tree_variant) {
-        lily_sym *call_sym = ast->sym;
-
-        if (call_sym->flags & VAR_IS_READONLY) {
-            if (call_sym->flags & VAR_IS_FOREIGN_FUNC)
-                opcode = o_call_foreign;
-            else
-                opcode = o_call_native;
-        }
-        else
-            opcode = o_call_register;
-
-        target = call_sym->reg_spot;
-    }
-    else {
-        opcode = o_build_variant;
-        target = arg->variant->cls_id;
-    }
-
-    lily_u16_write_3(emit->code, opcode, target,
+    lily_u16_write_3(emit->code, ast->call_op, ast->call_source_reg,
             argument_count + (vararg_s != NULL));
 
     int i = 0;
@@ -3472,21 +3434,21 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
     write_call(emit, ast, stop, vararg_s);
 }
 
-/* This is a prelude to running a call. This function is responsible for
-   determining what the source of the call is, and evaluating that source if it
-   needs that.
-   'ast' is the calling tree, with the first argument being the target. If the
-   calling tree is not a variant, then the sym field will be set to the call
-   target. Variants go through a different path than other trees when they are
-   written, and thus do not need the sym field set.
-   'call_type' must be the address of a non-NULL pointer. It will be set to the
-   type of the sym, or the build type of the variant.  */
+/* This is the first step to running a call. The 'ast' passed should be the
+   tree that is to be called. 'expect' is the type that 'ast' is expected to
+   output (used for inference).
+   This function adjusts the calling tree to hold the opcode and target that
+   call writing will use later on. It also sets '*call_type' to the type that
+   will be used to verify the call. Finally, it ensures that the type set to
+   '*call_type' is a `Function` (raising a syntax error otherwise). */
 static void begin_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, lily_type **call_type)
 {
     lily_ast *first_arg = ast->arg_start;
     lily_tree_type first_tt = first_arg->tree_type;
     lily_sym *call_sym = NULL;
+    uint16_t call_source_reg = (uint16_t)-1;
+    uint16_t call_op = (uint8_t)-1;
 
     switch (first_tt) {
         case tree_method:
@@ -3499,7 +3461,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             if (call_sym->flags & VAR_NEEDS_CLOSURE) {
                 lily_storage *s = get_storage(emit, first_arg->sym->type);
                 emit_create_function(emit, first_arg->sym, s);
-                call_sym = (lily_sym *)s;
+                call_source_reg = s->reg_spot;
+                call_op = o_call_register;
             }
             break;
         case tree_static_func:
@@ -3510,7 +3473,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             eval_oo_access_for_item(emit, first_arg);
             if (first_arg->item->item_kind == ITEM_TYPE_PROPERTY) {
                 oo_property_read(emit, first_arg);
-                call_sym = (lily_sym *)first_arg->result;
+                call_sym = (lily_sym *)first_arg->sym;
             }
             else
                 call_sym = first_arg->sym;
@@ -3527,16 +3490,40 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                 lily_raise_syn(emit->raiser, "Variant %s should not get args.",
                         variant->name);
 
-            *call_type = first_arg->variant->build_type;
+            ast->variant = variant;
+            *call_type = variant->build_type;
+            call_op = o_build_variant;
+            call_source_reg = variant->cls_id;
             break;
         }
+        case tree_global_var:
+        case tree_upvalue:
+            eval_tree(emit, first_arg, NULL);
+            call_sym = (lily_sym *)first_arg->sym;
+            call_source_reg = first_arg->result->reg_spot;
+            call_op = o_call_register;
+            break;
         default:
-            eval_tree(emit, ast->arg_start, NULL);
-            call_sym = (lily_sym *)ast->arg_start->result;
+            eval_tree(emit, first_arg, NULL);
+            call_sym = (lily_sym *)first_arg->result;
             break;
     }
 
     if (call_sym) {
+        if (call_source_reg == (uint16_t)-1)
+            call_source_reg = call_sym->reg_spot;
+
+        if (call_op == (uint8_t)-1) {
+            if (call_sym->flags & VAR_IS_READONLY) {
+                if (call_sym->flags & VAR_IS_FOREIGN_FUNC)
+                    call_op = o_call_foreign;
+                else
+                    call_op = o_call_native;
+            }
+            else
+                call_op = o_call_register;
+        }
+
         ast->sym = call_sym;
         *call_type = call_sym->type;
 
@@ -3545,6 +3532,9 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                     "Cannot anonymously call resulting type '^T'.",
                     call_sym->type);
     }
+
+    ast->call_source_reg = call_source_reg;
+    ast->call_op = call_op;
 }
 
 /* This does everything a call needs from start to finish. At the end of this,

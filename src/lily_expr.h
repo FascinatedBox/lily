@@ -56,13 +56,14 @@ typedef struct lily_ast_ {
 
     lily_tree_type tree_type: 8;
     lily_expr_op op: 8;
-    uint8_t priority;
-    uint8_t pad;
+
+    union {
+        uint8_t priority;
+        uint16_t call_op;
+    };
 
     uint32_t line_num;
-    /* Most opcodes will write the result down at the very end. For those that
-       do not, this is the code position where that result is. */
-    uint16_t pad2;
+    uint16_t call_source_reg;
     uint16_t args_collected;
     union {
         uint32_t pile_pos;
