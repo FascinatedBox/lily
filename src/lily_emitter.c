@@ -3455,6 +3455,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             if (emit->block->self == NULL)
                 maybe_close_over_class_self(emit, ast);
 
+            call_sym = first_arg->sym;
+            break;
         case tree_defined_func:
         case tree_inherited_new:
             call_sym = first_arg->sym;
