@@ -1981,22 +1981,22 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
     lily_raise_adjusted(emit->raiser, ast->line_num, lily_mb_raw(msgbuf), "");
 }
 
-/* This is called when the tree given doesn't have enough arguments. The count
-   given should include implicit values from tree_oo_access/tree_method. The
-   values for min and max should come from `get_func_min_max`.
-   This function includes a special case: If 'count' is -1, then "none" will be
-   printed. This is used in cases like `Some` (since `Some` requires arguments
-   and variants don't allow 0 argument calls). */
+/* This is called when the tree given doesn't have enough arguments.
+   ast:   The tree receiving the call.
+   count: The real # of arguments that 'ast' was given.
+   min:   The minimum number allowed.
+          -1 is a special case that prints 'none' for empty variants.
+   max:   The maximum allowed.
+          -1 is a special case for varargs, denoting infinity.
+
+   This is typically called automatically by argument handling if the count is
+   wrong. If some other function is to call it, then that function must set
+   ast->keep_first_call_arg appropriately. */
 static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
         int count, int min, int max)
 {
-    lily_ast *first_arg = ast->arg_start;
-
     /* Don't count the implicit self that these functions receive. */
-    if (ast->tree_type != tree_variant &&
-        (first_arg->tree_type == tree_method ||
-         (first_arg->tree_type == tree_oo_access &&
-          first_arg->sym->item_kind == ITEM_TYPE_VAR))) {
+    if (ast->keep_first_call_arg) {
         min--;
         count--;
         if (max != -1)
@@ -3208,7 +3208,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
 {
     if (return_type == lily_self_class->self_type)
         ast->result = ast->arg_start->result;
-    else if (ast->arg_start->tree_type == tree_inherited_new)
+    else if (ast->first_tree_type == tree_inherited_new)
         ast->result = (lily_sym *)emit->block->self;
     else {
         lily_ast *arg = ast->arg_start;
@@ -3216,7 +3216,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
         if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_ts_resolve(emit->ts, return_type);
 
-        if (arg->tree_type == tree_variant) {
+        if (ast->first_tree_type == tree_variant) {
             /* Variant trees don't have a result so skip over them. */
             arg = arg->next_arg;
         }
@@ -3246,24 +3246,12 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
         int argument_count, lily_storage *vararg_s)
 {
     lily_ast *arg = ast->arg_start;
-    lily_tree_type first_tt = arg->tree_type;
+    int i = 0;
 
     lily_u16_write_3(emit->code, ast->call_op, ast->call_source_reg,
             argument_count + (vararg_s != NULL));
 
-    int i = 0;
-
-    if (first_tt == tree_oo_access &&
-        ast->sym->item_kind == ITEM_TYPE_VAR) {
-        i++;
-        lily_u16_write_1(emit->code, arg->result->reg_spot);
-    }
-    else if (first_tt == tree_method) {
-        i++;
-        lily_u16_write_1(emit->code, emit->block->self->reg_spot);
-    }
-
-    for (arg = arg->next_arg;
+    for (arg = arg;
          i < argument_count;
          i++, arg = arg->next_arg)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
@@ -3344,18 +3332,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, lily_type *expect)
 {
     lily_ast *arg = ast->arg_start;
-    /* NOTE: This works for both calls and func pipe because the arg_start and
-       right fields of lily_ast are in a union together. */
-    lily_tree_type first_tt = arg->tree_type;
-    /* The first tree is counted as an argument. However, most trees don't
-       actually add the first argument. In fact, only two will:
-       tree_method will inject self as a first argument.
-       tree_oo_access will inject the left of the dot (a.x() adds 'a'). */
-    int count_first =
-        ((first_tt == tree_oo_access && ast->sym->item_kind == ITEM_TYPE_VAR)
-        || first_tt == tree_method);
-    int num_args = ast->args_collected - 1 + count_first;
-
+    int num_args = ast->args_collected;
     unsigned int min, max;
 
     get_func_min_max(call_type, &min, &max);
@@ -3365,12 +3342,6 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_type **arg_types = call_type->subtypes;
 
-    if (arg->tree_type == tree_oo_access &&
-        ast->sym->item_kind == ITEM_TYPE_VAR) {
-        if (lily_ts_check(emit->ts, arg_types[1], arg->result->type) == 0)
-            error_bad_arg(emit, ast, call_type, 0, arg->result->type);
-    }
-
     int stop;
     if ((call_type->flags & TYPE_IS_VARARGS) == 0 ||
         call_type->subtype_count - 1 > num_args)
@@ -3379,9 +3350,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
         stop = call_type->subtype_count - 2;
 
     int i;
-    for (i = count_first, arg = arg->next_arg;
-         i < stop;
-         i++, arg = arg->next_arg) {
+    for (i = 0; i < stop; i++, arg = arg->next_arg) {
         if (eval_call_arg(emit, arg, arg_types[i + 1]) == 0)
             error_bad_arg(emit, ast, call_type, i, arg->result->type);
     }
@@ -3454,12 +3423,20 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
     uint16_t call_source_reg = (uint16_t)-1;
     uint16_t call_op = (uint8_t)-1;
 
+    ast->first_tree_type = first_arg->tree_type;
+    ast->keep_first_call_arg = 0;
+
     switch (first_tt) {
         case tree_method:
             if (emit->block->self == NULL)
                 maybe_close_over_class_self(emit, ast);
 
             call_sym = first_arg->sym;
+            ast->keep_first_call_arg = 1;
+            /* tree_method is sent when calling a class method from inside
+               another method. Send 'self' as a first argument.
+               Constructors use tree_inherited_new to bypass this injection. */
+            first_arg->tree_type = tree_self;
             break;
         case tree_defined_func:
         case tree_inherited_new:
@@ -3483,14 +3460,12 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                 call_source_reg = first_arg->result->reg_spot;
                 call_op = o_call_register;
             }
-            else
+            else {
+                ast->keep_first_call_arg = 1;
                 call_sym = first_arg->sym;
-
-            /* Calls expect that each argument tree has a result prepared. When
-               evaluating `x.y`, the call source is the y but x is sent as the
-               first argument. Do this so that tree_oo_access isn't a special
-               case. */
-            first_arg->result = first_arg->arg_start->result;
+                /* Rewrite the tree so it isn't evaluated twice. */
+                first_arg->tree_type = tree_oo_cached;
+            }
             break;
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
@@ -3541,6 +3516,11 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                     call_sym->type);
     }
 
+    if (ast->keep_first_call_arg == 0) {
+        ast->arg_start = ast->arg_start->next_arg;
+        ast->args_collected--;
+    }
+
     ast->call_source_reg = call_source_reg;
     ast->call_op = call_op;
 }
@@ -3561,7 +3541,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     lily_ts_scope_save(emit->ts, &p);
 
     if (call_type->flags & TYPE_IS_UNRESOLVED) {
-        lily_tree_type first_tt = ast->arg_start->tree_type;
+        lily_tree_type first_tt = ast->first_tree_type;
 
         if (first_tt == tree_local_var ||
             first_tt == tree_upvalue ||
@@ -3594,6 +3574,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     if ((variant->flags & CLS_EMPTY_VARIANT) == 0) {
         unsigned int min, max;
         get_func_min_max(variant->build_type, &min, &max);
+        ast->keep_first_call_arg = 0;
         error_argument_count(emit, ast, -1, min, max);
     }
 
@@ -3770,6 +3751,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_lambda(emit, ast, expect);
     else if (ast->tree_type == tree_self)
         eval_self(emit, ast);
+    else if (ast->tree_type == tree_oo_cached)
+        ast->result = ast->arg_start->result;
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return

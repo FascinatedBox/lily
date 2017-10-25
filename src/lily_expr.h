@@ -48,14 +48,18 @@ typedef enum {
     tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
     tree_variant, tree_lambda, tree_literal, tree_inherited_new, tree_method,
     tree_static_func, tree_self, tree_upvalue, tree_boolean, tree_byte,
-    tree_integer, tree_binary
+    tree_integer, tree_oo_cached, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_ {
     lily_sym *result;
 
     lily_tree_type tree_type: 8;
-    lily_expr_op op: 8;
+
+    union {
+        lily_expr_op op: 8;
+        lily_tree_type first_tree_type: 8;
+    };
 
     union {
         uint8_t priority;
@@ -65,6 +69,7 @@ typedef struct lily_ast_ {
     uint32_t line_num;
     uint16_t call_source_reg;
     uint16_t args_collected;
+
     union {
         uint32_t pile_pos;
         /* For raw integers or booleans, this is the value to write to the
@@ -72,6 +77,7 @@ typedef struct lily_ast_ {
         int16_t backing_value;
         /* For other kinds of literals, this is their register spot. */
         uint16_t literal_reg_spot;
+        uint16_t keep_first_call_arg;
     };
 
     union {
