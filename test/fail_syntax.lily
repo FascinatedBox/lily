@@ -608,7 +608,7 @@ t.interpret_for_error("Wrong argument count to plain call.",
 
 t.interpret_for_error("Wrong argument count to class property function.",
     """\
-    SyntaxError: Wrong number of arguments to abc.a (2 for 0).\n    \
+    SyntaxError: Wrong number of arguments to abc.a (3 for 0).\n    \
         from test\/[subinterp]:6:\
     """,
     """\
@@ -617,7 +617,7 @@ t.interpret_for_error("Wrong argument count to class property function.",
     }
 
     var d = abc()
-    d.a(1)
+    d.a(1, 2, 3)
     """)
 
 t.interpret_for_error("Wrong argument count to anonymous function.",

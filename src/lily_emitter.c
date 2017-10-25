@@ -3253,7 +3253,8 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
 
     int i = 0;
 
-    if (first_tt == tree_oo_access) {
+    if (first_tt == tree_oo_access &&
+        ast->sym->item_kind == ITEM_TYPE_VAR) {
         i++;
         lily_u16_write_1(emit->code, arg->result->reg_spot);
     }
@@ -3350,7 +3351,9 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
        actually add the first argument. In fact, only two will:
        tree_method will inject self as a first argument.
        tree_oo_access will inject the left of the dot (a.x() adds 'a'). */
-    int count_first = (first_tt == tree_oo_access || first_tt == tree_method);
+    int count_first =
+        ((first_tt == tree_oo_access && ast->sym->item_kind == ITEM_TYPE_VAR)
+        || first_tt == tree_method);
     int num_args = ast->args_collected - 1 + count_first;
 
     unsigned int min, max;
@@ -3362,7 +3365,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_type **arg_types = call_type->subtypes;
 
-    if (arg->tree_type == tree_oo_access) {
+    if (arg->tree_type == tree_oo_access &&
+        ast->sym->item_kind == ITEM_TYPE_VAR) {
         if (lily_ts_check(emit->ts, arg_types[1], arg->result->type) == 0)
             error_bad_arg(emit, ast, call_type, 0, arg->result->type);
     }
@@ -3476,6 +3480,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             if (first_arg->item->item_kind == ITEM_TYPE_PROPERTY) {
                 oo_property_read(emit, first_arg);
                 call_sym = (lily_sym *)first_arg->sym;
+                call_source_reg = first_arg->result->reg_spot;
+                call_op = o_call_register;
             }
             else
                 call_sym = first_arg->sym;

@@ -361,3 +361,20 @@ t.interpret("Returning the special self type works.",
     if a.a != 201 || a.b != 2002:
         raise Exception("Failed.")
     """)
+
+t.interpret("Call a class property that is a function.",
+    """
+    var v = [1]
+
+    define f(a: Integer): List[Integer] {
+        v.push(a)
+        return v
+    }
+
+    class Example {
+        public var @a = f
+    }
+
+    if Example().a(2) != [1, 2]:
+        raise Exception("Failed.")
+    """)
