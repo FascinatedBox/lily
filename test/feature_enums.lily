@@ -85,7 +85,7 @@ t.interpret("Verify that enum variants can dispatch to enum methods.",
         define h[B](i: Test[B]) {
         }
 
-        define map[B](f: Function(A => B)):Test[B] {
+        define map[B](f: Function(A => B)): Test[B] {
             match self: {
                 case One(s):
                     return One(f(s))

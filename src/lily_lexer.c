@@ -318,7 +318,8 @@ void lily_pop_lex_entry(lily_lex_state *lexer)
 
         /* lexer->label has almost certainly been overwritten with something
            else. Restore it by rolling back and calling for a rescan. */
-        if (lexer->token == tk_word || lexer->token == tk_prop_word) {
+        if (lexer->token == tk_word || lexer->token == tk_prop_word ||
+            lexer->token == tk_keyword_arg) {
             int end, pos;
             end = pos = lexer->input_pos;
 
@@ -1259,6 +1260,8 @@ void lily_lexer(lily_lex_state *lexer)
         input_pos += ch - start_ch;
         group = ch_class[(unsigned char)*ch];
         if (group == CC_WORD) {
+            token = tk_word;
+
             label_handling: ;
 
             /* The word and line buffers have the same size, plus \n is not a
@@ -1274,7 +1277,18 @@ void lily_lexer(lily_lex_state *lexer)
             } while (ident_table[(unsigned char)*ch]);
             input_pos += word_pos;
             label[word_pos] = '\0';
-            token = tk_word;
+        }
+        else if (group == CC_COLON) {
+            if (ident_table[(unsigned char)*(ch + 1)]) {
+                ch++;
+                input_pos++;
+                token = tk_keyword_arg;
+                goto label_handling;
+            }
+            else {
+                input_pos++;
+                token = group;
+            }
         }
         else if (group <= CC_G_ONE_LAST) {
             input_pos++;
@@ -1332,8 +1346,10 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos = ch - lexer->input_buffer;
                 token = tk_bytestring;
             }
-            else
+            else {
+                token = tk_word;
                 goto label_handling;
+            }
         }
         else if (group <= CC_G_TWO_LAST) {
             input_pos++;
@@ -1649,9 +1665,9 @@ char *tokname(lily_token t)
      "*=", "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">",
      ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
      "a label", "a property name", "a string", "a bytestring", "a byte",
-     "an integer", "a double", "a docstring", ".", "&", "&=", "&&", "|", "|=",
-     "||", "@(", "...", "|>", "$1", "$2", "invalid token", "end of lambda",
-     "?>", "end of file"};
+     "an integer", "a double", "a docstring", "a named argument", ".", "&",
+     "&=", "&&", "|", "|=", "||", "@(", "...", "|>", "$1", "$2",
+     "invalid token", "end of lambda", "?>", "end of file"};
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
         return toknames[t];

@@ -3,6 +3,7 @@ import feature_closures
 import feature_dynaload
 import feature_enums
 import feature_generics
+import feature_keyargs
 import feature_import
 import feature_internal
 import feature_lambdas
@@ -15,6 +16,7 @@ import fail_enums
 import fail_exceptions
 import fail_generics
 import fail_import
+import fail_keyargs
 import fail_lambdas
 import fail_optargs
 import fail_template

@@ -221,6 +221,7 @@ uint16_t lily_emit_get_storage_spot(lily_emit_state *, lily_type *);
 
 lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, const char *,
         const char *);
+lily_proto *lily_emit_proto_for_var(lily_emit_state *, lily_var *);
 
 void lily_prepare_main(lily_emit_state *, lily_function_val *);
 void lily_reset_main(lily_emit_state *);

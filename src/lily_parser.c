@@ -148,6 +148,8 @@ lily_state *lily_new_state(lily_config *config)
     parser->lex = lily_new_lex_state(raiser);
     parser->msgbuf = lily_new_msgbuf(64);
     parser->data_stack = lily_new_buffer_u16(4);
+    parser->keyarg_strings = lily_new_string_pile();
+    parser->keyarg_current = 0;
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -242,6 +244,7 @@ void lily_free_state(lily_state *vm)
     }
 
     lily_free_string_pile(parser->import_ref_strings);
+    lily_free_string_pile(parser->keyarg_strings);
     lily_free_symtab(parser->symtab);
     lily_free_generic_pool(parser->generics);
     lily_free_msgbuf(parser->msgbuf);
@@ -817,6 +820,19 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     v->value.function = f;
 
     lily_vs_push(parser->symtab->literals, v);
+}
+
+static void put_keyargs_in_proto(lily_parse_state *parser, lily_var *var,
+        uint32_t arg_start)
+{
+    char *source = lily_sp_get(parser->keyarg_strings, arg_start);
+    int len = parser->keyarg_current - arg_start + 1;
+    char *buffer = lily_malloc(len * sizeof(*buffer));
+
+    memcpy(buffer, source, len);
+
+    lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
+    p->arg_names = buffer;
 }
 
 static void hide_block_vars(lily_parse_state *parser)
@@ -1424,6 +1440,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     /* -1 because Unit is injected at the front beforehand. */
     int result_pos = parser->tm->pos - 1;
     int i = 0;
+    int last_keyarg_pos = 0;
+    uint32_t keyarg_start = parser->keyarg_current;
     collect_fn arg_collect = NULL;
 
     if ((arg_flags & F_COLLECT_DEFINE)) {
@@ -1449,6 +1467,25 @@ static void collect_call_args(lily_parse_state *parser, void *target,
                     "Empty () found while reading input arguments. Omit instead.");
 
         while (1) {
+            if (lex->token == tk_keyword_arg) {
+                if (arg_flags & F_COLLECT_VARIANT) {
+                    lily_raise_syn(parser->raiser,
+                            "Variants can't have keyword arguments yet.");
+                }
+
+                while (i != last_keyarg_pos) {
+                    last_keyarg_pos++;
+                    lily_sp_insert(parser->keyarg_strings, " ",
+                            &parser->keyarg_current);
+                }
+
+                lily_sp_insert(parser->keyarg_strings, lex->label,
+                        &parser->keyarg_current);
+
+                last_keyarg_pos++;
+                lily_lexer(lex);
+            }
+
             lily_tm_add(parser->tm, arg_collect(parser, &arg_flags));
             i++;
             if (lex->token == tk_comma) {
@@ -1482,6 +1519,25 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         else {
             lily_tm_insert(parser->tm, result_pos, get_type(parser));
         }
+    }
+
+    if (last_keyarg_pos) {
+        if (arg_flags & TYPE_HAS_OPTARGS) {
+            lily_raise_syn(parser->raiser,
+                    "Can't mix optional and keyword arguments yet.");
+        }
+
+        while (last_keyarg_pos != i) {
+            last_keyarg_pos++;
+            lily_sp_insert(parser->keyarg_strings, " ",
+                    &parser->keyarg_current);
+        }
+
+        lily_sp_insert(parser->keyarg_strings, "\t",
+                &parser->keyarg_current);
+
+        put_keyargs_in_proto(parser, (lily_var *)target, keyarg_start);
+        parser->keyarg_current = keyarg_start;
     }
 
     lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
@@ -2426,7 +2482,8 @@ static void check_valid_close_tok(lily_parse_state *parser)
     lily_tree_type tt = ast->tree_type;
     lily_token expect;
 
-    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast)
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
+        tt == tree_named_call)
         expect = tk_right_parenth;
     else if (tt == tree_tuple)
         expect = tk_tuple_close;
@@ -2590,6 +2647,36 @@ static void expression_dot(lily_parse_state *parser, int *state)
     *state = ST_WANT_OPERATOR;
 }
 
+static void expression_named_arg(lily_parse_state *parser, int *state)
+{
+    lily_expr_state *es = parser->expr;
+
+    if (es->root) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
+    if (last_tree == NULL) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    if (last_tree->tree_type != tree_call &&
+        last_tree->tree_type != tree_named_call) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    last_tree->tree_type = tree_named_call;
+
+    int spot = es->pile_current;
+    lily_sp_insert(parser->expr_strings, parser->lex->label, &es->pile_current);
+    lily_es_push_text(es, tree_oo_access, 0, spot);
+    lily_es_push_binary_op(es, expr_named_arg);
+    *state = ST_DEMAND_VALUE;
+}
+
 /* This is the magic function that handles expressions. The states it uses are
    defined above. Most callers will use expression instead of this. */
 static void expression_raw(lily_parse_state *parser)
@@ -2704,6 +2791,8 @@ static void expression_raw(lily_parse_state *parser)
             state = ST_DONE;
         else if (lex->token == tk_comma || lex->token == tk_arrow)
             expression_comma_arrow(parser, &state);
+        else if (lex->token == tk_keyword_arg)
+            expression_named_arg(parser, &state);
         else
             state = ST_BAD_TOKEN;
 

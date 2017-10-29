@@ -294,6 +294,16 @@ typedef struct lily_proto_ {
        to free code, since there may be multiple closure function vals pointing
        at the same code. */
     uint16_t *code;
+    /* If the function doesn't take keyword arguments, then this is NULL.
+       Otherwise, this contains argument names for all arguments in order.
+       The format is as follows:
+       * If the current argument has a name, then that name is inserted, plus a
+         zero terminator. Names are restricted to being whatever is considered a
+         valid identifier.
+       * If the current argument doesn't have a name, a space is put there
+         instead.
+       * The full sequence is terminated by a tab character (\t). */
+    char *arg_names;
 } lily_proto;
 
 

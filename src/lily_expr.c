@@ -319,13 +319,13 @@ static uint8_t priority_for_op(lily_expr_op o)
         case expr_minus_assign:
         case expr_left_shift_assign:
         case expr_right_shift_assign:
-            prio = 0;
-            break;
-        case expr_logical_or:
             prio = 1;
             break;
-        case expr_logical_and:
+        case expr_logical_or:
             prio = 2;
+            break;
+        case expr_logical_and:
+            prio = 3;
             break;
         case expr_eq_eq:
         case expr_not_eq:
@@ -333,35 +333,38 @@ static uint8_t priority_for_op(lily_expr_op o)
         case expr_gr:
         case expr_lt_eq:
         case expr_gr_eq:
-            prio = 3;
+            prio = 4;
             break;
         /* Put concat here so it can chain together the output of pipe
            operations: `a |> b ++ b |> c`. */
         case expr_plus_plus:
-            prio = 4;
+            prio = 5;
             break;
         /* Put pipes here so they capture as much as possible for comparison
            operations. Ex: `a << b |> fn <= something`. */
         case expr_func_pipe:
-            prio = 5;
+            prio = 6;
             break;
         case expr_bitwise_or:
         case expr_bitwise_xor:
         case expr_bitwise_and:
-            prio = 6;
+            prio = 7;
             break;
         case expr_left_shift:
         case expr_right_shift:
-            prio = 7;
+            prio = 8;
             break;
         case expr_plus:
         case expr_minus:
-            prio = 8;
+            prio = 9;
             break;
         case expr_multiply:
         case expr_divide:
         case expr_modulo:
-            prio = 9;
+            prio = 10;
+            break;
+        case expr_named_arg:
+            prio = 0;
             break;
         default:
             /* Won't happen, but makes -Wall happy. */
@@ -499,7 +502,7 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
         int new_prio, active_prio;
         new_prio = new_ast->priority;
         active_prio = active->priority;
-        if ((new_prio > active_prio) || new_prio == 0) {
+        if ((new_prio > active_prio) || new_prio == 1) {
             /* The new tree goes before the current one, so it steals the rhs
                and becomes it (because lower trees have precedence). Since the
                new tree still needs a right, it becomes current.

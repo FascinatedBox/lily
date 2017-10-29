@@ -32,8 +32,17 @@ typedef struct lily_parse_state_ {
     /* The next import should store temp names here. */
     uint32_t import_pile_current;
 
+    /* Same idea, but for keyword arguments. */
+    uint16_t keyarg_current;
+
+    uint16_t pad1;
+    uint32_t pad2;
+
     /* The current expression state. */
     lily_expr_state *expr;
+
+    /* This stores keyword arguments until the prototype can take them. */
+    lily_string_pile *keyarg_strings;
 
     /* Pile strings are stored here. */
     lily_string_pile *expr_strings;

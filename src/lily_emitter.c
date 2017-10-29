@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdint.h>
+#include <limits.h>
 
 #include "lily_alloc.h"
 #include "lily_expr.h"
@@ -1523,6 +1524,7 @@ static void free_proto_stack(lily_proto_stack *stack)
         lily_free(p->name);
         lily_free(p->locals);
         lily_free(p->code);
+        lily_free(p->arg_names);
         lily_free(p);
     }
 
@@ -1573,11 +1575,18 @@ lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
     p->name = proto_name;
     p->locals = NULL;
     p->code = NULL;
+    p->arg_names = NULL;
 
     protos->data[protos->pos] = p;
     protos->pos++;
 
     return p;
+}
+
+lily_proto *lily_emit_proto_for_var(lily_emit_state *emit, lily_var *var)
+{
+    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
+    return v->value.function->proto;
 }
 
 /* Return a string representation of the given op. */
@@ -1886,6 +1895,8 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
  *
  */
 
+static char *keypos_to_keyarg(char *, int);
+
 static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, const char *context)
 {
@@ -2039,6 +2050,109 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
 
     lily_raise_adjusted(emit->raiser, ast->line_num, lily_mb_raw(msgbuf),
             "");
+}
+
+static void error_keyarg_not_supported(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+    lily_mb_flush(msgbuf);
+
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
+
+    if (ast->sym->item_kind == ITEM_TYPE_VAR &&
+        ast->sym->flags & VAR_IS_READONLY)
+        lily_mb_add(msgbuf,
+                " does not specify any keyword arguments.");
+    else
+        lily_mb_add(msgbuf,
+                " is not capable of receiving keyword arguments.");
+
+    lily_raise_adjusted(emit->raiser, ast->line_num, lily_mb_raw(msgbuf), "");
+}
+
+static void error_keyarg_not_valid(lily_emit_state *emit, lily_ast *ast,
+        lily_ast *arg)
+{
+    char *key_name = lily_sp_get(emit->expr_strings, arg->left->pile_pos);
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+    lily_mb_flush(msgbuf);
+
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
+    lily_mb_add_fmt(msgbuf, " does not have a keyword named ':%s'.", key_name);
+
+    lily_raise_adjusted(emit->raiser, arg->line_num, lily_mb_raw(msgbuf), "");
+}
+
+static void error_keyarg_duplicate(lily_emit_state *emit, lily_ast *ast,
+        lily_ast *arg)
+{
+    char *key_name = lily_sp_get(emit->expr_strings, arg->left->pile_pos);
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+    lily_mb_flush(msgbuf);
+
+    lily_mb_add(msgbuf, "Call to ");
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
+    lily_mb_add_fmt(msgbuf, " has multiple values for parameter ':%s'.", key_name);
+
+    lily_raise_adjusted(emit->raiser, arg->line_num, lily_mb_raw(msgbuf), "");
+}
+
+static void error_keyarg_before_posarg(lily_emit_state *emit, lily_ast *arg)
+{
+    lily_raise_adjusted(emit->raiser, arg->line_num,
+            "Positional argument after keyword argument.", "");
+}
+
+static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
+        lily_type *call_type, char *keyword_names)
+{
+    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
+    lily_mb_flush(msgbuf);
+
+    lily_mb_add(msgbuf, "Call to ");
+    add_call_name_to_msgbuf(emit, msgbuf, ast);
+    lily_mb_add(msgbuf, " is missing parameters:");
+
+    lily_ast *arg_iter = ast->arg_start;
+    lily_type **arg_types = call_type->subtypes;
+    int i = 0, stop = call_type->subtype_count - 1;
+
+    if (call_type->flags & TYPE_IS_VARARGS)
+        stop--;
+
+    for (arg_iter = ast->arg_start;
+         i != stop;
+         arg_iter = arg_iter->next_arg) {
+        if (arg_iter->keyword_arg_pos != i) {
+            int cycle_end = arg_iter->keyword_arg_pos;
+            int skip = stop + 1;
+
+            if (arg_iter->next_arg == NULL) {
+                cycle_end = stop;
+                skip = arg_iter->keyword_arg_pos;
+            }
+
+            while (i != cycle_end) {
+                if (i == skip) {
+                    i++;
+                    continue;
+                }
+
+                char *arg_name = keypos_to_keyarg(keyword_names, i);
+
+                i++;
+
+                if (*arg_name != ' ')
+                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d (:%s) of type ^T.",
+                            i, arg_name, arg_types[i]);
+                else
+                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.",
+                            i, arg_types[i]);
+            }
+        }
+    }
+
+    lily_raise_adjusted(emit->raiser, ast->line_num, lily_mb_raw(msgbuf), "");
 }
 
 /***
@@ -3564,6 +3678,352 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     lily_ts_scope_restore(emit->ts, &p);
 }
 
+static char *keypos_to_keyarg(char *arg_names, int pos)
+{
+    while (pos) {
+        if (*arg_names == ' ')
+            arg_names += 2;
+        else
+            arg_names += strlen(arg_names) + 1;
+
+        pos--;
+    }
+
+    return arg_names;
+}
+
+static int keyarg_to_pos(const char *valid, const char *keyword_given)
+{
+    int index = 0;
+    char *iter = (char *)valid;
+
+    while (1) {
+        if (*iter == ' ') {
+            iter += 2;
+            index++;
+        }
+        else if (*iter == '\t') {
+            index = -1;
+            break;
+        }
+        else if (strcmp(iter, keyword_given) == 0)
+            break;
+        else {
+            iter += strlen(iter) + 1;
+            index++;
+        }
+    }
+
+    return index;
+}
+
+static lily_type *get_va_type(lily_type *call_type)
+{
+    lily_type *va_type;
+
+    if (call_type->flags & TYPE_IS_VARARGS) {
+        va_type = call_type->subtypes[call_type->subtype_count - 1];
+
+        if (va_type->cls->id == LILY_ID_OPTARG)
+            va_type = va_type->subtypes[0];
+    }
+    else
+        /* The type won't be used if there aren't varargs to use it. Returning
+           this allows safely grabbing the contents. */
+        va_type = call_type;
+
+    return va_type;
+}
+
+/* This is called when receiving a keyword argument that isn't varargs. This
+   inserts 'new_ast' into the chain starting at 'source_ast'. The insertion goes
+   from lowest position to highest.
+   The result of this function is the new head of the chain, in case that
+   'new_ast' comes before 'source_ast'. */
+static lily_ast *relink_arg(lily_ast *source_ast, lily_ast *new_ast)
+{
+    if (source_ast->keyword_arg_pos > new_ast->keyword_arg_pos) {
+        new_ast->next_arg = source_ast;
+        new_ast->left = source_ast->left;
+        source_ast = new_ast;
+    }
+    else {
+        lily_ast *iter_ast = source_ast;
+        while (1) {
+            lily_ast *next_ast = iter_ast->next_arg;
+            if (next_ast->keyword_arg_pos > new_ast->keyword_arg_pos) {
+                new_ast->next_arg = next_ast;
+                iter_ast->next_arg = new_ast;
+                break;
+            }
+
+            iter_ast = next_ast;
+        }
+    }
+
+    return source_ast;
+}
+
+static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_proto *proto = NULL;
+    char *names = NULL;
+
+    if (ast->sym->item_kind == ITEM_TYPE_VAR) {
+        lily_var *var = (lily_var *)ast->sym;
+
+        if (var->flags & VAR_IS_READONLY)
+            proto = lily_emit_proto_for_var(emit, var);
+    }
+
+    if (proto)
+        names = proto->arg_names;
+
+    return names;
+}
+
+static int keyarg_at_pos(lily_ast *arg_iter, lily_ast *arg_stop, int pos)
+{
+    int found = 0;
+
+    for (;arg_iter != arg_stop;
+          arg_iter = arg_iter->next_arg) {
+        if (arg_iter->keyword_arg_pos == pos) {
+            found = 1;
+            break;
+        }
+    }
+
+    return found;
+}
+
+static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
+        lily_type *call_type)
+{
+    lily_ast *arg = ast->arg_start;
+    int num_args = ast->args_collected, have_keyargs = 0, va_pos = INT_MAX;
+    int i;
+
+    if (call_type->flags & TYPE_IS_VARARGS)
+        va_pos = call_type->subtype_count - 2;
+
+    lily_ast *basic_arg_head = NULL;
+    lily_ast *basic_arg_tail = NULL;
+    char *keyword_names = get_keyarg_names(emit, ast);
+
+    if (keyword_names == NULL)
+        error_keyarg_not_supported(emit, ast);
+
+    for (i = 0; arg != NULL; i++, arg = arg->next_arg) {
+        int pos;
+
+        if (arg->tree_type == tree_binary &&
+            arg->op == expr_named_arg) {
+            have_keyargs = 1;
+            char *key_name = lily_sp_get(emit->expr_strings,
+                    arg->left->pile_pos);
+
+            pos = keyarg_to_pos(keyword_names, key_name);
+
+            if (pos == -1)
+                error_keyarg_not_valid(emit, ast, arg);
+
+            if (va_pos <= pos)
+                num_args--;
+            else if (keyarg_at_pos(basic_arg_head, basic_arg_tail, pos))
+                error_keyarg_duplicate(emit, ast, arg);
+        }
+        else if (have_keyargs == 0) {
+            if (i > va_pos)
+                pos = va_pos;
+            else
+                pos = i;
+        }
+        else
+            error_keyarg_before_posarg(emit, arg);
+
+        arg->keyword_arg_pos = pos;
+
+        if (basic_arg_head == NULL)
+            basic_arg_head = arg;
+
+        basic_arg_tail = arg;
+    }
+
+    unsigned int min, max;
+
+    get_func_min_max(call_type, &min, &max);
+
+    if (min > num_args)
+        error_keyarg_missing_params(emit, ast, call_type, keyword_names);
+}
+
+static void run_named_call(lily_emit_state *emit, lily_ast *ast,
+        lily_type *call_type, lily_type *expect)
+{
+    int num_args = ast->args_collected;
+    unsigned int min, max;
+
+    get_func_min_max(call_type, &min, &max);
+
+    /* Let the mark and verify step handle too few arguments, since it will
+       print what positions are missing. */
+    if (num_args > max)
+        error_argument_count(emit, ast, num_args, min, max);
+
+    /* This writes down a position for every argument passed. If there are
+       issues (duplicate keys, invalid key, etc.), then this will raise an
+       error. */
+    keyargs_mark_and_verify(emit, ast, call_type);
+
+    /* Now that the call is known to be good, the arguments can be evaluated.
+       Arguments are evaluated in the order they're provided, in case that order
+       is relevant to type inference.
+       After evaluation, the argument is then broken away and relinked to one
+       of the two _head chains found below. This is so that functions written
+       with positional args/values in mind don't need to be altered. */
+
+    lily_type **arg_types = call_type->subtypes;
+    lily_type *va_elem_type = get_va_type(call_type)->subtypes[0];
+    lily_ast *arg = ast->arg_start;
+    lily_ast *next_arg = arg->next_arg;
+    lily_ast *basic_arg_head = NULL;
+    lily_ast *var_arg_head = NULL;
+    int base_count = 0, va_count = 0, va_pos = INT_MAX;
+    int i;
+
+    if (call_type->flags & TYPE_IS_VARARGS)
+        va_pos = call_type->subtype_count - 2;
+
+    for (i = 0; arg != NULL; i++) {
+        lily_ast *real_arg = arg;
+        int is_vararg = 0;
+        uint16_t pos = arg->keyword_arg_pos;
+
+        if (arg->tree_type == tree_binary && arg->op == expr_named_arg)
+            real_arg = arg->right;
+
+        lily_type *arg_type;
+
+        if (va_pos > pos)
+            arg_type = arg_types[pos + 1];
+        else {
+            arg_type = va_elem_type;
+            is_vararg = 1;
+        }
+
+        if (eval_call_arg(emit, real_arg, arg_type) == 0)
+            error_bad_arg(emit, ast, call_type, pos, real_arg->result->type);
+
+        /* For keyargs, this lifts the result into the proper tree. */
+        arg->result = real_arg->result;
+
+        /* Unlink the argument from the original argument chain. */
+        next_arg = arg->next_arg;
+        arg->next_arg = NULL;
+
+        /* Undo potential damage to the keyword pos field. */
+        arg->keyword_arg_pos = pos;
+
+        /* This links the argument back to the appropriate chain.
+           Both chains use the 'left' field to store their last argument for
+           convenience. It's okay to do so because the arguments in question
+           have already been evaluated. */
+        if (is_vararg == 0) {
+            /* Basic arguments are sorted by keyword_arg_pos, with the lowest
+               value being the head. */
+            if (basic_arg_head == NULL) {
+                basic_arg_head = arg;
+                basic_arg_head->left = arg;
+            }
+            else if (basic_arg_head->left->keyword_arg_pos
+                     < arg->keyword_arg_pos) {
+                basic_arg_head->left->next_arg = arg;
+                basic_arg_head->left = arg;
+            }
+            else
+                basic_arg_head = relink_arg(basic_arg_head, arg);
+
+            base_count++;
+        }
+        else {
+            /* Varargs, on the other hand, are sorted in order of appearance. */
+            if (var_arg_head == NULL) {
+                var_arg_head = arg;
+                var_arg_head->left = arg;
+            }
+            else {
+                var_arg_head->left->next_arg = arg;
+                var_arg_head->left = arg;
+            }
+
+            va_count++;
+        }
+
+        arg = next_arg;
+    }
+
+    lily_storage *vararg_s = NULL;
+
+    if (va_pos != INT_MAX &&
+        num_args >= va_pos) {
+        lily_type *va_list_type = get_va_type(call_type);
+
+        if (va_list_type->flags & TYPE_IS_UNRESOLVED)
+            va_list_type = lily_ts_resolve(emit->ts, va_list_type);
+
+        vararg_s = get_storage(emit, va_list_type);
+        lily_u16_write_2(emit->code, o_build_list, va_count);
+
+        for (;var_arg_head;var_arg_head = var_arg_head->next_arg)
+            lily_u16_write_1(emit->code, var_arg_head->result->reg_spot);
+
+        lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
+    }
+
+    ast->arg_start = basic_arg_head;
+    setup_call_result(emit, ast, arg_types[0]);
+    write_call(emit, ast, base_count, vararg_s);
+}
+
+static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_type *call_type = NULL;
+    begin_call(emit, ast, expect, &call_type);
+
+    lily_ts_save_point p;
+    /* Scope save MUST happen after the call is started, because evaluating the
+       call may trigger a dynaload. That dynaload may then cause the number of
+       generics to be seen to increase. But since the scope was registered
+       before the increase, there may be types from a different scope (they
+       blast on entry) that are improperly visible. */
+    lily_ts_scope_save(emit->ts, &p);
+
+    if (call_type->flags & TYPE_IS_UNRESOLVED) {
+        lily_tree_type first_tt = ast->arg_start->tree_type;
+
+        if (first_tt == tree_local_var ||
+            first_tt == tree_upvalue ||
+            first_tt == tree_inherited_new)
+            /* The first two cases simulate quantification by solving generics
+               as themselves.
+               The last case forces class inheritance to keep the same generic
+               order (A of one class is always A of a superclass). It helps to
+               make generic solving a lot simpler. */
+            lily_ts_check(emit->ts, call_type, call_type);
+        else if (expect &&
+                 expect->cls->id == call_type->subtypes[0]->cls->id)
+            /* Grab whatever inference is possible from the result. Don't do
+               error checking. Instead, let a type mismatch show up that's
+               closer to the problem source. */
+            lily_ts_check(emit->ts, call_type->subtypes[0], expect);
+    }
+
+    run_named_call(emit, ast, call_type, expect);
+    lily_ts_scope_restore(emit->ts, &p);
+}
+
 /* This handles variants that are used when they don't receive arguments. Any
    variants that are passed arguments are handled by call processing. */
 static void eval_variant(lily_emit_state *emit, lily_ast *ast,
@@ -3753,6 +4213,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_oo_cached)
         ast->result = ast->arg_start->result;
+    else if (ast->tree_type == tree_named_call)
+        eval_named_call(emit, ast, expect);
 }
 
 /* Evaluate a tree with 'expect' sent for inference. If the tree does not return

@@ -39,7 +39,8 @@ typedef enum {
     expr_right_shift_assign,
     expr_bitwise_and_assign,
     expr_bitwise_or_assign,
-    expr_bitwise_xor_assign
+    expr_bitwise_xor_assign,
+    expr_named_arg,
 } lily_expr_op;
 
 typedef enum {
@@ -48,7 +49,7 @@ typedef enum {
     tree_unary, tree_type, tree_typecast, tree_tuple, tree_property,
     tree_variant, tree_lambda, tree_literal, tree_inherited_new, tree_method,
     tree_static_func, tree_self, tree_upvalue, tree_boolean, tree_byte,
-    tree_integer, tree_oo_cached, tree_binary
+    tree_integer, tree_oo_cached, tree_named_call, tree_named_arg, tree_binary
 } lily_tree_type;
 
 typedef struct lily_ast_ {
@@ -67,7 +68,13 @@ typedef struct lily_ast_ {
     };
 
     uint32_t line_num;
-    uint16_t call_source_reg;
+
+    union {
+        uint16_t call_source_reg;
+        /* Keyword arguments will write what position they target here. */
+        uint16_t keyword_arg_pos;
+    };
+
     uint16_t args_collected;
 
     union {
