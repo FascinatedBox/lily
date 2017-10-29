@@ -540,3 +540,14 @@ t.interpret("Cover equality of an empty function return and 'unit'.",
     if f() != unit:
         raise Exception("Failed.")
     """)
+
+t.interpret_for_error("Cover printing a Function with optional varargs.",
+    """\
+    SyntaxError: Cannot assign type 'Function (*Integer...)' to type 'Integer'.\n    \
+        from test/[subinterp]:3:\
+    """,
+    """\
+    define f(a: *Integer... = []) { }
+
+    var v: Integer = f
+    """)

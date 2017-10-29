@@ -253,11 +253,18 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
             }
 
             if (type->flags & TYPE_IS_VARARGS) {
-                /* Varargs are written as 'type ...', but internally are
-                   actually 'list[type] ...'. This writes them as they would
-                   have been written in (the extra ->subtypes[0] grabs the type
-                   within the list. */
-                add_type(msgbuf, type->subtypes[i]->subtypes[0]);
+                lily_type *v_type = type->subtypes[i];
+
+                /* If varargs is optional, then the type appears as optarg of
+                   `List` of the element type. Otherwise, it's just a `List` of
+                   the underlying type. */
+                if (v_type->cls->id == LILY_ID_OPTARG) {
+                    lily_mb_add(msgbuf, "*");
+                    add_type(msgbuf, v_type->subtypes[0]->subtypes[0]);
+                }
+                else
+                    add_type(msgbuf, v_type->subtypes[0]);
+
                 lily_mb_add(msgbuf, "...");
             }
             else
