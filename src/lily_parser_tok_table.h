@@ -86,7 +86,8 @@ static const lily_tok_info parser_tok_table[] =
     {tk_invalid,          0          , -1},
     {tk_end_lambda,       1          , -1},
     {tk_end_tag,          1          , -1},
-    {tk_eof,              1          , -1}
+    {tk_eof,              1          , -1},
+    {tk_two_dots,         1          , -1}
 };
 
 #endif

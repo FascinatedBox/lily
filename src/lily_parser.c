@@ -3900,13 +3900,14 @@ static void import_handler(lily_parse_state *parser, int multi)
         if (lex->token == tk_left_parenth)
             collect_import_refs(parser, &import_sym_count);
 
-        NEED_CURRENT_TOK(tk_word)
+
         /* The import path may include slashes. Use this to scan the path,
            because it won't allow spaces in between. */
-        lily_scan_import_path(lex);
+        char full_path[256];
+        lily_scan_import_path(lex, full_path);
 
         lily_module_entry *module = NULL;
-        char *search_start = lex->label;
+        char *search_start = full_path;
         char *path_tail = strrchr(search_start, LILY_PATH_CHAR);
         /* Will the name that is going to be added conflict with something that
            has already been added? */
@@ -3919,11 +3920,11 @@ static void import_handler(lily_parse_state *parser, int multi)
                     search_start);
 
         if (path_tail == NULL)
-            module = lily_find_registered_module(symtab, lex->label);
+            module = lily_find_registered_module(symtab, full_path);
 
         /* Is there a cached version that was loaded somewhere else? */
         if (module == NULL) {
-            module = load_module(parser, lex->label);
+            module = load_module(parser, full_path);
             /* module is never NULL: load_module raises on error. */
             if (module->flags & MODULE_NOT_EXECUTED) {
                 module->flags &= ~MODULE_NOT_EXECUTED;
@@ -3931,7 +3932,6 @@ static void import_handler(lily_parse_state *parser, int multi)
             }
         }
 
-        lily_lexer(parser->lex);
         if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
             if (import_sym_count)
                 lily_raise_syn(parser->raiser,

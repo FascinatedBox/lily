@@ -1127,33 +1127,45 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
 /* This is called by parser's import handling after having seen a word. The word
    might be all there is to the path. If so, there's nothing to do. But if
    there's a slash, then scoop that up. */
-void lily_scan_import_path(lily_lex_state *lexer)
+void lily_scan_import_path(lily_lex_state *lexer, char *path)
 {
-    int input_pos = lexer->input_pos;
-    char *iter_ch = &lexer->input_buffer[input_pos];
+    int found_first_token = 0;
 
-    if (*iter_ch != '/')
-        return;
-
-    char *label = &lexer->label[strlen(lexer->label)];
-
-    do {
-        *label = LILY_PATH_CHAR;
-        label++;
-        iter_ch++;
-        while (ident_table[(unsigned char)*iter_ch]) {
-            *label = *iter_ch;
-            label++;
-            iter_ch++;
+    while (1) {
+        if(lexer->token == tk_two_dots) {
+            *path = '.';
+            path++;
+            *path = '.';
+            path++;
+        } else if (lexer->token == tk_dot) {
+            *path = '.';
+            path++;
+        } else if(lexer->token == tk_word) {
+            strcpy(path, lexer->label);
+            path += strlen(lexer->label);
+        } else {
+            if(!found_first_token)
+                lily_raise_syn(lexer->raiser, "Expected ., .. or word, not '%s'.", tokname(lexer->token));
         }
-    } while (*iter_ch == '/');
 
-    if (*(label - 1) == LILY_PATH_CHAR) {
-        lily_raise_syn(lexer->raiser, "Import path cannot end with '/'.");
+        found_first_token = 1;
+
+        lily_lexer(lexer);
+
+        if (lexer->token == tk_divide) {
+            lily_lexer(lexer);
+            *path = LILY_PATH_CHAR;
+            path++;
+            continue;
+        }
+
+        *path = '\0';
+
+        break;
     }
 
-    *label = '\0';
-    lexer->input_pos = iter_ch - lexer->input_buffer;
+    if(*(path - 1) == LILY_PATH_CHAR)
+        lily_raise_syn(lexer->raiser, "Import path cannot end with '/'.");
 }
 
 /* The lexer reads `-1` and `+1` as negative or positive literals. Most of the
@@ -1378,8 +1390,7 @@ void lily_lexer(lily_lex_state *lexer)
                         token = tk_three_dots;
                     }
                     else
-                        lily_raise_syn(lexer->raiser,
-                                "'..' is not a valid token (expected 1 or 3 dots).");
+                        token = tk_two_dots;
                 }
             }
         }
