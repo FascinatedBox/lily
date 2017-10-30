@@ -552,3 +552,19 @@ t.interpret_for_error("Shorthand constructor var self-init.",
     """\
     class Test(var @a: *Integer = @a) { }
     """)
+
+t.interpret_for_error("Inner define not made into a method.",
+    """\
+    SyntaxError: g has not been declared.\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    class Example {
+        public define f {
+            define g {
+            }
+        }
+
+        g()
+    }
+    """)

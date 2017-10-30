@@ -3308,8 +3308,12 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     lily_class *parent;
 
     if (parser->class_self_type) {
-        ensure_unique_class_member(parser, lex->label);
-        parent = parser->class_self_type->cls;
+        lily_block_type block_type = parser->emit->block->block_type;
+
+        if (block_type == block_class || block_type == block_enum) {
+            ensure_unique_class_member(parser, lex->label);
+            parent = parser->class_self_type->cls;
+        }
     }
     else
         parent = NULL;
