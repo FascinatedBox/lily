@@ -7,7 +7,7 @@ t.scope(__file__)
 t.interpret_for_error("Posarg after keyarg.",
     """\
     SyntaxError: Positional argument after keyword argument.\n    \
-        from test/[subinterp]:5:\
+        from test\/[subinterp]:5:\
     """,
     """
     define f(:a a: Integer, :b b: String) {
@@ -19,7 +19,7 @@ t.interpret_for_error("Posarg after keyarg.",
 t.interpret_for_error("Keyarg that isn't there.",
     """\
     SyntaxError: f does not have a keyword named ':b'.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer) {  }
@@ -30,7 +30,7 @@ t.interpret_for_error("Keyarg that isn't there.",
 t.interpret_for_error("Stacked keyarg.",
     """\
     SyntaxError: Unexpected token 'a named argument'.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer) {  }
@@ -41,7 +41,7 @@ t.interpret_for_error("Stacked keyarg.",
 t.interpret_for_error("Keyarg too late.",
     """\
     SyntaxError: Unexpected token 'a named argument'.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer) {  }
@@ -52,7 +52,7 @@ t.interpret_for_error("Keyarg too late.",
 t.interpret_for_error("Keyarg in a static list.",
     """\
     SyntaxError: Unexpected token 'a named argument'.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer) {  }
@@ -63,7 +63,7 @@ t.interpret_for_error("Keyarg in a static list.",
 t.interpret_for_error("Keyarg outside of anything.",
     """\
     SyntaxError: Unexpected token 'a named argument'.\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     var v = :a 5
@@ -72,7 +72,7 @@ t.interpret_for_error("Keyarg outside of anything.",
 t.interpret_for_error("Keyarg with binary preceding it.",
     """\
     SyntaxError: Unexpected token 'a named argument'.\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     var v = 1 + :a 5
@@ -83,7 +83,7 @@ t.interpret_for_error("Keyarg missing key arguments.",
     SyntaxError: Call to f is missing parameters:\n\
     * Parameter #1 (:a) of type Integer.\n\
     * Parameter #3 (:c) of type Double.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer, :b b: String, :c c: Double) {}
@@ -96,7 +96,7 @@ t.interpret_for_error("Keyarg missing positional arguments.",
     SyntaxError: Call to f is missing parameters:\n\
     * Parameter #1 of type Integer.\n\
     * Parameter #3 of type Double.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(a: Integer, :b b: String, c: Double) {}
@@ -109,7 +109,7 @@ t.interpret_for_error("Keyarg missing key arguments (varargs).",
     SyntaxError: Call to f is missing parameters:\n\
     * Parameter #1 (:a) of type Integer.\n\
     * Parameter #3 (:c) of type Double.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(:a a: Integer, :b b: String, :c c: Double, :d d: Byte...) {}
@@ -120,7 +120,7 @@ t.interpret_for_error("Keyarg missing key arguments (varargs).",
 t.interpret_for_error("Keyargs on a variant (temporary).",
     """\
     SyntaxError: Variants can't have keyword arguments yet.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """
     enum Example {
@@ -132,7 +132,7 @@ t.interpret_for_error("Keyargs on a variant (temporary).",
 t.interpret_for_error("Optargs and keyargs (temporary).",
     """\
     SyntaxError: Can't mix optional and keyword arguments yet.\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     define f(:a a: *Integer = 10) {  }
