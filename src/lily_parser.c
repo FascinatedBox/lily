@@ -3046,57 +3046,57 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     stuff. As such, there's no real special attention paid to the rest.
     Near the bottom is parser_loop, which is the entry point of the parser. **/
 
-static void if_handler(lily_parse_state *, int);
-static void do_handler(lily_parse_state *, int);
-static void var_handler(lily_parse_state *, int);
-static void for_handler(lily_parse_state *, int);
-static void try_handler(lily_parse_state *, int);
-static void case_handler(lily_parse_state *, int);
-static void else_handler(lily_parse_state *, int);
-static void elif_handler(lily_parse_state *, int);
-static void enum_handler(lily_parse_state *, int);
-static void while_handler(lily_parse_state *, int);
-static void raise_handler(lily_parse_state *, int);
-static void match_handler(lily_parse_state *, int);
-static void break_handler(lily_parse_state *, int);
-static void class_handler(lily_parse_state *, int);
-static void public_handler(lily_parse_state *, int);
-static void scoped_handler(lily_parse_state *, int);
-static void define_handler(lily_parse_state *, int);
-static void return_handler(lily_parse_state *, int);
-static void except_handler(lily_parse_state *, int);
-static void import_handler(lily_parse_state *, int);
-static void private_handler(lily_parse_state *, int);
-static void protected_handler(lily_parse_state *, int);
-static void continue_handler(lily_parse_state *, int);
+static void keyword_if(lily_parse_state *, int);
+static void keyword_do(lily_parse_state *, int);
+static void keyword_var(lily_parse_state *, int);
+static void keyword_for(lily_parse_state *, int);
+static void keyword_try(lily_parse_state *, int);
+static void keyword_case(lily_parse_state *, int);
+static void keyword_else(lily_parse_state *, int);
+static void keyword_elif(lily_parse_state *, int);
+static void keyword_enum(lily_parse_state *, int);
+static void keyword_while(lily_parse_state *, int);
+static void keyword_raise(lily_parse_state *, int);
+static void keyword_match(lily_parse_state *, int);
+static void keyword_break(lily_parse_state *, int);
+static void keyword_class(lily_parse_state *, int);
+static void keyword_public(lily_parse_state *, int);
+static void keyword_scoped(lily_parse_state *, int);
+static void keyword_define(lily_parse_state *, int);
+static void keyword_return(lily_parse_state *, int);
+static void keyword_except(lily_parse_state *, int);
+static void keyword_import(lily_parse_state *, int);
+static void keyword_private(lily_parse_state *, int);
+static void keyword_protected(lily_parse_state *, int);
+static void keyword_continue(lily_parse_state *, int);
 
 typedef void (keyword_handler)(lily_parse_state *, int);
 
 /* This is setup so that handlers[key_id] is the handler for that keyword. */
 static keyword_handler *handlers[] = {
-    if_handler,
-    do_handler,
-    var_handler,
-    for_handler,
-    try_handler,
-    case_handler,
-    else_handler,
-    elif_handler,
-    enum_handler,
-    while_handler,
-    raise_handler,
-    match_handler,
-    break_handler,
-    class_handler,
-    public_handler,
-    scoped_handler,
-    define_handler,
-    return_handler,
-    except_handler,
-    import_handler,
-    private_handler,
-    protected_handler,
-    continue_handler,
+    keyword_if,
+    keyword_do,
+    keyword_var,
+    keyword_for,
+    keyword_try,
+    keyword_case,
+    keyword_else,
+    keyword_elif,
+    keyword_enum,
+    keyword_while,
+    keyword_raise,
+    keyword_match,
+    keyword_break,
+    keyword_class,
+    keyword_public,
+    keyword_scoped,
+    keyword_define,
+    keyword_return,
+    keyword_except,
+    keyword_import,
+    keyword_private,
+    keyword_protected,
+    keyword_continue,
 };
 
 /* Public scope is defined by the absense of either protected or private. This
@@ -3271,7 +3271,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
     }
 }
 
-static void var_handler(lily_parse_state *parser, int multi)
+static void keyword_var(lily_parse_state *parser, int multi)
 {
     parse_var(parser, 0);
 }
@@ -3497,7 +3497,7 @@ static void do_else(lily_parse_state *parser)
     lily_lexer(lex);
 }
 
-static void if_handler(lily_parse_state *parser, int multi)
+static void keyword_if(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -3558,12 +3558,12 @@ static void if_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-static void elif_handler(lily_parse_state *parser, int multi)
+static void keyword_elif(lily_parse_state *parser, int multi)
 {
     lily_raise_syn(parser->raiser, "'elif' without 'if'.");
 }
 
-static void else_handler(lily_parse_state *parser, int multi)
+static void keyword_else(lily_parse_state *parser, int multi)
 {
     lily_raise_syn(parser->raiser, "'else' without 'if'.");
     }
@@ -3592,7 +3592,7 @@ static int code_is_after_exit(lily_parse_state *parser)
     return 1;
 }
 
-static void return_handler(lily_parse_state *parser, int multi)
+static void keyword_return(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->function_block;
     lily_type *return_type = NULL;
@@ -3622,7 +3622,7 @@ static void return_handler(lily_parse_state *parser, int multi)
     }
 }
 
-static void while_handler(lily_parse_state *parser, int multi)
+static void keyword_while(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -3642,7 +3642,7 @@ static void while_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-static void continue_handler(lily_parse_state *parser, int multi)
+static void keyword_continue(lily_parse_state *parser, int multi)
 {
     lily_emit_continue(parser->emit);
 
@@ -3651,7 +3651,7 @@ static void continue_handler(lily_parse_state *parser, int multi)
                 "Statement(s) after 'continue' will not execute.");
 }
 
-static void break_handler(lily_parse_state *parser, int multi)
+static void keyword_break(lily_parse_state *parser, int multi)
 {
     lily_emit_break(parser->emit);
 
@@ -3660,7 +3660,7 @@ static void break_handler(lily_parse_state *parser, int multi)
                 "Statement(s) after 'break' will not execute.");
 }
 
-static void for_handler(lily_parse_state *parser, int multi)
+static void keyword_for(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *loop_var;
@@ -3730,7 +3730,7 @@ static void for_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-static void do_handler(lily_parse_state *parser, int multi)
+static void keyword_do(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -3883,7 +3883,7 @@ static void collect_import_refs(lily_parse_state *parser, int *count)
     lily_lexer(lex);
 }
 
-static void import_handler(lily_parse_state *parser, int multi)
+static void keyword_import(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
@@ -4005,7 +4005,7 @@ static void process_except(lily_parse_state *parser)
     lily_lexer(lex);
 }
 
-static void try_handler(lily_parse_state *parser, int multi)
+static void keyword_try(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -4061,12 +4061,12 @@ static void try_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-static void except_handler(lily_parse_state *parser, int multi)
+static void keyword_except(lily_parse_state *parser, int multi)
 {
     lily_raise_syn(parser->raiser, "'except' outside 'try'.");
 }
 
-static void raise_handler(lily_parse_state *parser, int multi)
+static void keyword_raise(lily_parse_state *parser, int multi)
 {
     if (parser->emit->function_block->block_type == block_lambda)
         lily_raise_syn(parser->raiser, "'raise' not allowed in a lambda.");
@@ -4367,7 +4367,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
 }
 
-static void class_handler(lily_parse_state *parser, int multi)
+static void keyword_class(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file &&
@@ -4484,7 +4484,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     if (lex->token == tk_word) {
         while (1) {
             lily_lexer(lex);
-            define_handler(parser, 1);
+            keyword_define(parser, 1);
             if (lex->token == tk_right_curly)
                 break;
             else if (lex->token != tk_word ||
@@ -4505,12 +4505,12 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     return enum_cls;
 }
 
-static void enum_handler(lily_parse_state *parser, int multi)
+static void keyword_enum(lily_parse_state *parser, int multi)
 {
     parse_enum(parser, 0);
 }
 
-static void scoped_handler(lily_parse_state *parser, int multi)
+static void keyword_scoped(lily_parse_state *parser, int multi)
 {
     parse_enum(parser, 1);
 }
@@ -4665,7 +4665,7 @@ static void match_case_class(lily_parse_state *parser,
     lily_lexer(lex);
 }
 
-static void match_handler(lily_parse_state *parser, int multi)
+static void keyword_match(lily_parse_state *parser, int multi)
 {
     if (multi == 0)
         lily_raise_syn(parser->raiser,
@@ -4746,7 +4746,7 @@ static void match_handler(lily_parse_state *parser, int multi)
     lily_emit_leave_block(parser->emit);
 }
 
-static void case_handler(lily_parse_state *parser, int multi)
+static void keyword_case(lily_parse_state *parser, int multi)
 {
     lily_raise_syn(parser->raiser, "'case' not allowed outside of 'match'.");
 }
@@ -4778,7 +4778,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     lily_gp_restore(parser->generics, save_generic_start);
 }
 
-static void define_handler(lily_parse_state *parser, int multi)
+static void keyword_define(lily_parse_state *parser, int multi)
 {
     parse_define(parser, 0);
 }
@@ -4806,17 +4806,17 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
                 lex->label);
 }
 
-static void public_handler(lily_parse_state *parser, int multi)
+static void keyword_public(lily_parse_state *parser, int multi)
 {
     parse_modifier(parser, "public", PUBLIC_SCOPE);
 }
 
-static void private_handler(lily_parse_state *parser, int multi)
+static void keyword_private(lily_parse_state *parser, int multi)
 {
     parse_modifier(parser, "private", SYM_SCOPE_PRIVATE);
 }
 
-static void protected_handler(lily_parse_state *parser, int multi)
+static void keyword_protected(lily_parse_state *parser, int multi)
 {
     parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
 }
