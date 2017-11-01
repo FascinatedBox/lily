@@ -411,6 +411,9 @@ typedef struct lily_proto_ {
    function. */
 #define VAR_IS_FOREIGN_FUNC     0x100
 
+/* Static functions don't receive an implicit 'self'. */
+#define VAR_IS_STATIC           0x200
+
 /* This module was added by being registered. */
 #define MODULE_IS_REGISTERED 0x1
 

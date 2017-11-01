@@ -3061,6 +3061,7 @@ static void keyword_match(lily_parse_state *, int);
 static void keyword_break(lily_parse_state *, int);
 static void keyword_class(lily_parse_state *, int);
 static void keyword_public(lily_parse_state *, int);
+static void keyword_static(lily_parse_state *, int);
 static void keyword_scoped(lily_parse_state *, int);
 static void keyword_define(lily_parse_state *, int);
 static void keyword_return(lily_parse_state *, int);
@@ -3089,6 +3090,7 @@ static keyword_handler *handlers[] = {
     keyword_break,
     keyword_class,
     keyword_public,
+    keyword_static,
     keyword_scoped,
     keyword_define,
     keyword_return,
@@ -3337,9 +3339,9 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     collect_generics(parser);
     lily_emit_enter_call_block(parser->emit, block_define, define_var);
 
-    if (parent) {
-        /* Toplevel class methods (and only those) receive a 'self' as a first
-           implicit argument. */
+    if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
+        /* Toplevel non-static class methods have 'self' as an implicit first
+           argument. */
         lily_tm_add(parser->tm, parser->class_self_type);
 
         lily_var *self_var = new_local_var(parser, parser->class_self_type,
@@ -4790,11 +4792,25 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
     int key = keyword_by_name(parser->lex->label);
+
     if (key == KEY_VAR) {
         lily_lexer(lex);
         parse_var(parser, modifier);
     }
     else if (key == KEY_DEFINE) {
+        lily_lexer(lex);
+        parse_define(parser, modifier);
+    }
+    else if (key == KEY_STATIC) {
+        modifier |= VAR_IS_STATIC;
+
+        NEED_NEXT_TOK(tk_word);
+        if (keyword_by_name(lex->label) != KEY_DEFINE) {
+            lily_raise_syn(parser->raiser,
+                    "'static' must be followed by 'define', not '%s'.",
+                    lex->label);
+        }
+
         lily_lexer(lex);
         parse_define(parser, modifier);
     }
@@ -4807,6 +4823,12 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
 static void keyword_public(lily_parse_state *parser, int multi)
 {
     parse_modifier(parser, "public", PUBLIC_SCOPE);
+}
+
+static void keyword_static(lily_parse_state *parser, int multi)
+{
+    lily_raise_syn(parser->raiser,
+            "'static' must follow a scope (public, protected, or private).");
 }
 
 static void keyword_private(lily_parse_state *parser, int multi)

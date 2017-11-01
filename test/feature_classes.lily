@@ -378,3 +378,31 @@ t.interpret("Call a class property that is a function.",
     if Example().a(2) != [1, 2]:
         raise Exception("Failed.")
     """)
+
+t.interpret("Define and use a static method.",
+    """
+    class Example {
+        public static define f: Integer {
+            return 10
+        }
+    }
+
+    if Example.f() != 10:
+        raise Exception("Failed.")
+    """)
+
+t.interpret("Static method from non-static method.",
+    """
+    class Example {
+        public var @a = 10
+        public static define f(x: Integer): Integer { return x * x }
+
+        public define g: Integer {
+            @a = f(@a)
+            return @a
+        }
+    }
+
+    if Example().g() != 100:
+        raise Exception("Failed.")
+    """)

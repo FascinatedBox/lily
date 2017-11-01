@@ -260,6 +260,19 @@ class Point3D(x: Integer, y: Integer, z: Integer) < Point(x, y)
 }
 ```
 
+By default, all class methods take an implicit `self` as their first argument.
+However, the `static` qualifier allows creation of methods that don't take that
+implicit argument. Finally, the `static` qualifier, if it exists, must always
+follow the scope qualifier (ex: `static public` is invalid).
+
+```
+class Utils {
+    public static define square(x: Integer) { return x * x }
+}
+
+var v = Utils.square(10) # 100
+```
+
 ### Generics
 
 In Lily, classes, enums, and functions can make use of generics. Currently,

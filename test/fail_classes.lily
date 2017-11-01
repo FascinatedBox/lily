@@ -568,3 +568,87 @@ t.interpret_for_error("Inner define not made into a method.",
         g()
     }
     """)
+
+t.interpret_for_error("Static method using a class property.",
+    """\
+    SyntaxError: Static methods do not have access to self.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    class Example {
+        public var @a = 10
+        public static define f {
+            @a = 12
+        }
+    }
+    """)
+
+t.interpret_for_error("Static method using a class property.",
+    """\
+    SyntaxError: Static methods do not have access to self.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Example {
+        public define f {
+        }
+
+        public static define g {
+            f()
+        }
+    }
+    """)
+
+t.interpret_for_error("Verify static call argument count.",
+    """\
+    SyntaxError: Wrong number of arguments to Example.g (2 for 3).\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Example {
+        public static define g(a: Integer, b: String, c: Integer) {
+        }
+    }
+
+    Example.g(10, "20")
+    """)
+
+t.interpret_for_error("Using static public instead of the reverse.",
+    """\
+    SyntaxError: 'static' must follow a scope (public, protected, or private).\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Example {
+        static public define g(a: Integer) {
+        }
+    }
+    """)
+
+t.interpret_for_error("Misuse a protected static function.",
+    """\
+    SyntaxError: Example.f is marked protected, and not available here.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class Example {
+        protected static define f { }
+    }
+
+    Example.f()
+    """)
+
+t.interpret_for_error("Misuse a private static function.",
+    """\
+    SyntaxError: f is a private member of class One, and not visible here.\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    class One {
+        private static define f { }
+    }
+
+    class Two < One {
+        f()
+    }
+    """)

@@ -924,6 +924,11 @@ static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
                 "");
     }
 
+    if (block->self == NULL) {
+        lily_raise_adjusted(emit->raiser, ast->line_num,
+                "Static methods do not have access to self.", "");
+    }
+
     lily_sym *upper_self = (lily_sym *)block->self;
 
     if (find_closed_sym_spot(emit, depth, upper_self) == -1)
@@ -3540,11 +3545,12 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
     switch (first_tt) {
         case tree_method:
             call_sym = first_arg->sym;
-            ast->keep_first_call_arg = 1;
-            /* tree_method is sent when calling a class method from inside
-               another method. Send 'self' as a first argument.
-               Constructors use tree_inherited_new to bypass this injection. */
-            first_arg->tree_type = tree_self;
+
+            /* Only non-static methods get an implicit self. */
+            if ((call_sym->flags & VAR_IS_STATIC) == 0) {
+                ast->keep_first_call_arg = 1;
+                first_arg->tree_type = tree_self;
+            }
             break;
         case tree_defined_func:
         case tree_inherited_new:
