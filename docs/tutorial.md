@@ -256,7 +256,7 @@ class SimplerPoint(var @x: Integer, var @y: Integer) {}
 
 class Point3D(x: Integer, y: Integer, z: Integer) < Point(x, y)
 {
-    var @z = z
+    public var @z = z
 }
 ```
 
