@@ -1445,7 +1445,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     collect_fn arg_collect = NULL;
 
     if ((arg_flags & F_COLLECT_DEFINE)) {
-        if (parser->class_self_type) {
+        if (parser->emit->block->self) {
             i++;
             result_pos--;
         }
@@ -3305,7 +3305,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         lily_raise_syn(parser->raiser, "%s has already been declared.",
                 lex->label);
 
-    lily_class *parent;
+    lily_class *parent = NULL;
 
     if (parser->class_self_type) {
         lily_block_type block_type = parser->emit->block->block_type;
@@ -3327,7 +3327,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
             lex->line_num);
 
     /* This prevents optargs from using function they're declared in. */
-    define_var->flags |= SYM_NOT_INITIALIZED;
+    define_var->flags |= SYM_NOT_INITIALIZED | modifiers;
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
@@ -3337,15 +3337,13 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     collect_generics(parser);
     lily_emit_enter_call_block(parser->emit, block_define, define_var);
 
-    if (parser->class_self_type) {
-        /* This is a method of a class. It should implicitly take 'self' as
-           the first argument, and be registered to be within that class.
-           It may also have a private/protected modifier, so add that too. */
+    if (parent) {
+        /* Toplevel class methods (and only those) receive a 'self' as a first
+           implicit argument. */
         lily_tm_add(parser->tm, parser->class_self_type);
 
         lily_var *self_var = new_local_var(parser, parser->class_self_type,
                 "(self)", lex->line_num);
-        define_var->flags |= modifiers;
 
         parser->emit->block->self = (lily_storage *)self_var;
     }

@@ -307,6 +307,27 @@ t.interpret("Verify lambda closing over class self for a method call.",
         raise Exception("Failed.")
     """)
 
+t.interpret("Verify an inner define closing over class self for prop get.",
+    """
+    class Example {
+        public var @a = 10
+
+        public define f: Integer {
+            define g {
+                @a = 20
+            }
+
+            g()
+            return @a
+        }
+
+        f()
+    }
+
+    if Example().f() != 20:
+        raise Exception("Failed.")
+    """)
+
 t.interpret_for_error("Verify closure traceback.",
     """\
     DivisionByZeroError: Attempt to divide by zero.\n\
