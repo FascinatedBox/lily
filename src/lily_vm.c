@@ -23,6 +23,13 @@ void lily_mb_escape_add_str(lily_msgbuf *, const char *);
    are to be returned from. */
 static uint16_t foreign_code[1] = {o_vm_exit};
 
+/* Operations called from the vm that may raise an error must set the current
+   frame's code first. This allows parser and vm to assume that any native
+   function's line number exists at code[-1].
+   to_add should be the same value added to code at the end of the branch. */
+#define SAVE_LINE(to_add) \
+current_frame->code = code + to_add
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -492,9 +499,12 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
 {
     lily_call_frame *current_frame = vm->call_chain;
     if (current_frame->next == NULL) {
-        if (vm->call_depth > 100)
+        if (vm->call_depth > 100) {
+            SAVE_LINE(code[2] + 5);
             vm_error(vm, LILY_ID_RUNTIMEERROR,
                     "Function call recursion limit reached.");
+        }
+
         add_call_frame(vm);
     }
 
@@ -1889,13 +1899,6 @@ void lily_vm_add_class_unchecked(lily_vm_state *vm, lily_class *cls)
  *     |_____/_/\_\___|\___|\__,_|\__\___|
  *
  */
-
-/* Operations called from the vm that may raise an error must set the current
-   frame's code first. This allows parser and vm to assume that any native
-   function's line number exists at code[-1].
-   to_add should be the same value added to code at the end of the branch. */
-#define SAVE_LINE(to_add) \
-current_frame->code = code + to_add
 
 #define INTEGER_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
