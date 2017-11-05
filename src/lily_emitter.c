@@ -132,8 +132,9 @@ static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
    a var. The var should always be an __import__ function. */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
-    uint16_t spot = lily_emit_get_storage_spot(emit, lily_unit_type);
-    lily_u16_write_5(emit->code, o_call_native, var->reg_spot, 0, spot,
+    lily_storage *s = get_storage(emit, lily_unit_type);
+
+    lily_u16_write_5(emit->code, o_call_native, var->reg_spot, 0, s->reg_spot,
             *emit->lex_linenum);
 }
 
@@ -529,12 +530,6 @@ lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
     } while (emit->function_block->next_reg_spot == next_spot);
 
     return s;
-}
-
-uint16_t lily_emit_get_storage_spot(lily_emit_state *emit, lily_type *type)
-{
-    lily_storage *s = get_storage(emit, type);
-    return s->reg_spot;
 }
 
 /***
