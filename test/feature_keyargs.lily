@@ -201,3 +201,31 @@ t.interpret("Class method taking keyargs.",
     if Example().f(:a 10) != 10:
         raise Exception("Failed.")
     """)
+
+t.interpret("Keyargs mixed order for a variant.",
+    """
+    enum Example {
+        One(:a Integer, :b String, :c Boolean),
+        Two
+    }
+
+    var v = One(:c false, :a 10, :b "asdf")
+    var v2 = One(10, "asdf", false)
+
+    if v != v2:
+        raise Exception("Failed.")
+    """)
+
+t.interpret("Keyargs mixed order for a scoped variant.",
+    """
+    scoped enum Example {
+        One(:a Integer, :b String, :c Boolean),
+        Two
+    }
+
+    var v = Example.One(:b "asdf", :a 10, :c false)
+    var v2 = Example.One(10, "asdf", false)
+
+    if v != v2:
+        raise Exception("Failed.")
+    """)

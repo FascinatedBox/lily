@@ -29,6 +29,8 @@ typedef struct {
     uint64_t shorthash;
 
     struct lily_class_ *parent;
+
+    char *arg_names;
 } lily_variant_class;
 
 /* lily_class represents a class in the language. */

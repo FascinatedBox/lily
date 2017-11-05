@@ -75,8 +75,12 @@ static void free_properties(lily_class *cls)
 {
     lily_named_sym *prop_iter = cls->members;
     lily_named_sym *next_prop;
+
     while (prop_iter) {
         next_prop = prop_iter->next;
+
+        if (prop_iter->item_kind == ITEM_TYPE_VARIANT)
+            lily_free(((lily_variant_class *)prop_iter)->arg_names);
 
         lily_free(prop_iter->name);
         lily_free(prop_iter);
@@ -850,6 +854,7 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->parent = enum_cls;
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
+    variant->arg_names = NULL;
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);
 

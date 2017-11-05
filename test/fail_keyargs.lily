@@ -117,18 +117,6 @@ t.interpret_for_error("Keyarg missing key arguments (varargs).",
     f(:b "a")
     """)
 
-t.interpret_for_error("Keyargs on a variant (temporary).",
-    """\
-    SyntaxError: Variants can't have keyword arguments yet.\n    \
-        from test\/[subinterp]:3:\
-    """,
-    """
-    enum Example {
-        One(:a Integer),
-        Two
-    }
-    """)
-
 t.interpret_for_error("Optargs and keyargs (temporary).",
     """\
     SyntaxError: Can't mix optional and keyword arguments yet.\n    \

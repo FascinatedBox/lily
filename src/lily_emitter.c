@@ -3762,18 +3762,19 @@ static lily_ast *relink_arg(lily_ast *source_ast, lily_ast *new_ast)
 
 static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_proto *proto = NULL;
     char *names = NULL;
 
     if (ast->sym->item_kind == ITEM_TYPE_VAR) {
         lily_var *var = (lily_var *)ast->sym;
 
-        if (var->flags & VAR_IS_READONLY)
-            proto = lily_emit_proto_for_var(emit, var);
-    }
+        if (var->flags & VAR_IS_READONLY) {
+            lily_proto *p = lily_emit_proto_for_var(emit, var);
 
-    if (proto)
-        names = proto->arg_names;
+            names = p->arg_names;
+        }
+    }
+    else if (ast->sym->item_kind == ITEM_TYPE_VARIANT)
+        names = ast->variant->arg_names;
 
     return names;
 }

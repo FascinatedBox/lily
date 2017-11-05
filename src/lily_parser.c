@@ -822,7 +822,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     lily_vs_push(parser->symtab->literals, v);
 }
 
-static void put_keyargs_in_proto(lily_parse_state *parser, lily_var *var,
+static void put_keyargs_in_target(lily_parse_state *parser, lily_item *target,
         uint32_t arg_start)
 {
     char *source = lily_sp_get(parser->keyarg_strings, arg_start);
@@ -831,8 +831,17 @@ static void put_keyargs_in_proto(lily_parse_state *parser, lily_var *var,
 
     memcpy(buffer, source, len);
 
-    lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
-    p->arg_names = buffer;
+    if (target->item_kind == ITEM_TYPE_VAR) {
+        lily_var *var = (lily_var *)target;
+        lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
+
+        p->arg_names = buffer;
+    }
+    else {
+        lily_variant_class *c = (lily_variant_class *)target;
+
+        c->arg_names = buffer;
+    }
 }
 
 static void hide_block_vars(lily_parse_state *parser)
@@ -1470,11 +1479,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         while (1) {
             if (lex->token == tk_keyword_arg) {
-                if (arg_flags & F_COLLECT_VARIANT) {
-                    lily_raise_syn(parser->raiser,
-                            "Variants can't have keyword arguments yet.");
-                }
-
                 while (i != last_keyarg_pos) {
                     last_keyarg_pos++;
                     lily_sp_insert(parser->keyarg_strings, " ",
@@ -1538,7 +1542,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         lily_sp_insert(parser->keyarg_strings, "\t",
                 &parser->keyarg_current);
 
-        put_keyargs_in_proto(parser, (lily_var *)target, keyarg_start);
+        put_keyargs_in_target(parser, target, keyarg_start);
         parser->keyarg_current = keyarg_start;
     }
 
