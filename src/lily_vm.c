@@ -85,6 +85,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     lily_vm_state *vm = lily_malloc(sizeof(*vm));
 
     vm->call_depth = 0;
+    vm->depth_max = 100;
     vm->raiser = raiser;
     vm->regs_from_main = NULL;
     vm->gc_live_entries = NULL;
@@ -499,7 +500,7 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
 {
     lily_call_frame *current_frame = vm->call_chain;
     if (current_frame->next == NULL) {
-        if (vm->call_depth > 100) {
+        if (vm->call_depth > vm->depth_max) {
             SAVE_LINE(code[2] + 5);
             vm_error(vm, LILY_ID_RUNTIMEERROR,
                     "Function call recursion limit reached.");

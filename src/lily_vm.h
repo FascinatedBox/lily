@@ -57,7 +57,7 @@ typedef struct lily_vm_state_ {
 
     uint32_t call_depth;
 
-    uint32_t pad;
+    uint32_t depth_max;
 
     lily_call_frame *call_chain;
 
