@@ -244,6 +244,7 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
         lily_u16_write_5(emit->code, o_property_set, prop_iter->reg_spot,
                 self_reg_spot, var_iter->reg_spot, *emit->lex_linenum);
 
+        prop_iter->flags &= ~SYM_NOT_INITIALIZED;
         var_iter = var_iter->next;
         prop_iter = prop_iter->next;
     }

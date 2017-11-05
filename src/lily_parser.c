@@ -1220,6 +1220,8 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
     if (have_prop) {
         NEED_NEXT_TOK(tk_prop_word)
         prop = get_named_property(parser, 0);
+        /* Properties can't initialize themselves. This is unset when writing
+           the shorthand properties out. */
         prop->flags |= SYM_NOT_INITIALIZED;
         var = new_scoped_var(parser, NULL, "", lex->line_num);
     }

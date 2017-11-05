@@ -406,3 +406,13 @@ t.interpret("Static method from non-static method.",
     if Example().g() != 100:
         raise Exception("Failed.")
     """)
+
+t.interpret("Usage of a class constructor var.",
+    """
+    class Example(var @x: Integer) {
+        public define f(a: Integer) {}
+        public define add_to_x(y: Integer) {
+            f(@x)
+        }
+    }
+    """)
