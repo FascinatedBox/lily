@@ -117,11 +117,17 @@ t.interpret_for_error("Keyarg missing key arguments (varargs).",
     f(:b "a")
     """)
 
-t.interpret_for_error("Optargs and keyargs (temporary).",
+t.interpret_for_error("Keyarg missing key arguments (some optional).",
     """\
-    SyntaxError: Can't mix optional and keyword arguments yet.\n    \
-        from test\/[subinterp]:1:\
+    SyntaxError: Call to f is missing parameters:\n\
+    * Parameter #1 (:a) of type Integer.\n    \
+        from test\/[subinterp]:6:\
     """,
     """\
-    define f(:a a: *Integer = 10) {  }
+    define f(:a a: Integer,
+             :b b: String,
+             :c c: *Double=0.0,
+             :d d: *Boolean=true) {}
+
+    f(:b "a")
     """)

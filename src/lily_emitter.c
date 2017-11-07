@@ -19,6 +19,7 @@
 extern lily_type *lily_question_type;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
+extern lily_type *lily_unset_type;
 
 /***
  *      ____       _
@@ -145,17 +146,42 @@ void lily_emit_eval_optarg(lily_emit_state *emit, lily_ast *ast)
 
     uint16_t patch_spot = lily_u16_pop(emit->patches);
 
+    /* This adds +1 because it's fixing o_jump. For that opcode, the jump is 1
+       slot away. */
     lily_u16_set_at(emit->code, patch_spot,
             lily_u16_pos(emit->code) - patch_spot + 1);
 }
 
-void lily_emit_write_optarg_header(lily_emit_state *emit, lily_type *type,
-        int *count)
+void lily_emit_eval_optarg_keyed(lily_emit_state *emit, lily_ast *ast)
 {
-    /* Optargs are always together and always after any required arguments.
-       This figures out where they start, and begins writing o_jump_if_not_class
-       instructions. As it goes along, jumps are written to target the
-       initialization expressions that optargs wrote. Given this:
+    /* Non-keyed optargs always fill from left to right. Those get a header that
+       cascades the tests.
+       Keyed optargs can have holes, which means cascading is not an option.
+       Each of these gets an individual 'skip this init if not true' block.
+       The top-most expression is a binary op, with the left side as the
+       parameter in question. */
+    uint16_t target_reg = ast->left->sym->reg_spot;
+
+    lily_u16_write_4(emit->code, o_jump_if_not_class, 0, target_reg, 3);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+
+    eval_tree(emit, ast, NULL);
+    emit->expr_num++;
+
+    uint16_t patch_spot = lily_u16_pop(emit->patches);
+
+    /* This is +3 because it's fixing the jump of o_jump_if_not_class. The jump
+       is three spots away from the opcode. */
+    lily_u16_set_at(emit->code, patch_spot,
+            lily_u16_pos(emit->code) - patch_spot + 3);
+}
+
+void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
+        lily_type *type)
+{
+    /* When a function's arguments are not keyed, then arguments fill from left
+       to right. This function writes the tests together so that they cascade.
+       Given this function:
 
        ```
        define f(a: *Integer=0, b: *String="", c: *Option[Integer]=None)
@@ -200,8 +226,6 @@ void lily_emit_write_optarg_header(lily_emit_state *emit, lily_type *type,
         lily_u16_inject(emit->patches, patch_start,
                 lily_u16_pos(emit->code) - 1);
     }
-
-    *count = lily_u16_pos(emit->patches) - patch_start;
 
     /* Write one final jump for when all branches succeed. */
     lily_u16_write_2(emit->code, o_jump, 1);
@@ -2135,12 +2159,18 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
 
                 i++;
 
+                lily_type *t = arg_types[i];
+
+                if (t->cls->id == LILY_ID_OPTARG)
+                    continue;
+
                 if (*arg_name != ' ')
-                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d (:%s) of type ^T.",
-                            i, arg_name, arg_types[i]);
+                    lily_mb_add_fmt(msgbuf,
+                            "\n* Parameter #%d (:%s) of type ^T.", i, arg_name,
+                            t);
                 else
-                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.",
-                            i, arg_types[i]);
+                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.", i,
+                            t);
             }
         }
     }
@@ -3374,6 +3404,79 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
     lily_u16_write_2(emit->code, ast->result->reg_spot, ast->line_num);
 }
 
+/* This handles writing a call when keyword arguments and optional arguments
+   intersect. This is different (and more difficult) because of potential unset
+   values between arguments given. */
+static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
+        lily_type *call_type, int argument_count, lily_storage *vararg_s)
+{
+    lily_storage *s = get_storage(emit, lily_unset_type);
+
+    /* This register can be reused as much as needed since it's only a
+       placeholder. */
+    s->expr_num = 0;
+
+    lily_u16_write_3(emit->code, ast->call_op, ast->call_source_reg, 0);
+
+    uint16_t arg_count_spot = lily_u16_pos(emit->code) - 1;
+    uint16_t args_written = 0;
+    uint16_t unset_reg_spot = s->reg_spot;
+    uint16_t pos, va_pos;
+    lily_ast *arg = ast->arg_start;
+
+    /* -2 because the return type is at 0 and arg positions start at 0 for the
+       first. */
+    if (call_type->flags & TYPE_IS_VARARGS)
+        va_pos = call_type->subtype_count - 2;
+    else
+        va_pos = (uint16_t)-1;
+
+    if (ast->arg_start)
+        pos = ast->arg_start->keyword_arg_pos;
+    else
+        /* Only keyed varargs were passed. Start at the vararg pos so that
+           missing args before keyargs get unset-padded. */
+        pos = va_pos;
+
+    while (1) {
+        if (pos != args_written) {
+            /* Fill the missing arguments with the unset register. */
+            while (pos != args_written) {
+                lily_u16_write_1(emit->code, unset_reg_spot);
+                args_written++;
+            }
+
+            args_written = pos;
+        }
+
+        args_written++;
+
+        if (pos == va_pos) {
+            lily_u16_write_1(emit->code, vararg_s->reg_spot);
+            break;
+        }
+        else {
+            lily_u16_write_1(emit->code, arg->result->reg_spot);
+            arg = arg->next_arg;
+
+            if (arg)
+                pos = arg->keyword_arg_pos;
+            else if (va_pos != (uint16_t)-1 && vararg_s != NULL)
+                /* vararg_s may be NULL if the function is varargs but no
+                   varargs were actually passed. */
+                pos = va_pos;
+            else
+                /* Missing parameters are to the right of what's been written.
+                   That's the usual case for optargs, so unset-padding isn't
+                   necessary here. */
+                break;
+        }
+    }
+
+    lily_u16_set_at(emit->code, arg_count_spot, args_written);
+    lily_u16_write_2(emit->code, ast->result->reg_spot, ast->line_num);
+}
+
 /* Evaluate the call argument 'arg'. The type 'want_type' is -not- solved by the
    caller, and thus must be solved here.
    Returns 1 if successful, 0 otherwise. */
@@ -3962,8 +4065,11 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *vararg_s = NULL;
 
-    if (va_pos != INT_MAX &&
-        num_args >= va_pos) {
+    if (va_pos != INT_MAX) {
+        lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
+
+        if (va_type->cls->id != LILY_ID_OPTARG ||
+            var_arg_head) {
         lily_type *va_list_type = get_va_type(call_type);
 
         if (va_list_type->flags & TYPE_IS_UNRESOLVED)
@@ -3976,11 +4082,16 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
             lily_u16_write_1(emit->code, var_arg_head->result->reg_spot);
 
         lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
+        }
     }
 
     ast->arg_start = basic_arg_head;
     setup_call_result(emit, ast, arg_types[0]);
-    write_call(emit, ast, base_count, vararg_s);
+
+    if ((call_type->flags & TYPE_HAS_OPTARGS) == 0)
+        write_call(emit, ast, base_count, vararg_s);
+    else
+        write_call_keyopt(emit, ast, call_type, base_count, vararg_s);
 }
 
 static void eval_named_call(lily_emit_state *emit, lily_ast *ast,

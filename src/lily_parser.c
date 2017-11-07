@@ -1528,11 +1528,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     }
 
     if (last_keyarg_pos) {
-        if (arg_flags & TYPE_HAS_OPTARGS) {
-            lily_raise_syn(parser->raiser,
-                    "Can't mix optional and keyword arguments yet.");
-        }
-
         while (last_keyarg_pos != i) {
             last_keyarg_pos++;
             lily_sp_insert(parser->keyarg_strings, " ",
@@ -3284,20 +3279,29 @@ static void keyword_var(lily_parse_state *parser, int multi)
     parse_var(parser, 0);
 }
 
-static void send_optargs_for(lily_parse_state *parser, lily_type *type)
+static void send_optargs_for(lily_parse_state *parser, lily_var *var)
 {
-    int count, i;
+    lily_type *type = var->type;
+    lily_proto *proto = lily_emit_proto_for_var(parser->emit, var);
+    void (*optarg_func)(lily_emit_state *, lily_ast *) = lily_emit_eval_optarg;
+    int count = lily_func_type_num_optargs(type);
 
-    lily_emit_write_optarg_header(parser->emit, type, &count);
+    if (proto->arg_names == NULL)
+        lily_emit_write_keyless_optarg_header(parser->emit, type);
+    else
+        optarg_func = lily_emit_eval_optarg_keyed;
+
     lily_es_checkpoint_save(parser->expr);
 
     /* This reorders optarg expressions to be last to first, so they can be
        popped. */
     lily_es_checkpoint_reverse_n(parser->expr, count);
 
+    int i;
+
     for (i = 0;i < count;i++) {
         lily_es_checkpoint_restore(parser->expr);
-        lily_emit_eval_optarg(parser->emit, parser->expr->root);
+        optarg_func(parser->emit, parser->expr->root);
     }
 
     /* Restore the original expression. */
@@ -3361,7 +3365,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     NEED_CURRENT_TOK(tk_left_curly)
 
     if (define_var->type->flags & TYPE_HAS_OPTARGS)
-        send_optargs_for(parser, define_var->type);
+        send_optargs_for(parser, define_var);
 
     define_var->flags &= ~SYM_NOT_INITIALIZED;
 }
@@ -4249,7 +4253,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
             lex->line_num);
 
     if (call_var->type->flags & TYPE_HAS_OPTARGS)
-        send_optargs_for(parser, call_var->type);
+        send_optargs_for(parser, call_var);
 
     call_var->flags &= ~SYM_NOT_INITIALIZED;
 

@@ -187,19 +187,23 @@ except DivisionByZeroError:
 ### Functions
 
 The `define` keyword creates new function definitions.
-Here are some definitions and their related types.
+Here are some basic functions and their corresponding types.
 
 ```
-# Function()
-define no_op {}
-
-# Function( => Integer)
-define return_ten: Integer { return 10 }
-
 # Function(Integer, Integer => Integer)
 define add(a: Integer, b: Integer): Integer { return a + b }
 define multiply(a: Integer, b: Integer): Integer { return a * b }
 
+# Function( => Integer)
+define return_ten: Integer { return 10 }
+
+# Function()
+define no_op {}
+```
+
+Functions are first-class values, and can be used like so:
+
+```
 # Functions are first-class:
 var math_ops = ["+" => add, "*" => multiply]
 math_ops["+"](10, 20) # 30
@@ -208,8 +212,14 @@ math_ops["+"](10, 20) # 30
 define return_no_op: Function() { return no_op }
 
 return_no_op()()
+```
 
-# ...indicates a variable # of arguments.
+Adding `...` to the end of a type denotes that the function can receive a
+variable number of arguments of that type. The function receives the arguments
+as a `List` of the type provided. If no arguments were passed, the `List` will
+be empty.
+
+```
 # Function(Integer...) => Integer
 define sum(numbers: Integer...): Integer
 {
@@ -220,15 +230,175 @@ define sum(numbers: Integer...): Integer
 
 # sum() # 0
 # sum(1, 2, 3) # 6
+```
 
+Adding `*` before a type, then `= <value>` after it denotes that the parameter
+is optional. Optional arguments may be a simple value, or an expression.
+Required arguments must not come after an optional argument.
+
+The expressions of optional arguments, if run, are always run from left to
+right. As a result, it's permissible for a parameter to depend on another to the
+left of it.
+
+```
 # Function(*Integer => Integer)
 define optarg(a: *Integer = 10): Integer { return a + 10 }
 
 optarg(100) # 110
 optarg() # 20
 
-# Function(Integer => String)
-var some_func = Integer.to_s
+# Function(*Integer, *Integer, *Integer => Integer)
+define my_slice(source: List[Integer],
+                start: *Integer = 0,
+                end: *Integer = source.size()): List[Integer]
+{
+    return source.slice(start, end)
+}
+
+my_slice([1, 2, 3], 1)    # [2, 3]
+my_slice([4, 5, 6], 0, 1) # [4]
+```
+
+The calling function runs the optional argument expressions each time they are
+needed. As a result, each invocation will receive fresh versions of a default
+argument that do **not** carry over into the next invocation.
+
+```
+# Function(*List[Integer] => List[Integer])
+define optarg_list(x: *List[Integer] = []): List[Integer]
+{
+    x.push(x.size())
+    return x
+}
+
+optarg_list()             # [0]
+optarg_list([1, 2])       # [1, 2, 2]
+optarg_list()             # [0]
+optarg_list([10, 20, 30]) # [10, 20, 30, 3]
+```
+
+Mixing variable and optional arguments is permissible. By default, the vararg
+parameter receives an empty `List` if no values are passed. Mixing these two
+features allows a different default value:
+
+```
+# Function(Integer, *Integer, *Integer... => Integer)
+define optarg_sum(a: Integer,
+                  b: *Integer = 10,
+                  args: *Integer... = [20, 30]): Integer
+{
+    var total = a + b
+
+    for i in 0...args.size() - 1:
+        total += args[i]
+
+    print(total)
+    return total
+}
+
+optarg_sum(5)              # 65
+optarg_sum(5, 20)          # 75
+optarg_sum(10, 20, 30, 40) # 100
+```
+
+Placing `:<name>` before the name of a parameter will allow the function to be
+called using keyword arguments. Keyword arguments allow calling a function with
+arguments in a different order than the function's parameters. The function can
+then be called either with positional arguments or keyword arguments.
+
+```
+# Function(Integer, Integer, Integer => Integer)
+define simple_keyarg(:first x: Integer,
+                     :second y: Integer,
+                     :third z: Integer): List[Integer]
+{
+    return [a, b, c]
+}
+
+simple_keyarg(1, 2, 3)                         # [1, 2, 3]
+
+simple_keyarg(1, :second 2, :third 3)          # [1, 2, 3]
+
+simple_keyarg(:third 30, :first 10, :second 5) # [10, 5, 30]
+```
+
+It isn't necessary to name all arguments:
+
+```
+# Function(Integer, Integer)
+define tail_keyarg(x: Integer, :y y: Integer) {}
+
+tail_keyarg(10, 20)
+
+tail_keyarg(10, :y 20)
+```
+
+Calling a function with keyword arguments has some restrictions:
+
+```
+# simple_keyarg(:first 1, 2, 3)
+# Syntax error: Positional argument after keyword argument
+
+# simple_keyarg(1, :first 1, 2, 3)
+# Syntax error: Duplicate value provided to the first argument.
+
+# simple_keyarg(1, 2, 3, :asdf 1)
+# Syntax error: 'asdf' isn't a valid keyword.
+```
+
+Keyword arguments are evaluated and contribute to type inference in the order
+that they're provided:
+
+```
+var keyorder_list: List[Integer] = []
+
+define keyorder_bump(value: Integer): Integer
+{
+    keyorder_list.push(value)
+    return value
+}
+
+define keyorder_check(:first  x: Integer,
+                      :second y: Integer,
+                      :third  z: Integer): List[Integer]
+{
+    return keyorder_list
+}
+
+keyorder_check(:second keyorder_bump(2),
+               :first  keyorder_bump(1),
+               :third  keyorder_bump(3))
+               # [2, 1, 3]
+```
+
+A function call with keyword arguments is verified at parse-time. The vm does
+not understand keyword arguments, and the type system does not carry keyword
+information either.
+
+Despite the above, keyword arguments can be mixed together with optional
+arguments and variable arguments:
+
+```
+define optkey(:x x: *Integer = 10,
+              :y y: *Integer = 20): Integer
+{
+    return x + y
+}
+
+optkey()        # 30
+optkey(50, 60)  # 110
+optkey(:y 170)  # 180
+optkey(4, :y 7) # 11
+
+define varkey(:format fmt: String,
+              :arg args: *String...=["a", "b", "c"]): List[String]
+{
+    args.unshift(fmt)
+    return args
+}
+
+varkey("fmt")                # ["fmt", "a", "b", "c"]
+varkey("fmt", "1", :arg "2") # ["fmt", "1", "2"]
 ```
 
 ### Classes

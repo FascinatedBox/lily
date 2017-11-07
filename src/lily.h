@@ -152,6 +152,7 @@ int lily_open_string(lily_state *s, const char *path, const char *content);
    should always be using variant ids. */
 
 
+#define LILY_ID_UNSET         0
 #define LILY_ID_INTEGER       1
 #define LILY_ID_DOUBLE        2
 #define LILY_ID_STRING        3

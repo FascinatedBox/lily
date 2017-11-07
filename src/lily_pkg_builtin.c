@@ -446,6 +446,30 @@ static const lily_class raw_question =
 
 const lily_type *lily_question_type = (lily_type *)&raw_question;
 
+/* The unset type is used to send empty arguments when keyword and optional
+   arguments intersect. The user will never see this. */
+static const lily_class raw_unset =
+{
+    NULL,
+    ITEM_TYPE_CLASS,
+    0,
+    LILY_ID_UNSET,
+    0,
+    (lily_type *)&raw_question,
+    "",
+    0,
+    NULL,
+    NULL,
+    0,
+    0,
+    {0},
+    0,
+    NULL,
+    NULL,
+};
+
+const lily_type *lily_unset_type = (lily_type *)&raw_unset;
+
 /**
 var stdin: File
 

@@ -190,6 +190,7 @@ void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
 void lily_emit_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_emit_write_import_call(lily_emit_state *, lily_var *);
 void lily_emit_eval_optarg(lily_emit_state *, lily_ast *);
+void lily_emit_eval_optarg_keyed(lily_emit_state *, lily_ast *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_is_duplicate_case(lily_emit_state *, lily_class *);
@@ -212,7 +213,7 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
-void lily_emit_write_optarg_header(lily_emit_state *, lily_type *, int *);
+void lily_emit_write_keyless_optarg_header(lily_emit_state *, lily_type *);
 void lily_emit_write_class_header(lily_emit_state *, lily_type *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);

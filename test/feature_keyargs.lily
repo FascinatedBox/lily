@@ -229,3 +229,187 @@ t.interpret("Keyargs mixed order for a scoped variant.",
     if v != v2:
         raise Exception("Failed.")
     """)
+
+t.interpret("Keyarg spectrum with optarg holes.",
+    """
+    define keyopt_fn(expect: Integer,
+                     :a a: *Integer = 0,
+                     :b b: *Integer = 0,
+                     :c c: *Integer = 0,
+                     :d d: *Integer = 0)
+    {
+        var total = a + b + c + d
+
+        if total != expect:
+            raise Exception("Failed.")
+    }
+
+    keyopt_fn (10, :a 1, :b 2, :c 3, :d 4)
+    keyopt_fn (10, :a 1, :b 2, :d 4, :c 3)
+    keyopt_fn (6,  :a 1, :b 2, :c 3)
+    keyopt_fn (7,  :a 1, :b 2, :d 4)
+    keyopt_fn (10, :a 1, :c 3, :b 2, :d 4)
+    keyopt_fn (10, :a 1, :c 3, :d 4, :b 2)
+    keyopt_fn (6,  :a 1, :c 3, :b 2)
+    keyopt_fn (8,  :a 1, :c 3, :d 4)
+    keyopt_fn (10, :a 1, :d 4, :b 2, :c 3)
+    keyopt_fn (10, :a 1, :d 4, :c 3, :b 2)
+    keyopt_fn (7,  :a 1, :d 4, :b 2)
+    keyopt_fn (8,  :a 1, :d 4, :c 3)
+    keyopt_fn (6,  :a 1, :b 2, :c 3)
+    keyopt_fn (7,  :a 1, :b 2, :d 4)
+    keyopt_fn (6,  :a 1, :c 3, :b 2)
+    keyopt_fn (8,  :a 1, :c 3, :d 4)
+    keyopt_fn (7,  :a 1, :d 4, :b 2)
+    keyopt_fn (8,  :a 1, :d 4, :c 3)
+    keyopt_fn (3,  :a 1, :b 2)
+    keyopt_fn (4,  :a 1, :c 3)
+    keyopt_fn (5,  :a 1, :d 4)
+    keyopt_fn (10, :b 2, :a 1, :c 3, :d 4)
+    keyopt_fn (10, :b 2, :a 1, :d 4, :c 3)
+    keyopt_fn (6,  :b 2, :a 1, :c 3)
+    keyopt_fn (7,  :b 2, :a 1, :d 4)
+    keyopt_fn (10, :b 2, :c 3, :a 1, :d 4)
+    keyopt_fn (10, :b 2, :c 3, :d 4, :a 1)
+    keyopt_fn (6,  :b 2, :c 3, :a 1)
+    keyopt_fn (9,  :b 2, :c 3, :d 4)
+    keyopt_fn (10, :b 2, :d 4, :a 1, :c 3)
+    keyopt_fn (10, :b 2, :d 4, :c 3, :a 1)
+    keyopt_fn (7,  :b 2, :d 4, :a 1)
+    keyopt_fn (9,  :b 2, :d 4, :c 3)
+    keyopt_fn (6,  :b 2, :a 1, :c 3)
+    keyopt_fn (7,  :b 2, :a 1, :d 4)
+    keyopt_fn (6,  :b 2, :c 3, :a 1)
+    keyopt_fn (9,  :b 2, :c 3, :d 4)
+    keyopt_fn (7,  :b 2, :d 4, :a 1)
+    keyopt_fn (9,  :b 2, :d 4, :c 3)
+    keyopt_fn (3,  :b 2, :a 1)
+    keyopt_fn (5,  :b 2, :c 3)
+    keyopt_fn (6,  :b 2, :d 4)
+    keyopt_fn (10, :c 3, :a 1, :b 2, :d 4)
+    keyopt_fn (10, :c 3, :a 1, :d 4, :b 2)
+    keyopt_fn (6,  :c 3, :a 1, :b 2)
+    keyopt_fn (8,  :c 3, :a 1, :d 4)
+    keyopt_fn (10, :c 3, :b 2, :a 1, :d 4)
+    keyopt_fn (10, :c 3, :b 2, :d 4, :a 1)
+    keyopt_fn (6,  :c 3, :b 2, :a 1)
+    keyopt_fn (9,  :c 3, :b 2, :d 4)
+    keyopt_fn (10, :c 3, :d 4, :a 1, :b 2)
+    keyopt_fn (10, :c 3, :d 4, :b 2, :a 1)
+    keyopt_fn (8,  :c 3, :d 4, :a 1)
+    keyopt_fn (9,  :c 3, :d 4, :b 2)
+    keyopt_fn (6,  :c 3, :a 1, :b 2)
+    keyopt_fn (8,  :c 3, :a 1, :d 4)
+    keyopt_fn (6,  :c 3, :b 2, :a 1)
+    keyopt_fn (9,  :c 3, :b 2, :d 4)
+    keyopt_fn (8,  :c 3, :d 4, :a 1)
+    keyopt_fn (9,  :c 3, :d 4, :b 2)
+    keyopt_fn (4,  :c 3, :a 1)
+    keyopt_fn (5,  :c 3, :b 2)
+    keyopt_fn (7,  :c 3, :d 4)
+    keyopt_fn (10, :d 4, :a 1, :b 2, :c 3)
+    keyopt_fn (10, :d 4, :a 1, :c 3, :b 2)
+    keyopt_fn (7,  :d 4, :a 1, :b 2)
+    keyopt_fn (8,  :d 4, :a 1, :c 3)
+    keyopt_fn (10, :d 4, :b 2, :a 1, :c 3)
+    keyopt_fn (10, :d 4, :b 2, :c 3, :a 1)
+    keyopt_fn (7,  :d 4, :b 2, :a 1)
+    keyopt_fn (9,  :d 4, :b 2, :c 3)
+    keyopt_fn (10, :d 4, :c 3, :a 1, :b 2)
+    keyopt_fn (10, :d 4, :c 3, :b 2, :a 1)
+    keyopt_fn (8,  :d 4, :c 3, :a 1)
+    keyopt_fn (9,  :d 4, :c 3, :b 2)
+    keyopt_fn (7,  :d 4, :a 1, :b 2)
+    keyopt_fn (8,  :d 4, :a 1, :c 3)
+    keyopt_fn (7,  :d 4, :b 2, :a 1)
+    keyopt_fn (9,  :d 4, :b 2, :c 3)
+    keyopt_fn (8,  :d 4, :c 3, :a 1)
+    keyopt_fn (9,  :d 4, :c 3, :b 2)
+    keyopt_fn (5,  :d 4, :a 1)
+    keyopt_fn (6,  :d 4, :b 2)
+    keyopt_fn (7,  :d 4, :c 3)
+    keyopt_fn (6,  :a 1, :b 2, :c 3)
+    keyopt_fn (7,  :a 1, :b 2, :d 4)
+    keyopt_fn (6,  :a 1, :c 3, :b 2)
+    keyopt_fn (8,  :a 1, :c 3, :d 4)
+    keyopt_fn (7,  :a 1, :d 4, :b 2)
+    keyopt_fn (8,  :a 1, :d 4, :c 3)
+    keyopt_fn (3,  :a 1, :b 2)
+    keyopt_fn (4,  :a 1, :c 3)
+    keyopt_fn (5,  :a 1, :d 4)
+    keyopt_fn (6,  :b 2, :a 1, :c 3)
+    keyopt_fn (7,  :b 2, :a 1, :d 4)
+    keyopt_fn (6,  :b 2, :c 3, :a 1)
+    keyopt_fn (9,  :b 2, :c 3, :d 4)
+    keyopt_fn (7,  :b 2, :d 4, :a 1)
+    keyopt_fn (9,  :b 2, :d 4, :c 3)
+    keyopt_fn (3,  :b 2, :a 1)
+    keyopt_fn (5,  :b 2, :c 3)
+    keyopt_fn (6,  :b 2, :d 4)
+    keyopt_fn (6,  :c 3, :a 1, :b 2)
+    keyopt_fn (8,  :c 3, :a 1, :d 4)
+    keyopt_fn (6,  :c 3, :b 2, :a 1)
+    keyopt_fn (9,  :c 3, :b 2, :d 4)
+    keyopt_fn (8,  :c 3, :d 4, :a 1)
+    keyopt_fn (9,  :c 3, :d 4, :b 2)
+    keyopt_fn (4,  :c 3, :a 1)
+    keyopt_fn (5,  :c 3, :b 2)
+    keyopt_fn (7,  :c 3, :d 4)
+    keyopt_fn (7,  :d 4, :a 1, :b 2)
+    keyopt_fn (8,  :d 4, :a 1, :c 3)
+    keyopt_fn (7,  :d 4, :b 2, :a 1)
+    keyopt_fn (9,  :d 4, :b 2, :c 3)
+    keyopt_fn (8,  :d 4, :c 3, :a 1)
+    keyopt_fn (9,  :d 4, :c 3, :b 2)
+    keyopt_fn (5,  :d 4, :a 1)
+    keyopt_fn (6,  :d 4, :b 2)
+    keyopt_fn (7,  :d 4, :c 3)
+    keyopt_fn (3,  :a 1, :b 2)
+    keyopt_fn (4,  :a 1, :c 3)
+    keyopt_fn (5,  :a 1, :d 4)
+    keyopt_fn (3,  :b 2, :a 1)
+    keyopt_fn (5,  :b 2, :c 3)
+    keyopt_fn (6,  :b 2, :d 4)
+    keyopt_fn (4,  :c 3, :a 1)
+    keyopt_fn (5,  :c 3, :b 2)
+    keyopt_fn (7,  :c 3, :d 4)
+    keyopt_fn (5,  :d 4, :a 1)
+    keyopt_fn (6,  :d 4, :b 2)
+    keyopt_fn (7,  :d 4, :c 3)
+    keyopt_fn (1,  :a 1)
+    keyopt_fn (2,  :b 2)
+    keyopt_fn (3,  :c 3)
+    keyopt_fn (4,  :d 4)
+    """)
+
+t.interpret("Keyarg+vararg with vararg defaulting.",
+    """
+    define vakeyopt_fn(expect: Integer,
+                       :a a: *Integer = 1,
+                       :b b: *Integer = 2,
+                       :c c: *Integer...=[3, 4])
+    {
+        var total = a + b + c.fold(0, (|x, y| x + y ))
+
+        if total != expect:
+            raise Exception("Failed.")
+    }
+
+    vakeyopt_fn(12, :a 2, :b 3)
+    """)
+
+t.interpret("Keyarg+vararg with only varargs.",
+    """
+    define vakeyopt_fn(expect: Integer,
+                       :a a: *Integer = 1,
+                       :b b: *Integer = 2,
+                       :c c: *Integer...=[3, 4])
+    {
+        var total = a + b + c.fold(0, (|x, y| x + y ))
+
+        if total != expect:
+            raise Exception("Failed.")
+    }
+
+    vakeyopt_fn(18, :c 5, :c 10)
+    """)
