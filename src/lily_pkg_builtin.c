@@ -858,7 +858,7 @@ void lily_builtin_File_each_line(lily_state *s)
 }
 
 /**
-static define File.open(path: String, mode: String):File
+static define File.open(path: String, mode: String): File
 
 Attempt to open `path` using the `mode` given. `mode` may be one of the
 following:
@@ -1247,7 +1247,7 @@ void lily_builtin_Hash_get(lily_state *s)
 }
 
 /**
-define Hash.has_key(key: A):Boolean
+define Hash.has_key(key: A): Boolean
 
 Return `true` if `key` is present within `self`, `false` otherwise.
 */
@@ -2087,7 +2087,7 @@ void lily_builtin_Option_or(lily_state *s)
 }
 
 /**
-define Option.or_else(fn: Function( => Option[A])):Option[A]
+define Option.or_else(fn: Function( => Option[A])): Option[A]
 
 If `self` is a `Some`, this returns `self`.
 
@@ -2125,7 +2125,7 @@ void lily_builtin_Option_unwrap(lily_state *s)
 }
 
 /**
-define Option.unwrap_or(alternate: A):A
+define Option.unwrap_or(alternate: A): A
 
 If `self` is a `Some`, this returns the value with `self`.
 
@@ -2146,7 +2146,7 @@ void lily_builtin_Option_unwrap_or(lily_state *s)
 }
 
 /**
-define Option.unwrap_or_else(fn: Function( => A)):A
+define Option.unwrap_or_else(fn: Function( => A)): A
 
 If `self` is a `Some`, this returns the value with `self`.
 
@@ -2684,7 +2684,7 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 /**
-define String.lstrip(to_strip: String):String
+define String.lstrip(to_strip: String): String
 
 This walks through `self` from left to right, stopping on the first utf-8 chunk
 that is not found within `to_strip`. The result is a newly-made copy of self
@@ -2944,7 +2944,7 @@ static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 /**
-define String.rstrip(to_strip: String):String
+define String.rstrip(to_strip: String): String
 
 This walks through `self` from right to left, stopping on the first utf-8 chunk
 that is not found within `to_strip`. The result is a newly-made copy of `self`
@@ -3111,7 +3111,7 @@ void lily_builtin_String_slice(lily_state *s)
 }
 
 /**
-define String.split(split_by: *String=" "):List[String]
+define String.split(split_by: *String=" "): List[String]
 
 This attempts to split `self` using `split_by`, with a default value of a single
 space.
@@ -3172,7 +3172,7 @@ void lily_builtin_String_starts_with(lily_state *s)
 }
 
 /**
-define String.strip(to_strip: String):String
+define String.strip(to_strip: String): String
 
 This walks through self from right to left, and then from left to right. The
 result of this is a newly-made `String` without any elements within `to_strip`
