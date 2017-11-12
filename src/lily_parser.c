@@ -4793,36 +4793,59 @@ static void keyword_define(lily_parse_state *parser, int multi)
     parse_define(parser, 0);
 }
 
-static void parse_modifier(lily_parse_state *parser, const char *name,
-        int modifier)
+static void parse_modifier(lily_parse_state *parser, int key)
 {
-    if (parser->emit->block->block_type != block_class)
-        lily_raise_syn(parser->raiser, "'%s' is not allowed here.", name);
-
     lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-    int key = keyword_by_name(parser->lex->label);
+    int modifiers = 0;
 
-    if (key == KEY_VAR) {
-        lily_lexer(lex);
-        parse_var(parser, modifier);
-    }
-    else if (key == KEY_DEFINE) {
-        lily_lexer(lex);
-        parse_define(parser, modifier);
-    }
-    else if (key == KEY_STATIC) {
-        modifier |= VAR_IS_STATIC;
+    if (key == KEY_PUBLIC ||
+        key == KEY_PROTECTED ||
+        key == KEY_PRIVATE) {
 
-        NEED_NEXT_TOK(tk_word);
-        if (keyword_by_name(lex->label) != KEY_DEFINE) {
+        if (parser->emit->block->block_type != block_class) {
+            const char *name = "public";
+            if (key == KEY_PROTECTED)
+                name = "protected";
+            else if (key == KEY_PRIVATE)
+                name = "private";
+
+            lily_raise_syn(parser->raiser, "'%s' is not allowed here.", name);
+        }
+
+        if (key == KEY_PUBLIC)
+            modifiers |= PUBLIC_SCOPE;
+        else if (key == KEY_PROTECTED)
+            modifiers |= SYM_SCOPE_PROTECTED;
+        else
+            modifiers |= SYM_SCOPE_PRIVATE;
+
+        NEED_CURRENT_TOK(tk_word)
+        key = keyword_by_name(lex->label);
+    }
+
+    if (key == KEY_STATIC) {
+        if (modifiers == 0 &&
+            parser->emit->block->block_type != block_class)
+            lily_raise_syn(parser->raiser, "'static' is not allowed here.");
+
+        modifiers |= VAR_IS_STATIC;
+        lily_lexer(lex);
+        NEED_CURRENT_TOK(tk_word)
+        key = keyword_by_name(lex->label);
+
+        if (key != KEY_DEFINE)
             lily_raise_syn(parser->raiser,
                     "'static' must be followed by 'define', not '%s'.",
                     lex->label);
-        }
+    }
 
+    if (key == KEY_VAR) {
         lily_lexer(lex);
-        parse_define(parser, modifier);
+        parse_var(parser, modifiers);
+    }
+    else if (key == KEY_DEFINE) {
+        lily_lexer(lex);
+        parse_define(parser, modifiers);
     }
     else
         lily_raise_syn(parser->raiser,
@@ -4832,7 +4855,7 @@ static void parse_modifier(lily_parse_state *parser, const char *name,
 
 static void keyword_public(lily_parse_state *parser, int multi)
 {
-    parse_modifier(parser, "public", PUBLIC_SCOPE);
+    parse_modifier(parser, KEY_PUBLIC);
 }
 
 static void keyword_static(lily_parse_state *parser, int multi)
@@ -4843,12 +4866,12 @@ static void keyword_static(lily_parse_state *parser, int multi)
 
 static void keyword_private(lily_parse_state *parser, int multi)
 {
-    parse_modifier(parser, "private", SYM_SCOPE_PRIVATE);
+    parse_modifier(parser, KEY_PRIVATE);
 }
 
 static void keyword_protected(lily_parse_state *parser, int multi)
 {
-    parse_modifier(parser, "protected", SYM_SCOPE_PROTECTED);
+    parse_modifier(parser, KEY_PROTECTED);
 }
 
 static void maybe_fix_print(lily_parse_state *parser)
