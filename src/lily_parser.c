@@ -3897,8 +3897,7 @@ static void keyword_import(lily_parse_state *parser, int multi)
 {
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_file &&
-        block->prev != NULL)
+    if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot import a file here.");
 
     lily_symtab *symtab = parser->symtab;
@@ -4380,8 +4379,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
 static void keyword_class(lily_parse_state *parser, int multi)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_file &&
-        block->prev != NULL)
+    if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot define a class here.");
 
     lily_lex_state *lex = parser->lex;
@@ -4409,8 +4407,7 @@ static void parse_variant_header(lily_parse_state *parser,
 static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_file &&
-        block->prev != NULL)
+    if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
     lily_lex_state *lex = parser->lex;
