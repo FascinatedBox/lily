@@ -51,9 +51,9 @@ typedef struct lily_block_ {
 
     uint8_t flags;
 
-    uint8_t pad;
+    lily_block_type block_type : 8;
 
-    lily_block_type block_type : 16;
+    uint16_t pending_forward_decls;
 
     /* Functions/lambdas: The start of this thing's code within emitter's
        code block. */
@@ -208,6 +208,8 @@ void lily_emit_enter_block(lily_emit_state *, lily_block_type);
 void lily_emit_enter_call_block(lily_emit_state *, lily_block_type, lily_var *);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_leave_call_block(lily_emit_state *, uint16_t);
+void lily_emit_leave_forward_call(lily_emit_state *);
+void lily_emit_resolve_forward_decl(lily_emit_state *, lily_var *);
 
 void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);

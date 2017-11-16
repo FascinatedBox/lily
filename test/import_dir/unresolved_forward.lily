@@ -1,0 +1,3 @@
+forward define f(Integer) { ... }
+forward define g(Integer) { ... }
+forward define h(Integer) { ... }

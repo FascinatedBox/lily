@@ -2,6 +2,7 @@ import feature_classes
 import feature_closures
 import feature_dynaload
 import feature_enums
+import feature_forward
 import feature_generics
 import feature_keyargs
 import feature_import
@@ -14,6 +15,7 @@ import fail_classes
 import fail_variance
 import fail_enums
 import fail_exceptions
+import fail_forward
 import fail_generics
 import fail_import
 import fail_keyargs

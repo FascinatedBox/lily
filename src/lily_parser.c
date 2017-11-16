@@ -308,6 +308,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     }
 
     emit->block = emit->main_block;
+    emit->block->pending_forward_decls = 0;
     emit->function_block = emit->main_block;
     emit->function_depth = 1;
     emit->class_block_depth = 0;
@@ -1115,7 +1116,8 @@ static lily_class *get_scoop_class(lily_parse_state *parser, int which)
 
 /* These are flags used by argument collection. They start high so that type and
    class flags don't collide with them. */
-#define F_SCOOP_OK          0x080000
+#define F_SCOOP_OK          0x040000
+#define F_COLLECT_FORWARD   0x080000
 #define F_COLLECT_DEFINE    0x100000
 #define F_COLLECT_DYNALOAD (0x200000 | F_SCOOP_OK)
 #define F_COLLECT_CLASS     0x400000
@@ -1444,6 +1446,15 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
 
 typedef lily_type *(*collect_fn)(lily_parse_state *, int *);
 
+static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
+        lily_type *got)
+{
+    lily_raise_syn(parser->raiser,
+            "Declaration does not match prior forward declaration at line %d.\n"
+            "Expected: ^T\n"
+            "Received: ^T", var->line_num, var->type, got);
+}
+
 static void collect_call_args(lily_parse_state *parser, void *target,
         int arg_flags)
 {
@@ -1469,6 +1480,14 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         arg_collect = get_class_arg;
     else if (arg_flags & F_COLLECT_VARIANT)
         arg_collect = get_variant_arg;
+    else if (arg_flags & F_COLLECT_FORWARD) {
+        if (parser->emit->block->self) {
+            i++;
+            result_pos--;
+        }
+
+        arg_collect = get_nameless_arg;
+    }
 
     if (lex->token == tk_left_parenth) {
         lily_lexer(lex);
@@ -1528,6 +1547,16 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     }
 
     if (last_keyarg_pos) {
+        lily_sym *sym = (lily_sym *)target;
+
+        /* Allowing this would mean checking that the argument strings are the
+           same. That's difficult, and forward declarations are really about
+           allowing mutually recursive functions. */
+        if (sym->flags & VAR_IS_FORWARD) {
+            lily_raise_syn(parser->raiser,
+                    "Forward declarations not allowed to have keyword arguments.");
+        }
+
         while (last_keyarg_pos != i) {
             last_keyarg_pos++;
             lily_sp_insert(parser->keyarg_strings, " ",
@@ -1546,6 +1575,9 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
     if ((arg_flags & F_COLLECT_VARIANT) == 0) {
         lily_var *var = (lily_var *)target;
+        if (var->type && var->type != t)
+            error_forward_decl_type(parser, var, t);
+
         var->type = t;
     }
     else {
@@ -3068,6 +3100,7 @@ static void keyword_define(lily_parse_state *, int);
 static void keyword_return(lily_parse_state *, int);
 static void keyword_except(lily_parse_state *, int);
 static void keyword_import(lily_parse_state *, int);
+static void keyword_forward(lily_parse_state *, int);
 static void keyword_private(lily_parse_state *, int);
 static void keyword_protected(lily_parse_state *, int);
 static void keyword_continue(lily_parse_state *, int);
@@ -3097,6 +3130,7 @@ static keyword_handler *handlers[] = {
     keyword_return,
     keyword_except,
     keyword_import,
+    keyword_forward,
     keyword_private,
     keyword_protected,
     keyword_continue,
@@ -3198,6 +3232,56 @@ static void bad_decl_token(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, message);
 }
 
+static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
+        lily_msgbuf *msgbuf)
+{
+    int count = parser->emit->block->pending_forward_decls;
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_var *var_iter;
+
+    if (parser->emit->block->block_type == block_file)
+        var_iter = m->var_chain;
+    else
+        var_iter = (lily_var *)m->class_chain->members;
+
+    while (var_iter) {
+        if (var_iter->flags & VAR_IS_FORWARD) {
+            lily_proto *p = lily_emit_proto_for_var(parser->emit, var_iter);
+
+            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", p->name,
+                    var_iter->line_num);
+
+            if (count == 1)
+                break;
+            else
+                count--;
+        }
+
+        var_iter = var_iter->next;
+    }
+}
+
+static void error_forward_decl_keyword(lily_parse_state *parser, int key)
+{
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    const char *action = "";
+
+    if (key == KEY_VAR) {
+        if (parser->emit->block->block_type == block_class)
+            action = "declare a class property";
+        else
+            action = "declare a global var";
+    }
+    else
+        action = "use 'import'";
+
+    lily_mb_add_fmt(msgbuf, "Cannot %s when there are unresolved forward(s):",
+            action);
+
+    add_unresolved_defines_to_msgbuf(parser, msgbuf);
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+}
+
 /* Syntax `var <name> [:<type>] = <value>
    This is where vars are handled. Providing a type is a nice thing, but not
    required. If there are modifiers, then they'll call this function with
@@ -3210,9 +3294,10 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     lily_sym *sym = NULL;
+    lily_block *block = parser->emit->block;
 
     lily_token want_token, other_token;
-    if (parser->emit->block->block_type == block_class) {
+    if (block->block_type == block_class) {
         if (modifiers == 0)
             lily_raise_syn(parser->raiser,
                     "Class var declaration must start with a scope.");
@@ -3226,6 +3311,9 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         want_token = tk_word;
         other_token = tk_prop_word;
     }
+
+    if (block->pending_forward_decls)
+        error_forward_decl_keyword(parser, KEY_VAR);
 
     /* This prevents variables from being used to initialize themselves. */
     int flags = SYM_NOT_INITIALIZED | modifiers;
@@ -3308,35 +3396,133 @@ static void send_optargs_for(lily_parse_state *parser, lily_var *var)
     lily_es_checkpoint_restore(parser->expr);
 }
 
+static void verify_existing_decl(lily_parse_state *parser, lily_var *var,
+        int modifiers)
+{
+    if ((var->flags & VAR_IS_FORWARD) == 0) {
+        lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
+        lily_raise_syn(parser->raiser, "%s has already been declared.",
+                p->name);
+    }
+    else if (modifiers & VAR_IS_FORWARD) {
+        lily_raise_syn(parser->raiser,
+                "A forward declaration for %s already exists.", var->name);
+    }
+}
+
+static lily_var *find_existing_define(lily_parse_state *parser,
+        lily_class *parent, char *label, int modifiers)
+{
+    lily_var *var = lily_find_var(parser->symtab, NULL, label);
+
+    if (var)
+        verify_existing_decl(parser, var, modifiers);
+
+    if (parent) {
+        lily_named_sym *sym = lily_find_member(parent, label, NULL);
+
+        if (sym) {
+            if (sym->item_kind != ITEM_TYPE_VAR)
+                lily_raise_syn(parser->raiser,
+                        "A property in class %s already has the name @%s.",
+                        parent->name, label);
+            else {
+                var = (lily_var *)sym;
+                if ((var->flags & VAR_IS_FORWARD) == 0) {
+                    lily_raise_syn(parser->raiser,
+                            "A method in class '%s' already has the name '%s'.",
+                            parent->name, label);
+                }
+                verify_existing_decl(parser, (lily_var *)sym, modifiers);
+            }
+
+            var = (lily_var *)sym;
+        }
+    }
+
+    return var;
+}
+
+static void error_forward_decl_pending(lily_parse_state *parser)
+{
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    const char *what = "";
+
+    /* Don't say 'file', because the close tag `?>` checks for this. */
+    if (parser->emit->block->block_type == block_file)
+        what = "module";
+    else
+        what = "class";
+
+    lily_mb_add_fmt(msgbuf,
+            "Reached end of %s with unresolved forward(s):", what);
+    add_unresolved_defines_to_msgbuf(parser, msgbuf);
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+}
+
+/* PUBLIC_SCOPE is absent because it's removed before this definition is
+   used. */
+#define ALL_MODIFIERS \
+    (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | VAR_IS_STATIC)
+
+static void error_forward_decl_modifiers(lily_parse_state *parser,
+        lily_var *define_var)
+{
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    lily_proto *p = lily_emit_proto_for_var(parser->emit, define_var);
+    int modifiers = define_var->flags;
+
+    lily_mb_add_fmt(msgbuf, "Wrong qualifiers in resolution of %s (expected: ",
+            p->name);
+
+    /* Modifiers are only for class methods, so the source has to be a class
+       method. */
+    if (define_var->flags & SYM_SCOPE_PRIVATE)
+        lily_mb_add(msgbuf, "private");
+    else if (define_var->flags & SYM_SCOPE_PROTECTED)
+        lily_mb_add(msgbuf, "protected");
+    else
+        lily_mb_add(msgbuf, "public");
+
+    if (modifiers & VAR_IS_STATIC)
+        lily_mb_add(msgbuf, " static");
+
+    lily_mb_add(msgbuf, ").");
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+}
+
 static void parse_define_header(lily_parse_state *parser, int modifiers)
 {
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word)
 
-    if (lily_find_var(parser->symtab, NULL, lex->label) != NULL)
-        lily_raise_syn(parser->raiser, "%s has already been declared.",
-                lex->label);
-
     lily_class *parent = NULL;
+    lily_block_type block_type = parser->emit->block->block_type;
+    int collect_flag = F_COLLECT_DEFINE;
 
-    if (parser->class_self_type) {
-        lily_block_type block_type = parser->emit->block->block_type;
+    if (block_type == block_class || block_type == block_enum)
+        parent = parser->class_self_type->cls;
 
-        if (block_type == block_class || block_type == block_enum) {
-            ensure_unique_class_member(parser, lex->label);
-            parent = parser->class_self_type->cls;
-        }
+    lily_var *old_define = find_existing_define(parser, parent, lex->label,
+            modifiers);
+
+    lily_var *define_var;
+
+    if (old_define) {
+        if ((old_define->flags & ALL_MODIFIERS) !=
+            (modifiers & ALL_MODIFIERS))
+            error_forward_decl_modifiers(parser, old_define);
+
+        define_var = old_define;
+        lily_emit_resolve_forward_decl(parser->emit, define_var);
     }
-    else
-        parent = NULL;
+    else {
+        if (modifiers & VAR_IS_FORWARD)
+            collect_flag = F_COLLECT_FORWARD;
 
-    /* The type will be overwritten with the right thing later on. However, it's
-       necessary to have some function-like entity there instead of, say, NULL.
-       The reason is that a dynaload may be triggered, which may push a block.
-       The emitter will attempt to restore the return type via the type of the
-       define var here. */
-    lily_var *define_var = new_native_define_var(parser, parent, lex->label,
-            lex->line_num);
+        define_var = new_native_define_var(parser, parent, lex->label,
+                lex->line_num);
+    }
 
     /* This prevents optargs from using function they're declared in. */
     define_var->flags |= SYM_NOT_INITIALIZED | modifiers;
@@ -3360,15 +3546,18 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         parser->emit->block->self = (lily_storage *)self_var;
     }
 
-    collect_call_args(parser, define_var, F_COLLECT_DEFINE);
+    collect_call_args(parser, define_var, collect_flag);
 
     NEED_CURRENT_TOK(tk_left_curly)
 
-    if (define_var->type->flags & TYPE_HAS_OPTARGS)
+    if (define_var->type->flags & TYPE_HAS_OPTARGS &&
+        collect_flag != F_COLLECT_FORWARD)
         send_optargs_for(parser, define_var);
 
     define_var->flags &= ~SYM_NOT_INITIALIZED;
 }
+
+#undef ALL_MODIFIERS
 
 static lily_var *parse_for_range_value(lily_parse_state *parser,
         const char *name)
@@ -3810,6 +3999,9 @@ static void run_loaded_module(lily_parse_state *parser,
     if (lex->token == tk_end_tag)
         lily_raise_syn(parser->raiser, "Unexpected token '?>'.");
 
+    if (parser->emit->block->pending_forward_decls)
+        error_forward_decl_pending(parser);
+
     lily_emit_leave_call_block(parser->emit, lex->line_num);
     /* __import__ vars and functions become global, so don't hide them. */
     lily_pop_lex_entry(parser->lex);
@@ -3899,6 +4091,9 @@ static void keyword_import(lily_parse_state *parser, int multi)
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot import a file here.");
+
+    if (block->pending_forward_decls)
+        error_forward_decl_keyword(parser, KEY_IMPORT);
 
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
@@ -4367,6 +4562,9 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     NEED_CURRENT_TOK(tk_left_curly)
     parse_multiline_block_body(parser, 1);
 
+    if (parser->emit->block->pending_forward_decls)
+        error_forward_decl_pending(parser);
+
     determine_class_gc_flag(parser, parser->class_self_type->cls);
 
     parser->class_self_type = save_class_self_type;
@@ -4758,6 +4956,8 @@ static void keyword_case(lily_parse_state *parser, int multi)
     lily_raise_syn(parser->raiser, "'case' not allowed outside of 'match'.");
 }
 
+#define ANY_SCOPE (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | PUBLIC_SCOPE)
+
 static void parse_define(lily_parse_state *parser, int modifiers)
 {
     lily_block *block = parser->emit->block;
@@ -4767,7 +4967,8 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         block->block_type != block_enum)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
-    if (block->block_type == block_class && modifiers == 0)
+    if (block->block_type == block_class &&
+        (modifiers & ANY_SCOPE) == 0)
         lily_raise_syn(parser->raiser,
                 "Class method declaration must start with a scope.");
 
@@ -4779,11 +4980,24 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     parse_define_header(parser, modifiers);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    parse_multiline_block_body(parser, 1);
-    hide_block_vars(parser);
-    lily_emit_leave_call_block(parser->emit, lex->line_num);
+
+    if ((modifiers & VAR_IS_FORWARD) == 0) {
+        parse_multiline_block_body(parser, 1);
+        hide_block_vars(parser);
+        lily_emit_leave_call_block(parser->emit, lex->line_num);
+    }
+    else {
+        NEED_NEXT_TOK(tk_three_dots)
+        NEED_NEXT_TOK(tk_right_curly)
+        lily_lexer(lex);
+        hide_block_vars(parser);
+        lily_emit_leave_forward_call(parser->emit);
+    }
+
     lily_gp_restore(parser->generics, save_generic_start);
 }
+
+#undef ANY_SCOPE
 
 static void keyword_define(lily_parse_state *parser, int multi)
 {
@@ -4794,6 +5008,17 @@ static void parse_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
     int modifiers = 0;
+
+    if (key == KEY_FORWARD) {
+        lily_block_type block_type = parser->emit->block->block_type;
+        if (block_type != block_file && block_type != block_class)
+            lily_raise_syn(parser->raiser,
+                    "'forward' qualifier is only for toplevel functions and methods.");
+
+        modifiers |= VAR_IS_FORWARD;
+        NEED_CURRENT_TOK(tk_word)
+        key = keyword_by_name(lex->label);
+    }
 
     if (key == KEY_PUBLIC ||
         key == KEY_PROTECTED ||
@@ -4816,15 +5041,19 @@ static void parse_modifier(lily_parse_state *parser, int key)
         else
             modifiers |= SYM_SCOPE_PRIVATE;
 
+        if (modifiers & VAR_IS_FORWARD)
+            lily_lexer(lex);
+
         NEED_CURRENT_TOK(tk_word)
         key = keyword_by_name(lex->label);
     }
+    else if (modifiers & VAR_IS_FORWARD &&
+             parser->emit->block->block_type == block_class) {
+        lily_raise_syn(parser->raiser,
+                "'forward' must be followed by a class scope here.");
+    }
 
     if (key == KEY_STATIC) {
-        if (modifiers == 0 &&
-            parser->emit->block->block_type != block_class)
-            lily_raise_syn(parser->raiser, "'static' is not allowed here.");
-
         modifiers |= VAR_IS_STATIC;
         lily_lexer(lex);
         NEED_CURRENT_TOK(tk_word)
@@ -4837,6 +5066,9 @@ static void parse_modifier(lily_parse_state *parser, int key)
     }
 
     if (key == KEY_VAR) {
+        if (modifiers & VAR_IS_FORWARD)
+            lily_raise_syn(parser->raiser, "Cannot use 'forward' with 'var'.");
+
         lily_lexer(lex);
         parse_var(parser, modifiers);
     }
@@ -4844,10 +5076,15 @@ static void parse_modifier(lily_parse_state *parser, int key)
         lily_lexer(lex);
         parse_define(parser, modifiers);
     }
-    else
-        lily_raise_syn(parser->raiser,
-                "Expected either 'var' or 'define', but got '%s'.",
+    else {
+        const char *what = "either 'var' or 'define'";
+
+        if (modifiers & VAR_IS_FORWARD)
+            what = "'define'";
+
+        lily_raise_syn(parser->raiser, "Expected %s, but got '%s'.", what,
                 lex->label);
+    }
 }
 
 static void keyword_public(lily_parse_state *parser, int multi)
@@ -4859,6 +5096,11 @@ static void keyword_static(lily_parse_state *parser, int multi)
 {
     lily_raise_syn(parser->raiser,
             "'static' must follow a scope (public, protected, or private).");
+}
+
+static void keyword_forward(lily_parse_state *parser, int multi)
+{
+    parse_modifier(parser, KEY_FORWARD);
 }
 
 static void keyword_private(lily_parse_state *parser, int multi)
@@ -4959,6 +5201,9 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
             if (in_template == 0 && lex->token == tk_end_tag)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(lex->token));
+
+            if (parser->emit->block->pending_forward_decls)
+                error_forward_decl_pending(parser);
 
             setup_and_exec_vm(parser);
 

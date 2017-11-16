@@ -77,6 +77,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->storage_start = 0;
     main_block->var_count = 0;
     main_block->flags = 0;
+    main_block->pending_forward_decls = 0;
     emit->block = main_block;
     emit->function_depth++;
     emit->main_block = main_block;
@@ -598,6 +599,7 @@ static lily_block *block_enter_common(lily_emit_state *emit)
     new_block->flags = 0;
     new_block->var_count = 0;
     new_block->code_start = lily_u16_pos(emit->code);
+    new_block->pending_forward_decls = 0;
 
     return new_block;
 }
@@ -651,6 +653,23 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     new_block->code_start = lily_u16_pos(emit->code);
 
     emit->block = new_block;
+}
+
+void lily_emit_leave_forward_call(lily_emit_state *emit)
+{
+    /* Forward declarations create a block just in case a 'self' needs to be
+       made. There isn't as much to do, because they don't make storages and
+       they can't write code. */
+    emit->block = emit->block->prev;
+    emit->function_block = emit->block;
+    emit->function_depth--;
+    emit->block->pending_forward_decls++;
+}
+
+void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
+{
+    var->flags &= ~VAR_IS_FORWARD;
+    emit->block->pending_forward_decls--;
 }
 
 void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)

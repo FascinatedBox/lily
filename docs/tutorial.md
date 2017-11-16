@@ -10,6 +10,7 @@ This tutorial provides a brief overview of the following:
 * [Variables](#variables)
 * [Blocks](#blocks)
 * [Functions](#functions)
+* [Modifiers](#modifiers)
 * [Classes](#classes)
 * [Generics](#generics)
 * [Lambdas](#lambdas)
@@ -400,6 +401,87 @@ define varkey(:format fmt: String,
 varkey("fmt")                # ["fmt", "a", "b", "c"]
 varkey("fmt", "1", :arg "2") # ["fmt", "1", "2"]
 ```
+
+### Modifiers
+
+There are a few keywords in Lily that act as modifiers. These keywords don't do
+anything on their own, but instead serve to alter the behavior of some other
+keyword. Lily has two rules around modifiers:
+
+* Modifiers are always before the keyword they alter.
+
+* Modifiers occur in alphabetical order.
+
+#### forward
+
+When applied to `define`, denotes a definition that will be resolved later. A
+basic forward definition looks like so:
+
+```
+forward define add(Integer, Integer): Integer { ... }
+
+define add(x: Integer, y: Integer): Integer
+{
+    return x + y
+}
+```
+
+Note that forward definitions require the exact `...` token, rather than `...`
+being used for eliding the content inside.
+
+There are some important rules around forward definitions:
+
+A forward definition can specify optional arguments or varargs, but not keyword
+arguments.
+
+Forward definitions are available at both the module level and the class level.
+At the end of the module or class (or when `?>` is seen, if in tagged mode), a
+check is done for unresolved forwards. If there are any, an error is immediately
+generated.
+
+When there are unresolved forward definitions, it is not permissible to declare
+a toplevel var, use `import`, or declare a class property. This is to prevent
+scenarios such as the following:
+
+```
+forward define f { ... }
+
+f()
+
+var v = 10
+
+define f {
+    print(v)
+}
+```
+
+If not for the aforementioned restriction, the above code would crash since `f`
+is called before `v` is able to receive a proper value.
+
+#### public / protected / private
+
+Class methods and class properties both require one of the above modifiers to
+denote who can access the member.
+
+* public: The member is accessible anywhere.
+
+* protected: Inside the class, or an inheriting class.
+
+* private: Only within the class.
+
+#### scoped
+
+This is a modifier for `enum`. Ny default, the variants of an enum are **not**
+qualified by the enum name. Variants can thus be used directly: `Some` and
+`None`. This modifier hides the variants behind the enum, requiring the enum
+name as a qualifier for general usage (ex: `x = Option.Some(...)`) and when used
+as a case in `match`.
+
+#### static
+
+The default for class methods is to send and receive `self` as an implicit first
+argument. The `static` keyword turns this behavior off. This is only allowed
+to precede `define`.
 
 ### Classes
 
