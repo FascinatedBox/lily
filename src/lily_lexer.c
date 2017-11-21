@@ -1124,36 +1124,53 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
     *source_ch = ch + 1;
 }
 
-/* This is called by parser's import handling after having seen a word. The word
-   might be all there is to the path. If so, there's nothing to do. But if
-   there's a slash, then scoop that up. */
-void lily_scan_import_path(lily_lex_state *lexer)
+/* Walk the string literal that 'import' was given to make sure that it's
+   valid. This also fixes the '/' characters into proper path characters for the
+   given platform. */
+void lily_lexer_verify_path_string(lily_lex_state *lexer)
 {
-    int input_pos = lexer->input_pos;
-    char *iter_ch = &lexer->input_buffer[input_pos];
+    char *label = lexer->label;
 
-    if (*iter_ch != '/')
-        return;
+    if (label[0] == '\0')
+        lily_raise_syn(lexer->raiser, "Import path must not be empty.");
 
-    char *label = &lexer->label[strlen(lexer->label)];
+    int original_len = strlen(lexer->label);
+    int len = original_len;
+    int necessary = 0;
+    char *reverse_iter = &lexer->input_buffer[lexer->input_pos - 2];
+    char *reverse_label = label + len - 1;
 
-    do {
-        *label = LILY_PATH_CHAR;
-        label++;
-        iter_ch++;
-        while (ident_table[(unsigned char)*iter_ch]) {
-            *label = *iter_ch;
-            label++;
-            iter_ch++;
+    if (lexer->input_pos > 3 &&
+        *reverse_iter == '"' &&
+        *(reverse_iter - 1) != '\\')
+        lily_raise_syn(lexer->raiser,
+                "Import path cannot be a triple-quote string.");
+
+    if (*reverse_label == '/' || *label == '/')
+        lily_raise_syn(lexer->raiser,
+                "Import path cannot begin or end with '/'.");
+
+    while (len) {
+        if (*reverse_iter != *reverse_label)
+            lily_raise_syn(lexer->raiser,
+                    "Import path cannot contain escape characters.");
+
+        char label_ch = *reverse_label;
+
+        if (ident_table[(unsigned char)label_ch] == 0) {
+            necessary = 1;
+            if (label_ch == '/')
+                *reverse_label = LILY_PATH_CHAR;
         }
-    } while (*iter_ch == '/');
 
-    if (*(label - 1) == LILY_PATH_CHAR) {
-        lily_raise_syn(lexer->raiser, "Import path cannot end with '/'.");
+        reverse_iter--;
+        reverse_label--;
+        len--;
     }
 
-    *label = '\0';
-    lexer->input_pos = iter_ch - lexer->input_buffer;
+    if (necessary == 0)
+        lily_raise_syn(lexer->raiser,
+                "Simple import paths do not need to be quoted.");
 }
 
 /* The lexer reads `-1` and `+1` as negative or positive literals. Most of the

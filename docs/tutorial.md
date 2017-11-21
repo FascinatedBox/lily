@@ -680,7 +680,8 @@ match v: {
 
 ### Import
 
-Lily's import system borrows a lot of ideas from Python.
+Lily's import system borrows mostly from Python, notably how the module name is
+used as a namespace for the symbols inside:
 
 ```
 # fib.lily
@@ -693,6 +694,64 @@ define fib(n: Integer): Integer
         return fib(n - 1) + fib(n - 2)
 }
 
+# other.lily
+
+import fib
+
+# print(fib(10)) # Syntax error
+
+print(fib.fib(10)) # 55
+```
+
+It is possible to rename modules using the `as` keyword:
+
+```
+import fib as f
+
+print(f.fib(10)) # 55
+```
+
+To extract only particular symbols from a module (and not the module itself),
+use `(<name>, <name>...)` before the import name. The module will be loaded, but
+not made visible (only the symbols mentioned will be).
+
+```
+import (argv, getenv) sys
+
+print(argv)
+print(getenv("HOME"))
+```
+
+Commas can be used to execute multiple import actions at once:
+
+```
+import fib as f,
+       sys,
+       (Time) time
+```
+
+The code inside of a module is only executed the first time that it is imported:
+
+```
+# print_one.lily
+
+print(1)
+
+# other.lily
+
+import print_one
+
+# main.lily
+
+import print_one # prints 1
+import other # Does nothing.
+```
+
+To import a file from another directory, the path must be enclosed in quotes.
+The `/` character is used to denote path slashes, and will be turned into the
+appropriate character on platforms that do not use `/`.
+
+```
 # somedir/point.lily
 
 class Point(var @x: Integer, var @y: Integer)
@@ -704,52 +763,7 @@ class Point(var @x: Integer, var @y: Integer)
 
 # first.lily
 
-import fib
-import sys as q, time
-import somedir/point
+import "somedir/point"
 
-fib.fib(5)
-print(q.argv)
 print(point.Point(10, 20).stringified())
-print(time.Time.now())
 ```
-
-Namespaces are often useful for making the source of a symbol clear and also to
-prevent conflicts. But there are times when namespaces can feel like they're in
-the way. In the above code, the user is forced to repeat `fib.fib` and
-`time.Time`. To avoid that, Lily also provides direct imports of symbols from a
-module like so:
-
-```
-# fib.lily
-
-define fib(n: Integer): Integer { ... }
-
-# example.lily
-
-class Example { ... }
-
-define example_fn { ... }
-
-# start.lily
-
-import (fib) fib
-import (Example, example_fn) example
-import (Time) time
-
-print(fib(5))
-print(Example())
-print(Time.now())
-# print(time.Time.now()) # Invalid: 'time' not loaded.
-```
-
-The above provides access to the symbols inside of the modules. However, the
-modules themselves are not made available. This allows the function fib to take
-the place of module fib despite Lily normally preventing duplicate names.
-
-It should be noted that there is no intention of supporting wildcards with
-imports (ex: no `import (*) from x`). In doing so, one does not have to refer to
-another file to discover the symbols that have been added.
-
-Regardless of the import method used, a module's toplevel code will only execute
-the first time it is loaded.

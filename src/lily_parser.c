@@ -4104,10 +4104,12 @@ static void keyword_import(lily_parse_state *parser, int multi)
         if (lex->token == tk_left_parenth)
             collect_import_refs(parser, &import_sym_count);
 
-        NEED_CURRENT_TOK(tk_word)
-        /* The import path may include slashes. Use this to scan the path,
-           because it won't allow spaces in between. */
-        lily_scan_import_path(lex);
+        if (lex->token == tk_double_quote)
+            lily_lexer_verify_path_string(lex);
+        else if (lex->token != tk_word)
+            lily_raise_syn(parser->raiser,
+                    "'import' expected a path (identifier or string), not %s.",
+                    lex->token);
 
         lily_module_entry *module = NULL;
         char *search_start = lex->label;

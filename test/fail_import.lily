@@ -21,7 +21,7 @@ t.interpret_for_error("Forbid import ending with '}'.",
         from test\/import_dir\/brace_at_end.lily:1:\
     """,
     """\
-    import import_dir/brace_at_end
+    import "import_dir/brace_at_end"
     """)
 
 t.interpret_for_error("Forbid import ending with '?>'.",
@@ -30,7 +30,7 @@ t.interpret_for_error("Forbid import ending with '?>'.",
         from test\/import_dir\/close_tag_at_end.lily:1:\
     """,
     """\
-    import import_dir/close_tag_at_end
+    import "import_dir/close_tag_at_end"
     """)
 
 
@@ -40,17 +40,17 @@ t.interpret_for_error("Forbid import of duplicate name (with renamed import).",
         from test\/[subinterp]:2:\
     """,
     """\
-    import import_dir/var_exporter as var_access
-    import import_dir/var_access
+    import "import_dir/var_exporter" as var_access
+    import "import_dir/var_access"
     """)
 
 t.interpret_for_error("Forbid import path from having a trailing slash.",
     """\
-    SyntaxError: Import path cannot end with '/'.\n    \
+    SyntaxError: Import path cannot begin or end with '/'.\n    \
         from test\/[subinterp]:1:\
     """,
     """\
-    import import_dir/diamond_a/
+    import "import_dir/diamond_a/"
     """)
 
 t.interpret_for_error("Forbid import within define.",
@@ -70,7 +70,7 @@ t.interpret_for_error("Forbid direct import of a module.",
         from test\/[subinterp]:2:\
     """,
     """\
-    import (var_exporter) import_dir/ref_spectrum
+    import (var_exporter) "import_dir/ref_spectrum"
     """)
 
 t.interpret_for_error("Direct import of a missing symbol.",
@@ -79,7 +79,7 @@ t.interpret_for_error("Direct import of a missing symbol.",
         from test\/[subinterp]:2:\
     """,
     """\
-    import (missing_symbol) import_dir/ref_spectrum
+    import (missing_symbol) "import_dir/ref_spectrum"
     """)
 
 t.interpret_for_error("Direct import with trailing comma.",
@@ -124,7 +124,7 @@ t.interpret_for_error("Duplicate import of symbol.",
         from test\/[subinterp]:2:\
     """,
     """\
-    import (ref_var, ref_var) import_dir/ref_spectrum
+    import (ref_var, ref_var) "import_dir/ref_spectrum"
     """)
 
 t.interpret_for_error("Use 'as' with direct import.",
@@ -133,5 +133,50 @@ t.interpret_for_error("Use 'as' with direct import.",
         from test\/[subinterp]:1:\
     """,
     """\
-    import (ref_var) import_dir/ref_spectrum as asdf
+    import (ref_var) "import_dir/ref_spectrum" as asdf
+    """)
+
+t.interpret_for_error("Quoting a simple path.",
+    """\
+    SyntaxError: Simple import paths do not need to be quoted.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import "asdf"
+    """)
+
+t.interpret_for_error("Import starting with slash.",
+    """\
+    SyntaxError: Import path cannot begin or end with '/'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import "/asdf"
+    """)
+
+t.interpret_for_error("Import ending with slash.",
+    """\
+    SyntaxError: Import path cannot begin or end with '/'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import "asdf/"
+    """)
+
+t.interpret_for_error("Import starting with slash.",
+    """\
+    SyntaxError: Import path cannot be a triple-quote string.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import \"\"\"asdf\"\"\"
+    """)
+
+t.interpret_for_error("Import path with escape characters.",
+    """\
+    SyntaxError: Import path cannot contain escape characters.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import "\\nasdf"
     """)

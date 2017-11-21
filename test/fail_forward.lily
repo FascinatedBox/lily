@@ -35,7 +35,7 @@ t.interpret_for_error("Imported file has unresolved forwards.",
         from test\/import_dir\/unresolved_forward.lily:3:\
     """,
     """\
-    import import_dir/unresolved_forward
+    import "import_dir/unresolved_forward"
     """)
 
 t.interpret_for_error("Import with an unresolved forward.",

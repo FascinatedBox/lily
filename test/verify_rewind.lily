@@ -44,7 +44,7 @@ t.rewind("Rewind of an import ref.",
     """,
     "",
     """\
-    import (v) import_dir/var_exporter
+    import (v) "import_dir/var_exporter"
 
     raise Exception(v ++ v)\
     """)
