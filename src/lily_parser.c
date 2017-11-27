@@ -1542,7 +1542,9 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             lily_lexer(lex);
         }
         else {
-            lily_tm_insert(parser->tm, result_pos, get_type(parser));
+            /* Use the arg flags so that dynaload can use $1 in the return. */
+            lily_tm_insert(parser->tm, result_pos,
+                    get_type_raw(parser, arg_flags));
         }
     }
 
