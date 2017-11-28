@@ -3725,6 +3725,15 @@ static void keyword_if(lily_parse_state *parser, int multi)
                 lily_lexer(lex);
                 handlers[key](parser, multi_this_block);
             }
+            else if (have_else == 1 && multi_this_block) {
+                const char *what = "else";
+
+                if (key == KEY_ELIF)
+                    what = "elif";
+
+                lily_raise_syn(parser->raiser,
+                        "%s after else in multi-line if block.", what);
+            }
         }
         else if (lex->token != tk_right_curly) {
             expression(parser);
