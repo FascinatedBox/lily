@@ -579,3 +579,23 @@ t.interpret_for_error("Cover elif after else in multi-line if.",
         1
     }
     """)
+
+t.interpret("Cover comparison of Byte values.",
+    """\
+    if 10t > 11t:
+        raise Exception("Failed (>).")
+
+    if 10t >= 10t:
+        0
+    else:
+        raise Exception("Failed (>=).")
+
+    if 11t <= 11t:
+        0
+    else:
+        raise Exception("Failed (<=).")
+
+    if 12t <= 11t:
+        raise Exception("Failed (<=).")
+
+    """)

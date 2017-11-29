@@ -1957,7 +1957,8 @@ if (lhs_reg->class_id == LILY_ID_DOUBLE) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
-else if (lhs_reg->class_id == LILY_ID_INTEGER) { \
+else if (lhs_reg->class_id == LILY_ID_INTEGER || \
+         lhs_reg->class_id == LILY_ID_BYTE) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
 } \

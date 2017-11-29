@@ -2371,6 +2371,7 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         }
 
         if (lhs_id == LILY_ID_INTEGER ||
+            lhs_id == LILY_ID_BYTE ||
             lhs_id == LILY_ID_DOUBLE ||
             lhs_id == LILY_ID_STRING) {
             if (op == expr_lt_eq) {
