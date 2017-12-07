@@ -1065,6 +1065,7 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
                  *(ch + 1) == '[') {
             int saved_line_num = lexer->line_num;
             scan_multiline_comment(lexer, &ch);
+
             /* For each line that the multi-line comment hit, add a newline to
                the lambda so that error lines are right. */
             if (saved_line_num != lexer->line_num) {
@@ -1074,8 +1075,9 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
                    now-current line (plus 3 for that termination). */
                 ensure_label_size(lexer,
                         i + increase + 3 + strlen(lexer->input_buffer));
+                label = lexer->label;
 
-                memset(lexer->label + i, '\n', increase);
+                memset(label + i, '\n', increase);
                 i += increase;
             }
             continue;
@@ -1089,6 +1091,7 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
                 flags |= SQ_IS_BYTESTRING;
 
             scan_quoted_raw(lexer, &ch, &i, flags);
+            label = lexer->label;
             /* Don't ensure check: scan_quoted already did it if that was
                necessary. */
             continue;
@@ -1096,10 +1099,11 @@ static void scan_lambda(lily_lex_state *lexer, char **source_ch)
         else if (*ch == '\'') {
             scan_single_quote(lexer, &ch);
             ensure_label_size(lexer, i + 7);
+            label = lexer->label;
 
             char buffer[8];
             sprintf(buffer, "'\\%d'", (uint8_t)lexer->last_integer);
-            strcpy(lexer->label + i, buffer);
+            strcpy(label + i, buffer);
             i += strlen(buffer);
             continue;
         }
