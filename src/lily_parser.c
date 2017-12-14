@@ -1538,6 +1538,12 @@ static void collect_call_args(lily_parse_state *parser, void *target,
                 lily_raise_syn(parser->raiser,
                         "'self' return type only allowed on class methods.");
 
+            lily_var *v = (lily_var *)target;
+
+            if (v->flags & VAR_IS_STATIC)
+                lily_raise_syn(parser->raiser,
+                        "'self' return type not allowed on a static method.");
+
             lily_tm_insert(parser->tm, result_pos, lily_self_class->self_type);
             lily_lexer(lex);
         }

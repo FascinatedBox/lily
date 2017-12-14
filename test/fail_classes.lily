@@ -652,3 +652,15 @@ t.interpret_for_error("Misuse a private static function.",
         f()
     }
     """)
+
+t.interpret_for_error("Return self from a static method.",
+    """\
+    SyntaxError: 'self' return type not allowed on a static method.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Test {
+        public static define f: self {
+        }
+    }
+    """)
