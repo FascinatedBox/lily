@@ -677,7 +677,7 @@ void lily_list_push(lily_container_val *con, lily_value *value);
 // Returns the raw buffer behind a String.
 char *lily_string_raw(lily_string_val *string_val);
 
-// Function: lily_string_raw
+// Function: lily_string_length
 // Returns the size (in bytes) of a String buffer.
 int lily_string_length(lily_string_val *string_val);
 
@@ -903,8 +903,8 @@ lily_container_val *lily_push_list         (lily_state *s, uint32_t size);
 // If the caller is unsure, the function 'lily_is_valid_utf8' can be used.
 void                lily_push_string       (lily_state *s, const char *source);
 
-// Function: lily_push_string
-// (Stack: +1) Push a String wrapping over 'source' onto the stack.
+// Function: lily_push_string_sized
+// (Stack: +1) Push a String of 'size' bytes from 'source' onto the stack.
 //
 // This performs the same work as lily_push_string, except that 'size' bytes are
 // copied from 'source' (instead of all of it).
@@ -1267,8 +1267,8 @@ void lily_mb_add_char(lily_msgbuf *msgbuf, char ch);
 // ^T - lily_type * (internal use only).
 void lily_mb_add_fmt(lily_msgbuf *msgbuf, const char *format, ...);
 
-// Function: lily_mb_fmt_va
-// lily_add_fmt, but using a va_list.
+// Function: lily_mb_add_fmt_va
+// lily_mb_add_fmt, but using a va_list.
 void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *format, va_list);
 
 // Function: lily_mb_add_slice
