@@ -43,7 +43,7 @@ typedef enum {
     tk_equal,
     tk_eq_eq,
     tk_left_parenth,
-    tk_lambda,       /* {| */
+    tk_lambda,       /* (| */
     tk_tuple_open,   /* <[ */
     tk_tuple_close,  /* ]> */
     /* } closes a lambda, so there's no special close token. */
