@@ -16,4 +16,4 @@ enum FlatOption[A] {
     FlatNone
 }
 
-import var_exporter
+import "import_dir/var_exporter"

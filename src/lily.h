@@ -54,7 +54,7 @@ typedef struct lily_vm_state_       lily_state;
 typedef void (*lily_destroy_func)(lily_generic_val *);
 
 typedef void (*lily_import_func)(lily_state *s, const char *root_dir,
-                                 const char *current_dir, const char *name);
+                                 const char *package_base, const char *name);
 
 typedef void (*lily_render_func)(const char *content, void *data);
 
@@ -297,15 +297,17 @@ const char *lily_error_message_no_trace(lily_state *s);
 // paths were tried.
 //
 // Parameters:
-//     s           - The interpreter state.
-//     root_dir    - The path from where the interpreter is first invoked to the
-//                   root of the current package.
-//     current_dir - The directory portion of the import, or empty if there is
-//                   no directory portion.
-//     name        - The name of the module to import.
+//     s            - The interpreter state.
+//     root_dir     - The base directory of the first module loaded.
+//     package_base - The base directory of the last isolated package loaded.
+//                    Initially equivalent to root_dir.
+//     name         - The name of the module to import.
 
 // Function: lily_load_file
 // Load a Lily file from a given path.
+//
+// The file loaded is considered part of the current package. Imports from it
+// will be relative to the current package base.
 //
 // Parameters:
 //     s    - The interpreter state.
@@ -313,6 +315,19 @@ const char *lily_error_message_no_trace(lily_state *s);
 //
 // Returns 1 on success, 0 on failure.
 int lily_load_file(lily_state *s, const char *path);
+
+// Function: lily_load_package_file
+// Load a Lily file from a given path as an isolated package.
+//
+// The file loaded is treated as a package of its own. Imports resulting from it
+// will use the base directory provided to it as a means of running imports.
+//
+// Parameters:
+//     s    - The interpreter state.
+//     path - The path to try loading from.
+//
+// Returns 1 on success, 0 on failure.
+int lily_load_file_package(lily_state *s, const char *path);
 
 // Function: lily_load_library
 // Load a library from a given path.
@@ -343,8 +358,21 @@ int lily_load_library_data(lily_state *s, const char *path,
 // Function: lily_load_string
 // Load a string (context path, then content) as a library.
 //
+// The string loaded is considered part of the current package. Imports from it
+// will be relative to the current package base.
+//
 // Returns 1 on success, 0 on failure.
 int lily_load_string(lily_state *s, const char *path, const char *content);
+
+// Function: lily_load_string_package
+// Load a string (context path, then content) as a isolated package.
+//
+// The string loaded is considered part of the current package. Imports from it
+// will be relative to the current package base.
+//
+// Returns 1 on success, 0 on failure.
+int lily_load_string_package(lily_state *s, const char *path,
+        const char *content);
 
 ///////////////////////////
 // Section: Class id macros

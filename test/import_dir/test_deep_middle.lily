@@ -1,1 +1,1 @@
-import test_deep_bottom
+import "import_dir/test_deep_bottom"

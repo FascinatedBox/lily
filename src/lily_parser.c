@@ -483,6 +483,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->boxed_chain = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
     module->flags = 0;
+    module->root_dirname = NULL;
 
     if (parser->module_start) {
         parser->module_top->root_next = module;
@@ -581,9 +582,22 @@ int lily_load_file(lily_state *s, const char *path)
 
     lily_module_entry *module = new_module(parser);
 
+    module->root_dirname = parser->symtab->active_module->root_dirname;
     add_path_to_module(module, path);
     module->flags |= MODULE_NOT_EXECUTED;
     return 1;
+}
+
+int lily_load_file_package(lily_state *s, const char *path)
+{
+    int ret = lily_load_file(s, path);
+
+    if (ret) {
+        lily_module_entry *m = s->parser->last_import;
+        m->root_dirname = m->dirname;
+    }
+
+    return ret;
 }
 
 int lily_load_string(lily_state *s, const char *path, const char *source)
@@ -598,9 +612,23 @@ int lily_load_string(lily_state *s, const char *path, const char *source)
 
     lily_module_entry *module = new_module(parser);
 
+    module->root_dirname = parser->symtab->active_module->root_dirname;
     add_path_to_module(module, path);
     module->flags |= MODULE_NOT_EXECUTED;
     return 1;
+}
+
+int lily_load_string_package(lily_state *s, const char *path,
+        const char *source)
+{
+    int ret = lily_load_string(s, path, source);
+
+    if (ret) {
+        lily_module_entry *m = s->parser->last_import;
+        m->root_dirname = m->dirname;
+    }
+
+    return ret;
 }
 
 int lily_load_library(lily_state *s, const char *path)
@@ -636,6 +664,7 @@ int lily_load_library(lily_state *s, const char *path)
 
     lily_module_entry *module = new_module(parser);
 
+    module->root_dirname = parser->symtab->active_module->root_dirname;
     module->loadname = loadname;
     module->dirname = dir_from_path(path);
     module->path = path_copy;
@@ -707,26 +736,36 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
     "%s" PACKAGE_DIR "%s" LILY_PATH_SLASH "src" LILY_PATH_SLASH "%s." LILY_LIB_SUFFIX
 
 void lily_default_import_func(lily_state *s, const char *root,
-        const char *source, const char *name)
+        const char *package_base, const char *name)
 {
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
     const char *path;
 
-    path = lily_mb_sprintf(msgbuf, FIRST_PATH, source, name);
+    path = lily_mb_sprintf(msgbuf, FIRST_PATH, package_base, name);
     if (lily_load_file(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, SECOND_PATH, source, name);
+    path = lily_mb_sprintf(msgbuf, SECOND_PATH, package_base, name);
     if (lily_load_library(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, THIRD_PATH, root, name, name);
-    if (lily_load_file(s, path))
+    path = lily_mb_sprintf(msgbuf, THIRD_PATH, package_base, name, name);
+    if (lily_load_file_package(s, path))
         return;
 
-    path = lily_mb_sprintf(msgbuf, FOURTH_PATH, root, name, name);
+    path = lily_mb_sprintf(msgbuf, FOURTH_PATH, package_base, name, name);
     if (lily_load_library(s, path))
         return;
+
+    if (strcmp(package_base, root) != 0) {
+        path = lily_mb_sprintf(msgbuf, THIRD_PATH, root, name, name);
+        if (lily_load_file_package(s, path))
+            return;
+
+        path = lily_mb_sprintf(msgbuf, FOURTH_PATH, root, name, name);
+        if (lily_load_library(s, path))
+            return;
+    }
 }
 
 #undef PACKAGE_DIR
@@ -738,8 +777,8 @@ void lily_default_import_func(lily_state *s, const char *root,
 static lily_module_entry *load_module(lily_parse_state *parser,
         const char *name)
 {
-    char *current = parser->symtab->active_module->dirname;
-    char *root = parser->main_module->dirname;
+    const char *current = parser->symtab->active_module->root_dirname;
+    const char *root = parser->main_module->dirname;
 
     /* Using . provides context and prevents Linux from searching system
        library paths. */
@@ -5265,6 +5304,7 @@ static void fix_first_file_name(lily_parse_state *parser,
     module->dirname = dir_from_path(filename);
     module->loadname = loadname_from_path(filename);
     module->cmp_len = strlen(filename);
+    module->root_dirname = module->dirname;
 
     parser->emit->protos->data[0]->module_path = filename;
 

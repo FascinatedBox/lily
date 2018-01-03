@@ -116,3 +116,8 @@ t.interpret("Direct import doesn't expose the module.",
 
     var ref_import = 10
     """)
+
+t.interpret("Import that will use a fake rooted package.",
+    """\
+    import "import_dir/rooted_base"
+    """)

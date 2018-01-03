@@ -1,2 +1,2 @@
-import diamond_a, diamond_b
-import diamond_c, diamond_d
+import "import_dir/diamond_a", "import_dir/diamond_b"
+import "import_dir/diamond_c", "import_dir/diamond_d"

@@ -1,2 +1,2 @@
-import (v) var_exporter
+import (v) "import_dir/var_exporter"
 

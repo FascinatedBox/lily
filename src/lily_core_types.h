@@ -271,6 +271,8 @@ typedef struct lily_module_entry_ {
 
     lily_boxed_sym *boxed_chain;
 
+    const char *root_dirname;
+
     /* For modules backed by a shared library, the handle of that library. */
     void *handle;
 

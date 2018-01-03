@@ -1,4 +1,4 @@
-import var_exporter
+import "import_dir/var_exporter"
 
 if var_exporter.v != 10:
     stderr.print("Failed!")
