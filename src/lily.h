@@ -289,7 +289,7 @@ const char *lily_error_message_no_trace(lily_state *s);
 // Invoked to find a module after registered modules have been tried.
 //
 // This hook should use the common msgbuf (lily_msgbuf_get) to build up paths
-// for the `lily_open_*` functions to use. Stop when any of those functions
+// for the `lily_load_*` functions to use. Stop when any of those functions
 // returns 1.
 //
 // If unable to load any module, this function should return control the
@@ -304,7 +304,7 @@ const char *lily_error_message_no_trace(lily_state *s);
 //                   no directory portion.
 //     name        - The name of the module to import.
 
-// Function: lily_open_file
+// Function: lily_load_file
 // Load a Lily file from a given path.
 //
 // Parameters:
@@ -312,9 +312,9 @@ const char *lily_error_message_no_trace(lily_state *s);
 //     path - The path to try loading from.
 //
 // Returns 1 on success, 0 on failure.
-int lily_open_file(lily_state *s, const char *path);
+int lily_load_file(lily_state *s, const char *path);
 
-// Function: lily_open_library
+// Function: lily_load_library
 // Load a library from a given path.
 //
 // This function may fail even if 'path' points to a valid shared library. Make
@@ -325,9 +325,9 @@ int lily_open_file(lily_state *s, const char *path);
 //     path - The path to try loading from.
 //
 // Returns 1 on success, 0 on failure.
-int lily_open_library(lily_state *s, const char *path);
+int lily_load_library(lily_state *s, const char *path);
 
-// Function: lily_open_library_data
+// Function: lily_load_library_data
 // Load a preloaded library.
 //
 // Parameters:
@@ -337,14 +337,14 @@ int lily_open_library(lily_state *s, const char *path);
 //     loader         - A loading function for the library.
 //
 // Returns 1 on success, 0 on failure.
-int lily_open_library_data(lily_state *s, const char *path,
+int lily_load_library_data(lily_state *s, const char *path,
                            const char **dynaload_table, void *loader);
 
-// Function: lily_open_string
+// Function: lily_load_string
 // Load a string (context path, then content) as a library.
 //
 // Returns 1 on success, 0 on failure.
-int lily_open_string(lily_state *s, const char *path, const char *content);
+int lily_load_string(lily_state *s, const char *path, const char *content);
 
 ///////////////////////////
 // Section: Class id macros
