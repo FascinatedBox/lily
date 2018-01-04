@@ -316,7 +316,7 @@ const char *lily_error_message_no_trace(lily_state *s);
 // Returns 1 on success, 0 on failure.
 int lily_load_file(lily_state *s, const char *path);
 
-// Function: lily_load_package_file
+// Function: lily_load_file_package
 // Load a Lily file from a given path as an isolated package.
 //
 // The file loaded is treated as a package of its own. Imports resulting from it
