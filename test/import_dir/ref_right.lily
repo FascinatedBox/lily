@@ -1,0 +1,3 @@
+import (AA) "import_dir/ref_left"
+
+define f {}

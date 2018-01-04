@@ -121,3 +121,8 @@ t.interpret("Import that will use a fake rooted package.",
     """\
     import "import_dir/rooted_base"
     """)
+
+t.interpret("Multiple import refs put together.",
+    """\
+    import "import_dir/ref_diamond"
+    """)

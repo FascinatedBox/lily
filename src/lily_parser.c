@@ -4126,6 +4126,7 @@ static void collect_import_refs(lily_parse_state *parser, int *count)
     while (1) {
         NEED_NEXT_TOK(tk_word)
         lily_sp_insert(parser->import_ref_strings, lex->label, &top);
+        parser->import_pile_current = top;
         (*count)++;
 
         lily_lexer(lex);

@@ -1,0 +1,2 @@
+import (AA, BB) "import_dir/ref_left"
+import (f) "import_dir/ref_right"
