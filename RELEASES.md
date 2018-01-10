@@ -1,3 +1,35 @@
+Version 1.3 (2018-1-10)
+=======================
+
+What's new:
+
+* Keyword arguments are a huge highlight of this release. Keyword arguments are
+  written as `:<identifier>`. Keyword arguments are handled at emit-time,
+  meaning that there is zero runtime cost to most keyword argument calls. The
+  exception to that is in the interesting case where optional arguments and
+  keyword arguments come together. Because keyword arguments are processed at
+  emit-time, they are only usable with functions called by name or variants.
+  Tooling has been updated to allow keyword arguments from foreign functions.
+
+* The `forward` qualifier to allow forward definitions. While there are pending
+  forward definitions, the programmer cannot import or declare vars to prevent
+  variables from being referenced before their use. This qualifier works on both
+  toplevel definitions and methods. Forward definitions only take types (names
+  are not permitted), and thus are not eligible for keyword arguments.
+
+* The `static` qualifier to allow for class methods that do not take an implicit
+  self. These are nice for utility classes.
+
+* `import` no longer accepts slashed paths like `import x/y/z`. Instead, paths
+  provided must either be a single identifier `import x` or a string literal
+  `import "x/y/z"`. String literals are checked, however, to make sure that only
+  the forward slash is used (which becomes the appropriate path character),
+  along with other safety checks. This was done to make parsing import simpler,
+  as it now accepts only a single token.
+
+* The `lily.h` api file of the language has been completly redocumented. It is
+  now processed with NaturalDocs to provide documentation for Lily's api calls.
+
 Version 1.2 (2017-10-10)
 ========================
 
