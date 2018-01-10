@@ -124,3 +124,18 @@ t.interpret("Check that generics are covariant with function returns.",
 
     f(Two(), g)
     """)
+
+t.interpret_for_error("Generics can't solve to scoop.",
+    """\
+    SyntaxError: Argument #1 to f is invalid:\n\
+    Expected Type: Function (String, List[?])\n\
+    Received Type: Function (String, $1... => String)\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    define f[A](a: Function(String, List[A]), b: A, c: A): List[A] {
+        return [b, c]
+    }
+
+    f(String.format, 1, "2") |> print
+    """)

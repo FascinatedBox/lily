@@ -130,7 +130,12 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         int generic_pos = ts->pos + left->generic_pos;
         lily_type *cmp_type = ts->types[generic_pos];
         ret = 1;
-        if (cmp_type == lily_question_type)
+
+        /* Scoop types can't be the solution, because generics need to be pinned
+           down to one type (concrete or abstract). */
+        if (right->cls->id == LILY_ID_SCOOP_1)
+            ret = 0;
+        else if (cmp_type == lily_question_type)
             ts->types[generic_pos] = right;
         else if (cmp_type == right)
             ;
