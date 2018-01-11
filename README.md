@@ -66,3 +66,7 @@ Lily is a very young language and the community is still growing.
 * [Reference](https://Fascinatedbox.github.com/lily/core/module.core.html)
 
 * [Try it in your browser](http://fascinatedbox.github.io/lily/intro-sandbox.html)
+
+## License
+
+[MIT](https://github.com/FascinatedBox/lily/blob/master/license.txt)
