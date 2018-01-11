@@ -1462,8 +1462,9 @@ void lily_builtin_Hash_size(lily_state *s)
 /**
 native class IndexError(message: String) < Exception
 
-The `DivisionByZeroError` is a subclass of `Exception` that is raised when
-trying to divide or modulo by zero.
+`IndexError` is a subclass of `Exception` that is raised when
+attempting to access an index that is out-of-bounds (too low or too high, after
+accounting for negative wraparound).
 */
 void lily_builtin_IndexError_new(lily_state *s)
 {
