@@ -100,6 +100,8 @@ void lily_config_init(lily_config *conf)
     conf->argc = 0;
     conf->argv = NULL;
 
+    conf->copy_str_input = 0;
+
     /* Starting gc options are completely arbitrary. */
     conf->gc_start = 100;
     conf->gc_multiplier = 4;
@@ -566,6 +568,16 @@ static int import_check(lily_parse_state *parser, const char *path, int *out)
     return 0;
 }
 
+static lily_lex_entry_type string_input_mode(lily_parse_state *parser)
+{
+    lily_lex_entry_type mode = et_shallow_string;
+
+    if (parser->config->copy_str_input)
+        mode = et_copied_string;
+
+    return mode;
+}
+
 int lily_load_file(lily_state *s, const char *path)
 {
     int out;
@@ -608,7 +620,7 @@ int lily_load_string(lily_state *s, const char *path, const char *source)
     if (import_check(parser, path, &out))
         return out;
 
-    lily_lexer_load(parser->lex, et_shallow_string, (char *)source);
+    lily_lexer_load(parser->lex, string_input_mode(s->parser), (char *)source);
 
     lily_module_entry *module = new_module(parser);
 
@@ -5419,7 +5431,7 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str,
     handle_rewind(parser);
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_lexer_load(parser->lex, et_shallow_string, str);
+        lily_lexer_load(parser->lex, string_input_mode(parser), str);
         parser_loop(parser, name, in_template);
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -5455,7 +5467,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
-        lily_lexer_load(lex, et_shallow_string, str);
+        lily_lexer_load(lex, string_input_mode(parser), str);
         lily_lexer(lex);
 
         expression(parser);

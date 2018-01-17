@@ -88,6 +88,15 @@ typedef void (*lily_render_func)(const char *content, void *data);
 //     argv          - (Default: NULL)
 //                     The argument list (later used by Lily's sys.argv).
 //
+//     copy_str_input - (Default: 0)
+//                      The interpreter provides functions for parsing,
+//                      rendering, and loading that use a 'const char *' as
+//                      their input source. These functions assume the caller
+//                      will not modify the underlying string while the
+//                      interpreter is using it. If this is set to 1, then the
+//                      interpreter will copy string data passed, free-ing it
+//                      when parsing/rendering/loading is complete.
+//
 //     data          - (Default: stdin)
 //                     This will later be sent as the data part of the
 //                     import_func hook.
@@ -113,6 +122,7 @@ typedef void (*lily_render_func)(const char *content, void *data);
 typedef struct lily_config_ {
     int argc;
     char **argv;
+    int copy_str_input;
     int gc_start;
     int gc_multiplier;
     lily_render_func render_func;
@@ -179,8 +189,9 @@ int lily_parse_file(lily_state *s, const char *filename);
 // Function: lily_parse_string
 // Send an interpreter to parse a string.
 //
-// The interpreter does not copy 'data', so the caller must not modify 'data'
-// while the interpreter is running.
+// By default, the interpreter assumes that the 'content' will not be modified.
+// Callers who cannot provide such a guarantee should set the config option
+// 'copy_str_input' to 1 before using this function.
 //
 // Parameters:
 //     s        - The interpreter.
@@ -224,8 +235,9 @@ int lily_render_file(lily_state *s, const char *filename);
 // Function: lily_render_string
 // Send an interpreter to render a string.
 //
-// The interpreter does not copy 'data', so the caller must not modify 'data'
-// while the interpreter is running.
+// By default, the interpreter assumes that the 'content' will not be modified.
+// Callers who cannot provide such a guarantee should set the config option
+// 'copy_str_input' to 1 before using this function.
 //
 // Parameters:
 //     s        - The interpreter.
@@ -361,6 +373,10 @@ int lily_load_library_data(lily_state *s, const char *path,
 // The string loaded is considered part of the current package. Imports from it
 // will be relative to the current package base.
 //
+// By default, the interpreter assumes that the 'content' will not be modified.
+// Callers who cannot provide such a guarantee should set the config option
+// 'copy_str_input' to 1 before using this function.
+//
 // Returns 1 on success, 0 on failure.
 int lily_load_string(lily_state *s, const char *path, const char *content);
 
@@ -369,6 +385,10 @@ int lily_load_string(lily_state *s, const char *path, const char *content);
 //
 // The string loaded is considered part of the current package. Imports from it
 // will be relative to the current package base.
+//
+// By default, the interpreter assumes that the 'content' will not be modified.
+// Callers who cannot provide such a guarantee should set the config option
+// 'copy_str_input' to 1 before using this function.
 //
 // Returns 1 on success, 0 on failure.
 int lily_load_string_package(lily_state *s, const char *path,
