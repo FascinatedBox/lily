@@ -117,6 +117,23 @@ t.assert("List.fold with empty List.",
     success ))
 
 
+t.assert("List.get with valid positive index.",
+         (||
+    [1, 2, 3].get(0).unwrap() ))
+
+t.assert("List.get with valid negative index.",
+         (||
+    [1, 2, 3].get(-1).unwrap() ))
+
+t.assert("List.get with invalid positive index.",
+         (||
+    [1, 2, 3].get(5).is_none() ))
+
+t.assert("List.get with invalid negative index.",
+         (||
+    [1, 2, 3].get(-5).is_none() ))
+
+
 t.assert("List.insert at position 0.",
          (||
     var v = [1]

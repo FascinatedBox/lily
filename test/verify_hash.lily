@@ -50,6 +50,17 @@ t.assert("Hash.each_pair with non-empty hash.",
     entries == [0, -1, -2] ))
 
 
+t.assert("Hash.get with key that does not exist.",
+         (||
+    var h = [1 => 100, 2 => 200, 3 => 300]
+    h.get(5).is_none() ))
+
+t.assert("Hash.get with key that does not exist.",
+         (||
+    var h = [1 => 100, 2 => 200, 3 => 300]
+    h.get(1).unwrap() == 100 ))
+
+
 t.assert("Hash.has_key with existing key.",
          (|| [1 => 1].has_key(1) ))
 

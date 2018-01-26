@@ -54,7 +54,7 @@ const char *lily_builtin_table[] = {
     ,"m\0clear\0[A,B](Hash[A,B])"
     ,"m\0delete\0[A,B](Hash[A,B],A)"
     ,"m\0each_pair\0[A,B](Hash[A,B],Function(A, B))"
-    ,"m\0get\0[A,B](Hash[A,B],A,B): B"
+    ,"m\0get\0[A,B](Hash[A,B],A): Option[B]"
     ,"m\0has_key\0[A,B](Hash[A,B],A): Boolean"
     ,"m\0keys\0[A,B](Hash[A,B]): List[A]"
     ,"m\0map_values\0[A,B,C](Hash[A,B],Function(B=>C)): Hash[A,C]"
@@ -73,13 +73,14 @@ const char *lily_builtin_table[] = {
     ,"m\0<new>\0(String): IOError"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"N\022List\0[A]"
+    ,"N\023List\0[A]"
     ,"m\0clear\0[A](List[A])"
     ,"m\0count\0[A](List[A],Function(A=>Boolean)): Integer"
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)): List[A]"
     ,"m\0each_index\0[A](List[A],Function(Integer)): List[A]"
     ,"m\0fold\0[A](List[A],A,Function(A, A=>A)): A"
+    ,"m\0get\0[A](List[A],Integer): Option[A]"
     ,"m\0insert\0[A](List[A],Integer,A)"
     ,"m\0join\0[A](List[A],*String): String"
     ,"m\0map\0[A,B](List[A],Function(A=>B)): List[B]"
@@ -160,13 +161,13 @@ const char *lily_builtin_table[] = {
 #define IOError_OFFSET 49
 #define KeyError_OFFSET 51
 #define List_OFFSET 53
-#define Option_OFFSET 72
-#define Result_OFFSET 85
-#define RuntimeError_OFFSET 92
-#define String_OFFSET 94
-#define Tuple_OFFSET 115
-#define ValueError_OFFSET 116
-#define toplevel_OFFSET 118
+#define Option_OFFSET 73
+#define Result_OFFSET 86
+#define RuntimeError_OFFSET 93
+#define String_OFFSET 95
+#define Tuple_OFFSET 116
+#define ValueError_OFFSET 117
+#define toplevel_OFFSET 119
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -209,6 +210,7 @@ void lily_builtin_List_delete_at(lily_state *);
 void lily_builtin_List_each(lily_state *);
 void lily_builtin_List_each_index(lily_state *);
 void lily_builtin_List_fold(lily_state *);
+void lily_builtin_List_get(lily_state *);
 void lily_builtin_List_insert(lily_state *);
 void lily_builtin_List_join(lily_state *);
 void lily_builtin_List_map(lily_state *);
@@ -307,18 +309,19 @@ void *lily_builtin_loader(lily_state *s, int id)
         case List_OFFSET + 4: return lily_builtin_List_each;
         case List_OFFSET + 5: return lily_builtin_List_each_index;
         case List_OFFSET + 6: return lily_builtin_List_fold;
-        case List_OFFSET + 7: return lily_builtin_List_insert;
-        case List_OFFSET + 8: return lily_builtin_List_join;
-        case List_OFFSET + 9: return lily_builtin_List_map;
-        case List_OFFSET + 10: return lily_builtin_List_pop;
-        case List_OFFSET + 11: return lily_builtin_List_push;
-        case List_OFFSET + 12: return lily_builtin_List_reject;
-        case List_OFFSET + 13: return lily_builtin_List_repeat;
-        case List_OFFSET + 14: return lily_builtin_List_select;
-        case List_OFFSET + 15: return lily_builtin_List_size;
-        case List_OFFSET + 16: return lily_builtin_List_shift;
-        case List_OFFSET + 17: return lily_builtin_List_slice;
-        case List_OFFSET + 18: return lily_builtin_List_unshift;
+        case List_OFFSET + 7: return lily_builtin_List_get;
+        case List_OFFSET + 8: return lily_builtin_List_insert;
+        case List_OFFSET + 9: return lily_builtin_List_join;
+        case List_OFFSET + 10: return lily_builtin_List_map;
+        case List_OFFSET + 11: return lily_builtin_List_pop;
+        case List_OFFSET + 12: return lily_builtin_List_push;
+        case List_OFFSET + 13: return lily_builtin_List_reject;
+        case List_OFFSET + 14: return lily_builtin_List_repeat;
+        case List_OFFSET + 15: return lily_builtin_List_select;
+        case List_OFFSET + 16: return lily_builtin_List_size;
+        case List_OFFSET + 17: return lily_builtin_List_shift;
+        case List_OFFSET + 18: return lily_builtin_List_slice;
+        case List_OFFSET + 19: return lily_builtin_List_unshift;
         case Option_OFFSET + 1: return lily_builtin_Option_and;
         case Option_OFFSET + 2: return lily_builtin_Option_and_then;
         case Option_OFFSET + 3: return lily_builtin_Option_is_none;
@@ -1251,23 +1254,27 @@ void lily_builtin_Hash_each_pair(lily_state *s)
 }
 
 /**
-define Hash.get(key: A, default: B): B
+define Hash.get(key: A): Option[B]
 
-Attempt to find `key` within `self`. If `key` is present, then the value
-associated with it is returned. If `key` cannot be found, then `default` is
-returned instead.
+Attempt to find `key` within `self`.
+
+If `key` is present, then a `Some` containing the associated value is returned.
+
+Otherwise, this returns None.
 */
 void lily_builtin_Hash_get(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
-    lily_value *default_value = lily_arg_value(s, 2);
+    lily_value *record = lily_hash_get(s, hash_val, key);
 
-    lily_value *v = lily_hash_get(s, hash_val, key);
-    if (v == NULL)
-        v = default_value;
-
-    lily_return_value(s, v);
+    if (record) {
+        lily_container_val *variant = lily_push_some(s);
+        lily_con_set(variant, 0, record);
+        lily_return_top(s);
+    }
+    else
+        lily_return_none(s);
 }
 
 /**
@@ -1725,6 +1732,41 @@ void lily_builtin_List_fold(lily_state *s)
 
         lily_return_value(s, result);
     }
+}
+
+/**
+define List.get(index: Integer): Option[A]
+
+Attempt to find `index` within `self`.
+
+If the index is within `self`, then the value is returned within a `Some`.
+
+Otherwise, this returns None.
+*/
+void lily_builtin_List_get(lily_state *s)
+{
+    lily_container_val *list_val = lily_arg_container(s, 0);
+    int64_t pos = lily_arg_integer(s, 1);
+
+    /* This does what get_relative_index does, except the error case doesn't
+       raise an error. */
+    if (pos < 0) {
+        uint64_t unsigned_pos = -(int64_t)pos;
+        if (unsigned_pos > list_val->num_values)
+            pos = -1;
+        else
+            pos = list_val->num_values - unsigned_pos;
+    }
+    else if (pos > list_val->num_values)
+        pos = -1;
+
+    if (pos != -1) {
+        lily_container_val *variant = lily_push_some(s);
+        lily_con_set(variant, 0, lily_con_get(list_val, pos));
+        lily_return_top(s);
+    }
+    else
+        lily_return_none(s);
 }
 
 /**
