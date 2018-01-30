@@ -637,7 +637,7 @@ static void move_list_f(uint32_t f, lily_value *v, lily_container_val *z)
         lily_deref(v);
 
     v->value.container = z;
-    v->flags = f | LILY_ID_LIST | VAL_IS_INSTANCE | VAL_IS_DEREFABLE;
+    v->flags = f | LILY_ID_LIST | VAL_IS_DEREFABLE;
 }
 
 static void move_string(lily_value *v, lily_string_val *z)
