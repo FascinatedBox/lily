@@ -4593,17 +4593,8 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     lily_named_sym *member_iter = target->members;
 
     while (member_iter) {
-        /* Class/Enum methods do not count toward circularity. */
-        if (member_iter->item_kind != ITEM_TYPE_VAR) {
-            lily_type *type = member_iter->type;
-            mark |= get_gc_flags_for(target, type);
-
-            if (type->subtype_count) {
-                int i;
-                for (i = 0;i < type->subtype_count;i++)
-                    mark |= get_gc_flags_for(target, type->subtypes[i]);
-            }
-        }
+        if (member_iter->item_kind == ITEM_TYPE_PROPERTY)
+            mark |= get_gc_flags_for(target, member_iter->type);
 
         member_iter = member_iter->next;
     }
