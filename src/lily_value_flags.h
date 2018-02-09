@@ -8,7 +8,7 @@
 #define VAL_IS_GC_TAGGED        0x010000
 /* VAL_IS_GC_SPECULATIVE means it might have tagged data inside. */
 #define VAL_IS_GC_SPECULATIVE   0x020000
-#define VAL_IS_GC_SWEEPABLE     (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
+#define VAL_HAS_SWEEP_FLAG      (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
 #define VAL_IS_INSTANCE         0x040000
 #define VAL_IS_DEREFABLE        0x080000
 #define VAL_IS_FOREIGN          0x100000

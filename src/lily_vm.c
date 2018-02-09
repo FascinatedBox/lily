@@ -239,7 +239,7 @@ static void invoke_gc(lily_vm_state *vm)
                 that will mark every inner value that's visible. */
     for (i = 0;i < total;i++) {
         lily_value *reg = regs_from_main[i];
-        if (reg->flags & VAL_IS_GC_SWEEPABLE)
+        if (reg->flags & VAL_HAS_SWEEP_FLAG)
             gc_mark(pass, reg);
     }
 
@@ -321,7 +321,7 @@ static void dynamic_marker(int pass, lily_value *v)
     lily_container_val *c = lily_as_container(v);
     lily_value *inner_value = lily_con_get(c, 0);
 
-    if (inner_value->flags & VAL_IS_GC_SWEEPABLE)
+    if (inner_value->flags & VAL_HAS_SWEEP_FLAG)
         gc_mark(pass, inner_value);
 }
 
@@ -342,7 +342,7 @@ static void list_marker(int pass, lily_value *v)
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *elem = list_val->values[i];
 
-        if (elem->flags & VAL_IS_GC_SWEEPABLE)
+        if (elem->flags & VAL_HAS_SWEEP_FLAG)
             gc_mark(pass, elem);
     }
 }
@@ -377,7 +377,7 @@ static void function_marker(int pass, lily_value *v)
 
     for (i = 0;i < count;i++) {
         lily_value *up = upvalues[i];
-        if (up && (up->flags & VAL_IS_GC_SWEEPABLE))
+        if (up && (up->flags & VAL_HAS_SWEEP_FLAG))
             gc_mark(pass, up);
     }
 }
@@ -1396,7 +1396,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         move_instance_f(VAL_IS_GC_SPECULATIVE, result, iv);
     else {
         move_instance_f(0, result, iv);
-        if (flags == VAL_IS_GC_SWEEPABLE)
+        if (flags == VAL_IS_GC_TAGGED)
             lily_value_tag(vm, result);
     }
 }
