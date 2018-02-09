@@ -4534,10 +4534,6 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
    any gc information to hold. */
 static int get_gc_flags_for(lily_class *top_class, lily_type *target)
 {
-    /* NULL is used as the return type of a Function that returns nothing. */
-    if (target == NULL)
-        return 0;
-
     int result_flag = 0;
 
     if (target->cls->id == LILY_ID_GENERIC) {
