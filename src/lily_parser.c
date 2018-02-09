@@ -4552,6 +4552,9 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
         result_flag = CLS_GC_SPECULATIVE;
     else if (target->cls->flags & CLS_VISITED)
         result_flag = CLS_GC_TAGGED;
+    else if (target->cls == top_class)
+        /* A class that can hold itself definitely needs a gc tag. */
+        result_flag = CLS_GC_TAGGED;
     else if (target->subtype_count) {
         int i;
         for (i = 0;i < target->subtype_count;i++)
