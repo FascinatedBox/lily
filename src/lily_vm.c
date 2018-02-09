@@ -518,6 +518,19 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
     next_frame->return_target = current_frame->start[code[i + 3]];
 }
 
+static void clear_extra_registers(lily_call_frame *next_frame, uint16_t *code)
+{
+    int i = code[2];
+    lily_value **target_regs = next_frame->start;
+
+    for (;i < next_frame->function->reg_count;i++) {
+        lily_value *reg = target_regs[i];
+        lily_deref(reg);
+
+        reg->flags = 0;
+    }
+}
+
 static void prep_registers(lily_call_frame *frame, uint16_t *code)
 {
     lily_call_frame *next_frame = frame->next;
@@ -538,13 +551,6 @@ static void prep_registers(lily_call_frame *frame, uint16_t *code)
             lily_deref(set_reg);
 
         *set_reg = *get_reg;
-    }
-
-    for (;i < next_frame->function->reg_count;i++) {
-        lily_value *reg = target_regs[i];
-        lily_deref(reg);
-
-        reg->flags = 0;
     }
 }
 
@@ -2193,6 +2199,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 prep_registers(current_frame, code);
+                /* A native Function call is almost certainly going to have more
+                   registers than arguments. They need to be blasted. This is
+                   not part of prep_registers, because foreign functions do not
+                   have this same requirement. */
+                clear_extra_registers(next_frame, code);
 
                 current_frame = current_frame->next;
                 vm->call_chain = current_frame;
