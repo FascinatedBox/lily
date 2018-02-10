@@ -601,3 +601,14 @@ t.interpret("Cover comparison of Byte values.",
         raise Exception("Failed (<=).")
 
     """)
+
+# This test leaks memory if circular values aren't dropped properly.
+t.interpret("Cover leaving a circular value at exit.",
+    """
+    class Example {
+        public var @a: Option[Example] = None
+    }
+
+    var v = Example()
+    v.a = Some(v)
+    """)

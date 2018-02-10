@@ -112,14 +112,34 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 static void destroy_gc_entries(lily_vm_state *vm)
 {
     lily_gc_entry *gc_iter, *gc_temp;
-    gc_iter = vm->gc_live_entries;
 
-    while (gc_iter != NULL) {
-        gc_temp = gc_iter->next;
+    if (vm->gc_live_entry_count) {
+        /* This function is called after the registers are gone. This walks over
+           the remaining gc entries and blasts them just like the gc does. This
+           is a two-stage process because the circular values may link back to
+           each other. */
+        for (gc_iter = vm->gc_live_entries;
+             gc_iter;
+             gc_iter = gc_iter->next) {
+            if (gc_iter->value.generic != NULL) {
+                /* This tells value destroy to hollow the value since other
+                   circular values may use it. */
+                gc_iter->last_pass = -1;
+                lily_value_destroy((lily_value *)gc_iter);
+            }
+        }
 
-        lily_free(gc_iter);
+        gc_iter = vm->gc_live_entries;
 
-        gc_iter = gc_temp;
+        while (gc_iter) {
+            gc_temp = gc_iter->next;
+
+            /* It's either NULL or the remnants of a value. */
+            lily_free(gc_iter->value.generic);
+            lily_free(gc_iter);
+
+            gc_iter = gc_temp;
+        }
     }
 
     gc_iter = vm->gc_spare_entries;
@@ -149,11 +169,6 @@ void lily_free_vm(lily_vm_state *vm)
             catch_iter = catch_next;
         }
     }
-
-    /* If there are any entries left over, then do a final gc pass that will
-       destroy the tagged values. */
-    if (vm->gc_live_entry_count)
-        invoke_gc(vm);
 
     int total = vm->call_chain->register_end - regs_from_main - 1;
 
