@@ -1094,7 +1094,7 @@ void lily_builtin_File_write(lily_state *s)
     if (to_write->class_id == LILY_ID_STRING)
         fputs(to_write->value.string->string, inner_file);
     else {
-        lily_msgbuf *msgbuf = lily_mb_flush(s->vm_buffer);
+        lily_msgbuf *msgbuf = lily_msgbuf_get(s);
         lily_mb_add_value(msgbuf, s, to_write);
         fputs(lily_mb_raw(msgbuf), inner_file);
     }
@@ -1805,7 +1805,7 @@ void lily_builtin_List_join(lily_state *s)
     if (lily_arg_count(s) == 2)
         delim = lily_arg_string_raw(s, 1);
 
-    lily_msgbuf *vm_buffer = lily_mb_flush(s->vm_buffer);
+    lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
 
     if (lv->num_values) {
         int i, stop = lv->num_values - 1;
