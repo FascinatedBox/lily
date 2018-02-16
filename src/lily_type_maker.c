@@ -92,8 +92,7 @@ static lily_type *lookup_type(lily_type *input_type)
     lily_type *ret = NULL;
 
     while (iter_type) {
-        if (iter_type->subtypes      != NULL &&
-            iter_type->subtype_count == input_type->subtype_count &&
+        if (iter_type->subtype_count == input_type->subtype_count &&
             (iter_type->flags & ~BUBBLE_FLAGS) ==
                 (input_type->flags & ~BUBBLE_FLAGS)) {
             int i, match = 1;
