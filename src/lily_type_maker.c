@@ -93,8 +93,9 @@ static lily_type *lookup_type(lily_type *input_type)
 
     while (iter_type) {
         if (iter_type->subtype_count == input_type->subtype_count &&
-            (iter_type->flags & ~BUBBLE_FLAGS) ==
-                (input_type->flags & ~BUBBLE_FLAGS)) {
+            /* All other type-based flags are irrelevant to equality. */
+            (iter_type->flags & TYPE_IS_VARARGS) ==
+                (input_type->flags & TYPE_IS_VARARGS)) {
             int i, match = 1;
             for (i = 0;i < iter_type->subtype_count;i++) {
                 if (iter_type->subtypes[i] != input_type->subtypes[i]) {
