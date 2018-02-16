@@ -1117,14 +1117,20 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     expression_raw(parser);
 }
 
-/* This takes a class that takes a single subtype and creates a new type which
-   wraps around the class sent. For example, send 'list' and an integer type to
-   get 'list[integer]'. */
-static lily_type *make_type_of_class(lily_parse_state *parser, lily_class *cls,
-        lily_type *type)
+/* Return a type that is an optional of the type given. This is the only place
+   where optarg types are created, and also should never be given an optarg type
+   as input. */
+static lily_type *make_optarg_of(lily_parse_state *parser, lily_type *type)
 {
     lily_tm_add(parser->tm, type);
-    return lily_tm_make(parser->tm, cls, 1);
+    lily_type *t = lily_tm_make(parser->tm, parser->symtab->optarg_class, 1);
+
+    /* Since this function is the only place that optargs are created, this also
+       marks optargs as what they are. This allows the optarg information to
+       later bubble up. */
+    t->flags |= TYPE_HAS_OPTARGS;
+
+    return t;
 }
 
 /* This checks to see if 'type' got as many subtypes as it was supposed to. If
@@ -1205,7 +1211,8 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     }
 
     if (lex->token == tk_three_dots) {
-        type = make_type_of_class(parser, parser->symtab->list_class, type);
+        lily_tm_add(parser->tm, type);
+        type = lily_tm_make(parser->tm, parser->symtab->list_class, 1);
 
         lily_lexer(lex);
         if (lex->token != tk_arrow &&
@@ -1218,7 +1225,7 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
     }
 
     if (*flags & TYPE_HAS_OPTARGS)
-        type = make_type_of_class(parser, parser->symtab->optarg_class, type);
+        type = make_optarg_of(parser, type);
 
     return type;
 }

@@ -6,7 +6,7 @@
 /* These are the TYPE_* flags that bubble up through types (it's written onto a
    type if any subtypes have them). */
 #define BUBBLE_FLAGS \
-    (TYPE_IS_UNRESOLVED | TYPE_IS_INCOMPLETE | TYPE_HAS_SCOOP)
+    (TYPE_IS_UNRESOLVED | TYPE_IS_INCOMPLETE | TYPE_HAS_SCOOP | TYPE_HAS_OPTARGS)
 
 lily_type_maker *lily_new_type_maker(void)
 {
@@ -133,8 +133,8 @@ static lily_type *build_real_type_for(lily_type *fake_type)
 
     new_type->next = new_type->cls->all_subtypes;
     new_type->cls->all_subtypes = new_type;
-    /* Letting other flags carry over causes rare but bad side effects. */
-    new_type->flags &= (TYPE_IS_VARARGS | TYPE_HAS_OPTARGS);
+    /* Any other flags bubble up from the subtypes. */
+    new_type->flags &= TYPE_IS_VARARGS;
 
     int i;
     for (i = 0;i < new_type->subtype_count;i++) {
