@@ -133,6 +133,14 @@ t.assert("List.get with invalid negative index.",
          (||
     [1, 2, 3].get(-5).is_none() ))
 
+t.assert("List.get with invalid positive index that equals size.",
+         (||
+    [1, 2, 3].get(3).is_none() ))
+
+t.assert("List.get with invalid negative index that equals size.",
+         (||
+    [1, 2, 3].get(-3).is_some() ))
+
 
 t.assert("List.insert at position 0.",
          (||

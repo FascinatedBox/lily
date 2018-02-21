@@ -1757,7 +1757,8 @@ void lily_builtin_List_get(lily_state *s)
         else
             pos = list_val->num_values - unsigned_pos;
     }
-    else if (pos > list_val->num_values)
+
+    if (pos >= list_val->num_values)
         pos = -1;
 
     if (pos != -1) {
