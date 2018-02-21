@@ -33,6 +33,16 @@ const char *lily_builtin_table[] = {
     ,"m\0slice\0(ByteString,*Integer,*Integer): ByteString"
     ,"N\01DivisionByZeroError\0< Exception"
     ,"m\0<new>\0(String): DivisionByZeroError"
+    ,"N\011Coroutine\0[A,B]"
+    ,"m\0create\0[A,B](Function(Coroutine[A,B], $1)): Function($1=>Coroutine[A,B])"
+    ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
+    ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"
+    ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
+    ,"m\0is_running\0[A,B](Coroutine[A,B]): Boolean"
+    ,"m\0receive\0[A,B](Coroutine[A,B]): B"
+    ,"m\0resume\0[A,B](Coroutine[A,Unit]): Option[A]"
+    ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Option[A]"
+    ,"m\0yield\0[A,B](Coroutine[A,B],A)"
     ,"N\01Double\0"
     ,"m\0to_i\0(Double): Integer"
     ,"N\01Dynamic\0"
@@ -150,24 +160,25 @@ const char *lily_builtin_table[] = {
 #define Byte_OFFSET 4
 #define ByteString_OFFSET 6
 #define DivisionByZeroError_OFFSET 11
-#define Double_OFFSET 13
-#define Dynamic_OFFSET 15
-#define Exception_OFFSET 17
-#define File_OFFSET 21
-#define Function_OFFSET 29
-#define Hash_OFFSET 30
-#define IndexError_OFFSET 42
-#define Integer_OFFSET 44
-#define IOError_OFFSET 49
-#define KeyError_OFFSET 51
-#define List_OFFSET 53
-#define Option_OFFSET 73
-#define Result_OFFSET 86
-#define RuntimeError_OFFSET 93
-#define String_OFFSET 95
-#define Tuple_OFFSET 116
-#define ValueError_OFFSET 117
-#define toplevel_OFFSET 119
+#define Coroutine_OFFSET 13
+#define Double_OFFSET 23
+#define Dynamic_OFFSET 25
+#define Exception_OFFSET 27
+#define File_OFFSET 31
+#define Function_OFFSET 39
+#define Hash_OFFSET 40
+#define IndexError_OFFSET 52
+#define Integer_OFFSET 54
+#define IOError_OFFSET 59
+#define KeyError_OFFSET 61
+#define List_OFFSET 63
+#define Option_OFFSET 83
+#define Result_OFFSET 96
+#define RuntimeError_OFFSET 103
+#define String_OFFSET 105
+#define Tuple_OFFSET 126
+#define ValueError_OFFSET 127
+#define toplevel_OFFSET 129
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -176,6 +187,15 @@ void lily_builtin_ByteString_encode(lily_state *);
 void lily_builtin_ByteString_size(lily_state *);
 void lily_builtin_ByteString_slice(lily_state *);
 void lily_builtin_DivisionByZeroError_new(lily_state *);
+void lily_builtin_Coroutine_create(lily_state *);
+void lily_builtin_Coroutine_is_done(lily_state *);
+void lily_builtin_Coroutine_is_failed(lily_state *);
+void lily_builtin_Coroutine_is_waiting(lily_state *);
+void lily_builtin_Coroutine_is_running(lily_state *);
+void lily_builtin_Coroutine_receive(lily_state *);
+void lily_builtin_Coroutine_resume(lily_state *);
+void lily_builtin_Coroutine_resume_with(lily_state *);
+void lily_builtin_Coroutine_yield(lily_state *);
 void lily_builtin_Double_to_i(lily_state *);
 void lily_builtin_Dynamic_new(lily_state *);
 void lily_builtin_Exception_new(lily_state *);
@@ -275,6 +295,15 @@ void *lily_builtin_loader(lily_state *s, int id)
         case ByteString_OFFSET + 3: return lily_builtin_ByteString_size;
         case ByteString_OFFSET + 4: return lily_builtin_ByteString_slice;
         case DivisionByZeroError_OFFSET + 1: return lily_builtin_DivisionByZeroError_new;
+        case Coroutine_OFFSET + 1: return lily_builtin_Coroutine_create;
+        case Coroutine_OFFSET + 2: return lily_builtin_Coroutine_is_done;
+        case Coroutine_OFFSET + 3: return lily_builtin_Coroutine_is_failed;
+        case Coroutine_OFFSET + 4: return lily_builtin_Coroutine_is_waiting;
+        case Coroutine_OFFSET + 5: return lily_builtin_Coroutine_is_running;
+        case Coroutine_OFFSET + 6: return lily_builtin_Coroutine_receive;
+        case Coroutine_OFFSET + 7: return lily_builtin_Coroutine_resume;
+        case Coroutine_OFFSET + 8: return lily_builtin_Coroutine_resume_with;
+        case Coroutine_OFFSET + 9: return lily_builtin_Coroutine_yield;
         case Double_OFFSET + 1: return lily_builtin_Double_to_i;
         case Dynamic_OFFSET + 1: return lily_builtin_Dynamic_new;
         case Exception_OFFSET + 1: return lily_builtin_Exception_new;
@@ -749,6 +778,142 @@ void lily_builtin_DivisionByZeroError_new(lily_state *s)
 {
     return_exception(s, LILY_ID_DBZERROR);
 }
+
+/**
+builtin class Coroutine[A, B]
+
+A `Coroutine` is similar to a `Function`, except that it can also yield values
+at different points along its lifetime. Every `Coroutine` has a callstack that
+belongs to it, as well as an exception state. A `Coroutine`'s status can be
+discovered by one of the is_ methods.
+
+The `Coroutine` type takes two types. The first is the type that the `Coroutine`
+will be returning or yielding. The second is the type that the `Coroutine` takes
+as a message. A `Coroutine` can take empty `Unit` messages for simplicity, or a
+more interesting type if a more bidirectional kind of messaging is wanted. A
+`Coroutine` can get the value resumed using `Coroutine.receive` while within the
+`Coroutine`.
+
+The first argument of a `Function` to be made a `Coroutine` is always the
+`Coroutine` itself. If the `Function` specifies extra arguments, those arguments
+are to be passed to the intermediate result of `Coroutine.create`.
+*/
+
+/* Coroutines are mostly implemented in the vm because much of what they do
+   involves using internal vm magic. */
+
+/**
+static define Coroutine.create(fn: Function(Coroutine[A, B], $1)): Function($1 => Coroutine[A, B])
+
+This function is the entry point for creating a new `Coroutine`. 'fn' is a
+`Function` that takes a `Coroutine` as a first argument, plus any number of
+extra arguments.
+
+The result of this function is an intermediate builder `Function`. The builder
+takes the extra arguments to 'fn' and creates the `Coroutine` value.
+
+# Errors
+
+* `RuntimeError`: If 'fn' is not a native function.
+*/
+
+#define CORO_IS(name, to_check) \
+void lily_builtin_Coroutine_is_##name(lily_state *s) \
+{ \
+    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0); \
+    lily_return_boolean(s, co_val->status == to_check); \
+} \
+
+/**
+define Coroutine.is_done: Boolean
+
+Returns `true` if the `Coroutine` has returned a value instead of yielding,
+`false` otherwise.
+*/
+CORO_IS(done, co_done)
+
+/**
+define Coroutine.is_failed: Boolean
+
+Returns `true` if the `Coroutine` raised an exception, `false` otherwise.
+*/
+CORO_IS(failed, co_failed)
+
+/**
+define Coroutine.is_waiting: Boolean
+
+Returns `true` if the `Coroutine` is ready to be resumed, `false` otherwise.
+*/
+CORO_IS(waiting, co_waiting)
+
+/**
+define Coroutine.is_running: Boolean
+
+Returns `true` if the `Coroutine` is running, `false` otherwise. Note that this
+does not mean that the `Coroutine` is the one currently running, only that it is
+running.
+*/
+CORO_IS(running, co_running)
+
+/**
+define Coroutine.receive: B
+
+This function returns the value that the `Coroutine` is holding, so long as the
+`Coroutine` is the one currently running.
+
+The value stored by the `Coroutine` is initially the first argument sent to the
+intermediate builder. Following that, it is the last value that was sent to the
+`Coroutine` using `Coroutine.resume_with`.
+
+# Errors
+
+* `RuntimeError`: If 'self' is not the current `Coroutine`.
+*/
+
+/**
+static define Coroutine.resume(self: Coroutine[A, Unit]): Option[A]
+
+Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed only if
+it is currently in the 'waiting' state.
+
+This function does not send a value to the `Coroutine` which is why it requires
+the second parameter to be `Unit`.
+
+If the `Coroutine` is suspended and yields a value, the result is a `Some` of
+that value.
+
+Otherwise, this returns `None`.
+
+Note that if a `Coroutine` returns a value instead of yielding, the value is
+ignored and the result is `None`.
+*/
+
+/**
+define Coroutine.resume_with(value: B): Option[A]
+
+Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed only if
+it is currently in the 'waiting' state.
+
+This function includes a value for the `Coroutine` to store. The value is stored
+only if the `Coroutine` is resumed. If stored, the old value is ejected from the
+`Coroutine` provided.
+
+If the `Coroutine` is suspended and yields (or returns) a value, the result is
+a `Some` of that value.
+
+Otherwise, this returns `None`.
+*/
+
+/**
+define Coroutine.yield(value: A)
+
+Yield 'value' from the `Coroutine` given. Control returns to whatever invoked
+'self'.
+
+# Errors:
+
+* `RuntimeError` if `self` is the current `Coroutine`, or within a foreign call.
+*/
 
 /**
 builtin class Double
@@ -3460,6 +3625,10 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->hash_class       = build_class(symtab, "Hash",        2, Hash_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
                                build_class(symtab, "File",        0, File_OFFSET);
+    lily_class *co_class     = build_class(symtab, "Coroutine",   2, Coroutine_OFFSET);
+
+    /* Coroutine needs an id fix because it comes after Unit. */
+    co_class->id = LILY_ID_COROUTINE;
 
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
     lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_ID_SCOOP_1);

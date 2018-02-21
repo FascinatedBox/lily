@@ -52,14 +52,13 @@ typedef struct lily_vm_catch_entry_ {
     struct lily_vm_catch_entry_ *prev;
 } lily_vm_catch_entry;
 
-typedef struct lily_vm_state_ {
+/* This is shared by the vm and any coroutines that are created within it. It
+   serves two purposes:
+   * One, that parse updates do not leave a coroutine with stale tables.
+   * Two, that there is one set of gc information with 'regs_from_main'
+     belonging to the first state. The first state acts as a main 'thread'. */
+typedef struct lily_global_state_ {
     lily_value **regs_from_main;
-
-    uint32_t call_depth;
-
-    uint32_t depth_max;
-
-    lily_call_frame *call_chain;
 
     lily_value **readonly_table;
     lily_class **class_table;
@@ -87,6 +86,26 @@ typedef struct lily_vm_state_ {
        the threshold is multiplied by to increase it. */
     uint32_t gc_multiplier;
 
+    struct lily_vm_state_ *first_vm;
+
+    /* This is used to dynaload exceptions when absolutely necessary. */
+    struct lily_parse_state_ *parser;
+} lily_global_state;
+
+/* A virtual machine capable of executing code, and the underlying struct behind
+   lily_state. When a new coroutine is created, it creates another one of these
+   within the parent state wrapped up in a value. */
+typedef struct lily_vm_state_ {
+    lily_value **register_root;
+
+    uint32_t call_depth;
+
+    uint32_t depth_max;
+
+    lily_call_frame *call_chain;
+
+    lily_global_state *gs;
+
     lily_vm_catch_entry *catch_chain;
 
     /* If a proper value is being raised (currently only the `raise` keyword),
@@ -100,9 +119,8 @@ typedef struct lily_vm_state_ {
     /* This buffer is used as an intermediate storage for String values. */
     lily_msgbuf *vm_buffer;
 
-    /* This is used to dynaload exceptions when absolutely necessary. */
-    struct lily_parse_state_ *parser;
     lily_raiser *raiser;
+
     /* This holds the 'data' blob passed in to the interpreter's options. The
        mod_lily module uses this to hold the request_rec so that server
        functions can fetch it back out. */

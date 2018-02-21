@@ -3378,6 +3378,11 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
         if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_ts_resolve(emit->ts, return_type);
 
+        /* In the rare case of a scoop type, replace the scoop with whatever it
+           collected (if anything). */
+        if (return_type->flags & TYPE_HAS_SCOOP)
+            return_type = lily_ts_scoop_unroll(emit->ts, return_type);
+
         if (ast->first_tree_type == tree_variant) {
             /* Variant trees don't have a result so skip over them. */
             arg = arg->next_arg;

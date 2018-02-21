@@ -30,6 +30,8 @@ static uint16_t foreign_code[1] = {o_vm_exit};
 #define SAVE_LINE(to_add) \
 current_frame->code = code + to_add
 
+#define INITIAL_REGISTER_COUNT 16
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -42,13 +44,13 @@ current_frame->code = code + to_add
 static void add_call_frame(lily_vm_state *);
 static void invoke_gc(lily_vm_state *);
 
-lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
+static lily_vm_state *new_vm_state(lily_raiser *raiser, int count)
 {
     lily_vm_catch_entry *catch_entry = lily_malloc(sizeof(*catch_entry));
     catch_entry->prev = NULL;
     catch_entry->next = NULL;
 
-    int i, count = 16;
+    int i;
     lily_value **register_base = lily_malloc(count * sizeof(*register_base));
 
     for (i = 0;i < count;i++) {
@@ -87,74 +89,43 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     vm->call_depth = 0;
     vm->depth_max = 100;
     vm->raiser = raiser;
-    vm->regs_from_main = NULL;
-    vm->gc_live_entries = NULL;
-    vm->gc_spare_entries = NULL;
-    vm->gc_live_entry_count = 0;
-    vm->gc_pass = 0;
     vm->catch_chain = NULL;
-    vm->readonly_table = NULL;
-    vm->readonly_count = 0;
     vm->call_chain = NULL;
-    vm->class_count = 0;
-    vm->class_table = NULL;
     vm->exception_value = NULL;
     vm->exception_cls = NULL;
     vm->catch_chain = catch_entry;
     /* The parser will enter __main__ when the time comes. */
     vm->call_chain = toplevel_frame;
-    vm->regs_from_main = register_base;
     vm->vm_buffer = lily_new_msgbuf(64);
+    vm->register_root = register_base;
 
     return vm;
 }
 
-static void destroy_gc_entries(lily_vm_state *vm)
+lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
 {
-    lily_gc_entry *gc_iter, *gc_temp;
+    lily_vm_state *vm = new_vm_state(raiser, INITIAL_REGISTER_COUNT);
+    lily_global_state *gs = lily_malloc(sizeof(*gs));
 
-    if (vm->gc_live_entry_count) {
-        /* This function is called after the registers are gone. This walks over
-           the remaining gc entries and blasts them just like the gc does. This
-           is a two-stage process because the circular values may link back to
-           each other. */
-        for (gc_iter = vm->gc_live_entries;
-             gc_iter;
-             gc_iter = gc_iter->next) {
-            if (gc_iter->value.generic != NULL) {
-                /* This tells value destroy to hollow the value since other
-                   circular values may use it. */
-                gc_iter->last_pass = -1;
-                lily_value_destroy((lily_value *)gc_iter);
-            }
-        }
+    gs->regs_from_main = vm->call_chain->start;
+    gs->class_table = NULL;
+    gs->readonly_table = NULL;
+    gs->class_count = 0;
+    gs->readonly_count = 0;
+    gs->gc_live_entries = NULL;
+    gs->gc_spare_entries = NULL;
+    gs->gc_live_entry_count = 0;
+    gs->gc_pass = 0;
+    gs->first_vm = vm;
 
-        gc_iter = vm->gc_live_entries;
+    vm->gs = gs;
 
-        while (gc_iter) {
-            gc_temp = gc_iter->next;
-
-            /* It's either NULL or the remnants of a value. */
-            lily_free(gc_iter->value.generic);
-            lily_free(gc_iter);
-
-            gc_iter = gc_temp;
-        }
-    }
-
-    gc_iter = vm->gc_spare_entries;
-    while (gc_iter != NULL) {
-        gc_temp = gc_iter->next;
-
-        lily_free(gc_iter);
-
-        gc_iter = gc_temp;
-    }
+    return vm;
 }
 
-void lily_free_vm(lily_vm_state *vm)
+void lily_destroy_vm(lily_vm_state *vm)
 {
-    lily_value **regs_from_main = vm->regs_from_main;
+    lily_value **register_root = vm->register_root;
     lily_value *reg;
     int i;
     if (vm->catch_chain != NULL) {
@@ -170,17 +141,17 @@ void lily_free_vm(lily_vm_state *vm)
         }
     }
 
-    int total = vm->call_chain->register_end - regs_from_main - 1;
+    int total = vm->call_chain->register_end - register_root - 1;
 
     for (i = total;i >= 0;i--) {
-        reg = regs_from_main[i];
+        reg = register_root[i];
 
         lily_deref(reg);
 
         lily_free(reg);
     }
 
-    lily_free(regs_from_main);
+    lily_free(register_root);
 
     lily_call_frame *frame_iter = vm->call_chain;
     lily_call_frame *frame_next;
@@ -194,10 +165,66 @@ void lily_free_vm(lily_vm_state *vm)
         frame_iter = frame_next;
     }
 
+    lily_free_msgbuf(vm->vm_buffer);
+}
+
+static void destroy_gc_entries(lily_vm_state *vm)
+{
+    lily_global_state *gs = vm->gs;
+    lily_gc_entry *gc_iter, *gc_temp;
+
+    if (gs->gc_live_entry_count) {
+        /* This function is called after the registers are gone. This walks over
+           the remaining gc entries and blasts them just like the gc does. This
+           is a two-stage process because the circular values may link back to
+           each other. */
+        for (gc_iter = gs->gc_live_entries;
+             gc_iter;
+             gc_iter = gc_iter->next) {
+            if (gc_iter->value.generic != NULL) {
+                /* This tells value destroy to hollow the value since other
+                   circular values may use it. */
+                gc_iter->last_pass = -1;
+                lily_value_destroy((lily_value *)gc_iter);
+            }
+        }
+
+        gc_iter = gs->gc_live_entries;
+
+        while (gc_iter) {
+            gc_temp = gc_iter->next;
+
+            /* It's either NULL or the remnants of a value. */
+            lily_free(gc_iter->value.generic);
+            lily_free(gc_iter);
+
+            gc_iter = gc_temp;
+        }
+    }
+
+    gc_iter = vm->gs->gc_spare_entries;
+    while (gc_iter != NULL) {
+        gc_temp = gc_iter->next;
+
+        lily_free(gc_iter);
+
+        gc_iter = gc_temp;
+    }
+}
+
+void lily_free_vm(lily_vm_state *vm)
+{
+    /* If there are any entries left over, then do a final gc pass that will
+       destroy the tagged values. */
+    if (vm->gs->gc_live_entry_count)
+        invoke_gc(vm);
+
+    lily_destroy_vm(vm);
+
     destroy_gc_entries(vm);
 
-    lily_free(vm->class_table);
-    lily_free_msgbuf(vm->vm_buffer);
+    lily_free(vm->gs->class_table);
+    lily_free(vm->gs);
     lily_free(vm);
 }
 
@@ -238,17 +265,22 @@ static void gc_mark(int, lily_value *);
       Absolutely nothing is using these now, so it's safe to destroy them. */
 static void invoke_gc(lily_vm_state *vm)
 {
+    /* Coroutine vm's can invoke the gc, but the gc is rooted from the vm and
+       expands out into others. Make sure that the first one (the right one) is
+       the one being used. */
+    vm = vm->gs->first_vm;
+
     /* This is (sort of) a mark-and-sweep garbage collector. This is called when
        a certain number of allocations have been done. Take note that values
        can be destroyed by deref. However, those values will have the gc_entry's
        value set to NULL as an indicator. */
-    vm->gc_pass++;
+    vm->gs->gc_pass++;
 
-    lily_value **regs_from_main = vm->regs_from_main;
-    int pass = vm->gc_pass;
+    lily_value **regs_from_main = vm->gs->regs_from_main;
+    int pass = vm->gs->gc_pass;
     int i;
     lily_gc_entry *gc_iter;
-    int total = vm->call_chain->register_end - vm->regs_from_main;
+    int total = vm->call_chain->register_end - vm->gs->regs_from_main;
 
     /* Stage 1: Go through all registers and use the appropriate gc_marker call
                 that will mark every inner value that's visible. */
@@ -261,7 +293,7 @@ static void invoke_gc(lily_vm_state *vm)
     /* Stage 2: Start destroying everything that wasn't marked as visible.
                 Don't forget to check ->value for NULL in case the value was
                 destroyed through normal ref/deref means. */
-    for (gc_iter = vm->gc_live_entries;
+    for (gc_iter = vm->gs->gc_live_entries;
          gc_iter;
          gc_iter = gc_iter->next) {
         if (gc_iter->last_pass != pass &&
@@ -273,7 +305,7 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    int current_top = vm->call_chain->top - vm->regs_from_main;
+    int current_top = vm->call_chain->top - vm->gs->regs_from_main;
 
     /* Stage 3: Check registers not currently in use to see if they hold a
                 value that's going to be collected. If so, then mark the
@@ -291,9 +323,9 @@ static void invoke_gc(lily_vm_state *vm)
                 that are living and those that are no longer used. */
     i = 0;
     lily_gc_entry *new_live_entries = NULL;
-    lily_gc_entry *new_spare_entries = vm->gc_spare_entries;
+    lily_gc_entry *new_spare_entries = vm->gs->gc_spare_entries;
     lily_gc_entry *iter_next = NULL;
-    gc_iter = vm->gc_live_entries;
+    gc_iter = vm->gs->gc_live_entries;
 
     while (gc_iter) {
         iter_next = gc_iter->next;
@@ -315,12 +347,12 @@ static void invoke_gc(lily_vm_state *vm)
 
     /* Did the sweep reclaim enough objects? If not, then increase the threshold
        to prevent spamming sweeps when everything is alive. */
-    if (vm->gc_threshold <= i)
-        vm->gc_threshold *= vm->gc_multiplier;
+    if (vm->gs->gc_threshold <= i)
+        vm->gs->gc_threshold *= vm->gs->gc_multiplier;
 
-    vm->gc_live_entry_count = i;
-    vm->gc_live_entries = new_live_entries;
-    vm->gc_spare_entries = new_spare_entries;
+    vm->gs->gc_live_entry_count = i;
+    vm->gs->gc_live_entries = new_live_entries;
+    vm->gs->gc_spare_entries = new_spare_entries;
 }
 
 static void dynamic_marker(int pass, lily_value *v)
@@ -397,6 +429,47 @@ static void function_marker(int pass, lily_value *v)
     }
 }
 
+static void coroutine_marker(int pass, lily_value *v)
+{
+    if (v->flags & VAL_IS_GC_TAGGED) {
+        lily_gc_entry *e = v->value.function->gc_entry;
+        if (e->last_pass == pass)
+            return;
+
+        e->last_pass = pass;
+    }
+
+    lily_coroutine_val *co_val = v->value.coroutine;
+    lily_vm_state *co_vm = co_val->vm;
+    lily_value **base = co_vm->register_root;
+    int total = co_vm->call_chain->register_end - base - 1;
+    int i;
+
+    for (i = total;i >= 0;i--) {
+        lily_value *v = base[i];
+
+        if (v->flags & VAL_HAS_SWEEP_FLAG)
+            gc_mark(pass, v);
+    }
+
+    lily_function_val *base_function = co_val->base_function;
+
+    if (base_function->upvalues) {
+        /* If the base Function of the Coroutine has upvalues, they need to be
+           walked through. Since the Function is never put into a register, the
+           Coroutine's gc tag serves as its tag. */
+        lily_value v;
+        v.flags = LILY_ID_FUNCTION;
+        v.value.function = base_function;
+        function_marker(pass, &v);
+    }
+
+    lily_value *receiver = co_val->receiver;
+
+    if (receiver->flags & VAL_HAS_SWEEP_FLAG)
+        gc_mark(pass, receiver);
+}
+
 static void gc_mark(int pass, lily_value *v)
 {
     if (v->flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
@@ -411,6 +484,8 @@ static void gc_mark(int pass, lily_value *v)
             dynamic_marker(pass, v);
         else if (class_id == LILY_ID_FUNCTION)
             function_marker(pass, v);
+        else if (class_id == LILY_ID_COROUTINE)
+            coroutine_marker(pass, v);
     }
 }
 
@@ -423,13 +498,17 @@ static void gc_mark(int pass, lily_value *v)
    not guaranteed to be in a register. */
 void lily_value_tag(lily_vm_state *vm, lily_value *v)
 {
-    if (vm->gc_live_entry_count >= vm->gc_threshold)
-        invoke_gc(vm);
+    lily_global_state *gs = vm->gs;
+
+    if (gs->gc_live_entry_count >= gs->gc_threshold)
+        /* Values are rooted in __main__'s vm, but this can be called by a
+           Coroutine vm. Make sure invoke always gets the primary vm. */
+        invoke_gc(gs->first_vm);
 
     lily_gc_entry *new_entry;
-    if (vm->gc_spare_entries != NULL) {
-        new_entry = vm->gc_spare_entries;
-        vm->gc_spare_entries = vm->gc_spare_entries->next;
+    if (gs->gc_spare_entries != NULL) {
+        new_entry = gs->gc_spare_entries;
+        gs->gc_spare_entries = gs->gc_spare_entries->next;
     }
     else
         new_entry = lily_malloc(sizeof(*new_entry));
@@ -438,12 +517,12 @@ void lily_value_tag(lily_vm_state *vm, lily_value *v)
     new_entry->last_pass = 0;
     new_entry->flags = v->flags;
 
-    new_entry->next = vm->gc_live_entries;
-    vm->gc_live_entries = new_entry;
+    new_entry->next = gs->gc_live_entries;
+    gs->gc_live_entries = new_entry;
 
     /* Attach the gc_entry to the value so the caller doesn't have to. */
     v->value.gc_generic->gc_entry = new_entry;
-    vm->gc_live_entry_count++;
+    gs->gc_live_entry_count++;
 
     v->flags |= VAL_IS_GC_TAGGED;
 }
@@ -470,7 +549,8 @@ static void vm_error(lily_vm_state *, uint8_t, const char *);
    This will also fix the locals and top of all frames currently entered. */
 static void grow_vm_registers(lily_vm_state *vm, int need)
 {
-    int size = vm->call_chain->register_end - vm->regs_from_main;
+    lily_value **old_start = vm->register_root;
+    int size = vm->call_chain->register_end - old_start;
     int i = size;
 
     need += size;
@@ -479,11 +559,10 @@ static void grow_vm_registers(lily_vm_state *vm, int need)
         size *= 2;
     while (size < need);
 
-    lily_value **old_start = vm->regs_from_main;
-    lily_value **new_regs = lily_realloc(vm->regs_from_main, size *
-            sizeof(*new_regs));
+    lily_value **new_regs = lily_realloc(old_start, size * sizeof(*new_regs));
 
-    vm->regs_from_main = new_regs;
+    if (vm == vm->gs->first_vm)
+        vm->gs->regs_from_main = new_regs;
 
     /* Now create the registers as a bunch of empty values, to be filled in
        whenever they are needed. */
@@ -494,7 +573,7 @@ static void grow_vm_registers(lily_vm_state *vm, int need)
         new_regs[i] = v;
     }
 
-    lily_value **end = vm->regs_from_main + size;
+    lily_value **end = new_regs + size;
     lily_call_frame *frame = vm->call_chain;
 
     while (frame) {
@@ -509,6 +588,8 @@ static void grow_vm_registers(lily_vm_state *vm, int need)
         frame->register_end = end;
         frame = frame->next;
     }
+
+    vm->register_root = new_regs;
 }
 
 static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
@@ -718,6 +799,18 @@ PUSH_PREAMBLE \
 lily_container_val *c = new_container(id, size); \
 SET_TARGET(id | VAL_IS_DEREFABLE | VAL_IS_CONTAINER | container_flags, container, c); \
 return c
+
+static void push_coroutine(lily_state *s, lily_coroutine_val *co)
+{
+    PUSH_PREAMBLE
+    SET_TARGET(LILY_ID_COROUTINE | VAL_IS_DEREFABLE, coroutine, co);
+}
+
+static void push_function(lily_state *s, lily_function_val *f)
+{
+    PUSH_PREAMBLE
+    SET_TARGET(LILY_ID_FUNCTION | VAL_IS_DEREFABLE, function, f);
+}
 
 void lily_push_boolean(lily_state *s, int v)
 {
@@ -1016,21 +1109,21 @@ static void dispatch_exception(lily_vm_state *vm);
    the error, so that printing has a class name to go by. */
 static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 {
-    lily_class *c = vm->class_table[id];
+    lily_class *c = vm->gs->class_table[id];
     if (c == NULL) {
         /* What this does is to kick parser's exception bootstrapping machinery
            into gear in order to load the exception that's needed. This is
            unfortunate, but the vm doesn't have a sane and easy way to properly
            build classes here. */
-        c = lily_dynaload_exception(vm->parser,
+        c = lily_dynaload_exception(vm->gs->parser,
                 names[id - LILY_ID_EXCEPTION]);
 
         /* The above will store at least one new function. It's extremely rare,
            but possible, for that to trigger a grow of symtab's literals. If
-           realloc moves the underlying data, then vm->readonly_table will be
-           invalid. Make sure that doesn't happen. */
-        vm->readonly_table = vm->parser->symtab->literals->data;
-        vm->class_table[id] = c;
+           realloc moves the underlying data, then vm->gs->readonly_table will
+           be invalid. Make sure that doesn't happen. */
+        vm->gs->readonly_table = vm->gs->parser->symtab->literals->data;
+        vm->gs->class_table[id] = c;
     }
 
     vm->exception_cls = c;
@@ -1138,7 +1231,7 @@ void lily_stdout_print(lily_vm_state *vm)
        stdin.
        The other trick is to use regs_from_main to grab the globals. */
     uint16_t spot = *vm->call_chain->function->cid_table;
-    lily_file_val *stdout_val = vm->regs_from_main[spot]->value.file;
+    lily_file_val *stdout_val = vm->gs->regs_from_main[spot]->value.file;
     if (stdout_val->inner_file == NULL)
         vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
@@ -1361,7 +1454,7 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
 
     lily_container_val *ival = exception_val->value.container;
     char *message = ival->values[0]->value.string->string;
-    lily_class *raise_cls = vm->class_table[ival->class_id];
+    lily_class *raise_cls = vm->gs->class_table[ival->class_id];
 
     /* There's no need for a ref/deref here, because the gc cannot trigger
        foreign stack unwind and/or exception capture. */
@@ -1385,7 +1478,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     int cls_id = code[1];
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *result = vm_regs[code[2]];
-    lily_class *instance_class = vm->class_table[cls_id];
+    lily_class *instance_class = vm->gs->class_table[cls_id];
 
     total_entries = instance_class->prop_count;
 
@@ -1549,7 +1642,7 @@ static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
     lily_value **vm_regs = vm->call_chain->start;
     lily_function_val *input_closure = vm->call_chain->function;
 
-    lily_value *target = vm->readonly_table[code[1]];
+    lily_value *target = vm->gs->readonly_table[code[1]];
     lily_function_val *target_func = target->value.function;
 
     lily_value *result_reg = vm_regs[code[2]];
@@ -1692,7 +1785,8 @@ static void dispatch_exception(lily_vm_state *vm)
         jump_location = catch_iter->code_pos + code[catch_iter->code_pos] - 1;
 
         while (1) {
-            lily_class *catch_class = vm->class_table[code[jump_location + 2]];
+            lily_class *catch_class =
+                    vm->gs->class_table[code[jump_location + 2]];
 
             if (lily_class_greater_eq(catch_class, raised_cls)) {
                 /* ...So that execution resumes from within the except block. */
@@ -1756,6 +1850,295 @@ static void dispatch_exception(lily_vm_state *vm)
         raiser->all_jumps = raiser->all_jumps->prev;
 
     longjmp(raiser->all_jumps->jump, 1);
+}
+
+/***
+ *       ____                       _   _
+ *      / ___| ___  _ __ ___  _   _| |_(_)_ __   ___ ___
+ *     | |    / _ \| '__/ _ \| | | | __| | '_ \ / _ | __|
+ *     | |___| (_) | | | (_) | |_| | |_| | | | |  __|__ \
+ *      \____|\___/|_|  \___/ \__,_|\__|_|_| |_|\___|___/
+ *
+ */
+
+/** A coroutine is a special kind of function that can yield a value and suspend
+    itself for later. There are different kinds of coroutines depending on the
+    language, with their capabilities differing.
+
+    Lily's implementation of coroutines is to create them as a value holding a
+    vm. A coroutine vm is different than the one created by 'lily_new_state' in
+    that it shares the global state of the calling vm.
+
+    Because of this design, coroutine vms have their own stack and their own
+    exception state. The vms share a common global state in part to prevent a
+    parse from making coroutine tables stale.
+
+    Static typing makes implementing coroutines more difficult. A coroutine
+    cannot yield any kind of a value, and it must also be at least supplied with
+    an initial set of arguments.
+
+    The first problem is solved by requiring coroutines take a coroutine as
+    their first argument. Unfortunately, this solution means that coroutines
+    will almost always need a garbage collection cycle to go away.
+
+    The second is fixed by having an intermediate builder function. The builder
+    function creates an intermediate that supplies the first arguments to the
+    coroutine. **/
+
+static lily_coroutine_val *new_coroutine(lily_vm_state *base_vm,
+        lily_function_val *base_function)
+{
+    lily_coroutine_val *result = lily_malloc(sizeof(*result));
+    lily_value *receiver = lily_malloc(sizeof(*receiver));
+
+    /* This is ignored when resuming through .resume, and overwritten when
+       resuming through .resume_with. */
+    receiver->flags = LILY_ID_UNIT;
+
+    result->refcount = 1;
+    result->class_id = LILY_ID_COROUTINE;
+    result->status = co_waiting;
+    result->vm = base_vm;
+    result->base_function = base_function;
+    result->receiver = receiver;
+
+    return result;
+}
+
+/* This marks the Coroutine's base Function as having ownership of the arguments
+   that were just passed. It's effectively lily_call, except that there's no
+   registers to zero (they were just made), and no growth check (vm creation
+   already make sure of that). */
+static void coroutine_call_prep(lily_vm_state *vm, int count)
+{
+    lily_call_frame *source_frame = vm->call_chain;
+    lily_call_frame *target_frame = vm->call_chain->next;
+
+    /* The last 'count' arguments go from the old frame to the new one. */
+    target_frame->top = source_frame->top;
+    source_frame->top -= count;
+    target_frame->start = source_frame->top;
+
+    vm->call_depth++;
+
+    target_frame->top += target_frame->function->reg_count - count;
+    vm->call_chain = target_frame;
+}
+
+/* This is an intermediate Function responsible for actually creating a
+   Coroutine. This creates a copy of itself (since the builder can be invoked
+   multiple times), and copies closure information over too). The bytecode to
+   run is in the cid_table field to hide it. Remember to copy upvalues. */
+void coroutine_builder(lily_state *s)
+{
+    /* The builder is a copy of the Function to be called. Make another copy.
+       This new copy will be the base of the Coroutine's backing vm.
+
+       This function is not stored in a register. It will be paired up with the
+       Coroutine and be destroyed with it. */
+    lily_function_val *source_func = s->call_chain->function;
+    lily_function_val *base_func = new_function_copy(source_func);
+
+    /* The builder hides the Coroutine's code in the cid_table field. */
+    base_func->foreign_func = NULL;
+    base_func->code = base_func->cid_table;
+
+    /* Is the backing Function holding onto upvalues? Take 'em into the new base
+       Function. There's no need to gc tag it because it'll never be stored in a
+       register. */
+    if (source_func->upvalues)
+        copy_upvalues(base_func, source_func);
+    else
+        base_func->upvalues = NULL;
+
+    /* That's done. Now make the vm that will back the Coroutine. */
+
+    /* The builder has the base Function's register count. Use it to make sure
+       the new vm gets made with enough registers. */
+    lily_vm_state *base_vm = new_vm_state(lily_new_raiser(),
+            INITIAL_REGISTER_COUNT + source_func->reg_count);
+    lily_call_frame *toplevel_frame = base_vm->call_chain;
+
+    base_vm->gs = s->gs;
+    base_vm->depth_max = s->depth_max;
+    base_vm->data = s->data;
+    /* Bail out of the vm loop if the Coroutine's base Function completes. */
+    toplevel_frame->code = foreign_code;
+    /* Don't crash when returning to the toplevel frame. */
+    toplevel_frame->function = base_func;
+
+    /* Make the Coroutine and hand it arguments. The first is the Coroutine
+       itself (for control), then whatever arguments this builder was given. */
+
+    lily_coroutine_val *co_val = new_coroutine(base_vm, base_func);
+
+    push_coroutine(s, co_val);
+    /* Tag before pushing so that both sides have the gc tag flag. */
+    lily_value_tag(s, lily_stack_get_top(s));
+
+    /* This has the side-effect of pushing a Unit register at the very bottom as
+       register zero. This is later used by yield since the base function cannot
+       touch it. */
+    lily_call_prepare(base_vm, base_func);
+    lily_push_value(base_vm, lily_stack_get_top(s));
+
+    /* Any arguments the builder gets go to the Coroutine. */
+    int i, count = lily_arg_count(s);
+
+    for (i = 0;i < count - 1;i++)
+        lily_push_value(base_vm, lily_arg_value(s, i));
+
+    /* Transfer arguments over from toplevel to the base call. */
+    coroutine_call_prep(base_vm, count);
+
+    lily_return_top(s);
+}
+
+void lily_builtin_Coroutine_create(lily_state *s)
+{
+    lily_function_val *to_copy = lily_arg_function(s, 0);
+
+    if (to_copy->foreign_func != NULL)
+        lily_RuntimeError(s, "Only native functions can be coroutines.");
+
+    lily_function_val *out = new_function_copy(to_copy);
+
+    /* Hide the bytecode because Function values aren't supposed to have
+       bytecode and a foreign code pointer. The cid_table field is a safe place
+       to put the bytecode because native functions do not use it. */
+    out->cid_table = out->code;
+    out->foreign_func = (lily_foreign_func)coroutine_builder;
+    out->code = NULL;
+
+    push_function(s, out);
+
+    /* It's possible that the Function provided is a closure with upvalues. To
+       ensure that the upvalues are preserved, they're copied into the
+       intermediate builder. This is an unfortunate necessity given that the
+       upvalues may vanish before the builder is invoked. */
+    if (to_copy->upvalues) {
+        copy_upvalues(out, to_copy);
+        lily_value_tag(s, lily_stack_get_top(s));
+    }
+
+    lily_return_top(s);
+}
+
+void lily_builtin_Coroutine_receive(lily_state *s)
+{
+    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+
+    if (co_val->vm != s)
+        lily_RuntimeError(s,
+                "Attempt to receive a value from another coroutine.");
+
+    lily_push_value(s, co_val->receiver);
+    lily_return_top(s);
+}
+
+static void coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
+        lily_value *to_send)
+{
+    /* Don't resume Coroutines that are already running, done, or broken. */
+    if (co_val->status != co_waiting) {
+        lily_push_none(origin);
+        return;
+    }
+
+    lily_vm_state *target = co_val->vm;
+    lily_coroutine_status new_status = co_running;
+
+    if (to_send)
+        lily_value_assign(co_val->receiver, to_send);
+
+    co_val->status = co_running;
+
+    /* If the vm absolutely has to bail out, it uses the very first jump as the
+       target. Make it point to here. */
+    lily_jump_link *jump_base = target->raiser->all_jumps;
+
+    lily_value *result = NULL;
+
+    if (setjmp(jump_base->jump) == 0) {
+        /* Invoke the vm loop. It'll pick up from where it left off at. If the
+           vm raises or yields, one of the other cases will be reached. */
+        lily_vm_execute(target);
+
+        new_status = co_done;
+    }
+    else if (target->exception_cls == NULL) {
+        /* The Coroutine yielded a value that's at the top of its stack. */
+        result = lily_stack_get_top(target);
+
+        new_status = co_waiting;
+
+        /* Since the Coroutine jumped back instead of exiting through the main
+           loop, the call state needs to be fixed. */
+        target->call_chain = target->call_chain->prev;
+        target->call_depth--;
+    }
+    else
+        /* An exception was raised, so there's nothing to return. */
+        new_status = co_failed;
+
+    co_val->status = new_status;
+
+    if (result) {
+        lily_container_val *con = lily_push_some(origin);
+        lily_push_value(origin, result);
+        lily_con_set_from_stack(origin, con, 0);
+    }
+    else
+        lily_push_none(origin);
+}
+
+void lily_builtin_Coroutine_resume(lily_state *s)
+{
+    coroutine_resume(s, lily_arg_coroutine(s, 0), NULL);
+    lily_return_top(s);
+}
+
+void lily_builtin_Coroutine_resume_with(lily_state *s)
+{
+    coroutine_resume(s, lily_arg_coroutine(s, 0), lily_arg_value(s, 1));
+    lily_return_top(s);
+}
+
+void lily_builtin_Coroutine_yield(lily_state *s)
+{
+    lily_coroutine_val *co_target = lily_arg_coroutine(s, 0);
+    lily_value *to_yield = lily_arg_value(s, 1);
+
+    lily_vm_state *co_vm = co_target->vm;
+
+    if (co_vm != s)
+        lily_RuntimeError(s, "Cannot yield from another coroutine.");
+
+    lily_raiser *co_raiser = co_vm->raiser;
+
+    /* A vm always has at least two jumps currently active:
+     * 1: Parser, or the coroutine base.
+     * 2: vm main loop.
+       If there are any more jumps, the vm is in a foreign call. A Coroutine in
+       a foreign call cannot be restored, because restoration happens by calling
+       the vm main loop again. */
+    if (co_raiser->all_jumps->prev->prev != NULL)
+        lily_RuntimeError(s, "Cannot yield while in a foreign call.");
+
+    /* The yield will not come back, so the return must come first. */
+    lily_return_unit(s);
+
+    /* Push the value to be yielded so that the caller has an obvious place to
+       find it (top of the stack). The value must be popped before the
+       Coroutine is resumed. */
+    lily_push_value(co_vm, to_yield);
+
+    /* Since yield is jumping back into the base jump, the main loop is never
+       properly exited. The main loop's jump needs to be popped so that it can
+       be properly restored when the main loop is entered again. */
+    lily_release_jump(co_raiser);
+
+    longjmp(co_raiser->all_jumps->jump, 1);
 }
 
 /***
@@ -1823,6 +2206,12 @@ void lily_call(lily_vm_state *vm, int count)
         vm->call_depth--;
     }
     else {
+        /* lily_vm_execute determines the starting code position by tapping the
+           frame's code. That allows coroutines to resume where they left off
+           at. Regular functions like this one start at the top every time, and
+           this ensures that. */
+        target_frame->code = target_fn->code;
+
         int diff = target_frame->function->reg_count - count;
 
         if (target_frame->top + diff > target_frame->register_end) {
@@ -1884,17 +2273,17 @@ void lily_error_callback_pop(lily_state *s)
 
 void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
 {
-    int old_count = vm->class_count;
+    int old_count = vm->gs->class_count;
 
-    if (size >= vm->class_count) {
-        if (vm->class_count == 0)
-            vm->class_count = 1;
+    if (size >= vm->gs->class_count) {
+        if (vm->gs->class_count == 0)
+            vm->gs->class_count = 1;
 
-        while (size >= vm->class_count)
-            vm->class_count *= 2;
+        while (size >= vm->gs->class_count)
+            vm->gs->class_count *= 2;
 
-        vm->class_table = lily_realloc(vm->class_table,
-                sizeof(*vm->class_table) * vm->class_count);
+        vm->gs->class_table = lily_realloc(vm->gs->class_table,
+                sizeof(*vm->gs->class_table) * vm->gs->class_count);
     }
 
     /* For the first pass, make sure the spots for Exception and its built-in
@@ -1903,14 +2292,14 @@ void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
        (and relies on holes being set aside for these exceptions). */
     if (old_count == 0) {
         int i;
-        for (i = LILY_ID_EXCEPTION;i < START_CLASS_ID;i++)
-            vm->class_table[i] = NULL;
+        for (i = LILY_ID_EXCEPTION;i < LILY_ID_UNIT;i++)
+            vm->gs->class_table[i] = NULL;
     }
 }
 
 void lily_vm_add_class_unchecked(lily_vm_state *vm, lily_class *cls)
 {
-    vm->class_table[cls->id] = cls;
+    vm->gs->class_table[cls->id] = cls;
 }
 
 /***
@@ -2004,7 +2393,7 @@ void lily_vm_execute(lily_vm_state *vm)
     lily_call_frame *current_frame = vm->call_chain;
     lily_call_frame *next_frame = NULL;
 
-    code = current_frame->function->code;
+    code = current_frame->code;
 
     lily_jump_link *link = lily_jump_setup(vm->raiser);
     if (setjmp(link->jump) != 0) {
@@ -2026,7 +2415,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_load_readonly:
-                rhs_reg = vm->readonly_table[code[1]];
+                rhs_reg = vm->gs->readonly_table[code[1]];
                 lhs_reg = vm_regs[code[2]];
 
                 lily_deref(lhs_reg);
@@ -2166,7 +2555,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 break;
             case o_call_foreign:
-                fval = vm->readonly_table[code[1]]->value.function;
+                fval = vm->gs->readonly_table[code[1]]->value.function;
 
                 foreign_func_body: ;
 
@@ -2198,7 +2587,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 break;
             case o_call_native: {
-                fval = vm->readonly_table[code[1]]->value.function;
+                fval = vm->gs->readonly_table[code[1]]->value.function;
 
                 native_func_body: ;
 
@@ -2287,7 +2676,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 code = current_frame->code;
                 break;
             case o_global_get:
-                rhs_reg = vm->regs_from_main[code[1]];
+                rhs_reg = vm->gs->regs_from_main[code[1]];
                 lhs_reg = vm_regs[code[2]];
 
                 lily_value_assign(lhs_reg, rhs_reg);
@@ -2295,7 +2684,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_global_set:
                 rhs_reg = vm_regs[code[1]];
-                lhs_reg = vm->regs_from_main[code[2]];
+                lhs_reg = vm->gs->regs_from_main[code[2]];
 
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;

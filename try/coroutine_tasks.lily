@@ -1,0 +1,70 @@
+define factorial_co(co: Coroutine[Integer, Unit], num: Integer) {
+    var f = 1
+    for i in 2...num + 1: {
+        co.yield(f)
+        f *= i
+    }
+}
+
+import (Random) random
+
+var task_count = 4
+var max = 5
+var r = Random()
+var id_list: List[Integer] = []
+var rng_list: List[Integer] = []
+var last_round = 0
+
+for i in 1...task_count: {
+    var rng = r.between(1, max)
+    if rng > last_round:
+        last_round = rng
+
+    rng_list.push(rng)
+    id_list.push(i)
+}
+
+last_round += 1
+
+var coro_list = rng_list.map(|rng| Coroutine.create(factorial_co)(rng) )
+var num_left = coro_list.size()
+var round = 1
+var to_drop = 0
+
+while num_left: {
+    print("Round {0} with {1} tasks.".format(round, num_left) )
+
+    for i in 0...num_left - 1: {
+        var task = coro_list[i]
+
+        match task.resume(): {
+            case Some(s):
+                print("Task {0}: factorial({1}) = {2}."
+                      .format(id_list[i], round, s) )
+            case None:
+                to_drop += 1
+        }
+    }
+
+    if to_drop: {
+        var i = 0
+
+        while i < coro_list.size(): {
+            if coro_list[i].is_waiting() == false: {
+                coro_list.delete_at(i)
+                id_list.delete_at(i)
+            else:
+                i += 1
+            }
+        }
+
+        num_left -= to_drop
+        to_drop = 0
+    }
+
+    round += 1
+    if round == last_round:
+        break
+
+    print("")
+}

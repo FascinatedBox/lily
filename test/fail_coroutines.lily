@@ -1,0 +1,47 @@
+import test
+
+var t = test.t
+
+t.scope(__file__)
+
+t.interpret_for_error("Receive a value from another coroutine.",
+    """\
+    RuntimeError: Attempt to receive a value from another coroutine.\n\
+    Traceback:\n    \
+        from [C]: in Coroutine.receive\n    \
+        from test\/[subinterp]:5: in __main__\
+    """,
+    """\
+    define fn(co: Coroutine[Integer, Unit]): Integer {
+        return 1
+    }
+
+    Coroutine.create(fn)().receive()
+    """)
+
+t.interpret_for_error("Yield from another Coroutine.",
+    """\
+    RuntimeError: Cannot yield from another coroutine.\n\
+    Traceback:\n    \
+        from [C]: in Coroutine.yield\n    \
+        from test\/[subinterp]:5: in __main__\
+    """,
+    """\
+    define fn(co: Coroutine[Integer, Unit]): Integer {
+        return 1
+    }
+
+    Coroutine.create(fn)().yield(1)
+    """)
+
+t.interpret("Can't yield while in a foreign call.",
+    """\
+    define fn(co: Coroutine[Integer, Unit]): Integer {
+        var v = [1, 2, 3]
+        v.each(|e| co.yield(e) )
+        return 1
+    }
+
+    if Coroutine.create(fn)().resume().is_some():
+        raise Exception("Failed.")
+    """)

@@ -21,6 +21,10 @@ typedef struct lily_bytestring_val_ lily_bytestring_val;
 // Holds a variant, user-defined class, List, or Tuple.
 typedef struct lily_container_val_  lily_container_val;
 
+// Typedef: lily_coroutine_val
+// Holds a Coroutine value.
+typedef struct lily_coroutine_val_  lily_coroutine_val;
+
 // Typedef: lily_file_val
 // Holds a File value.
 typedef struct lily_file_val_       lily_file_val;
@@ -522,8 +526,12 @@ int lily_load_string_package(lily_state *s, const char *path,
 // Identity of the Unit class.
 #define LILY_ID_UNIT         26
 
+// Macro: LILY_ID_COROUTINE
+// Identity of the Coroutine class.
+#define LILY_ID_COROUTINE    27
+
 /* Internal use only: Where class ids start at. */
-#define START_CLASS_ID       27
+#define START_CLASS_ID       28
 
 ////////////////////////////////
 // Section: Raw value operations
@@ -777,6 +785,10 @@ lily_bytestring_val *lily_arg_bytestring(lily_state *s, int index);
 // that first. Otherwise, the container returned will be invalid, and using it
 // will almost certainly cause a crash.
 lily_container_val * lily_arg_container (lily_state *s, int index);
+
+// Function: lily_arg_coroutine
+// Fetch a Coroutine from the stack.
+lily_coroutine_val * lily_arg_coroutine (lily_state *s, int index);
 
 // Function: lily_arg_double
 // Fetch a Double from the stack.
@@ -1092,6 +1104,10 @@ lily_bytestring_val *lily_as_bytestring(lily_value *value);
 // Function: lily_as_container
 // Extract a container (user-defined class, non-empty variant, List, or Tuple).
 lily_container_val * lily_as_container (lily_value *value);
+
+// Function: lily_as_coroutine
+// Extract a Coroutine.
+lily_coroutine_val * lily_as_coroutine (lily_value *value);
 
 // Function: lily_as_double
 // Extract a Double.

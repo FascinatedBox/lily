@@ -22,6 +22,7 @@ typedef union lily_raw_value_ {
     /* gc_generic is a subset of any type that is refcounted AND has a gc
        entry. */
     struct lily_generic_gc_val_ *gc_generic;
+    struct lily_coroutine_val_ *coroutine;
     struct lily_function_val_ *function;
     struct lily_hash_val_ *hash;
     struct lily_file_val_ *file;
@@ -185,6 +186,25 @@ typedef struct lily_function_val_ {
 typedef struct lily_generic_val_ {
     uint32_t refcount;
 } lily_generic_val;
+
+typedef enum {
+    co_failed,
+    co_done,
+    co_running,
+    co_waiting
+} lily_coroutine_status;
+
+typedef struct lily_coroutine_val_ {
+    uint32_t refcount;
+    uint16_t class_id;
+    uint16_t pad;
+    uint64_t pad2;
+    lily_function_val *base_function;
+    struct lily_gc_entry_ *gc_entry;
+    struct lily_vm_state_ *vm;
+    lily_value *receiver;
+    uint64_t status;
+} lily_coroutine_val;
 
 /* Foreign values must start with at least this layout. Note that this carries
    the implicit assumption that no foreign value will carry Lily values inside.

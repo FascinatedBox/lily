@@ -17,6 +17,8 @@ lily_bytestring_val *lily_##name##_bytestring(__VA_ARGS__) \
 { return (lily_bytestring_val *)source  action->value.string; } \
 lily_container_val *lily_##name##_container(__VA_ARGS__) \
 { return source  action->value.container; } \
+lily_coroutine_val *lily_##name##_coroutine(__VA_ARGS__) \
+{ return source  action->value.coroutine; } \
 double lily_##name##_double(__VA_ARGS__) \
 { return source  action->value.doubleval; } \
 lily_file_val *lily_##name##_file(__VA_ARGS__) \
@@ -339,6 +341,58 @@ static void destroy_file(lily_value *v)
     lily_free(filev);
 }
 
+void lily_destroy_vm(lily_vm_state *);
+
+static void destroy_coroutine(lily_value *v)
+{
+    lily_coroutine_val *co_val = v->value.coroutine;
+    if (co_val->gc_entry == lily_gc_stopper)
+        return;
+
+    int full_destroy = 1;
+
+    /* The base frame contains the Coroutine. This ensures that the Coroutine's
+       refcount doesn't get multi-dropped and underflow. */
+    co_val->refcount = ~0;
+
+    if (co_val->gc_entry) {
+        if (co_val->gc_entry->last_pass == -1) {
+            full_destroy = 0;
+            co_val->gc_entry = lily_gc_stopper;
+        }
+        else
+            co_val->gc_entry->value.generic = NULL;
+    }
+
+    lily_value *receiver = co_val->receiver;
+
+    /* The receiver can reference values within the vm's inner registers, so it
+       has to be dropped first. */
+    if (receiver->flags & VAL_IS_DEREFABLE)
+        lily_deref(receiver);
+
+    lily_vm_state *base_vm = co_val->vm;
+
+    /* The vm normally doesn't drop the raiser because parser does it.
+       Coroutines have to do it themselves. */
+    lily_free_raiser(base_vm->raiser);
+
+    /* Do a direct destroy of the base frame because the Coroutine has the only
+       reference to it (it's never put into a register). */
+    lily_value func_v;
+    func_v.flags = LILY_ID_FUNCTION;
+    func_v.value.function = co_val->base_function;
+
+    destroy_function(&func_v);
+
+    lily_destroy_vm(base_vm);
+    lily_free(base_vm);
+    lily_free(receiver);
+
+    if (full_destroy)
+        lily_free(co_val);
+}
+
 void lily_value_destroy(lily_value *v)
 {
     int class_id = v->class_id;
@@ -354,6 +408,8 @@ void lily_value_destroy(lily_value *v)
         lily_destroy_hash(v);
     else if (class_id == LILY_ID_FILE)
         destroy_file(v);
+    else if (class_id == LILY_ID_COROUTINE)
+        destroy_coroutine(v);
     else if (v->flags & VAL_IS_FOREIGN) {
         v->value.foreign->destroy_func(v->value.generic);
         lily_free(v->value.generic);

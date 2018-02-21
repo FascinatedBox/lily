@@ -138,9 +138,9 @@ lily_state *lily_new_state(lily_config *config)
     parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
 
-    parser->vm->parser = parser;
-    parser->vm->gc_multiplier = config->gc_multiplier;
-    parser->vm->gc_threshold = config->gc_start;
+    parser->vm->gs->parser = parser;
+    parser->vm->gs->gc_multiplier = config->gc_multiplier;
+    parser->vm->gs->gc_threshold = config->gc_start;
 
     lily_module_register(parser->vm, "", lily_builtin_table, lily_builtin_loader);
     lily_set_builtin(parser->symtab, parser->module_top);
@@ -201,7 +201,7 @@ static void free_links_until(lily_module_link *link_iter,
 
 void lily_free_state(lily_state *vm)
 {
-    lily_parse_state *parser = vm->parser;
+    lily_parse_state *parser = vm->gs->parser;
 
     /* The code for the toplevel function (really __main__) is a pointer to
        emitter's code that gets refreshed before every vm entry. Set it to NULL
@@ -581,7 +581,7 @@ static lily_lex_entry_type string_input_mode(lily_parse_state *parser)
 int lily_load_file(lily_state *s, const char *path)
 {
     int out;
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
 
     if (import_check(parser, path, &out))
         return out;
@@ -605,7 +605,7 @@ int lily_load_file_package(lily_state *s, const char *path)
     int ret = lily_load_file(s, path);
 
     if (ret) {
-        lily_module_entry *m = s->parser->last_import;
+        lily_module_entry *m = s->gs->parser->last_import;
         m->root_dirname = m->dirname;
     }
 
@@ -615,12 +615,12 @@ int lily_load_file_package(lily_state *s, const char *path)
 int lily_load_string(lily_state *s, const char *path, const char *source)
 {
     int out;
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
 
     if (import_check(parser, path, &out))
         return out;
 
-    lily_lexer_load(parser->lex, string_input_mode(s->parser), (char *)source);
+    lily_lexer_load(parser->lex, string_input_mode(parser), (char *)source);
 
     lily_module_entry *module = new_module(parser);
 
@@ -636,7 +636,7 @@ int lily_load_string_package(lily_state *s, const char *path,
     int ret = lily_load_string(s, path, source);
 
     if (ret) {
-        lily_module_entry *m = s->parser->last_import;
+        lily_module_entry *m = s->gs->parser->last_import;
         m->root_dirname = m->dirname;
     }
 
@@ -646,7 +646,7 @@ int lily_load_string_package(lily_state *s, const char *path,
 int lily_load_library(lily_state *s, const char *path)
 {
     int out;
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
 
     if (import_check(parser, path, &out))
         return out;
@@ -689,7 +689,7 @@ int lily_load_library_data(lily_state *s, const char *path, const char **table,
         void *loader)
 {
     int out;
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
 
     if (import_check(parser, path, &out))
         return out;
@@ -704,7 +704,7 @@ int lily_load_library_data(lily_state *s, const char *path, const char **table,
 void lily_module_register(lily_state *s, const char *name, const char **table,
         void *loader)
 {
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
     lily_module_entry *module = new_module(parser);
 
     module->loadname = lily_malloc(
@@ -5193,7 +5193,7 @@ static void maybe_fix_print(lily_parse_state *parser)
         if (print_var) {
             /* Swap out the default implementation of print for one that will
                check if stdin is closed first. */
-            lily_value *print_value = vm->readonly_table[print_var->reg_spot];
+            lily_value *print_value = vm->gs->readonly_table[print_var->reg_spot];
             lily_function_val *print_func = print_value->value.function;
 
             print_func->foreign_func = lily_stdout_print;
@@ -5208,7 +5208,7 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     lily_register_classes(parser->symtab, parser->vm);
     lily_prepare_main(parser->emit, parser->toplevel_func);
 
-    parser->vm->readonly_table = parser->symtab->literals->data;
+    parser->vm->gs->readonly_table = parser->symtab->literals->data;
 
     maybe_fix_print(parser);
     update_all_cid_tables(parser);
@@ -5442,12 +5442,12 @@ static int parse_string(lily_parse_state *parser, const char *name, char *str,
 
 int lily_parse_file(lily_state *s, const char *path)
 {
-    return parse_file(s->parser, path, 0);
+    return parse_file(s->gs->parser, path, 0);
 }
 
 int lily_parse_string(lily_state *s, const char *name, const char *str)
 {
-    return parse_string(s->parser, name, (char *)str, 0);
+    return parse_string(s->gs->parser, name, (char *)str, 0);
 }
 
 int lily_parse_expr(lily_state *s, const char *name, char *str,
@@ -5456,7 +5456,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
     if (text)
         *text = NULL;
 
-    lily_parse_state *parser = s->parser;
+    lily_parse_state *parser = s->gs->parser;
     if (parser->first_pass)
         fix_first_file_name(parser, name);
 
@@ -5503,12 +5503,12 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
 int lily_render_string(lily_state *s, const char *name, const char *str)
 {
-    return parse_string(s->parser, name, (char *)str, 1);
+    return parse_string(s->gs->parser, name, (char *)str, 1);
 }
 
 int lily_render_file(lily_state *s, const char *filename)
 {
-    return parse_file(s->parser, filename, 1);
+    return parse_file(s->gs->parser, filename, 1);
 }
 
 lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
@@ -5516,11 +5516,11 @@ lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
     /* todo: Handle scope access, class methods, and so forth. Ideally, it can
        be done without loading any fake files (like dynaloading does), as this
        may be the base of a preloader. */
-    lily_var *v = lily_find_var(vm->parser->symtab, NULL, name);
+    lily_var *v = lily_find_var(vm->gs->parser->symtab, NULL, name);
     lily_function_val *result;
 
     if (v)
-        result = vm->readonly_table[v->reg_spot]->value.function;
+        result = vm->gs->readonly_table[v->reg_spot]->value.function;
     else
         result = NULL;
 
@@ -5532,8 +5532,8 @@ lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
    interpreter. */
 const char *lily_error_message(lily_state *s)
 {
-    build_error(s->parser);
-    return lily_mb_raw(s->parser->msgbuf);
+    build_error(s->gs->parser);
+    return lily_mb_raw(s->gs->parser->msgbuf);
 }
 
 /* Return the message of the last error encountered by the interpreter. */
@@ -5544,5 +5544,5 @@ const char *lily_error_message_no_trace(lily_state *s)
 
 lily_config *lily_config_get(lily_state *s)
 {
-    return s->parser->config;
+    return s->gs->parser->config;
 }

@@ -494,7 +494,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     }
     else if (v->flags & VAL_IS_ENUM) {
         lily_container_val *variant = v->value.container;
-        lily_class *variant_cls = vm->class_table[v->class_id];
+        lily_class *variant_cls = vm->gs->class_table[v->class_id];
 
         /* For scoped variants, render them how they're written. */
         if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
@@ -508,7 +508,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
     }
     else {
         lily_container_val *cv = v->value.container;
-        lily_class *cls = vm->class_table[cv->class_id];
+        lily_class *cls = vm->gs->class_table[cv->class_id];
 
         lily_mb_add_fmt(msgbuf, "<%s at %p>", cls->name, v->value.generic);
     }

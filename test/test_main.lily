@@ -1,5 +1,6 @@
 import feature_classes
 import feature_closures
+import feature_coroutines
 import feature_dynaload
 import feature_enums
 import feature_forward
@@ -12,6 +13,7 @@ import feature_optargs
 import feature_template
 import fail_syntax
 import fail_classes
+import fail_coroutines
 import fail_variance
 import fail_enums
 import fail_exceptions
