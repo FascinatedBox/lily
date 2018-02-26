@@ -806,12 +806,6 @@ static void push_coroutine(lily_state *s, lily_coroutine_val *co)
     SET_TARGET(LILY_ID_COROUTINE | VAL_IS_DEREFABLE, coroutine, co);
 }
 
-static void push_function(lily_state *s, lily_function_val *f)
-{
-    PUSH_PREAMBLE
-    SET_TARGET(LILY_ID_FUNCTION | VAL_IS_DEREFABLE, function, f);
-}
-
 void lily_push_boolean(lily_state *s, int v)
 {
     PUSH_PREAMBLE
@@ -1874,16 +1868,17 @@ static void dispatch_exception(lily_vm_state *vm)
     parse from making coroutine tables stale.
 
     Static typing makes implementing coroutines more difficult. A coroutine
-    cannot yield any kind of a value, and it must also be at least supplied with
-    an initial set of arguments.
+    cannot yield any kind of a value, and may want an initial set of extra
+    arguments.
 
     The first problem is solved by requiring coroutines take a coroutine as
     their first argument. Unfortunately, this solution means that coroutines
     will almost always need a garbage collection cycle to go away.
 
-    The second is fixed by having an intermediate builder function. The builder
-    function creates an intermediate that supplies the first arguments to the
-    coroutine. **/
+    The second is somewhat solved by having a coroutine constructor that takes a
+    single extra argument. It is believed that few coroutines have a valid
+    reason for 2+ one-time arguments. Those that want such a feature can pass a
+    Tuple for the callee to unpack, or use a closure to store arguments. **/
 
 static lily_coroutine_val *new_coroutine(lily_vm_state *base_vm,
         lily_function_val *base_function)
@@ -1925,38 +1920,22 @@ static void coroutine_call_prep(lily_vm_state *vm, int count)
     vm->call_chain = target_frame;
 }
 
-/* This is an intermediate Function responsible for actually creating a
-   Coroutine. This creates a copy of itself (since the builder can be invoked
-   multiple times), and copies closure information over too). The bytecode to
-   run is in the cid_table field to hide it. Remember to copy upvalues. */
-void coroutine_builder(lily_state *s)
+static lily_state *coroutine_build(lily_state *s)
 {
-    /* The builder is a copy of the Function to be called. Make another copy.
-       This new copy will be the base of the Coroutine's backing vm.
+    lily_function_val *to_copy = lily_arg_function(s, 0);
 
-       This function is not stored in a register. It will be paired up with the
-       Coroutine and be destroyed with it. */
-    lily_function_val *source_func = s->call_chain->function;
-    lily_function_val *base_func = new_function_copy(source_func);
+    if (to_copy->foreign_func != NULL)
+        lily_RuntimeError(s, "Only native functions can be coroutines.");
 
-    /* The builder hides the Coroutine's code in the cid_table field. */
-    base_func->foreign_func = NULL;
-    base_func->code = base_func->cid_table;
+    lily_function_val *base_func = new_function_copy(to_copy);
 
-    /* Is the backing Function holding onto upvalues? Take 'em into the new base
-       Function. There's no need to gc tag it because it'll never be stored in a
-       register. */
-    if (source_func->upvalues)
-        copy_upvalues(base_func, source_func);
+    if (to_copy->upvalues)
+        copy_upvalues(base_func, to_copy);
     else
         base_func->upvalues = NULL;
 
-    /* That's done. Now make the vm that will back the Coroutine. */
-
-    /* The builder has the base Function's register count. Use it to make sure
-       the new vm gets made with enough registers. */
     lily_vm_state *base_vm = new_vm_state(lily_new_raiser(),
-            INITIAL_REGISTER_COUNT + source_func->reg_count);
+            INITIAL_REGISTER_COUNT + to_copy->reg_count);
     lily_call_frame *toplevel_frame = base_vm->call_chain;
 
     base_vm->gs = s->gs;
@@ -1982,45 +1961,24 @@ void coroutine_builder(lily_state *s)
     lily_call_prepare(base_vm, base_func);
     lily_push_value(base_vm, lily_stack_get_top(s));
 
-    /* Any arguments the builder gets go to the Coroutine. */
-    int i, count = lily_arg_count(s);
+    return base_vm;
+}
 
-    for (i = 0;i < count - 1;i++)
-        lily_push_value(base_vm, lily_arg_value(s, i));
+void lily_builtin_Coroutine_build(lily_state *s)
+{
+    lily_state *base_vm = coroutine_build(s);
 
-    /* Transfer arguments over from toplevel to the base call. */
-    coroutine_call_prep(base_vm, count);
-
+    coroutine_call_prep(base_vm, 1);
     lily_return_top(s);
 }
 
-void lily_builtin_Coroutine_create(lily_state *s)
+void lily_builtin_Coroutine_build_with_value(lily_state *s)
 {
-    lily_function_val *to_copy = lily_arg_function(s, 0);
+    lily_state *base_vm = coroutine_build(s);
 
-    if (to_copy->foreign_func != NULL)
-        lily_RuntimeError(s, "Only native functions can be coroutines.");
+    lily_push_value(base_vm, lily_arg_value(s, 1));
 
-    lily_function_val *out = new_function_copy(to_copy);
-
-    /* Hide the bytecode because Function values aren't supposed to have
-       bytecode and a foreign code pointer. The cid_table field is a safe place
-       to put the bytecode because native functions do not use it. */
-    out->cid_table = out->code;
-    out->foreign_func = (lily_foreign_func)coroutine_builder;
-    out->code = NULL;
-
-    push_function(s, out);
-
-    /* It's possible that the Function provided is a closure with upvalues. To
-       ensure that the upvalues are preserved, they're copied into the
-       intermediate builder. This is an unfortunate necessity given that the
-       upvalues may vanish before the builder is invoked. */
-    if (to_copy->upvalues) {
-        copy_upvalues(out, to_copy);
-        lily_value_tag(s, lily_stack_get_top(s));
-    }
-
+    coroutine_call_prep(base_vm, 2);
     lily_return_top(s);
 }
 

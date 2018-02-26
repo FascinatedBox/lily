@@ -33,8 +33,9 @@ const char *lily_builtin_table[] = {
     ,"m\0slice\0(ByteString,*Integer,*Integer): ByteString"
     ,"N\01DivisionByZeroError\0< Exception"
     ,"m\0<new>\0(String): DivisionByZeroError"
-    ,"N\011Coroutine\0[A,B]"
-    ,"m\0create\0[A,B](Function(Coroutine[A,B], $1)): Function($1=>Coroutine[A,B])"
+    ,"N\012Coroutine\0[A,B]"
+    ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
+    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B], C),C): Coroutine[A,B]"
     ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
@@ -161,24 +162,24 @@ const char *lily_builtin_table[] = {
 #define ByteString_OFFSET 6
 #define DivisionByZeroError_OFFSET 11
 #define Coroutine_OFFSET 13
-#define Double_OFFSET 23
-#define Dynamic_OFFSET 25
-#define Exception_OFFSET 27
-#define File_OFFSET 31
-#define Function_OFFSET 39
-#define Hash_OFFSET 40
-#define IndexError_OFFSET 52
-#define Integer_OFFSET 54
-#define IOError_OFFSET 59
-#define KeyError_OFFSET 61
-#define List_OFFSET 63
-#define Option_OFFSET 83
-#define Result_OFFSET 96
-#define RuntimeError_OFFSET 103
-#define String_OFFSET 105
-#define Tuple_OFFSET 126
-#define ValueError_OFFSET 127
-#define toplevel_OFFSET 129
+#define Double_OFFSET 24
+#define Dynamic_OFFSET 26
+#define Exception_OFFSET 28
+#define File_OFFSET 32
+#define Function_OFFSET 40
+#define Hash_OFFSET 41
+#define IndexError_OFFSET 53
+#define Integer_OFFSET 55
+#define IOError_OFFSET 60
+#define KeyError_OFFSET 62
+#define List_OFFSET 64
+#define Option_OFFSET 84
+#define Result_OFFSET 97
+#define RuntimeError_OFFSET 104
+#define String_OFFSET 106
+#define Tuple_OFFSET 127
+#define ValueError_OFFSET 128
+#define toplevel_OFFSET 130
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -187,7 +188,8 @@ void lily_builtin_ByteString_encode(lily_state *);
 void lily_builtin_ByteString_size(lily_state *);
 void lily_builtin_ByteString_slice(lily_state *);
 void lily_builtin_DivisionByZeroError_new(lily_state *);
-void lily_builtin_Coroutine_create(lily_state *);
+void lily_builtin_Coroutine_build(lily_state *);
+void lily_builtin_Coroutine_build_with_value(lily_state *);
 void lily_builtin_Coroutine_is_done(lily_state *);
 void lily_builtin_Coroutine_is_failed(lily_state *);
 void lily_builtin_Coroutine_is_waiting(lily_state *);
@@ -295,15 +297,16 @@ void *lily_builtin_loader(lily_state *s, int id)
         case ByteString_OFFSET + 3: return lily_builtin_ByteString_size;
         case ByteString_OFFSET + 4: return lily_builtin_ByteString_slice;
         case DivisionByZeroError_OFFSET + 1: return lily_builtin_DivisionByZeroError_new;
-        case Coroutine_OFFSET + 1: return lily_builtin_Coroutine_create;
-        case Coroutine_OFFSET + 2: return lily_builtin_Coroutine_is_done;
-        case Coroutine_OFFSET + 3: return lily_builtin_Coroutine_is_failed;
-        case Coroutine_OFFSET + 4: return lily_builtin_Coroutine_is_waiting;
-        case Coroutine_OFFSET + 5: return lily_builtin_Coroutine_is_running;
-        case Coroutine_OFFSET + 6: return lily_builtin_Coroutine_receive;
-        case Coroutine_OFFSET + 7: return lily_builtin_Coroutine_resume;
-        case Coroutine_OFFSET + 8: return lily_builtin_Coroutine_resume_with;
-        case Coroutine_OFFSET + 9: return lily_builtin_Coroutine_yield;
+        case Coroutine_OFFSET + 1: return lily_builtin_Coroutine_build;
+        case Coroutine_OFFSET + 2: return lily_builtin_Coroutine_build_with_value;
+        case Coroutine_OFFSET + 3: return lily_builtin_Coroutine_is_done;
+        case Coroutine_OFFSET + 4: return lily_builtin_Coroutine_is_failed;
+        case Coroutine_OFFSET + 5: return lily_builtin_Coroutine_is_waiting;
+        case Coroutine_OFFSET + 6: return lily_builtin_Coroutine_is_running;
+        case Coroutine_OFFSET + 7: return lily_builtin_Coroutine_receive;
+        case Coroutine_OFFSET + 8: return lily_builtin_Coroutine_resume;
+        case Coroutine_OFFSET + 9: return lily_builtin_Coroutine_resume_with;
+        case Coroutine_OFFSET + 10: return lily_builtin_Coroutine_yield;
         case Double_OFFSET + 1: return lily_builtin_Double_to_i;
         case Dynamic_OFFSET + 1: return lily_builtin_Dynamic_new;
         case Exception_OFFSET + 1: return lily_builtin_Exception_new;
@@ -803,14 +806,22 @@ are to be passed to the intermediate result of `Coroutine.create`.
    involves using internal vm magic. */
 
 /**
-static define Coroutine.create(fn: Function(Coroutine[A, B], $1)): Function($1 => Coroutine[A, B])
+static define Coroutine.build(fn: Function(Coroutine[A, B])): Coroutine[A, B]
 
-This function is the entry point for creating a new `Coroutine`. 'fn' is a
-`Function` that takes a `Coroutine` as a first argument, plus any number of
-extra arguments.
+Build a new `Coroutine` that wraps over the `Function` provided.
 
-The result of this function is an intermediate builder `Function`. The builder
-takes the extra arguments to 'fn' and creates the `Coroutine` value.
+# Errors
+
+* `RuntimeError`: If 'fn' is not a native function.
+*/
+
+/**
+static define Coroutine.build_with_value[C](fn: Function(Coroutine[A, B], C), value: C): Coroutine[A, B]
+
+Build a new Coroutine that wraps over the `Function` provided. The base
+`Function` has the second argument set to 'value' exactly once before any
+resumption takes place. This method is provided so that a `Coroutine` can take
+an extra value (perhaps a `Tuple`) without needing to be a closure.
 
 # Errors
 

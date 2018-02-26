@@ -11,7 +11,7 @@ t.interpret("Resume a Coroutine that yields once.",
         return 0
     }
 
-    if Coroutine.create(f)().resume().unwrap() != 1:
+    if Coroutine.build(f).resume().unwrap() != 1:
         raise Exception("Failed.")
     """)
 
@@ -22,7 +22,7 @@ t.interpret("Resume a Coroutine twice (yield, then return).",
         co.yield(2)
     }
 
-    var c = Coroutine.create(f)()
+    var c = Coroutine.build(f)
 
     if c.resume().unwrap() != 1 ||
        c.resume().unwrap() != 2:
@@ -36,7 +36,7 @@ t.interpret("Coroutine that raises an exception.",
         return 0
     }
 
-    if Coroutine.create(f)().resume().is_some():
+    if Coroutine.build(f).resume().is_some():
         raise Exception("Failed.")
     """)
 
@@ -50,7 +50,7 @@ t.interpret("Coroutine that yields from a List of values.",
     }
 
     var input = [5, 10, 15, 20, 25]
-    var co = Coroutine.create(f)(input)
+    var co = Coroutine.build_with_value(f, input)
     var output = input.map(|l| co.resume().unwrap() )
 
     if input != output || co.resume().is_some():
@@ -66,7 +66,7 @@ t.interpret("Coroutine receiving a value.",
         return 0 / 0
     }
 
-    var co = Coroutine.create(f)()
+    var co = Coroutine.build(f)
     var lst: List[Integer] = []
 
     for i in 1...5:
@@ -87,7 +87,7 @@ t.interpret("Coroutine producer/yielder example (uses closures).",
             return 0 / 0
         }
 
-        return Coroutine.create(producer_fn)()
+        return Coroutine.build(producer_fn)
     }
 
     define filter(incoming_co: Coroutine[Integer, Unit]): Coroutine[Integer, Unit] {
@@ -104,7 +104,7 @@ t.interpret("Coroutine producer/yielder example (uses closures).",
             return 0 / 0
         }
 
-        return Coroutine.create(filter_fn)()
+        return Coroutine.build(filter_fn)
     }
 
     define coro_all(co: Coroutine[Integer, Unit]): List[Integer] {
@@ -137,7 +137,7 @@ t.interpret("Verify Coroutine.is_done.",
             return 1
         }
 
-        var co = Coroutine.create(fn2)()
+        var co = Coroutine.build(fn2)
         co.resume()
 
         return co
@@ -157,7 +157,7 @@ t.interpret("Verify Coroutine.is_failed.",
             return 0 / 0
         }
 
-        var co = Coroutine.create(fn2)()
+        var co = Coroutine.build(fn2)
         co.resume()
 
         return co
@@ -180,7 +180,7 @@ t.interpret("Verify Coroutine.is_running.",
             return 0 / 0
         }
 
-        var co = Coroutine.create(fn2)()
+        var co = Coroutine.build(fn2)
         co.resume()
 
         return out
@@ -197,7 +197,7 @@ t.interpret("Verify Coroutine.is_waiting.",
             return 1
         }
 
-        var co = Coroutine.create(fn2)()
+        var co = Coroutine.build(fn2)
 
         return co
     }
@@ -215,7 +215,7 @@ t.interpret("Resuming a broken coroutine gives None.",
         return 1 / 0
     }
 
-    var co = Coroutine.create(broken)()
+    var co = Coroutine.build(broken)
     var lst = [co.resume(), co.resume()]
 
     if lst != [None, None]:
@@ -228,7 +228,7 @@ t.interpret("Resuming a done coroutine gives None.",
         co.yield(1)
     }
 
-    var co = Coroutine.create(done)()
+    var co = Coroutine.build(done)
     var lst = [co.resume(), co.resume()]
 
     if lst != [Some(1), None]:
@@ -244,7 +244,7 @@ t.interpret("Resuming a running coroutine gives None.",
         return 1
     }
 
-    var co = Coroutine.create(running)().resume()
+    var co = Coroutine.build(running).resume()
 
     if v != None:
         raise Exception("Failed.")
@@ -258,6 +258,6 @@ t.interpret("Verify the coroutine's call stack.",
 
     var expect = ["test\/[subinterp]:2: from fn"]
 
-    if Coroutine.create(fn)().resume().unwrap() != expect:
+    if Coroutine.build(fn).resume().unwrap() != expect:
         raise Exception("Failed.")
     """)

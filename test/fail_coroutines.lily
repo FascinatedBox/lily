@@ -16,7 +16,7 @@ t.interpret_for_error("Receive a value from another coroutine.",
         return 1
     }
 
-    Coroutine.create(fn)().receive()
+    Coroutine.build(fn).receive()
     """)
 
 t.interpret_for_error("Yield from another Coroutine.",
@@ -31,7 +31,7 @@ t.interpret_for_error("Yield from another Coroutine.",
         return 1
     }
 
-    Coroutine.create(fn)().yield(1)
+    Coroutine.build(fn).yield(1)
     """)
 
 t.interpret("Can't yield while in a foreign call.",
@@ -42,6 +42,6 @@ t.interpret("Can't yield while in a foreign call.",
         return 1
     }
 
-    if Coroutine.create(fn)().resume().is_some():
+    if Coroutine.build(fn).resume().is_some():
         raise Exception("Failed.")
     """)

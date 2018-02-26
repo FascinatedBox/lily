@@ -26,7 +26,7 @@ for i in 1...task_count: {
 
 last_round += 1
 
-var coro_list = rng_list.map(|rng| Coroutine.create(factorial_co)(rng) )
+var coro_list = rng_list.map(|rng| Coroutine.build_with_value(factorial_co, rng) )
 var num_left = coro_list.size()
 var round = 1
 var to_drop = 0
