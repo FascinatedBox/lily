@@ -256,7 +256,7 @@ t.interpret("Verify the coroutine's call stack.",
         co.yield(calltrace())
     }
 
-    var expect = ["test\/[subinterp]:2: from fn"]
+    var expect = ["test\\/[subinterp]:2: from fn"]
 
     if Coroutine.build(fn).resume().unwrap() != expect:
         raise Exception("Failed.")
