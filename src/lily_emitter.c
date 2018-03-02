@@ -3170,13 +3170,10 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         num = 2;
     }
     else {
-        lily_type *elem_type;
-        if (expect && expect->cls->id == LILY_ID_LIST &&
-            expect->subtypes[0]->cls->id != LILY_ID_QUESTION) {
+        lily_type *elem_type = lily_question_type;
+
+        if (expect && expect->cls->id == LILY_ID_LIST)
             elem_type = expect->subtypes[0];
-        }
-        else
-            elem_type = lily_question_type;
 
         lily_tm_add(emit->tm, elem_type);
 
