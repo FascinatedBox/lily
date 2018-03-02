@@ -65,6 +65,56 @@ static void grow_types(lily_type_system *ts)
             sizeof(*ts->types) * ts->max);;
 }
 
+/* This is similar to lily_ts_resolve except that it also unrolls scoop types.
+   Since scoop can unroll to 0 types (in the event it matches to nothing), this
+   can't return a type. */
+static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
+{
+    if ((type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
+        lily_tm_add_unchecked(ts->tm, type);
+    else if (type->cls->generic_count != 0) {
+        lily_tm_reserve(ts->tm, type->subtype_count + 1 + ts->num_used);
+
+        lily_type **subtypes = type->subtypes;
+        int start = ts->tm->pos;
+        int i = 0;
+
+        for (;i < type->subtype_count;i++)
+            do_scoop_resolve(ts, subtypes[i]);
+
+        lily_type *t;
+
+        if (type->cls->id == LILY_ID_FUNCTION)
+            t = lily_tm_make_call(ts->tm, type->flags, type->cls,
+                    ts->tm->pos - start);
+        else
+            t = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
+
+        lily_tm_add_unchecked(ts->tm, t);
+    }
+    else if (type->cls->id == LILY_ID_GENERIC)
+        lily_tm_add_unchecked(ts->tm, ts->types[ts->pos + type->generic_pos]);
+    else if (type->cls->id >= LOWEST_SCOOP_ID) {
+        int scoop_pos = UINT16_MAX - type->cls->id;
+        int stop = ts->scoop_starts[scoop_pos];
+        int target = ts->scoop_starts[scoop_pos - 1];
+
+        if (stop > target) {
+            lily_tm_reserve(ts->tm, stop - target);
+
+            /* Dump in whatever scoop collected. */
+            for (;target < stop;target++)
+                lily_tm_add_unchecked(ts->tm, ts->types[target]);
+        }
+    }
+}
+
+lily_type *lily_ts_scoop_unroll(lily_type_system *ts, lily_type *type)
+{
+    do_scoop_resolve(ts, type);
+    return lily_tm_pop(ts->tm);
+}
+
 lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 {
     lily_type *ret = type;

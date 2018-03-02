@@ -3172,8 +3172,16 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     else {
         lily_type *elem_type = lily_question_type;
 
-        if (expect && expect->cls->id == LILY_ID_LIST)
+        if (expect && expect->cls->id == LILY_ID_LIST) {
             elem_type = expect->subtypes[0];
+
+            /* This is a rare case that's possible with `List.zip` since that
+               method sends down the scoop type for inference.
+               The scoop type is only for methods, because it bypasses type
+               checking. Send `Unit` instead. */
+            if (elem_type->cls->id == LILY_ID_SCOOP_1)
+                elem_type = lily_unit_type;
+        }
 
         lily_tm_add(emit->tm, elem_type);
 
@@ -3374,6 +3382,11 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
 
         if (return_type->flags & TYPE_IS_UNRESOLVED)
             return_type = lily_ts_resolve(emit->ts, return_type);
+
+        /* In the rare case of a scoop type, replace the scoop with whatever it
+           collected (if anything). */
+        if (return_type->flags & TYPE_HAS_SCOOP)
+            return_type = lily_ts_scoop_unroll(emit->ts, return_type);
 
         if (ast->first_tree_type == tree_variant) {
             /* Variant trees don't have a result so skip over them. */

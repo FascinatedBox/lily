@@ -612,3 +612,14 @@ t.interpret("Cover leaving a circular value at exit.",
     var v = Example()
     v.a = Some(v)
     """)
+
+t.interpret_for_error("Ensure List.zip does not leak scoop.",
+    """\
+    SyntaxError: Cannot assign type 'Integer' to type 'List[Tuple[Integer, Unit]]'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    var v = [1, 2].zip([])
+
+    v = 1
+    """)

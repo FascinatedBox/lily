@@ -84,7 +84,7 @@ const char *lily_builtin_table[] = {
     ,"m\0<new>\0(String): IOError"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"N\023List\0[A]"
+    ,"N\024List\0[A]"
     ,"m\0clear\0[A](List[A])"
     ,"m\0count\0[A](List[A],Function(A=>Boolean)): Integer"
     ,"m\0delete_at\0[A](List[A],Integer)"
@@ -104,6 +104,7 @@ const char *lily_builtin_table[] = {
     ,"m\0shift\0[A](List[A]): A"
     ,"m\0slice\0[A](List[A],*Integer,*Integer): List[A]"
     ,"m\0unshift\0[A](List[A],A)"
+    ,"m\0zip\0[A](List[A],List[$1]...): List[Tuple[A,$1]]"
     ,"E\012Option\0[A]"
     ,"m\0and\0[A,B](Option[A],Option[B]): Option[B]"
     ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])): Option[B]"
@@ -173,13 +174,13 @@ const char *lily_builtin_table[] = {
 #define IOError_OFFSET 60
 #define KeyError_OFFSET 62
 #define List_OFFSET 64
-#define Option_OFFSET 84
-#define Result_OFFSET 97
-#define RuntimeError_OFFSET 104
-#define String_OFFSET 106
-#define Tuple_OFFSET 127
-#define ValueError_OFFSET 128
-#define toplevel_OFFSET 130
+#define Option_OFFSET 85
+#define Result_OFFSET 98
+#define RuntimeError_OFFSET 105
+#define String_OFFSET 107
+#define Tuple_OFFSET 128
+#define ValueError_OFFSET 129
+#define toplevel_OFFSET 131
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -245,6 +246,7 @@ void lily_builtin_List_size(lily_state *);
 void lily_builtin_List_shift(lily_state *);
 void lily_builtin_List_slice(lily_state *);
 void lily_builtin_List_unshift(lily_state *);
+void lily_builtin_List_zip(lily_state *);
 void lily_builtin_Option_and(lily_state *);
 void lily_builtin_Option_and_then(lily_state *);
 void lily_builtin_Option_is_none(lily_state *);
@@ -354,6 +356,7 @@ void *lily_builtin_loader(lily_state *s, int id)
         case List_OFFSET + 17: return lily_builtin_List_shift;
         case List_OFFSET + 18: return lily_builtin_List_slice;
         case List_OFFSET + 19: return lily_builtin_List_unshift;
+        case List_OFFSET + 20: return lily_builtin_List_zip;
         case Option_OFFSET + 1: return lily_builtin_Option_and;
         case Option_OFFSET + 2: return lily_builtin_Option_and_then;
         case Option_OFFSET + 3: return lily_builtin_Option_is_none;
@@ -2219,6 +2222,62 @@ void lily_builtin_List_unshift(lily_state *s)
     lily_value *input_reg = lily_arg_value(s, 1);
 
     lily_list_insert(list_val, 0, input_reg);
+}
+
+/**
+define List.zip(others: List[$1]...): List[Tuple[A, $1]]
+
+This creates a `List` that contains a merger of the values within each of the
+elements in 'others' and 'self'.
+
+The `$1` type is a special type that allows this method to work with any number
+of `List` values.
+
+If 'self' is `List[Integer]` and 'others' is `List[String]` and `List[Double]`,
+then the resulting type is `List[Tuple[Integer, String, Double]]`.
+
+The size of the result `List` is the same as the smallest `List` provided.
+*/
+void lily_builtin_List_zip(lily_state *s)
+{
+    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *all_others = lily_arg_container(s, 1);
+    int other_list_count = lily_con_size(all_others);
+    int result_size = lily_con_size(list_val);
+    int row_i, column_i;
+
+    /* Since Lily can't have unset values, clamp the result List to the size of
+       the smallest List. */
+    for (row_i = 0;row_i < other_list_count;row_i++) {
+        lily_value *other_value = lily_con_get(all_others, row_i);
+        lily_container_val *other_elem = lily_as_container(other_value);
+        int elem_size = lily_con_size(other_elem);
+
+        if (result_size > elem_size)
+            result_size = elem_size;
+    }
+
+    lily_container_val *result_list = lily_push_list(s, result_size);
+    int result_width = other_list_count + 1;
+
+    for (row_i = 0;row_i < result_size;row_i++) {
+        /* For each row, create a Tuple and fill in the columns. */
+        lily_container_val *tup = lily_push_tuple(s, result_width);
+
+        lily_con_set(tup, 0, lily_con_get(list_val, row_i));
+
+        for (column_i = 0;column_i < other_list_count;column_i++) {
+            /* Take the [column] element from the List at [row]. To avoid having
+               a cache the size of 'others', this re-extracts containers. */
+            lily_value *other_value = lily_con_get(all_others, column_i);
+            lily_container_val *other_elem = lily_as_container(other_value);
+            lily_con_set(tup, column_i + 1, lily_con_get(other_elem, row_i));
+        }
+
+        lily_con_set_from_stack(s, result_list, row_i);
+    }
+
+    lily_return_top(s);
 }
 
 /**
