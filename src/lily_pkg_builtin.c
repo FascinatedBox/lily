@@ -84,13 +84,14 @@ const char *lily_builtin_table[] = {
     ,"m\0<new>\0(String): IOError"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"N\024List\0[A]"
+    ,"N\025List\0[A]"
     ,"m\0clear\0[A](List[A])"
     ,"m\0count\0[A](List[A],Function(A=>Boolean)): Integer"
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)): List[A]"
     ,"m\0each_index\0[A](List[A],Function(Integer)): List[A]"
     ,"m\0fold\0[A](List[A],A,Function(A, A=>A)): A"
+    ,"m\0fill\0[A](Integer,Function(Integer=>A)): List[A]"
     ,"m\0get\0[A](List[A],Integer): Option[A]"
     ,"m\0insert\0[A](List[A],Integer,A)"
     ,"m\0join\0[A](List[A],*String): String"
@@ -174,13 +175,13 @@ const char *lily_builtin_table[] = {
 #define IOError_OFFSET 60
 #define KeyError_OFFSET 62
 #define List_OFFSET 64
-#define Option_OFFSET 85
-#define Result_OFFSET 98
-#define RuntimeError_OFFSET 105
-#define String_OFFSET 107
-#define Tuple_OFFSET 128
-#define ValueError_OFFSET 129
-#define toplevel_OFFSET 131
+#define Option_OFFSET 86
+#define Result_OFFSET 99
+#define RuntimeError_OFFSET 106
+#define String_OFFSET 108
+#define Tuple_OFFSET 129
+#define ValueError_OFFSET 130
+#define toplevel_OFFSET 132
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -233,6 +234,7 @@ void lily_builtin_List_delete_at(lily_state *);
 void lily_builtin_List_each(lily_state *);
 void lily_builtin_List_each_index(lily_state *);
 void lily_builtin_List_fold(lily_state *);
+void lily_builtin_List_fill(lily_state *);
 void lily_builtin_List_get(lily_state *);
 void lily_builtin_List_insert(lily_state *);
 void lily_builtin_List_join(lily_state *);
@@ -343,20 +345,21 @@ void *lily_builtin_loader(lily_state *s, int id)
         case List_OFFSET + 4: return lily_builtin_List_each;
         case List_OFFSET + 5: return lily_builtin_List_each_index;
         case List_OFFSET + 6: return lily_builtin_List_fold;
-        case List_OFFSET + 7: return lily_builtin_List_get;
-        case List_OFFSET + 8: return lily_builtin_List_insert;
-        case List_OFFSET + 9: return lily_builtin_List_join;
-        case List_OFFSET + 10: return lily_builtin_List_map;
-        case List_OFFSET + 11: return lily_builtin_List_pop;
-        case List_OFFSET + 12: return lily_builtin_List_push;
-        case List_OFFSET + 13: return lily_builtin_List_reject;
-        case List_OFFSET + 14: return lily_builtin_List_repeat;
-        case List_OFFSET + 15: return lily_builtin_List_select;
-        case List_OFFSET + 16: return lily_builtin_List_size;
-        case List_OFFSET + 17: return lily_builtin_List_shift;
-        case List_OFFSET + 18: return lily_builtin_List_slice;
-        case List_OFFSET + 19: return lily_builtin_List_unshift;
-        case List_OFFSET + 20: return lily_builtin_List_zip;
+        case List_OFFSET + 7: return lily_builtin_List_fill;
+        case List_OFFSET + 8: return lily_builtin_List_get;
+        case List_OFFSET + 9: return lily_builtin_List_insert;
+        case List_OFFSET + 10: return lily_builtin_List_join;
+        case List_OFFSET + 11: return lily_builtin_List_map;
+        case List_OFFSET + 12: return lily_builtin_List_pop;
+        case List_OFFSET + 13: return lily_builtin_List_push;
+        case List_OFFSET + 14: return lily_builtin_List_reject;
+        case List_OFFSET + 15: return lily_builtin_List_repeat;
+        case List_OFFSET + 16: return lily_builtin_List_select;
+        case List_OFFSET + 17: return lily_builtin_List_size;
+        case List_OFFSET + 18: return lily_builtin_List_shift;
+        case List_OFFSET + 19: return lily_builtin_List_slice;
+        case List_OFFSET + 20: return lily_builtin_List_unshift;
+        case List_OFFSET + 21: return lily_builtin_List_zip;
         case Option_OFFSET + 1: return lily_builtin_Option_and;
         case Option_OFFSET + 2: return lily_builtin_Option_and_then;
         case Option_OFFSET + 3: return lily_builtin_Option_is_none;
@@ -1912,6 +1915,41 @@ void lily_builtin_List_fold(lily_state *s)
         lily_return_value(s, result);
     }
 }
+
+/**
+static define List.fill(count: Integer, fn: Function(Integer => A)): List[A]
+
+Generate a `List` of 'count' items using 'fn'.
+
+This calls 'fn' with an index that starts at `0` and proceeds until 'count', and
+does not include 'count'.
+
+If 'count' is `0` or negative, then the resulting `List` will be empty.
+*/
+void lily_builtin_List_fill(lily_state *s)
+{
+    int64_t stop = lily_arg_integer(s, 0);
+
+    if (stop <= 0) {
+        lily_push_list(s, 0);
+        lily_return_top(s);
+        return;
+    }
+
+    lily_call_prepare(s, lily_arg_function(s, 1));
+    lily_container_val *con = lily_push_list(s, stop);
+    lily_value *result = lily_call_result(s);
+    int64_t i;
+
+    for (i = 0;i < stop;i++) {
+        lily_push_integer(s, i);
+        lily_call(s, 1);
+        lily_con_set(con, i, result);
+    }
+
+    lily_return_top(s);
+}
+
 
 /**
 define List.get(index: Integer): Option[A]

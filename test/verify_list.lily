@@ -103,6 +103,23 @@ t.assert("List.each_index visits all elements and in order.",
     results == [1, 2, 3] ))
 
 
+t.assert("List.fill with a valid index.",
+         (||
+    List.fill(5, (|a| a + a)) == [0, 2, 4, 6, 8] ))
+
+t.assert("List.fill transforming inputs.",
+         (||
+    List.fill(3, (|a| a.to_s() )) == ["0", "1", "2"] ))
+
+t.assert("List.fill of zero count returns an empty List.",
+         (||
+    List.fill(0, (|a| a )) == [] ))
+
+t.assert("List.fill of a negative count returns an empty List.",
+         (||
+    List.fill(-5, (|a| a )) == [] ))
+
+
 t.assert("List.fold with type Integer.",
          (|| [1, 2, 3].fold(0, (|a, b| a + b)) == 6 ))
 
