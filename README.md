@@ -49,6 +49,34 @@ Another benefit from having the reference implementation as an interpreter is a
 shorter turn around time. The interpreter's parser is comparable in speed to
 that of languages using an interpreter as their reference.
 
+## Building
+
+You need a C compiler and CMake (3.0.0 +). There are no external dependencies.
+
+To build Lily, execute the following in a terminal:
+
+```
+cmake .
+
+make
+```
+
+The above will build the `lily` executable, as well as a liblily that you can
+use with your program. It also builds `pre-commit-tests`.
+
+## Running tests
+
+The centerpiece of Lily's testing is `test_main.lily` in the `test` directory.
+That file imports and invokes a large number of tests that cover a lot of Lily.
+
+The `make` command also builds `covlib` and `pre-commit-tests`. No additional
+commands are necessary. `covlib` is a library that tests some parts of Lily that
+native code can't test. `pre-commit-tests` is a special runner that executes
+`test_main.lily`.
+
+To run Lily's tests, execute `pre-commit-tests` from the directory it's in after
+building Lily.
+
 ## Community
 
 Lily is a very young language and the community is still growing.
