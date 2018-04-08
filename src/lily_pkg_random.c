@@ -4,57 +4,13 @@ library random
 The random package provides access to a Mersenne Twister for pseudo-random
 number generation.
 */
-/* 
-   A C-program for MT19937-64 (2004/9/29 version).
-   Coded by Takuji Nishimura and Makoto Matsumoto.
 
-   This is a 64-bit version of Mersenne Twister pseudorandom number
-   generator.
+/* This uses code from libmtwist which uses The Unlicense:
+   https://github.com/dajobe/libmtwist
+   https://unlicense.org/
 
-   Copyright (C) 2004, Makoto Matsumoto and Takuji Nishimura,
-   All rights reserved.                          
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions
-   are met:
-
-     1. Redistributions of source code must retain the above copyright
-        notice, this list of conditions and the following disclaimer.
-
-     2. Redistributions in binary form must reproduce the above copyright
-        notice, this list of conditions and the following disclaimer in the
-        documentation and/or other materials provided with the distribution.
-
-     3. The names of its contributors may not be used to endorse or promote 
-        products derived from this software without specific prior written 
-        permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-   References:
-   T. Nishimura, ``Tables of 64-bit Mersenne Twisters''
-     ACM Transactions on Modeling and 
-     Computer Simulation 10. (2000) 348--357.
-   M. Matsumoto and T. Nishimura,
-     ``Mersenne Twister: a 623-dimensionally equidistributed
-       uniform pseudorandom number generator''
-     ACM Transactions on Modeling and 
-     Computer Simulation 8. (Jan. 1998) 3--30.
-
-   Any feedback is very welcome.
-   http://www.math.hiroshima-u.ac.jp/~m-mat/MT/emt.html
-   email: m-mat @ math.sci.hiroshima-u.ac.jp (remove spaces)
-*/
+   This randomness library is limited to 32 bit values. It's assumed that most
+   ranges will be within 32 bits (4 billion-ish). */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -63,17 +19,22 @@ number generation.
 
 #include "lily.h"
 
-#define NN 312
-#define MM 156
-#define MATRIX_A 0xB5026F5AA96619E9ULL
-#define UM 0xFFFFFFFF80000000ULL /* Most significant 33 bits */
-#define LM 0x7FFFFFFFULL /* Least significant 31 bits */
+#define MTWIST_N             624
+#define MTWIST_M             397
+#define MTWIST_UPPER_MASK    ((uint32_t)0x80000000)
+#define MTWIST_LOWER_MASK    ((uint32_t)0x7FFFFFFF)
+#define MTWIST_FULL_MASK     ((uint32_t)0xFFFFFFFF)
+#define MTWIST_MATRIX_A      ((uint32_t)0x9908B0DF)
+
+#define MTWIST_MIXBITS(u, v) ( ( (u) & MTWIST_UPPER_MASK) | ( (v) & MTWIST_LOWER_MASK) )
+#define MTWIST_TWIST(u, v)  ( (MTWIST_MIXBITS(u, v) >> 1) ^ ( (v) & UINT32_C(1) ? MTWIST_MATRIX_A : UINT32_C(0)) )
 
 /** Begin autogen section. **/
 typedef struct lily_random_Random_ {
     LILY_FOREIGN_HEADER
-    unsigned long long mt[NN];
-    int mti;
+    uint32_t state[MTWIST_N];
+    uint32_t *next;
+    int remaining;
 } lily_random_Random;
 #define ARG_Random(state, index) \
 (lily_random_Random *)lily_arg_generic(state, index)
@@ -108,8 +69,9 @@ static void destroy_Random(lily_random_Random *r)
 /**
 foreign class Random(seed: *Integer = 0) {
     layout {
-        unsigned long long mt[NN];
-        int mti;
+        uint32_t state[MTWIST_N];
+        uint32_t *next;
+        int remaining;
     }
 }
 
@@ -122,9 +84,9 @@ then the current time (`time(NULL)` in C) is used instead.
 
 void lily_random_Random_new(lily_state *s)
 {
+    lily_random_Random* mt = INIT_Random(s);
     int64_t seed = 0;
-    int mti;
-    lily_random_Random *r = INIT_Random(s);
+    int i;
 
     if (lily_arg_count(s) == 2)
         seed = lily_arg_integer(s, 1);
@@ -132,44 +94,54 @@ void lily_random_Random_new(lily_state *s)
     if (seed <= 0)
         seed = (int64_t)time(NULL);
 
-    r->mt[0] = seed;
-    for (mti=1; mti<NN; mti++) 
-        r->mt[mti] = (6364136223846793005ULL * (r->mt[mti-1] ^ (r->mt[mti-1] >> 62)) + mti);
+    mt->state[0] = (uint32_t)(seed & MTWIST_FULL_MASK);
+    for(i = 1; i < MTWIST_N; i++) {
+        mt->state[i] = (((uint32_t)1812433253) * (mt->state[i - 1] ^ (mt->state[i - 1] >> 30)) + i);
+        mt->state[i] &= MTWIST_FULL_MASK;
+    }
 
-    r->mti = mti;
+    mt->remaining = 0;
+    mt->next = NULL;
+
     lily_return_top(s);
 }
 
-/* generates a random number on [0, 2^64-1]-interval */
-static uint64_t gen_int(lily_random_Random *r)
+static void mtwist_update(lily_random_Random* mt)
 {
-    int i;
-    uint64_t x;
-    static unsigned long long mag01[2] = {0ULL, MATRIX_A};
+    int count;
+    uint32_t *p = mt->state;
 
-    if (r->mti >= NN) { /* generate NN words at one time */
-        for (i=0;i<NN-MM;i++) {
-            x = (r->mt[i]&UM)|(r->mt[i+1]&LM);
-            r->mt[i] = r->mt[i+MM] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
-        }
-        for (;i<NN-1;i++) {
-            x = (r->mt[i]&UM)|(r->mt[i+1]&LM);
-            r->mt[i] = r->mt[i+(MM-NN)] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
-        }
-        x = (r->mt[NN-1]&UM)|(r->mt[0]&LM);
-        r->mt[NN-1] = r->mt[MM-1] ^ (x>>1) ^ mag01[(int)(x&1ULL)];
+    for (count = (MTWIST_N - MTWIST_M + 1); --count; p++)
+        *p = p[MTWIST_M] ^ MTWIST_TWIST(p[0], p[1]);
 
-        r->mti = 0;
-    }
-  
-    x = r->mt[r->mti++];
+    for (count = MTWIST_M; --count; p++)
+        *p = p[MTWIST_M - MTWIST_N] ^ MTWIST_TWIST(p[0], p[1]);
 
-    x ^= (x >> 29) & 0x5555555555555555ULL;
-    x ^= (x << 17) & 0x71D67FFFEDA60000ULL;
-    x ^= (x << 37) & 0xFFF7EEE000000000ULL;
-    x ^= (x >> 43);
+    *p = p[MTWIST_M - MTWIST_N] ^ MTWIST_TWIST(p[0], mt->state[0]);
 
-    return x;
+    mt->remaining = MTWIST_N;
+    mt->next = mt->state;
+}
+
+uint32_t mtwist_u32rand(lily_random_Random* mt)
+{
+    uint32_t r;
+
+    if (mt->remaining == 0)
+        mtwist_update(mt);
+
+    r = *mt->next++;
+    mt->remaining--;
+
+    /* Tempering. */
+    r ^= (r >> 11);
+    r ^= (r << 7) & ((uint32_t)0x9D2C5680);
+    r ^= (r << 15) & ((uint32_t)0xEFC60000);
+    r ^= (r >> 18);
+
+    r &= MTWIST_FULL_MASK;
+
+    return (uint32_t)r;
 }
 
 /**
@@ -184,7 +156,7 @@ Generate a random `Integer` value between `lower` and `upper`.
 void lily_random_Random_between(lily_state *s)
 {
     lily_random_Random *r = ARG_Random(s, 0);
-    uint64_t rng = gen_int(r);
+    uint64_t rng = (uint64_t)mtwist_u32rand(r);
 
     int64_t start = lily_arg_integer(s, 1);
     int64_t end = lily_arg_integer(s, 2);
@@ -193,6 +165,11 @@ void lily_random_Random_between(lily_state *s)
         lily_ValueError(s, "Interval range is empty.");
 
     int64_t distance = end - start + 1;
+
+    if (distance < INT32_MIN ||
+        distance > INT32_MAX)
+        lily_ValueError(s, "Interval exceeds 32 bits in size.");
+
     uint64_t result = start + (rng % distance);
 
     lily_return_integer(s, result);
