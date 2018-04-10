@@ -1,3 +1,34 @@
+Version 1.4 (2018-4-10)
+=======================
+
+What's new:
+
+* New api functions: `List.get`, `List.zip`, `List.fill`.
+
+* (#273) Coroutines, one of the longest standing requests in the tracker, have
+  now finally been implemented. Coroutines are implemented behind a `Coroutine`
+  class. Internally they work by creating a vm and exposing it as a value. How
+  coroutines work is similar to how they work in Lua.
+
+Changes:
+
+* `Hash.get` now returns an `Option` and no longer requires a default value.
+  This function predates `Option` which is why it didn't do that to begin with.
+
+* (#369) Lily's builtin Random library has been changed to a different source.
+  The new source is released under The Unilicense, whereas the old source was
+  under a license requiring attribution. For what is hopefully the time being,
+  the Random library is now restricted to ranges 32 bits wide instead of the
+  full 64 bit spectrum. It is expected that this will not be a huge problem.
+
+Fixes:
+
+* (#365) Fixed a rare potential crash when calling a foreign function taking
+  optional arguments.
+
+* The vm now does a gc sweep after dropping the register. This avoids a memory
+  leak in the case of a global register holding a self-linked value.
+
 Version 1.3 (2018-1-10)
 =======================
 
