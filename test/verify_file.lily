@@ -18,6 +18,25 @@ t.expect_error("File.open fails when given invalid mode.",
                (|| File.open("io_test_file.txt", "z") ))
 
 
+t.expect_error("File.flush fails with closed file.",
+               "IOError: IO operation on closed file.",
+               (|| var v = File.open("io_test_file.txt", "w")
+                   v.close()
+                   v.flush() ))
+
+t.expect_error("File.flush fails with closed file.",
+               "IOError: File not open for writing.",
+               (|| File.open("io_test_file.txt", "r")
+                       .flush() ))
+
+t.assert("File.flush with write file.",
+         (||
+    var v = File.open("io_test_file.txt", "w")
+    v.write("test")
+    v.flush()
+    true ))
+
+
 t.expect_error("File.read_line on closed file.",
                "IOError: IO operation on closed file.",
                (||

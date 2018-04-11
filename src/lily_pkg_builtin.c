@@ -52,9 +52,10 @@ const char *lily_builtin_table[] = {
     ,"m\0<new>\0(String): Exception"
     ,"3\0message\0String"
     ,"3\0traceback\0List[String]"
-    ,"N\07File\0"
+    ,"N\010File\0"
     ,"m\0close\0(File)"
     ,"m\0each_line\0(File,Function(ByteString))"
+    ,"m\0flush\0(File)"
     ,"m\0open\0(String,String): File"
     ,"m\0print\0[A](File,A)"
     ,"m\0read\0(File,*Integer): ByteString"
@@ -168,20 +169,20 @@ const char *lily_builtin_table[] = {
 #define Dynamic_OFFSET 26
 #define Exception_OFFSET 28
 #define File_OFFSET 32
-#define Function_OFFSET 40
-#define Hash_OFFSET 41
-#define IndexError_OFFSET 53
-#define Integer_OFFSET 55
-#define IOError_OFFSET 60
-#define KeyError_OFFSET 62
-#define List_OFFSET 64
-#define Option_OFFSET 86
-#define Result_OFFSET 99
-#define RuntimeError_OFFSET 106
-#define String_OFFSET 108
-#define Tuple_OFFSET 129
-#define ValueError_OFFSET 130
-#define toplevel_OFFSET 132
+#define Function_OFFSET 41
+#define Hash_OFFSET 42
+#define IndexError_OFFSET 54
+#define Integer_OFFSET 56
+#define IOError_OFFSET 61
+#define KeyError_OFFSET 63
+#define List_OFFSET 65
+#define Option_OFFSET 87
+#define Result_OFFSET 100
+#define RuntimeError_OFFSET 107
+#define String_OFFSET 109
+#define Tuple_OFFSET 130
+#define ValueError_OFFSET 131
+#define toplevel_OFFSET 133
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -205,6 +206,7 @@ void lily_builtin_Dynamic_new(lily_state *);
 void lily_builtin_Exception_new(lily_state *);
 void lily_builtin_File_close(lily_state *);
 void lily_builtin_File_each_line(lily_state *);
+void lily_builtin_File_flush(lily_state *);
 void lily_builtin_File_open(lily_state *);
 void lily_builtin_File_print(lily_state *);
 void lily_builtin_File_read(lily_state *);
@@ -316,11 +318,12 @@ void *lily_builtin_loader(lily_state *s, int id)
         case Exception_OFFSET + 1: return lily_builtin_Exception_new;
         case File_OFFSET + 1: return lily_builtin_File_close;
         case File_OFFSET + 2: return lily_builtin_File_each_line;
-        case File_OFFSET + 3: return lily_builtin_File_open;
-        case File_OFFSET + 4: return lily_builtin_File_print;
-        case File_OFFSET + 5: return lily_builtin_File_read;
-        case File_OFFSET + 6: return lily_builtin_File_read_line;
-        case File_OFFSET + 7: return lily_builtin_File_write;
+        case File_OFFSET + 3: return lily_builtin_File_flush;
+        case File_OFFSET + 4: return lily_builtin_File_open;
+        case File_OFFSET + 5: return lily_builtin_File_print;
+        case File_OFFSET + 6: return lily_builtin_File_read;
+        case File_OFFSET + 7: return lily_builtin_File_read_line;
+        case File_OFFSET + 8: return lily_builtin_File_write;
         case Hash_OFFSET + 1: return lily_builtin_Hash_clear;
         case Hash_OFFSET + 2: return lily_builtin_Hash_delete;
         case Hash_OFFSET + 3: return lily_builtin_Hash_each_pair;
@@ -1062,6 +1065,25 @@ void lily_builtin_File_each_line(lily_state *s)
         else
             pos++;
     }
+
+    lily_return_unit(s);
+}
+
+/**
+define File.flush
+
+This function writes all buffered data associated with the `File` provided.
+
+# Errors
+
+* `IOError` if `self` is closed or not open for writing.
+*/
+void lily_builtin_File_flush(lily_state *s)
+{
+    lily_file_val *filev = lily_arg_file(s, 0);
+    FILE *f = lily_file_for_write(s, filev);
+
+    fflush(f);
 
     lily_return_unit(s);
 }
