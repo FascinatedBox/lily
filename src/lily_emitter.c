@@ -1425,9 +1425,9 @@ static void grow_match_cases(lily_emit_state *emit)
 }
 
 /* This is written when match wants a value from the source. When matching on an
-   enum, 'index' is a spot to pull from. For matches on a user-class or a
-   Dynamic, this only needs to store the value over into another register. The
-   assign there is necessary so that the source var will have the right type. */
+   enum, 'index' is a spot to pull from. For matches on a user-class, this only
+   needs to store the value over into another register. The assign there is
+   necessary so that the source var will have the right type. */
 void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int index,
         uint16_t pos)
 {
@@ -1509,20 +1509,10 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
     lily_class *match_class = ast->result->type->cls;
 
-    if (match_class->id == LILY_ID_DYNAMIC) {
-        lily_storage *s = get_storage(emit, lily_question_type);
-
-        /* Dynamic is laid out like a class with the content in slot 0. Extract
-           it out to match against. */
-        lily_u16_write_5(emit->code, o_property_get, 0, ast->result->reg_spot,
-                s->reg_spot, ast->line_num);
-
-        ast->result = (lily_sym *)s;
-    }
-    else if ((match_class->flags & CLS_IS_ENUM) == 0 &&
-             (match_class->flags & CLS_IS_BUILTIN))
+    if ((match_class->flags & CLS_IS_ENUM) == 0 &&
+        (match_class->flags & CLS_IS_BUILTIN))
         lily_raise_syn(emit->raiser,
-                "Match expression is not a user class, enum, or Dynamic.");
+                "Match expression is not a user class or enum.");
 
     /* Each case pops the last jump and writes in their own. */
     lily_u16_write_1(emit->patches, 0);

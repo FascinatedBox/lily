@@ -357,33 +357,6 @@ t.assert("Vararg call with no prefix value and 0 values.",
          (|| just_vararg_total() == 0 ))
 
 
-t.assert("match against Dynamic success case.",
-         (||
-    var d = Dynamic(10)
-    var ok = false
-    match d: {
-        case Integer(i):
-            ok = true
-        else:
-            ok = false
-    }
-
-    ok ))
-
-t.assert("match against Dynamic failure case.",
-         (||
-    var d = Dynamic(10)
-    var ok = false
-    match d: {
-        case String(s):
-            ok = false
-        else:
-            ok = true
-    }
-
-    ok ))
-
-
 class Test {
     public define add(v: Integer) {}
     10 |> add

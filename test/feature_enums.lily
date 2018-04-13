@@ -95,7 +95,7 @@ t.interpret("Verify that enum variants can dispatch to enum methods.",
         }
     }
 
-    Two.f(One(Dynamic(10)))
+    Two.f(One(10))
     One(10).f(One(10))
     One("10").h(One(10))
 

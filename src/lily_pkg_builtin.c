@@ -46,8 +46,6 @@ const char *lily_builtin_table[] = {
     ,"m\0yield\0[A,B](Coroutine[A,B],A)"
     ,"N\01Double\0"
     ,"m\0to_i\0(Double): Integer"
-    ,"N\01Dynamic\0"
-    ,"m\0<new>\0[A](A): Dynamic"
     ,"N\03Exception\0"
     ,"m\0<new>\0(String): Exception"
     ,"3\0message\0String"
@@ -166,23 +164,22 @@ const char *lily_builtin_table[] = {
 #define DivisionByZeroError_OFFSET 11
 #define Coroutine_OFFSET 13
 #define Double_OFFSET 24
-#define Dynamic_OFFSET 26
-#define Exception_OFFSET 28
-#define File_OFFSET 32
-#define Function_OFFSET 41
-#define Hash_OFFSET 42
-#define IndexError_OFFSET 54
-#define Integer_OFFSET 56
-#define IOError_OFFSET 61
-#define KeyError_OFFSET 63
-#define List_OFFSET 65
-#define Option_OFFSET 87
-#define Result_OFFSET 100
-#define RuntimeError_OFFSET 107
-#define String_OFFSET 109
-#define Tuple_OFFSET 130
-#define ValueError_OFFSET 131
-#define toplevel_OFFSET 133
+#define Exception_OFFSET 26
+#define File_OFFSET 30
+#define Function_OFFSET 39
+#define Hash_OFFSET 40
+#define IndexError_OFFSET 52
+#define Integer_OFFSET 54
+#define IOError_OFFSET 59
+#define KeyError_OFFSET 61
+#define List_OFFSET 63
+#define Option_OFFSET 85
+#define Result_OFFSET 98
+#define RuntimeError_OFFSET 105
+#define String_OFFSET 107
+#define Tuple_OFFSET 128
+#define ValueError_OFFSET 129
+#define toplevel_OFFSET 131
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -202,7 +199,6 @@ void lily_builtin_Coroutine_resume(lily_state *);
 void lily_builtin_Coroutine_resume_with(lily_state *);
 void lily_builtin_Coroutine_yield(lily_state *);
 void lily_builtin_Double_to_i(lily_state *);
-void lily_builtin_Dynamic_new(lily_state *);
 void lily_builtin_Exception_new(lily_state *);
 void lily_builtin_File_close(lily_state *);
 void lily_builtin_File_each_line(lily_state *);
@@ -314,7 +310,6 @@ void *lily_builtin_loader(lily_state *s, int id)
         case Coroutine_OFFSET + 9: return lily_builtin_Coroutine_resume_with;
         case Coroutine_OFFSET + 10: return lily_builtin_Coroutine_yield;
         case Double_OFFSET + 1: return lily_builtin_Double_to_i;
-        case Dynamic_OFFSET + 1: return lily_builtin_Dynamic_new;
         case Exception_OFFSET + 1: return lily_builtin_Exception_new;
         case File_OFFSET + 1: return lily_builtin_File_close;
         case File_OFFSET + 2: return lily_builtin_File_each_line;
@@ -953,19 +948,6 @@ void lily_builtin_Double_to_i(lily_state *s)
 
     lily_return_integer(s, integer_val);
 }
-
-/**
-builtin class Dynamic[A](value: A)
-
-The `Dynamic` class allows defering type checking until runtime. Creation of
-`Dynamic` is done through `Dynamic(<value>)`. Extraction of values is done
-through a cast: `.@(type)`. The result of a cast is `Option[<type>]`, with
-`Some` on success and `None` on failure. Finally, casts are not allowed to hold
-polymorphic types, such as `List` or `Hash` or `Function`, because Lily's vm
-only holds class information at runtime.
-*/
-
-extern void lily_builtin_Dynamic_new(lily_state *);
 
 /**
 native class Exception(message: String) {
@@ -3750,7 +3732,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->bytestring_class = build_class(symtab, "ByteString",  0, ByteString_OFFSET);
     symtab->boolean_class    = build_class(symtab, "Boolean",     0, Boolean_OFFSET);
     symtab->function_class   = build_class(symtab, "Function",   -1, Function_OFFSET);
-    lily_class *dynamic_cls  = build_class(symtab, "Dynamic",     0, Dynamic_OFFSET);
     symtab->list_class       = build_class(symtab, "List",        1, List_OFFSET);
     symtab->hash_class       = build_class(symtab, "Hash",        2, Hash_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
@@ -3770,9 +3751,8 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
     symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
 
-    /* These need to be set here so type finalization can bubble them up. */
+    /* This must be set here so that it bubbles up in type building. */
     symtab->function_class->flags |= CLS_GC_TAGGED;
-    dynamic_cls->flags |= CLS_GC_SPECULATIVE;
     /* HACK: This ensures that there is space to dynaload builtin classes and
        enums into. */
     symtab->next_class_id = START_CLASS_ID;

@@ -785,7 +785,7 @@ t.interpret_for_error("Require for loop start to be Integer.",
 
 t.interpret_for_error("Invalid match expression.",
     """\
-    SyntaxError: Match expression is not a user class, enum, or Dynamic.\n    \
+    SyntaxError: Match expression is not a user class or enum.\n    \
         from test\/[subinterp]:1:\
     """,
     """\

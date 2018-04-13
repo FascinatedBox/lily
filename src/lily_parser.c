@@ -4544,10 +4544,8 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
     int result_flag = 0;
 
     if (target->cls->id == LILY_ID_GENERIC) {
-        /* If a class has generic types, then it can't be fetched from Dynamic.
-           A generic type will always resolve to some bottom, but that bottom
-           will not be equal to itself. Based on that assumption, the class does
-           not need a tag (but it should be speculative). */
+        /* A class containing generics is always at least speculative, because
+           it may have speculative content inside. */
         if (top_class->generic_count)
             result_flag = CLS_GC_SPECULATIVE;
         else
@@ -4899,9 +4897,7 @@ static void match_case_class(lily_parse_state *parser,
     NEED_CURRENT_TOK(tk_word)
     lily_class *cls = resolve_class_name(parser);
 
-    /* The second case only happens if the source is a Dynamic. */
-    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0 &&
-        match_sym->type->cls->id != LILY_ID_QUESTION) {
+    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0) {
         lily_raise_syn(parser->raiser,
                 "Class %s does not inherit from matching class %s.", cls->name,
                 match_sym->type->cls->name);

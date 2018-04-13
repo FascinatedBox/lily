@@ -450,88 +450,84 @@ int lily_load_string_package(lily_state *s, const char *path,
 // Identity of the Function class.
 #define LILY_ID_FUNCTION      7
 
-// Macro: LILY_ID_DYNAMIC
-// Identity of the Dynamic class.
-#define LILY_ID_DYNAMIC       8
-
 // Macro: LILY_ID_LIST
 // Identity of the List class.
-#define LILY_ID_LIST          9
+#define LILY_ID_LIST          8
 
 // Macro: LILY_ID_HASH
 // Identity of the Hash class.
-#define LILY_ID_HASH         10
+#define LILY_ID_HASH          9
 
 // Macro: LILY_ID_TUPLE
 // Identity of the Tuple class.
-#define LILY_ID_TUPLE        11
+#define LILY_ID_TUPLE        10
 
 // Macro: LILY_ID_FILE
 // Identity of the File class.
-#define LILY_ID_FILE         12
+#define LILY_ID_FILE         11
 
 // Macro: LILY_ID_OPTION
 // Identity of the Option enum.
-#define LILY_ID_OPTION       13
+#define LILY_ID_OPTION       12
 
 // Macro: LILY_ID_SOME
 // Identity of the Some variant.
-#define LILY_ID_SOME         14
+#define LILY_ID_SOME         13
 
 // Macro: LILY_ID_NONE
 // Identity of the None variant.
-#define LILY_ID_NONE         15
+#define LILY_ID_NONE         14
 
 // Macro: LILY_ID_RESULT
 // Identity of the Result enum.
-#define LILY_ID_RESULT       16
+#define LILY_ID_RESULT       15
 
 // Macro: LILY_ID_FAILURE
 // Identity of the Failure variant of Result.
-#define LILY_ID_FAILURE      17
+#define LILY_ID_FAILURE      16
 
 // Macro: LILY_ID_SUCCESS
 // Identity of the Success variant of Result.
-#define LILY_ID_SUCCESS      18
+#define LILY_ID_SUCCESS      17
 
 // Macro: LILY_ID_EXCEPTION
 // Identity of the Exception class.
-#define LILY_ID_EXCEPTION    19
+#define LILY_ID_EXCEPTION    18
 
 // Macro: LILY_ID_IOERROR
 // Identity of the IOError class.
-#define LILY_ID_IOERROR      20
+#define LILY_ID_IOERROR      19
 
 // Macro: LILY_ID_KEYERROR
 // Identity of the KeyError class.
-#define LILY_ID_KEYERROR     21
+#define LILY_ID_KEYERROR     20
 
 // Macro: LILY_ID_RUNTIMEERROR
 // Identity of the RuntimeError class.
-#define LILY_ID_RUNTIMEERROR 22
+#define LILY_ID_RUNTIMEERROR 21
 
 // Macro: LILY_ID_VALUEERROR
 // Identity of the ValueError class.
-#define LILY_ID_VALUEERROR   23
+#define LILY_ID_VALUEERROR   22
 
 // Macro: LILY_ID_INDEXERROR
 // Identity of the IndexError class.
-#define LILY_ID_INDEXERROR   24
+#define LILY_ID_INDEXERROR   23
 
 // Macro: LILY_ID_DBZERROR
 // Identity of the DivisionByZero class.
-#define LILY_ID_DBZERROR     25 /* > 9000 */
+#define LILY_ID_DBZERROR     24 /* > 9000 */
 
 // Macro: LILY_ID_UNIT
 // Identity of the Unit class.
-#define LILY_ID_UNIT         26
+#define LILY_ID_UNIT         25
 
 // Macro: LILY_ID_COROUTINE
 // Identity of the Coroutine class.
-#define LILY_ID_COROUTINE    27
+#define LILY_ID_COROUTINE    26
 
 /* Internal use only: Where class ids start at. */
-#define START_CLASS_ID       28
+#define START_CLASS_ID       27
 
 ////////////////////////////////
 // Section: Raw value operations
@@ -898,12 +894,6 @@ void                lily_push_bytestring   (lily_state *s, const char *source,
 // Function: lily_push_double
 // (Stack: +1) Push a Double value onto the stack.
 void                lily_push_double       (lily_state *s, double value);
-
-// Function: lily_push_dynamic
-// (Stack: +1) Push a Dynamic value onto the stack.
-//
-// Caller must supply a value to slot 0 before the Dynamic is used.
-lily_container_val *lily_push_dynamic      (lily_state *s);
 
 // Function: lily_push_empty_variant
 // (Stack: +1) Push an empty variant (such as None) onto the stack.

@@ -16,12 +16,6 @@ t.assert("List.clear with Exception values.",
     v.clear()
     v == [] ))
 
-t.assert("List.clear with Dynamic values.",
-         (||
-    var v = [Dynamic("a"), Dynamic(Exception("")), Dynamic(1)]
-    v.clear()
-    v == [] ))
-
 
 t.assert("List.count with empty List.",
          (||

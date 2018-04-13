@@ -355,23 +355,6 @@ static void invoke_gc(lily_vm_state *vm)
     vm->gs->gc_spare_entries = new_spare_entries;
 }
 
-static void dynamic_marker(int pass, lily_value *v)
-{
-    if (v->flags & VAL_IS_GC_TAGGED) {
-        lily_gc_entry *e = v->value.container->gc_entry;
-        if (e->last_pass == pass)
-            return;
-
-        e->last_pass = pass;
-    }
-
-    lily_container_val *c = lily_as_container(v);
-    lily_value *inner_value = lily_con_get(c, 0);
-
-    if (inner_value->flags & VAL_HAS_SWEEP_FLAG)
-        gc_mark(pass, inner_value);
-}
-
 static void list_marker(int pass, lily_value *v)
 {
     if (v->flags & VAL_IS_GC_TAGGED) {
@@ -480,8 +463,6 @@ static void gc_mark(int pass, lily_value *v)
             list_marker(pass, v);
         else if (class_id == LILY_ID_HASH)
             hash_marker(pass, v);
-        else if (class_id == LILY_ID_DYNAMIC)
-            dynamic_marker(pass, v);
         else if (class_id == LILY_ID_FUNCTION)
             function_marker(pass, v);
         else if (class_id == LILY_ID_COROUTINE)
@@ -834,11 +815,6 @@ void lily_push_double(lily_state *s, double v)
 {
     PUSH_PREAMBLE
     SET_TARGET(LILY_ID_DOUBLE, doubleval, v);
-}
-
-lily_container_val *lily_push_dynamic(lily_state *s)
-{
-    PUSH_CONTAINER(LILY_ID_DYNAMIC, VAL_IS_INSTANCE, 1);
 }
 
 void lily_push_empty_variant(lily_state *s, uint16_t id)
@@ -1230,17 +1206,6 @@ void lily_stdout_print(lily_vm_state *vm)
         vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
-}
-
-void lily_builtin_Dynamic_new(lily_vm_state *vm)
-{
-    lily_value *input = lily_arg_value(vm, 0);
-
-    lily_container_val *dynamic_val = lily_push_dynamic(vm);
-    lily_con_set(dynamic_val, 0, input);
-
-    lily_return_top(vm);
-    lily_value_tag(vm, vm->call_chain->return_target);
 }
 
 /***

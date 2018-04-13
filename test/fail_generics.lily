@@ -30,15 +30,17 @@ t.interpret_for_error("Forbid double resolve of a type.",
     SyntaxError: List elements do not have a consistent type.\n\
     Expected Type: A\n\
     Received Type: List[Integer]\n    \
-        from test\/[subinterp]:21:\
+        from test\/[subinterp]:23:\
     """,
     """\
+    class Box(a: Integer) {}
+
     define f[A, B](one: A, two: B, three: B) {  }
 
     define g[A](one: A) {
         # Here's what's supposed to happen:
-        # The first argument to f is processed as List[Dynamic].
-        # f: A = List[Dynamic]
+        # The first argument to f is processed as List[Box].
+        # f: A = List[Box]
         # The second argument is List[A]
         # f: B = List[A]
         # The third argument is List[Integer].
@@ -51,9 +53,9 @@ t.interpret_for_error("Forbid double resolve of a type.",
 
         # Incorrect:
         # [[1]], expect B.       B = List[List[A]]
-        #  [1],  expect List[A]. A = Dynamic (double resolve!)
+        #  [1],  expect List[A]. A = Box (double resolve!)
 
-        f([Dynamic(10)], [one], [[1]])
+        f([Box(10)], [one], [[1]])
     }
     """)
 
@@ -61,18 +63,20 @@ t.interpret_for_error("Forbid double resolve in call arguments.",
     """\
     SyntaxError: List elements do not have a consistent type.\n\
     Expected Type: A\n\
-    Received Type: Dynamic\n    \
-        from test\/[subinterp]:12:\
+    Received Type: Box\n    \
+        from test\/[subinterp]:14:\
     """,
     """\
+    class Box(a: Integer) {}
+
     define f[A, B](value: A, value2: B, value3: B) {
 
     }
 
     define g[A, B](value: A, value2: B) {
-        var a = Dynamic(10)
+        var a = Box(10)
 
-        # f's A is first resolved as 'Dynamic'.
+        # f's A is first resolved as 'Box'.
         # B is then resolved as List[A] but it's g's A.
         # The last part fails: B is a list of g's A (which is quasi-known) but is
         # given a list of any.

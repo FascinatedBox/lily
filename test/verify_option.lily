@@ -22,7 +22,7 @@ t.assert("Option.and with None and None.",
          (|| None.and(None).is_none() ))
 
 t.assert("Option.and with None and Some.",
-         (|| None.and(Some(Dynamic(1))).is_none() ))
+         (|| None.and(Some(1)).is_none() ))
 
 t.assert("Option.and with Some and None.",
          (|| Some(1).and(None).is_none() ))

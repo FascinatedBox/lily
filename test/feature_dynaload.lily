@@ -30,10 +30,12 @@ t.interpret("Check multiple dynaload in list expression.",
 
 t.interpret("Verify class dynaload on left side of pipe.",
     """
+    class ExceptionBox(e: Function(String => Exception)) {}
+
     var v = [
-        ValueError    |> Dynamic,
-        IOError("10") |> Dynamic,
-        KeyError      |> Dynamic
+        ValueError |> ExceptionBox,
+        IOError    |> ExceptionBox,
+        KeyError   |> ExceptionBox
         ]
     """)
 
