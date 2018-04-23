@@ -63,6 +63,9 @@ cmake .
 make
 ```
 
+Note: Windows users may need to add `-G"Unix Makefiles"` to the end of the cmake
+invocation.
+
 The above will build the `lily` executable, as well as a liblily that you can
 use with your program. It also builds `pre-commit-tests`.
 
