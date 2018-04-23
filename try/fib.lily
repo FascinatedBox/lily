@@ -1,14 +1,19 @@
 # fibonacci numbers
 class Fib {
-  public var @a=0
-  public var @b=1
-  public define next:Integer{
-    var c=@a+@b
-    @a=@b
-    @b=c
-    return @a
-  }
+    public var @a=0
+    public var @b=1
+    public define next: Integer {
+        var c = @a + @b
+        @a = @b
+        @b = c
+        return @a
+    }
 }
 
-var fib=Fib()
-print([fib.next(),fib.next(),fib.next(),fib.next(),fib.next(),fib.next()])
+var fib = Fib()
+print([fib.next(),
+       fib.next(),
+       fib.next(),
+       fib.next(),
+       fib.next(),
+       fib.next()])
