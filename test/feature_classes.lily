@@ -27,8 +27,9 @@ t.interpret("Match against class.",
 
     var v: List[One] = [Three(), Two(), One(), Two(), Three()]
 
-    if v.map(f) != [3, 2, 1, 2, 3]:
-        raise Exception("Failed.")
+    if v.map(f) != [3, 2, 1, 2, 3]: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify that inherited classes have the right layout.",
@@ -92,8 +93,9 @@ t.interpret("Verify class basics.",
 
     define check_layout {
         var v = Three(1, "2", [3])
-        if v.a != 1 || v.b != "2" || v.c != [3]:
+        if v.a != 1 || v.b != "2" || v.c != [3]: {
             raise Exception("Variables may have been laid out incorrectly.")
+        }
     }
 
     assign_to_better()
@@ -126,8 +128,9 @@ t.interpret("Verify calls to class methods.",
         One.f(self)
 
         public define add {
-            if 1:
+            if 1: {
                 @a += 1
+            }
         }
     }
     """)
@@ -166,8 +169,9 @@ t.interpret("Check short class constructors.",
     class Test1(var @x: Integer, y: Integer, var @z: Integer) {}
 
     var t1 = Test1(10, 20, 30)
-    if t1.x != 10 || t1.z != 30:
-        raise Exception("Failed.")
+    if t1.x != 10 || t1.z != 30: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify class inheritance shorthand.",
@@ -177,8 +181,9 @@ t.interpret("Verify class inheritance shorthand.",
 
     var v = NthBase(1, "abc")
 
-    if v.index != 1 || v.str != "abc":
-        raise Exception("Failed.")
+    if v.index != 1 || v.str != "abc": {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify class match by calling class methods.",
@@ -205,8 +210,9 @@ t.interpret("Verify class match by calling class methods.",
 
     var v: List[Base] = [Right(), Left(), Up(), Left(), Right()]
 
-    if v.map(f) != ["R", "L", "B", "L", "R"]:
-        raise Exception("Failed.")
+    if v.map(f) != ["R", "L", "B", "L", "R"]: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Allow an inherited constructor to pass 'self'.",
@@ -250,8 +256,10 @@ t.interpret("Verify subscript assignment to property.",
         public var @map = ["one" => ["1"]]
 
         public define add(key: String, val: String) {
-            if ! @map.has_key(key):
+            if ! @map.has_key(key): {
                 @map[key] = []
+            }
+
             @map[key].push(val)
         }
     }
@@ -278,8 +286,9 @@ t.interpret("Get class method through instance",
 
     var v = Example().f
 
-    if v(Example()) != [1, 2, 3]:
-        raise Exception("Failed.")
+    if v(Example()) != [1, 2, 3]: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify class match allowing _ to skip decomposition.",
@@ -315,8 +324,9 @@ t.interpret("Verify that a lambda can call class methods through 'self'.",
     var f = v.g()
 
     f()
-    if v.v != 20:
-        raise Exception("Failed.")
+    if v.v != 20: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Redeclare private member with new linkage.",
@@ -334,8 +344,9 @@ t.interpret("Redeclare private member with new linkage.",
 
     var v = Two()
 
-    if v.two_a() != 20 || v.one_a() != 10:
-        raise Exception("Failed.")
+    if v.two_a() != 20 || v.one_a() != 10: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Returning the special self type works.",
@@ -358,8 +369,9 @@ t.interpret("Returning the special self type works.",
     a = a.g()
          .f()
 
-    if a.a != 201 || a.b != 2002:
-        raise Exception("Failed.")
+    if a.a != 201 || a.b != 2002: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Call a class property that is a function.",
@@ -375,8 +387,9 @@ t.interpret("Call a class property that is a function.",
         public var @a = f
     }
 
-    if Example().a(2) != [1, 2]:
-        raise Exception("Failed.")
+    if Example().a(2) != [1, 2]: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Define and use a static method.",
@@ -387,8 +400,9 @@ t.interpret("Define and use a static method.",
         }
     }
 
-    if Example.f() != 10:
-        raise Exception("Failed.")
+    if Example.f() != 10: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Static method from non-static method.",
@@ -403,8 +417,9 @@ t.interpret("Static method from non-static method.",
         }
     }
 
-    if Example().g() != 100:
-        raise Exception("Failed.")
+    if Example().g() != 100: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Usage of a class constructor var.",

@@ -23,8 +23,9 @@ define rpn(input: String): Result[String, List[Integer]]
         if v.is_digit(): {
             v.parse_i().unwrap() |> stack.push
         elif v.is_space() == false:
-            if stack.size() < 2:
+            if stack.size() < 2: {
                 return Failure("Stack underflow")
+            }
 
             var right = stack.pop()
             var left = stack.pop()

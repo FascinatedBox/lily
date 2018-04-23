@@ -47,16 +47,18 @@ t.interpret("Check using a single import ref.",
     """\
     import (ref_var) "import_dir/ref_spectrum"
 
-    if ref_var != 10:
-        raise Exception("Failed.")
+    if ref_var != 10: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Check using multiple import refs.",
     """\
     import (ref_var, RefSquarer) "import_dir/ref_spectrum"
 
-    if RefSquarer().square(ref_var) != 20:
-        raise Exception("Failed.")
+    if RefSquarer().square(ref_var) != 20: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Scoped enum from import ref.",
@@ -106,8 +108,9 @@ t.interpret("Direct import that shadows the module name.",
     """\
     import (fakefib) "import_dir/fakefib"
 
-    if fakefib(10) != 10:
-        raise Exception("Failed.")
+    if fakefib(10) != 10: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Direct import doesn't expose the module.",

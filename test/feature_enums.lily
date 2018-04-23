@@ -119,8 +119,9 @@ t.interpret("Verify an enum class member function.",
         }
     }
 
-    if Test.or_else(One(1), 2) != 1:
-        raise Exception("Failed.")
+    if Test.or_else(One(1), 2) != 1: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify that scoped enums don't collide with non-scoped enums.",
@@ -157,8 +158,9 @@ t.interpret("Verify enum match using else.",
         }
     }
 
-    if red_count != 1 || else_count != 2:
-        raise Exception("Failed.")
+    if red_count != 1 || else_count != 2: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify skipping match decomposition using underscore.",
@@ -206,8 +208,9 @@ t.interpret("Call chain with multiple member functions.",
          .and_then((|a| One(a * a)))
          .with_default(1)
          .force()
-        != 10000:
-        raise Exception("Failed.")
+        != 10000: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("[scoped_enums]",

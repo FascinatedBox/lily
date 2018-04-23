@@ -28,40 +28,45 @@ t.interpret("Verify __main__ exists and has a type.",
 t.assert("Boolean false is false.",
          (||
     var is_ok = true
-    if false:
+    if false: {
         is_ok = false
+    }
 
     is_ok ))
 
 t.assert("Integer 0 is false.",
          (||
     var is_ok = true
-    if 0:
+    if 0: {
         is_ok = false
+    }
 
     is_ok ))
 
 t.assert("Double 0.0 is false.",
          (||
     var is_ok = true
-    if 0.0:
+    if 0.0: {
         is_ok = false
+    }
 
     is_ok ))
 
 t.assert("String \"\" is false.",
          (||
     var is_ok = true
-    if "":
+    if "": {
         is_ok = false
+    }
 
     is_ok ))
 
 t.assert("List [] is false.",
          (||
     var is_ok = true
-    if 0:
+    if 0: {
         is_ok = false
+    }
 
     is_ok ))
 
@@ -391,9 +396,11 @@ t.assert("Call pipe to a variant.",
 t.assert("Nested for loop subscript assignment.",
          (||
     var v = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-    for i in 0...2:
-        for j in 0...2:
+    for i in 0...2: {
+        for j in 0...2: {
             v[i][j] = 1
+        }
+    }
 
     var result = (v == [[1, 1, 1], [1, 1, 1], [1, 1, 1]])
     result ))
@@ -413,9 +420,9 @@ t.assert("Check a basic do-while loop.",
          (||
     var v = 5
 
-    do:
+    do: {
         v += 1
-    while v != 10
+    } while v != 10
 
     v == 10 ))
 
@@ -503,8 +510,9 @@ t.assert("Break inside of a loop.",
     var count = 0
 
     while count != 5: {
-        if a == 1:
+        if a == 1: {
             break
+        }
 
         count += 1
     }
@@ -536,8 +544,9 @@ t.assert("Lists are falsey if empty.",
     var l: List[Integer] = []
     var ok = true
 
-    if l:
+    if l: {
         ok = false
+    }
 
     ok ))
 
@@ -546,8 +555,9 @@ t.assert("Lists are truthy if not empty.",
     var l: List[Integer] = [1]
     var ok = false
 
-    if l:
+    if l: {
         ok = true
+    }
 
     ok ))
 
@@ -556,7 +566,8 @@ t.assert("Lists are truthy if not empty.",
     var l: List[Integer] = [1]
     var ok = false
 
-    if l:
+    if l: {
         ok = true
+    }
 
     ok ))

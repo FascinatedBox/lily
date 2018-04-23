@@ -18,8 +18,9 @@ t.interpret("Verify that dynaloaded classes have a proper name.",
     except Exception as e:
         var v = "{0}".format(e)
         if v.starts_with("<DivisionByZeroError at ") == false ||
-           v.ends_with(">") == false:
+           v.ends_with(">") == false: {
             raise Exception("Interpolation failed.")
+        }
     }
     """)
 
@@ -89,10 +90,11 @@ t.interpret("Verify dynaload within expression to condition.",
     """
     var a = 1, b = 2, c = 3
 
-    if 1:
+    if 1: {
         var d = stdout
+    }
 
-    if 1:
+    if 1: {
         var e = [stderr, stdin]
-
+    }
     """)

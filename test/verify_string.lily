@@ -1,4 +1,4 @@
-import test
+`import test
 
 var t = test.t
 
@@ -330,7 +330,8 @@ t.interpret("Verify string equality.",
         var fn = t[2]
         var expect = t[3]
 
-        if fn(left, right) != expect:
+        if fn(left, right) != expect: {
             raise Exception("Failed.")
+        }
     }
     """)

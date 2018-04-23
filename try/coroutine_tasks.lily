@@ -17,8 +17,9 @@ var last_round = 0
 
 for i in 1...task_count: {
     var rng = r.between(1, max)
-    if rng > last_round:
+    if rng > last_round: {
         last_round = rng
+    }
 
     rng_list.push(rng)
     id_list.push(i)
@@ -63,8 +64,9 @@ while num_left: {
     }
 
     round += 1
-    if round == last_round:
+    if round == last_round: {
         break
+    }
 
     print("")
 }

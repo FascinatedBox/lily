@@ -255,8 +255,9 @@ t.interpret_for_error("Forbid assignment to parenth expression.",
     """,
     """\
     var a = 1
-    if 1:
+    if 1: {
         (a + a) = 1
+    }
     """)
 
 t.interpret_for_error("Forbid assignment to call expression.",
@@ -349,21 +350,6 @@ t.interpret_for_error("Forbid single-quote byte literals from being multi-byte."
     var v = '12'
     """)
 
-t.interpret_for_error("Multi-line try within single-line try.",
-    """\
-    SyntaxError: Multi-line block within single-line block.\n    \
-        from test\/[subinterp]:6:\
-    """,
-    """\
-    var a = 10
-
-    try:
-        1
-    except ValueError:
-        try: {
-        }
-    """)
-
 t.interpret_for_error("Forbid scoop types outside dynaload.",
     """\
     SyntaxError: Expected 'a label', not 'an integer'.\n    \
@@ -376,17 +362,18 @@ t.interpret_for_error("Forbid scoop types outside dynaload.",
 t.interpret_for_error("Broken return fold with if.",
     """\
     SyntaxError: Missing return statement at end of function.\n    \
-        from test\/[subinterp]:10:\
+        from test\/[subinterp]:11:\
     """,
     """\
     define f(a: Integer) : Integer
     {
-        if a == 1:
+        if a == 1: {
             return 1
         elif a == 1:
             a = 2
         else:
             return 3
+        }
     }
     """)
 
@@ -471,15 +458,16 @@ t.interpret_for_error("Broken return fold on class match else.",
 t.interpret_for_error("Broken return fold on try.",
     """\
     SyntaxError: Missing return statement at end of function.\n    \
-        from test\/[subinterp]:8:\
+        from test\/[subinterp]:9:\
     """,
     """\
     define f(a: Integer) : Integer
     {
-        try:
+        try: {
             a = 1
         except Exception:
             return 2
+        }
     }
     """)
 
@@ -518,15 +506,6 @@ t.interpret_for_error("Unterminated multi-line if.",
     """,
     """\
     if 1: {
-    """)
-
-t.interpret_for_error("Unterminated single-line if.",
-    """\
-    SyntaxError: Unexpected token 'end of file'.\n    \
-        from test\/[subinterp]:2:\
-    """,
-    """\
-    if 1:
     """)
 
 t.interpret_for_error("Wrong argument count to inner function.",
@@ -1076,16 +1055,6 @@ t.interpret_for_error("'continue' checks for dead code.",
         continue
         print(i)
     }
-    """)
-
-t.interpret_for_error("Statement expects a value.",
-    """\
-    SyntaxError: Expected a value, not '-='.\n    \
-        from test\/[subinterp]:2:\
-    """,
-    """\
-    for i in 0...10:
-        -=
     """)
 
 t.interpret_for_error("Define wrong token.",

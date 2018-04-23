@@ -455,21 +455,6 @@ t.interpret_for_error("case outside of match.",
     case 1
     """)
 
-t.interpret_for_error("Single-line match block.",
-    """\
-    SyntaxError: Match block cannot be in a single-line block.\n    \
-        from test\/[subinterp]:4:\
-    """,
-    """\
-    var v = Some(1)
-
-    if 1:
-        match v: {
-            case Some(s):
-            case None:
-        }
-    """)
-
 t.interpret_for_error("Duplicate enum match member.",
     """\
     SyntaxError: Already have a case for variant Some.\n    \

@@ -11,8 +11,9 @@ t.interpret_for_error("Return within a class constructor.",
     """,
     """\
     class example {
-        if 1:
+        if 1: {
             return self
+        }
     }
     """)
 

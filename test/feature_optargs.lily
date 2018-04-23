@@ -36,8 +36,9 @@ t.interpret("Empty enum as optional argument.",
 
     define func(message: String, target: *Option[File] = None)
     {
-        if target == None:
+        if target == None: {
             target = Some(stdout)
+        }
 
         var file_target = target.unwrap()
     }
@@ -97,8 +98,9 @@ t.interpret("Function with several optional arguments.",
        z(0, 0, 0, 0)          != 30 ||
        z(0, 0, 0, 0, 0)       != 20 ||
        z(0, 0, 0, 0, 0, 0)    != 10 ||
-       z(0, 0, 0, 0, 0, 0, 0) != 0:
+       z(0, 0, 0, 0, 0, 0, 0) != 0: {
        raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Class constructor with optional non-shorthand arguments.",
@@ -118,11 +120,13 @@ t.interpret("Function with optargs and varargs.",
     """
     define f(a: *Integer...=[1, 2, 3]): List[Integer] { return a }
 
-    if f() != [1, 2, 3]:
+    if f() != [1, 2, 3]: {
         raise Exception("Empty case failed.")
+    }
 
-    if f(3, 2, 1) != [3, 2, 1]:
+    if f(3, 2, 1) != [3, 2, 1]: {
         raise Exception("Non-empty case failed.")
+    }
     """)
 
 t.interpret("Function with optargs and varargs.",
@@ -130,11 +134,13 @@ t.interpret("Function with optargs and varargs.",
     define f(a: *Integer...=[1, 2, 3]): List[Integer] { return a }
 
     define g(a: Function(*Integer... => List[Integer])) {
-        if a() != [1, 2, 3]:
+        if a() != [1, 2, 3]: {
             raise Exception("Parameter empty case failed.")
+        }
 
-        if a(3, 2, 1) != [3, 2, 1]:
+        if a(3, 2, 1) != [3, 2, 1]: {
             raise Exception("Parameter non-empty case failed.")
+        }
     }
 
     g(f)

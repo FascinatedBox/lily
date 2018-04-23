@@ -19,8 +19,9 @@ t.interpret("Use a forward class method.",
     var v = Example(10)
     v.square_x()
     v.square_x()
-    if v.x != 10000:
-        raise Exception("Failed.")
+    if v.x != 10000: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Mutual recursion using forward.",
@@ -44,8 +45,9 @@ t.interpret("Mutual recursion using forward.",
 
     f(10)
 
-    if v != [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]:
-        raise Exception("Failed.")
+    if v != [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Forward function with optargs and varargs.",
@@ -59,8 +61,9 @@ t.interpret("Forward function with optargs and varargs.",
                varopt(5, 10),
                varopt(5, 10, 20, 30)]
 
-    if results != [6, 10, 18, 65]:
+    if results != [6, 10, 18, 65]: {
         raise Exception("Failed.")
+    }
 
     define varopt(x: *Integer = 1,
                   y: *Integer = 2,

@@ -10,20 +10,24 @@ t.interpret("Sandbox example: 100 doors.",
     """
     var doors = List.repeat(100, false)
 
-    for i in 0...99:
-        for j in i...99 by i + 1:
+    for i in 0...99: {
+        for j in i...99 by i + 1: {
             doors[j] = !doors[j]
+        }
+    }
 
     # The type must be specified since the List starts off empty.
     var open_doors: List[Integer] = []
 
     doors.each_index(|i|
-        if doors[i]:
+        if doors[i]: {
             open_doors.push(i + 1)
+        }
     )
 
-    if open_doors != [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]:
+    if open_doors != [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Sandbox example: Json.",
@@ -43,8 +47,9 @@ t.interpret("Sandbox example: Json.",
 
                     for i in 0...size: {
                         result = "{0}{1}".format(result, l[i].as_string())
-                        if i != size:
+                        if i != size: {
                             result = result ++ " "
+                        }
                     }
 
                     return result ++ "]"
@@ -67,8 +72,9 @@ t.interpret("Sandbox example: Json.",
             )
         ).as_string()
 
-    if v != "[[abc def] 1 2 [[0]]]":
+    if v != "[[abc def] 1 2 [[0]]]": {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Sandbox example: RPN Calculator.",
@@ -89,8 +95,9 @@ t.interpret("Sandbox example: RPN Calculator.",
                 case Some(number):
                     stack.push(number)
                 case None:
-                    if stack.size() < 2:
+                    if stack.size() < 2: {
                         return Failure("Stack underflow.")
+                    }
 
                     var right = stack.pop()
                     var left = stack.pop()
@@ -125,6 +132,7 @@ t.interpret("Sandbox example: RPN Calculator.",
         "1 2 ?: Failure(\\"Invalid operation ?.\\")"
     ]
 
-    if lines != expect:
+    if lines != expect: {
         raise Exception("Failed.")
+    }
     """)

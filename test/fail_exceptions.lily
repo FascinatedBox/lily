@@ -29,10 +29,11 @@ t.interpret_for_error("Forbid catch of classes not inheriting Exception.",
         from test\/[subinterp]:3:\
     """,
     """\
-    try:
+    try: {
         1 / 0
     except String:
         0
+    }
     """)
 
 t.interpret_for_error("Verify custom exception throw.",
@@ -56,10 +57,11 @@ t.interpret_for_error("Throw exception in except clause of a different exception
         from test\/[subinterp]:4: in __main__\
     """,
     """\
-    try:
+    try: {
         raise ValueError("10")
     except ValueError:
         var v = 1 / 0
+    }
     """)
 
 t.interpret_for_error("Throw exception from a method.",
@@ -158,10 +160,11 @@ t.interpret_for_error("Forbid using 'try' vars in 'except' clauses.",
     """,
     """\
     # This isn't allowed, because 'v' cannot be guaranteed to be set.
-    try:
+    try: {
         var v = 10
     except Exception:
         v = 11
+    }
     """)
 
 t.interpret_for_error("Forbid unreachable except clauses.",
@@ -204,10 +207,11 @@ t.interpret_for_error("Except var already declared.",
     """,
     """\
     var v = 10
-    try:
+    try: {
         1
     except Exception as v:
         1
+    }
     """)
 
 t.interpret_for_error("A label after except class should be 'as'.",
@@ -216,10 +220,11 @@ t.interpret_for_error("A label after except class should be 'as'.",
         from test\/[subinterp]:3:\
     """,
     """\
-    try:
+    try: {
         1
     except Exception asdf:
         1
+    }
     """)
 
 t.interpret_for_error("Raise exception with empty message.",

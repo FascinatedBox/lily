@@ -56,4 +56,4 @@ t.rewind("Rewind within a try block.",
         from test\/[subinterp]:1: in __main__\
     """,
     "",
-    "try: 1 / 0 except ValueError: 0")
+    "try: { 1 / 0 except ValueError: 0 }")

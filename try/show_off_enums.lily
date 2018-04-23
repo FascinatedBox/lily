@@ -14,8 +14,9 @@ enum TreeObject {
 
                 for i in 0...size: {
                     result = "{0}{1}".format(result, l[i].as_string())
-                    if i != size:
+                    if i != size: {
                         result = result ++ " "
+                    }
                 }
 
                 return result ++ "]"

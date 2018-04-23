@@ -18,23 +18,27 @@ t.interpret("Cover using a for loop with global var index.",
     var local_l: List[Integer] = []
 
     define f {
-        for global_index in 0...10:
+        for global_index in 0...10: {
             global_l.push(global_index)
+        }
 
-        for i in 0...10:
+        for i in 0...10: {
             local_l.push(i)
+        }
     }
 
     f()
 
-    if global_l != local_l:
+    if global_l != local_l: {
         raise Exception("Failed.")
+    }
     """)
 
 t.assert("Cover a loop with a break in the same branch.",
          (||
-    for i in 0...10:
+    for i in 0...10: {
         break
+    }
 
     true ))
 
@@ -62,10 +66,11 @@ t.interpret("Cover special case closure transform of a generic call.",
 
         var i = 1
 
-        if i == 1:
+        if i == 1: {
             a()
         else:
             a()
+        }
     }
     """)
 
@@ -78,8 +83,9 @@ t.interpret("Cover compound assign with dot access.",
     var v = Example()
     v.a += 5
 
-    if v.a != 15:
+    if v.a != 15: {
         raise Exception("Failed")
+    }
     """)
 
 t.assert("Cover compound assign with subscript access.",
@@ -114,8 +120,9 @@ t.assert("Cover single-expression while loop.",
          (||
     var v = 1
 
-    while v != 10:
+    while v != 10: {
         v += 1
+    }
 
     v == 10 ))
 
@@ -127,8 +134,9 @@ t.assert("Cover <[ when wanting an operator.",
 t.assert("Cover for loop with negative step.",
          (||
     var l: List[Integer] = []
-    for i in 5...0 by -1:
+    for i in 5...0 by -1: {
         l.push(i)
+    }
 
     l == [5, 4, 3, 2, 1, 0] ))
 
@@ -167,15 +175,17 @@ t.interpret("Verify foreign function error recovery on exception.",
         0
     }
 
-    try:
+    try: {
         h.delete(4)
     except RuntimeError:
         raise Exception("Hash.delete should not fail outside select.")
+    }
 
     try: {
         h.select(|key, value|
-            if key == 2:
+            if key == 2: {
                 key = key / 0
+            }
 
             true )
         raise Exception("Hash select lambda should have raised an error.")
@@ -183,10 +193,11 @@ t.interpret("Verify foreign function error recovery on exception.",
         0
     }
 
-    try:
+    try: {
         h.delete(1)
     except DivisionByZeroError:
         raise Exception("Hash select did not recover properly.")
+    }
     """)
 
 t.assert("Subscript get of a ByteString value.",
@@ -241,11 +252,13 @@ t.interpret("Cover msgbuf interpolation of a scoped enum.",
     var zero = Example.Zero
     var one = Example.One(1)
 
-    if "{0}".format(zero) != "Example.Zero":
+    if "{0}".format(zero) != "Example.Zero": {
         raise Exception("Failed to interpolate an empty scoped variant.")
+    }
 
-    if "{0}".format(one) != "Example.One(1)":
+    if "{0}".format(one) != "Example.One(1)": {
         raise Exception("Failed to interpolate a scoped variant with args.")
+    }
     """)
 
 t.interpret("Cover msgbuf interpolation of a flat enum.",
@@ -258,19 +271,22 @@ t.interpret("Cover msgbuf interpolation of a flat enum.",
     var zero = Example.Zero
     var one = Example.One(1)
 
-    if "{0}".format(zero) != "Zero":
+    if "{0}".format(zero) != "Zero": {
         raise Exception("Failed to interpolate an empty scoped variant.")
+    }
 
-    if "{0}".format(one) != "One(1)":
+    if "{0}".format(one) != "One(1)": {
         raise Exception("Failed to interpolate a scoped variant with args.")
+    }
     """)
 
 t.interpret("Cover interpolation of a Unit value.",
     """
     define f {}
 
-    if "{0}".format(f()) != "unit":
+    if "{0}".format(f()) != "unit": {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Cover interpolation of File.",
@@ -279,11 +295,13 @@ t.interpret("Cover interpolation of File.",
     var w = stdin
     w.close()
 
-    if "{0}".format(v).starts_with("<open file at ") == false:
+    if "{0}".format(v).starts_with("<open file at ") == false: {
         raise Exception("Failed to interpolate an open file.")
+    }
 
-    if "{0}".format(w).starts_with("<closed file at ") == false:
+    if "{0}".format(w).starts_with("<closed file at ") == false: {
         raise Exception("Failed to interpolate a closed file.")
+    }
     """)
 
 t.assert("Cover interpolation of a Hash.",
@@ -320,8 +338,9 @@ t.interpret("Cover interpolation of a native function.",
     """
     define f { }
 
-    if "{0}".format(f) != "<function f>":
+    if "{0}".format(f) != "<function f>": {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Cover interpolation of a native method.",
@@ -330,8 +349,9 @@ t.interpret("Cover interpolation of a native method.",
         public define f {}
     }
 
-    if "{0}".format(Example.f) != "<function Example.f>":
+    if "{0}".format(Example.f) != "<function Example.f>": {
         raise Exception("Failed.")
+    }
     """)
 
 t.assert("Cover interpolation of a Double.",
@@ -383,9 +403,9 @@ t.assert("Cover reserving a big List.",
 t.assert("Cover a do-while with a non-literal condition.",
          (||
     var v = 1
-    do:
+    do: {
         v += 1
-    while v == 1
+    } while v == 1
 
     true ))
 
@@ -399,8 +419,9 @@ t.interpret("Cover subscript inference through a solved prop.",
 
     v.v[0] = 2
 
-    if v.v[0] != 2:
+    if v.v[0] != 2: {
         raise Exception("Failed.")
+    }
     """)
 
 t.assert("Cover subscript inference through Tuple.",
@@ -414,8 +435,9 @@ t.interpret("Cover scanning over Windows newlines.",
     """
     var v = 10\r\n\
     v = 11\r\n\
-    if v != 11:\r\n\
+    if v != 11: {\r\n\
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret_for_error("Cover wrong type with a vararg function.",
@@ -468,8 +490,9 @@ t.interpret("Cover use of an imported flat enum.",
     import (FlatEnum, FlatOne, FlatTwo, FlatThree) "../lib/covlib"
 
     var v = "" ++ FlatTwo
-    if v != "FlatTwo":
+    if v != "FlatTwo": {
         raise Exception("Failed to interpolate.")
+    }
 
     define f(l: List[FlatEnum]): List[Integer] {
         var result: List[Integer] = []
@@ -490,8 +513,9 @@ t.interpret("Cover use of an imported flat enum.",
     }
 
     var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
-    if v2 != [1, 2, 3, 2, 1]:
+    if v2 != [1, 2, 3, 2, 1]: {
         raise Exception("Failed to match and transform.")
+    }
     """)
 
 t.interpret("Cover use of an imported scoped enum.",
@@ -499,8 +523,9 @@ t.interpret("Cover use of an imported scoped enum.",
     import (ScopedEnum) "../lib/covlib"
 
     var v = "" ++ ScopedEnum.ScopedTwo
-    if v != "ScopedEnum.ScopedTwo":
+    if v != "ScopedEnum.ScopedTwo": {
         raise Exception("Failed to interpolate.")
+    }
 
     define f(l: List[ScopedEnum]): List[Integer] {
         var result: List[Integer] = []
@@ -521,8 +546,9 @@ t.interpret("Cover use of an imported scoped enum.",
     }
 
     var v2 = f([ScopedEnum.ScopedThree, ScopedEnum.ScopedOne, ScopedEnum.ScopedTwo])
-    if v2 != [3, 1, 2]:
+    if v2 != [3, 1, 2]: {
         raise Exception("Failed to match and transform.")
+    }
     """)
 ]#
 
@@ -537,8 +563,9 @@ t.interpret("Cover equality of an empty function return and 'unit'.",
     """
     define f { }
 
-    if f() != unit:
+    if f() != unit: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret_for_error("Cover printing a Function with optional varargs.",
@@ -584,22 +611,25 @@ t.interpret_for_error("Cover elif after else in multi-line if.",
 
 t.interpret("Cover comparison of Byte values.",
     """\
-    if 10t > 11t:
+    if 10t > 11t: {
         raise Exception("Failed (>).")
+    }
 
-    if 10t >= 10t:
+    if 10t >= 10t: {
         0
     else:
         raise Exception("Failed (>=).")
+    }
 
-    if 11t <= 11t:
+    if 11t <= 11t: {
         0
     else:
         raise Exception("Failed (<=).")
+    }
 
-    if 12t <= 11t:
+    if 12t <= 11t: {
         raise Exception("Failed (<=).")
-
+    }
     """)
 
 # This test leaks memory if circular values aren't dropped properly.

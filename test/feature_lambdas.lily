@@ -102,8 +102,9 @@ t.interpret("Lambda with single-quote character.",
     """
     var v = (|| ['a', 'b', 'c'])
 
-    if v() != ['a', 'b', 'c']:
-        raise Exception("Failed.")
+    if v() != ['a', 'b', 'c']: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify heavily-nested lambdas.",
@@ -138,8 +139,9 @@ t.interpret("Comment block inside of a lambda.",
     ]#
     __line__ )
 
-    if v() != 5:
+    if v() != 5: {
         raise Exception("Failed. {0}".format(v()))
+    }
     """)
 
 t.interpret("Comment lines inside of a lambda.",
@@ -153,6 +155,7 @@ t.interpret("Comment lines inside of a lambda.",
         __line__
         w )
 
-    if v() != 7:
+    if v() != 7: {
         raise Exception("Failed. {0}".format(v()))
+    }
     """)

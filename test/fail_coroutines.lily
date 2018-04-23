@@ -42,6 +42,7 @@ t.interpret("Can't yield while in a foreign call.",
         return 1
     }
 
-    if Coroutine.build(fn).resume().is_some():
+    if Coroutine.build(fn).resume().is_some(): {
         raise Exception("Failed.")
+    }
     """)

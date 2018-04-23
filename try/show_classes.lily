@@ -11,10 +11,11 @@ class Point(x: Integer, y: Integer)
 
     public define compare(other: Point): Boolean
     {
-        if @x == other.x && @y == other.y:
+        if @x == other.x && @y == other.y: {
             return true
         else:
             return false
+        }
     }
 
     public define to_s: String

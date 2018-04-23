@@ -1,15 +1,18 @@
 var doors = List.repeat(100, false)
 
-for i in 0...99:
-    for j in i...99 by i + 1:
+for i in 0...99: {
+    for j in i...99 by i + 1: {
         doors[j] = !doors[j]
+    }
+}
 
 # The type must be specified since the list starts off empty.
 var open_doors: List[Integer] = []
 
 doors.each_index(|i|
-    if doors[i]:
+    if doors[i]: {
         open_doors.push(i + 1)
+    }
 )
 
 print("Open doors: {0}".format(open_doors))

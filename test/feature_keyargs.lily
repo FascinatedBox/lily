@@ -7,8 +7,9 @@ t.scope(__file__)
 t.interpret("Keyarg basic collection.",
     """
     define f(:a a: Integer, :b b: String, :c c: List[Boolean]) {
-        if <[a, b, c]> != <[1, "2", [true]]>:
+        if <[a, b, c]> != <[1, "2", [true]]>: {
             raise Exception("Failed.")
+        }
     }
 
     f(:a 1, :b "2", :c [true])
@@ -25,9 +26,10 @@ t.interpret("Keyarg spectrum of only keyargs.",
                 :ee        e: Integer) {
         var got = [a, b, c, d, e]
 
-        if got != expect:
+        if got != expect: {
             stderr.print("Expected {0}, but have {1} instead."
                     .format(expect, got))
+        }
     }
 
     f(:aa 111, :bb 222, :cc 333, :ee 555, :dd 444)
@@ -131,8 +133,9 @@ t.interpret("Keyarg spectrum of only keyargs.",
 t.interpret("Keyargs after posargs.",
     """
     define f(a: Integer, b: Integer, :c c: Integer, :d d: Integer) {
-        if [a, b, c, d] != [5, 10, 15, 20]:
+        if [a, b, c, d] != [5, 10, 15, 20]: {
             raise Exception("Failed.")
+        }
     }
 
     f(5, 10, :c 15, :d 20)
@@ -142,8 +145,9 @@ t.interpret("Keyargs after posargs.",
 t.interpret("Duplicate keyargs for vararg.",
     """
     define f(:a a: Integer...) {
-        if a != [5, 10, 15, 20]:
+        if a != [5, 10, 15, 20]: {
             raise Exception("Failed.")
+        }
     }
 
     f(5, 10, :a 15, :a 20)
@@ -198,8 +202,9 @@ t.interpret("Class method taking keyargs.",
         }
     }
 
-    if Example().f(:a 10) != 10:
-        raise Exception("Failed.")
+    if Example().f(:a 10) != 10: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Keyargs mixed order for a variant.",
@@ -212,8 +217,9 @@ t.interpret("Keyargs mixed order for a variant.",
     var v = One(:c false, :a 10, :b "asdf")
     var v2 = One(10, "asdf", false)
 
-    if v != v2:
-        raise Exception("Failed.")
+    if v != v2: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Keyargs mixed order for a scoped variant.",
@@ -226,8 +232,9 @@ t.interpret("Keyargs mixed order for a scoped variant.",
     var v = Example.One(:b "asdf", :a 10, :c false)
     var v2 = Example.One(10, "asdf", false)
 
-    if v != v2:
-        raise Exception("Failed.")
+    if v != v2: {
+       raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Keyarg spectrum with optarg holes.",
@@ -240,8 +247,9 @@ t.interpret("Keyarg spectrum with optarg holes.",
     {
         var total = a + b + c + d
 
-        if total != expect:
+        if total != expect: {
             raise Exception("Failed.")
+        }
     }
 
     keyopt_fn (10, :a 1, :b 2, :c 3, :d 4)
@@ -391,8 +399,9 @@ t.interpret("Keyarg+vararg with vararg defaulting.",
     {
         var total = a + b + c.fold(0, (|x, y| x + y ))
 
-        if total != expect:
+        if total != expect: {
             raise Exception("Failed.")
+        }
     }
 
     vakeyopt_fn(12, :a 2, :b 3)
@@ -407,8 +416,9 @@ t.interpret("Keyarg+vararg with only varargs.",
     {
         var total = a + b + c.fold(0, (|x, y| x + y ))
 
-        if total != expect:
+        if total != expect: {
             raise Exception("Failed.")
+        }
     }
 
     vakeyopt_fn(18, :c 5, :c 10)

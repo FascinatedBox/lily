@@ -16,10 +16,11 @@ t.interpret("Check jump patching of closures.",
             return a
         }
 
-        if a <= 0:
+        if a <= 0: {
             return a
         else:
             return g()
+        }
     }
 
     f()
@@ -50,8 +51,9 @@ t.interpret("Verify that closures are getting fresh cells.",
         return [a[1](), b[1]()]
     }
 
-    if f() != [[0, 1, 2, 3], [0, 1]]:
+    if f() != [[0, 1, 2, 3], [0, 1]]: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify calling into the closure base creates a different closure.",
@@ -74,8 +76,9 @@ t.interpret("Verify calling into the closure base creates a different closure.",
                     g()
                     # This test ensures that the inner call to g doesn't modify the
                     # upvalues of the current call to g.
-                    if v != 110:
+                    if v != 110: {
                         ok = false
+                    }
                 }
             }
 
@@ -86,8 +89,9 @@ t.interpret("Verify calling into the closure base creates a different closure.",
         return ok
     }
 
-    if f() != true:
+    if f() != true: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closure over a function parameter.",
@@ -106,8 +110,9 @@ t.interpret("Verify closure over a function parameter.",
 
     increment()
     increment()
-    if ret() != 12:
+    if ret() != 12: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closing over of locals in a constructor.",
@@ -119,8 +124,9 @@ t.interpret("Verify closing over of locals in a constructor.",
         }
     }
 
-    if Example().k(5) != 25:
+    if Example().k(5) != 25: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closing a global loop var in a function.",
@@ -131,11 +137,13 @@ t.interpret("Verify closing a global loop var in a function.",
 
     var l: List[Function( => Integer)] = []
 
-    for i in 0...4:
+    for i in 0...4: {
         l.push(wrap(i))
+    }
 
-    if l.map(|f| f() ) != [0, 1, 4, 9, 16]:
+    if l.map(|f| f() ) != [0, 1, 4, 9, 16]: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closure jump patching can go backward.",
@@ -161,13 +169,15 @@ t.interpret("Verify closing over optarg parameter that isn't assigned.",
         return g
     }
 
-    if f()() != 10:
+    if f()() != 10: {
         raise Exception("Optarg closure with no args failed.")
+    }
 
     f(11)()
 
-    if f(11)() != 11:
+    if f(11)() != 11: {
         raise Exception("Optarg closure with 1 arg failed.")
+    }
     """)
 
 t.interpret("Verify match over an enum that is an upvalue.",
@@ -192,8 +202,9 @@ t.interpret("Verify returning a closure over a loop index.",
         return (|| 0)
     }
 
-    if test()() != 5:
+    if test()() != 5: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closure jump patching accounts for transforms.",
@@ -218,8 +229,9 @@ t.interpret("Verify closure jump patching accounts for transforms.",
             short = ch
         }
 
-        if short != "+":
+        if short != "+": {
             raise Exception("Failed.")
+        }
     }
 
     parse_line()
@@ -239,8 +251,9 @@ t.interpret("Verify returning a closure over a var that is decomposed to.",
         return v
     }
 
-    if f(Some(10))() != 10:
+    if f(Some(10))() != 10: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify closure jump patching for simple 'if'.",
@@ -252,10 +265,11 @@ t.interpret("Verify closure jump patching for simple 'if'.",
     # If they aren't, this crashes.
 
     define f {
-        if 1 == 1:
+        if 1 == 1: {
             g()
         else:
             g()
+        }
     }
 
     f()
@@ -274,8 +288,9 @@ t.interpret("Verify lambda closing over class self for prop assign.",
     var v = Example()
     var func = v.f()
     func()
-    if v.a != 2:
+    if v.a != 2: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify lambda closing over class self for prop get.",
@@ -288,8 +303,9 @@ t.interpret("Verify lambda closing over class self for prop get.",
         }
     }
 
-    if Example().f() != 10:
+    if Example().f() != 10: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify lambda closing over class self for a method call.",
@@ -303,8 +319,9 @@ t.interpret("Verify lambda closing over class self for a method call.",
         }
     }
 
-    if Example().f() != 10:
+    if Example().f() != 10: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret("Verify an inner define closing over class self for prop get.",
@@ -324,8 +341,9 @@ t.interpret("Verify an inner define closing over class self for prop get.",
         f()
     }
 
-    if Example().f() != 20:
+    if Example().f() != 20: {
         raise Exception("Failed.")
+    }
     """)
 
 t.interpret_for_error("Verify closure traceback.",

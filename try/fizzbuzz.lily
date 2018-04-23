@@ -2,15 +2,17 @@ define fizzbuzz(start: *Integer = 1, stop: *Integer = 100): List[String] {
     var result: List[String] = []
 
     for i in start...stop: {
-        if (i % 3) == 0:
-            if (i % 5) == 0:
+        if (i % 3) == 0: {
+            if (i % 5) == 0: {
                 result.push("FizzBuzz")
             else:
                 result.push("Fizz")
+            }
         elif (i % 5) == 0:
             result.push("Buzz")
         else:
             result.push("{0}".format(i))
+        }
     }
 
     return result
