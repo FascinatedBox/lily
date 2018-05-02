@@ -42,7 +42,7 @@ typedef struct lily_random_Random_ {
 #define INIT_Random(state)\
 (lily_random_Random *) lily_push_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
 
-const char *lily_random_table[] = {
+const char *lily_random_info_table[] = {
     "\01Random\0"
     ,"C\02Random\0"
     ,"m\0<new>\0(*Integer): Random"
@@ -52,14 +52,12 @@ const char *lily_random_table[] = {
 #define Random_OFFSET 1
 void lily_random_Random_new(lily_state *);
 void lily_random_Random_between(lily_state *);
-void *lily_random_loader(lily_state *s, int id)
-{
-    switch (id) {
-        case Random_OFFSET + 1: return lily_random_Random_new;
-        case Random_OFFSET + 2: return lily_random_Random_between;
-        default: return NULL;
-    }
-}
+void (*lily_random_call_table[])(lily_state *s) = {
+    NULL,
+    NULL,
+    lily_random_Random_new,
+    lily_random_Random_between,
+};
 /** End autogen section. **/
 
 static void destroy_Random(lily_random_Random *r)

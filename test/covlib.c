@@ -8,7 +8,7 @@ coverage.
 #include "lily.h"
 
 /** Begin autogen section. **/
-const char *lily_covlib_table[] = {
+const char *lily_covlib_info_table[] = {
     "\02FlatEnum\0ScopedEnum\0"
     ,"E\0FlatEnum\0"
     ,"V\0FlatOne\0"
@@ -22,12 +22,17 @@ const char *lily_covlib_table[] = {
 };
 #define FlatEnum_OFFSET 1
 #define ScopedEnum_OFFSET 5
-void *lily_covlib_loader(lily_state *s, int id)
-{
-    switch (id) {
-        default: return NULL;
-    }
-}
+void (*lily_covlib_call_table[])(lily_state *s) = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
 /** End autogen section. **/
 
 /**

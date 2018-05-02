@@ -362,14 +362,14 @@ int lily_load_library(lily_state *s, const char *path);
 // Load a preloaded library.
 //
 // Parameters:
-//     s              - The interpreter state.
-//     path           - The path to register for the library.
-//     dynaload_table - A dynaload table for the library.
-//     loader         - A loading function for the library.
+//     s          - The interpreter state.
+//     path       - The path to register for the library.
+//     info_table - An info table for the library.
+//     call_table - The call table companion to the NULL table.
 //
 // Returns 1 on success, 0 on failure.
 int lily_load_library_data(lily_state *s, const char *path,
-                           const char **dynaload_table, void *loader);
+                           const char **info_table, void *call_table);
 
 // Function: lily_load_string
 // Load a string (context path, then content) as a library.

@@ -19,7 +19,7 @@ typedef struct lily_time_Time_ {
 #define INIT_Time(state)\
 (lily_time_Time *) lily_push_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
 
-const char *lily_time_table[] = {
+const char *lily_time_info_table[] = {
     "\01Time\0"
     ,"C\04Time\0"
     ,"m\0clock\0: Double"
@@ -33,16 +33,14 @@ void lily_time_Time_clock(lily_state *);
 void lily_time_Time_now(lily_state *);
 void lily_time_Time_to_s(lily_state *);
 void lily_time_Time_since_epoch(lily_state *);
-void *lily_time_loader(lily_state *s, int id)
-{
-    switch (id) {
-        case Time_OFFSET + 1: return lily_time_Time_clock;
-        case Time_OFFSET + 2: return lily_time_Time_now;
-        case Time_OFFSET + 3: return lily_time_Time_to_s;
-        case Time_OFFSET + 4: return lily_time_Time_since_epoch;
-        default: return NULL;
-    }
-}
+void (*lily_time_call_table[])(lily_state *s) = {
+    NULL,
+    NULL,
+    lily_time_Time_clock,
+    lily_time_Time_now,
+    lily_time_Time_to_s,
+    lily_time_Time_since_epoch,
+};
 /** End autogen section. **/
 
 /**

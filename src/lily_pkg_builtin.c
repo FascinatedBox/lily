@@ -19,7 +19,7 @@ foundation of Lily.
 #include "lily_alloc.h"
 
 /** Begin autogen section. **/
-const char *lily_builtin_table[] = {
+const char *lily_builtin_info_table[] = {
     "\0\0"
     ,"N\02Boolean\0"
     ,"m\0to_i\0(Boolean): Integer"
@@ -288,120 +288,144 @@ void lily_builtin__calltrace(lily_state *);
 void lily_builtin_var_stdin(lily_state *);
 void lily_builtin_var_stderr(lily_state *);
 void lily_builtin_var_stdout(lily_state *);
-void *lily_builtin_loader(lily_state *s, int id)
-{
-    switch (id) {
-        case Boolean_OFFSET + 1: return lily_builtin_Boolean_to_i;
-        case Boolean_OFFSET + 2: return lily_builtin_Boolean_to_s;
-        case Byte_OFFSET + 1: return lily_builtin_Byte_to_i;
-        case ByteString_OFFSET + 1: return lily_builtin_ByteString_each_byte;
-        case ByteString_OFFSET + 2: return lily_builtin_ByteString_encode;
-        case ByteString_OFFSET + 3: return lily_builtin_ByteString_size;
-        case ByteString_OFFSET + 4: return lily_builtin_ByteString_slice;
-        case DivisionByZeroError_OFFSET + 1: return lily_builtin_DivisionByZeroError_new;
-        case Coroutine_OFFSET + 1: return lily_builtin_Coroutine_build;
-        case Coroutine_OFFSET + 2: return lily_builtin_Coroutine_build_with_value;
-        case Coroutine_OFFSET + 3: return lily_builtin_Coroutine_is_done;
-        case Coroutine_OFFSET + 4: return lily_builtin_Coroutine_is_failed;
-        case Coroutine_OFFSET + 5: return lily_builtin_Coroutine_is_waiting;
-        case Coroutine_OFFSET + 6: return lily_builtin_Coroutine_is_running;
-        case Coroutine_OFFSET + 7: return lily_builtin_Coroutine_receive;
-        case Coroutine_OFFSET + 8: return lily_builtin_Coroutine_resume;
-        case Coroutine_OFFSET + 9: return lily_builtin_Coroutine_resume_with;
-        case Coroutine_OFFSET + 10: return lily_builtin_Coroutine_yield;
-        case Double_OFFSET + 1: return lily_builtin_Double_to_i;
-        case Exception_OFFSET + 1: return lily_builtin_Exception_new;
-        case File_OFFSET + 1: return lily_builtin_File_close;
-        case File_OFFSET + 2: return lily_builtin_File_each_line;
-        case File_OFFSET + 3: return lily_builtin_File_flush;
-        case File_OFFSET + 4: return lily_builtin_File_open;
-        case File_OFFSET + 5: return lily_builtin_File_print;
-        case File_OFFSET + 6: return lily_builtin_File_read;
-        case File_OFFSET + 7: return lily_builtin_File_read_line;
-        case File_OFFSET + 8: return lily_builtin_File_write;
-        case Hash_OFFSET + 1: return lily_builtin_Hash_clear;
-        case Hash_OFFSET + 2: return lily_builtin_Hash_delete;
-        case Hash_OFFSET + 3: return lily_builtin_Hash_each_pair;
-        case Hash_OFFSET + 4: return lily_builtin_Hash_get;
-        case Hash_OFFSET + 5: return lily_builtin_Hash_has_key;
-        case Hash_OFFSET + 6: return lily_builtin_Hash_keys;
-        case Hash_OFFSET + 7: return lily_builtin_Hash_map_values;
-        case Hash_OFFSET + 8: return lily_builtin_Hash_merge;
-        case Hash_OFFSET + 9: return lily_builtin_Hash_reject;
-        case Hash_OFFSET + 10: return lily_builtin_Hash_select;
-        case Hash_OFFSET + 11: return lily_builtin_Hash_size;
-        case IndexError_OFFSET + 1: return lily_builtin_IndexError_new;
-        case Integer_OFFSET + 1: return lily_builtin_Integer_to_bool;
-        case Integer_OFFSET + 2: return lily_builtin_Integer_to_byte;
-        case Integer_OFFSET + 3: return lily_builtin_Integer_to_d;
-        case Integer_OFFSET + 4: return lily_builtin_Integer_to_s;
-        case IOError_OFFSET + 1: return lily_builtin_IOError_new;
-        case KeyError_OFFSET + 1: return lily_builtin_KeyError_new;
-        case List_OFFSET + 1: return lily_builtin_List_clear;
-        case List_OFFSET + 2: return lily_builtin_List_count;
-        case List_OFFSET + 3: return lily_builtin_List_delete_at;
-        case List_OFFSET + 4: return lily_builtin_List_each;
-        case List_OFFSET + 5: return lily_builtin_List_each_index;
-        case List_OFFSET + 6: return lily_builtin_List_fold;
-        case List_OFFSET + 7: return lily_builtin_List_fill;
-        case List_OFFSET + 8: return lily_builtin_List_get;
-        case List_OFFSET + 9: return lily_builtin_List_insert;
-        case List_OFFSET + 10: return lily_builtin_List_join;
-        case List_OFFSET + 11: return lily_builtin_List_map;
-        case List_OFFSET + 12: return lily_builtin_List_pop;
-        case List_OFFSET + 13: return lily_builtin_List_push;
-        case List_OFFSET + 14: return lily_builtin_List_reject;
-        case List_OFFSET + 15: return lily_builtin_List_repeat;
-        case List_OFFSET + 16: return lily_builtin_List_select;
-        case List_OFFSET + 17: return lily_builtin_List_size;
-        case List_OFFSET + 18: return lily_builtin_List_shift;
-        case List_OFFSET + 19: return lily_builtin_List_slice;
-        case List_OFFSET + 20: return lily_builtin_List_unshift;
-        case List_OFFSET + 21: return lily_builtin_List_zip;
-        case Option_OFFSET + 1: return lily_builtin_Option_and;
-        case Option_OFFSET + 2: return lily_builtin_Option_and_then;
-        case Option_OFFSET + 3: return lily_builtin_Option_is_none;
-        case Option_OFFSET + 4: return lily_builtin_Option_is_some;
-        case Option_OFFSET + 5: return lily_builtin_Option_map;
-        case Option_OFFSET + 6: return lily_builtin_Option_or;
-        case Option_OFFSET + 7: return lily_builtin_Option_or_else;
-        case Option_OFFSET + 8: return lily_builtin_Option_unwrap;
-        case Option_OFFSET + 9: return lily_builtin_Option_unwrap_or;
-        case Option_OFFSET + 10: return lily_builtin_Option_unwrap_or_else;
-        case Result_OFFSET + 1: return lily_builtin_Result_failure;
-        case Result_OFFSET + 2: return lily_builtin_Result_is_failure;
-        case Result_OFFSET + 3: return lily_builtin_Result_is_success;
-        case Result_OFFSET + 4: return lily_builtin_Result_success;
-        case RuntimeError_OFFSET + 1: return lily_builtin_RuntimeError_new;
-        case String_OFFSET + 1: return lily_builtin_String_format;
-        case String_OFFSET + 2: return lily_builtin_String_ends_with;
-        case String_OFFSET + 3: return lily_builtin_String_find;
-        case String_OFFSET + 4: return lily_builtin_String_html_encode;
-        case String_OFFSET + 5: return lily_builtin_String_is_alnum;
-        case String_OFFSET + 6: return lily_builtin_String_is_alpha;
-        case String_OFFSET + 7: return lily_builtin_String_is_digit;
-        case String_OFFSET + 8: return lily_builtin_String_is_space;
-        case String_OFFSET + 9: return lily_builtin_String_lower;
-        case String_OFFSET + 10: return lily_builtin_String_lstrip;
-        case String_OFFSET + 11: return lily_builtin_String_parse_i;
-        case String_OFFSET + 12: return lily_builtin_String_replace;
-        case String_OFFSET + 13: return lily_builtin_String_rstrip;
-        case String_OFFSET + 14: return lily_builtin_String_slice;
-        case String_OFFSET + 15: return lily_builtin_String_split;
-        case String_OFFSET + 16: return lily_builtin_String_starts_with;
-        case String_OFFSET + 17: return lily_builtin_String_strip;
-        case String_OFFSET + 18: return lily_builtin_String_to_bytestring;
-        case String_OFFSET + 19: return lily_builtin_String_trim;
-        case String_OFFSET + 20: return lily_builtin_String_upper;
-        case ValueError_OFFSET + 1: return lily_builtin_ValueError_new;
-        case toplevel_OFFSET + 0: return lily_builtin__print;
-        case toplevel_OFFSET + 1: return lily_builtin__calltrace;
-        case toplevel_OFFSET + 2: lily_builtin_var_stdin(s); return NULL;
-        case toplevel_OFFSET + 3: lily_builtin_var_stderr(s); return NULL;
-        case toplevel_OFFSET + 4: lily_builtin_var_stdout(s); return NULL;
-        default: return NULL;
-    }
-}
+void (*lily_builtin_call_table[])(lily_state *s) = {
+    NULL,
+    NULL,
+    lily_builtin_Boolean_to_i,
+    lily_builtin_Boolean_to_s,
+    NULL,
+    lily_builtin_Byte_to_i,
+    NULL,
+    lily_builtin_ByteString_each_byte,
+    lily_builtin_ByteString_encode,
+    lily_builtin_ByteString_size,
+    lily_builtin_ByteString_slice,
+    NULL,
+    lily_builtin_DivisionByZeroError_new,
+    NULL,
+    lily_builtin_Coroutine_build,
+    lily_builtin_Coroutine_build_with_value,
+    lily_builtin_Coroutine_is_done,
+    lily_builtin_Coroutine_is_failed,
+    lily_builtin_Coroutine_is_waiting,
+    lily_builtin_Coroutine_is_running,
+    lily_builtin_Coroutine_receive,
+    lily_builtin_Coroutine_resume,
+    lily_builtin_Coroutine_resume_with,
+    lily_builtin_Coroutine_yield,
+    NULL,
+    lily_builtin_Double_to_i,
+    NULL,
+    lily_builtin_Exception_new,
+    NULL,
+    NULL,
+    NULL,
+    lily_builtin_File_close,
+    lily_builtin_File_each_line,
+    lily_builtin_File_flush,
+    lily_builtin_File_open,
+    lily_builtin_File_print,
+    lily_builtin_File_read,
+    lily_builtin_File_read_line,
+    lily_builtin_File_write,
+    NULL,
+    NULL,
+    lily_builtin_Hash_clear,
+    lily_builtin_Hash_delete,
+    lily_builtin_Hash_each_pair,
+    lily_builtin_Hash_get,
+    lily_builtin_Hash_has_key,
+    lily_builtin_Hash_keys,
+    lily_builtin_Hash_map_values,
+    lily_builtin_Hash_merge,
+    lily_builtin_Hash_reject,
+    lily_builtin_Hash_select,
+    lily_builtin_Hash_size,
+    NULL,
+    lily_builtin_IndexError_new,
+    NULL,
+    lily_builtin_Integer_to_bool,
+    lily_builtin_Integer_to_byte,
+    lily_builtin_Integer_to_d,
+    lily_builtin_Integer_to_s,
+    NULL,
+    lily_builtin_IOError_new,
+    NULL,
+    lily_builtin_KeyError_new,
+    NULL,
+    lily_builtin_List_clear,
+    lily_builtin_List_count,
+    lily_builtin_List_delete_at,
+    lily_builtin_List_each,
+    lily_builtin_List_each_index,
+    lily_builtin_List_fold,
+    lily_builtin_List_fill,
+    lily_builtin_List_get,
+    lily_builtin_List_insert,
+    lily_builtin_List_join,
+    lily_builtin_List_map,
+    lily_builtin_List_pop,
+    lily_builtin_List_push,
+    lily_builtin_List_reject,
+    lily_builtin_List_repeat,
+    lily_builtin_List_select,
+    lily_builtin_List_size,
+    lily_builtin_List_shift,
+    lily_builtin_List_slice,
+    lily_builtin_List_unshift,
+    lily_builtin_List_zip,
+    NULL,
+    lily_builtin_Option_and,
+    lily_builtin_Option_and_then,
+    lily_builtin_Option_is_none,
+    lily_builtin_Option_is_some,
+    lily_builtin_Option_map,
+    lily_builtin_Option_or,
+    lily_builtin_Option_or_else,
+    lily_builtin_Option_unwrap,
+    lily_builtin_Option_unwrap_or,
+    lily_builtin_Option_unwrap_or_else,
+    NULL,
+    NULL,
+    NULL,
+    lily_builtin_Result_failure,
+    lily_builtin_Result_is_failure,
+    lily_builtin_Result_is_success,
+    lily_builtin_Result_success,
+    NULL,
+    NULL,
+    NULL,
+    lily_builtin_RuntimeError_new,
+    NULL,
+    lily_builtin_String_format,
+    lily_builtin_String_ends_with,
+    lily_builtin_String_find,
+    lily_builtin_String_html_encode,
+    lily_builtin_String_is_alnum,
+    lily_builtin_String_is_alpha,
+    lily_builtin_String_is_digit,
+    lily_builtin_String_is_space,
+    lily_builtin_String_lower,
+    lily_builtin_String_lstrip,
+    lily_builtin_String_parse_i,
+    lily_builtin_String_replace,
+    lily_builtin_String_rstrip,
+    lily_builtin_String_slice,
+    lily_builtin_String_split,
+    lily_builtin_String_starts_with,
+    lily_builtin_String_strip,
+    lily_builtin_String_to_bytestring,
+    lily_builtin_String_trim,
+    lily_builtin_String_upper,
+    NULL,
+    NULL,
+    lily_builtin_ValueError_new,
+    lily_builtin__print,
+    lily_builtin__calltrace,
+    lily_builtin_var_stdin,
+    lily_builtin_var_stderr,
+    lily_builtin_var_stdout,
+};
 /** End autogen section. **/
 
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy
@@ -3720,7 +3744,8 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
 
 void lily_register_pkg_builtin(lily_state *s)
 {
-    lily_module_register(s, "", lily_builtin_table, lily_builtin_loader);
+    lily_module_register(s, "", lily_builtin_info_table,
+            lily_builtin_call_table);
 }
 
 void lily_init_pkg_builtin(lily_symtab *symtab)

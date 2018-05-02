@@ -9,10 +9,6 @@ struct lily_var_;
 struct lily_type_;
 struct lily_vm_state_;
 
-/* A module that has a dynaload table should also come with a loader. The loader
-   is responsible for fetching functions and initializing variables. */
-typedef void *(*lily_loader)(struct lily_vm_state_ *, int);
-
 typedef struct {
     struct lily_class_ *next;
 
@@ -278,9 +274,9 @@ typedef struct lily_module_entry_ {
 
     /* For modules which wrap a library (or the builtin module), then this is
        the dynaload table inside of it. */
-    const char **dynaload_table;
+    const char **info_table;
 
-    lily_loader loader;
+    void (**call_table)(struct lily_vm_state_ *);
 
     uint16_t *cid_table;
 } lily_module_entry;

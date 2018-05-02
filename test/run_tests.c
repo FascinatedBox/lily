@@ -3,8 +3,8 @@
 
 #include "lily.h"
 
-extern const char *lily_extend_table[];
-void *lily_extend_loader(lily_state *s, int);
+extern const char *lily_extend_info_table[];
+extern void *lily_extend_call_table;
 
 int main(int argc, char **argv)
 {
@@ -13,8 +13,8 @@ int main(int argc, char **argv)
     lily_config_init(&config);
 
     lily_state *state = lily_new_state(&config);
-    lily_module_register(state, "extend", lily_extend_table,
-            lily_extend_loader);
+    lily_module_register(state, "extend", lily_extend_info_table,
+            lily_extend_call_table);
 
 #ifdef _WIN32
     if (lily_parse_file(state, "test\\test_main.lily") == 0) {

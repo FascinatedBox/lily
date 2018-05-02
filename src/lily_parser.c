@@ -81,17 +81,17 @@ typedef struct lily_rewind_state_
     uint32_t pending;
 } lily_rewind_state;
 
-extern const char *lily_builtin_table[];
-void *lily_builtin_loader(lily_state *s, int);
+extern const char *lily_builtin_info_table[];
+extern lily_foreign_func lily_builtin_call_table[];
 
-extern const char *lily_sys_table[];
-void *lily_sys_loader(lily_state *s, int);
+extern const char *lily_sys_info_table[];
+extern lily_foreign_func lily_sys_call_table[];
 
-extern const char *lily_random_table[];
-void *lily_random_loader(lily_state *s, int);
+extern const char *lily_random_info_table[];
+extern lily_foreign_func lily_random_call_table[];
 
-extern const char *lily_time_table[];
-void *lily_time_loader(lily_state *s, int);
+extern const char *lily_time_info_table[];
+extern lily_foreign_func lily_time_call_table[];
 
 void lily_init_pkg_builtin(lily_symtab *);
 
@@ -142,7 +142,8 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    lily_module_register(parser->vm, "", lily_builtin_table, lily_builtin_loader);
+    lily_module_register(parser->vm, "", lily_builtin_info_table,
+            lily_builtin_call_table);
     lily_set_builtin(parser->symtab, parser->module_top);
     lily_init_pkg_builtin(parser->symtab);
 
@@ -177,9 +178,12 @@ lily_state *lily_new_state(lily_config *config)
        need it. */
     create_main_func(parser);
 
-    lily_module_register(parser->vm, "sys", lily_sys_table, lily_sys_loader);
-    lily_module_register(parser->vm, "random", lily_random_table, lily_random_loader);
-    lily_module_register(parser->vm, "time", lily_time_table, lily_time_loader);
+    lily_module_register(parser->vm, "sys",lily_sys_info_table,
+            lily_sys_call_table);
+    lily_module_register(parser->vm, "random", lily_random_info_table,
+            lily_random_call_table);
+    lily_module_register(parser->vm, "time", lily_time_info_table,
+            lily_time_call_table);
 
     parser->executing = 0;
 
@@ -474,14 +478,14 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->dirname = NULL;
     module->path = NULL;
     module->cmp_len = 0;
-    module->dynaload_table = NULL;
+    module->info_table = NULL;
     module->cid_table = NULL;
     module->root_next = NULL;
     module->module_chain = NULL;
     module->class_chain = NULL;
     module->var_chain = NULL;
     module->handle = NULL;
-    module->loader = NULL;
+    module->call_table = NULL;
     module->boxed_chain = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
     module->flags = 0;
@@ -502,13 +506,13 @@ static lily_module_entry *new_module(lily_parse_state *parser)
 }
 
 static void add_data_to_module(lily_module_entry *module, void *handle,
-        const char **table, lily_loader loader)
+        const char **table, lily_foreign_func *call_table)
 {
     module->handle = handle;
-    module->dynaload_table = table;
-    module->loader = loader;
+    module->info_table = table;
+    module->call_table = call_table;
 
-    unsigned char cid_count = module->dynaload_table[0][0];
+    unsigned char cid_count = module->info_table[0][0];
 
     if (cid_count) {
         module->cid_table = lily_malloc(cid_count * sizeof(*module->cid_table));
@@ -661,13 +665,13 @@ int lily_load_library(lily_state *s, const char *path)
     char *path_copy = lily_malloc((strlen(path) + 1) * sizeof(*path_copy));
     strcpy(path_copy, path);
 
-    const char **table = (const char **)lily_library_get(handle,
-            lily_mb_sprintf(msgbuf, "lily_%s_table", loadname));
+    const char **info_table = (const char **)lily_library_get(handle,
+            lily_mb_sprintf(msgbuf, "lily_%s_info_table", loadname));
 
-    void *loader = lily_library_get(handle,
-            lily_mb_sprintf(msgbuf, "lily_%s_loader", loadname));
+    lily_foreign_func *call_table = lily_library_get(handle,
+            lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
 
-    if (table == NULL || loader == NULL) {
+    if (info_table == NULL || call_table == NULL) {
         lily_free(loadname);
         lily_free(path_copy);
         lily_library_free(handle);
@@ -681,12 +685,12 @@ int lily_load_library(lily_state *s, const char *path)
     module->dirname = dir_from_path(path);
     module->path = path_copy;
     module->cmp_len = strlen(path);
-    add_data_to_module(module, handle, table, (lily_loader)loader);
+    add_data_to_module(module, handle, info_table, call_table);
     return 1;
 }
 
-int lily_load_library_data(lily_state *s, const char *path, const char **table,
-        void *loader)
+int lily_load_library_data(lily_state *s, const char *path,
+        const char **info_table, void *call_table)
 {
     int out;
     lily_parse_state *parser = s->gs->parser;
@@ -697,12 +701,12 @@ int lily_load_library_data(lily_state *s, const char *path, const char **table,
     lily_module_entry *module = new_module(parser);
 
     add_path_to_module(module, path);
-    add_data_to_module(module, NULL, table, (lily_loader)loader);
+    add_data_to_module(module, NULL, info_table, call_table);
     return 1;
 }
 
-void lily_module_register(lily_state *s, const char *name, const char **table,
-        void *loader)
+void lily_module_register(lily_state *s, const char *name,
+        const char **info_table, void *call_table)
 {
     lily_parse_state *parser = s->gs->parser;
     lily_module_entry *module = new_module(parser);
@@ -710,7 +714,8 @@ void lily_module_register(lily_state *s, const char *name, const char **table,
     module->loadname = lily_malloc(
             (strlen(name) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, name);
-    add_data_to_module(module, NULL, table, (lily_loader)loader);
+    add_data_to_module(module, NULL, info_table,
+            (lily_foreign_func *)call_table);
     module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
 }
@@ -1708,7 +1713,7 @@ static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
    available are loaded into the appropriate place in the cid table. */
 static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
 {
-    const char *cid_entry = m->dynaload_table[0] + 1;
+    const char *cid_entry = m->info_table[0] + 1;
     int counter = 0;
     int stop = cid_entry[-1];
     uint16_t *cid_table = m->cid_table;
@@ -1778,10 +1783,10 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
         if (search_module == NULL)
             search_module = symtab->builtin_module;
 
-        if (search_module->dynaload_table)
+        if (search_module->info_table)
             result = find_run_class_dynaload(parser, search_module, lex->label);
 
-        if (result == NULL && symtab->active_module->dynaload_table)
+        if (result == NULL && symtab->active_module->info_table)
             result = find_run_class_dynaload(parser, symtab->active_module,
                     lex->label);
 
@@ -1806,7 +1811,7 @@ static void dynaload_function(lily_parse_state *parser, lily_module_entry *m,
 {
     lily_lex_state *lex = parser->lex;
 
-    const char *entry = m->dynaload_table[dyna_index];
+    const char *entry = m->info_table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
     const char *body = name + strlen(name) + 1;
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
@@ -1823,7 +1828,7 @@ static void dynaload_function(lily_parse_state *parser, lily_module_entry *m,
 static lily_var *new_foreign_define_var(lily_parse_state *parser,
         lily_module_entry *m, lily_class *parent, int dyna_index)
 {
-    const char *name = m->dynaload_table[dyna_index] + DYNA_NAME_OFFSET;
+    const char *name = m->info_table[dyna_index] + DYNA_NAME_OFFSET;
     lily_module_entry *saved_active = parser->symtab->active_module;
     lily_var *var = make_new_var(NULL, name, 0);
 
@@ -1849,8 +1854,7 @@ static lily_var *new_foreign_define_var(lily_parse_state *parser,
     else
         class_name = NULL;
 
-    lily_foreign_func func = (lily_foreign_func)m->loader(parser->vm,
-            dyna_index);
+    lily_foreign_func func = m->call_table[dyna_index];
 
     make_new_function(parser, class_name, var, func);
     dynaload_function(parser, m, var, dyna_index);
@@ -1870,7 +1874,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         int dyna_index)
 {
     lily_lex_state *lex = parser->lex;
-    const char **table = m->dynaload_table;
+    const char **table = m->info_table;
     const char *entry = table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
     int entry_index = dyna_index;
@@ -1906,7 +1910,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     /* A flat enum like Option will have a header that points past any methods
        to the variants. On the other hand, scoped enums will have a header that
        points past the variants. */
-    if (m->dynaload_table[entry_index + 1 + entry[1]][0] != 'V')
+    if (m->info_table[entry_index + 1 + entry[1]][0] != 'V')
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;
 
     enum_cls->dyna_start = dyna_index + 1;
@@ -1956,7 +1960,7 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
     int enum_pos = dyna_index - 1;
-    const char **table = m->dynaload_table;
+    const char **table = m->info_table;
     const char *entry;
 
     while (1) {
@@ -1976,7 +1980,7 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
 static lily_class *dynaload_class(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
-    const char *entry = m->dynaload_table[dyna_index];
+    const char *entry = m->info_table[dyna_index];
     lily_class *cls = lily_new_class(parser->symtab, entry + 2);
 
     cls->flags |= CLS_IS_BUILTIN;
@@ -1990,7 +1994,7 @@ lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
 {
     int index = cls->dyna_start;
     lily_module_entry *m = cls->module;
-    const char **table = m->dynaload_table;
+    const char **table = m->info_table;
     const char *entry = table[index];
 
     do {
@@ -2016,8 +2020,8 @@ lily_item *try_method_dynaload(lily_parse_state *parser, lily_class *cls,
 static lily_class *dynaload_native(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
-    const char **table = m->dynaload_table;
-    const char *entry = m->dynaload_table[dyna_index];
+    const char **table = m->info_table;
+    const char *entry = m->info_table[dyna_index];
     const char *name = entry + DYNA_NAME_OFFSET;
 
     const char *body = name + strlen(name) + 1;
@@ -2116,12 +2120,12 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
     lily_symtab *symtab = parser->symtab;
     lily_item *result;
 
-    char letter = m->dynaload_table[dyna_pos][0];
+    char letter = m->info_table[dyna_pos][0];
     lily_module_entry *saved_active = parser->symtab->active_module;
     symtab->active_module = m;
 
     if (letter == 'R') {
-        const char *entry = m->dynaload_table[dyna_pos];
+        const char *entry = m->info_table[dyna_pos];
         /* Note: This is currently fine because there are no modules which
            create vars of a type not found in the interpreter's core. However,
            if that changes, this must change as well. */
@@ -2137,10 +2141,12 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
            the ids they need. */
         parser->toplevel_func->cid_table = m->cid_table;
 
+        lily_foreign_func var_loader = m->call_table[dyna_pos];
+
         /* This should push exactly one extra value onto the stack. Since
            global vars have placeholder values inserted, the var ends up
            exactly where it should be. */
-        m->loader(parser->vm, dyna_pos);
+        var_loader(parser->vm);
 
         result = (lily_item *)new_var;
     }
@@ -2175,7 +2181,7 @@ static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
         lily_module_entry *m, const char *name)
 {
     int i = 1;
-    const char **table = m->dynaload_table;
+    const char **table = m->info_table;
     const char *entry = table[i];
     lily_item *result = NULL;
 
@@ -2526,7 +2532,7 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_module == NULL)
         search_module = symtab->builtin_module;
 
-    if (search_module->dynaload_table) {
+    if (search_module->info_table) {
         lily_item *dl_result = try_toplevel_dynaload(parser,
                 search_module, lex->label);
         if (dl_result) {
@@ -4085,7 +4091,7 @@ static lily_sym *find_existing_sym(lily_parse_state *parser,
     if (sym == NULL)
         sym = (lily_sym *)lily_find_module(symtab, source, search_name);
 
-    if (sym == NULL && source->dynaload_table)
+    if (sym == NULL && source->info_table)
         sym = (lily_sym *)try_toplevel_dynaload(parser, source, search_name);
 
     return sym;
