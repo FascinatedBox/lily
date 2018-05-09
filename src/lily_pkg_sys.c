@@ -20,12 +20,11 @@ const char *lily_sys_info_table[] = {
     ,"R\0argv\0List[String]"
     ,"Z"
 };
-#define toplevel_OFFSET 1
 void lily_sys__getenv(lily_state *);
 void lily_sys__recursion_limit(lily_state *);
 void lily_sys__set_recursion_limit(lily_state *);
 void lily_sys_var_argv(lily_state *);
-void (*lily_sys_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_sys_call_table[] = {
     NULL,
     lily_sys__getenv,
     lily_sys__recursion_limit,

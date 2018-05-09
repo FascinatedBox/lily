@@ -15,12 +15,11 @@ const char *lily_extend_info_table[] = {
     ,"F\0parse_rewind\0(String,String,String): String"
     ,"Z"
 };
-#define toplevel_OFFSET 1
 void lily_extend__render_string(lily_state *);
 void lily_extend__parse_string(lily_state *);
 void lily_extend__parse_expr(lily_state *);
 void lily_extend__parse_rewind(lily_state *);
-void (*lily_extend_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_extend_call_table[] = {
     NULL,
     lily_extend__render_string,
     lily_extend__parse_string,

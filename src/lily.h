@@ -62,6 +62,8 @@ typedef void (*lily_import_func)(lily_state *s, const char *root_dir,
 
 typedef void (*lily_render_func)(const char *content, void *data);
 
+typedef void (*lily_call_entry_func)(lily_state *);
+
 /////////////////////////
 // Section: Configuration
 /////////////////////////
@@ -319,6 +321,14 @@ const char *lily_error_message_no_trace(lily_state *s);
 //                    Initially equivalent to root_dir.
 //     name         - The name of the module to import.
 
+// Typedef: lily_call_entry_func
+// An dynaload entry in the call_table corresponding to the info_table.
+//
+// This is a typedef that represents an entry in the call_table half of
+// dynaload. One of these entries could be a method implementation or a var
+// loader. Both halves are automatically generated, and most users won't need to
+// interact with them except to register embedded Lily code.
+
 // Function: lily_load_file
 // Load a Lily file from a given path.
 //
@@ -369,7 +379,8 @@ int lily_load_library(lily_state *s, const char *path);
 //
 // Returns 1 on success, 0 on failure.
 int lily_load_library_data(lily_state *s, const char *path,
-                           const char **info_table, void *call_table);
+                           const char **info_table,
+                           lily_call_entry_func *call_table);
 
 // Function: lily_load_string
 // Load a string (context path, then content) as a library.
@@ -1407,7 +1418,8 @@ lily_function_val *lily_find_function(lily_state *s, const char *name);
 // This function must be called after the interpreter object is created, but
 // before any parsing begins.
 void lily_module_register(lily_state *s, const char *name,
-                          const char **dynaload_table, void *loader);
+                          const char **info_table,
+                          lily_call_entry_func *call_table);
 
 // Function: lily_is_valid_utf8
 // Check if 'source' is valid utf-8.

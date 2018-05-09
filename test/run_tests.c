@@ -4,7 +4,7 @@
 #include "lily.h"
 
 extern const char *lily_extend_info_table[];
-extern void *lily_extend_call_table;
+extern lily_call_entry_func lily_extend_call_table[];
 
 int main(int argc, char **argv)
 {

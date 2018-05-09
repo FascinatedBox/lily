@@ -20,9 +20,7 @@ const char *lily_covlib_info_table[] = {
     ,"V\0ScopedThree\0"
     ,"Z"
 };
-#define FlatEnum_OFFSET 1
-#define ScopedEnum_OFFSET 5
-void (*lily_covlib_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_covlib_call_table[] = {
     NULL,
     NULL,
     NULL,

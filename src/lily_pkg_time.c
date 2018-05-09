@@ -28,12 +28,11 @@ const char *lily_time_info_table[] = {
     ,"m\0since_epoch\0(Time): Integer"
     ,"Z"
 };
-#define Time_OFFSET 1
 void lily_time_Time_clock(lily_state *);
 void lily_time_Time_now(lily_state *);
 void lily_time_Time_to_s(lily_state *);
 void lily_time_Time_since_epoch(lily_state *);
-void (*lily_time_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_time_call_table[] = {
     NULL,
     NULL,
     lily_time_Time_clock,

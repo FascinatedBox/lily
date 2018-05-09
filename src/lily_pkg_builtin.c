@@ -288,7 +288,7 @@ void lily_builtin__calltrace(lily_state *);
 void lily_builtin_var_stdin(lily_state *);
 void lily_builtin_var_stderr(lily_state *);
 void lily_builtin_var_stdout(lily_state *);
-void (*lily_builtin_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_builtin_call_table[] = {
     NULL,
     NULL,
     lily_builtin_Boolean_to_i,

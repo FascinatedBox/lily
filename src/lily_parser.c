@@ -65,7 +65,8 @@ static void statement(lily_parse_state *, int);
 static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
-void lily_module_register(lily_state *, const char *, const char **, void *);
+void lily_module_register(lily_state *, const char *, const char **,
+        lily_call_entry_func *);
 void lily_default_import_func(lily_state *, const char *, const char *,
         const char *);
 void lily_stdout_print(lily_vm_state *);
@@ -82,16 +83,16 @@ typedef struct lily_rewind_state_
 } lily_rewind_state;
 
 extern const char *lily_builtin_info_table[];
-extern lily_foreign_func lily_builtin_call_table[];
+extern lily_call_entry_func lily_builtin_call_table[];
 
 extern const char *lily_sys_info_table[];
-extern lily_foreign_func lily_sys_call_table[];
+extern lily_call_entry_func lily_sys_call_table[];
 
 extern const char *lily_random_info_table[];
-extern lily_foreign_func lily_random_call_table[];
+extern lily_call_entry_func lily_random_call_table[];
 
 extern const char *lily_time_info_table[];
-extern lily_foreign_func lily_time_call_table[];
+extern lily_call_entry_func lily_time_call_table[];
 
 void lily_init_pkg_builtin(lily_symtab *);
 
@@ -690,7 +691,7 @@ int lily_load_library(lily_state *s, const char *path)
 }
 
 int lily_load_library_data(lily_state *s, const char *path,
-        const char **info_table, void *call_table)
+        const char **info_table, lily_call_entry_func *call_table)
 {
     int out;
     lily_parse_state *parser = s->gs->parser;
@@ -706,7 +707,7 @@ int lily_load_library_data(lily_state *s, const char *path,
 }
 
 void lily_module_register(lily_state *s, const char *name,
-        const char **info_table, void *call_table)
+        const char **info_table, lily_call_entry_func *call_table)
 {
     lily_parse_state *parser = s->gs->parser;
     lily_module_entry *module = new_module(parser);
@@ -714,8 +715,7 @@ void lily_module_register(lily_state *s, const char *name,
     module->loadname = lily_malloc(
             (strlen(name) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, name);
-    add_data_to_module(module, NULL, info_table,
-            (lily_foreign_func *)call_table);
+    add_data_to_module(module, NULL, info_table, call_table);
     module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
 }

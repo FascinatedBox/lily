@@ -49,10 +49,9 @@ const char *lily_random_info_table[] = {
     ,"m\0between\0(Random,Integer,Integer): Integer"
     ,"Z"
 };
-#define Random_OFFSET 1
 void lily_random_Random_new(lily_state *);
 void lily_random_Random_between(lily_state *);
-void (*lily_random_call_table[])(lily_state *s) = {
+lily_call_entry_func lily_random_call_table[] = {
     NULL,
     NULL,
     lily_random_Random_new,
