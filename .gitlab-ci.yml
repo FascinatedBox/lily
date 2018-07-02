@@ -1,0 +1,8 @@
+testing:
+  stage: test
+  script:
+    - cmake .
+    - make
+    - ./pre-commit-tests
+  only:
+    - master
