@@ -9,6 +9,10 @@
 #include "lily_alloc.h"
 #include "lily_value_raw.h"
 
+/* If a String/ByteString is longer than this, don't do duplicate lookups.
+   It's probably unique and dup checking is a waste of time. */
+#define MAX_STRING_CACHE_LENGTH 32
+
 /***
  *      ____       _
  *     / ___|  ___| |_ _   _ _ __
@@ -345,17 +349,29 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
 {
     lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_BYTESTRING);
 
-    while (iter) {
-        if (iter->value.string->size == len &&
-            memcmp(iter->value.string->string, want_string, len) == 0)
-            return iter;
+    if (len < MAX_STRING_CACHE_LENGTH) {
+        while (iter) {
+            if (iter->value.string->size == len &&
+                memcmp(iter->value.string->string, want_string, len) == 0)
+                return iter;
 
-        int next = iter->next_index;
+            int next = iter->next_index;
 
-        if (next == 0)
-            break;
-        else
-            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+            if (next == 0)
+                break;
+            else
+                iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+        }
+    }
+    else {
+        while (iter) {
+            int next = iter->next_index;
+
+            if (next == 0)
+                break;
+            else
+                iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+        }
     }
 
     if (iter)
@@ -379,17 +395,29 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_STRING);
     size_t want_string_len = strlen(want_string);
 
-    while (iter) {
-        if (iter->value.string->size == want_string_len &&
-            strcmp(iter->value.string->string, want_string) == 0)
-            return iter;
+    if (want_string_len < MAX_STRING_CACHE_LENGTH) {
+        while (iter) {
+            if (iter->value.string->size == want_string_len &&
+                strcmp(iter->value.string->string, want_string) == 0)
+                return iter;
 
-        int next = iter->next_index;
+            int next = iter->next_index;
 
-        if (next == 0)
-            break;
-        else
-            iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+            if (next == 0)
+                break;
+            else
+                iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+        }
+    }
+    else {
+        while (iter) {
+            int next = iter->next_index;
+
+            if (next == 0)
+                break;
+            else
+                iter = (lily_literal *)lily_vs_nth(symtab->literals, next);
+        }
     }
 
     if (iter)
