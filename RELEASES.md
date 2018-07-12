@@ -1,3 +1,19 @@
+Version 1.5 (2018-7-11)
+=======================
+
+What's new:
+
+* New api function: `File.flush`.
+
+Changes:
+
+* The class `Dynamic` has been removed from the language.
+
+* Blocks now require braces instead of them being optional.
+
+* Dynaload now uses info and call tables, so libraries compiled against older
+  versions of Lily will need to have `bindgen.lily` run on them again.
+
 Version 1.4 (2018-4-10)
 =======================
 
