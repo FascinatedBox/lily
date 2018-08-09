@@ -7,8 +7,9 @@ enum Tree {
 
 define make_tree(item: Integer, depth: Integer): Tree
 {
-    if depth == 0:
+    if depth == 0: {
         return Leaf(item)
+    }
 
     var item2 = item + item
     depth -= 1
@@ -35,8 +36,9 @@ print("stretch tree of depth {0} check: {1}".format(stretch_depth, check_tree(ma
 var long_lived_tree = make_tree(0, max_depth)
 
 var iterations = 1
-for i in 1...max_depth:
+for i in 1...max_depth: {
     iterations *= 2
+}
 
 for depth in min_depth...stretch_depth by 2: {
     var check = 0

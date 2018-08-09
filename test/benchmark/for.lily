@@ -3,8 +3,9 @@ import time
 var start = time.Time.clock()
 var map: Hash[Integer, Integer] = []
 
-for i in 0...999999:
+for i in 0...999999: {
     map[i] = i
+}
 
 var sum = 0
 map.each_pair(|k, v| sum += v )
