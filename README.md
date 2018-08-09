@@ -102,6 +102,12 @@ Lily is a very young language and the community is still growing.
 
 * [Try it in your browser](http://lily-lang.org/intro-sandbox.html)
 
+## Packaging
+
+The [lily-garden](https://gitlab.com/FascinatedBox/lily-garden) repository
+contains a package manager (Garden) that simplifies the install of Lily
+packages.
+
 ## License
 
 [MIT](https://gitlab.com/FascinatedBox/lily/blob/master/license.txt)
