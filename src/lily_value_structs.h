@@ -43,10 +43,7 @@ typedef union lily_raw_value_ {
    value. This allows them to be manipulated by the vm using value-handling
    functions, as if they were a real value...even if they aren't. */
 typedef struct lily_literal_ {
-    union {
-        uint16_t class_id;
-        uint32_t flags;
-    };
+    uint32_t flags;
     union {
         uint16_t pad;
         uint16_t next_index;
@@ -70,14 +67,10 @@ typedef struct lily_gc_entry_ {
     struct lily_gc_entry_ *next;
 } lily_gc_entry;
 
-/* A proper Lily value. The flags field holds markers for gc and other info in
-   the upper 16 bits. The lower 16 bits are reserved for the class id. The
-   class_id field should only be used for reading, never writing. */
+/* A proper Lily value. The flags portion is used for gc flags as well as
+   identity markers. Those are stored in lily_value_flags.h. */
 typedef struct lily_value_ {
-    union {
-        uint32_t flags;
-        uint16_t class_id;
-    };
+    uint32_t flags;
     /* This is only used by closure cells. When a closure cell has a
        cell_refcount of zero, it's deref'd and free'd. */
     uint32_t cell_refcount;

@@ -9,6 +9,7 @@
 #include "lily_core_types.h"
 #include "lily_value_structs.h"
 #include "lily_alloc.h"
+#include "lily_value_flags.h"
 #include "lily_value_raw.h"
 
 extern uint64_t siphash24(const void *, unsigned long, const char [16]);
@@ -86,7 +87,7 @@ if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {\
 
 #define SET_HASH_OUT_AND_CMP(s, table, boxed_key) \
     int (*cmp_fn)(lily_raw_value, lily_raw_value); \
-    if (boxed_key->class_id != LILY_ID_STRING) { \
+    if ((boxed_key->flags & V_STRING_FLAG) == 0) { \
         hash_out = (uint64_t)boxed_key->value.integer; \
         cmp_fn = cmp_int; \
     } \

@@ -140,12 +140,10 @@ static void free_literals(lily_value_stack *literals)
     while (lily_vs_pos(literals)) {
         lily_literal *lit = (lily_literal *)lily_vs_pop(literals);
 
-        /* Literals are marked where their refcount won't be adjusted during
-           the vm's run. Any literal that isn't primitive will have 1 ref, and
-           can be destroyed by sending it to deref. */
-        if (lit->class_id != LILY_ID_INTEGER &&
-            lit->class_id != LILY_ID_DOUBLE &&
-            lit->class_id != LILY_ID_UNIT) {
+        /* These literals stay alive by having one ref since they live in
+           symtab's literal space. They can go away now. */
+        if (lit->flags &
+            (V_BYTESTRING_FLAG | V_STRING_FLAG | V_FUNCTION_FLAG)) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
         }
@@ -232,7 +230,7 @@ static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_ID_BYTESTRING | VAL_IS_DEREFABLE;
+    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_DEREFABLE;
     v->value.string = (lily_string_val *)bv;
     return v;
 }
@@ -241,7 +239,7 @@ static lily_value *new_value_of_double(double d)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_ID_DOUBLE;
+    v->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
     v->value.doubleval = d;
     return v;
 }
@@ -250,7 +248,7 @@ static lily_value *new_value_of_integer(int64_t i)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_ID_INTEGER;
+    v->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
     v->value.integer = i;
     return v;
 }
@@ -259,7 +257,7 @@ static lily_value *new_value_of_string(lily_string_val *sv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_ID_STRING | VAL_IS_DEREFABLE;
+    v->flags = V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
 }
@@ -268,7 +266,7 @@ static lily_value *new_value_of_unit(void)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = LILY_ID_UNIT;
+    v->flags = V_UNIT_BASE;
     v->value.integer = 0;
     return v;
 }
@@ -283,7 +281,7 @@ static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 
     for (i = 0;i < stop;i++) {
         lily_literal *lit = (lily_literal *)lily_vs_nth(vs, i);
-        if (lit->class_id == to_find)
+        if (FLAGS_TO_BASE(lit) == to_find)
             return lit;
     }
 
@@ -292,7 +290,7 @@ static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
 
 lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_INTEGER);
+    lily_literal *iter = first_lit_of(symtab->literals, V_INTEGER_BASE);
 
     while (iter) {
         if (iter->value.integer == int_val)
@@ -319,7 +317,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
 
 lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_DOUBLE);
+    lily_literal *iter = first_lit_of(symtab->literals, V_DOUBLE_BASE);
 
     while (iter) {
         if (iter->value.doubleval == dbl_val)
@@ -347,7 +345,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
         const char *want_string, int len)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_BYTESTRING);
+    lily_literal *iter = first_lit_of(symtab->literals, V_BYTESTRING_BASE);
 
     if (len < MAX_STRING_CACHE_LENGTH) {
         while (iter) {
@@ -381,7 +379,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
     /* Drop the derefable marker. */
-    v->flags = LILY_ID_BYTESTRING;
+    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -392,7 +390,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
 lily_literal *lily_get_string_literal(lily_symtab *symtab,
         const char *want_string)
 {
-    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_STRING);
+    lily_literal *iter = first_lit_of(symtab->literals, V_STRING_BASE);
     size_t want_string_len = strlen(want_string);
 
     if (want_string_len < MAX_STRING_CACHE_LENGTH) {
@@ -427,7 +425,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
     /* Drop the derefable marker. */
-    v->flags = LILY_ID_STRING;
+    v->flags = V_STRING_FLAG | V_STRING_BASE;
     v->reg_spot = lily_vs_pos(symtab->literals);
     v->next_index = 0;
 
@@ -437,7 +435,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
 
 lily_literal *lily_get_unit_literal(lily_symtab *symtab)
 {
-    lily_literal *lit = first_lit_of(symtab->literals, LILY_ID_UNIT);
+    lily_literal *lit = first_lit_of(symtab->literals, V_UNIT_BASE);
 
     if (lit == NULL) {
         lily_literal *v = (lily_literal *)new_value_of_unit();

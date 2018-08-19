@@ -873,7 +873,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     f->proto = proto;
 
     lily_value *v = lily_malloc(sizeof(*v));
-    v->flags = LILY_ID_FUNCTION;
+    v->flags = V_FUNCTION_FLAG | V_FUNCTION_BASE;
     v->value.function = f;
 
     lily_vs_push(parser->symtab->literals, v);
@@ -2367,16 +2367,17 @@ static void expression_class_access(lily_parse_state *parser, lily_class *cls,
 static void push_literal(lily_parse_state *parser, lily_literal *lit)
 {
     lily_class *literal_cls;
+    int base = FLAGS_TO_BASE(lit);
 
-    if (lit->class_id == LILY_ID_INTEGER)
+    if (base == V_INTEGER_BASE)
         literal_cls = parser->symtab->integer_class;
-    else if (lit->class_id == LILY_ID_DOUBLE)
+    else if (base == V_DOUBLE_BASE)
         literal_cls = parser->symtab->double_class;
-    else if (lit->class_id == LILY_ID_STRING)
+    else if (base == V_STRING_BASE)
         literal_cls = parser->symtab->string_class;
-    else if (lit->class_id == LILY_ID_BYTESTRING)
+    else if (base == V_BYTESTRING_BASE)
         literal_cls = parser->symtab->bytestring_class;
-    else if (lit->class_id == LILY_ID_UNIT)
+    else if (base == V_UNIT_BASE)
         literal_cls = lily_unit_type->cls;
     else
         /* Impossible, but keeps the compiler from complaining. */
@@ -5456,7 +5457,7 @@ int lily_parse_expr(lily_state *s, const char *name, char *str,
 
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
-            if (reg->class_id == LILY_ID_STRING)
+            if (reg->flags & V_STRING_FLAG)
                 lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
             else
                 lily_mb_add_value(msgbuf, s, reg);

@@ -16,6 +16,7 @@ foundation of Lily.
 #include "lily_utf8.h"
 #include "lily_value_structs.h"
 #include "lily_value_raw.h"
+#include "lily_value_flags.h"
 #include "lily_alloc.h"
 
 /** Begin autogen section. **/
@@ -1301,7 +1302,7 @@ void lily_builtin_File_write(lily_state *s)
 
     FILE *inner_file = lily_file_for_write(s, filev);
 
-    if (to_write->class_id == LILY_ID_STRING)
+    if (to_write->flags & V_STRING_FLAG)
         fputs(to_write->value.string->string, inner_file);
     else {
         lily_msgbuf *msgbuf = lily_msgbuf_get(s);

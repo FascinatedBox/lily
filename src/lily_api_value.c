@@ -80,7 +80,27 @@ int lily_arg_count(lily_state *s)
 
 int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
 {
-    return s->call_chain->start[index]->class_id == class_id;
+    /* This is similar to lily_value_class_id, but the two are kept apart
+       intentionally. The reason being that this is used by builtin apis so it
+       needs to be fast. That's also why the variant cases are first. */
+    lily_value *value = s->call_chain->start[index];
+    int base = FLAGS_TO_BASE(value);
+    uint16_t result_id;
+
+    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
+        base == V_FOREIGN_BASE)
+        result_id = (uint16_t)value->value.container->class_id;
+    else if (base == V_EMPTY_VARIANT_BASE)
+        result_id = (uint16_t)value->value.integer;
+    else if (base == V_COROUTINE_BASE)
+        result_id = LILY_ID_COROUTINE;
+    else if (base == V_UNIT_BASE)
+        result_id = LILY_ID_UNIT;
+    else
+        /* The other bases map directly to class ids. */
+        result_id = (uint16_t)base;
+
+    return result_id == class_id;
 }
 
 /* Stack operations
@@ -380,7 +400,7 @@ static void destroy_coroutine(lily_value *v)
     /* Do a direct destroy of the base frame because the Coroutine has the only
        reference to it (it's never put into a register). */
     lily_value func_v;
-    func_v.flags = LILY_ID_FUNCTION;
+    func_v.flags = V_FUNCTION_BASE;
     func_v.value.function = co_val->base_function;
 
     destroy_function(&func_v);
@@ -395,22 +415,23 @@ static void destroy_coroutine(lily_value *v)
 
 void lily_value_destroy(lily_value *v)
 {
-    int class_id = v->class_id;
-    if (class_id == LILY_ID_LIST || class_id == LILY_ID_TUPLE)
+    int base = FLAGS_TO_BASE(v);
+
+    if (base == V_LIST_BASE || base == V_TUPLE_BASE)
         destroy_list(v);
-    else if (v->flags & VAL_IS_CONTAINER)
+    else if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE)
         destroy_container(v);
-    else if (class_id == LILY_ID_STRING || class_id == LILY_ID_BYTESTRING)
+    else if (base == V_STRING_BASE || base == V_BYTESTRING_BASE)
         destroy_string(v);
-    else if (class_id == LILY_ID_FUNCTION)
+    else if (base == V_FUNCTION_BASE)
         destroy_function(v);
-    else if (class_id == LILY_ID_HASH)
+    else if (base == V_HASH_BASE)
         lily_destroy_hash(v);
-    else if (class_id == LILY_ID_FILE)
+    else if (base == V_FILE_BASE)
         destroy_file(v);
-    else if (class_id == LILY_ID_COROUTINE)
+    else if (base == V_COROUTINE_BASE)
         destroy_coroutine(v);
-    else if (v->flags & VAL_IS_FOREIGN) {
+    else if (base == V_FOREIGN_BASE) {
         v->value.foreign->destroy_func(v->value.generic);
         lily_free(v->value.generic);
     }
@@ -490,22 +511,22 @@ static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
 int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         lily_value *right)
 {
-    int left_tag = left->class_id;
-    int right_tag = right->class_id;
+    int left_base = FLAGS_TO_BASE(left);
+    int right_base = FLAGS_TO_BASE(right);
 
     if (*depth == 100)
         lily_RuntimeError(s, "Infinite loop in comparison.");
 
-    if (left_tag != right_tag)
+    if (left_base != right_base)
         return 0;
-    else if (left_tag == LILY_ID_INTEGER || left_tag == LILY_ID_BOOLEAN)
+    else if (left_base == V_INTEGER_BASE || left_base == V_BOOLEAN_BASE)
         return left->value.integer == right->value.integer;
-    else if (left_tag == LILY_ID_DOUBLE)
+    else if (left_base == V_DOUBLE_BASE)
         return left->value.doubleval == right->value.doubleval;
-    else if (left_tag == LILY_ID_STRING)
+    else if (left_base == V_STRING_BASE)
         return strcmp(left->value.string->string,
                 right->value.string->string) == 0;
-    else if (left_tag == LILY_ID_BYTESTRING) {
+    else if (left_base == V_BYTESTRING_BASE) {
         lily_string_val *left_sv = left->value.string;
         lily_string_val *right_sv = right->value.string;
         char *left_s = left_sv->string;
@@ -514,10 +535,10 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         return (left_size == right_sv->size &&
                 memcmp(left_s, right_s, left_size) == 0);
     }
-    else if (left_tag == LILY_ID_LIST || left_tag == LILY_ID_TUPLE) {
+    else if (left_base == V_LIST_BASE || left_base == V_TUPLE_BASE) {
         return subvalue_eq(s, depth, left, right);
     }
-    else if (left_tag == LILY_ID_HASH) {
+    else if (left_base == V_HASH_BASE) {
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
@@ -546,19 +567,19 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         }
         return ok;
     }
-    else if (left->flags & VAL_IS_ENUM) {
+    else if (left_base == V_VARIANT_BASE) {
         int ok;
-        if (left_tag == right_tag) {
-            if (left->value.container == NULL)
-                ok = 1;
-            else
-                ok = subvalue_eq(s, depth, left, right);
-        }
+        if (left->value.container->class_id ==
+            right->value.container->class_id)
+            ok = subvalue_eq(s, depth, left, right);
         else
             ok = 0;
 
         return ok;
     }
+    else if (left_base == V_EMPTY_VARIANT_BASE)
+        /* Empty variants store their class id here. */
+        return left->value.integer == right->value.integer;
     else
         /* Everything else gets pointer equality. */
         return left->value.generic == right->value.generic;
@@ -572,7 +593,23 @@ int lily_value_compare(lily_state *s, lily_value *left, lily_value *right)
 
 uint16_t lily_value_class_id(lily_value *value)
 {
-    return value->class_id;
+    int base = FLAGS_TO_BASE(value);
+    uint16_t result_id;
+
+    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
+        base == V_FOREIGN_BASE)
+        result_id = (uint16_t)value->value.container->class_id;
+    else if (base == V_EMPTY_VARIANT_BASE)
+        result_id = (uint16_t)value->value.integer;
+    else if (base == V_COROUTINE_BASE)
+        result_id = LILY_ID_COROUTINE;
+    else if (base == V_UNIT_BASE)
+        result_id = LILY_ID_UNIT;
+    else
+        /* The other bases map directly to class ids. */
+        result_id = (uint16_t)base;
+
+    return result_id;
 }
 
 uint16_t lily_cid_at(lily_vm_state *vm, int n)
