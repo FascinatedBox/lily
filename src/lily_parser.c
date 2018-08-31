@@ -1096,6 +1096,7 @@ static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
 static lily_prop_entry *get_named_property(lily_parse_state *, int);
 static void expression_raw(lily_parse_state *);
+static int keyword_by_name(const char *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -1277,26 +1278,49 @@ static lily_type *get_define_arg(lily_parse_state *parser, int *flags)
     return type;
 }
 
+/* Public scope is defined by the absense of either protected or private. This
+   flag is intentionally high so that it can be set by the public keyword to
+   denote that some modifier was sent at all. The modifier will be stripped by
+   both keywords. */
+#define PUBLIC_SCOPE 0x10000
+
 static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
     lily_prop_entry *prop = NULL;
     lily_var *var;
-    int have_prop = 0;
+    int modifiers = 0;
 
     NEED_CURRENT_TOK(tk_word)
 
-    if (lex->token == tk_word &&
-        lex->label[0] == 'v' &&
-        strcmp(lex->label, "var") == 0)
-        have_prop = 1;
+    if (lex->label[0] == 'p') {
+        int keyword = keyword_by_name(lex->label);
+        if (keyword == KEY_PRIVATE)
+            modifiers = SYM_SCOPE_PRIVATE;
+        else if (keyword == KEY_PROTECTED)
+            modifiers = SYM_SCOPE_PROTECTED;
+        else if (keyword == KEY_PUBLIC)
+            modifiers = PUBLIC_SCOPE;
+    }
+    else if (lex->label[0] == 'v' &&
+             strcmp(lex->label, "var") == 0) {
+        lily_raise_syn(parser->raiser,
+                "Constructor var declaration must start with a scope.");
+    }
 
-    if (have_prop) {
+    if (modifiers) {
+        lily_lexer(lex);
+        if (lex->token != tk_word ||
+            strcmp(lex->label, "var") != 0) {
+            lily_raise_syn(parser->raiser,
+                    "Expected 'var' after scope was given.");
+        }
+
         NEED_NEXT_TOK(tk_prop_word)
         prop = get_named_property(parser, 0);
         /* Properties can't initialize themselves. This is unset when writing
            the shorthand properties out. */
-        prop->flags |= SYM_NOT_INITIALIZED;
+        prop->flags |= SYM_NOT_INITIALIZED | modifiers;
         var = new_scoped_var(parser, NULL, "", lex->line_num);
     }
     else {
@@ -3208,12 +3232,6 @@ static keyword_handler *handlers[] = {
     keyword_protected,
     keyword_continue,
 };
-
-/* Public scope is defined by the absense of either protected or private. This
-   flag is intentionally high so that it can be set by the public keyword to
-   denote that some modifier was sent at all. The modifier will be stripped by
-   both keywords. */
-#define PUBLIC_SCOPE 0x10000
 
 /* This is used by lambda handling so that statements (and the handler
    declarations) can come after lambdas. */

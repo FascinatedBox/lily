@@ -166,7 +166,7 @@ t.interpret("Verify class generics.",
 
 t.interpret("Check short class constructors.",
     """
-    class Test1(var @x: Integer, y: Integer, var @z: Integer) {}
+    class Test1(public var @x: Integer, y: Integer, public var @z: Integer) {}
 
     var t1 = Test1(10, 20, 30)
     if t1.x != 10 || t1.z != 30: {
@@ -176,8 +176,8 @@ t.interpret("Check short class constructors.",
 
 t.interpret("Verify class inheritance shorthand.",
     """
-    class Base(var @index: Integer) {  }
-    class NthBase(index: Integer, var @str: String) < Base(index) {  }
+    class Base(public var @index: Integer) {  }
+    class NthBase(index: Integer, public var @str: String) < Base(index) {  }
 
     var v = NthBase(1, "abc")
 
@@ -424,7 +424,7 @@ t.interpret("Static method from non-static method.",
 
 t.interpret("Usage of a class constructor var.",
     """
-    class Example(var @x: Integer) {
+    class Example(public var @x: Integer) {
         public define f(a: Integer) {}
         public define add_to_x(y: Integer) {
             f(@x)

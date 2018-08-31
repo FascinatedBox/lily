@@ -551,7 +551,7 @@ t.interpret_for_error("Shorthand constructor var self-init.",
         from test\/[subinterp]:1:\
     """,
     """\
-    class Test(var @a: *Integer = @a) { }
+    class Test(public var @a: *Integer = @a) { }
     """)
 
 t.interpret_for_error("Inner define not made into a method.",
@@ -664,4 +664,46 @@ t.interpret_for_error("Return self from a static method.",
         public static define f: self {
         }
     }
+    """)
+
+t.interpret_for_error("Shorthand constructor var without scope.",
+    """\
+    SyntaxError: Constructor var declaration must start with a scope.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test(var @a: Integer) { }
+    """)
+
+t.interpret_for_error("Shorthand protected var access check.",
+    """\
+    SyntaxError: Test.a is marked protected, and not available here.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    class Test(protected var @a: Integer) { }
+
+    var t = Test(1)
+    t.a = 5
+    """)
+
+t.interpret_for_error("Shorthand private var access check.",
+    """\
+    SyntaxError: Test.a is marked private, and not available here.\n    \
+        from test\/[subinterp]:5:\
+    """,
+    """\
+    class Test(private var @a: Integer) { }
+
+    var t = Test(1)
+    t.a = 5
+    """)
+
+t.interpret_for_error("Shorthand constructor var without var keyword.",
+    """\
+    SyntaxError: Expected 'var' after scope was given.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test(public @x: Integer) { }
     """)

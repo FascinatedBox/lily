@@ -6,7 +6,9 @@ t.scope(__file__)
 
 t.interpret("Shorthand class constructor with optional argument.",
     """
-    class Test(var @a: String, var @b: String, var @c: *Boolean = false)
+    class Test(public var @a: String,
+               public var @b: String,
+               public var @c: *Boolean = false)
     {
     }
     """)

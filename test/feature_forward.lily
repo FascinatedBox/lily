@@ -6,7 +6,7 @@ t.scope(__file__)
 
 t.interpret("Use a forward class method.",
     """
-    class Example(var @x: Integer) {
+    class Example(public var @x: Integer) {
         forward public define square(Integer): Integer { ... }
 
         public define square_x {
