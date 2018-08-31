@@ -484,10 +484,9 @@ t.expression("Broken expression.",
     1 +
     """)
 
-#[
 t.interpret("Cover use of an imported flat enum.",
     """
-    import (FlatEnum, FlatOne, FlatTwo, FlatThree) "../lib/covlib"
+    import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
 
     var v = "" ++ FlatTwo
     if v != "FlatTwo": {
@@ -520,7 +519,7 @@ t.interpret("Cover use of an imported flat enum.",
 
 t.interpret("Cover use of an imported scoped enum.",
     """
-    import (ScopedEnum) "../lib/covlib"
+    import (ScopedEnum) covlib
 
     var v = "" ++ ScopedEnum.ScopedTwo
     if v != "ScopedEnum.ScopedTwo": {
@@ -550,7 +549,6 @@ t.interpret("Cover use of an imported scoped enum.",
         raise Exception("Failed to match and transform.")
     }
     """)
-]#
 
 t.interpret("Cover declaring a var of type Unit.",
     """
