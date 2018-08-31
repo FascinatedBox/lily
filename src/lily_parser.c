@@ -1305,6 +1305,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
     else if (lex->label[0] == 'v' &&
              strcmp(lex->label, "var") == 0) {
         modifiers = PUBLIC_SCOPE;
+        goto hotfix;
         /* The next release of Lily will end with an even number. Lily tries to
            adhere to semantic versioning, and thus not break code on even
            number releases.
@@ -1323,6 +1324,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
                     "Expected 'var' after scope was given.");
         }
 
+hotfix:;
         NEED_NEXT_TOK(tk_prop_word)
         prop = get_named_property(parser, 0);
         /* Properties can't initialize themselves. This is unset when writing

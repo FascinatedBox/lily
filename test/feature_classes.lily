@@ -431,3 +431,12 @@ t.interpret("Usage of a class constructor var.",
         }
     }
     """)
+
+t.interpret("(Temporary) scopeless class constructor var.",
+    """
+    class Example(var @x: Integer) {
+    }
+
+    var v = Example(1)
+    v.x = 5
+    """)
