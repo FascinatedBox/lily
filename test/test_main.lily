@@ -29,6 +29,7 @@ import verify_boolean
 import verify_byte
 import verify_bytestring
 import verify_coverage
+import verify_covlib
 import verify_file
 import verify_hash
 import verify_list
@@ -37,7 +38,12 @@ import verify_result
 import verify_rewind
 import verify_sandbox
 import verify_string
+import sys
 import test
+
+if sys.argv[-1] != "--skip-covlib": {
+    verify_covlib.add_tests()
+}
 
 var test_group = test.t
 

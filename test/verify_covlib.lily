@@ -1,0 +1,74 @@
+import test
+
+define add_tests {
+
+var t = test.t
+
+t.scope(__file__)
+
+t.interpret("Cover use of an imported flat enum.",
+    """
+    import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
+
+    var v = "" ++ FlatTwo
+    if v != "FlatTwo": {
+        raise Exception("Failed to interpolate.")
+    }
+
+    define f(l: List[FlatEnum]): List[Integer] {
+        var result: List[Integer] = []
+
+        for i in 0...l.size() - 1: {
+            var e = l[i]
+            match e: {
+                case FlatOne:
+                    result.push(1)
+                case FlatTwo:
+                    result.push(2)
+                case FlatThree:
+                    result.push(3)
+            }
+        }
+
+        return result
+    }
+
+    var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
+    if v2 != [1, 2, 3, 2, 1]: {
+        raise Exception("Failed to match and transform.")
+    }
+    """)
+
+t.interpret("Cover use of an imported scoped enum.",
+    """
+    import (ScopedEnum) covlib
+
+    var v = "" ++ ScopedEnum.ScopedTwo
+    if v != "ScopedEnum.ScopedTwo": {
+        raise Exception("Failed to interpolate.")
+    }
+
+    define f(l: List[ScopedEnum]): List[Integer] {
+        var result: List[Integer] = []
+
+        for i in 0...l.size() - 1: {
+            var e = l[i]
+            match e: {
+                case ScopedEnum.ScopedOne:
+                    result.push(1)
+                case ScopedEnum.ScopedTwo:
+                    result.push(2)
+                case ScopedEnum.ScopedThree:
+                    result.push(3)
+            }
+        }
+
+        return result
+    }
+
+    var v2 = f([ScopedEnum.ScopedThree, ScopedEnum.ScopedOne, ScopedEnum.ScopedTwo])
+    if v2 != [3, 1, 2]: {
+        raise Exception("Failed to match and transform.")
+    }
+    """)
+}
