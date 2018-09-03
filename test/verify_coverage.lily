@@ -585,3 +585,137 @@ t.interpret_for_error("Ensure List.zip does not leak scoop.",
 
     v = 1
     """)
+
+t.assert("Compare two Lists with equal initial parts, different size.",
+         (||
+    [1, 2, 3] != [1, 2, 3, 4] ))
+
+t.assert("Compare two Hash values of different size.",
+         (||
+    ["a" => 1] != ["a" => 1, "b" => 2] ))
+
+t.assert("Compare two Hash values with equal keys but different values.",
+         (||
+    ["a" => 1, "b" => 2] != ["a" => 2, "b" => 4] ))
+
+t.assert("Compare two Hash values with mismatched keys.",
+         (||
+    ["a" => 1, "b" => 2] != ["c" => 2, "d" => 4] ))
+
+t.interpret("Compare two infinitely nested values.",
+    """
+    enum Tree {
+        Leaf(Integer),
+        Branch(List[Tree])
+    }
+
+    var b0 = [Leaf(0)]
+    var t0 = Branch(b0)
+
+    b0[0] = t0
+
+    var b1 = [Leaf(1)]
+    var t1 = Branch(b1)
+
+    b1[0] = t1
+
+    try: {
+        b1 == b0
+    except RuntimeError:
+        b0[0] = Leaf(1)
+        b1[0] = Leaf(1)
+    }
+    """)
+
+t.interpret("Compare different non-empty variants of same enum.",
+    """
+    enum Example {
+        One(Integer),
+        Two(Integer)
+    }
+
+    var a = One(1)
+    var b = Two(1)
+
+    if a == b: {
+        raise Exception("Failed")
+    }
+    """)
+
+t.interpret("Cover dropping a Coroutine that receives a derefable value.",
+    """
+    define f(co: Coroutine[Integer, List[Function(Integer)]]): Integer {
+        co.yield(1)
+        return 1
+    }
+
+    var co = Coroutine.build(f)
+    co.resume_with([(|x| 10)])
+    """)
+
+t.interpret("Cover dropping Function values through gc.",
+    """
+    define no_op {}
+
+    define closure_base: Function() {
+        var inner_fn = no_op
+        define a {
+            inner_fn = a
+        }
+        return a
+    }
+
+    define f {
+        var lst: List[Function()] = []
+
+        for i in 0...5: {
+            var local_fn = closure_base()
+            local_fn()
+            lst.push(local_fn)
+        }
+
+        for i in 0...lst.size() - 1: {
+            lst[i] = no_op
+        }
+    }
+
+    f()
+    f()
+    """)
+
+t.interpret("Cover dropping a Coroutine by deref, not gc.",
+    """
+    define base_one(co: Coroutine[Integer, Integer]): Integer { return 0 }
+
+    var other_co = Coroutine.build(base_one)
+
+    define co_base(co: Coroutine[Integer, Integer]): Integer {
+        co = other_co
+        return 10
+    }
+
+    # Coroutines start with two refs:
+    # The first is from the source vm stack
+    # The second is from their own stack (to use for yielding back)
+    # This test drops the Coroutine through deref, since they're almost
+    # always destroyed by the gc instead.
+
+    define f {
+        var local_co = Coroutine.build(co_base)
+        local_co.resume_with(0)
+    }
+    f()
+    f()
+    """)
+
+t.interpret("Default args of Coroutine and Unit.",
+    """
+    define base(co: Coroutine[Integer, Integer]): Integer { return 0 }
+    var co = Coroutine.build(base)
+
+    define f(a: *Coroutine[Integer, Integer]=co, b: *Unit=unit) {}
+
+    f()
+    f(co)
+    f(co, unit)
+    """)

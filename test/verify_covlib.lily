@@ -71,4 +71,43 @@ t.interpret("Cover use of an imported scoped enum.",
         raise Exception("Failed to match and transform.")
     }
     """)
+
+t.interpret("Cover using covlib to do extra api tests.",
+    """
+    import covlib
+
+    covlib.cover_list_reserve()
+    if covlib.cover_func_check((|x| 10 ), Integer.to_s) == false: {
+        raise Exception("cover_func_check failed.")
+    }
+    covlib.cover_list_sfs()
+
+    define f(co: Coroutine[Integer, Integer]): Integer {
+        return 1
+    }
+
+    class Example < Exception("") {
+
+    }
+
+    var co = Coroutine.build(f)
+
+    if covlib.cover_id_checks(co, unit, covlib.Container(""), "abc") == false: {
+        raise Exception("cover_id_checks failed.")
+    }
+
+    define co_base(local_co: Coroutine[Integer, Integer]): Integer { return 0 }
+    define f2(a: Integer) {}
+
+    covlib.cover_value_as('a',
+                          B"123",
+                          Exception("test"),
+                          Coroutine.build(co_base),
+                          1.0,
+                          stdout,
+                          f2,
+                          [1 => 1],
+                          1,
+                          "1")
+    """)
 }

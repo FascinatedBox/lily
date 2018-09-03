@@ -34,6 +34,9 @@ void noop_render(const char *to_render, void *data)
     (void)to_render;
 }
 
+/* A low gc ceiling causes it to fire more and thus get tested more. */
+#define GC_START 10
+
 static void run_interp(lily_state *s, int parse)
 {
     const char *context = lily_arg_string_raw(s, 0);
@@ -43,6 +46,7 @@ static void run_interp(lily_state *s, int parse)
 
     lily_config_init(&config);
     config.render_func = noop_render;
+    config.gc_start = GC_START;
 
     lily_state *subinterp = lily_new_state(&config);
     lily_container_val *con;
@@ -106,6 +110,7 @@ void lily_extend__parse_expr(lily_state *s)
 
     lily_config_init(&config);
     config.render_func = noop_render;
+    config.gc_start = GC_START;
 
     lily_state *subinterp = lily_new_state(&config);
     lily_container_val *con;
@@ -144,6 +149,7 @@ void lily_extend__parse_rewind(lily_state *s)
 
     lily_config_init(&config);
     config.render_func = noop_render;
+    config.gc_start = GC_START;
 
     lily_state *subinterp = lily_new_state(&config);
 

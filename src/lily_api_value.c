@@ -23,8 +23,6 @@ double lily_##name##_double(__VA_ARGS__) \
 { return source  action->value.doubleval; } \
 lily_file_val *lily_##name##_file(__VA_ARGS__) \
 { return source  action->value.file; } \
-FILE *lily_##name##_file_raw(__VA_ARGS__) \
-{ return source  action->value.file->inner_file; } \
 lily_function_val *lily_##name##_function(__VA_ARGS__) \
 { return source  action->value.function; } \
 lily_hash_val *lily_##name##_hash(__VA_ARGS__) \
@@ -37,11 +35,16 @@ lily_string_val *lily_##name##_string(__VA_ARGS__) \
 { return source  action->value.string; } \
 char *lily_##name##_string_raw(__VA_ARGS__) \
 { return source  action->value.string->string; } \
-lily_value *lily_##name##_value(__VA_ARGS__) \
-{ return source  action; } \
 
 DEFINE_GETTERS(arg, ->call_chain->start[index], lily_state *source, int index)
 DEFINE_GETTERS(as, , lily_value *source)
+
+/* This one isn't in the getters because it would be silly to make a function
+   that just returns the value sent. */
+lily_value *lily_arg_value(lily_state *s, int index)
+{
+    return s->call_chain->start[index];
+}
 
 lily_value *lily_con_get(lily_container_val *c, int index)
 {
@@ -211,11 +214,6 @@ int lily_bytestring_length(lily_bytestring_val *sv)
     return sv->size;
 }
 
-FILE *lily_file_raw(lily_file_val *fv)
-{
-    return fv->inner_file;
-}
-
 FILE *lily_file_for_write(lily_state *s, lily_file_val *filev)
 {
     if (filev->inner_file == NULL)
@@ -371,18 +369,15 @@ static void destroy_coroutine(lily_value *v)
 
     int full_destroy = 1;
 
-    /* The base frame contains the Coroutine. This ensures that the Coroutine's
-       refcount doesn't get multi-dropped and underflow. */
-    co_val->refcount = ~0;
+    /* There's no need to check for a gc entry like with other values.
+       Coroutines always have a gc tag. */
 
-    if (co_val->gc_entry) {
-        if (co_val->gc_entry->last_pass == -1) {
-            full_destroy = 0;
-            co_val->gc_entry = lily_gc_stopper;
-        }
-        else
-            co_val->gc_entry->value.generic = NULL;
+    if (co_val->gc_entry->last_pass == -1) {
+        full_destroy = 0;
+        co_val->gc_entry = lily_gc_stopper;
     }
+    else
+        co_val->gc_entry->value.generic = NULL;
 
     lily_value *receiver = co_val->receiver;
 
