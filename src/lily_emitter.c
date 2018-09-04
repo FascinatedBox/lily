@@ -384,19 +384,12 @@ void lily_emit_try(lily_emit_state *emit, int line_num)
 void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_var *except_var, int line_num)
 {
-    if (except_var) {
-        /* There's a register to dump the result into, so use this opcode to let
-           the vm know to copy down the information to this var. */
-        lily_u16_write_4(emit->code, o_exception_catch,
-                except_var->type->cls->id, 2, line_num);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+    lily_u16_write_4(emit->code, o_exception_catch, except_type->cls->id, 2,
+            line_num);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+
+    if (except_var)
         lily_u16_write_2(emit->code, o_exception_store, except_var->reg_spot);
-    }
-    else {
-        lily_u16_write_4(emit->code, o_exception_catch,
-                except_type->cls->id, 2, line_num);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
-    }
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
