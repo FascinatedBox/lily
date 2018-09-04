@@ -148,7 +148,7 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 static void unify_call(lily_type_system *ts, lily_type *left,
         lily_type *right, int num_subtypes)
 {
-    lily_class *cls = left->cls->id < right->cls->id ? left->cls : right->cls;
+    lily_class *cls = left->cls;
     int flags = (left->flags & TYPE_IS_VARARGS) &
                 (right->flags & TYPE_IS_VARARGS);
     lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, cls, num_subtypes));
