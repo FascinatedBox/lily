@@ -444,7 +444,7 @@ static void coroutine_marker(int pass, lily_value *v)
            walked through. Since the Function is never put into a register, the
            Coroutine's gc tag serves as its tag. */
         lily_value v;
-        v.flags = V_FUNCTION_BASE | V_FUNCTION_BASE;
+        v.flags = V_FUNCTION_BASE;
         v.value.function = base_function;
         function_marker(pass, &v);
     }
