@@ -1751,7 +1751,7 @@ static void dispatch_exception(lily_vm_state *vm)
 
         while (1) {
             lily_class *catch_class =
-                    vm->gs->class_table[code[jump_location + 2]];
+                    vm->gs->class_table[code[jump_location + 1]];
 
             if (lily_class_greater_eq(catch_class, raised_cls)) {
                 /* ...So that execution resumes from within the except block. */
@@ -1760,7 +1760,7 @@ static void dispatch_exception(lily_vm_state *vm)
                 break;
             }
             else {
-                int move_by = code[jump_location + 3];
+                int move_by = code[jump_location + 2];
                 if (move_by == 0)
                     break;
 

@@ -387,15 +387,15 @@ void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
     if (except_var) {
         /* There's a register to dump the result into, so use this opcode to let
            the vm know to copy down the information to this var. */
-        lily_u16_write_4(emit->code, o_exception_catch, line_num,
-                except_var->type->cls->id, 3);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+        lily_u16_write_4(emit->code, o_exception_catch,
+                except_var->type->cls->id, 2, line_num);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
         lily_u16_write_2(emit->code, o_exception_store, except_var->reg_spot);
     }
     else {
-        lily_u16_write_4(emit->code, o_exception_catch, line_num,
-                except_type->cls->id, 3);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+        lily_u16_write_4(emit->code, o_exception_catch,
+                except_type->cls->id, 2, line_num);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
     }
 }
 

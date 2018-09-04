@@ -370,3 +370,33 @@ t.interpret_for_error("Verify closure traceback.",
 
     f()
     """)
+
+t.interpret("Verify exception capture within a closure.",
+    """
+    define f: Function(Integer => List[Integer]) {
+        var l: List[Integer] = []
+
+        define g(a: Integer) {
+            l.push(2 / a)
+        }
+
+        define h(a: Integer): List[Integer] {
+            try: {
+                g(a)
+            except DivisionByZeroError as e:
+                a = a + 1
+                g(a)
+            }
+            return l
+        }
+
+        return h
+    }
+
+    var g = f()
+    var l = [1, 0, 2, 0, 1].map(g)
+
+    if l[0] != [2, 2, 1, 2, 2]: {
+        raise Exception("Failed.")
+    }
+    """)
