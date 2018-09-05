@@ -3895,13 +3895,13 @@ static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
     return names;
 }
 
-static int keyarg_at_pos(lily_ast *arg_iter, lily_ast *arg_stop, int pos)
+static int keyarg_at_pos(lily_ast *ast, lily_ast *arg_stop, int pos)
 {
     int found = 0;
+    lily_ast *arg;
 
-    for (;arg_iter != arg_stop;
-          arg_iter = arg_iter->next_arg) {
-        if (arg_iter->keyword_arg_pos == pos) {
+    for (arg = ast->arg_start; arg != arg_stop; arg = arg->next_arg) {
+        if (arg->keyword_arg_pos == pos) {
             found = 1;
             break;
         }
@@ -3920,8 +3920,6 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
 
-    lily_ast *basic_arg_head = NULL;
-    lily_ast *basic_arg_tail = NULL;
     char *keyword_names = get_keyarg_names(emit, ast);
 
     if (keyword_names == NULL)
@@ -3943,7 +3941,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
 
             if (va_pos <= pos)
                 num_args--;
-            else if (keyarg_at_pos(basic_arg_head, basic_arg_tail, pos))
+            else if (keyarg_at_pos(ast, arg, pos))
                 error_keyarg_duplicate(emit, ast, arg);
         }
         else if (have_keyargs == 0) {
@@ -3956,11 +3954,6 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
             error_keyarg_before_posarg(emit, arg);
 
         arg->keyword_arg_pos = pos;
-
-        if (basic_arg_head == NULL)
-            basic_arg_head = arg;
-
-        basic_arg_tail = arg;
     }
 
     unsigned int min, max;

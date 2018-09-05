@@ -131,3 +131,13 @@ t.interpret_for_error("Keyarg missing key arguments (some optional).",
 
     f(:b "a")
     """)
+
+t.interpret_for_error("Two keyargs with a duplicate target.",
+    """\
+    SyntaxError: Call to f has multiple values for parameter ':a'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    define f(:a a: Integer, :b b: Integer) {}
+    f(:a 1, :a 2)
+    """)
