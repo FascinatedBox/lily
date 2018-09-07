@@ -94,7 +94,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
     }
     else if (type->cls->id == LILY_ID_GENERIC)
         lily_tm_add_unchecked(ts->tm, ts->types[ts->pos + type->generic_pos]);
-    else if (type->cls->id >= LOWEST_SCOOP_ID) {
+    else if (type->cls->id == LILY_ID_SCOOP) {
         int scoop_pos = UINT16_MAX - type->cls->id;
         int stop = ts->scoop_starts[scoop_pos];
         int target = ts->scoop_starts[scoop_pos - 1];
@@ -183,7 +183,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
 
         /* Scoop types can't be the solution, because generics need to be pinned
            down to one type (concrete or abstract). */
-        if (right->cls->id == LILY_ID_SCOOP_1)
+        if (right->cls->id == LILY_ID_SCOOP)
             ret = 0;
         else if (cmp_type == lily_question_type)
             ts->types[generic_pos] = right;
@@ -256,7 +256,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
     /* Allow it if the last type was a scoop type (and not trying to unify
        scoop types). */
     if (left_type &&
-        left_type->cls->id >= LOWEST_SCOOP_ID &&
+        left_type->cls->id == LILY_ID_SCOOP &&
         (flags & T_UNIFY) == 0)
         ret = 1;
     else if (right->subtype_count > left->subtype_count &&
@@ -428,7 +428,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
         ret = check_function(ts, left, right, flags);
     else if (left->cls->id == LILY_ID_TUPLE)
         ret = check_tuple(ts, left, right, flags);
-    else if (left->cls->id == LILY_ID_SCOOP_1)
+    else if (left->cls->id == LILY_ID_SCOOP)
         /* This is a match of a raw scoop versus a single argument. Consider
            this valid and, you know, scoop up the type. */
         ret = collect_scoop(ts, left, right, flags);

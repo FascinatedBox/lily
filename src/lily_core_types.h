@@ -429,7 +429,5 @@ typedef struct lily_proto_ {
 #define LILY_ID_QUESTION   65530
 #define LILY_ID_GENERIC    65531
 #define LILY_ID_OPTARG     65532
-#define LILY_ID_SCOOP_2    65533
-#define LILY_ID_SCOOP_1    65534
-#define LOWEST_SCOOP_ID    65533
+#define LILY_ID_SCOOP      65534
 #endif

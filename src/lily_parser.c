@@ -1372,9 +1372,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
     if (lex->token == tk_word)
         cls = resolve_class_name(parser);
-    else if ((flags & F_SCOOP_OK) &&
-             (lex->token == tk_scoop_1 ||
-              lex->token == tk_scoop_2))
+    else if ((flags & F_SCOOP_OK) && lex->token == tk_scoop)
         cls = get_scoop_class(parser, lex->last_integer);
     else {
         NEED_CURRENT_TOK(tk_word)

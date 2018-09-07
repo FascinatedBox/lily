@@ -3768,11 +3768,9 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     co_class->id = LILY_ID_COROUTINE;
 
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
-    lily_class *scoop1     = build_special(symtab, "$1", 0, LILY_ID_SCOOP_1);
-    lily_class *scoop2     = build_special(symtab, "$2", 0, LILY_ID_SCOOP_2);
+    lily_class *scoop      = build_special(symtab, "$1", 0, LILY_ID_SCOOP);
 
-    scoop1->self_type->flags |= TYPE_HAS_SCOOP;
-    scoop2->self_type->flags |= TYPE_HAS_SCOOP;
+    scoop->self_type->flags |= TYPE_HAS_SCOOP;
 
     symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
     symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
