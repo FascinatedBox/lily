@@ -343,48 +343,17 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
     return ret;
 }
 
+
 static int check_tuple(lily_type_system *ts, lily_type *left, lily_type *right,
         int flags)
 {
-    if (right->cls->id != LILY_ID_TUPLE)
+    /* Tuples of different sizes are considered distinct in case that's
+       important later on. This check is also important because Tuple is the
+       only non-Function type of varying arity. */
+    if (left->subtype_count != right->subtype_count)
         return 0;
 
-    if ((left->flags & TYPE_HAS_SCOOP) == 0) {
-        /* Do not allow Tuples to be considered equal if they don't have the
-           same # of subtypes. The reason is that Tuple operations work on the
-           size at vm-time. So if emit-time and vm-time disagree about the size
-           of a Tuple, there WILL be problems. */
-        if (left->subtype_count != right->subtype_count)
-            return 0;
-        else
-            return check_misc(ts, left, right, flags);
-    }
-
-    /* Not yet. Maybe later. */
-    if (flags & T_UNIFY)
-        return 0;
-
-    /* Scoop currently expects at least one value. */
-    if (left->subtype_count > right->subtype_count)
-        return 0;
-
-    /* This carries a few assumptions with it:
-     * Scoop types are always seen in order
-     * Scoop types are never next to each other on the left
-     * (Currently) Scoop types are always the only type. */
-    int start = ts->pos + ts->num_used;
-    int scoop_pos = UINT16_MAX - left->subtypes[0]->cls->id;
-
-    ENSURE_TYPE_STACK(start + right->subtype_count)
-
-    int i;
-    for (i = 0;i < right->subtype_count;i++)
-        ts->types[start + i] = right->subtypes[i];
-
-    ts->num_used += right->subtype_count;
-    ts->scoop_starts[scoop_pos] = ts->pos + ts->num_used;
-
-    return 1;
+    return check_misc(ts, left, right, flags);
 }
 
 static int collect_scoop(lily_type_system *ts, lily_type *left,
