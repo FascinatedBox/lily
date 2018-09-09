@@ -52,9 +52,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm)
 
 void lily_free_type_system(lily_type_system *ts)
 {
-    if (ts)
-        lily_free(ts->types);
-
+    lily_free(ts->types);
     lily_free(ts);
 }
 
