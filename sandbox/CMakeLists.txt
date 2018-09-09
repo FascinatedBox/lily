@@ -6,7 +6,7 @@ SET(CMAKE_RANLIB       emranlib)
 SET(MY_EXPORTS         "'_get_parser', '_run_parser', '_get_parser_error'")
 SET(MY_EXPORTS         "${MY_EXPORTS}, '_destroy_parser'")
 
-SET(CMAKE_C_FLAGS      "-O1 -Wno-warn-absolute-paths --memory-init-file 0 -s EXPORTED_FUNCTIONS=\"[${MY_EXPORTS}]\" -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
+SET(CMAKE_C_FLAGS      "-O1 -Wno-warn-absolute-paths --memory-init-file 0 -s WASM=0 -s EXPORTED_FUNCTIONS=\"[${MY_EXPORTS}]\" -s EXTRA_EXPORTED_RUNTIME_METHODS='[\"cwrap\"]'")
 SET(CMAKE_CXX_FLAGS    -g)
 SET(CMAKE_TOOLCHAIN_FILE  "$EMSCRIPTEN/cmake/Platform/Emscripten.cmake")
 SET(CMAKE_EXECUTABLE_SUFFIX ".js")
