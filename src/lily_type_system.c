@@ -59,8 +59,7 @@ void lily_free_type_system(lily_type_system *ts)
 static void grow_types(lily_type_system *ts)
 {
     ts->max *= 2;
-    ts->types = lily_realloc(ts->types,
-            sizeof(*ts->types) * ts->max);;
+    ts->types = lily_realloc(ts->types, sizeof(*ts->types) * ts->max);
 }
 
 /* This is similar to lily_ts_resolve except that it also unrolls scoop types.
