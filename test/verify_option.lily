@@ -34,7 +34,7 @@ t.assert("Option.and with Some and Some.",
 t.assert("Option.and_then with None.",
          (||
     var v: Option[Integer] = None
-    v.and_then(|x| x * x).is_none() ))
+    v.and_then(|x| Some(x * x)).is_none() ))
 
 t.assert("Option.and_then with Some.",
          (|| Some(4).and_then(|x| Some(x * x)).unwrap() == 16 ))
