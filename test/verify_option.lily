@@ -36,8 +36,6 @@ t.assert("Option.and_then with None.",
     var v: Option[Integer] = None
     v.and_then(|x| x * x).is_none() ))
 
-define opt_square(x: Integer): Option[Integer] { return Some(x * x) }
-
 t.assert("Option.and_then with Some.",
          (|| Some(4).and_then(|x| Some(x * x)).unwrap() == 16 ))
 
