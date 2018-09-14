@@ -119,9 +119,9 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
         ;
     else if (type->cls->generic_count != 0) {
         /* Resolve handles solving generics and is thus hit pretty often. So
-           it reserves the maximum that could possibly be used at once
-           (including for scoops) to prevent repeated growing checks. */
-        lily_tm_reserve(ts->tm, type->subtype_count + ts->num_used);
+           it reserves the maximum that could possibly be used at once to
+           prevent repeated growing checks. */
+        lily_tm_reserve(ts->tm, type->subtype_count);
         lily_type **subtypes = type->subtypes;
         int start = ts->tm->pos;
         int i = 0;
