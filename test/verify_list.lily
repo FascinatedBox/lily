@@ -130,11 +130,11 @@ t.assert("List.fold with empty List.",
 
 t.assert("List.get with valid positive index.",
          (||
-    [1, 2, 3].get(0).unwrap() ))
+    [1, 2, 3].get(0).unwrap() == 1 ))
 
 t.assert("List.get with valid negative index.",
          (||
-    [1, 2, 3].get(-1).unwrap() ))
+    [1, 2, 3].get(-1).unwrap() == 3 ))
 
 t.assert("List.get with invalid positive index.",
          (||
@@ -222,7 +222,8 @@ t.expect_error("List.pop with empty List.",
                "IndexError: Pop from an empty list.",
                (||
     var v: List[Integer] = []
-    v.pop() ))
+    v.pop()
+    true ))
 
 
 t.assert("List.reject with empty List.",

@@ -169,7 +169,7 @@ t.interpret("Verify foreign function error recovery on exception.",
     var h = [1 => 1, 2 => 2, 3 => 3, 4 => 4]
 
     try: {
-        h.select(|key, value| h.delete(key) )
+        h.select(|key, value| h.delete(key) true )
         raise Exception("Hash.delete did not fail properly during select.")
     except RuntimeError:
         0

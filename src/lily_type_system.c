@@ -210,19 +210,26 @@ static int check_function(lily_type_system *ts, lily_type *left,
 {
     int ret = 1;
     int tm_start = lily_tm_pos(ts->tm);
+    /* The return type is at [0] and always exists. */
+    lily_type *left_type = left->subtypes[0];
+    lily_type *right_type = right->subtypes[0];
+
     flags &= T_DONT_SOLVE | T_UNIFY;
 
-    /* Remember that [0] is the return type, and always exists. */
-    if (check_raw(ts, left->subtypes[0], right->subtypes[0], flags | T_COVARIANT) == 0) {
-        if (flags & T_UNIFY) {
-            lily_tm_restore(ts->tm, tm_start);
-            lily_tm_add(ts->tm, lily_unit_type);
+    if (check_raw(ts, left_type, right_type, flags | T_COVARIANT) == 0) {
+        /* Narrowing to Unit should only be done if the requirement (left) is
+           Unit. Otherwise very bad and unsound code passes. */
+        if (left_type == lily_unit_type) {
+            if (flags & T_UNIFY) {
+                lily_tm_restore(ts->tm, tm_start);
+                lily_tm_add(ts->tm, lily_unit_type);
+            }
         }
+        else
+            ret = 0;
     }
 
     int i;
-    lily_type *left_type = NULL;
-    lily_type *right_type = NULL;
     int count = left->subtype_count;
 
     if (left->subtype_count > right->subtype_count)
