@@ -245,23 +245,20 @@ static int check_function(lily_type_system *ts, lily_type *left,
         }
     }
 
-    if (right->subtype_count < left->subtype_count) {
-        /* It could be that the left side is only a scoop type and the right
-           side is empty. Setup the left side just in case. */
-        if (left_type == NULL && left->subtype_count == 2)
-            left_type = left->subtypes[1];
-
-        ret = 0;
+    if (left->subtype_count == right->subtype_count)
+        ;
+    /* The left can't have more unless the last is scoop. */
+    else if (left->subtype_count > right->subtype_count) {
+        if (left->subtypes[i]->cls->id == LILY_ID_SCOOP &&
+            (flags & T_UNIFY) == 0 &&
+            ret == 1)
+            ret = 1;
+        else
+            ret = 0;
     }
-
-    /* Allow it if the last type was a scoop type (and not trying to unify
-       scoop types). */
-    if (left_type &&
-        left_type->cls->id == LILY_ID_SCOOP &&
-        (flags & T_UNIFY) == 0)
-        ret = 1;
-    else if (right->subtype_count > left->subtype_count &&
-             right->subtypes[i]->cls->id != LILY_ID_OPTARG)
+    /* The right side can have more as long as they're optional. Required
+       cannot follow optional, so only one needs to be tested. */
+    else if (right->subtypes[i]->cls->id != LILY_ID_OPTARG)
         ret = 0;
 
     if (ret && flags & T_UNIFY)
