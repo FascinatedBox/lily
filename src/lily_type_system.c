@@ -47,7 +47,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm)
     ts->max_seen = 1;
     ts->num_used = 0;
     ts->types[0] = lily_question_type;
-    memset(ts->scoop_starts, 0, sizeof(ts->scoop_starts));
+    ts->scoop_count = 0;
 
     return ts;
 }
@@ -96,17 +96,12 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
     else if (type->cls->id == LILY_ID_GENERIC)
         lily_tm_add_unchecked(ts->tm, ts->base[type->generic_pos]);
     else if (type->cls->id == LILY_ID_SCOOP) {
-        int scoop_pos = UINT16_MAX - type->cls->id;
-        int stop = ts->scoop_starts[scoop_pos];
-        int target = ts->scoop_starts[scoop_pos - 1];
+        int i;
+        lily_type **base = ts->base + ts->num_used - ts->scoop_count;
+        lily_tm_reserve(ts->tm, ts->scoop_count);
 
-        if (stop > target) {
-            lily_tm_reserve(ts->tm, stop - target);
-
-            /* Dump in whatever scoop collected. */
-            for (;target < stop;target++)
-                lily_tm_add_unchecked(ts->tm, ts->types[target]);
-        }
+        for (i = 0;i < ts->scoop_count;i++)
+            lily_tm_add_unchecked(ts->tm, base[i]);
     }
 }
 
@@ -368,15 +363,12 @@ static int collect_scoop(lily_type_system *ts, lily_type *left,
     if (flags & T_UNIFY)
         return 0;
 
-    int start = ts->pos + ts->num_used;
-    int scoop_pos = UINT16_MAX - left->cls->id;
+    ENSURE_TYPE_STACK(ts->pos + ts->num_used + 1)
 
-    ENSURE_TYPE_STACK(start + right->subtype_count)
-
-    ts->types[start] = right;
+    ts->base[ts->num_used] = right;
 
     ts->num_used += 1;
-    ts->scoop_starts[scoop_pos] = ts->pos + ts->num_used;
+    ts->scoop_count += 1;
 
     return 1;
 }
@@ -456,13 +448,13 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
 
 void lily_ts_reset_scoops(lily_type_system *ts)
 {
-    memset(ts->scoop_starts, 0, 4 * sizeof(uint16_t));
+    ts->scoop_count = 0;
 }
 
 #define COPY(to, from) \
 to->pos = from->pos; \
 to->num_used = from->num_used; \
-memcpy(to->scoop_starts, from->scoop_starts, sizeof(to->scoop_starts));
+to->scoop_count = from->scoop_count;
 
 void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 {
@@ -471,7 +463,7 @@ void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
     ts->base += ts->num_used;
     ts->pos += ts->num_used;
     ts->num_used = ts->max_seen;
-    ts->scoop_starts[0] = ts->pos + ts->num_used;
+    ts->scoop_count = 0;
 
     ENSURE_TYPE_STACK(ts->pos + ts->num_used);
 

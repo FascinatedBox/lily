@@ -16,8 +16,8 @@
 typedef struct {
     uint16_t pos;
     uint16_t num_used;
-    uint32_t pad;
-    uint16_t scoop_starts[4];
+    uint16_t scoop_count;
+    uint16_t pad;
 } lily_ts_save_point;
 
 typedef struct {
@@ -27,7 +27,10 @@ typedef struct {
     uint16_t num_used;
     uint16_t max_seen;
     uint16_t max;
-    uint16_t scoop_starts[4];
+
+    uint16_t scoop_count;
+    uint16_t pad1;
+    uint32_t pad2;
 
     lily_type_maker *tm;
 } lily_type_system;
