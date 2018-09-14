@@ -325,6 +325,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     /* ts types can be left alone since ts blasts types on entry instead of
        cleaning up on exit. Rewind the scoops though, just in case an error was
        hit during scoop collect. */
+    ts->base = ts->types;
     ts->num_used = 0;
     ts->pos = 0;
     lily_ts_reset_scoops(parser->emit->ts);

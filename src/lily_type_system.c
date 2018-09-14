@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +41,7 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm)
 
     ts->tm = tm;
     ts->types = types;
+    ts->base = types;
     ts->pos = 0;
     ts->max = 4;
     ts->max_seen = 1;
@@ -58,8 +60,10 @@ void lily_free_type_system(lily_type_system *ts)
 
 static void grow_types(lily_type_system *ts)
 {
+    ptrdiff_t offset = ts->base - ts->types;
     ts->max *= 2;
     ts->types = lily_realloc(ts->types, sizeof(*ts->types) * ts->max);
+    ts->base = ts->types + offset;
 }
 
 /* This is similar to lily_ts_resolve except that it also unrolls scoop types.
@@ -90,7 +94,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
         lily_tm_add_unchecked(ts->tm, t);
     }
     else if (type->cls->id == LILY_ID_GENERIC)
-        lily_tm_add_unchecked(ts->tm, ts->types[ts->pos + type->generic_pos]);
+        lily_tm_add_unchecked(ts->tm, ts->base[type->generic_pos]);
     else if (type->cls->id == LILY_ID_SCOOP) {
         int scoop_pos = UINT16_MAX - type->cls->id;
         int stop = ts->scoop_starts[scoop_pos];
@@ -137,7 +141,7 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
             ret = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
     }
     else if (type->cls->id == LILY_ID_GENERIC)
-        ret = ts->types[ts->pos + type->generic_pos];
+        ret = ts->base[type->generic_pos];
 
     return ret;
 }
@@ -174,8 +178,8 @@ static int check_generic(lily_type_system *ts, lily_type *left,
             lily_tm_add(ts->tm, left);
     }
     else {
-        int generic_pos = ts->pos + left->generic_pos;
-        lily_type *cmp_type = ts->types[generic_pos];
+        int generic_pos = left->generic_pos;
+        lily_type *cmp_type = ts->base[generic_pos];
         ret = 1;
 
         /* Scoop types can't be the solution, because generics need to be pinned
@@ -183,14 +187,14 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         if (right->cls->id == LILY_ID_SCOOP)
             ret = 0;
         else if (cmp_type == lily_question_type)
-            ts->types[generic_pos] = right;
+            ts->base[generic_pos] = right;
         else if (cmp_type == right)
             ;
         else if (cmp_type->flags & TYPE_IS_INCOMPLETE) {
             lily_type *unify_type;
             unify_type = lily_ts_unify(ts, cmp_type, right);
             if (unify_type)
-                ts->types[generic_pos] = unify_type;
+                ts->base[generic_pos] = unify_type;
             else
                 ret = 0;
         }
@@ -433,18 +437,15 @@ int lily_ts_type_greater_eq(lily_type_system *ts, lily_type *left, lily_type *ri
 lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
         lily_type *second)
 {
-    int stack_start = ts->pos + ts->num_used + 1;
-    int save_ssp = ts->pos;
-
-    ENSURE_TYPE_STACK(stack_start + first->subtype_count)
-
-    int i;
-    for (i = 0;i < first->subtype_count;i++)
-        ts->types[stack_start + i] = first->subtypes[i];
-
-    ts->pos = stack_start;
+    /* This is used to resolve properties and variants that have enums. The
+       resolve source shouldn't be the current scope, but instead 'first' which
+       is the class or enum self type. Rather than creating a new scope, a much
+       easier way is to swap out the base pointer that acts as the floor of the
+       current scope. */
+    lily_type **save_base = ts->base;
+    ts->base = first->subtypes;
     lily_type *result_type = lily_ts_resolve(ts, second);
-    ts->pos = save_ssp;
+    ts->base = save_base;
 
     return result_type;
 }
@@ -463,6 +464,7 @@ void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 {
     COPY(p, ts)
 
+    ts->base += ts->num_used;
     ts->pos += ts->num_used;
     ts->num_used = ts->max_seen;
     ts->scoop_starts[0] = ts->pos + ts->num_used;
@@ -471,12 +473,13 @@ void lily_ts_scope_save(lily_type_system *ts, lily_ts_save_point *p)
 
     int i;
     for (i = 0;i < ts->num_used;i++)
-        ts->types[ts->pos + i] = lily_question_type;
+        ts->base[i] = lily_question_type;
 }
 
 void lily_ts_scope_restore(lily_type_system *ts, lily_ts_save_point *p)
 {
     COPY(ts, p)
+    ts->base -= ts->num_used;
 }
 
 void lily_ts_generics_seen(lily_type_system *ts, int amount)

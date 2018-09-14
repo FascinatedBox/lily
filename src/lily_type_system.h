@@ -22,6 +22,7 @@ typedef struct {
 
 typedef struct {
     lily_type **types;
+    lily_type **base;
     uint16_t pos;
     uint16_t num_used;
     uint16_t max_seen;
