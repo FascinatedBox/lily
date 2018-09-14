@@ -70,12 +70,10 @@ lily_type *lily_ts_resolve(lily_type_system *, lily_type *);
    The result is a solved type, and never NULL. */
 lily_type *lily_ts_resolve_by_second(lily_type_system *, lily_type *, lily_type *);
 
-/* This is used by emitter when calculating the resulting type of a call. In the
-   event that the resulting type has scoops, those need to be replaced out to
-   determine what the real result is.
-   Most callers don't want this, because they should be resolving against scoop
-   so that scoop can do collection.  */
-lily_type *lily_ts_scoop_unroll(lily_type_system *, lily_type *);
+/* This does what lily_ts_resolve does as well as replacing the result of scoop
+   if neccessary. Most callers don't want this and should use the regular
+   resolve instead. */
+lily_type *lily_ts_resolve_unscoop(lily_type_system *, lily_type *);
 
 /* This saves information for the current scope down to the save point, and
    reserves a fresh set of types for a new scope. */

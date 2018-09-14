@@ -105,7 +105,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
     }
 }
 
-lily_type *lily_ts_scoop_unroll(lily_type_system *ts, lily_type *type)
+lily_type *lily_ts_resolve_unscoop(lily_type_system *ts, lily_type *type)
 {
     do_scoop_resolve(ts, type);
     return lily_tm_pop(ts->tm);
