@@ -112,7 +112,7 @@ t.interpret_for_error("Verify usage of ? for unknown type.",
 
 t.interpret_for_error("Require generics default only types that are resolved.",
     """\
-    SyntaxError: Argument #2 to f is invalid:\n\
+    SyntaxError: Argument #1 to g is invalid:\n\
     Expected Type: Integer\n\
     Received Type: String\n    \
         from test\/[subinterp]:7:\

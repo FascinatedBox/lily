@@ -14,7 +14,6 @@ import feature_template
 import fail_syntax
 import fail_classes
 import fail_coroutines
-import fail_variance
 import fail_enums
 import fail_exceptions
 import fail_forward
@@ -24,6 +23,7 @@ import fail_keyargs
 import fail_lambdas
 import fail_optargs
 import fail_template
+import fail_type_check
 import verify_basics
 import verify_boolean
 import verify_byte

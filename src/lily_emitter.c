@@ -3742,6 +3742,60 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
     ast->call_op = call_op;
 }
 
+/* This is called when a call has a type that references generics in some way.
+   It must be called after the ts scope is setup. There are two purposes to
+   this function:
+
+   Inference. Try to pull inference information by matching the expected type
+   against the call's result.
+
+   Quantification. Within a defined function, generics will have been solved
+   down to some concrete type. A local var promising to map from A to A is not
+   the same as a global function promising the same. The local var's A will be
+   nailed down to some concrete type, whereas the global is truly generic.
+   Here's an example:
+
+   ```
+   define identity[A](a: A): A { return a }
+   define morph_string(a: String): String { return a.lower() }
+
+   var v = 10
+
+   define transform[A](a: A, fn: Function(A => A)) {
+       # This is invalid:
+       # fn(v)
+   }
+
+   # fn(v) would be fine here
+   transform(10, identity)
+
+   # ...but not here.
+   transform("abc", morph_string)
+   ``` */
+static void setup_typing_for_call(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect, lily_type *call_type)
+{
+    lily_tree_type first_tt = ast->first_tree_type;
+
+    if (first_tt == tree_local_var ||
+        first_tt == tree_upvalue ||
+        first_tt == tree_inherited_new)
+        /* Simulate quantification by self-solving generics. Mandatory for the
+           first two.
+           For tree_inherited_new, this is a matter of simplifying generics. By
+           nailing A to A, the A of a base class is always A no matter how far
+           the inheritance stretches. */
+        lily_ts_check(emit->ts, call_type, call_type);
+    else if (expect)
+        /* This function is guarded by a check for the call type having
+           generics. It's a safe assumption that there will be generics in the
+           result calculation. So if there's a type being sent to infer
+           against, try it.
+           Do not check the result. If this fails, there will be a more clear
+           error generated somewhere else further down. */
+        lily_ts_check(emit->ts, call_type->subtypes[0], expect);
+}
+
 /* This does everything a call needs from start to finish. At the end of this,
    the 'ast' given will have a result set and code written. */
 static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
@@ -3757,25 +3811,8 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
        blast on entry) that are improperly visible. */
     lily_ts_scope_save(emit->ts, &p);
 
-    if (call_type->flags & TYPE_IS_UNRESOLVED) {
-        lily_tree_type first_tt = ast->first_tree_type;
-
-        if (first_tt == tree_local_var ||
-            first_tt == tree_upvalue ||
-            first_tt == tree_inherited_new)
-            /* The first two cases simulate quantification by solving generics
-               as themselves.
-               The last case forces class inheritance to keep the same generic
-               order (A of one class is always A of a superclass). It helps to
-               make generic solving a lot simpler. */
-            lily_ts_check(emit->ts, call_type, call_type);
-        else if (expect &&
-                 expect->cls->id == call_type->subtypes[0]->cls->id)
-            /* Grab whatever inference is possible from the result. Don't do
-               error checking. Instead, let a type mismatch show up that's
-               closer to the problem source. */
-            lily_ts_check(emit->ts, call_type->subtypes[0], expect);
-    }
+    if (call_type->flags & TYPE_IS_UNRESOLVED)
+        setup_typing_for_call(emit, ast, expect, call_type);
 
     run_call(emit, ast, call_type, expect);
     lily_ts_scope_restore(emit->ts, &p);
@@ -4105,25 +4142,8 @@ static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
        blast on entry) that are improperly visible. */
     lily_ts_scope_save(emit->ts, &p);
 
-    if (call_type->flags & TYPE_IS_UNRESOLVED) {
-        lily_tree_type first_tt = ast->arg_start->tree_type;
-
-        if (first_tt == tree_local_var ||
-            first_tt == tree_upvalue ||
-            first_tt == tree_inherited_new)
-            /* The first two cases simulate quantification by solving generics
-               as themselves.
-               The last case forces class inheritance to keep the same generic
-               order (A of one class is always A of a superclass). It helps to
-               make generic solving a lot simpler. */
-            lily_ts_check(emit->ts, call_type, call_type);
-        else if (expect &&
-                 expect->cls->id == call_type->subtypes[0]->cls->id)
-            /* Grab whatever inference is possible from the result. Don't do
-               error checking. Instead, let a type mismatch show up that's
-               closer to the problem source. */
-            lily_ts_check(emit->ts, call_type->subtypes[0], expect);
-    }
+    if (call_type->flags & TYPE_IS_UNRESOLVED)
+        setup_typing_for_call(emit, ast, expect, call_type);
 
     run_named_call(emit, ast, call_type, expect);
     lily_ts_scope_restore(emit->ts, &p);
