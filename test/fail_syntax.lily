@@ -350,6 +350,15 @@ t.interpret_for_error("Forbid single-quote byte literals from being multi-byte."
     var v = '12'
     """)
 
+t.interpret_for_error("Forbid empty byte single-quote byte literal.",
+    """\
+    SyntaxError: Byte literals cannot be empty.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var v = ''
+    """)
+
 t.interpret_for_error("Forbid scoop types outside dynaload.",
     """\
     SyntaxError: Expected 'a label', not 'an integer'.\n    \

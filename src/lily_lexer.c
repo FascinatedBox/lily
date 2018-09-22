@@ -1024,10 +1024,12 @@ static void scan_single_quote(lily_lex_state *lexer, char **source_ch)
         new_ch++;
         ch = scan_escape(lexer, &new_ch);
     }
-    else {
+    else if (ch != '\'') {
         ch = *new_ch;
         new_ch += 1;
     }
+    else
+        lily_raise_syn(lexer->raiser, "Byte literals cannot be empty.");
 
     if (*new_ch != '\'')
         lily_raise_syn(lexer->raiser, "Multi-character byte literal.");
