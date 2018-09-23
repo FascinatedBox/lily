@@ -493,23 +493,6 @@ static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
             break;
         }
 
-        if (sym->item_kind == ITEM_TYPE_CLASS &&
-            sym->flags & CLS_IS_ENUM &&
-            (sym->flags & CLS_ENUM_IS_SCOPED) == 0) {
-            lily_named_sym *member_iter = ((lily_class *)sym)->members;
-            while (member_iter) {
-                if (member_iter->name_shorthash == shorthash &&
-                    strcmp(member_iter->name, name) == 0) {
-                    result = (lily_sym *)member_iter;
-                }
-
-                member_iter = member_iter->next;
-            }
-
-            if (result)
-                break;
-        }
-
         boxed_iter = boxed_iter->next;
     }
 
