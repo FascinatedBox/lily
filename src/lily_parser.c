@@ -4092,6 +4092,10 @@ static void run_loaded_module(lily_parse_state *parser,
     if (lex->token == tk_end_tag)
         lily_raise_syn(parser->raiser, "Unexpected token '?>'.");
 
+    if (lex->token == tk_invalid)
+        lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
+                tokname(lex->token));
+
     if (parser->emit->block->pending_forward_decls)
         error_forward_decl_pending(parser);
 

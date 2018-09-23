@@ -1,4 +1,4 @@
-`import test
+import test
 
 var t = test.t
 
@@ -53,23 +53,28 @@ t.assert("String.format for unformatted input.",
 
 t.expect_error("String.format fails on unterminated specifier.",
                "ValueError: Format specifier is empty.",
-               (|| "{".format(0) ))
+               (|| "{".format(0)
+                   false ))
 
 t.expect_error("String.format fails on {a}.",
                "ValueError: Format specifier is empty.",
-               (|| "{a}".format(0) ))
+               (|| "{a}".format(0)
+                   false ))
 
 t.expect_error("String.format fails on {100}.",
                "ValueError: Format must be between 0...99.",
-               (|| "{100}".format(0) ))
+               (|| "{100}".format(0)
+                   false ))
 
 t.expect_error("String.format fails on {}.",
                "ValueError: Format specifier is empty.",
-               (|| "{}".format(0) ))
+               (|| "{}".format(0)
+                   false ))
 
 t.expect_error("String.format fails on an index that's too large.",
                "IndexError: Format specifier is too large.",
-               (|| "{5}".format(0) ))
+               (|| "{5}".format(0)
+                   false ))
 
 
 
@@ -268,7 +273,8 @@ t.assert("String.split doesn't generate a broken first string.",
 
 t.expect_error("String.split raises ValueError for empty string.",
                "ValueError: Cannot split by empty string.",
-               (|| "a".split("") ))
+               (|| "a".split("")
+                   false ))
 
 
 t.assert("String.to_bytestring basic success case.",

@@ -180,3 +180,12 @@ t.interpret_for_error("Import path with escape characters.",
     """\
     import "\\nasdf"
     """)
+
+t.interpret_for_error("Import with invalid token in file.",
+    """\
+    SyntaxError: Unexpected token 'invalid token'.\n    \
+        from test\/import_dir\/invalid_token.lily:1:\
+    """,
+    """\
+    import "import_dir/invalid_token"
+    """)
