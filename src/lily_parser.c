@@ -5284,22 +5284,10 @@ static void parser_loop(lily_parse_state *parser, const char *filename,
         else if (lex->token == tk_docstring) {
             process_docstring(parser);
         }
-        /* This makes it possible to have expressions that don't start with a
-           var. This may be useful later for building a repl. */
-        else if (lex->token == tk_integer || lex->token == tk_double ||
-                 lex->token == tk_double_quote ||
-                 lex->token == tk_left_parenth ||
-                 lex->token == tk_left_bracket ||
-                 lex->token == tk_bytestring ||
-                 lex->token == tk_lambda ||
-                 lex->token == tk_tuple_open ||
-                 lex->token == tk_byte) {
+        else {
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
-        else
-            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                       tokname(lex->token));
     }
 }
 

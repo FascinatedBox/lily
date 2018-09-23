@@ -34,7 +34,7 @@ t.interpret_for_error("Wrong closing token.",
 
 t.interpret_for_error("Comma at end of file.",
     """\
-    SyntaxError: Unexpected token ','.\n    \
+    SyntaxError: Expected a value, not ','.\n    \
         from test\/[subinterp]:2:\
     """,
     """\
