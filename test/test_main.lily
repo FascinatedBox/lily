@@ -3,6 +3,7 @@ import feature_closures
 import feature_coroutines
 import feature_dynaload
 import feature_enums
+import feature_exceptions
 import feature_forward
 import feature_generics
 import feature_keyargs

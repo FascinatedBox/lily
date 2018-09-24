@@ -13,8 +13,9 @@ t.interpret("Verify catch of custom exception.",
     try: {
         raise Error(100, "Test")
     except Error as e:
-        if e.code != 100:
+        if e.code != 100: {
             raise Exception("Failed.")
+        }
     }
     """)
 
@@ -22,10 +23,11 @@ t.interpret("Verify catch in another function.",
     """
     define g
     {
-        try:
+        try: {
             raise ValueError("")
         except Exception:
             1
+        }
     }
 
     define f
@@ -65,10 +67,11 @@ t.interpret("Verify getting the message of an exception var.",
 
 t.interpret("Verify that exception traceback is created and usable.",
     """
-    try:
+    try: {
         raise ValueError("")
     except ValueError as e:
         var v = e.traceback[0].split(":")[-1]
+    }
     """)
 
 t.interpret("Verify all branches of a try block are tried.",
@@ -76,7 +79,7 @@ t.interpret("Verify all branches of a try block are tried.",
     # This test make sure that all branches of a try+except are being tried,
     # and not just the first one.
 
-    try:
+    try: {
         1 / 0
     except IndexError:
         0
@@ -84,6 +87,7 @@ t.interpret("Verify all branches of a try block are tried.",
         0
     except DivisionByZeroError:
         0
+    }
     """)
 
 t.interpret("Verify native raise and catch, called from a foreign function.",
@@ -91,8 +95,9 @@ t.interpret("Verify native raise and catch, called from a foreign function.",
     define f(a: Integer) : Integer
     {
         try: {
-            if a % 2:
+            if a % 2: {
                 raise ValueError("")
+            }
         except Exception:
 
         }
@@ -115,10 +120,11 @@ t.interpret("Repeatedly try and catch inside of a loop.",
     var i = 10
 
     while i < 100: {
-        try:
+        try: {
             f()
         except Exception:
             0
+        }
 
         i += 1
     }
@@ -147,21 +153,25 @@ t.interpret("Verify contents of an exception raised by vm.",
     try: {
         f()
     except DivisionByZeroError as e:
-        if e.message != "Attempt to divide by zero.":
+        if e.message != "Attempt to divide by zero.": {
             raise Exception("Exception message is incorrect.")
+        }
 
         var expected_trace =
-        ["test.lily:21: from __main__",
-         "test.lily:17: from f",
-         "test.lily:11: from g",
-         "test.lily:3: from h"]
+        ["test\/[subinterp]:21: from __main__",
+         "test\/[subinterp]:17: from f",
+         "test\/[subinterp]:11: from g",
+         "test\/[subinterp]:3: from h"]
 
-        if e.traceback != expected_trace:
+        if e.traceback != expected_trace: {
+            print("trace given is \\n" ++ e.traceback.join("\\n"))
+            print("trace expected is \\n" ++ expected_trace.join("\\n"))
             raise Exception("Traceback is incorrect.")
+        }
     }
     """)
 
-t.interpret("Verify contents of an exception raised the user.",
+t.interpret("Verify contents of a raised exception.",
     """
     define h {
         raise RuntimeError("This is the message.")
@@ -184,16 +194,18 @@ t.interpret("Verify contents of an exception raised the user.",
     try: {
         f()
     except RuntimeError as e:
-        if e.message != "This is the message.":
+        if e.message != "This is the message.": {
             raise Exception("Exception message is incorrect.")
+        }
 
         var expected_trace =
-        ["test.lily:21: from __main__",
-         "test.lily:17: from f",
-         "test.lily:11: from g",
-         "test.lily:3: from h"]
+        ["test\/[subinterp]:21: from __main__",
+         "test\/[subinterp]:17: from f",
+         "test\/[subinterp]:11: from g",
+         "test\/[subinterp]:3: from h"]
 
-        if e.traceback != expected_trace:
+        if e.traceback != expected_trace: {
             raise Exception("Traceback is incorrect.")
+        }
     }
     """)
