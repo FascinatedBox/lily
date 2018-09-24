@@ -1063,9 +1063,8 @@ void lily_builtin_File_each_line(lily_state *s)
             }
 
             const char *text = lily_mb_raw(vm_buffer);
-            int pos = lily_mb_pos(vm_buffer);
 
-            lily_push_bytestring(s, text, pos);
+            lily_push_bytestring(s, text, lily_mb_pos(vm_buffer));
             lily_call(s, 1);
             lily_mb_flush(vm_buffer);
         }
