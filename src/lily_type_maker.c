@@ -62,13 +62,6 @@ void lily_tm_add(lily_type_maker *tm, lily_type *type)
 
 void lily_tm_insert(lily_type_maker *tm, int pos, lily_type *type)
 {
-    if (pos >= tm->size) {
-        while (pos >= tm->size)
-            tm->size *= 2;
-
-        tm->types = lily_realloc(tm->types, sizeof(*tm->types) * tm->size);
-    }
-
     tm->types[pos] = type;
 }
 
