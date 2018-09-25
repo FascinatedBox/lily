@@ -32,10 +32,6 @@ lily_value *lily_vs_pop(lily_value_stack *vs)
 
 void lily_free_value_stack(lily_value_stack *vs)
 {
-    int i;
-    for (i = 0;i < vs->pos;i++)
-        lily_free(vs->data[i]);
-
     lily_free(vs->data);
     lily_free(vs);
 }
