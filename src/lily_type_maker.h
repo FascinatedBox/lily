@@ -15,7 +15,6 @@ void lily_tm_add_unchecked(lily_type_maker *, lily_type *);
 void lily_tm_insert(lily_type_maker *, int, lily_type *);
 void lily_tm_reserve(lily_type_maker *, int);
 lily_type *lily_tm_pop(lily_type_maker *);
-lily_type *lily_tm_get(lily_type_maker *, int);
 lily_type *lily_tm_make(lily_type_maker *, lily_class *, int);
 lily_type *lily_tm_make_call(lily_type_maker *, int, lily_class *, int);
 int lily_tm_pos(lily_type_maker *);

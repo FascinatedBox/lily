@@ -65,11 +65,6 @@ void lily_tm_insert(lily_type_maker *tm, int pos, lily_type *type)
     tm->types[pos] = type;
 }
 
-inline lily_type *lily_tm_get(lily_type_maker *tm, int pos)
-{
-    return tm->types[pos];
-}
-
 lily_type *lily_tm_pop(lily_type_maker *tm)
 {
     tm->pos--;
