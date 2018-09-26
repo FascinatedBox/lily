@@ -101,17 +101,21 @@ if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {\
 static int new_size(int size)
 {
     int i, newsize;
+    /* Only returned if there are no more primes. You'll probably hit memory
+       limits before that happens. */
+    int out = -1;
 
     for (i = 0, newsize = MINSIZE;
          i < sizeof(primes)/sizeof(primes[0]);
          i++, newsize <<= 1)
     {
-        if (newsize > size)
-            return primes[i];
+        if (newsize > size) {
+            out = primes[i];
+            break;
+        }
     }
 
-    /* Out of primes. You'll probably hit out of memory before this. */
-    return -1;
+    return out;
 }
 
 lily_hash_val *lily_new_hash_raw(int size)
