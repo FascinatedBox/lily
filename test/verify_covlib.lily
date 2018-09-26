@@ -109,5 +109,7 @@ t.interpret("Cover using covlib to do extra api tests.",
                           [1 => 1],
                           1,
                           "1")
+
+    covlib.cover_ci_from_native(f2)
     """)
 }

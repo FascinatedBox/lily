@@ -6,6 +6,7 @@ coverage.
 */
 
 #include "lily.h"
+#include "lily_int_code_iter.h"
 
 /** Begin autogen section. **/
 #define ID_Container(state) lily_cid_at(state, 0)
@@ -29,6 +30,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_list_sfs\0"
     ,"F\0cover_id_checks\0[A](Coroutine[Integer,Integer],Unit,A,String): Boolean"
     ,"F\0cover_value_as\0(Byte,ByteString,Exception,Coroutine[Integer,Integer],Double,File,Function(Integer),Hash[Integer,Integer],Integer,String)"
+    ,"F\0cover_ci_from_native\0(Function(Integer))"
     ,"Z"
 };
 #define Container_OFFSET 1
@@ -42,6 +44,7 @@ void lily_covlib__cover_func_check(lily_state *);
 void lily_covlib__cover_list_sfs(lily_state *);
 void lily_covlib__cover_id_checks(lily_state *);
 void lily_covlib__cover_value_as(lily_state *);
+void lily_covlib__cover_ci_from_native(lily_state *);
 lily_call_entry_func lily_covlib_call_table[] = {
     NULL,
     NULL,
@@ -61,6 +64,7 @@ lily_call_entry_func lily_covlib_call_table[] = {
     lily_covlib__cover_list_sfs,
     lily_covlib__cover_id_checks,
     lily_covlib__cover_value_as,
+    lily_covlib__cover_ci_from_native,
 };
 /** End autogen section. **/
 
@@ -219,6 +223,21 @@ void lily_covlib__cover_value_as(lily_state *s)
     (void)lily_as_hash      (lily_arg_value(s, 7));
     (void)lily_as_integer   (lily_arg_value(s, 8));
     (void)lily_as_string    (lily_arg_value(s, 9));
+    lily_return_unit(s);
+}
+
+/**
+define cover_ci_from_native(fn: Function(Integer))
+
+This calls lily_ci_from_native, a function provided so that disassemble can
+walk through opcodes.
+*/
+void lily_covlib__cover_ci_from_native(lily_state *s)
+{
+    lily_function_val *func_val = lily_arg_function(s, 0);
+    lily_code_iter ci;
+
+    lily_ci_from_native(&ci, func_val);
     lily_return_unit(s);
 }
 
