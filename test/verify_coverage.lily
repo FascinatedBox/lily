@@ -719,3 +719,56 @@ t.interpret("Default args of Coroutine and Unit.",
     f(co)
     f(co, unit)
     """)
+
+t.interpret("Build and use a large hash.",
+    """
+    var letters = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+    var h: Hash[String, Integer] = []
+
+    var a = 0
+    var b = 0
+    var c = 0
+
+    for a in 0...letters.size() - 1: {
+        for b in 0...letters.size() - 1: {
+            for c in 0...letters.size() - 1: {
+                var new_key = letters[a] ++ letters[b] ++ letters[c]
+                h[new_key] = 0
+            }
+        }
+    }
+
+    h.delete("asdf")
+    """)
+
+t.interpret("Hash with colliding member deleted.",
+    """
+    var keys = ["moderately able aardvark", "moderately abandoned aardvark"]
+    var h: Hash[String, Integer] = []
+
+    keys.each(|key| h[key] = 0 )
+    h.delete("moderately able aardvark")
+
+    if h.size() != 1: {
+        raise Exception("Failed.")
+    }
+    """)
+
+t.interpret("Cover siphash with long Hash keys.",
+    """
+    var h: Hash[String, Integer] = []
+    var i = 0
+    var key = "a"
+
+    for i in 0...32: {
+        h[key] = 0
+        key = key ++ "a"
+    }
+
+    key = ""
+
+    for i in 0...32: {
+        h[key] = 1
+        key = key ++ "a"
+    }
+    """)
