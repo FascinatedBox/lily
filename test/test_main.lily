@@ -39,6 +39,7 @@ import verify_result
 import verify_rewind
 import verify_sandbox
 import verify_string
+import verify_pkg_time
 import sys
 import test
 
