@@ -3425,7 +3425,8 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
     uint16_t arg_count_spot = lily_u16_pos(emit->code) - 1;
     uint16_t args_written = 0;
     uint16_t unset_reg_spot = s->reg_spot;
-    uint16_t pos, va_pos;
+    uint16_t pos = ast->arg_start->keyword_arg_pos;
+    uint16_t va_pos;
     lily_ast *arg = ast->arg_start;
 
     /* -2 because the return type is at 0 and arg positions start at 0 for the
@@ -3434,13 +3435,6 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
         va_pos = call_type->subtype_count - 2;
     else
         va_pos = (uint16_t)-1;
-
-    if (ast->arg_start)
-        pos = ast->arg_start->keyword_arg_pos;
-    else
-        /* Only keyed varargs were passed. Start at the vararg pos so that
-           missing args before keyargs get unset-padded. */
-        pos = va_pos;
 
     while (1) {
         if (pos != args_written) {
