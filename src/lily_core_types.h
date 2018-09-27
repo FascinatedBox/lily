@@ -420,8 +420,11 @@ typedef struct lily_proto_ {
 /* This module was added by being registered. */
 #define MODULE_IS_REGISTERED 0x1
 
-/* Parser's import handler needs to execute this module's code. */
+/* This is a new module that hasn't been fully executed yet. */
 #define MODULE_NOT_EXECUTED  0x2
+
+/* This module is currently being executed. */
+#define MODULE_IN_EXECUTION  0x4
 
 #define LILY_LAST_ID       65528
 /* Instances of these are never made, so these ids will never be seen by vm. */

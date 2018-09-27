@@ -265,6 +265,18 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_u16_set_pos(parser->data_stack, 0);
     parser->import_pile_current = 0;
 
+    lily_module_entry *module_iter = rs->main_last_module;
+    while (module_iter) {
+        /* Hide broken modules from being loaded in the next pass as though
+           they weren't broken.
+           todo: Dump module contents once rewind is tested out more. */
+        if (module_iter->flags & MODULE_IN_EXECUTION) {
+            module_iter->cmp_len = 0;
+            module_iter->flags &= ~MODULE_IN_EXECUTION;
+        }
+        module_iter = module_iter->root_next;
+    }
+
     /* Rewind generics */
     lily_generic_pool *gp = parser->generics;
     gp->scope_start = 0;
@@ -4066,6 +4078,11 @@ static void keyword_do(lily_parse_state *parser)
 static void run_loaded_module(lily_parse_state *parser,
         lily_module_entry *module)
 {
+    /* The flag is changed so that rewind can identify modules that didn't
+       fully load and hide them from a subsequent pass. */
+    module->flags &= ~MODULE_NOT_EXECUTED;
+    module->flags |= MODULE_IN_EXECUTION;
+
     lily_module_entry *save_active = parser->symtab->active_module;
     lily_lex_state *lex = parser->lex;
 
@@ -4106,6 +4123,8 @@ static void run_loaded_module(lily_parse_state *parser,
     lily_emit_write_import_call(parser->emit, import_var);
 
     parser->symtab->active_module = save_active;
+
+    module->flags &= ~MODULE_IN_EXECUTION;
 }
 
 static lily_sym *find_existing_sym(lily_parse_state *parser,
@@ -4229,10 +4248,10 @@ static void keyword_import(lily_parse_state *parser)
         if (module == NULL) {
             module = load_module(parser, lex->label);
             /* module is never NULL: load_module raises on error. */
-            if (module->flags & MODULE_NOT_EXECUTED) {
-                module->flags &= ~MODULE_NOT_EXECUTED;
+
+            /* This is only set on modules that are new and native. */
+            if (module->flags & MODULE_NOT_EXECUTED)
                 run_loaded_module(parser, module);
-            }
         }
 
         lily_lexer(parser->lex);
