@@ -33,6 +33,7 @@ import verify_coverage
 import verify_covlib
 import verify_file
 import verify_hash
+import verify_integer
 import verify_list
 import verify_option
 import verify_result

@@ -17,6 +17,13 @@ t.assert("Hash.clear on empty hash.",
     h.clear()
     h == [] ))
 
+t.expect_error("Hash.clear during iteration.",
+               "RuntimeError: Cannot remove key from hash during iteration.",
+               (||
+    var h = [1 => 1]
+    h.each_pair(|k, v| h.clear() )
+    false ))
+
 
 t.assert("Hash.delete with Integer key.",
          (||

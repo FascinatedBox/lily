@@ -87,6 +87,9 @@ t.assert("String.html_encode without replacing start + end.",
 t.assert("String.html_encode with text interleaving replacements.",
          (|| "<+&+>".html_encode() == "&lt;+&amp;+&gt;" ))
 
+t.assert("String.html_encode doing nothing.",
+         (|| "asdf".html_encode() == "asdf" ))
+
 
 t.assert("String.is_alnum empty false case.",
          (|| "".is_alnum() == false ))
@@ -142,6 +145,12 @@ t.assert("String.lstrip with utf-8 chunk.",
 t.assert("String.lstrip not working by ascii for utf-8.",
          (|| "À¡aa¡À".lstrip("À¢") == "¡aa¡À" ))
 
+t.assert("String.lstrip partial match ignored.",
+         (|| "¥".lstrip("¦") == "¥" ))
+
+t.assert("String.lstrip full remove multi utf-8.",
+         (|| "¦".lstrip("¦¦") == "" ))
+
 
 t.assert("String.lower ignores 'abc'.",
          (|| "abc".lower() == "abc" ))
@@ -195,6 +204,9 @@ t.assert("String.replace all to nothing.",
 t.assert("String.replace multi character.",
          (|| "a--b--c--".replace("--", "+") == "a+b+c+" ))
 
+t.assert("String.replace ignores partial match.",
+         (|| "asdf".replace("ag", "xyz") == "asdf" ))
+
 
 t.assert("String.rstrip empty remove string.",
          (|| "abc".rstrip("") == "abc" ))
@@ -235,6 +247,9 @@ t.assert("String.slice gives empty string for too big indexes.",
 
 t.assert("String.slice gives empty string instead of broken utf-8.",
          (|| "À".slice(0, 1) == "" ))
+
+t.assert("String.slice -4...-2.",
+         (|| "abcde".slice(-4, -2) == "bc" ))
 
 
 t.assert("String.starts_with '123' and '12345'.",

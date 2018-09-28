@@ -1391,9 +1391,7 @@ void lily_builtin_Hash_clear(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
-    if (hash_val->iter_count != 0)
-        lily_RuntimeError(s, "Cannot remove key from hash during iteration.");
-
+    remove_key_check(s, hash_val);
     destroy_hash_elems(hash_val);
 
     hash_val->num_entries = 0;
@@ -3455,8 +3453,6 @@ static void string_split_by_val(lily_state *s, char *input, char *splitby)
 
             last_start = input_ch + 1;
         }
-        else if (*input_ch == '\0')
-            break;
 
         input_ch++;
     }
@@ -3743,12 +3739,6 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     symtab->old_class_chain = result;
 
     return result;
-}
-
-void lily_register_pkg_builtin(lily_state *s)
-{
-    lily_module_register(s, "", lily_builtin_info_table,
-            lily_builtin_call_table);
 }
 
 void lily_init_pkg_builtin(lily_symtab *symtab)

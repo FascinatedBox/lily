@@ -209,3 +209,76 @@ t.interpret("Verify contents of a raised exception.",
         }
     }
     """)
+
+t.interpret("Construct and raise all exceptions.",
+    """
+    var ok = true
+
+    try: {
+        var v = DivisionByZeroError("DivisionByZeroError")
+        raise(v)
+    except DivisionByZeroError as e:
+        if e.message != "DivisionByZeroError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = Exception("Exception")
+        raise(v)
+    except Exception as e:
+        if e.message != "Exception" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = IndexError("IndexError")
+        raise(v)
+    except IndexError as e:
+        if e.message != "IndexError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = IOError("IOError")
+        raise(v)
+    except IOError as e:
+        if e.message != "IOError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = KeyError("KeyError")
+        raise(v)
+    except KeyError as e:
+        if e.message != "KeyError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = RuntimeError("RuntimeError")
+        raise(v)
+    except RuntimeError as e:
+        if e.message != "RuntimeError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+    try: {
+        var v = ValueError("ValueError")
+        raise(v)
+    except ValueError as e:
+        if e.message != "ValueError" ||
+           e.traceback.size() != 1: {
+            ok = false
+        }
+    }
+
+    if ok == false: {
+        raise Exception("Failed.")
+    }
+    """)

@@ -62,6 +62,13 @@ t.expect_error("List.delete_at with invalid positive index.",
     [1].delete_at(5)
     false ))
 
+t.expect_error("List.delete_at from empty list.",
+               "IndexError: Cannot delete from an empty list.",
+               (||
+    var v: List[Integer] = []
+    v.delete_at(0)
+    false ))
+
 
 t.assert("List.each visits all elements from left to right.",
          (||
@@ -331,6 +338,9 @@ t.assert("List.slice with reversed indexes.",
 
 t.assert("List.slice with too-large index.",
          (|| [1, 2, 3].slice(1, 5) == [] ))
+
+t.assert("List.slice with -4...-2 slice.",
+         (|| [1, 2, 3, 4, 5].slice(-4, -2) == [2, 3] ))
 
 
 t.assert("List.unshift with Integer values.",
