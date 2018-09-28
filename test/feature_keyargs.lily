@@ -423,3 +423,18 @@ t.interpret("Keyarg+vararg with only varargs.",
 
     vakeyopt_fn(18, :c 5, :c 10)
     """)
+
+t.interpret("Keyarg resolving varargs.",
+    """
+    define f[A](:va va: A...) {}
+    f(:va 1, :va 2, :va 3)
+    """)
+
+t.interpret("Keyarg resolve by result.",
+    """
+    define f[A](:h h: A,
+                :g g: Function(A => A)): A { return g(h) }
+
+    var v: Integer = f(:g (|a| a),
+                       :h 10)
+    """)

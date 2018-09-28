@@ -772,3 +772,39 @@ t.interpret("Cover siphash with long Hash keys.",
         key = key ++ "a"
     }
     """)
+
+t.interpret("Cover less-used compound ops.",
+    """
+    var v = 1000
+    var w = 1000
+    v /= 10
+
+    if v != (w / 10): {
+        raise Exception("Failed.")
+    }
+
+    v = 10
+    w = 10
+    v %= 7
+
+    if v != (w % 7): {
+        raise Exception("Failed.")
+    }
+    """)
+
+t.interpret("Cover truthy do-while.",
+    """
+    var i = 0
+    var l: List[Integer] = []
+    do: {
+        i += 1
+        l.push(i)
+        if i == 5: {
+            break
+        }
+    } while 1
+
+    if l != [1, 2, 3, 4, 5]: {
+        raise Exception("Failed.")
+    }
+    """)
