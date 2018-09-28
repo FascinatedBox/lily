@@ -2172,7 +2172,8 @@ void lily_builtin_List_repeat(lily_state *s)
 {
     int n = lily_arg_integer(s, 0);
     if (n < 0)
-        lily_ValueError(s, "Repeat count must be >= 0 (%ld given).", n);
+        lily_ValueError(s, "Repeat count must be >= 0 (%ld given).",
+                (int64_t)n);
 
     lily_value *to_repeat = lily_arg_value(s, 1);
     lily_container_val *lv = lily_push_list(s, n);

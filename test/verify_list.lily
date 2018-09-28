@@ -226,6 +226,33 @@ t.expect_error("List.pop with empty List.",
     true ))
 
 
+t.assert("List.repeat numeric value.",
+         (||
+    var v = List.repeat(5, 1)
+    v == [1, 1, 1, 1, 1] ))
+
+t.assert("List.repeat non-empty variant.",
+         (||
+    var v = List.repeat(5, Some(1))
+    v == [Some(1), Some(1), Some(1), Some(1), Some(1)] ))
+
+t.assert("List.repeat empty variant.",
+         (||
+    var v: List[Option[Integer]] = List.repeat(5, None)
+    v == [None, None, None, None, None] ))
+
+t.assert("List.repeat zero for empty.",
+         (||
+    var v = List.repeat(0, Some(1))
+    v == [] ))
+
+t.expect_error("List.repeat a negative count.",
+               "ValueError: Repeat count must be >= 0 (-5 given).",
+               (||
+    var v = List.repeat(-5, 123)
+    false ))
+
+
 t.assert("List.reject with empty List.",
          (||
     var success = true
