@@ -1461,3 +1461,14 @@ t.interpret_for_error("Comma in wrong place in Hash constructor.",
     """\
     var v = [1 => 2, 3, 4]
     """)
+
+t.interpret_for_error("Docstring at end of file.",
+    """\
+    SyntaxError: Docstring must be followed by a function or class definition.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """
+    ### Documentation for
+    ### example
+    ### class\
+    """)

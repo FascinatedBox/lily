@@ -189,3 +189,12 @@ t.interpret_for_error("Import with invalid token in file.",
     """\
     import "import_dir/invalid_token"
     """)
+
+t.interpret_for_error("Import with invalid token in file.",
+    """\
+    SyntaxError: Import path must not be empty.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import ""
+    """)

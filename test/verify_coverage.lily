@@ -808,3 +808,36 @@ t.interpret("Cover truthy do-while.",
         raise Exception("Failed.")
     }
     """)
+
+t.interpret("Cover truthy do-while.",
+    """
+    var i = 0
+    var l: List[Integer] = []
+    do: {
+        i += 1
+        l.push(i)
+        if i == 5: {
+            break
+        }
+    } while 1
+
+    if l != [1, 2, 3, 4, 5]: {
+        raise Exception("Failed.")
+    }
+    """)
+
+t.assert("Cover less-used escapes.",
+         (||
+    var v = "\'\b"
+    var b = B"\999"
+    true ))
+
+t.interpret("Docstring for class.",
+    """
+    ### Documentation for
+    ### example
+    ### class
+    class Example {
+
+    }
+    """)

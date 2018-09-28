@@ -522,9 +522,9 @@ static char scan_escape(lily_lex_state *lexer, char **source_ch)
         ret = (char)total;
     }
     else {
-        lily_raise_syn(lexer->raiser, "Invalid escape sequence.");
         /* Keeps the compiler happy (ret always given a value). */
         ret = 0;
+        lily_raise_syn(lexer->raiser, "Invalid escape sequence.");
     }
 
     *source_ch = ch + 1;
@@ -1691,9 +1691,10 @@ char *tokname(lily_token t)
      "an integer", "a double", "a docstring", "a named argument", ".", "&",
      "&=", "&&", "|", "|=", "||", "@(", "...", "|>", "$1", "invalid token",
      "end of lambda", "?>", "end of file"};
+    char *result = NULL;
 
     if (t < (sizeof(toknames) / sizeof(toknames[0])))
-        return toknames[t];
+        result = toknames[t];
 
-    return NULL;
+    return result;
 }
