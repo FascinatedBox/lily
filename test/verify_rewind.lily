@@ -58,10 +58,10 @@ t.rewind("Rewind within a try block.",
     "",
     "try: { 1 / 0 except ValueError: 0 }")
 
-t.rewind("Rewind within a try block.",
+t.rewind("Rewind from within a broken import.",
     """\
     SyntaxError: Unexpected token 'invalid token'.\n    \
-        from test/import_dir/invalid_token.lily:1:\
+        from test\/import_dir\/invalid_token.lily:1:\
     """,
     "",
     "import \"import_dir/invalid_token\"")
