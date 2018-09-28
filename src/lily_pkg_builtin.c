@@ -3559,7 +3559,7 @@ void lily_builtin_String_strip(lily_state *s)
         return;
     }
 
-    char ch;
+    unsigned char ch;
     lily_string_val *strip_sv = strip_arg->value.string;
     char *strip_str = strip_sv->string;
     size_t strip_str_len = strlen(strip_str);

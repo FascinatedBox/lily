@@ -139,6 +139,9 @@ t.assert("String.lstrip removing all.",
 t.assert("String.lstrip with utf-8 chunk.",
          (|| "ÀÈaÌÒÜ".lstrip("ÀÈ") == "aÌÒÜ" ))
 
+t.assert("String.lstrip not working by ascii for utf-8.",
+         (|| "À¡aa¡À".lstrip("À¢") == "¡aa¡À" ))
+
 
 t.assert("String.lower ignores 'abc'.",
          (|| "abc".lower() == "abc" ))
@@ -196,6 +199,9 @@ t.assert("String.replace multi character.",
 t.assert("String.rstrip empty remove string.",
          (|| "abc".rstrip("") == "abc" ))
 
+t.assert("String.rstrip one ascii letter.",
+         (|| "abc".rstrip("c") == "ab" ))
+
 t.assert("String.rstrip multi remove.",
          (|| "12aabbab".rstrip("ab") == "12" ))
 
@@ -204,6 +210,12 @@ t.assert("String.rstrip removing all.",
 
 t.assert("String.rstrip with utf-8 chunk.",
          (|| "ÀÈaÌÒÜ".rstrip("ÌÒÜ") == "ÀÈa" ))
+
+t.assert("String.rstrip reject partial utf-8 match.",
+         (|| "¡".rstrip("á") == "¡" ))
+
+t.assert("String.rstrip not working by ascii for utf-8.",
+         (|| "À¡aa¡À".rstrip("À¢") == "À¡aa¡" ))
 
 
 t.assert("String.slice defaults copy the string.",
@@ -245,6 +257,28 @@ t.assert("String.starts_with '1' and '1'.",
 
 t.assert("String.starts_with utf-8 success case.",
          (|| "ÀÈÌaÒÜ".starts_with("ÀÈ") ))
+
+
+t.assert("String.strip taking nothing.",
+         (|| "asdf".strip("z") == "asdf" ))
+
+t.assert("String.strip empty input.",
+         (|| "".strip("a") == "" ))
+
+t.assert("String.strip empty strip.",
+         (|| "aabaa".strip("") == "aabaa" ))
+
+t.assert("String.strip one ascii letter whole string.",
+         (|| "aaaaa".strip("a") == "" ))
+
+t.assert("String.strip one ascii letter both sides.",
+         (|| "aabaa".strip("a") == "b" ))
+
+t.assert("String.strip utf-8 both sides.",
+         (|| "À¡aa¡À".strip("À") == "¡aa¡" ))
+
+t.assert("String.strip not working by ascii for utf-8.",
+         (|| "À¡aa¡À".strip("À¢") == "¡aa¡" ))
 
 
 t.assert("String.split no match.",
