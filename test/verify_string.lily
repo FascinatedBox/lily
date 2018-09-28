@@ -57,7 +57,7 @@ t.expect_error("String.format fails on unterminated specifier.",
                    false ))
 
 t.expect_error("String.format fails on {a}.",
-               "ValueError: Format specifier is empty.",
+               "ValueError: Format specifier is not numeric.",
                (|| "{a}".format(0)
                    false ))
 

@@ -2694,10 +2694,12 @@ void lily_builtin_String_format(lily_state *s)
 
             if (isdigit(ch))
                 lily_ValueError(s, "Format must be between 0...99.");
-            else if (start == idx)
-                lily_ValueError(s, "Format specifier is empty.");
-            else if (ch != '}')
-                lily_ValueError(s, "Format specifier is not numeric.");
+            else if (start == idx) {
+                if (ch == '}' || ch == '\0')
+                    lily_ValueError(s, "Format specifier is empty.");
+                else
+                    lily_ValueError(s, "Format specifier is not numeric.");
+            }
             else if (total >= lsize)
                 lily_IndexError(s, "Format specifier is too large.");
 
