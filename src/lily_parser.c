@@ -4572,19 +4572,16 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
 {
     int result_flag = 0;
 
-    if (target->cls->flags & CLS_GC_TAGGED)
+    if (target->cls->flags & (CLS_GC_TAGGED | CLS_VISITED))
         result_flag = CLS_GC_TAGGED;
-    else if (target->cls->flags & CLS_GC_SPECULATIVE)
-        result_flag = CLS_GC_SPECULATIVE;
-    else if (target->cls->flags & CLS_VISITED)
-        result_flag = CLS_GC_TAGGED;
-    else if (target->cls == top_class)
-        /* A class that can hold itself definitely needs a gc tag. */
-        result_flag = CLS_GC_TAGGED;
-    else if (target->subtype_count) {
-        int i;
-        for (i = 0;i < target->subtype_count;i++)
-            result_flag |= get_gc_flags_for(top_class, target->subtypes[i]);
+    else {
+        result_flag = target->cls->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
+
+        if (target->subtype_count) {
+            int i;
+            for (i = 0;i < target->subtype_count;i++)
+                result_flag |= get_gc_flags_for(top_class, target->subtypes[i]);
+        }
     }
 
     return result_flag;
