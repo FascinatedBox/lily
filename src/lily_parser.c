@@ -4572,15 +4572,7 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
 {
     int result_flag = 0;
 
-    if (target->cls->id == LILY_ID_GENERIC) {
-        /* A class containing generics is always at least speculative, because
-           it may have speculative content inside. */
-        if (top_class->generic_count)
-            result_flag = CLS_GC_SPECULATIVE;
-        else
-            result_flag = CLS_GC_TAGGED;
-    }
-    else if (target->cls->flags & CLS_GC_TAGGED)
+    if (target->cls->flags & CLS_GC_TAGGED)
         result_flag = CLS_GC_TAGGED;
     else if (target->cls->flags & CLS_GC_SPECULATIVE)
         result_flag = CLS_GC_SPECULATIVE;
@@ -4605,7 +4597,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
         lily_class *target)
 {
     lily_class *parent_iter = target->parent;
-    int mark;
+    int mark = 0;
 
     if (parent_iter) {
         /* Start with this, just in case the child has no properties. */
@@ -4620,8 +4612,11 @@ static void determine_class_gc_flag(lily_parse_state *parser,
             parent_iter = parent_iter->next;
         }
     }
-    else
-        mark = 0;
+
+    /* It's probably a container, so make it speculative in case it holds an
+       interesting value. */
+    if (target->generic_count)
+        mark |= CLS_GC_SPECULATIVE;
 
     lily_named_sym *member_iter = target->members;
 
