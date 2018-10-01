@@ -3765,15 +3765,10 @@ static void statement(lily_parse_state *parser, int multi)
     } while (multi);
 }
 
-/* This handles the '{' ... '}' part for blocks that are multi-lined. */
-static void parse_block_body(lily_parse_state *parser,
-        int multi)
+/* This handles the '{' ... '}' part for blocks. */
+static void parse_block_body(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-
-    if (multi == 0)
-        lily_raise_syn(parser->raiser,
-                   "Multi-line block within single-line block.");
 
     lily_lexer(lex);
     /* statement expects the token to be ready. */
@@ -3945,7 +3940,7 @@ static void keyword_while(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
-    parse_block_body(parser, 1);
+    parse_block_body(parser);
 
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
@@ -4030,7 +4025,7 @@ static void keyword_for(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
-    parse_block_body(parser, 1);
+    parse_block_body(parser);
 
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
@@ -4044,7 +4039,7 @@ static void keyword_do(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
-    parse_block_body(parser, 1);
+    parse_block_body(parser);
 
     NEED_CURRENT_TOK(tk_word)
     /* This could do a keyword scan, but there's only one correct answer
@@ -4642,7 +4637,7 @@ static void parse_class_body(lily_parse_state *parser, lily_class *cls)
     parse_class_header(parser, cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    parse_block_body(parser, 1);
+    parse_block_body(parser);
 
     if (parser->emit->block->pending_forward_decls)
         error_forward_decl_pending(parser);
@@ -5058,7 +5053,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     NEED_CURRENT_TOK(tk_left_curly)
 
     if ((modifiers & VAR_IS_FORWARD) == 0) {
-        parse_block_body(parser, 1);
+        parse_block_body(parser);
         hide_block_vars(parser);
         lily_emit_leave_call_block(parser->emit, lex->line_num);
     }
