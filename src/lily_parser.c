@@ -4396,11 +4396,6 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
         lily_raise_syn(parser->raiser,
                 "'%s' is not a valid class name (too short).", name);
 
-    lily_block *block = parser->emit->block;
-
-    if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Cannot declare a class here.");
-
     lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
     if (lookup_class != NULL) {
         lily_raise_syn(parser->raiser, "Class '%s' has already been declared.",
