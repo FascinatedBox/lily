@@ -4221,7 +4221,7 @@ static void keyword_import(lily_parse_state *parser)
         else if (lex->token != tk_word)
             lily_raise_syn(parser->raiser,
                     "'import' expected a path (identifier or string), not %s.",
-                    lex->token);
+                    tokname(lex->token));
 
         lily_module_entry *module = NULL;
         char *search_start = lex->label;

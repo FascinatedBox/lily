@@ -198,3 +198,12 @@ t.interpret_for_error("Import with invalid token in file.",
     """\
     import ""
     """)
+
+t.interpret_for_error("Import an invalid token.",
+    """\
+    SyntaxError: 'import' expected a path (identifier or string), not invalid token.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import ?
+    """)
