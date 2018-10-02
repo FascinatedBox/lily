@@ -1177,17 +1177,8 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 
 static lily_class *get_scoop_class(lily_parse_state *parser, int which)
 {
-    lily_class *old_class_iter = parser->symtab->old_class_chain;
-    int id = UINT16_MAX - which;
-
-    while (old_class_iter) {
-        if (old_class_iter->id == id)
-            break;
-
-        old_class_iter = old_class_iter->next;
-    }
-
-    return old_class_iter;
+    /* Only two classes ever go here, and scoop is always the last one. */
+    return parser->symtab->old_class_chain;
 }
 
 /* These are flags used by argument collection. They start high so that type and
