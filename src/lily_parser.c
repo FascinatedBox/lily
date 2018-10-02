@@ -1221,13 +1221,8 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 
     /* get_type ends with a call to lily_lexer, so don't call that again. */
 
-    if (type->flags & TYPE_HAS_SCOOP) {
-        if ((*flags & F_SCOOP_OK) == 0)
-            lily_raise_syn(parser->raiser,
-                    "Numeric scooping types only available to the backend.");
-
+    if (type->flags & TYPE_HAS_SCOOP)
         *flags |= TYPE_HAS_SCOOP;
-    }
 
     if (lex->token == tk_three_dots) {
         lily_tm_add(parser->tm, type);
