@@ -841,3 +841,21 @@ t.interpret("Docstring for class.",
 
     }
     """)
+
+t.interpret("Cover gc tagging bits.",
+    """
+    class One {
+        public var @x = (|| 10 )
+    }
+    class Two < One {
+
+    }
+
+    class Three {
+        public var @a: Option[Three] = None
+    }
+
+    class Four < Three {
+
+    }
+    """)

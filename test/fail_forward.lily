@@ -215,3 +215,15 @@ t.interpret_for_error("Verify error with 'forward' xyz.",
     """\
     forward xyz
     """)
+
+t.interpret_for_error("Cover forward error with public.",
+    """\
+    SyntaxError: Wrong qualifiers in resolution of Example.f (expected: public).\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    class Example {
+        forward public define f { ... }
+        protected define f {}
+    }
+    """)

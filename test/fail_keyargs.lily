@@ -237,3 +237,14 @@ t.interpret_for_error("Keyargs wrong arg type.",
     define f(:a a: Integer) {}
     f(:a "")
     """)
+
+t.interpret_for_error("Keyarg against nothing.",
+    """\
+    SyntaxError: Unexpected token 'a named argument'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    if 1: {
+        :a 1
+    }
+    """)

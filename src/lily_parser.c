@@ -1400,7 +1400,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         result = lily_tm_make(parser->tm, cls, i);
         ensure_valid_type(parser, result);
     }
-    else if (cls->id == LILY_ID_FUNCTION) {
+    else {
         NEED_NEXT_TOK(tk_left_parenth)
         lily_lexer(lex);
         int arg_flags = flags & F_SCOOP_OK;
@@ -1433,8 +1433,6 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         result = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT, cls,
                 i + 1);
     }
-    else
-        result = NULL;
 
     lily_lexer(lex);
     return result;
@@ -4394,10 +4392,7 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
 
     lily_class *super_class = resolve_class_name(parser);
 
-    if (super_class == NULL)
-        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
-                lex->label);
-    else if (super_class == cls)
+    if (super_class == cls)
         lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
     else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
              super_class->flags & (CLS_IS_ENUM | CLS_IS_BUILTIN))

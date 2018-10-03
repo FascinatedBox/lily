@@ -65,3 +65,19 @@ t.rewind("Rewind from within a broken import.",
     """,
     "",
     "import \"import_dir/invalid_token\"")
+
+t.rewind("Rewind within an expression.",
+    """\
+    SyntaxError: Unexpected token 'end of file'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    "",
+    "define f(a: *Integer=(10 + 20 + ")
+
+t.rewind("Rewind within a nested definition.",
+    """\
+    SyntaxError: Unexpected token 'end of file'.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    "",
+    "if 1: { if 2: {")

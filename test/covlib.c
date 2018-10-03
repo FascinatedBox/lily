@@ -31,6 +31,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_id_checks\0[A](Coroutine[Integer,Integer],Unit,A,String): Boolean"
     ,"F\0cover_value_as\0(Byte,ByteString,Exception,Coroutine[Integer,Integer],Double,File,Function(Integer),Hash[Integer,Integer],Integer,String)"
     ,"F\0cover_ci_from_native\0(Function(Integer))"
+    ,"F\0cover_misc_api\0"
     ,"Z"
 };
 #define Container_OFFSET 1
@@ -45,6 +46,7 @@ void lily_covlib__cover_list_sfs(lily_state *);
 void lily_covlib__cover_id_checks(lily_state *);
 void lily_covlib__cover_value_as(lily_state *);
 void lily_covlib__cover_ci_from_native(lily_state *);
+void lily_covlib__cover_misc_api(lily_state *);
 lily_call_entry_func lily_covlib_call_table[] = {
     NULL,
     NULL,
@@ -65,6 +67,7 @@ lily_call_entry_func lily_covlib_call_table[] = {
     lily_covlib__cover_id_checks,
     lily_covlib__cover_value_as,
     lily_covlib__cover_ci_from_native,
+    lily_covlib__cover_misc_api,
 };
 /** End autogen section. **/
 
@@ -239,6 +242,131 @@ void lily_covlib__cover_ci_from_native(lily_state *s)
 
     lily_ci_from_native(&ci, func_val);
     lily_return_unit(s);
+}
+
+static void ignore_render(const char *to_render, void *data)
+{
+    (void)data;
+    (void)to_render;
+}
+
+static void misc_import_hook(lily_state *s, const char *root,
+        const char *package_name, const char *name)
+{
+    lily_load_string(s, "asdf.lily", "var v = 10");
+}
+
+static void misc_dup_import_hook(lily_state *s, const char *root,
+        const char *package_name, const char *name)
+{
+    lily_load_string(s, "asdf.lily", "var v = 10");
+    lily_load_string(s, "asdf.lily", "var v = 10");
+    lily_load_library(s, "asdf.xyz");
+    lily_load_library_data(s, "asdf.xyz", lily_covlib_info_table, lily_covlib_call_table);
+}
+
+static void misc_ldata_import_hook(lily_state *s, const char *root,
+        const char *package_name, const char *name)
+{
+    lily_load_library_data(s, "asdf.xyz", lily_covlib_info_table, lily_covlib_call_table);
+}
+
+/**
+define cover_misc_api
+
+Cover a lot of miscellaneous api functions.
+*/
+void lily_covlib__cover_misc_api(lily_state *s)
+{
+    lily_config config;
+    lily_config_init(&config);
+    config.render_func = ignore_render;
+
+    {
+        /* The repl likes this because it doesn't have to probe where traceback
+           starts. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_string(subinterp, "[testing]", "?");
+        const char *output = lily_error_message_no_trace(subinterp);
+        (void)output;
+        lily_free_state(subinterp);
+    }
+    {
+        /* Render a file. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_render_file(subinterp, "test/uncommon/to_render.lily");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Search for function that doesn't exist. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_string(subinterp, "[subinterp]", "10");
+        lily_function_val *v = lily_find_function(subinterp, "asdf");
+        (void)v;
+        lily_free_state(subinterp);
+    }
+    {
+        /* Filename must end with .lily. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_file(subinterp, "asdf.xyz");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Fail to parse so lily_parse_file's rewind is activated.  */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_file(subinterp, "verify_double.lily");
+        lily_parse_file(subinterp, "verify_double.lily");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Import failure. Library suffixes are different depending on the
+           platform, and Lily can't handle that yet. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_string(subinterp, "[testing]", "import missing");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Import a library within a package. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_string(subinterp, "test/[testing]", "import packagelib\n"
+                                                       "packagelib.make_list(1)");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Fail to import a library. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_parse_string(subinterp, "test/[testing]", "import brokenlib");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Config to copy parsed strings. */
+        lily_state *subinterp = lily_new_state(&config);
+        config.copy_str_input = 1;
+        lily_parse_string(subinterp, "[testing]", "var v = 10");
+        config.copy_str_input = 0;
+        lily_free_state(subinterp);
+    }
+    {
+        /* Config to copy parsed strings. */
+        lily_state *subinterp = lily_new_state(&config);
+        config.import_func = misc_import_hook;
+        lily_parse_string(subinterp, "[testing]", "import asdf");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Block multiple imports at once. */
+        lily_state *subinterp = lily_new_state(&config);
+        config.import_func = misc_dup_import_hook;
+        lily_parse_string(subinterp, "[testing]", "import asdf");
+        lily_free_state(subinterp);
+    }
+    {
+        /* Load our library data. */
+        lily_state *subinterp = lily_new_state(&config);
+        config.import_func = misc_ldata_import_hook;
+        lily_parse_string(subinterp, "[testing]", "import asdf");
+        lily_free_state(subinterp);
+    }
 }
 
 void lily_covlib_Container_new(lily_state *s)

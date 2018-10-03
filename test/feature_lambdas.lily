@@ -159,3 +159,10 @@ t.interpret("Comment lines inside of a lambda.",
         raise Exception("Failed. {0}".format(v()))
     }
     """)
+
+t.interpret("Lambda inferring varargs.",
+    """
+    define f(g: Function(Integer...)) { g(1, 2, 3) }
+
+    f(|a| a == [1, 2, 3])
+    """)

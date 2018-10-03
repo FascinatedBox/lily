@@ -709,3 +709,31 @@ t.interpret_for_error("Shorthand constructor var without var keyword.",
     """\
     class Test(public @x: Integer) { }
     """)
+
+t.interpret_for_error("Shorthand constructor var without var keyword.",
+    """\
+    SyntaxError: Expected 'var' after scope was given.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test(public @x: Integer) { }
+    """)
+
+t.interpret_for_error("Attempt to inherit from a var.",
+    """\
+    SyntaxError: Class 'v' does not exist.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    var v = 10
+    class Test < v { }
+    """)
+
+t.interpret_for_error("Attempt to inherit from a var.",
+    """\
+    SyntaxError: Class 'potato' does not exist.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    class Test < potato { }
+    """)

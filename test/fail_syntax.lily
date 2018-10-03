@@ -1472,3 +1472,34 @@ t.interpret_for_error("Docstring at end of file.",
     ### example
     ### class\
     """)
+
+t.interpret_for_error("Forward not followed by define in a class.",
+    """\
+    SyntaxError: 'forward' must be followed by a class scope here.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Example {
+        forward potato
+    }
+    """)
+
+t.interpret_for_error("Forward not followed by define in a class.",
+    """\
+    SyntaxError: 'static' must be followed by 'define', not 'potato'.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Example {
+        public static potato
+    }
+    """)
+
+t.interpret_for_error("Class property outside constructor.",
+    """\
+    SyntaxError: Cannot use a class property outside of a constructor.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    var @x = 10
+    """)

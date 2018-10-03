@@ -6,6 +6,8 @@ set_target_properties(covlib PROPERTIES
                       PREFIX ""
                       LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/test/")
 
+add_subdirectory(libraries)
+
 add_executable(pre-commit-tests extend.c run_tests.c $<TARGET_OBJECTS:liblily_obj>)
 
 if(LILY_NEED_DL)
