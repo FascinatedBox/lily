@@ -91,3 +91,48 @@ t.interpret_for_error("Fail to unify the keys of a Hash.",
     """\
     var v = [1 => 1, "2" => 2]
     """)
+
+t.interpret_for_error("Forbid narrow to Unit on invariant position.",
+    """\
+    SyntaxError: Argument #2 to List.push is invalid:\n\
+    Expected Type: List[Function ( => Integer)]\n\
+    Received Type: List[Function ()]\n    \
+        from test\/[subinterp]:6:\
+    """,
+    """\
+    var l: List[List[Function( => Integer)]] = []
+
+    define f {}
+    var l2 = [f]
+
+    l.push(l2)
+    """)
+
+t.interpret_for_error("Forbid narrow to Unit on covariant position.",
+    """\
+    SyntaxError: Argument #1 to g is invalid:\n\
+    Expected Type: Function ( => Integer)\n\
+    Received Type: Function ()\n    \
+        from test\/[subinterp]:7:\
+    """,
+    """\
+    define f {}
+
+    define g(h: Function( => Integer)): Integer {
+        return h()
+    }
+
+    g(f)
+    """)
+
+t.interpret_for_error("Forbid narrow to Unit on contravariant position.",
+    """\
+    SyntaxError: Cannot assign type 'Function (Function ())' to type 'Function (Function ( => Integer))'.\n    \
+        from test\/[subinterp]:3:\
+    """,
+    """\
+    define f(g: Function(Function( => Integer)),
+             h: Function(Function())) {
+        g = h
+    }
+    """)
