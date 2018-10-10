@@ -1,3 +1,43 @@
+Version 1.6 (2018-10-10)
+========================
+
+What's new:
+
+* Lily's package manager Garden has been entirely rewritten. The new version
+  is hosted in a different repository:
+  https://gitlab.com/FascinatedBox/lily-garden. The new Garden is able to
+  install requirements of a package, build foreign packages, and also has a
+  whitelist that includes sha verification. The old Garden has been removed.
+
+* Shorthand constructor vars now require a scope (#333). Previously, shorthand
+  constructor vars were automatically public and did not allow a scope. The old
+  style will be removed in the next release.
+
+* Work on increasing coverage (#342) led to uncovering several bugs. The issue
+  is not completely solved yet, as there are still spots of the interpreter
+  left to cover. However, covering them would involve breaking API as well as
+  changing internals. The issue will be closed during the next release.
+
+* Values no longer store class id information in their 'flags' section. This is
+  an internal change that should hopefully fix an endian-related bug detailed
+  in (#327).
+
+Fixes:
+
+* Fix exception capture inside of a closure (#378).
+
+* Fix crash when double-calling a single keyword argument (#379).
+
+* `Function` return type should now always narrow to `Unit` (#380).
+
+* Don't silently stop import on invalid character in the source (#381).
+
+* Rewind should not save broken imports (#383).
+
+* Fix `String.strip` unicode handling (#384).
+
+* Fix crash on invalid use of import (ex: `import ?`) (#385).
+
 Version 1.5 (2018-7-11)
 =======================
 
