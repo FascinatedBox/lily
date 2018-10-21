@@ -22,5 +22,6 @@ PackageFiles
     lily_pkg_random.c
     lily_pkg_sys.c
     lily_pkg_time.c
+    lily_pkg_math.c
 
 */

@@ -94,6 +94,9 @@ extern lily_call_entry_func lily_random_call_table[];
 extern const char *lily_time_info_table[];
 extern lily_call_entry_func lily_time_call_table[];
 
+extern const char *lily_math_info_table[];
+extern lily_call_entry_func lily_math_call_table[];
+
 void lily_init_pkg_builtin(lily_symtab *);
 
 void lily_config_init(lily_config *conf)
@@ -185,6 +188,8 @@ lily_state *lily_new_state(lily_config *config)
             lily_random_call_table);
     lily_module_register(parser->vm, "time", lily_time_info_table,
             lily_time_call_table);
+    lily_module_register(parser->vm, "math", lily_math_info_table,
+            lily_math_call_table);
 
     parser->executing = 0;
 

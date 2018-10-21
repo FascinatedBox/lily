@@ -5,6 +5,8 @@ file(GLOB lily_SOURCES *.c *.h)
 add_library(liblily_obj OBJECT ${lily_SOURCES})
 add_library(liblily SHARED $<TARGET_OBJECTS:liblily_obj>)
 
+target_link_libraries(liblily m)
+
 if(NOT MSVC)
     if(LILY_NEED_DL)
         target_link_libraries(liblily dl)
