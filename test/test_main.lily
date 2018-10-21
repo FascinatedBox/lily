@@ -43,6 +43,7 @@ import verify_string
 import verify_pkg_random
 import verify_pkg_sys
 import verify_pkg_time
+import verify_pkg_math
 import sys
 import test
 

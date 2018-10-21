@@ -9,6 +9,7 @@ set_target_properties(covlib PROPERTIES
 add_subdirectory(libraries)
 
 add_executable(pre-commit-tests extend.c run_tests.c $<TARGET_OBJECTS:liblily_obj>)
+target_link_libraries(pre-commit-tests m)
 
 if(LILY_NEED_DL)
     target_link_libraries(pre-commit-tests dl)
