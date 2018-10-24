@@ -2572,8 +2572,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 lhs_reg = vm_regs[code[1]];
 
                 rhs_reg = vm_regs[code[2]];
-                rhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
-                rhs_reg->value.integer = -(lhs_reg->value.integer);
+
+                if (lhs_reg->flags & V_INTEGER_FLAG) {
+                    rhs_reg->value.integer = -(lhs_reg->value.integer);
+                    rhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+                }
+                else {
+                    rhs_reg->value.doubleval = -(lhs_reg->value.doubleval);
+                    rhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+                }
+
                 code += 4;
                 break;
             case o_unary_bitwise_not:

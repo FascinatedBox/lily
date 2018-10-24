@@ -446,6 +446,12 @@ t.assert("Simple left shift.",
 t.assert("Simple right shift.",
          (|| 1 >> 1 == 0 ))
 
+t.assert("Unary minus for double.",
+         (||
+    var d = -1.0
+    var d2 = -d
+    d2 == 1.0 ))
+
 t.assert("Unary bitwise not.",
          (|| ~0 == -1 ))
 

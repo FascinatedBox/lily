@@ -2932,6 +2932,10 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
         else if (op == expr_unary_bitwise_not)
             opcode = o_unary_bitwise_not;
     }
+    else if (lhs_id == LILY_ID_DOUBLE) {
+        if (op == expr_unary_minus)
+            opcode = o_unary_minus;
+    }
 
     if (opcode == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num,
