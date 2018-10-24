@@ -2914,17 +2914,17 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     if (ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left, NULL);
 
-    int opcode = -1;
     lily_class *lhs_class = ast->left->result->type->cls;
+    uint16_t opcode = 0, lhs_id = lhs_class->id;
     lily_storage *storage;
 
     lily_expr_op op = ast->op;
 
-    if (lhs_class == emit->symtab->boolean_class) {
+    if (lhs_id == LILY_ID_BOOLEAN) {
         if (op == expr_unary_not)
             opcode = o_unary_not;
     }
-    else if (lhs_class == emit->symtab->integer_class) {
+    else if (lhs_id == LILY_ID_INTEGER) {
         if (op == expr_unary_minus)
             opcode = o_unary_minus;
         else if (op == expr_unary_not)
@@ -2933,7 +2933,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
             opcode = o_unary_bitwise_not;
     }
 
-    if (opcode == -1)
+    if (opcode == 0)
         lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Invalid operation: %s%s.",
                 opname(ast->op), lhs_class->name);
