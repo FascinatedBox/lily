@@ -1019,6 +1019,42 @@ void lily_builtin_File_close(lily_state *s)
     lily_return_unit(s);
 }
 
+static int read_file_line(lily_msgbuf *msgbuf, FILE *source)
+{
+    char read_buffer[128];
+    int ch = 0, pos = 0, total_pos = 0;
+
+    /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
+       tell how much was written. */
+    while (1) {
+        ch = fgetc(source);
+
+        if (ch == EOF)
+            break;
+
+        if (pos == sizeof(read_buffer)) {
+            lily_mb_add_slice(msgbuf, read_buffer, 0, sizeof(read_buffer));
+            total_pos += pos;
+            pos = 0;
+        }
+
+        read_buffer[pos] = (char)ch;
+        pos++;
+
+        /* \r is intentionally not checked for, because it's been a very, very
+           long time since any os used \r alone for newlines. */
+        if (ch == '\n')
+            break;
+    }
+
+    if (pos != 0) {
+        lily_mb_add_slice(msgbuf, read_buffer, 0, pos);
+        total_pos += pos;
+    }
+
+    return total_pos;
+}
+
 /**
 define File.each_line(fn: Function(ByteString))
 
@@ -1032,44 +1068,20 @@ void lily_builtin_File_each_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
     lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
-    char read_buffer[128];
-    int ch = 0, pos = 0;
-
     FILE *f = lily_file_for_read(s, filev);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
 
-    /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
-       tell how much was written. */
     while (1) {
-        ch = fgetc(f);
+        int total_bytes = read_file_line(vm_buffer, f);
 
-        if (ch == EOF)
+        if (total_bytes == 0)
             break;
 
-        if (pos == sizeof(read_buffer)) {
-            lily_mb_add_slice(vm_buffer, read_buffer, 0, sizeof(read_buffer));
-            pos = 0;
-        }
-
-        read_buffer[pos] = (char)ch;
-
-        /* \r is intentionally not checked for, because it's been a very, very
-           long time since any os used \r alone for newlines. */
-        if (ch == '\n') {
-            if (pos != 0) {
-                lily_mb_add_slice(vm_buffer, read_buffer, 0, pos);
-                pos = 0;
-            }
-
-            const char *text = lily_mb_raw(vm_buffer);
-
-            lily_push_bytestring(s, text, lily_mb_pos(vm_buffer));
-            lily_call(s, 1);
-            lily_mb_flush(vm_buffer);
-        }
-        else
-            pos++;
+        const char *text = lily_mb_raw(vm_buffer);
+        lily_push_bytestring(s, text, total_bytes);
+        lily_call(s, 1);
+        lily_mb_flush(vm_buffer);
     }
 
     lily_return_unit(s);
@@ -1247,41 +1259,11 @@ void lily_builtin_File_read_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
     lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
-    char read_buffer[128];
-    int ch = 0, pos = 0, total_pos = 0;
-
     FILE *f = lily_file_for_read(s, filev);
-
-    /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
-       tell how much was written. */
-    while (1) {
-        ch = fgetc(f);
-
-        if (ch == EOF)
-            break;
-
-        if (pos == sizeof(read_buffer)) {
-            lily_mb_add_slice(vm_buffer, read_buffer, 0, sizeof(read_buffer));
-            total_pos += pos;
-            pos = 0;
-        }
-
-        read_buffer[pos] = (char)ch;
-        pos++;
-
-        /* \r is intentionally not checked for, because it's been a very, very
-           long time since any os used \r alone for newlines. */
-        if (ch == '\n')
-            break;
-    }
-
-    if (pos != 0) {
-        lily_mb_add_slice(vm_buffer, read_buffer, 0, pos);
-        total_pos += pos;
-    }
-
+    int byte_count = read_file_line(vm_buffer, f);
     const char *text = lily_mb_raw(vm_buffer);
-    lily_push_bytestring(s, text, total_pos);
+
+    lily_push_bytestring(s, text, byte_count);
     lily_return_top(s);
 }
 

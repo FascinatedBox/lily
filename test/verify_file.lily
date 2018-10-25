@@ -13,6 +13,39 @@ t.assert("File.close does nothing if called on closed file.",
     true ))
 
 
+t.assert("File.each_line input verification.",
+         (||
+    var f = File.open("test\/file_for_io.txt", "r")
+    var expect = """\
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. In efficitur lacinia tortor, ac commodo metus vulputate non.\n\
+    12345\n\
+    Praesent👏blandit👏purus👏sit👏amet👏urna👏faucibus👏dapibus.\n\
+    Nulla lacus turpis, ornare at nisl id, rhoncus venenatis urna.\n\
+    Suspendisse leo nulla, interdum eget erat at, vehicula gravida enim.\n\
+    Integer ultricies metus nisl, nec tempus nisi imperdiet eu. Suspendisse tincidunt id odio ac consequat. Proin faucibus nisi a elit egestas eleifend. Nullam at fermentum nisl, ut pharetra lorem. Sed blandit ante in sapien efficitur, sit amet accumsan enim dictum. Praesent blandit lorem nec orci interdum, eu pharetra felis tincidunt. Vivamus vestibulum risus non accumsan vestibulum.\n\
+    """
+
+    var lines: List[String] = []
+
+    f.each_line(|l| l.encode().unwrap() |> lines.push )
+    lines.join("") == expect ))
+
+t.expect_error("File.each_line fails with closed file.",
+               "IOError: IO operation on closed file.",
+               (||
+    var v = File.open("io_test_file.txt", "w")
+    v.close()
+    v.each_line(|e| 0 / 0 )
+    false ))
+
+t.expect_error("File.each_line fails with write file.",
+               "IOError: File not open for reading.",
+               (||
+    File.open("io_test_file.txt", "w")
+        .each_line(|e| 0 / 0 )
+    false ))
+
+
 t.assert("File.flush with write file.",
          (||
     var v = File.open("io_test_file.txt", "w")
