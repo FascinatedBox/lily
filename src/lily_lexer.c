@@ -921,6 +921,11 @@ static void scan_quoted_raw(lily_lex_state *lexer, char **source_ch, int *start,
             new_ch++;
 
             if (*new_ch == '\n') {
+                if (flags & SQ_IN_LAMBDA) {
+                    label[label_pos] = '\\';
+                    label_pos++;
+                }
+
                 backslash_before_newline = 1;
                 continue;
             }

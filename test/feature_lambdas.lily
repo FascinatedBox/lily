@@ -160,6 +160,16 @@ t.interpret("Comment lines inside of a lambda.",
     }
     """)
 
+t.assert("Lambda with multi-line comment inside.",
+         (||
+    var v = """\
+    This \
+    is \
+    a \
+    test.\
+    """
+    v == "This is a test." ))
+
 t.interpret("Lambda inferring varargs.",
     """
     define f(g: Function(Integer...)) { g(1, 2, 3) }
