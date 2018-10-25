@@ -13,30 +13,26 @@ t.assert("File.close does nothing if called on closed file.",
     true ))
 
 
-t.expect_error("File.open fails when given invalid mode.",
-               "IOError: Invalid mode 'z' given.",
-               (|| var v = File.open("io_test_file.txt", "z")
-                   true ))
-
-
-t.expect_error("File.flush fails with closed file.",
-               "IOError: IO operation on closed file.",
-               (|| var v = File.open("io_test_file.txt", "w")
-                   v.close()
-                   v.flush()
-                   true ))
-
-t.expect_error("File.flush fails with closed file.",
-               "IOError: File not open for writing.",
-               (|| File.open("io_test_file.txt", "r")
-                       .flush()
-                   true ))
-
 t.assert("File.flush with write file.",
          (||
     var v = File.open("io_test_file.txt", "w")
     v.write("test")
     v.flush()
+    true ))
+
+t.expect_error("File.flush fails with closed file.",
+               "IOError: IO operation on closed file.",
+               (||
+    var v = File.open("io_test_file.txt", "w")
+    v.close()
+    v.flush()
+    true ))
+
+t.expect_error("File.flush fails with closed file.",
+               "IOError: File not open for writing.",
+               (||
+    File.open("io_test_file.txt", "r")
+        .flush()
     true ))
 
 
@@ -50,6 +46,12 @@ t.assert("File.open allows mode rb",
          (||
     var f = File.open("io_test_file.txt", "rb")
     f.close()
+    true ))
+
+t.expect_error("File.open fails when given invalid mode.",
+               "IOError: Invalid mode 'z' given.",
+               (||
+    var v = File.open("io_test_file.txt", "z")
     true ))
 
 t.interpret("File.open throwing IOError with errno.",
@@ -106,22 +108,6 @@ t.expect_error("File.read_line on write file.",
                (||
     var f = File.open("io_test_file.txt", "w")
     f.read_line()
-    true ))
-
-
-t.expect_error("File.write to closed file.",
-               "IOError: IO operation on closed file.",
-               (||
-    var f = File.open("io_test_file.txt", "w")
-    f.close()
-    f.write("1234")
-    true ))
-
-t.expect_error("File.write to read file.",
-               "IOError: File not open for writing.",
-               (||
-    var f = File.open("io_test_file.txt", "r")
-    f.write("1234")
     true ))
 
 
