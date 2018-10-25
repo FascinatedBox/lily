@@ -666,7 +666,6 @@ t.interpret_for_error("Return self from a static method.",
     }
     """)
 
-#[
 t.interpret_for_error("Shorthand constructor var without scope.",
     """\
     SyntaxError: Constructor var declaration must start with a scope.\n    \
@@ -675,7 +674,6 @@ t.interpret_for_error("Shorthand constructor var without scope.",
     """\
     class Test(var @a: Integer) { }
     """)
-]#
 
 t.interpret_for_error("Shorthand protected var access check.",
     """\
