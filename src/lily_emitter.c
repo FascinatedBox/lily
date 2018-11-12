@@ -3206,12 +3206,14 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
         eval_tree(emit, key_tree, key_type);
 
-        unify_type = lily_ts_unify(emit->ts, key_type, key_tree->result->type);
-        if (unify_type == NULL)
+        /* The only valid types for Hash keys are monomorphic so == can be used
+           for equality testing. */
+        if (key_type == lily_question_type) {
+            key_type = key_tree->result->type;
+            ensure_valid_key_type(emit, ast, key_type);
+        }
+        else if (key_type != key_tree->result->type) {
             inconsistent_type_error(emit, key_tree, key_type, "Hash keys");
-        else {
-            ensure_valid_key_type(emit, ast, unify_type);
-            key_type = unify_type;
         }
 
         eval_tree(emit, value_tree, value_type);
