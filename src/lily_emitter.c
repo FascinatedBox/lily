@@ -1157,8 +1157,15 @@ static void perform_closure_transform(lily_emit_state *emit,
         /* The backing closure is always a class method, never the class
            constructor itself. Use +1 for the right depth. This search should
            never fail. */
-        uint16_t self_spot = find_closed_sym_spot(emit,
-                emit->class_block_depth + 1, (lily_sym *)prev_block->self);
+
+        /* Why is the depth 3? The backing closure is always a class method.
+           The depth will always be 3 because classes can't be declared inside
+           of another class.
+           __main__ or an import call has depth 1.
+           The class constructor has depth 2.
+           The method has depth 3. */
+        uint16_t self_spot = find_closed_sym_spot(emit, 3,
+                (lily_sym *)prev_block->self);
 
         lily_u16_write_4(emit->closure_aux_code, o_closure_get,
                 self_spot, block_self->reg_spot, first_line);
