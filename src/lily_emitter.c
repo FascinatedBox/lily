@@ -606,10 +606,14 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     new_block->block_type = block_type;
     new_block->flags |= BLOCK_ALWAYS_EXITS;
 
-    if (block_type == block_enum)
+    if (block_type == block_enum) {
         /* Enum entries are not considered function-like, because they do
             not have a class .new. */
         new_block->class_entry = emit->symtab->active_module->class_chain;
+        /* This makes enums play nice with closures by making the depth of the
+           self-holding backing closure 3 for both kinds. */
+        emit->function_depth++;
+    }
 
     emit->block = new_block;
 }
@@ -732,6 +736,10 @@ void lily_emit_leave_block(lily_emit_state *emit)
            last except block installed so it doesn't get patched. */
         lily_u16_set_at(emit->code, lily_u16_pop(emit->patches), 0);
     }
+    else if (block_type == block_enum)
+        /* Enums get a fake depth bump to make them work better with
+           closures. */
+        emit->function_depth--;
 
     if ((block_type == block_if_else ||
          block_type == block_match ||
