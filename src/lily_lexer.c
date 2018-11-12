@@ -1560,7 +1560,10 @@ void lily_lexer(lily_lex_state *lexer)
                 input_pos++;
                 token = tk_typecast_parenth;
             }
-            else if (ch_class[(unsigned char)*ch] == CC_WORD) {
+            else if (ch_class[(unsigned char)*ch] == CC_WORD ||
+                     *ch == 'B') {
+                /* Explicit checking for B is necessary because B isn't an
+                   identifier. It's not because B"". */
                 char *label = lexer->label;
                 int word_pos = 0;
 

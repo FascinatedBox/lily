@@ -431,3 +431,11 @@ t.interpret("Usage of a class constructor var.",
         }
     }
     """)
+
+t.interpret("Class properties can start with B.",
+    """
+    # This is because the lexer special cases B for B"".
+    class Test {
+        public var @B = 1
+    }
+    """)
