@@ -1135,10 +1135,11 @@ static void perform_closure_transform(lily_emit_state *emit,
                 lily_u16_pos(emit->closure_spots) / 2, s->reg_spot,
                 first_line);
 
-        if (function_block->self) {
-            /* Use raw search because 'self' is always at 0. */
-            uint16_t self_spot = find_closed_sym_spot_raw(emit,
-                    emit->function_depth, 0);
+        /* Depth of 3 is the magic number here because that's the depth of a
+           class method. */
+        if (function_block->self && emit->function_depth == 3) {
+            /* Search for the self of the backing closure at level 3, slot 0. */
+            uint16_t self_spot = find_closed_sym_spot_raw(emit, 3, 0);
             /* Load register 0 (self) into the closure. */
             if (self_spot != (uint16_t)-1) {
                 lily_u16_write_4(emit->closure_aux_code, o_closure_set,
