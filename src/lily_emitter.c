@@ -951,9 +951,10 @@ static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
     /* The resulting depth for the backing closure is always the same:
        __main__ is 1, class is 2, backing define is 3. */
     uint16_t depth = 3;
-    lily_block *block = emit->function_block->prev_function_block;
+    lily_block *block = emit->function_block->prev;
 
-    while (block->block_type != block_class)
+    while (block->block_type != block_class &&
+           block->block_type != block_enum)
         block = block->prev;
 
     block = block->next;
@@ -1131,7 +1132,8 @@ static void perform_closure_transform(lily_emit_state *emit,
     uint16_t first_line = iter_for_first_line(emit, iter_start);
     lily_block *prev_block = function_block->prev_function_block;
     int is_backing = (prev_block->block_type == block_class ||
-                      prev_block->block_type == block_file);
+                      prev_block->block_type == block_file ||
+                      function_block->prev->block_type == block_enum);
 
     if (is_backing) {
         /* Put the backing closure into a register so it's not lost in a gc
@@ -1158,8 +1160,11 @@ static void perform_closure_transform(lily_emit_state *emit,
     else if (emit->block->self) {
         lily_storage *block_self = emit->block->self;
 
-        while (prev_block->block_type != block_class)
-            prev_block = prev_block->prev_function_block;
+        while (prev_block->block_type != block_class &&
+               prev_block->block_type != block_enum)
+            /* Must use ->prev (and not prev block) because enum isn't a
+               function. */
+            prev_block = prev_block->prev;
 
         prev_block = prev_block->next;
 

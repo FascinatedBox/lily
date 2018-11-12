@@ -400,3 +400,31 @@ t.interpret("Verify exception capture within a closure.",
         raise Exception("Failed.")
     }
     """)
+
+t.interpret("Verify closure of self in an enum.",
+    """
+    enum Example {
+        One,
+        Two
+        define f: Integer {
+            match self: {
+                case One:
+                    return 1
+                case Two:
+                    return 2
+            }
+        }
+        define g: Integer {
+            var v = (|| f() )
+            return v()
+        }
+    }
+
+    var v = One
+    var w = Two
+    var x = [v.g(), w.g()]
+
+    if x != [1, 2]: {
+        raise Exception("Failed.")
+    }
+    """)
