@@ -948,13 +948,13 @@ find_closed_sym_spot_raw(emit, depth, (sym)->reg_spot)
    This initializes the current function_block's self field. */
 static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
 {
-    uint16_t depth = emit->function_depth;
+    /* The resulting depth for the backing closure is always the same:
+       __main__ is 1, class is 2, backing define is 3. */
+    uint16_t depth = 3;
     lily_block *block = emit->function_block->prev_function_block;
 
-    while (block->block_type != block_class) {
-        block = block->prev_function_block;
-        depth--;
-    }
+    while (block->block_type != block_class)
+        block = block->prev;
 
     block = block->next;
 
