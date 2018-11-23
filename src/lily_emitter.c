@@ -163,7 +163,7 @@ void lily_emit_eval_optarg_keyed(lily_emit_state *emit, lily_ast *ast)
        parameter in question. */
     uint16_t target_reg = ast->left->sym->reg_spot;
 
-    lily_u16_write_4(emit->code, o_jump_if_not_class, 0, target_reg, 3);
+    lily_u16_write_3(emit->code, o_jump_if_set, target_reg, 2);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
     eval_tree(emit, ast, NULL);
@@ -171,10 +171,10 @@ void lily_emit_eval_optarg_keyed(lily_emit_state *emit, lily_ast *ast)
 
     uint16_t patch_spot = lily_u16_pop(emit->patches);
 
-    /* This is +3 because it's fixing the jump of o_jump_if_not_class. The jump
-       is three spots away from the opcode. */
+    /* This is +2 because it's fixing the jump of o_jump_if_unset. The jump is
+       two spots away from the opcode. */
     lily_u16_set_at(emit->code, patch_spot,
-            lily_u16_pos(emit->code) - patch_spot + 3);
+            lily_u16_pos(emit->code) - patch_spot + 2);
 }
 
 void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
@@ -205,7 +205,6 @@ void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
        init b
        init c
        */
-
     int i;
     for (i = type->subtype_count - 1;i > 0;i--) {
         lily_type *inner = type->subtypes[i];
@@ -220,7 +219,7 @@ void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
 
     for (;i > 0;i--, first_reg++) {
         /* If this value is NOT unset, jump to the next test. */
-        lily_u16_write_4(emit->code, o_jump_if_not_class, 0, first_reg, 6);
+        lily_u16_write_3(emit->code, o_jump_if_set, first_reg, 5);
 
         /* Otherwise jump to the assign table. */
         lily_u16_write_2(emit->code, o_jump, 1);

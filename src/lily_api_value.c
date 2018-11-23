@@ -83,9 +83,6 @@ int lily_arg_count(lily_state *s)
 
 int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
 {
-    /* This is similar to lily_value_class_id, but the two are kept apart
-       intentionally. The reason being that this is used by builtin apis so it
-       needs to be fast. That's also why the variant cases are first. */
     lily_value *value = s->call_chain->start[index];
     int base = FLAGS_TO_BASE(value);
     uint16_t result_id;
@@ -584,27 +581,6 @@ int lily_value_compare(lily_state *s, lily_value *left, lily_value *right)
 {
     int depth = 0;
     return lily_value_compare_raw(s, &depth, left, right);
-}
-
-uint16_t lily_value_class_id(lily_value *value)
-{
-    int base = FLAGS_TO_BASE(value);
-    uint16_t result_id;
-
-    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
-        base == V_FOREIGN_BASE)
-        result_id = (uint16_t)value->value.container->class_id;
-    else if (base == V_EMPTY_VARIANT_BASE)
-        result_id = (uint16_t)value->value.integer;
-    else if (base == V_COROUTINE_BASE)
-        result_id = LILY_ID_COROUTINE;
-    else if (base == V_UNIT_BASE)
-        result_id = LILY_ID_UNIT;
-    else
-        /* The other bases map directly to class ids. */
-        result_id = (uint16_t)base;
-
-    return result_id;
 }
 
 uint16_t lily_cid_at(lily_vm_state *vm, int n)

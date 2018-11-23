@@ -89,6 +89,12 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 4;
             break;
+        case o_jump_if_set:
+            iter->inputs_3 = 1;
+            iter->jumps_5 = 1;
+
+            iter->round_total = 3;
+            break;
         case o_call_native:
         case o_call_foreign:
         case o_call_register:

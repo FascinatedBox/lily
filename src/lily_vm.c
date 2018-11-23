@@ -18,8 +18,6 @@ extern lily_gc_entry *lily_gc_stopper;
 void lily_value_destroy(lily_value *);
 /* Same here: Safely escape string values for `KeyError`. */
 void lily_mb_escape_add_str(lily_msgbuf *, const char *);
-/* o_jump_if_not_class needs this for now. */
-uint16_t lily_value_class_id(lily_value *);
 
 /* Foreign functions set this as their code so that the vm will exit when they
    are to be returned from. */
@@ -2748,16 +2746,29 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             }
             case o_jump_if_not_class:
-                i = code[1];
                 lhs_reg = vm_regs[code[2]];
+                i = FLAGS_TO_BASE(lhs_reg);
 
-                /* Yuck. This is used for match case jumping and optarg
-                   resolving, so it's not too important. There has to be a
-                   better way eventually. */
-                if (lily_value_class_id(lhs_reg) == i)
+                /* This opcode is used for match branches. The source is always
+                   a class instance or a variant (which might be empty). */
+                if (i == V_VARIANT_BASE || i == V_INSTANCE_BASE)
+                    i = lhs_reg->value.container->class_id;
+                else
+                    i = (uint16_t)lhs_reg->value.integer;
+
+                if (i == code[1])
                     code += 4;
                 else
                     code += code[3];
+
+                break;
+            case o_jump_if_set:
+                lhs_reg = vm_regs[code[1]];
+
+                if (lhs_reg->flags == 0)
+                    code += 3;
+                else
+                    code += code[2];
 
                 break;
             case o_closure_new:

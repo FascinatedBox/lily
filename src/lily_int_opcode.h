@@ -59,10 +59,12 @@ typedef enum {
     o_jump_if,
     /* This is given a class id, a value, and a distance to move.
        Check if 'value' has the class id given. Jump if it doesn't. This is used
-       primarily to implement `match`. This also implements optargs by checking
-       against class id 0 which only exists on registers that have been cleared
-       out of a value. */
+       to implement `match`. */
     o_jump_if_not_class,
+    /* This is given a value and a distance to move.
+       Check if 'value' is set. If it is, then follow the jump provided.
+       For optional arguments only. */
+    o_jump_if_set,
 
     /* Perform a single step of a `for i in a...b` loop. */
     o_for_integer,
