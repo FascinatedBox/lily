@@ -793,7 +793,7 @@ t.interpret_for_error("Invalid condition type.",
 
 t.interpret_for_error("Invalid List subscript type.",
     """\
-    SyntaxError: List index is not an Integer.\n    \
+    SyntaxError: List index is not an Integer or a Byte.\n    \
         from test\/[subinterp]:2:\
     """,
     """\
@@ -803,7 +803,7 @@ t.interpret_for_error("Invalid List subscript type.",
 
 t.interpret_for_error("Invalid ByteString subscript type.",
     """\
-    SyntaxError: ByteString index is not an Integer.\n    \
+    SyntaxError: ByteString index is not an Integer or a Byte.\n    \
         from test\/[subinterp]:2:\
     """,
     """\

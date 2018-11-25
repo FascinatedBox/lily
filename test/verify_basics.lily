@@ -577,3 +577,22 @@ t.assert("Lists are truthy if not empty.",
     }
 
     ok ))
+
+t.assert("Verify List and Bytestring subscript by Byte.",
+         (||
+    var bl = B"123"
+    var l = [1, 2, 3]
+
+    var e1 = bl[1t]
+    var e2 = l[1t]
+
+    var ok = (e1 == '2' && e2 == 2)
+
+    ok ))
+
+t.assert("Verify List subscript uses Byte as unsigned.",
+         (||
+    var l = List.repeat(255, 0)
+    l[200] = 100
+
+    l[200t] == 100 ))

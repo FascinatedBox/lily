@@ -1662,9 +1662,12 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 {
     int var_cls_id = var_ast->result->type->cls->id;
     if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING) {
-        if (index_ast->result->type->cls->id != LILY_ID_INTEGER)
+        uint16_t index_id = index_ast->result->type->cls->id;
+
+        if (index_id != LILY_ID_INTEGER &&
+            index_id != LILY_ID_BYTE)
             lily_raise_adjusted(emit->raiser, var_ast->line_num,
-                    "%s index is not an Integer.",
+                    "%s index is not an Integer or a Byte.",
                     var_ast->result->type->cls->name);
     }
     else if (var_cls_id == LILY_ID_HASH) {
