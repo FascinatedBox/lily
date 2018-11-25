@@ -596,3 +596,13 @@ t.assert("Verify List subscript uses Byte as unsigned.",
     l[200] = 100
 
     l[200t] == 100 ))
+
+t.interpret("Verify type narrowing for static List and Hash.",
+    """
+    class One {}
+    class Two < One {}
+    class Three < Two {}
+
+    var l = [Three(), Two(), One()]
+    var h = [1 => Three(), 2 => Two(), 3 => One()]
+    """)

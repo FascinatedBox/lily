@@ -3123,13 +3123,20 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
  *
  */
 
-/** The eval for these two is broken away from the others because it is fairly
-    difficult. The bulk of the problem comes with trying to find a 'bottom type'
-    of all the values that were entered. This process is termed 'unification',
-    and it isn't easy here.
+/* Unify, like type checking, expects that the right side will be the same or
+   more than the right. However, in this case, order is not important. All
+   that's important is that there's a common bottom type toward the elements. So
+   run unify in both directions. */
+static lily_type *bidirectional_unify(lily_type_system *ts,
+        lily_type *left_type, lily_type *right_type)
+{
+    lily_type *result = lily_ts_unify(ts, left_type, right_type);
 
-    Unification is currently done after lists and hashes have evaluated all of
-    their members. **/
+    if (result == NULL)
+        result = lily_ts_unify(ts, right_type, left_type);
+
+    return result;
+}
 
 /* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
    inference. If 'key_type' is not suitable to be a hash key, then raise a
@@ -3240,8 +3247,9 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         }
 
         eval_tree(emit, value_tree, value_type);
-        unify_type = lily_ts_unify(emit->ts, value_type,
+        unify_type = bidirectional_unify(emit->ts, value_type,
                 value_tree->result->type);
+
         if (unify_type == NULL)
             inconsistent_type_error(emit, value_tree, value_type,
                     "Hash values");
@@ -3281,8 +3289,9 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
         eval_tree(emit, arg, elem_type);
 
-        lily_type *new_elem_type = lily_ts_unify(emit->ts, elem_type,
+        lily_type *new_elem_type = bidirectional_unify(emit->ts, elem_type,
                 arg->result->type);
+
         if (new_elem_type == NULL)
             inconsistent_type_error(emit, arg, elem_type, "List elements");
 
