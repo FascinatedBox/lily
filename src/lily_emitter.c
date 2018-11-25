@@ -131,7 +131,7 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
 /* This is called from parser to get emitter to write a function call targeting
-   a var. The var should always be an __import__ function. */
+   a var. The var should always be an __module__ function. */
 void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
 {
     lily_storage *s = get_storage(emit, lily_unit_type);

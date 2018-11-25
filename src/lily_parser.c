@@ -411,7 +411,7 @@ static void handle_rewind(lily_parse_state *parser)
 
 /** Within Lily, code is broken down into modules, with each module representing
     a single file. The first time a module is loaded, code inside that is not
-    within a function or class is executed (a function called __import__ is
+    within a function or class is executed (a function called __module__ is
     created to hold and execute that code). The items of a loaded module are
     then made available using the module's name as a namespace.
 
@@ -1009,7 +1009,7 @@ static lily_var *new_scoped_var(lily_parse_state *parser, lily_type *type,
     parser->symtab->active_module->var_chain = var;
     var->function_depth = parser->emit->function_depth;
 
-    /* Depth is 1 if in __main__ or only __import__ functions. */
+    /* Depth is 1 if in __main__ or only __module__ functions. */
     if (var->function_depth == 1) {
         /* This effectively reserves the current slot for this global in vm's
            toplevel area. */
@@ -4060,7 +4060,7 @@ static void run_loaded_module(lily_parse_state *parser,
     parser->symtab->active_module = module;
 
     /* lily_emit_enter_block will write new code to this special var. */
-    lily_var *import_var = new_native_define_var(parser, NULL, "__import__",
+    lily_var *import_var = new_native_define_var(parser, NULL, "__module__",
             lex->line_num);
 
     import_var->type = parser->default_call_type;
@@ -4088,7 +4088,7 @@ static void run_loaded_module(lily_parse_state *parser,
         error_forward_decl_pending(parser);
 
     lily_emit_leave_call_block(parser->emit, lex->line_num);
-    /* __import__ vars and functions become global, so don't hide them. */
+    /* __module__ vars and functions become global, so don't hide them. */
     lily_pop_lex_entry(parser->lex);
 
     lily_emit_write_import_call(parser->emit, import_var);

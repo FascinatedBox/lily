@@ -36,11 +36,11 @@ t.interpret("Check getting a var from an imported target.",
     var v = deep_target.v
     """)
 
-t.interpret("Check using the type of __import__.",
+t.interpret("Check using the type of __module__.",
     """\
     import "import_dir/var_access"
 
-    var v = [var_access.__import__]
+    var v = [var_access.__module__]
     """)
 
 t.interpret("Check using a single import ref.",
