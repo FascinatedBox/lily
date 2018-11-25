@@ -1667,14 +1667,10 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
          i--, frame_iter = frame_iter->prev) {
         lily_function_val *func_val = frame_iter->function;
         lily_proto *proto = func_val->proto;
-        const char *path;
+        const char *path = proto->module_path;
         char line[16] = "";
-        if (func_val->code) {
-            path = proto->module_path;
+        if (func_val->code)
             sprintf(line, "%d:", frame_iter->code[-1]);
-        }
-        else
-            path = "[C]";
 
         const char *str = lily_mb_sprintf(msgbuf, "%s:%s from %s", path,
                 line, proto->name);

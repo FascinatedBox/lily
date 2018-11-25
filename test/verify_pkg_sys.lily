@@ -38,7 +38,7 @@ t.interpret_for_error("sys.set_recursion_limit too high.",
     """\
     ValueError: Limit value (9999999999999999) is not reasonable.\n\
     Traceback:\n    \
-        from [C]: in set_recursion_limit\n    \
+        from [sys]: in set_recursion_limit\n    \
         from test/[subinterp]:3: in __main__\
     """,
     """
@@ -50,7 +50,7 @@ t.interpret_for_error("sys.set_recursion_limit too low.",
     """\
     ValueError: Limit value (1) is lower than the current recursion depth.\n\
     Traceback:\n    \
-        from [C]: in set_recursion_limit\n    \
+        from [sys]: in set_recursion_limit\n    \
         from test/[subinterp]:5: in f\n    \
         from test/[subinterp]:8: in __main__\
     """,

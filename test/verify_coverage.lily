@@ -108,7 +108,7 @@ t.interpret_for_error("Cover uncaptured exception with foreign function.",
     """\
     ValueError: unwrap called on None.\n\
     Traceback:\n    \
-        from [C]: in Option.unwrap\n    \
+        from [builtin]: in Option.unwrap\n    \
         from test\/[subinterp]:2: in __main__\
     """,
     """\

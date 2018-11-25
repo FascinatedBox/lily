@@ -135,6 +135,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->import_pile_current = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
+    parser->msgbuf = lily_new_msgbuf(64);
     parser->expr = lily_new_expr_state();
     parser->generics = lily_new_generic_pool();
     parser->symtab = lily_new_symtab(parser->generics);
@@ -146,14 +147,16 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    lily_module_register(parser->vm, "", lily_builtin_info_table,
+    /* This needs a name to build the [builtin] path from that later traceback
+       will use. Registered module search starts after builtin, so nothing
+       should see the name to load this module. */
+    lily_module_register(parser->vm, "builtin", lily_builtin_info_table,
             lily_builtin_call_table);
     lily_set_builtin(parser->symtab, parser->module_top);
     lily_init_pkg_builtin(parser->symtab);
 
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(raiser);
-    parser->msgbuf = lily_new_msgbuf(64);
     parser->data_stack = lily_new_buffer_u16(4);
     parser->keyarg_strings = lily_new_string_pile();
     parser->keyarg_current = 0;
@@ -729,6 +732,14 @@ void lily_module_register(lily_state *s, const char *name,
     module->loadname = lily_malloc(
             (strlen(name) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, name);
+
+    /* This special "path" is for vm and parser traceback. */
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    const char *msgbuf_path = lily_mb_sprintf(msgbuf, "[%s]", module->loadname);
+    module->path = lily_malloc(
+            (strlen(msgbuf_path) + 1) * sizeof(*module->path));
+    strcpy(module->path, msgbuf_path);
+
     add_data_to_module(module, NULL, info_table, call_table);
     module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
@@ -5324,7 +5335,8 @@ static void build_error(lily_parse_state *parser)
             lily_proto *proto = frame->function->proto;
 
             if (frame->function->code == NULL)
-                lily_mb_add_fmt(msgbuf, "    from [C]: in %s\n", proto->name);
+                lily_mb_add_fmt(msgbuf, "    from %s: in %s\n",
+                        proto->module_path, proto->name);
             else
                 lily_mb_add_fmt(msgbuf,
                         "    from %s:%d: in %s\n",

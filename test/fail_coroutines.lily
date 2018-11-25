@@ -8,7 +8,7 @@ t.interpret_for_error("Receive a value from another coroutine.",
     """\
     RuntimeError: Attempt to receive a value from another coroutine.\n\
     Traceback:\n    \
-        from [C]: in Coroutine.receive\n    \
+        from [builtin]: in Coroutine.receive\n    \
         from test\/[subinterp]:5: in __main__\
     """,
     """\
@@ -23,7 +23,7 @@ t.interpret_for_error("Yield from another Coroutine.",
     """\
     RuntimeError: Cannot yield from another coroutine.\n\
     Traceback:\n    \
-        from [C]: in Coroutine.yield\n    \
+        from [builtin]: in Coroutine.yield\n    \
         from test\/[subinterp]:5: in __main__\
     """,
     """\
