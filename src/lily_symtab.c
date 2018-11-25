@@ -987,7 +987,9 @@ lily_module_entry *lily_find_module(lily_symtab *symtab,
 lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
         const char *name)
 {
-    lily_module_entry *module_iter = symtab->builtin_module;
+    /* Start after the builtin module because nothing actually wants the builtin
+       module. */
+    lily_module_entry *module_iter = symtab->builtin_module->root_next;
 
     while (module_iter) {
         if (module_iter->flags & MODULE_IS_REGISTERED &&
