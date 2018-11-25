@@ -542,6 +542,10 @@ static void add_path_to_module(lily_module_entry *module, const char *path)
 {
     module->loadname = loadname_from_path(path);
     module->dirname = dir_from_path(path);
+
+    if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
+        path += 2;
+
     module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
     module->cmp_len = strlen(path);
     strcpy(module->path, path);
