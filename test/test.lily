@@ -76,6 +76,28 @@ class TestGroup {
                     .join("\n")
     }
 
+    private define message_equal(expect_str: String, given: String): Boolean {
+        var ok = false
+
+        if expect_str == given: {
+            ok = true
+        }
+
+        if ok == false && expect_str.find("{lib}").is_some(): {
+            # There's no platform module yet.
+            # Try replacing this with .so or .dll.
+            # If either works, it's good.
+            var so_str = expect_str.replace("{lib}", "so")
+            var dll_str = expect_str.replace("{lib}", "dll")
+
+            if given == so_str || given == dll_str: {
+                ok = true
+            }
+        }
+
+        return ok
+    }
+
     public define run {
         var i = 0
 
@@ -125,7 +147,7 @@ class TestGroup {
                     receive_str = receive_str.slice(0, -1)
             }
 
-            if expect_str != receive_str: {
+            if message_equal(expect_str, receive_str) == false: {
                 var filename = pad_message(current_test[0])
 
                 @tests_failed += 1

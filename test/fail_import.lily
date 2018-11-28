@@ -207,3 +207,17 @@ t.interpret_for_error("Import an invalid token.",
     """\
     import ?
     """)
+
+t.interpret_for_error("Verify error message of missing import.",
+    """\
+    SyntaxError: Cannot import 'whatever':\n    \
+        no preloaded package 'whatever'\n    \
+        no file 'test\/whatever.lily'\n    \
+        no file 'test\/whatever.{lib}'\n    \
+        no file 'test\/packages\/whatever\/src\/whatever.lily'\n    \
+        no file 'test\/packages\/whatever\/src\/whatever.{lib}'\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    import whatever
+    """)
