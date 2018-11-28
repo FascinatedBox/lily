@@ -561,7 +561,7 @@ define print[A](value: A)
 Write `value` to `stdout`, plus a newline (`"\n"`). This is equivalent to
 `stdout.print(value)`.
 
-# Errors:
+# Errors
 
 * `IOError` if `stdout` is closed, or not open for reading.
 */
@@ -1318,7 +1318,7 @@ builtin class Hash[A, B]
 The `Hash` class provides a mapping between a key and a value. `Hash` values can
 be created through `[key1 => value1, key2 => value2, ...]`. When writing a
 `Hash`, the key is the first type, and the value is the second.
-/
+
 `[1 => "a", 2 => "b", 3 => "c"]` would therefore be written as
 `Hash[Integer, String]`.
 
