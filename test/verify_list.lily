@@ -233,6 +233,22 @@ t.expect_error("List.pop with empty List.",
     true ))
 
 
+t.assert("List.push adding Integer values.",
+         (||
+    var v = [1]
+    v.push(2)
+    v.push(3)
+    v == [1, 2, 3] ))
+
+t.assert("List.push returning self.",
+         (||
+    var v: List[Integer] = []
+    v.push(1)
+     .push(2)
+     .push(3)
+    v == [1, 2, 3] ))
+
+
 t.assert("List.repeat numeric value.",
          (||
     var v = List.repeat(5, 1)

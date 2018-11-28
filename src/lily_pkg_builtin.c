@@ -97,7 +97,7 @@ const char *lily_builtin_info_table[] = {
     ,"m\0join\0[A](List[A],*String): String"
     ,"m\0map\0[A,B](List[A],Function(A=>B)): List[B]"
     ,"m\0pop\0[A](List[A]): A"
-    ,"m\0push\0[A](List[A],A)"
+    ,"m\0push\0[A](List[A],A): List[A]"
     ,"m\0reject\0[A](List[A],Function(A=>Boolean)): List[A]"
     ,"m\0repeat\0[A](Integer,A): List[A]"
     ,"m\0select\0[A](List[A],Function(A=>Boolean)): List[A]"
@@ -2094,17 +2094,18 @@ void lily_builtin_List_pop(lily_state *s)
 }
 
 /**
-define List.push(value: A)
+define List.push(value: A): List[A]
 
 Add `value` to the end of `self`.
 */
 void lily_builtin_List_push(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_value *list_arg = lily_arg_value(s, 0);
+    lily_container_val *list_val = lily_as_container(list_arg);
     lily_value *insert_value = lily_arg_value(s, 1);
 
     lily_list_insert(list_val, lily_con_size(list_val), insert_value);
-    lily_return_unit(s);
+    lily_return_value(s, list_arg);
 }
 
 static void list_select_reject_common(lily_state *s, int expect)
