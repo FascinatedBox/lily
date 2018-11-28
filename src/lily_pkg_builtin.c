@@ -128,7 +128,7 @@ const char *lily_builtin_info_table[] = {
     ,"V\0Success\0(B)"
     ,"N\01RuntimeError\0< Exception"
     ,"m\0<new>\0(String): RuntimeError"
-    ,"N\024String\0"
+    ,"N\025String\0"
     ,"m\0format\0(String,$1...): String"
     ,"m\0ends_with\0(String,String): Boolean"
     ,"m\0find\0(String,String,*Integer): Option[Integer]"
@@ -142,6 +142,7 @@ const char *lily_builtin_info_table[] = {
     ,"m\0parse_i\0(String): Option[Integer]"
     ,"m\0replace\0(String,String,String): String"
     ,"m\0rstrip\0(String,String): String"
+    ,"m\0size\0(String): Integer"
     ,"m\0slice\0(String,*Integer,*Integer): String"
     ,"m\0split\0(String,*String): List[String]"
     ,"m\0starts_with\0(String,String): Boolean"
@@ -178,9 +179,9 @@ const char *lily_builtin_info_table[] = {
 #define Result_OFFSET 98
 #define RuntimeError_OFFSET 105
 #define String_OFFSET 107
-#define Tuple_OFFSET 128
-#define ValueError_OFFSET 129
-#define toplevel_OFFSET 131
+#define Tuple_OFFSET 129
+#define ValueError_OFFSET 130
+#define toplevel_OFFSET 132
 void lily_builtin_Boolean_to_i(lily_state *);
 void lily_builtin_Boolean_to_s(lily_state *);
 void lily_builtin_Byte_to_i(lily_state *);
@@ -276,6 +277,7 @@ void lily_builtin_String_lstrip(lily_state *);
 void lily_builtin_String_parse_i(lily_state *);
 void lily_builtin_String_replace(lily_state *);
 void lily_builtin_String_rstrip(lily_state *);
+void lily_builtin_String_size(lily_state *);
 void lily_builtin_String_slice(lily_state *);
 void lily_builtin_String_split(lily_state *);
 void lily_builtin_String_starts_with(lily_state *);
@@ -411,6 +413,7 @@ lily_call_entry_func lily_builtin_call_table[] = {
     lily_builtin_String_parse_i,
     lily_builtin_String_replace,
     lily_builtin_String_rstrip,
+    lily_builtin_String_size,
     lily_builtin_String_slice,
     lily_builtin_String_split,
     lily_builtin_String_starts_with,
@@ -3439,6 +3442,16 @@ static void string_split_by_val(lily_state *s, char *input, char *splitby)
 
         input_ch++;
     }
+}
+
+/**
+define String.size: Integer
+
+Return the number of bytes in `self`. This is equivalent to `ByteString.size`.
+*/
+void lily_builtin_String_size(lily_state *s)
+{
+    lily_return_integer(s, lily_arg_string(s, 0)->size);
 }
 
 /**

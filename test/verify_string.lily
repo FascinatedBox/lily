@@ -230,6 +230,13 @@ t.assert("String.rstrip not working by ascii for utf-8.",
          (|| "À¡aa¡À".rstrip("À¢") == "À¡aa¡" ))
 
 
+t.assert("String.size on an empty String.",
+         (|| "".size() == 0 ))
+
+t.assert("String.size a basic String.",
+         (|| "abc".size() == 3 ))
+
+
 t.assert("String.slice defaults copy the string.",
          (|| "abc".slice() == "abc" ))
 
