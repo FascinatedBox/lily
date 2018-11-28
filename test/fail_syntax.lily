@@ -1084,6 +1084,15 @@ t.interpret_for_error("Define empty ().",
     define f() {}
     """)
 
+t.interpret_for_error("Explicit Unit return on define.",
+    """\
+    SyntaxError: Unit return type is automatic. Omit instead.\n    \
+        from test\/[subinterp]:1:\
+    """,
+    """\
+    define f: Unit {}
+    """)
+
 t.interpret_for_error("Require init expression for vars.",
     """\
     SyntaxError: An initialization expression is required here.\n    \

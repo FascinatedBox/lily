@@ -1646,9 +1646,14 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             lily_lexer(lex);
         }
         else {
+            lily_type *result_type = get_type_raw(parser, arg_flags);
+            if (result_type == lily_unit_type) {
+                lily_raise_syn(parser->raiser,
+                        "Unit return type is automatic. Omit instead.");
+            }
+
             /* Use the arg flags so that dynaload can use $1 in the return. */
-            lily_tm_insert(parser->tm, result_pos,
-                    get_type_raw(parser, arg_flags));
+            lily_tm_insert(parser->tm, result_pos, result_type);
         }
     }
 
