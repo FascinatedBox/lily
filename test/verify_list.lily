@@ -366,6 +366,12 @@ t.assert("List.unshift with Integer values.",
     v.unshift(-1)
     v == [-1, 0, 1] ))
 
+t.assert("List.unshift returns the source List.",
+         (||
+    var v = [1].unshift(2).unshift(3)
+
+    v == [3, 2, 1] ))
+
 
 t.assert("List.zip with 1 List of same size.",
          (||

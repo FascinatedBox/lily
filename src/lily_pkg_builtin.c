@@ -104,7 +104,7 @@ const char *lily_builtin_info_table[] = {
     ,"m\0size\0[A](List[A]): Integer"
     ,"m\0shift\0[A](List[A]): A"
     ,"m\0slice\0[A](List[A],*Integer,*Integer): List[A]"
-    ,"m\0unshift\0[A](List[A],A)"
+    ,"m\0unshift\0[A](List[A],A): List[A]"
     ,"m\0zip\0[A](List[A],List[$1]...): List[Tuple[A,$1]]"
     ,"E\012Option\0[A]"
     ,"m\0and\0[A,B](Option[A],Option[B]): Option[B]"
@@ -2263,16 +2263,18 @@ void lily_builtin_List_slice(lily_state *s)
 }
 
 /**
-define List.unshift(value: A)
+define List.unshift(value: A): List[A]
 
 Inserts value at the front of self, moving all other elements to the right.
 */
 void lily_builtin_List_unshift(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
-    lily_value *input_reg = lily_arg_value(s, 1);
+    lily_value *list_arg = lily_arg_value(s, 0);
+    lily_value *input_arg = lily_arg_value(s, 1);
+    lily_container_val *list_val = lily_as_container(list_arg);
 
-    lily_list_insert(list_val, 0, input_reg);
+    lily_list_insert(list_val, 0, input_arg);
+    lily_return_value(s, list_arg);
 }
 
 /**
