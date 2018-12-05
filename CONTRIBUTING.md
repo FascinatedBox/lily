@@ -26,7 +26,7 @@ The [FascinatedBox/lily-repl](https://gitlab.com/FascinatedBox/lily-repl) contai
 
 If you're filing a merge request that adds new syntax to the interpreter or changes existing syntax, you'll need to include tests.
 
-The interpreter's testing suite is contained in the `test` directory. The testing suite is run by calling `pre-commit-hook`. The test suite's main file is `test/test_main.lily`. The `test/test.lily` defines the testing class and creates the initial test object. From there, various testing files are imported. Each testing file adds a series of test cases to be tried.
+The interpreter's testing suite is contained in the `test` directory. The testing suite is run by calling `pre-commit-tests`. The test suite's main file is `test/test_main.lily`. The `test/test.lily` defines the testing class and creates the initial test object. From there, various testing files are imported. Each testing file adds a series of test cases to be tried.
 
 Testing files are named according to what they cover:
 
