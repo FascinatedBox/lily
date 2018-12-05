@@ -606,3 +606,16 @@ t.interpret("Verify type narrowing for static List and Hash.",
     var l = [Three(), Two(), One()]
     var h = [1 => Three(), 2 => Two(), 3 => One()]
     """)
+
+t.interpret("Trailing comma for List, Hash, and Tuple.",
+    """
+    var a = [1, 2, 3,]
+    var b = [1 => 2,]
+    var c = <[1, 2, 3,]>
+
+    if a != [1, 2, 3] ||
+        b != [1 => 2] ||
+        c != <[1, 2, 3]>: {
+        raise Exception("Failed.")
+    }
+    """)

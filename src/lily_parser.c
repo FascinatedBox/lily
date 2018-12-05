@@ -2888,8 +2888,19 @@ static void expression_raw(lily_parse_state *parser)
         else if (lex->token == tk_right_parenth ||
                  lex->token == tk_right_bracket ||
                  lex->token == tk_tuple_close) {
-            if (state == ST_DEMAND_VALUE)
-                state = ST_BAD_TOKEN;
+            if (state == ST_DEMAND_VALUE) {
+                /* This must check for save depth because it can be activated
+                   with code like `var v = [10] ]`. */
+                if (parser->expr->save_depth &&
+                    (lex->token == tk_right_bracket ||
+                     lex->token == tk_tuple_close)) {
+                    check_valid_close_tok(parser);
+                    lily_es_leave_tree(parser->expr);
+                    state = ST_WANT_OPERATOR;
+                }
+                else
+                    state = ST_BAD_TOKEN;
+            }
             else if (state == ST_WANT_OPERATOR &&
                      parser->expr->save_depth == 0)
                 state = ST_DONE;
