@@ -10,9 +10,8 @@ struct lily_value_;
 /* Lily's foreign functions look like this. */
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *);
 
-/* lily_raw_value is a union of all possible values, plus a bit more. This is
-   not common, because lily_value (which has flags and a type) is typically
-   used for parameters and such instead. However, this does have some uses. */
+/* This is what can be placed inside of a value. This is not commonly used
+   except by methods that unpack it. Most will use lily_value instead. */
 typedef union lily_raw_value_ {
     int64_t integer;
     double doubleval;
