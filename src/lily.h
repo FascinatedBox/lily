@@ -375,7 +375,7 @@ int lily_load_library(lily_state *s, const char *path);
 //     s          - The interpreter state.
 //     path       - The path to register for the library.
 //     info_table - An info table for the library.
-//     call_table - The call table companion to the NULL table.
+//     call_table - The call table companion to the info table.
 //
 // Returns 1 on success, 0 on failure.
 int lily_load_library_data(lily_state *s, const char *path,
