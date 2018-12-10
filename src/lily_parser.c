@@ -506,7 +506,8 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->call_table = NULL;
     module->boxed_chain = NULL;
     module->item_kind = ITEM_TYPE_MODULE;
-    module->flags = 0;
+    /* If the module has a foreign source, setting the data will drop this. */
+    module->flags = MODULE_NOT_EXECUTED;
     module->root_dirname = NULL;
 
     if (parser->module_start) {
@@ -529,6 +530,7 @@ static void add_data_to_module(lily_module_entry *module, void *handle,
     module->handle = handle;
     module->info_table = table;
     module->call_table = call_table;
+    module->flags &= ~MODULE_NOT_EXECUTED;
 
     unsigned char cid_count = module->info_table[0][0];
 
@@ -622,7 +624,6 @@ int lily_load_file(lily_state *s, const char *path)
 
     module->root_dirname = parser->symtab->active_module->root_dirname;
     add_path_to_module(module, path);
-    module->flags |= MODULE_NOT_EXECUTED;
     return 1;
 }
 
@@ -652,7 +653,6 @@ int lily_load_string(lily_state *s, const char *path, const char *source)
 
     module->root_dirname = parser->symtab->active_module->root_dirname;
     add_path_to_module(module, path);
-    module->flags |= MODULE_NOT_EXECUTED;
     return 1;
 }
 
