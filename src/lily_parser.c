@@ -547,14 +547,18 @@ static void add_path_to_module(lily_module_entry *module,
             (strlen(loadname) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, loadname);
 
-    module->dirname = dir_from_path(path);
-
     if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
         path += 2;
 
     module->cmp_len = strlen(path);
     module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
     strcpy(module->path, path);
+}
+
+static void set_local_root_on_module(lily_module_entry *module)
+{
+    module->dirname = dir_from_path(module->path);
+    module->root_dirname = module->dirname;
 }
 
 static lily_module_entry *find_existing_module(lily_parse_state *parser,
@@ -637,7 +641,7 @@ int lily_load_file_package(lily_state *s, const char *path)
 
     if (ret) {
         lily_module_entry *m = s->gs->parser->last_import;
-        m->root_dirname = m->dirname;
+        set_local_root_on_module(m);
     }
 
     return ret;
@@ -667,7 +671,7 @@ int lily_load_string_package(lily_state *s, const char *path,
 
     if (ret) {
         lily_module_entry *m = s->gs->parser->last_import;
-        m->root_dirname = m->dirname;
+        set_local_root_on_module(m);
     }
 
     return ret;

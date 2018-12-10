@@ -242,8 +242,9 @@ typedef struct lily_module_entry_ {
     /* The name of this module. */
     char *loadname;
 
-    /* If the path includes a directory, then this is just the directory.
-       Otherwise, it's just '\0'. */
+    /* If this is the first module of a package and the path includes a
+       directory, this is that directory. This is NULL otherwise. When dropping
+       modules, free this but not root_dirname. */
     char *dirname;
 
     /* The total path to this module. This may be relative to the first module,
