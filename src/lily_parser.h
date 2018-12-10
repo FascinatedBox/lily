@@ -55,6 +55,11 @@ typedef struct lily_parse_state_ {
 
     lily_function_val *toplevel_func;
 
+    /* Strictly for the import hook (might be NULL/invalid outside of it). This
+       is the name that the imported module will have. It is also the name used
+       in symbol searches if using `lily_load_library`. */
+    const char *pending_loadname;
+
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;

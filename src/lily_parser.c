@@ -540,16 +540,20 @@ static void add_data_to_module(lily_module_entry *module, void *handle,
     }
 }
 
-static void add_path_to_module(lily_module_entry *module, const char *path)
+static void add_path_to_module(lily_module_entry *module,
+            const char *loadname, const char *path)
 {
-    module->loadname = loadname_from_path(path);
+    module->loadname = lily_malloc(
+            (strlen(loadname) + 1) * sizeof(*module->loadname));
+    strcpy(module->loadname, loadname);
+
     module->dirname = dir_from_path(path);
 
     if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
         path += 2;
 
-    module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
     module->cmp_len = strlen(path);
+    module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
     strcpy(module->path, path);
 }
 
@@ -623,7 +627,7 @@ int lily_load_file(lily_state *s, const char *path)
     lily_module_entry *module = new_module(parser);
 
     module->root_dirname = parser->symtab->active_module->root_dirname;
-    add_path_to_module(module, path);
+    add_path_to_module(module, parser->pending_loadname, path);
     return 1;
 }
 
@@ -652,7 +656,7 @@ int lily_load_string(lily_state *s, const char *path, const char *source)
     lily_module_entry *module = new_module(parser);
 
     module->root_dirname = parser->symtab->active_module->root_dirname;
-    add_path_to_module(module, path);
+    add_path_to_module(module, parser->pending_loadname, path);
     return 1;
 }
 
@@ -682,10 +686,7 @@ int lily_load_library(lily_state *s, const char *path)
         return 0;
 
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    char *loadname = loadname_from_path(path);
-
-    char *path_copy = lily_malloc((strlen(path) + 1) * sizeof(*path_copy));
-    strcpy(path_copy, path);
+    const char *loadname = parser->pending_loadname;
 
     const char **info_table = (const char **)lily_library_get(handle,
             lily_mb_sprintf(msgbuf, "lily_%s_info_table", loadname));
@@ -694,19 +695,13 @@ int lily_load_library(lily_state *s, const char *path)
             lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
 
     if (info_table == NULL || call_table == NULL) {
-        lily_free(loadname);
-        lily_free(path_copy);
         lily_library_free(handle);
         return 0;
     }
 
     lily_module_entry *module = new_module(parser);
 
-    module->root_dirname = parser->symtab->active_module->root_dirname;
-    module->loadname = loadname;
-    module->dirname = dir_from_path(path);
-    module->path = path_copy;
-    module->cmp_len = strlen(path);
+    add_path_to_module(module, parser->pending_loadname, path);
     add_data_to_module(module, handle, info_table, call_table);
     return 1;
 }
@@ -722,7 +717,7 @@ int lily_load_library_data(lily_state *s, const char *path,
 
     lily_module_entry *module = new_module(parser);
 
-    add_path_to_module(module, path);
+    add_path_to_module(module, parser->pending_loadname, path);
     add_data_to_module(module, NULL, info_table, call_table);
     return 1;
 }
@@ -4204,6 +4199,30 @@ static void collect_import_refs(lily_parse_state *parser, int *count)
     lily_lexer(lex);
 }
 
+static void parse_verify_import_path(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (lex->token == tk_double_quote) {
+        lily_lexer_verify_path_string(lex);
+        const char *pending_loadname = strrchr(lex->label, LILY_PATH_CHAR);
+
+        if (pending_loadname == NULL)
+            pending_loadname = lex->label;
+        else
+            pending_loadname += 1;
+
+        parser->pending_loadname = pending_loadname;
+    }
+    else if (lex->token == tk_word)
+        parser->pending_loadname = lex->label;
+    else {
+        lily_raise_syn(parser->raiser,
+                "'import' expected a path (identifier or string), not %s.",
+                tokname(lex->token));
+    }
+}
+
 static void keyword_import(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -4223,12 +4242,7 @@ static void keyword_import(lily_parse_state *parser)
         if (lex->token == tk_left_parenth)
             collect_import_refs(parser, &import_sym_count);
 
-        if (lex->token == tk_double_quote)
-            lily_lexer_verify_path_string(lex);
-        else if (lex->token != tk_word)
-            lily_raise_syn(parser->raiser,
-                    "'import' expected a path (identifier or string), not %s.",
-                    tokname(lex->token));
+        parse_verify_import_path(parser);
 
         lily_module_entry *module = NULL;
         char *search_start = lex->label;
