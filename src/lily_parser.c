@@ -463,31 +463,6 @@ static char *dir_from_path(const char *path)
     return out;
 }
 
-static char *loadname_from_path(const char *path)
-{
-    const char *slash = strrchr(path, LILY_PATH_CHAR);
-
-    if (slash == NULL)
-        slash = path;
-    else
-        slash += 1;
-
-    char *dot = strrchr(slash, '.');
-    int load_len;
-
-    if (dot)
-        load_len = dot - slash;
-    else
-        load_len = strlen(path);
-
-    char *out = lily_malloc((load_len + 1) * sizeof(*out));
-
-    strncpy(out, slash, load_len);
-    out[load_len] = '\0';
-
-    return out;
-}
-
 static lily_module_entry *new_module(lily_parse_state *parser)
 {
     lily_module_entry *module = lily_malloc(sizeof(*module));
@@ -5325,9 +5300,9 @@ static void fix_first_file_name(lily_parse_state *parser,
 
     module->const_path = filename;
     module->dirname = dir_from_path(filename);
-    module->loadname = loadname_from_path(filename);
     module->cmp_len = strlen(filename);
     module->root_dirname = module->dirname;
+    /* The loadname isn't set because the first module isn't importable. */
 
     parser->emit->protos->data[0]->module_path = filename;
 
