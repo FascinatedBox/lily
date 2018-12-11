@@ -536,23 +536,6 @@ static void set_local_root_on_module(lily_module_entry *module)
     module->root_dirname = module->dirname;
 }
 
-static lily_module_entry *find_existing_module(lily_parse_state *parser,
-        const char *path)
-{
-    size_t len = strlen(path);
-    lily_module_entry *module_iter = parser->module_start;
-    while (module_iter) {
-        if (module_iter->cmp_len == len &&
-            strcmp(module_iter->path, path) == 0) {
-            break;
-        }
-
-        module_iter = module_iter->root_next;
-    }
-
-    return module_iter;
-}
-
 static int import_check(lily_parse_state *parser, const char *path, int *out)
 {
     if (parser->last_import) {
@@ -560,7 +543,7 @@ static int import_check(lily_parse_state *parser, const char *path, int *out)
         return 1;
     }
 
-    lily_module_entry *m = find_existing_module(parser, path);
+    lily_module_entry *m = lily_find_module_by_path(parser->symtab, path);
 
     if (m) {
         parser->last_import = m;

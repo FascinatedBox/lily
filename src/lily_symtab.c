@@ -984,6 +984,26 @@ lily_module_entry *lily_find_module(lily_symtab *symtab,
     return result;
 }
 
+lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
+        const char *path)
+{
+    /* Modules are linked starting after builtin. Skip that, it's not what's
+       being looked for. */
+    lily_module_entry *module_iter = symtab->builtin_module->root_next;
+    size_t len = strlen(path);
+
+    while (module_iter) {
+        if (module_iter->cmp_len == len &&
+            strcmp(module_iter->path, path) == 0) {
+            break;
+        }
+
+        module_iter = module_iter->root_next;
+    }
+
+    return module_iter;
+}
+
 lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
         const char *name)
 {
