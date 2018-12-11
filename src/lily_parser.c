@@ -690,17 +690,10 @@ void lily_module_register(lily_state *s, const char *name,
     lily_parse_state *parser = s->gs->parser;
     lily_module_entry *module = new_module(parser);
 
-    module->loadname = lily_malloc(
-            (strlen(name) + 1) * sizeof(*module->loadname));
-    strcpy(module->loadname, name);
-
     /* This special "path" is for vm and parser traceback. */
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    const char *msgbuf_path = lily_mb_sprintf(msgbuf, "[%s]", module->loadname);
-    module->path = lily_malloc(
-            (strlen(msgbuf_path) + 1) * sizeof(*module->path));
-    strcpy(module->path, msgbuf_path);
+    const char *module_path = lily_mb_sprintf(parser->msgbuf, "[%s]", name);
 
+    add_path_to_module(module, name, module_path);
     add_data_to_module(module, NULL, info_table, call_table);
     module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
