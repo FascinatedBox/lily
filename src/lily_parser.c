@@ -536,21 +536,8 @@ static void set_local_root_on_module(lily_module_entry *module)
     module->root_dirname = module->dirname;
 }
 
-static int import_check(lily_parse_state *parser, const char *path, int *out)
+static void add_failed_import_path(lily_parse_state *parser, const char *path)
 {
-    if (parser->last_import) {
-        *out = 0;
-        return 1;
-    }
-
-    lily_module_entry *m = lily_find_module_by_path(parser->symtab, path);
-
-    if (m) {
-        parser->last_import = m;
-        *out = 1;
-        return 1;
-    }
-
     /* 'import' isn't allowed inside of an expression, so expr_strings should
        not be holding anything important. Use it to store paths that have been
        tried so the interpreter can deliver a better error message. */
@@ -558,8 +545,19 @@ static int import_check(lily_parse_state *parser, const char *path, int *out)
     uint16_t pos = lily_u16_get(b, lily_u16_pos(b) - 1);
     lily_sp_insert(parser->expr_strings, path, &pos);
     lily_u16_write_1(b, pos);
+}
 
-    return 0;
+static int import_check(lily_parse_state *parser, const char *path)
+{
+    lily_module_entry *m = parser->last_import;
+
+    if (m == NULL) {
+        m = lily_find_module_by_path(parser->symtab, path);
+        if (m != NULL)
+            parser->last_import = m;
+    }
+
+    return (m != NULL);
 }
 
 static lily_lex_entry_type string_input_mode(lily_parse_state *parser)
@@ -574,15 +572,16 @@ static lily_lex_entry_type string_input_mode(lily_parse_state *parser)
 
 int lily_load_file(lily_state *s, const char *path)
 {
-    int out;
     lily_parse_state *parser = s->gs->parser;
 
-    if (import_check(parser, path, &out))
-        return out;
+    if (import_check(parser, path))
+        return 1;
 
     FILE *source = fopen(path, "r");
-    if (source == NULL)
+    if (source == NULL) {
+        add_failed_import_path(parser, path);
         return 0;
+    }
 
     lily_lexer_load(parser->lex, et_file, source);
 
@@ -607,11 +606,10 @@ int lily_load_file_package(lily_state *s, const char *path)
 
 int lily_load_string(lily_state *s, const char *path, const char *source)
 {
-    int out;
     lily_parse_state *parser = s->gs->parser;
 
-    if (import_check(parser, path, &out))
-        return out;
+    if (import_check(parser, path))
+        return 1;
 
     lily_lexer_load(parser->lex, string_input_mode(parser), (char *)source);
 
@@ -637,15 +635,16 @@ int lily_load_string_package(lily_state *s, const char *path,
 
 int lily_load_library(lily_state *s, const char *path)
 {
-    int out;
     lily_parse_state *parser = s->gs->parser;
 
-    if (import_check(parser, path, &out))
-        return out;
+    if (import_check(parser, path))
+        return 1;
 
     void *handle = lily_library_load(path);
-    if (handle == NULL)
+    if (handle == NULL) {
+        add_failed_import_path(parser, path);
         return 0;
+    }
 
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     const char *loadname = parser->pending_loadname;
@@ -657,6 +656,7 @@ int lily_load_library(lily_state *s, const char *path)
             lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
 
     if (info_table == NULL || call_table == NULL) {
+        add_failed_import_path(parser, path);
         lily_library_free(handle);
         return 0;
     }
@@ -671,11 +671,10 @@ int lily_load_library(lily_state *s, const char *path)
 int lily_load_library_data(lily_state *s, const char *path,
         const char **info_table, lily_call_entry_func *call_table)
 {
-    int out;
     lily_parse_state *parser = s->gs->parser;
 
-    if (import_check(parser, path, &out))
-        return out;
+    if (import_check(parser, path))
+        return 1;
 
     lily_module_entry *module = new_module(parser);
 
