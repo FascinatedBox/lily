@@ -57,8 +57,7 @@ typedef struct lily_vm_state_       lily_state;
 
 typedef void (*lily_destroy_func)(lily_generic_val *);
 
-typedef void (*lily_import_func)(lily_state *s, const char *root_dir,
-                                 const char *package_base, const char *name);
+typedef void (*lily_import_func)(lily_state *s, const char *target);
 
 typedef void (*lily_render_func)(const char *content, void *data);
 
@@ -166,92 +165,101 @@ void lily_free_state(lily_state *s);
 /////////////////////////////
 // Parse or render some input.
 //
-// These functions are the gateway for sending data to the interpreter to
-// process. These functions must **not** be called while the interpreter is
-// executing a foreign function or a hook.
+// These functions must **not** be called while the interpreter is either
+// executing or within an import hook.
 //
-// Parse functions start with source input read in code-only mode. Render
-// functions begin in template mode, where content is between tags. Regardless
-// of starting mode, imports always run in code-only mode.
+// The lily_load_* functions prepare content for the interpreter. The other
+// functions detailed in this sections consume the content.
 //
-// Once these functions process the input that's provided, the input is then
-// executed. If these functions fail to parse what is given, they will 'rewind'
-// away the symbols from the failed parse.
+// Attempting to parse or render an interpreter without content ready will do
+// nothing. Similarly, attempting to load when content has already been loaded
+// will do nothing.
 //
-// Following a failed parse, the caller can use the `lily_error_*` set of
-// functions to determine what went wrong. Error information will remain until
-// one of these functions is called again.
+// If any functions detailed here fail, the embedder can use the `lily_error_*`
+// set of functions to determine what went wrong (except for the two cases that
+// are ignored above).
+//
+// If necessary, the interpreter's rewind is invoked when there is a successful
+// `lily_load_*` call after the failed parse or render.
 
-// Function: lily_parse_file
-// Send an interpreter to parse a file.
+// Function: lily_load_file
+// Prepare a file for the interpreter.
+//
+// The path used for loading is exactly the one that is provided by this
+// function. This function will raise an error if the path does not end in
+// '.lily'.
 //
 // Parameters:
-//     s        - The interpreter.
-//     filename - A path to a file to process. Must end in '.lily'.
+//     s    - The interpreter.
+//     path - A path to a file to be loaded. Must end in '.lily'.
 //
 // Returns 1 on success, 0 on failure.
-int lily_parse_file(lily_state *s, const char *filename);
+int lily_load_file(lily_state *s, const char *path);
 
-// Function: lily_parse_string
-// Send an interpreter to parse a string.
+// Function: lily_load_string
+// Prepare a string for the interpreter.
 //
 // By default, the interpreter assumes that the 'content' will not be modified.
 // Callers who cannot provide such a guarantee should set the config option
 // 'copy_str_input' to 1 before using this function.
 //
+// The context passed does not require '.lily' as a suffix. The context provided
+// is exactly the one that is used for the filename.
+//
+// For pseudo-files like reading from stdin, the embedder may want to use a
+// bracketed name (ex: `[cli]` or `[repl]`).
+//
 // Parameters:
-//     s        - The interpreter.
-//     context  - This is the filename to use in case there is an error.
-//     data     - The input for the interpreter.
+//     s       - The interpreter.
+//     context - This is the filename to use in case there is an error.
+//     data    - The input for the interpreter.
 //
 // Returns 1 on success, 0 on failure.
-int lily_parse_string(lily_state *s, const char *context, const char *data);
+int lily_load_string(lily_state *s, const char *context, const char *str);
+
+// Function: lily_parse_content
+// Parse content prepared for the interpreter.
+//
+// This parses the content provided in code-only mode. The content is consumed
+// regardless of this function's result.
+//
+// If the parse is successful, the code is executed as well.
+//
+// Returns 1 on success, 0 on failure.
+int lily_parse_content(lily_state *s);
+
+// Function: lily_render_content
+// Parse content prepared for the interpreter.
+//
+// This parses the content provided in template mode. The content is consumed
+// regardless of this function's result.
+//
+// Prior to parsing, the content is checked to make sure it begins with the
+// `<?lily` header at the very top of the file. If it does not, no parsing is
+// performed.
+//
+// Returns 1 on success, 0 on failure.
+int lily_render_content(lily_state *s);
 
 // Function: lily_parse_expr
-// Process an expression.
+// Parse an expression prepared for the interpreter.
 //
-// Attempt to process an expression. If the expression is successfully
-// processed, then 'output' is set to a buffer holding the type and the value
-// of the type.
+// This parses the content provided as an expression in code mode. The content
+// is consumed regardless of this function's result.
+//
+// If the expression is successfully processed, then 'output' is set to a buffer
+// holding the type and the value of the type.
 //
 // The buffer that 'output' holds on success points to an internal msgbuf. It is
 // valid until the next parse or render function is called.
 //
 // Parameters:
-//     s        - The interpreter.
-//     context  - This is the filename to use in case there is an error.
-//     data     - The input for the interpreter.
-//     output   - If 'data' is a valid expression, then the result is set to the
-//                address of 'output'.
+//     s      - The interpreter.
+//     output - If 'data' is a valid expression, then the result is set to the
+//              address of 'output'.
 //
 // Returns 1 on success, 0 on failure.
-int lily_parse_expr(lily_state *s, const char *context, char *data,
-                    const char **output);
-
-// Function: lily_render_file
-// Send an interpreter to render a file.
-//
-// Parameters:
-//     s        - The interpreter.
-//     filename - A path to a file to process. Must end in '.lily'.
-//
-// Returns 1 on success, 0 on failure.
-int lily_render_file(lily_state *s, const char *filename);
-
-// Function: lily_render_string
-// Send an interpreter to render a string.
-//
-// By default, the interpreter assumes that the 'content' will not be modified.
-// Callers who cannot provide such a guarantee should set the config option
-// 'copy_str_input' to 1 before using this function.
-//
-// Parameters:
-//     s        - The interpreter.
-//     context  - This is the filename to use in case there is an error.
-//     data     - The input for the interpreter.
-//
-// Returns 1 on success, 0 on failure.
-int lily_render_string(lily_state *s, const char *context, const char *data);
+int lily_parse_expr(lily_state *s, const char **output);
 
 /////////////////////////
 // Section: Error Capture
@@ -306,20 +314,27 @@ const char *lily_error_message_no_trace(lily_state *s);
 // Typedef: lily_import_func
 // Invoked to find a module after registered modules have been tried.
 //
-// This hook should use the common msgbuf (lily_msgbuf_get) to build up paths
-// for the `lily_load_*` functions to use. Stop when any of those functions
-// returns 1.
+// This hook is provided the interpreter state and a target. The target is what
+// was sent to the 'import' keyword. If the current platform doesn't use forward
+// slashes, then the slashes are replaced with what the platform uses. On
+// Windows for example, they're replaced with backslashes. No suffix is given.
 //
-// If unable to load any module, this function should return control the
-// interpreter. The interpreter will then print an error that includes what
-// paths were tried.
+// Before any loading, the hook must use one of the lily_import_use_* functions.
+// Those functions tell the interpreter of the subsequent file or string or
+// other content is at the root of a package or not.
+//
+// The `lily_import_*` set of functions that this uses share some common
+// behavior. They will return 1 if another import has succeeded or an
+// already-imported module satisfying the target given has been found. If a
+// `lily_import_*` function fails, it records the path that was attempted.
+//
+// If the hook cannot load a module for the interpreter, it should return
+// normally. The interpreter will check if a module was loaded and write an
+// error message detailing the paths that were tried.
 //
 // Parameters:
-//     s            - The interpreter state.
-//     root_dir     - The base directory of the first module loaded.
-//     package_base - The base directory of the last isolated package loaded.
-//                    Initially equivalent to root_dir.
-//     name         - The name of the module to import.
+//     s      - The interpreter state.
+//     target - The name passed to the import keyword.
 
 // Typedef: lily_call_entry_func
 // An dynaload entry in the call_table corresponding to the info_table.
@@ -329,85 +344,120 @@ const char *lily_error_message_no_trace(lily_state *s);
 // loader. Both halves are automatically generated, and most users won't need to
 // interact with them except to register embedded Lily code.
 
-// Function: lily_load_file
-// Load a Lily file from a given path.
+// Function: lily_default_import_func
+// This is the default import hook.
 //
-// The file loaded is considered part of the current package. Imports from it
-// will be relative to the current package base.
+// The default import hook is used by the 'lily' embedder. This is provided for
+// the sake of completeness.
+void lily_default_import_func(lily_state *s, const char *target);
+
+// Function: lily_import_file
+// Import a file for the interpreter.
+//
+// In most cases, a caller will want to use this with the target that was
+// provided by the hook. The '.lily' suffix is automatically added.
 //
 // Parameters:
-//     s    - The interpreter state.
-//     path - The path to try loading from.
+//     s      - The interpreter state.
+//     target - The target to attempt loading.
 //
 // Returns 1 on success, 0 on failure.
-int lily_load_file(lily_state *s, const char *path);
+int lily_import_file(lily_state *s, const char *target);
 
-// Function: lily_load_file_package
-// Load a Lily file from a given path as an isolated package.
-//
-// The file loaded is treated as a package of its own. Imports resulting from it
-// will use the base directory provided to it as a means of running imports.
-//
-// Parameters:
-//     s    - The interpreter state.
-//     path - The path to try loading from.
-//
-// Returns 1 on success, 0 on failure.
-int lily_load_file_package(lily_state *s, const char *path);
-
-// Function: lily_load_library
+// Function: lily_import_library
 // Load a library from a given path.
 //
-// This function may fail even if 'path' points to a valid shared library. Make
-// sure the library has a dynaload table and a loader function.
+// In most cases, a caller will want to use this with the target that was
+// provided by the hook. The appropriate library suffix is automatically added.
 //
 // Parameters:
-//     s    - The interpreter state.
-//     path - The path to try loading from.
+//     s      - The interpreter state.
+//     target - The target to attempt loading.
 //
 // Returns 1 on success, 0 on failure.
-int lily_load_library(lily_state *s, const char *path);
+int lily_import_library(lily_state *s, const char *target);
 
-// Function: lily_load_library_data
+// Function: lily_import_library_data
 // Load a preloaded library.
+//
+// This function does not add a suffix to the target given.
 //
 // Parameters:
 //     s          - The interpreter state.
-//     path       - The path to register for the library.
+//     target     - The path to register for the library.
 //     info_table - An info table for the library.
 //     call_table - The call table companion to the info table.
 //
 // Returns 1 on success, 0 on failure.
-int lily_load_library_data(lily_state *s, const char *path,
-                           const char **info_table,
-                           lily_call_entry_func *call_table);
+int lily_import_library_data(lily_state *s, const char *target,
+                             const char **info_table,
+                             lily_call_entry_func *call_table);
 
-// Function: lily_load_string
+// Function: lily_import_string
 // Load a string (context path, then content) as a library.
 //
-// The string loaded is considered part of the current package. Imports from it
-// will be relative to the current package base.
-//
 // By default, the interpreter assumes that the 'content' will not be modified.
 // Callers who cannot provide such a guarantee should set the config option
 // 'copy_str_input' to 1 before using this function.
 //
+// This function does not add a suffix to the path given.
+//
 // Returns 1 on success, 0 on failure.
-int lily_load_string(lily_state *s, const char *path, const char *content);
+int lily_import_string(lily_state *s, const char *target, const char *content);
 
-// Function: lily_load_string_package
-// Load a string (context path, then content) as a isolated package.
+// Function: lily_import_use_local_dir
+// Use a local directory for upcoming imports.
 //
-// The string loaded is considered part of the current package. Imports from it
-// will be relative to the current package base.
+// This instructs the interpreter that subsequent `lily_import_*` calls should
+// be done within the current package. Callers that want the default loading
+// scheme that the 'lily' executable uses should pass this an empty string.
 //
-// By default, the interpreter assumes that the 'content' will not be modified.
-// Callers who cannot provide such a guarantee should set the config option
-// 'copy_str_input' to 1 before using this function.
+// If this function is passed forward slashes, they are replaced with the
+// platform-appropriate slash if necessary (backslash on Windows for example).
 //
-// Returns 1 on success, 0 on failure.
-int lily_load_string_package(lily_state *s, const char *path,
-        const char *content);
+// If, for example, an embedder wanted to allow for a 'test' directory to have
+// access to a 'src' directory, it would execute a file in the parent directory
+// of both. It could then use `lily_import_use_local_dir(s, "src")`, run
+// imports, then use `lily_import_use_local_dir(s, "test")`.
+//
+// This lasts until the other function is called.
+void lily_import_use_local_dir(lily_state *s, const char *dir);
+
+// Function: lily_import_use_package_dir
+// Use a package directory for upcoming imports.
+//
+// This instructs the interpreter that subsequent `lily_import_*` calls should
+// be done inside a package. For a given target 'x', this will run imports
+// within 'packages/x/src/x.suffix'. Callers that want the default loading
+// scheme that the 'lily' executable uses should pass this an empty string.
+//
+// If this function is passed forward slashes, they are replaced with the
+// platform-appropriate slash if necessary (backslash on Windows for example).
+//
+// If, for example, an embedder wanted to allow for a 'test' directory to have
+// access to a 'src' directory, it would execute a file in the parent directory
+// of both. It could then use `lily_import_use_local_dir(s, "src")`, run
+// imports, then use `lily_import_use_local_dir(s, "test")`.
+//
+// This lasts until the other function is called.
+void lily_import_use_local_dir(lily_state *s, const char *dir);
+
+// Function: lily_import_current_root_dir
+// Return the directory of the package that the source import belongs to.
+//
+// The first module imported is considered to be the root of a package. For all
+// others, packages are found within 'packages/name/src/name.suffix'.
+//
+// The result of this function does not include the initial directory passed to
+// the first source (ex: 'test/abc.lily' is the same as 'abc.lily').
+//
+// One use case of this is to allow files in a 'test' directory to import those
+// in a 'src' directory.
+//
+// The result of this function uses the slashes of the source platform, but will
+// not contain a trailing slash. If called from the first package, the result is
+// an empty string.
+const char *lily_import_current_root_dir(lily_state *s);
 
 ///////////////////////////
 // Section: Class id macros

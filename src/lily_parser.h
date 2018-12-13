@@ -15,6 +15,7 @@
 # include "lily_generic_pool.h"
 
 struct lily_rewind_state_;
+struct lily_import_state_;
 
 typedef struct lily_parse_state_ {
     lily_module_entry *module_start;
@@ -22,12 +23,14 @@ typedef struct lily_parse_state_ {
 
     lily_module_entry *main_module;
 
-    lily_module_entry *last_import;
-
     lily_buffer_u16 *data_stack;
 
     uint16_t executing;
-    uint16_t first_pass;
+
+    /* 1 if there is content to parse, 0 otherwise.
+       Used by content loading to block multiple loads and to prevent running
+       without any content to run on. */
+    uint16_t content_to_parse;
 
     /* The next import should store temp names here. */
     uint32_t import_pile_current;
@@ -35,8 +38,10 @@ typedef struct lily_parse_state_ {
     /* Same idea, but for keyword arguments. */
     uint16_t keyarg_current;
 
-    uint16_t pad1;
-    uint32_t pad2;
+    /* 1 if the first import is in template mode, 0 otherwise.
+       Used to prevent files in non-template mode from having tags. */
+    uint16_t rendering;
+    uint32_t pad;
 
     /* The current expression state. */
     lily_expr_state *expr;
@@ -55,11 +60,6 @@ typedef struct lily_parse_state_ {
 
     lily_function_val *toplevel_func;
 
-    /* Strictly for the import hook (might be NULL/invalid outside of it). This
-       is the name that the imported module will have. It is also the name used
-       in symbol searches if using `lily_load_library`. */
-    const char *pending_loadname;
-
     lily_type *class_self_type;
     lily_msgbuf *msgbuf;
     lily_type *default_call_type;
@@ -71,6 +71,7 @@ typedef struct lily_parse_state_ {
     lily_raiser *raiser;
     lily_config *config;
     struct lily_rewind_state_ *rs;
+    struct lily_import_state_ *ims;
 } lily_parse_state;
 
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, const char *,

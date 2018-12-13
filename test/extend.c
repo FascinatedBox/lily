@@ -53,10 +53,12 @@ static void run_interp(lily_state *s, int parse)
 
     int result;
 
+    result = lily_load_string(subinterp, context, data);
+
     if (parse)
-        result = lily_parse_string(subinterp, context, data);
+        result = lily_parse_content(subinterp);
     else
-        result = lily_render_string(subinterp, context, data);
+        result = lily_render_content(subinterp);
 
     if (result == 0) {
         con = lily_push_failure(s);
@@ -116,7 +118,10 @@ void lily_extend__parse_expr(lily_state *s)
     lily_container_val *con;
 
     const char *output;
-    int result = lily_parse_expr(subinterp, context, data, &output);
+    int result;
+
+    lily_load_string(subinterp, context, data);
+    result = lily_parse_expr(subinterp, &output);
 
     if (result == 0) {
         con = lily_push_failure(s);
@@ -153,10 +158,17 @@ void lily_extend__parse_rewind(lily_state *s)
 
     lily_state *subinterp = lily_new_state(&config);
 
-    lily_parse_string(subinterp, context, header);
-    lily_parse_string(subinterp, context, data);
+    lily_load_string(subinterp, context, header);
+    lily_parse_content(subinterp);
+
+    lily_load_string(subinterp, context, data);
+    lily_parse_content(subinterp);
+
     lily_mb_add(msgbuf, lily_error_message(subinterp));
-    lily_parse_string(subinterp, context, data);
+
+    lily_load_string(subinterp, context, data);
+    lily_parse_content(subinterp);
+
     lily_mb_add(msgbuf, lily_error_message(subinterp));
 
     /* The prelude shouldn't fail, and the two passes both should. Return the

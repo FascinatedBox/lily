@@ -90,17 +90,16 @@ int main(int argc, char **argv)
 
     int result;
 
-    if (do_tags) {
-        if (is_file == 1)
-            result = lily_render_file(state, to_process);
+    if (is_file == 1)
+        result = lily_load_file(state, to_process);
+    else
+        result = lily_load_string(state, "[cli]", to_process);
+
+    if (result) {
+        if (do_tags == 0)
+            result = lily_parse_content(state);
         else
-            result = lily_render_string(state, "[cli]", to_process);
-    }
-    else {
-        if (is_file == 1)
-            result = lily_parse_file(state, to_process);
-        else
-            result = lily_parse_string(state, "[cli]", to_process);
+            result = lily_render_content(state);
     }
 
     if (result == 0)

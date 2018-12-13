@@ -19,10 +19,12 @@ int main(int argc, char **argv)
             lily_extend_call_table);
 
 #ifdef _WIN32
-    if (lily_parse_file(state, "test\\test_main.lily") == 0) {
+    lily_load_file(state, "test\\test_main.lily");
 #else
-    if (lily_parse_file(state, "test/test_main.lily") == 0) {
+    lily_load_file(state, "test/test_main.lily");
 #endif
+
+    if (lily_parse_content(state) == 0) {
         fputs(lily_error_message(state), stderr);
         exit(EXIT_FAILURE);
     }

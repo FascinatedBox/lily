@@ -13,8 +13,7 @@ typedef struct {
     lily_config config;
 } sandbox;
 
-void import_noop(lily_state *s, const char *root, const char *source,
-        const char *name) {  }
+void import_noop(lily_state *s, const char *target) {  }
 
 sandbox *get_parser()
 {
@@ -30,7 +29,8 @@ sandbox *get_parser()
 
 int run_parser(sandbox *box, char *to_parse)
 {
-    return lily_parse_string(box->state, "[tryit]", to_parse);
+    lily_load_string(box->state, "[tryit]", to_parse);
+    return lily_parse_content(box->state);
 }
 
 void destroy_parser(sandbox *box)
