@@ -61,8 +61,6 @@ extern lily_type *lily_unit_type;
     state over there.
 
     API functions can be found at the bottom of this file. **/
-static void statement(lily_parse_state *, int);
-static lily_type *type_by_name(lily_parse_state *, const char *);
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
 void lily_module_register(lily_state *, const char *, const char **,
