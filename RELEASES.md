@@ -1,3 +1,73 @@
+Version 1.7 (2019-1-10)
+=======================
+
+What's new:
+
+* Lily now has a built-in math library. Thanks @Zhorander.
+
+* `Double` now allows for unary negation. (#401)
+
+* `List` can now be subscripted by `Byte`. (#403)
+
+* Containers (`List`, `Hash`, and `Tuple`) now support trailing commas. (#409)
+
+* The import hook and content loading systems have been largely rewritten,
+  breaking all existing embedders. The new content loading api is easier to
+  test, and potentially extendable too. The new import hook system allows for
+  writing an xUnit-styled testing system. (#416)
+
+Changes:
+
+* `File.each_line` now includes the newlines in lines it reads. This makes it
+  consistent with `File.read_line`. (#382)
+
+* Shorthand constructor vars `class Example(public var @x) { ... }` now require
+  a scope. The last release made it optional to have a scope. This release makes
+  it required. (#400)
+
+* Optional arguments now use a new opcode `o_jump_if_set`. Previously, they used
+  `o_jump_if_not_class` with `0`. This allows the internals to specialize both
+  cases. (#395)
+
+* The name of the function that backs an imported file is now `__module__`.
+  Previously, it was `__import__`.
+
+* If a foreign library causes an exception, the traceback uses the library name
+  in brackets if it's registered, or the path to the library if it isn't.
+  Previously, they all wrote `[C]`. (#399)
+
+* Errors should no longer include `./` at the front of traceback. (fixes #355).
+
+* `List.push` and `List.shift` now return `self` to allow chaining instead of
+  `Unit`. (#405, #407)
+
+* The name of a module (and the dynaload/info tables) are now derived from the
+  name provided to `import`. Previously, it was derived from the path that was
+  given. This allows one library to provide multiple sets of dynaload/info
+  tables. (#415)
+
+Fixes:
+
+* The backslash-newline string escape code that strips leading whitespace from
+  the next line was not working inside a lambda (#401).
+
+* Class properties could not start with B (#402). Found by @Zhorander.
+
+* Closing over `self` in an enum method no longer crashes (#392).
+
+* `List` and `Hash` literals can now narrow their values. Previously, the
+  following code would fail on the last line because the type would not narrow
+  down: (#404)
+
+```
+class One {}
+class Two < One {}
+class Three < Two {}
+
+var a = [One(), Two(), Three()]
+var b = [Three(), Two(), One()]
+```
+
 Version 1.6 (2018-10-10)
 ========================
 
