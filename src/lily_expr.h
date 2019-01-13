@@ -67,13 +67,12 @@ typedef struct lily_ast_ {
         uint16_t call_op;
     };
 
-    uint32_t line_num;
+    uint16_t line_num;
 
-    union {
-        uint16_t call_source_reg;
-        /* Keyword arguments will write what position they target here. */
-        uint16_t keyword_arg_pos;
-    };
+    /* Keyword arguments will write what position they target here. */
+    uint16_t keyword_arg_pos;
+
+    uint16_t call_source_reg;
 
     uint16_t args_collected;
 
@@ -180,7 +179,7 @@ typedef struct lily_expr_state_ {
     uint32_t checkpoint_pos;
     uint32_t checkpoint_size;
 
-    uint32_t *lex_linenum;
+    uint16_t *lex_linenum;
 } lily_expr_state;
 
 void lily_es_flush(lily_expr_state *);

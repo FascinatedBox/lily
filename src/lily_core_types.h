@@ -201,7 +201,8 @@ typedef struct lily_var_ {
     uint64_t shorthash;
     /* The line on which this var was declared. If this is a builtin var, then
        line_num will be 0. */
-    uint32_t line_num;
+    uint16_t line_num;
+    uint16_t pad2;
     /* How deep that functions were when this var was declared. If this is 1,
        then the var is in __main__ and a global. Otherwise, it is a local.
        This is an important difference, because the vm has to do different
