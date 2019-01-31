@@ -270,7 +270,7 @@ void lily_free_state(lily_state *vm)
     while (module_iter) {
         free_links(module_iter->module_chain);
 
-        module_next = module_iter->root_next;
+        module_next = module_iter->next;
 
         if (module_iter->handle)
             lily_library_free(module_iter->handle);
@@ -311,7 +311,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
             module_iter->cmp_len = 0;
             module_iter->flags &= ~MODULE_IN_EXECUTION;
         }
-        module_iter = module_iter->root_next;
+        module_iter = module_iter->next;
     }
 
     /* Rewind generics */
@@ -524,7 +524,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->cmp_len = 0;
     module->info_table = NULL;
     module->cid_table = NULL;
-    module->root_next = NULL;
+    module->next = NULL;
     module->module_chain = NULL;
     module->class_chain = NULL;
     module->var_chain = NULL;
@@ -537,7 +537,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->root_dirname = NULL;
 
     if (parser->module_start) {
-        parser->module_top->root_next = module;
+        parser->module_top->next = module;
         parser->module_top = module;
     }
     else {
@@ -1837,7 +1837,7 @@ static void update_all_cid_tables(lily_parse_state *parser)
         if (entry_iter->cid_table)
             update_cid_table(parser, entry_iter);
 
-        entry_iter = entry_iter->root_next;
+        entry_iter = entry_iter->next;
     }
 }
 

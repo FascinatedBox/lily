@@ -227,8 +227,10 @@ typedef struct lily_module_link_ {
 /* A module either a single code file, or a single library that has been loaded.
    The contents inside are what the module has exported. */
 typedef struct lily_module_entry_ {
-    /* All modules are linked together through here. */
-    struct lily_module_entry_ *root_next;
+    /* All modules are linked to each other through this field. When a module is
+       imported, a module link (not the raw module itself) is added into the
+       source module's chain. */
+    struct lily_module_entry_ *next;
 
     /* Modules have 'item_kind' set so that they can be cast to lily_item, for
        use with dynaloading. */

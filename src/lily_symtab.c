@@ -960,7 +960,7 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
             }
             class_iter = class_iter->next;
         }
-        module_iter = module_iter->root_next;
+        module_iter = module_iter->next;
     }
 
     /* Variants have an id of 0 since they don't need to go into the class
@@ -989,7 +989,7 @@ lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
 {
     /* Modules are linked starting after builtin. Skip that, it's not what's
        being looked for. */
-    lily_module_entry *module_iter = symtab->builtin_module->root_next;
+    lily_module_entry *module_iter = symtab->builtin_module->next;
     size_t len = strlen(path);
 
     while (module_iter) {
@@ -998,7 +998,7 @@ lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
             break;
         }
 
-        module_iter = module_iter->root_next;
+        module_iter = module_iter->next;
     }
 
     return module_iter;
@@ -1009,14 +1009,14 @@ lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
 {
     /* Start after the builtin module because nothing actually wants the builtin
        module. */
-    lily_module_entry *module_iter = symtab->builtin_module->root_next;
+    lily_module_entry *module_iter = symtab->builtin_module->next;
 
     while (module_iter) {
         if (module_iter->flags & MODULE_IS_REGISTERED &&
             strcmp(module_iter->loadname, name) == 0)
             break;
 
-        module_iter = module_iter->root_next;
+        module_iter = module_iter->next;
     }
 
     return module_iter;
