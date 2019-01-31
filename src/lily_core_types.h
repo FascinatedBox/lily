@@ -219,9 +219,9 @@ typedef struct lily_var_ {
 
 
 typedef struct lily_module_link_ {
+    struct lily_module_link_ *next;
     struct lily_module_entry_ *module;
     char *as_name;
-    struct lily_module_link_ *next_module;
 } lily_module_link;
 
 /* A module either a single code file, or a single library that has been loaded.

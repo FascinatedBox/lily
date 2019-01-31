@@ -811,7 +811,7 @@ static lily_module_entry *find_module(lily_module_entry *module,
             break;
         }
 
-        link_iter = link_iter->next_module;
+        link_iter = link_iter->next;
     }
 
     return result;

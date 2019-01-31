@@ -230,7 +230,7 @@ static void free_links_until(lily_module_link *link_iter,
         lily_module_link *stop)
 {
     while (link_iter != stop) {
-        lily_module_link *link_next = link_iter->next_module;
+        lily_module_link *link_next = link_iter->next;
         lily_free(link_iter->as_name);
         lily_free(link_iter);
         link_iter = link_next;
@@ -835,7 +835,7 @@ static void link_module_to(lily_module_entry *target, lily_module_entry *to_link
     }
 
     new_link->module = to_link;
-    new_link->next_module = target->module_chain;
+    new_link->next = target->module_chain;
     new_link->as_name = link_name;
 
     target->module_chain = new_link;
