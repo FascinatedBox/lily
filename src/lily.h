@@ -440,7 +440,7 @@ void lily_import_use_local_dir(lily_state *s, const char *dir);
 // imports, then use `lily_import_use_local_dir(s, "test")`.
 //
 // This lasts until the other function is called.
-void lily_import_use_local_dir(lily_state *s, const char *dir);
+void lily_import_use_package_dir(lily_state *s, const char *dir);
 
 // Function: lily_import_current_root_dir
 // Return the directory of the package that the source import belongs to.
