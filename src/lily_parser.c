@@ -1149,15 +1149,23 @@ static lily_var *new_native_define_var(lily_parse_state *parser,
 static void create_main_func(lily_parse_state *parser)
 {
     lily_type_maker *tm = parser->emit->tm;
+    lily_lex_state *lex = parser->lex;
+    uint16_t save_line = lex->line_num;
 
     lily_tm_add(tm, lily_unit_type);
     lily_type *main_type = lily_tm_make_call(tm, 0,
             parser->symtab->function_class, 1);
 
+    /* __main__'s line number should be 1 since it's not a foreign function.
+       Since lexer hasn't read in the first line (it might be broken and raiser
+       isn't ready yet), the line number is at 0. */
+    lex->line_num = 1;
+
     lily_var *main_var = new_native_define_var(parser, NULL, "__main__");
     lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
     lily_function_val *f = v->value.function;
 
+    lex->line_num = save_line;
     main_var->type = main_type;
 
     /* The vm carries a toplevel frame to hold globals, so that globals survive
