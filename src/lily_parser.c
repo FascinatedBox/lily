@@ -1118,8 +1118,9 @@ static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
 }
 
 static lily_var *new_native_define_var(lily_parse_state *parser,
-        lily_class *parent, const char *name, uint16_t line_num)
+        lily_class *parent, const char *name)
 {
+	uint16_t line_num = parser->lex->line_num;
     lily_var *var = make_new_var(NULL, name, line_num);
 
     var->reg_spot = lily_vs_pos(parser->symtab->literals);
@@ -1153,7 +1154,7 @@ static void create_main_func(lily_parse_state *parser)
     lily_type *main_type = lily_tm_make_call(tm, 0,
             parser->symtab->function_class, 1);
 
-    lily_var *main_var = new_native_define_var(parser, NULL, "__main__", 0);
+    lily_var *main_var = new_native_define_var(parser, NULL, "__main__");
     lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
     lily_function_val *f = v->value.function;
 
@@ -3205,8 +3206,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
        the function to. For the type of the lambda, use the default call
        type (a function with no args and no output) because expect_type may
        be NULL if the emitter doesn't know what it wants. */
-    lily_var *lambda_var = new_native_define_var(parser, NULL, "(lambda)",
-            lex->line_num);
+    lily_var *lambda_var = new_native_define_var(parser, NULL, "(lambda)");
 
     /* From here on, vars created will be in the scope of the lambda. Also,
        this binds a function value to lambda_var. */
@@ -3694,8 +3694,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         if (modifiers & VAR_IS_FORWARD)
             collect_flag = F_COLLECT_FORWARD;
 
-        define_var = new_native_define_var(parser, parent, lex->label,
-                lex->line_num);
+        define_var = new_native_define_var(parser, parent, lex->label);
     }
 
     /* This prevents optargs from using function they're declared in. */
@@ -4147,8 +4146,7 @@ static void run_loaded_module(lily_parse_state *parser,
     parser->symtab->active_module = module;
 
     /* lily_emit_enter_block will write new code to this special var. */
-    lily_var *import_var = new_native_define_var(parser, NULL, "__module__",
-            lex->line_num);
+    lily_var *import_var = new_native_define_var(parser, NULL, "__module__");
 
     import_var->type = parser->default_call_type;
 
@@ -4597,8 +4595,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     /* Use the default call type (function ()) in case one of the types listed
        triggers a dynaload. If a dynaload is triggered, emitter tries to
        restore the current return type from the last define's return type. */
-    lily_var *call_var = new_native_define_var(parser, cls, "<new>",
-            lex->line_num);
+    lily_var *call_var = new_native_define_var(parser, cls, "<new>");
 
     /* Prevent optargs from using this function. */
     call_var->flags |= SYM_NOT_INITIALIZED;
