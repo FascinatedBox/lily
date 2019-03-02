@@ -3584,9 +3584,8 @@ static void verify_existing_decl(lily_parse_state *parser, lily_var *var,
         int modifiers)
 {
     if ((var->flags & VAR_IS_FORWARD) == 0) {
-        lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
         lily_raise_syn(parser->raiser, "%s has already been declared.",
-                p->name);
+                var->name);
     }
     else if (modifiers & VAR_IS_FORWARD) {
         lily_raise_syn(parser->raiser,

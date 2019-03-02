@@ -1512,3 +1512,14 @@ t.interpret_for_error("Class property outside constructor.",
     """\
     var @x = 10
     """)
+
+t.interpret_for_error("Class method name shadowing parameter name.",
+    """\
+    SyntaxError: x has already been declared.\n    \
+        from test\/[subinterp]:2:\
+    """,
+    """\
+    class Test(x: Integer) {
+        public define x {}
+    }
+    """)
