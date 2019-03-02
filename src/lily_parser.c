@@ -1174,6 +1174,8 @@ static void create_main_func(lily_parse_state *parser)
     parser->vm->call_chain->function = f;
     parser->toplevel_func = f;
     parser->default_call_type = main_type;
+    /* This is used by the magic constant __function__. */
+    parser->emit->main_block->function_var = main_var;
 }
 
 /***

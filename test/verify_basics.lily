@@ -25,6 +25,13 @@ t.interpret("Verify __main__ exists and has a type.",
     var v = [__main__]
     """)
 
+t.interpret("Verify __function__ in __main__.",
+    """
+    if __function__ != "__main__": {
+        raise Exception("Failed.")
+    }
+    """)
+
 t.assert("Boolean false is false.",
          (||
     var is_ok = true
