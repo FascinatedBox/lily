@@ -5401,24 +5401,30 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
-static void fix_first_file_name(lily_parse_state *parser,
+static void update_main_name(lily_parse_state *parser,
         const char *filename)
 {
     lily_module_entry *module = parser->main_module;
 
-    if (module->const_path &&
-        strcmp(module->const_path, filename) == 0)
+    if (module->path &&
+        strcmp(module->path, filename) == 0)
         return;
+
+    /* The first module isn't likely to have several names. Instead of creating
+       a special stack to store all of them, throw it into a literal. It'll
+       survive until the interpreter is done and won't leak. */
+    lily_literal *lit = lily_get_string_literal(parser->symtab, filename);
+    char *path = lily_as_string_raw((lily_value *)lit);
 
     lily_free(module->dirname);
 
-    module->const_path = filename;
-    module->dirname = dir_from_path(filename);
-    module->cmp_len = strlen(filename);
+    module->path = path;
+    module->dirname = dir_from_path(path);
+    module->cmp_len = strlen(path);
     module->root_dirname = module->dirname;
     /* The loadname isn't set because the first module isn't importable. */
 
-    parser->emit->protos->data[0]->module_path = filename;
+    parser->emit->protos->data[0]->module_path = path;
 }
 
 /* This is called when the interpreter encounters an error. This builds an
@@ -5523,7 +5529,7 @@ static int open_first_content(lily_state *s, const char *filename,
         handle_rewind(parser);
         lily_lexer_load(parser->lex, load_type, load_content);
         /* The first module is now rooted based on the name given. */
-        fix_first_file_name(parser, filename);
+        update_main_name(parser, filename);
 
         parser->content_to_parse = 1;
         return 1;

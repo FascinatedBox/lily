@@ -250,14 +250,8 @@ typedef struct lily_module_entry_ {
        modules, free this but not root_dirname. */
     char *dirname;
 
-    /* The total path to this module. This may be relative to the first module,
-       or an absolute path. */
-    union {
-        char *path;
-        /* This is ONLY for the first module, which shallow-copies the path that
-           is provided. Parser makes sure to NOT free this during teardown. */
-        const char *const_path;
-    };
+    /* The total path to this module. */
+    char *path;
 
     /* These links are modules that have been imported (and thus are visible)
        from this module. */
