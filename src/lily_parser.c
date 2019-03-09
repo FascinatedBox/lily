@@ -566,6 +566,16 @@ static void add_data_to_module(lily_module_entry *module, void *handle,
     }
 }
 
+/* Return a path without dot-slash characters at the front. Import path building
+   adds those to prevent some platforms from using system load paths. */
+static const char *simplified_path(const char *path)
+{
+    if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
+        path += 2;
+
+    return path;
+}
+
 static void add_path_to_module(lily_module_entry *module,
             const char *loadname, const char *path)
 {
@@ -573,8 +583,7 @@ static void add_path_to_module(lily_module_entry *module,
             (strlen(loadname) + 1) * sizeof(*module->loadname));
     strcpy(module->loadname, loadname);
 
-    if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
-        path += 2;
+    path = simplified_path(path);
 
     module->cmp_len = strlen(path);
     module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
@@ -630,6 +639,11 @@ static int import_check(lily_parse_state *parser, const char *path)
     lily_module_entry *m = parser->ims->last_import;
 
     if (m == NULL) {
+        /* Import path building adds a dot-slash at the front that isn't stored
+           in the module's path (it's useless). Use a fixed path or the module
+           search will incorrectly turn up empty. */
+        path = simplified_path(path);
+
         m = lily_find_module_by_path(parser->symtab, path);
         if (m != NULL)
             parser->ims->last_import = m;

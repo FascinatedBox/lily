@@ -129,3 +129,8 @@ t.interpret("Multiple import refs put together.",
     """\
     import "import_dir/ref_diamond"
     """)
+
+t.interpret("Verify proper module reuse.",
+    """\
+    import "import_dir/enum_export_main"
+    """)
