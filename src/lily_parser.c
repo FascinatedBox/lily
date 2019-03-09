@@ -2624,7 +2624,11 @@ static void expression_word(lily_parse_state *parser, int *state)
     if (search_module == NULL) {
         int const_id = constant_by_name(lex->label);
         if (const_id != -1) {
-            if (const_id == CONST_SELF && parser->class_self_type == NULL)
+            /* The third check is necessary because super ctors set the self
+               type to NULL to block base class member use. */
+            if (const_id == CONST_SELF &&
+                parser->class_self_type == NULL &&
+                parser->emit->block->block_type != block_class)
                 lily_raise_syn(parser->raiser,
                         "'self' must be used within a class.");
 
@@ -4569,6 +4573,12 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
        directly instead of using a simpler call to expression_raw. */
 
     lily_expr_state *es = parser->expr;
+    /* Before running these arguments, wipe the class self. This prevents the
+       ctor call from using uninitialized base class properties/methods which
+       can cause a crash. */
+    lily_type *save_self = parser->class_self_type;
+
+    parser->class_self_type = NULL;
     lily_es_flush(es);
     lily_es_push_inherited_new(es, class_new);
     lily_es_enter_tree(es, tree_call);
@@ -4608,6 +4618,8 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
     parser->expr->save_depth = 1;
     lily_es_leave_tree(parser->expr);
     lily_emit_eval_expr(parser->emit, es);
+
+    parser->class_self_type = save_self;
 }
 
 /* This handles everything needed to create a class, including the inheritance

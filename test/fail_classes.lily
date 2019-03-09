@@ -735,3 +735,19 @@ t.interpret_for_error("Attempt to inherit from a var.",
     """\
     class Test < potato { }
     """)
+
+t.interpret_for_error("Attempt to use base properties in a parent constructor.",
+    """\
+    SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+        from test\/[subinterp]:4:\
+    """,
+    """\
+    class Base(message: String) {
+        public var @abc = message
+    }
+    class Parent < Base(@abc) {
+        @abc = @abc ++ "10"
+    }
+
+    Parent()
+    """)
