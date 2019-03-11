@@ -1,3 +1,40 @@
+Version 1.8 (2019-3-10)
+=======================
+
+This is a short release (2 months instead of the usual 3). Since this is an even
+release, the plan was to write a testing system while leaving the core alone.
+However, the testing system needs several internal adjustments that don't fit
+with an even release. As a result, this release is being pushed early. The next
+release, 1.9, will absorb the extra month. This should not happen again.
+
+What's new:
+
+* Symtab symbol internals have been shuffled around a bit. These adjustments
+  have no bearing on the workings of scripts. They were done to make a future
+  inspection package easier by having elements such as the next pointer of a
+  symbol in a consistent place.
+
+* lily.h now properly marks `lily_import_use_package_dir` as being available. It
+  was available, but due to a typo, `lily_import_use_local_dir` was mentioned
+  twice.
+
+* Store the main module's path as a string literal. This lets spawni not worry
+  about the lifetime of the path that it's sending. (#426).
+
+Fixes:
+
+* `__function__` in `__main__` no longer crashes (#420).
+
+* Fix error message display when shadowing a class constructor parameter (#421).
+
+* Fix module lookup not using the proper path, causing modules to be created
+  that did not need to be. Consider a situation where 'a' directly imports 'b'
+  and 'c'. Module 'b' directly imports 'c'. All modules are in the same
+  directory, so there should only be one copy of 'c'. Because the wrong path was
+  used, 'a' and 'b' had different copies of 'c'. (#423, reported by @Zhorander).
+
+* Super ctors can't use base members in init (#424).
+
 Version 1.7 (2019-1-10)
 =======================
 
