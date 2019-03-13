@@ -5344,9 +5344,11 @@ static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
     } while (result);
 }
 
-/* This is the entry point of the parser. It parses the thing that it was given
-   and then runs the code. This shouldn't be called directly, but instead by
-   one of the lily_parse_* functions that will set it up right. */
+/* This is the entry point into parsing regardless of the starting mode. This
+   should only be called by the content handling functions that do the proper
+   initialization beforehand.
+   This does not execute code. If it returns, it was successful (an error is
+   raised otherwise). */
 static void parser_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5369,15 +5371,7 @@ static void parser_loop(lily_parse_state *parser)
             if (parser->emit->block->pending_forward_decls)
                 error_forward_decl_pending(parser);
 
-            setup_and_exec_vm(parser);
-
-            if (lex->token == tk_end_tag)
-                template_read_loop(parser, lex);
-
-            if (lex->token == tk_eof)
-                break;
-
-            lily_lexer(lex);
+            break;
         }
         else if (lex->token == tk_docstring) {
             process_docstring(parser);
@@ -5552,6 +5546,8 @@ int lily_parse_content(lily_state *s)
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         parser_loop(parser);
+        setup_and_exec_vm(parser);
+
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
 
@@ -5574,9 +5570,25 @@ int lily_render_content(lily_state *s)
     parser->rendering = 1;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_verify_template(parser->lex);
-        /* It's a valid template, so run parser as usual. */
-        parser_loop(parser);
+        lily_lex_state *lex = parser->lex;
+        /* Templates have to start with `<?lily` to prevent "rendering" files
+           that are intended to be run in code mode. It has the nice bonus that
+           execution always starts in code mode. */
+        lily_verify_template(lex);
+
+        while (1) {
+            /* Parse and execute the code block. */
+            parser_loop(parser);
+            setup_and_exec_vm(parser);
+
+            /* Read through what needs to be rendered. */
+            if (lex->token == tk_end_tag)
+                template_read_loop(parser, lex);
+
+            if (lex->token == tk_eof)
+                break;
+        }
+
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
         return 1;
