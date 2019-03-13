@@ -5307,7 +5307,20 @@ static void maybe_fix_print(lily_parse_state *parser)
     }
 }
 
-static void setup_and_exec_vm(lily_parse_state *parser)
+static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
+{
+    lily_config *config = parser->config;
+    int result = 0;
+
+    do {
+        char *buffer;
+        result = lily_lexer_read_content(lex, &buffer);
+        if (buffer[0])
+            config->render_func(buffer, config->data);
+    } while (result);
+}
+
+static void main_func_setup(lily_parse_state *parser)
 {
     /* todo: Find a way to do some of this as-needed, instead of always. */
     lily_register_classes(parser->symtab, parser->vm);
@@ -5323,25 +5336,13 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     /* The above function pushes a Unit value to act as a sink for lily_call to
        put a value into. __main__ won't return a value so get rid of it. */
     lily_stack_drop_top(parser->vm);
-    lily_call(parser->vm, 0);
+}
 
-    /* This is to undo preparing __main__. */
+static void main_func_teardown(lily_parse_state *parser)
+{
     parser->vm->call_chain = parser->vm->call_chain->prev;
     parser->vm->call_depth = 1;
     parser->executing = 0;
-}
-
-static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
-{
-    lily_config *config = parser->config;
-    int result = 0;
-
-    do {
-        char *buffer;
-        result = lily_lexer_read_content(lex, &buffer);
-        if (buffer[0])
-            config->render_func(buffer, config->data);
-    } while (result);
 }
 
 /* This is the entry point into parsing regardless of the starting mode. This
@@ -5546,7 +5547,10 @@ int lily_parse_content(lily_state *s)
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         parser_loop(parser);
-        setup_and_exec_vm(parser);
+
+        main_func_setup(parser);
+        lily_call(parser->vm, 0);
+        main_func_teardown(parser);
 
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
@@ -5579,7 +5583,10 @@ int lily_render_content(lily_state *s)
         while (1) {
             /* Parse and execute the code block. */
             parser_loop(parser);
-            setup_and_exec_vm(parser);
+
+            main_func_setup(parser);
+            lily_call(parser->vm, 0);
+            main_func_teardown(parser);
 
             /* Read through what needs to be rendered. */
             if (lex->token == tk_end_tag)
@@ -5622,7 +5629,10 @@ int lily_parse_expr(lily_state *s, const char **text)
 
         lily_sym *sym = parser->expr->root->result;
 
-        setup_and_exec_vm(parser);
+        main_func_setup(parser);
+        lily_call(parser->vm, 0);
+        main_func_teardown(parser);
+
         lily_pop_lex_entry(parser->lex);
 
         if (sym && text) {
