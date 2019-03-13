@@ -93,15 +93,6 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //     argv          - (Default: NULL)
 //                     The argument list (later used by Lily's sys.argv).
 //
-//     copy_str_input - (Default: 0)
-//                      The interpreter provides functions for parsing,
-//                      rendering, and loading that use a 'const char *' as
-//                      their input source. These functions assume the caller
-//                      will not modify the underlying string while the
-//                      interpreter is using it. If this is set to 1, then the
-//                      interpreter will copy string data passed, free-ing it
-//                      when parsing/rendering/loading is complete.
-//
 //     data          - (Default: stdin)
 //                     This will later be sent as the data part of the
 //                     import_func hook.
@@ -127,7 +118,6 @@ typedef void (*lily_call_entry_func)(lily_state *);
 typedef struct lily_config_ {
     int argc;
     char **argv;
-    int copy_str_input;
     int gc_start;
     int gc_multiplier;
     lily_render_func render_func;
@@ -199,9 +189,8 @@ int lily_load_file(lily_state *s, const char *path);
 // Function: lily_load_string
 // Prepare a string for the interpreter.
 //
-// By default, the interpreter assumes that the 'content' will not be modified.
-// Callers who cannot provide such a guarantee should set the config option
-// 'copy_str_input' to 1 before using this function.
+// The interpreter assumes that the string data passed will not be modified
+// during the interpreter's upcoming parse/render cycle.
 //
 // The context passed does not require '.lily' as a suffix. The context provided
 // is exactly the one that is used for the filename.
@@ -396,9 +385,8 @@ int lily_import_library_data(lily_state *s, const char *target,
 // Function: lily_import_string
 // Load a string (context path, then content) as a library.
 //
-// By default, the interpreter assumes that the 'content' will not be modified.
-// Callers who cannot provide such a guarantee should set the config option
-// 'copy_str_input' to 1 before using this function.
+// The interpreter makes internal copies of 'target' and 'content'. It is thus
+// safe to pass strings in without concern for their lifetime.
 //
 // This function does not add a suffix to the path given.
 //

@@ -349,15 +349,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
     {
         /* Config to copy parsed strings. */
         lily_state *subinterp = lily_new_state(&config);
-        config.copy_str_input = 1;
-        lily_load_string(subinterp, "[testing]", "var v = 10");
-        lily_parse_content(subinterp);
-        config.copy_str_input = 0;
-        lily_free_state(subinterp);
-    }
-    {
-        /* Config to copy parsed strings. */
-        lily_state *subinterp = lily_new_state(&config);
         config.import_func = misc_import_hook;
         lily_load_string(subinterp, "[testing]", "import asdf");
         lily_parse_content(subinterp);

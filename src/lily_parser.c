@@ -129,8 +129,6 @@ void lily_config_init(lily_config *conf)
     conf->argc = 0;
     conf->argv = NULL;
 
-    conf->copy_str_input = 0;
-
     /* Starting gc options are completely arbitrary. */
     conf->gc_start = 100;
     conf->gc_multiplier = 4;
@@ -652,16 +650,6 @@ static int import_check(lily_parse_state *parser, const char *path)
     return (m != NULL);
 }
 
-static lily_lex_entry_type string_input_mode(lily_parse_state *parser)
-{
-    lily_lex_entry_type mode = et_shallow_string;
-
-    if (parser->config->copy_str_input)
-        mode = et_copied_string;
-
-    return mode;
-}
-
 static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
 {
 #ifdef _WIN32
@@ -756,7 +744,10 @@ int lily_import_string(lily_state *s, const char *name, const char *source)
     if (import_check(parser, path))
         return 1;
 
-    lily_lexer_load(parser->lex, string_input_mode(parser), (char *)source);
+    /* Always copy strings to be imported. The string being sent may have a
+       lifetime that cannot be guaranteed to be as long as the interpreter's
+       current parse/render cycle. */
+    lily_lexer_load(parser->lex, et_copied_string, (char *)source);
 
     lily_module_entry *module = new_module(parser);
 
@@ -5520,7 +5511,10 @@ static int open_first_content(lily_state *s, const char *filename,
             load_content = load_file_to_parse(parser, filename);
         }
         else {
-            load_type = string_input_mode(parser);
+            /* Strings sent to be parsed/rendered are expected to be on a
+               caller's stack somewhere. There shouldn't be a need to copy this
+               string. */
+            load_type = et_shallow_string;
             load_content = content;
         }
 
