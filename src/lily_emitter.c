@@ -4529,17 +4529,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
     emit->block->last_exit = lily_u16_pos(emit->code);
 }
 
-/* This resets __main__'s code position for the next pass. Only tagged mode
-   needs this. */
-void lily_reset_main(lily_emit_state *emit)
-{
-    emit->code->pos = 0;
-}
-
-
-/* This function is to be called before executing __main__. It makes sure that
-   __main__'s code ends with exiting the vm, and that the code itself is
-   linked to emitter's code. */
+/* This prepares __main__ to be called and sets up the next pass. */
 void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 {
     int register_count = emit->main_block->next_reg_spot;
@@ -4550,4 +4540,8 @@ void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
     main_func->code = emit->code->data;
     main_func->proto->code = main_func->code;
     main_func->reg_count = register_count;
+
+    /* Emitter won't write code until the next pass comes around. Set it up so
+       that it will start writing over the old instructions with new ones. */
+    emit->code->pos = 0;
 }

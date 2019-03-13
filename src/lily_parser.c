@@ -5329,9 +5329,6 @@ static void setup_and_exec_vm(lily_parse_state *parser)
     parser->vm->call_chain = parser->vm->call_chain->prev;
     parser->vm->call_depth = 1;
     parser->executing = 0;
-
-    /* Clear __main__ for the next pass. */
-    lily_reset_main(parser->emit);
 }
 
 static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
