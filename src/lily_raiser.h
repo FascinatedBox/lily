@@ -4,7 +4,6 @@
 # include <setjmp.h>
 
 # include "lily.h"
-
 # include "lily_core_types.h"
 
 typedef struct lily_jump_link_ {
@@ -17,18 +16,16 @@ typedef struct lily_jump_link_ {
 typedef struct lily_raiser_ {
     lily_jump_link *all_jumps;
 
-    /* This is where the error message is stored. */
+    /* The error message is stored here. */
     lily_msgbuf *msgbuf;
 
-    /* Some messages are more difficult to write. This auxillary buffer is for
-       building up more complex messages. Any part of the interpreter is free to
-       take this, flush it, and use it to build their error message.
-       *  */
+    /* This is a spare msgbuf for building error messages. */
     lily_msgbuf *aux_msgbuf;
 
-    /* This is set when the emitter raises an error and that error does not
-       reference the current line. This will be set to the actual line. It can
-       be ignored when 0. */
+    /* Errors raised during parsing use the lexer's current line number as a
+       reference. This doesn't work for errors raised by emitter, which may
+       target a section on a previous line. In such cases, the emitter will set
+       this to a non-zero value. */
     uint32_t line_adjust;
     uint32_t is_syn_error;
 } lily_raiser;
