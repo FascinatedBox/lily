@@ -250,6 +250,21 @@ int lily_render_content(lily_state *s);
 // Returns 1 on success, 0 on failure.
 int lily_parse_expr(lily_state *s, const char **output);
 
+// Function: lily_validate_content
+// Parse (but don't execute) content prepared for the interpreter.
+//
+// This parses the content provided in code-only mode. The content is consumed
+// regardless of this function's result. It is the same as lily_parse_content,
+// except that no code is executed.
+//
+// This function is provided so that inspection can be done on an interpreter
+// without running code, and also to allow for a syntax-only pass of the
+// interpreter. Callers should not execute code on an interpreter after this
+// function has been called.
+//
+// Returns 1 on success, 0 on failure.
+int lily_validate_content(lily_state *s);
+
 /////////////////////////
 // Section: Error Capture
 /////////////////////////

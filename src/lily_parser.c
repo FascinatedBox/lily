@@ -5563,6 +5563,30 @@ int lily_parse_content(lily_state *s)
     return 0;
 }
 
+int lily_validate_content(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if (parser->content_to_parse == 0)
+        return 0;
+
+    parser->content_to_parse = 0;
+    parser->rendering = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        parser_loop(parser);
+
+        lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
+
+        return 1;
+    }
+    else
+        parser->rs->pending = 1;
+
+    return 0;
+}
+
 int lily_render_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;

@@ -370,6 +370,13 @@ void lily_covlib__cover_misc_api(lily_state *s)
         lily_parse_content(subinterp);
         lily_free_state(subinterp);
     }
+    {
+        /* Validate code without running it. */
+        lily_state *subinterp = lily_new_state(&config);
+        lily_load_string(subinterp, "[testing]", "print(\"Not validating code properly.\"");
+        lily_validate_content(subinterp);
+        lily_free_state(subinterp);
+    }
 }
 
 void lily_covlib_Container_new(lily_state *s)
