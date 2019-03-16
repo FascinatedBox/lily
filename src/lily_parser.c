@@ -2340,8 +2340,20 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
     if (member)
         return (lily_item *)member;
 
-    if (cls->dyna_start)
-        return try_method_dynaload(parser, cls, name);
+    while (1) {
+        if (cls->dyna_start)
+            return try_method_dynaload(parser, cls, name);
+
+        /* Foreign packages can export native classes that can be inherited from
+           or which might inherit each other. The original class may not have a
+           dynaload table, but one of the parent classes might. */
+        lily_class *parent = cls->parent;
+
+        if (cls == scope || parent == NULL)
+            break;
+
+        cls = parent;
+    }
 
     return NULL;
 }
@@ -2637,9 +2649,11 @@ static void expression_word(lily_parse_state *parser, int *state)
     }
 
     if (search_module == NULL && parser->class_self_type) {
-        var = lily_find_method(parser->class_self_type->cls, lex->label);
+        lily_item *item = lily_find_or_dl_member(parser,
+                parser->class_self_type->cls, lex->label, NULL);
 
-        if (var) {
+        if (item && item->item_kind == ITEM_TYPE_VAR) {
+            var = (lily_var *)item;
             lily_es_push_method(parser->expr, var);
             *state = ST_WANT_OPERATOR;
             return;

@@ -9,12 +9,36 @@ coverage.
 #include "lily_int_code_iter.h"
 
 /** Begin autogen section. **/
+#define GET_Container__value(c_) \
+lily_con_get(c_, 0)
+#define SET_Container__value(c_, v_) \
+lily_con_set(c_, 0, v_)
+#define SETFS_Container__value(state, c_) \
+lily_con_set_from_stack(state, c_, 0)
 #define ID_Container(state) lily_cid_at(state, 0)
+#define SUPER_Container(state)\
+lily_push_super(state, ID_Container(state), 1)
+
+#define PUSH_FlatOne(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 1)
+#define PUSH_FlatTwo(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 2)
+#define PUSH_FlatThree(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 3)
+
+#define PUSH_ScopedOne(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
+#define PUSH_ScopedTwo(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 2)
+#define PUSH_ScopedThree(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 3)
 
 const char *lily_covlib_info_table[] = {
     "\03Container\0FlatEnum\0ScopedEnum\0"
-    ,"N\02Container\0"
+    ,"N\04Container\0"
     ,"m\0<new>\0(String): Container"
+    ,"m\0update\0(Container,String)"
+    ,"m\0fetch\0(Container): String"
     ,"1\0value\0String"
     ,"E\0FlatEnum\0"
     ,"V\0FlatOne\0"
@@ -35,10 +59,12 @@ const char *lily_covlib_info_table[] = {
     ,"Z"
 };
 #define Container_OFFSET 1
-#define FlatEnum_OFFSET 4
-#define ScopedEnum_OFFSET 8
-#define toplevel_OFFSET 12
+#define FlatEnum_OFFSET 6
+#define ScopedEnum_OFFSET 10
+#define toplevel_OFFSET 14
 void lily_covlib_Container_new(lily_state *);
+void lily_covlib_Container_update(lily_state *);
+void lily_covlib_Container_fetch(lily_state *);
 void lily_covlib__isa_integer(lily_state *);
 void lily_covlib__cover_list_reserve(lily_state *);
 void lily_covlib__cover_func_check(lily_state *);
@@ -51,6 +77,8 @@ lily_call_entry_func lily_covlib_call_table[] = {
     NULL,
     NULL,
     lily_covlib_Container_new,
+    lily_covlib_Container_update,
+    lily_covlib_Container_fetch,
     NULL,
     NULL,
     NULL,
@@ -379,21 +407,43 @@ void lily_covlib__cover_misc_api(lily_state *s)
     }
 }
 
-void lily_covlib_Container_new(lily_state *s)
-{
-    lily_container_val *con = lily_push_super(s, ID_Container(s), 1);
-    lily_con_set(con, 0, lily_arg_value(s, 0));
-    lily_return_top(s);
-}
-
 /**
 native class Container(value: String) {
     private var @value: String
 }
 
-Example container for identity testing.
+Example container for testing.
 */
 
+void lily_covlib_Container_new(lily_state *s)
+{
+    lily_container_val *con = SUPER_Container(s);
+    SET_Container__value(con, lily_arg_value(s, 0));
+    lily_return_super(s);
+}
+
+/**
+define Container.update(x: String)
+
+Set value in container.
+*/
+void lily_covlib_Container_update(lily_state *s)
+{
+    lily_container_val *con = lily_arg_container(s, 0);
+    SET_Container__value(con, lily_arg_value(s, 1));
+    lily_return_unit(s);
+}
+
+/**
+define Container.fetch: String
+
+Get value inside container.
+*/
+void lily_covlib_Container_fetch(lily_state *s)
+{
+    lily_container_val *con = lily_arg_container(s, 0);
+    lily_return_value(s, GET_Container__value(con));
+}
 
 /**
 enum FlatEnum {

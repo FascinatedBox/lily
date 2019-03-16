@@ -113,4 +113,22 @@ t.interpret("Cover using covlib to do extra api tests.",
     covlib.cover_ci_from_native(f2)
     covlib.cover_misc_api()
     """)
+
+t.interpret("Cover inheriting from foreign-based native class.",
+    """
+    import covlib
+
+    class InheritedContainer(x: String) < covlib.Container(x) {
+        public define do_update(y: String) {
+            update(y ++ y)
+        }
+    }
+
+    var i = InheritedContainer("abc")
+    i.do_update("xyz")
+
+    if i.fetch() != "xyzxyz": {
+        raise Exception("failed")
+    }
+    """)
 }
