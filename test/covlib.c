@@ -299,6 +299,15 @@ static void misc_ldata_import_hook(lily_state *s, const char *target)
     lily_import_library_data(s, "asdf.xyz", lily_covlib_info_table, lily_covlib_call_table);
 }
 
+static void misc_no_use_import_hook(lily_state *s, const char *target)
+{
+    lily_import_file(s, "asdf");
+    lily_import_library(s, "asdf");
+    lily_import_string(s, target, "1");
+    /* lily_import_library_data isn't tested because that falls under the rule
+       of not passing NULL's to api functions. */
+}
+
 /**
 define cover_misc_api
 
@@ -394,6 +403,15 @@ void lily_covlib__cover_misc_api(lily_state *s)
         /* Load our library data. */
         lily_state *subinterp = lily_new_state(&config);
         config.import_func = misc_ldata_import_hook;
+        lily_load_string(subinterp, "[testing]", "import asdf");
+        lily_parse_content(subinterp);
+        lily_free_state(subinterp);
+    }
+    {
+        /* Import hook that doesn't set a 'use' first. Output isn't checked, as
+           this is for ensuring that doesn't crash. */
+        lily_state *subinterp = lily_new_state(&config);
+        config.import_func = misc_no_use_import_hook;
         lily_load_string(subinterp, "[testing]", "import asdf");
         lily_parse_content(subinterp);
         lily_free_state(subinterp);

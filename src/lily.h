@@ -361,6 +361,9 @@ void lily_default_import_func(lily_state *s, const char *target);
 // In most cases, a caller will want to use this with the target that was
 // provided by the hook. The '.lily' suffix is automatically added.
 //
+// If no `lily_import_use_*` function has been called beforehand, this does
+// nothing and fails.
+//
 // Parameters:
 //     s      - The interpreter state.
 //     target - The target to attempt loading.
@@ -374,6 +377,9 @@ int lily_import_file(lily_state *s, const char *target);
 // In most cases, a caller will want to use this with the target that was
 // provided by the hook. The appropriate library suffix is automatically added.
 //
+// If no `lily_import_use_*` function has been called beforehand, this does
+// nothing and fails.
+//
 // Parameters:
 //     s      - The interpreter state.
 //     target - The target to attempt loading.
@@ -384,7 +390,8 @@ int lily_import_library(lily_state *s, const char *target);
 // Function: lily_import_library_data
 // Load a preloaded library.
 //
-// This function does not add a suffix to the target given.
+// This function uses the target exactly as-is. As a result, any setup done by
+// the `lily_import_use_*` functions is ignored.
 //
 // Parameters:
 //     s          - The interpreter state.
@@ -404,6 +411,9 @@ int lily_import_library_data(lily_state *s, const char *target,
 // safe to pass strings in without concern for their lifetime.
 //
 // This function does not add a suffix to the path given.
+//
+// If no `lily_import_use_*` function has been called beforehand, this does
+// nothing and fails.
 //
 // Returns 1 on success, 0 on failure.
 int lily_import_string(lily_state *s, const char *target, const char *content);

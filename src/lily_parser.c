@@ -637,8 +637,9 @@ static void add_failed_import_path(lily_parse_state *parser, const char *path)
 static int import_check(lily_parse_state *parser, const char *path)
 {
     lily_module_entry *m = parser->ims->last_import;
+    int result = 1;
 
-    if (m == NULL) {
+    if (m == NULL && path != NULL) {
         /* Import path building adds a dot-slash at the front that isn't stored
            in the module's path (it's useless). Use a fixed path or the module
            search will incorrectly turn up empty. */
@@ -647,9 +648,11 @@ static int import_check(lily_parse_state *parser, const char *path)
         m = lily_find_module_by_path(parser->symtab, path);
         if (m != NULL)
             parser->ims->last_import = m;
+        else
+            result = 0;
     }
 
-    return (m != NULL);
+    return result;
 }
 
 static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
@@ -689,6 +692,10 @@ static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
 static const char *build_import_path(lily_import_state *ims, const char *target,
         const char *suffix)
 {
+    /* Make sure the caller used a `lily_import_use_*` function first. */
+    if (ims->dirname == NULL)
+        return NULL;
+
     lily_msgbuf *path_msgbuf = lily_mb_flush(ims->path_msgbuf);
     const char *root_dirname = ims->source_module->root_dirname;
 
@@ -721,7 +728,7 @@ int lily_import_file(lily_state *s, const char *name)
     const char *path = build_import_path(parser->ims, name, ".lily");
 
     if (import_check(parser, path))
-        return 1;
+        return path != NULL;
 
     FILE *source = fopen(path, "r");
     if (source == NULL) {
@@ -744,7 +751,7 @@ int lily_import_string(lily_state *s, const char *name, const char *source)
     const char *path = build_import_path(parser->ims, source, ".lily");
 
     if (import_check(parser, path))
-        return 1;
+        return path != NULL;
 
     /* Always copy strings to be imported. The string being sent may have a
        lifetime that cannot be guaranteed to be as long as the interpreter's
@@ -765,7 +772,7 @@ int lily_import_library(lily_state *s, const char *name)
             "." LILY_LIB_SUFFIX);
 
     if (import_check(parser, path))
-        return 1;
+        return path != NULL;
 
     void *handle = lily_library_load(path);
     if (handle == NULL) {
@@ -897,6 +904,7 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 
     ims->source_module = parser->symtab->active_module;
     ims->last_import = NULL;
+    ims->dirname = NULL;
 
     /* 'import' can't execute during an expression, so the data stack and the
        string pool are used to store paths that have been tried. */
