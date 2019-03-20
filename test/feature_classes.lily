@@ -439,3 +439,22 @@ t.interpret("Class properties can start with B.",
         public var @B = 1
     }
     """)
+
+t.interpret("Static method calling class method.",
+    """
+    class Example {
+        public define f: String {
+            return "asdf"
+        }
+
+        public static define g(value: Example): String {
+            return f(value)
+        }
+    }
+
+    var v = Example()
+
+    if Example.g(v) != "asdf": {
+        raise Exception("Failed.")
+    }
+    """)

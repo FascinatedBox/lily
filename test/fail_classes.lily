@@ -584,22 +584,6 @@ t.interpret_for_error("Static method using a class property.",
     }
     """)
 
-t.interpret_for_error("Static method using a class property.",
-    """\
-    SyntaxError: Static methods do not have access to self.\n    \
-        from test\/[subinterp]:6:\
-    """,
-    """\
-    class Example {
-        public define f {
-        }
-
-        public static define g {
-            f()
-        }
-    }
-    """)
-
 t.interpret_for_error("Verify static call argument count.",
     """\
     SyntaxError: Wrong number of arguments to Example.g (2 for 3).\n    \

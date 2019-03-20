@@ -155,6 +155,7 @@ lily_state *lily_new_state(lily_config *config)
     lily_raiser *raiser = lily_new_raiser();
 
     parser->import_pile_current = 0;
+    parser->in_static_call = 0;
     parser->class_self_type = NULL;
     parser->raiser = raiser;
     parser->msgbuf = lily_new_msgbuf(64);
@@ -299,6 +300,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 {
     lily_u16_set_pos(parser->data_stack, 0);
     parser->import_pile_current = 0;
+    parser->in_static_call = 0;
 
     lily_module_entry *module_iter = rs->main_last_module;
     while (module_iter) {
@@ -2654,7 +2656,12 @@ static void expression_word(lily_parse_state *parser, int *state)
 
         if (item && item->item_kind == ITEM_TYPE_VAR) {
             var = (lily_var *)item;
-            lily_es_push_method(parser->expr, var);
+
+            if (parser->in_static_call == 0)
+                lily_es_push_method(parser->expr, var);
+            else
+                lily_es_push_static_func(parser->expr, var);
+
             *state = ST_WANT_OPERATOR;
             return;
         }
@@ -5246,6 +5253,9 @@ static void parse_modifier(lily_parse_state *parser, int key)
         NEED_CURRENT_TOK(tk_word)
         key = keyword_by_name(lex->label);
 
+        /* Functions inside a static method can't send 'self'. */
+        parser->in_static_call = 1;
+
         if (key != KEY_DEFINE)
             lily_raise_syn(parser->raiser,
                     "'static' must be followed by 'define', not '%s'.",
@@ -5262,6 +5272,9 @@ static void parse_modifier(lily_parse_state *parser, int key)
     else if (key == KEY_DEFINE) {
         lily_lexer(lex);
         parse_define(parser, modifiers);
+
+        if (modifiers & VAR_IS_STATIC)
+            parser->in_static_call = 0;
     }
     else {
         const char *what = "either 'var' or 'define'";

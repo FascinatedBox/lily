@@ -41,7 +41,12 @@ typedef struct lily_parse_state_ {
     /* 1 if the first import is in template mode, 0 otherwise.
        Used to prevent files in non-template mode from having tags. */
     uint16_t rendering;
-    uint32_t pad;
+
+    /* 1 if in a static method, 0 otherwise. Static functions can call class
+       methods, but they can't send 'self' since they don't have it. */
+    uint16_t in_static_call;
+
+    uint16_t pad;
 
     /* The current expression state. */
     lily_expr_state *expr;
