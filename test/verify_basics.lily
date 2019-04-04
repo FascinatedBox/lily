@@ -626,3 +626,11 @@ t.interpret("Trailing comma for List, Hash, and Tuple.",
         raise Exception("Failed.")
     }
     """)
+
+t.interpret("Mismatched Function return types can narrow to Unit.",
+    """
+    define f(a: Integer): String { return "" }
+    define g(a: Integer): Integer { return 0 }
+
+    var lst = [f, g]
+    """)

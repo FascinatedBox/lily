@@ -212,14 +212,17 @@ static int check_function(lily_type_system *ts, lily_type *left,
     flags &= T_DONT_SOLVE | T_UNIFY;
 
     if (check_raw(ts, left_type, right_type, flags | T_COVARIANT) == 0) {
-        /* Narrowing to Unit should only be done if the requirement (left) is
-           Unit. Otherwise very bad and unsound code passes. */
-        if (left_type == lily_unit_type) {
-            if (flags & T_UNIFY) {
-                lily_tm_restore(ts->tm, tm_start);
-                lily_tm_add(ts->tm, lily_unit_type);
-            }
+        /* If the goal is to unify, then any two mismatched types can always
+           narrow down to `Unit`. */
+        if (flags & T_UNIFY) {
+            lily_tm_restore(ts->tm, tm_start);
+            lily_tm_add(ts->tm, lily_unit_type);
         }
+        /* Only narrow to `Unit` if it's the requirement. This works because the
+           result can be ignored.
+           This does not apply to the right side. */
+        else if (left_type == lily_unit_type)
+            ;
         else
             ret = 0;
     }
