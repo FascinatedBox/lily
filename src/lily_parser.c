@@ -4717,6 +4717,9 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     lily_class *parent_iter = target->parent;
     int mark = 0;
 
+    /* If this class sees itself, it absolutely needs a tag. */
+    target->flags |= CLS_VISITED;
+
     if (parent_iter) {
         /* Start with this, just in case the child has no properties. */
         mark = parent_iter->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
