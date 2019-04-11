@@ -926,7 +926,7 @@ lily_container_val *lily_push_tuple(lily_state *s, uint32_t size)
 void lily_push_unit(lily_state *s)
 {
     PUSH_PREAMBLE
-    SET_TARGET(LILY_ID_UNIT, integer, 0);
+    SET_TARGET(V_UNIT_BASE, integer, 0);
 }
 
 void lily_push_value(lily_state *s, lily_value *v)
@@ -1011,7 +1011,7 @@ void lily_return_top(lily_state *s)
 void lily_return_unit(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(LILY_ID_UNIT, container, NULL);
+    SET_TARGET(V_UNIT_BASE, container, NULL);
 }
 
 void lily_return_value(lily_state *s, lily_value *v)
