@@ -573,7 +573,7 @@ lily_class *lily_new_raw_class(const char *name)
 
     strcpy(name_copy, name);
 
-    new_class->item_kind = 0;
+    new_class->item_kind = ITEM_TYPE_CLASS;
     new_class->flags = 0;
 
     /* New classes start off as having 0 generics, as well as being their own
@@ -624,6 +624,7 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name)
     lily_class *new_class = lily_new_class(symtab, name);
 
     symtab->next_class_id--;
+    new_class->item_kind = ITEM_TYPE_ENUM;
     new_class->flags |= CLS_IS_ENUM;
     new_class->id = symtab->next_reverse_id;
     symtab->next_reverse_id--;

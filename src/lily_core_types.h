@@ -317,6 +317,7 @@ typedef struct lily_proto_ {
 #define ITEM_TYPE_MODULE   5
 #define ITEM_TYPE_TYPE     6
 #define ITEM_TYPE_CLASS    7
+#define ITEM_TYPE_ENUM     8
 
 /* TYPE_* defines are for lily_type.
    Since classes without generics can act as their own type, class flags will
