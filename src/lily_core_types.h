@@ -308,10 +308,8 @@ typedef struct lily_proto_ {
 /* Finally, various definitions. */
 
 
-/* ITEM_* defines are used to determine what lily_sym and lily_item can
-   be cast to.
-   To prevent potential clashes, the definitions afterward (except for
-   type) start off where these end. */
+/* These are set into the item_kind field of a symbol. These definitions are
+   used to make decisions based on what kind of a symbol was found. */
 #define ITEM_TYPE_VAR      1
 #define ITEM_TYPE_STORAGE  2
 #define ITEM_TYPE_VARIANT  3
