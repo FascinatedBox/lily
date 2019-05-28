@@ -775,14 +775,19 @@ frame->top++;
 target->flags = push_flags; \
 target->value.field = push_value
 
+/* This sets gc speculative on the value in case it happens to hold a tagged
+   value. The gc will walk values that it shouldn't, but better that than to
+   miss a tagged value. It's a small price to pay since marking values as
+   speculative doesn't count toward the tag threshold that invokes the gc. */
 #define PUSH_CONTAINER(id, container_flags, size) \
 PUSH_PREAMBLE \
 lily_container_val *c = new_container(id, size); \
-SET_TARGET(VAL_IS_DEREFABLE | container_flags, container, c); \
+SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | container_flags, container, c); \
 return c
 
 static void push_coroutine(lily_state *s, lily_coroutine_val *co)
 {
+    /* The caller will tag the value, so don't set a speculative flag. */
     PUSH_PREAMBLE
     SET_TARGET(V_COROUTINE_BASE | VAL_IS_DEREFABLE, coroutine, co);
 }
@@ -856,7 +861,7 @@ lily_hash_val *lily_push_hash(lily_state *s, int size)
 {
     PUSH_PREAMBLE
     lily_hash_val *h = lily_new_hash_raw(size);
-    SET_TARGET(V_HASH_BASE | VAL_IS_DEREFABLE, hash, h);
+    SET_TARGET(V_HASH_BASE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE, hash, h);
     return h;
 }
 
