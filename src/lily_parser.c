@@ -748,7 +748,7 @@ int lily_import_file(lily_state *s, const char *name)
 int lily_import_string(lily_state *s, const char *name, const char *source)
 {
     lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, source, ".lily");
+    const char *path = build_import_path(parser->ims, name, ".lily");
 
     if (import_check(parser, path))
         return path != NULL;
