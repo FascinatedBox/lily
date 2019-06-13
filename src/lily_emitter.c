@@ -4545,3 +4545,8 @@ void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
        that it will start writing over the old instructions with new ones. */
     emit->code->pos = 0;
 }
+
+void lily_clear_main(lily_emit_state *emit)
+{
+    emit->code->pos = 0;
+}

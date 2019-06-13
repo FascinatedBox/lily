@@ -5616,6 +5616,9 @@ int lily_validate_content(lily_state *s)
 
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
+        /* Clear __main__ so the code doesn't run on the next pass. This allows
+           running introspection after validation. */
+        lily_clear_main(parser->emit);
 
         return 1;
     }

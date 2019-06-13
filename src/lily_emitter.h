@@ -225,6 +225,7 @@ lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, const char *,
 lily_proto *lily_emit_proto_for_var(lily_emit_state *, lily_var *);
 
 void lily_prepare_main(lily_emit_state *, lily_function_val *);
+void lily_clear_main(lily_emit_state *);
 
 void lily_free_emit_state(lily_emit_state *);
 lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
