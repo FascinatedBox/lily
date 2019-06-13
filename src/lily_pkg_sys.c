@@ -10,28 +10,7 @@ The sys package provides access to the arguments given to Lily.
 
 #include "lily.h"
 #include "lily_vm.h"
-
-/** Begin autogen section. **/
-const char *lily_sys_info_table[] = {
-    "\0\0"
-    ,"F\0getenv\0(String): Option[String]"
-    ,"F\0recursion_limit\0: Integer"
-    ,"F\0set_recursion_limit\0(Integer)"
-    ,"R\0argv\0List[String]"
-    ,"Z"
-};
-void lily_sys__getenv(lily_state *);
-void lily_sys__recursion_limit(lily_state *);
-void lily_sys__set_recursion_limit(lily_state *);
-void lily_sys_var_argv(lily_state *);
-lily_call_entry_func lily_sys_call_table[] = {
-    NULL,
-    lily_sys__getenv,
-    lily_sys__recursion_limit,
-    lily_sys__set_recursion_limit,
-    lily_sys_var_argv,
-};
-/** End autogen section. **/
+#include "lily_pkg_sys_bindings.h"
 
 /**
 var argv: List[String]
@@ -108,3 +87,5 @@ void lily_sys__set_recursion_limit(lily_state *s)
     s->depth_max = (int32_t)limit;
     lily_return_unit(s);
 }
+
+LILY_DECLARE_SYS_CALL_TABLE

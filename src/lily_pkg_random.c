@@ -16,9 +16,6 @@ number generation.
 #include <stdint.h>
 #include <time.h>
 
-
-#include "lily.h"
-
 #define MTWIST_N             624
 #define MTWIST_M             397
 #define MTWIST_UPPER_MASK    ((uint32_t)0x80000000)
@@ -29,35 +26,8 @@ number generation.
 #define MTWIST_MIXBITS(u, v) ( ( (u) & MTWIST_UPPER_MASK) | ( (v) & MTWIST_LOWER_MASK) )
 #define MTWIST_TWIST(u, v)  ( (MTWIST_MIXBITS(u, v) >> 1) ^ ( (v) & UINT32_C(1) ? MTWIST_MATRIX_A : UINT32_C(0)) )
 
-/** Begin autogen section. **/
-typedef struct lily_random_Random_ {
-    LILY_FOREIGN_HEADER
-    uint32_t state[MTWIST_N];
-    uint32_t *next;
-    int remaining;
-} lily_random_Random;
-#define ARG_Random(state, index) \
-(lily_random_Random *)lily_arg_generic(state, index)
-#define ID_Random(state) lily_cid_at(state, 0)
-#define INIT_Random(state)\
-(lily_random_Random *) lily_push_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
-
-const char *lily_random_info_table[] = {
-    "\01Random\0"
-    ,"C\02Random\0"
-    ,"m\0<new>\0(*Integer): Random"
-    ,"m\0between\0(Random,Integer,Integer): Integer"
-    ,"Z"
-};
-void lily_random_Random_new(lily_state *);
-void lily_random_Random_between(lily_state *);
-lily_call_entry_func lily_random_call_table[] = {
-    NULL,
-    NULL,
-    lily_random_Random_new,
-    lily_random_Random_between,
-};
-/** End autogen section. **/
+#include "lily.h"
+#include "lily_pkg_random_bindings.h"
 
 static void destroy_Random(lily_random_Random *r)
 {
@@ -171,3 +141,5 @@ void lily_random_Random_between(lily_state *s)
 
     lily_return_integer(s, result);
 }
+
+LILY_DECLARE_RANDOM_CALL_TABLE

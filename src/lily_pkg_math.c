@@ -11,104 +11,7 @@ and constants.
 #include <stdlib.h>
 
 #include "lily.h"
-
-/** Begin autogen section. **/
-const char *lily_math_info_table[] = {
-    "\0\0"
-    ,"F\0abs\0(Integer): Integer"
-    ,"F\0acos\0(Double): Double"
-    ,"F\0asin\0(Double): Double"
-    ,"F\0atan\0(Double): Double"
-    ,"F\0ceil\0(Double): Double"
-    ,"F\0cos\0(Double): Double"
-    ,"F\0cosh\0(Double): Double"
-    ,"F\0exp\0(Double): Double"
-    ,"F\0fabs\0(Double): Double"
-    ,"F\0floor\0(Double): Double"
-    ,"F\0fmod\0(Double,Double): Double"
-    ,"F\0is_infinity\0(Double): Boolean"
-    ,"F\0is_nan\0(Double): Boolean"
-    ,"F\0ldexp\0(Double,Integer): Double"
-    ,"F\0log\0(Double): Double"
-    ,"F\0log10\0(Double): Double"
-    ,"F\0modf\0(Double): Tuple[Double,Double]"
-    ,"F\0pow\0(Double,Double): Double"
-    ,"F\0sin\0(Double): Double"
-    ,"F\0sinh\0(Double): Double"
-    ,"F\0sqrt\0(Double): Double"
-    ,"F\0tan\0(Double): Double"
-    ,"F\0tanh\0(Double): Double"
-    ,"F\0to_deg\0(Double): Double"
-    ,"F\0to_rad\0(Double): Double"
-    ,"R\0huge\0Double"
-    ,"R\0infinity\0Double"
-    ,"R\0nan\0Double"
-    ,"R\0pi\0Double"
-    ,"Z"
-};
-#define toplevel_OFFSET 1
-void lily_math__abs(lily_state *);
-void lily_math__acos(lily_state *);
-void lily_math__asin(lily_state *);
-void lily_math__atan(lily_state *);
-void lily_math__ceil(lily_state *);
-void lily_math__cos(lily_state *);
-void lily_math__cosh(lily_state *);
-void lily_math__exp(lily_state *);
-void lily_math__fabs(lily_state *);
-void lily_math__floor(lily_state *);
-void lily_math__fmod(lily_state *);
-void lily_math__is_infinity(lily_state *);
-void lily_math__is_nan(lily_state *);
-void lily_math__ldexp(lily_state *);
-void lily_math__log(lily_state *);
-void lily_math__log10(lily_state *);
-void lily_math__modf(lily_state *);
-void lily_math__pow(lily_state *);
-void lily_math__sin(lily_state *);
-void lily_math__sinh(lily_state *);
-void lily_math__sqrt(lily_state *);
-void lily_math__tan(lily_state *);
-void lily_math__tanh(lily_state *);
-void lily_math__to_deg(lily_state *);
-void lily_math__to_rad(lily_state *);
-void lily_math_var_huge(lily_state *);
-void lily_math_var_infinity(lily_state *);
-void lily_math_var_nan(lily_state *);
-void lily_math_var_pi(lily_state *);
-void (*lily_math_call_table[])(lily_state *s) = {
-    NULL,
-    lily_math__abs,
-    lily_math__acos,
-    lily_math__asin,
-    lily_math__atan,
-    lily_math__ceil,
-    lily_math__cos,
-    lily_math__cosh,
-    lily_math__exp,
-    lily_math__fabs,
-    lily_math__floor,
-    lily_math__fmod,
-    lily_math__is_infinity,
-    lily_math__is_nan,
-    lily_math__ldexp,
-    lily_math__log,
-    lily_math__log10,
-    lily_math__modf,
-    lily_math__pow,
-    lily_math__sin,
-    lily_math__sinh,
-    lily_math__sqrt,
-    lily_math__tan,
-    lily_math__tanh,
-    lily_math__to_deg,
-    lily_math__to_rad,
-    lily_math_var_huge,
-    lily_math_var_infinity,
-    lily_math_var_nan,
-    lily_math_var_pi,
-};
-/** End autogen section. **/
+#include "lily_pkg_math_bindings.h"
 
 /**
 define abs(x: Integer): Integer
@@ -464,3 +367,5 @@ void lily_math_var_pi(lily_state *s)
 {
     lily_push_double(s, M_PI);
 }
+
+LILY_DECLARE_MATH_CALL_TABLE

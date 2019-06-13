@@ -7,40 +7,7 @@ The time package provides access to basic time information on the system.
 #include <time.h>
 
 #include "lily.h"
-
-/** Begin autogen section. **/
-typedef struct lily_time_Time_ {
-    LILY_FOREIGN_HEADER
-    struct tm local;
-} lily_time_Time;
-#define ARG_Time(state, index) \
-(lily_time_Time *)lily_arg_generic(state, index)
-#define ID_Time(state) lily_cid_at(state, 0)
-#define INIT_Time(state)\
-(lily_time_Time *) lily_push_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
-
-const char *lily_time_info_table[] = {
-    "\01Time\0"
-    ,"C\04Time\0"
-    ,"m\0clock\0: Double"
-    ,"m\0now\0: Time"
-    ,"m\0to_s\0(Time): String"
-    ,"m\0since_epoch\0(Time): Integer"
-    ,"Z"
-};
-void lily_time_Time_clock(lily_state *);
-void lily_time_Time_now(lily_state *);
-void lily_time_Time_to_s(lily_state *);
-void lily_time_Time_since_epoch(lily_state *);
-lily_call_entry_func lily_time_call_table[] = {
-    NULL,
-    NULL,
-    lily_time_Time_clock,
-    lily_time_Time_now,
-    lily_time_Time_to_s,
-    lily_time_Time_since_epoch,
-};
-/** End autogen section. **/
+#include "lily_pkg_time_bindings.h"
 
 /**
 foreign class Time {
@@ -117,3 +84,5 @@ void lily_time_Time_since_epoch(lily_state *s)
 
     lily_return_integer(s, (int64_t) mktime(&t->local));
 }
+
+LILY_DECLARE_TIME_CALL_TABLE
