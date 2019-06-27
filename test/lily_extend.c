@@ -5,28 +5,7 @@ This provides extension functions to the testing suite.
 */
 
 #include "lily.h"
-
-/** Begin autogen section. **/
-const char *lily_extend_info_table[] = {
-    "\0\0"
-    ,"F\0render_string\0(String,String): Result[String,Boolean]"
-    ,"F\0parse_string\0(String,String): Result[String,Boolean]"
-    ,"F\0parse_expr\0(String,String): Result[String,String]"
-    ,"F\0parse_rewind\0(String,String,String): String"
-    ,"Z"
-};
-void lily_extend__render_string(lily_state *);
-void lily_extend__parse_string(lily_state *);
-void lily_extend__parse_expr(lily_state *);
-void lily_extend__parse_rewind(lily_state *);
-lily_call_entry_func lily_extend_call_table[] = {
-    NULL,
-    lily_extend__render_string,
-    lily_extend__parse_string,
-    lily_extend__parse_expr,
-    lily_extend__parse_rewind,
-};
-/** End autogen section. **/
+#include "lily_extend_bindings.h"
 
 void noop_render(const char *to_render, void *data)
 {
@@ -177,3 +156,5 @@ void lily_extend__parse_rewind(lily_state *s)
     lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
 }
+
+LILY_DECLARE_EXTEND_CALL_TABLE

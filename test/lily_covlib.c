@@ -7,97 +7,9 @@ coverage.
 
 #include "lily.h"
 #include "lily_int_code_iter.h"
+#include "lily_covlib_bindings.h"
 
-/** Begin autogen section. **/
-#define GET_Container__value(c_) \
-lily_con_get(c_, 0)
-#define SET_Container__value(c_, v_) \
-lily_con_set(c_, 0, v_)
-#define SETFS_Container__value(state, c_) \
-lily_con_set_from_stack(state, c_, 0)
-#define ID_Container(state) lily_cid_at(state, 0)
-#define SUPER_Container(state)\
-lily_push_super(state, ID_Container(state), 1)
-
-#define PUSH_FlatOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 1)
-#define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 2)
-#define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 3)
-
-#define PUSH_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
-#define PUSH_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 2)
-#define PUSH_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 3)
-
-const char *lily_covlib_info_table[] = {
-    "\03Container\0FlatEnum\0ScopedEnum\0"
-    ,"N\04Container\0"
-    ,"m\0<new>\0(String): Container"
-    ,"m\0update\0(Container,String)"
-    ,"m\0fetch\0(Container): String"
-    ,"1\0value\0String"
-    ,"E\0FlatEnum\0"
-    ,"V\0FlatOne\0"
-    ,"V\0FlatTwo\0"
-    ,"V\0FlatThree\0"
-    ,"E\03ScopedEnum\0"
-    ,"V\0ScopedOne\0"
-    ,"V\0ScopedTwo\0"
-    ,"V\0ScopedThree\0"
-    ,"F\0isa_integer\0[A](A): Boolean"
-    ,"F\0cover_list_reserve\0"
-    ,"F\0cover_func_check\0(Function(Integer),Function(Integer=>String)): Boolean"
-    ,"F\0cover_list_sfs\0"
-    ,"F\0cover_id_checks\0[A](Coroutine[Integer,Integer],Unit,A,String): Boolean"
-    ,"F\0cover_value_as\0(Byte,ByteString,Exception,Coroutine[Integer,Integer],Double,File,Function(Integer),Hash[Integer,Integer],Integer,String)"
-    ,"F\0cover_ci_from_native\0(Function(Integer))"
-    ,"F\0cover_misc_api\0"
-    ,"Z"
-};
-#define Container_OFFSET 1
-#define FlatEnum_OFFSET 6
-#define ScopedEnum_OFFSET 10
-#define toplevel_OFFSET 14
-void lily_covlib_Container_new(lily_state *);
-void lily_covlib_Container_update(lily_state *);
-void lily_covlib_Container_fetch(lily_state *);
-void lily_covlib__isa_integer(lily_state *);
-void lily_covlib__cover_list_reserve(lily_state *);
-void lily_covlib__cover_func_check(lily_state *);
-void lily_covlib__cover_list_sfs(lily_state *);
-void lily_covlib__cover_id_checks(lily_state *);
-void lily_covlib__cover_value_as(lily_state *);
-void lily_covlib__cover_ci_from_native(lily_state *);
-void lily_covlib__cover_misc_api(lily_state *);
-lily_call_entry_func lily_covlib_call_table[] = {
-    NULL,
-    NULL,
-    lily_covlib_Container_new,
-    lily_covlib_Container_update,
-    lily_covlib_Container_fetch,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    lily_covlib__isa_integer,
-    lily_covlib__cover_list_reserve,
-    lily_covlib__cover_func_check,
-    lily_covlib__cover_list_sfs,
-    lily_covlib__cover_id_checks,
-    lily_covlib__cover_value_as,
-    lily_covlib__cover_ci_from_native,
-    lily_covlib__cover_misc_api,
-};
-/** End autogen section. **/
+lily_call_entry_func lily_covlib_call_table[];
 
 /**
 define isa_integer[A](value: A): Boolean
@@ -482,3 +394,5 @@ scoped enum ScopedEnum {
 
 Scoped enum test.
 */
+
+LILY_DECLARE_COVLIB_CALL_TABLE
