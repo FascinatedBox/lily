@@ -1151,7 +1151,61 @@ void lily_return_value  (lily_state *s, lily_value *value);
 ////////////////////////////
 // Extract a raw value from a full value.
 //
-// Assumes that the caller knows the correct underlying value.
+// These functions assume the caller knows what group that the value falls into.
+// If a caller isn't sure, lily_value_get_group can be used to find out.
+
+// Enum: lily_value_group
+//
+// lily_isa_boolean       - The value is a 'Boolean'.
+// lily_isa_byte          - The value is a 'Byte'.
+// lily_isa_bytestring    - The value is a 'ByteString'.
+// lily_isa_coroutine     - The value is a 'Coroutine'.
+// lily_isa_double        - The value is a 'Double'.
+// lily_isa_empty_variant - This is a variant that does not have any values
+//                          inside of it. Do not attempt to use this as a
+//                          container.
+// lily_isa_file          - The value is a 'File'.
+// lily_isa_function      - The value is a 'Function'.
+// lily_isa_hash          - The value is a 'Hash'. This is not a container.
+// lily_isa_foreign_class - This is a class defined in C. It is not a container
+//                          and it does not have fields to walk. Treat it as an
+//                          opaque pointer to unknown content.
+// lily_isa_native_class  - This is a class with fields, usually defined in
+//                          native Lily code. This is a container.
+// lily_isa_integer       - The value is an 'Integer'.
+// lily_isa_list          - The value is a 'List'. This is a container.
+// lily_isa_string        - The value is a 'String'.
+// lily_isa_tuple         - The value is a 'Tuple'. This is a container.
+// lily_isa_unit          - The value is a 'Unit'. This is always the Lily
+//                          literal 'unit'. It should be treated similar to an
+//                          empty variant.
+// lily_isa_variant       - The value is a variant with a non-zero number of
+//                          fields. This is a container.
+
+typedef enum {
+    lily_isa_boolean,
+    lily_isa_byte,
+    lily_isa_bytestring,
+    lily_isa_coroutine,
+    lily_isa_double,
+    lily_isa_empty_variant,
+    lily_isa_file,
+    lily_isa_function,
+    lily_isa_hash,
+    lily_isa_foreign_class,
+    lily_isa_native_class,
+    lily_isa_integer,
+    lily_isa_list,
+    lily_isa_string,
+    lily_isa_tuple,
+    lily_isa_unit,
+    lily_isa_variant,
+} lily_value_group;
+
+// Function: lily_value_get_group
+// Find out what group that a value belongs to. Refer to the 'lily_value_group'
+// enum documentation for more info.
+lily_value_group lily_value_get_group(lily_value *value);
 
 // Function: lily_as_boolean
 // Extract a Boolean.

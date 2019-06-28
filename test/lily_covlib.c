@@ -12,6 +12,21 @@ coverage.
 lily_call_entry_func lily_covlib_call_table[];
 
 /**
+foreign class Foreign() {
+    layout {
+    }
+}
+
+Example foreign value.
+*/
+void destroy_Foreign(lily_covlib_Foreign *f) {}
+void lily_covlib_Foreign_new(lily_state *s)
+{
+    INIT_Foreign(s);
+    lily_return_top(s);
+}
+
+/**
 define isa_integer[A](value: A): Boolean
 
 Return True if 'value' is an `Integer`, False otherwise.
@@ -167,6 +182,66 @@ void lily_covlib__cover_value_as(lily_state *s)
     (void)lily_as_integer   (lily_arg_value(s, 8));
     (void)lily_as_string    (lily_arg_value(s, 9));
     lily_return_unit(s);
+}
+
+/**
+define cover_value_group(a: Boolean,
+                         b: Byte,
+                         c: ByteString,
+                         d: Coroutine[Integer, Integer],
+                         e: Double,
+                         f: Option[Integer],
+                         g: File,
+                         h: Function(Integer),
+                         i: Hash[Integer, Integer],
+                         j: Foreign,
+                         k: Exception,
+                         l: Integer,
+                         m: List[Integer],
+                         n: String,
+                         o: Tuple[Integer],
+                         p: Unit,
+                         q: Option[Integer]): Boolean
+
+This covers calling lily_value_get_group with every kind of value possible.
+*/
+void lily_covlib__cover_value_group(lily_state *s)
+{
+    lily_value_group expect[] = {
+        lily_isa_boolean,
+        lily_isa_byte,
+        lily_isa_bytestring,
+        lily_isa_coroutine,
+        lily_isa_double,
+        lily_isa_empty_variant,
+        lily_isa_file,
+        lily_isa_function,
+        lily_isa_hash,
+        lily_isa_foreign_class,
+        lily_isa_native_class,
+        lily_isa_integer,
+        lily_isa_list,
+        lily_isa_string,
+        lily_isa_tuple,
+        lily_isa_unit,
+        lily_isa_variant,
+    };
+    int count = lily_arg_count(s);
+    int result = 1;
+    int i;
+
+    for (i = 0;i < count;i++) {
+        lily_value *v = lily_arg_value(s, i);
+        lily_value_group given = lily_value_get_group(v);
+        lily_value_group got = expect[i];
+
+        if (given != got) {
+            result = 0;
+            break;
+        }
+    }
+
+    lily_return_boolean(s, result);
 }
 
 /**

@@ -103,6 +103,67 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
     return result_id == class_id;
 }
 
+lily_value_group lily_value_get_group(lily_value *value)
+{
+    lily_value_group result = lily_isa_unit;
+
+    switch (FLAGS_TO_BASE(value)) {
+        case V_INTEGER_BASE:
+            result = lily_isa_integer;
+            break;
+        case V_DOUBLE_BASE:
+            result = lily_isa_double;
+            break;
+        case V_STRING_BASE:
+            result = lily_isa_string;
+            break;
+        case V_BYTE_BASE:
+            result = lily_isa_byte;
+            break;
+        case V_BYTESTRING_BASE:
+            result = lily_isa_bytestring;
+            break;
+        case V_BOOLEAN_BASE:
+            result = lily_isa_boolean;
+            break;
+        case V_FUNCTION_BASE:
+            result = lily_isa_function;
+            break;
+        case V_LIST_BASE:
+            result = lily_isa_list;
+            break;
+        case V_HASH_BASE:
+            result = lily_isa_hash;
+            break;
+        case V_TUPLE_BASE:
+            result = lily_isa_tuple;
+            break;
+        case V_FILE_BASE:
+            result = lily_isa_file;
+            break;
+        case V_COROUTINE_BASE:
+            result = lily_isa_coroutine;
+            break;
+        case V_FOREIGN_BASE:
+            result = lily_isa_foreign_class;
+            break;
+        case V_INSTANCE_BASE:
+            result = lily_isa_native_class;
+            break;
+        case V_UNIT_BASE:
+            result = lily_isa_unit;
+            break;
+        case V_VARIANT_BASE:
+            result = lily_isa_variant;
+            break;
+        case V_EMPTY_VARIANT_BASE:
+            result = lily_isa_empty_variant;
+            break;
+    }
+
+    return result;
+}
+
 /* Stack operations
    Push operations are located within the vm, so that stack growing can remain
    internal to the vm. */
