@@ -304,9 +304,9 @@ void lily_builtin_ByteString_size(lily_state *s)
 }
 
 /* This table indicates how many more bytes need to be successfully read after
-   that particular byte for proper utf-8. -1 = invalid.
+   that particular byte for proper utf-8. 0 = invalid.
    Table copied from lily_lexer.c */
-static const char follower_table[256] =
+static const uint8_t follower_table[256] =
 {
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 /* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -317,14 +317,14 @@ static const char follower_table[256] =
 /* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 8 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* 9 */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* A */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* B */-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-/* C */-1,-1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+/* 8 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 9 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* A */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* B */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* C */ 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 /* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 /* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-/* F */ 4, 4, 4, 4, 4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+/* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
 void do_str_slice(lily_state *s, int is_bytestring)
@@ -357,8 +357,8 @@ void do_str_slice(lily_state *s, int is_bytestring)
 
     char *raw = lily_string_raw(sv);
     if (is_bytestring == 0) {
-        if (follower_table[(unsigned char)raw[start]] == -1 ||
-            follower_table[(unsigned char)raw[stop]] == -1) {
+        if (follower_table[(unsigned char)raw[start]] == 0 ||
+            follower_table[(unsigned char)raw[stop]] == 0) {
             lily_push_string(s, "");
             lily_return_top(s);
             return;
@@ -2357,7 +2357,7 @@ void lily_builtin_String_find(lily_state *s)
     if (find_length > input_length ||
         find_length == 0 ||
         start > input_length ||
-        follower_table[(unsigned char)input_str[start]] == -1) {
+        follower_table[(unsigned char)input_str[start]] == 0) {
         lily_return_none(s);
         return;
     }
