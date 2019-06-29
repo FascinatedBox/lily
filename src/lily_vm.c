@@ -1677,7 +1677,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
         if (func_val->code)
             sprintf(line, "%d:", frame_iter->code[-1]);
 
-        const char *str = lily_mb_sprintf(msgbuf, "%s:%s from %s", path,
+        const char *str = lily_mb_sprintf(msgbuf, "%s:%s in %s", path,
                 line, proto->name);
 
         lily_string_val *sv = lily_new_string_raw(str);
