@@ -2099,13 +2099,13 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
     return lily_find_class(parser->symtab, m, entry + DYNA_NAME_OFFSET);
 }
 
-static lily_class *dynaload_class(lily_parse_state *parser,
+static lily_class *dynaload_foreign(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
     const char *entry = m->info_table[dyna_index];
     lily_class *cls = lily_new_class(parser->symtab, entry + 2);
 
-    cls->flags |= CLS_IS_BUILTIN;
+    cls->flags |= CLS_IS_FOREIGN;
     cls->dyna_start = dyna_index;
 
     return cls;
@@ -2277,7 +2277,7 @@ static lily_item *run_dynaload(lily_parse_state *parser, lily_module_entry *m,
         result = (lily_item *)dyna_var;
     }
     else if (letter == 'C') {
-        lily_class *new_cls = dynaload_class(parser, m, dyna_pos);
+        lily_class *new_cls = dynaload_foreign(parser, m, dyna_pos);
         result = (lily_item *)new_cls;
     }
     else if (letter == 'V') {
@@ -4542,7 +4542,7 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
     if (super_class == cls)
         lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
     else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
-             super_class->flags & (CLS_IS_ENUM | CLS_IS_BUILTIN))
+             super_class->flags & (CLS_IS_ENUM | CLS_IS_FOREIGN))
         lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
                 lex->label);
 

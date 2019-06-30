@@ -3302,7 +3302,7 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
     lily_class *result = lily_new_class(symtab, name);
     result->dyna_start = dyna_start;
     result->generic_count = generic_count;
-    result->flags |= CLS_IS_BUILTIN;
+    result->flags |= CLS_IS_FOREIGN;
 
     return result;
 }
@@ -3316,7 +3316,7 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     lily_class *result = lily_new_class(symtab, name);
     result->id = id;
     result->generic_count = generic_count;
-    result->flags |= CLS_IS_BUILTIN;
+    result->flags |= CLS_IS_FOREIGN;
 
     symtab->active_module->class_chain = result->next;
     symtab->next_class_id--;

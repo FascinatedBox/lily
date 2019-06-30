@@ -1523,7 +1523,7 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
     lily_class *match_class = ast->result->type->cls;
 
     if ((match_class->flags & CLS_IS_ENUM) == 0 &&
-        (match_class->flags & CLS_IS_BUILTIN))
+        (match_class->flags & CLS_IS_FOREIGN))
         lily_raise_syn(emit->raiser,
                 "Match expression is not a user class or enum.");
 

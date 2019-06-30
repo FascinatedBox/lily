@@ -357,7 +357,7 @@ typedef struct lily_proto_ {
 #define CLS_ENUM_IS_SCOPED 0x0400
 #define CLS_EMPTY_VARIANT  0x0800
 /* This class does not have an inheritable representation. */
-#define CLS_IS_BUILTIN     0x1000
+#define CLS_IS_FOREIGN     0x1000
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */
 #define CLS_VISITED        0x2000
