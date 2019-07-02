@@ -24,6 +24,12 @@ typedef struct {
     char *name;
     uint64_t shorthash;
 
+    uint16_t line_num;
+
+    uint16_t pad1;
+
+    uint32_t pad2;
+
     struct lily_class_ *parent;
 
     char *arg_names;
@@ -53,6 +59,12 @@ typedef struct lily_class_ {
     /* This holds (up to) the first 8 bytes of the name. This is checked before
        doing a strcmp against the name. */
     uint64_t shorthash;
+
+    uint16_t line_num;
+
+    uint16_t pad1;
+
+    uint32_t pad2;
 
     struct lily_class_ *parent;
 

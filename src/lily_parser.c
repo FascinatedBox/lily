@@ -2017,7 +2017,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         save_next_class_id = 0;
 
     uint16_t save_generics = lily_gp_save_and_hide(parser->generics);
-    lily_class *enum_cls = lily_new_enum_class(parser->symtab, name);
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, name, 0);
     const char *body = name + strlen(name) + 1;
 
     lily_lexer_load(lex, et_shallow_string, body);
@@ -2048,7 +2048,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
         name = entry + DYNA_NAME_OFFSET;
 
         lily_variant_class *variant_cls = lily_new_variant_class(parser->symtab,
-                enum_cls, name);
+                enum_cls, name, 0);
 
         body = name + strlen(name) + 1;
         lily_lexer_load(lex, et_shallow_string, body);
@@ -2103,7 +2103,7 @@ static lily_class *dynaload_foreign(lily_parse_state *parser,
         lily_module_entry *m, int dyna_index)
 {
     const char *entry = m->info_table[dyna_index];
-    lily_class *cls = lily_new_class(parser->symtab, entry + 2);
+    lily_class *cls = lily_new_class(parser->symtab, entry + 2, 0);
 
     cls->flags |= CLS_IS_FOREIGN;
     cls->dyna_start = dyna_index;
@@ -2153,7 +2153,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     lily_lexer_load(lex, et_shallow_string, body);
     lily_lexer(lex);
 
-    lily_class *cls = lily_new_class(parser->symtab, name);
+    lily_class *cls = lily_new_class(parser->symtab, name, 0);
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
     collect_generics(parser);
@@ -4796,7 +4796,9 @@ static void keyword_class(lily_parse_state *parser)
 
     ensure_valid_class(parser, lex->label);
 
-    parse_class_body(parser, lily_new_class(parser->symtab, lex->label));
+    lily_class *cls = lily_new_class(parser->symtab, lex->label, lex->line_num);
+
+    parse_class_body(parser, cls);
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
@@ -4831,7 +4833,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     ensure_valid_class(parser, lex->label);
 
-    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label);
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
+            lex->line_num);
 
     if (is_scoped)
         enum_cls->flags |= CLS_ENUM_IS_SCOPED;
@@ -4869,7 +4872,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
         }
 
         lily_variant_class *variant_cls = lily_new_variant_class(parser->symtab,
-                enum_cls, lex->label);
+                enum_cls, lex->label, lex->line_num);
         variant_count++;
 
         lily_lexer(lex);

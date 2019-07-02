@@ -602,7 +602,8 @@ lily_class *lily_new_raw_class(const char *name)
    is.
    The new class is automatically linked up to the current module. No default
    type is created, in case the newly-made class ends up needing generics. */
-lily_class *lily_new_class(lily_symtab *symtab, const char *name)
+lily_class *lily_new_class(lily_symtab *symtab, const char *name,
+        uint16_t line_num)
 {
     lily_class *new_class = lily_new_raw_class(name);
 
@@ -619,9 +620,10 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name)
 }
 
 /* Use this to create a new class that represents an enum. */
-lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name)
+lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
+        uint16_t line_num)
 {
-    lily_class *new_class = lily_new_class(symtab, name);
+    lily_class *new_class = lily_new_class(symtab, name, line_num);
 
     symtab->next_class_id--;
     new_class->item_kind = ITEM_TYPE_ENUM;
@@ -855,7 +857,7 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
 lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
-        lily_class *enum_cls, const char *name)
+        lily_class *enum_cls, const char *name, uint16_t line_num)
 {
     lily_variant_class *variant = lily_malloc(sizeof(*variant));
 
@@ -864,6 +866,7 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->parent = enum_cls;
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
+    variant->line_num = line_num;
     variant->arg_names = NULL;
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);

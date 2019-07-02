@@ -43,6 +43,9 @@ static const lily_class raw_self =
     (lily_type *)&raw_self,
     "self",
     0,
+    0,
+    0,
+    0,
     NULL,
     NULL,
     0,
@@ -65,6 +68,9 @@ static const lily_class raw_unit =
     0,
     (lily_type *)&raw_unit,
     "Unit",
+    0,
+    0,
+    0,
     0,
     NULL,
     NULL,
@@ -89,6 +95,9 @@ static const lily_class raw_question =
     (lily_type *)&raw_question,
     "?",
     0,
+    0,
+    0,
+    0,
     NULL,
     NULL,
     0,
@@ -112,6 +121,9 @@ static const lily_class raw_unset =
     0,
     (lily_type *)&raw_question,
     "",
+    0,
+    0,
+    0,
     0,
     NULL,
     NULL,
@@ -3299,7 +3311,7 @@ void lily_builtin_var_stderr(lily_state *s)
 static lily_class *build_class(lily_symtab *symtab, const char *name,
         int generic_count, int dyna_start)
 {
-    lily_class *result = lily_new_class(symtab, name);
+    lily_class *result = lily_new_class(symtab, name, 0);
     result->dyna_start = dyna_start;
     result->generic_count = generic_count;
     result->flags |= CLS_IS_FOREIGN;
@@ -3313,7 +3325,7 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
 static lily_class *build_special(lily_symtab *symtab, const char *name,
         int generic_count, int id)
 {
-    lily_class *result = lily_new_class(symtab, name);
+    lily_class *result = lily_new_class(symtab, name, 0);
     result->id = id;
     result->generic_count = generic_count;
     result->flags |= CLS_IS_FOREIGN;
