@@ -842,6 +842,17 @@ t.interpret("Docstring for class.",
     }
     """)
 
+t.interpret("Docstring for public define.",
+    """
+    class Example {
+        ### Docstring for
+        ### public definition
+        public define a {
+
+        }
+    }
+    """)
+
 t.interpret("Cover gc tagging bits.",
     """
     class One {

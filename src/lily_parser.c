@@ -3820,6 +3820,7 @@ static void process_docstring(lily_parse_state *parser)
 
     if (key_id == KEY_PRIVATE ||
         key_id == KEY_PROTECTED ||
+        key_id == KEY_PUBLIC ||
         key_id == KEY_DEFINE ||
         key_id == KEY_CLASS) {
         lily_lexer(lex);
