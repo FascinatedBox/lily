@@ -1,3 +1,51 @@
+Version 1.9 (2019-7-10)
+=======================
+
+This is a longer release (4 months instead of the usual 3). This release
+contains several fixes and changes to allow creating testkit, a Lily testing
+library. Some changes were made in hopes of leveraging the interpreter to have
+native documentation generation. Work on that remains incomplete since there
+are mechanisms that the interpreter needs in order to properly implement it.
+
+What's new:
+
+* New api call: `lily_validate_content` (#425). This implements a syntax-only
+  pass over content, primarily for a future interpreter-based docgen.
+
+* Added `lily_value_group` and `lily_value_get_group`. The first is an enum, and
+  the second is a function. These can be used to get information about values
+  that are not inside the interpreter's stack (#434).
+
+Changes:
+
+* Remove 'copy_str_input' from config (#427). The string data sent to parse and
+  render functions is no longer copied, but path data is.
+
+* Containers pushed through the api are now always gc speculative (#433). This
+  fixes potential leaking/crashing if gc tagged values are put inside of them.
+  One example of that happening is a `List.map` call that maps values into new
+  circular classes.
+
+* `calltrace`'s output now matches exception output (#419).
+
+Fixes:
+
+* Class method dynaload search is now recursive (#428). This was encountered
+  when trying to inherit from spawni's `Interpreter`.
+
+* Static methods can now use class methods if they send a self (#430).
+
+* Import functions now account for missing a 'use' function (#431). This fixes
+  crashing when an import hook tries to use an import method without first
+  setting a directory.
+
+* Mismatched `Function` return types now properly narrow down to `Unit` (#429).
+
+* `lily_import_string` no longer writes the data as the path (#435). This was
+  causing very strange error messages.
+
+* Docblocks now work on public methods (#432).
+
 Version 1.8 (2019-3-10)
 =======================
 
