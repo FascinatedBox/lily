@@ -4690,7 +4690,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
 /* This is a helper function that scans 'target' to determine if it will require
    any gc information to hold. */
-static int get_gc_flags_for(lily_class *top_class, lily_type *target)
+static int get_gc_flags_for(lily_type *target)
 {
     int result_flag = 0;
 
@@ -4702,7 +4702,7 @@ static int get_gc_flags_for(lily_class *top_class, lily_type *target)
         if (target->subtype_count) {
             int i;
             for (i = 0;i < target->subtype_count;i++)
-                result_flag |= get_gc_flags_for(top_class, target->subtypes[i]);
+                result_flag |= get_gc_flags_for(target->subtypes[i]);
         }
     }
 
@@ -4744,7 +4744,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
 
     while (member_iter) {
         if (member_iter->item_kind == ITEM_TYPE_PROPERTY)
-            mark |= get_gc_flags_for(target, member_iter->type);
+            mark |= get_gc_flags_for(member_iter->type);
 
         member_iter = member_iter->next;
     }
