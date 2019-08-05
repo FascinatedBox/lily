@@ -896,7 +896,15 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
         }
     }
 
-    return lily_push_instance(s, id, initial);
+    /* Create a new instance of the foreign-based native class. This native
+       class is considered completely constructed. In the case of foreign-based
+       native classes with inheritance (Exception and friends), the caller must
+       run the relevant inits.
+       This is not an issue with true native classes that inherit foreign-based
+       native classes, because they'll be trapped by the above. */
+    lily_container_val *cv = lily_push_instance(s, id, initial);
+    cv->instance_ctor_need = 0;
+    return cv;
 }
 
 void lily_push_string(lily_state *s, const char *source)
