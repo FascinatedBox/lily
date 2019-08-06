@@ -1135,7 +1135,7 @@ static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
 static lily_var *new_native_define_var(lily_parse_state *parser,
         lily_class *parent, const char *name)
 {
-	uint16_t line_num = parser->lex->line_num;
+    uint16_t line_num = parser->lex->line_num;
     lily_var *var = make_new_var(NULL, name, line_num);
 
     var->reg_spot = lily_vs_pos(parser->symtab->literals);
@@ -4718,9 +4718,6 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     lily_class *parent_iter = target->parent;
     int mark = 0;
 
-    /* If this class sees itself, it absolutely needs a tag. */
-    target->flags |= CLS_VISITED;
-
     if (parent_iter) {
         /* Start with this, just in case the child has no properties. */
         mark = parent_iter->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
@@ -4734,6 +4731,9 @@ static void determine_class_gc_flag(lily_parse_state *parser,
             parent_iter = parent_iter->next;
         }
     }
+
+    /* If this class sees itself, it absolutely needs a tag. */
+    target->flags |= CLS_VISITED;
 
     /* It's probably a container, so make it speculative in case it holds an
        interesting value. */
