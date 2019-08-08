@@ -1450,13 +1450,9 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
    opcode as a way of deducing what to do with the newly-made instance. */
 static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
-    int total_entries;
     int cls_id = code[1];
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *result = vm_regs[code[2]];
-    lily_class *instance_class = vm->gs->class_table[cls_id];
-
-    total_entries = instance_class->prop_count;
 
     /* Is the caller a superclass building an instance already? */
     lily_value *pending_value = vm->call_chain->return_target;
@@ -1470,11 +1466,14 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         }
     }
 
+    lily_class *instance_class = vm->gs->class_table[cls_id];
+    int total_entries = instance_class->prop_count;
+    lily_container_val *iv = new_container(cls_id, total_entries);
+
+    iv->instance_ctor_need = instance_class->inherit_depth;
+
     uint32_t flags =
         (instance_class->flags & CLS_GC_FLAGS) << VAL_FROM_CLS_GC_SHIFT;
-
-    lily_container_val *iv = new_container(cls_id, total_entries);
-    iv->instance_ctor_need = instance_class->inherit_depth;
 
     if (flags == VAL_IS_GC_SPECULATIVE)
         move_instance_f(VAL_IS_GC_SPECULATIVE, result, iv);
