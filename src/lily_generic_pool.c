@@ -76,6 +76,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
         new_generic->id = LILY_ID_GENERIC;
         new_generic->self_type = t;
         new_generic->all_subtypes = t;
+        new_generic->flags |= CLS_GC_SPECULATIVE;
 
         result = new_generic;
         gp->cache_generics[i] = new_generic;

@@ -4735,11 +4735,6 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     /* If this class sees itself, it absolutely needs a tag. */
     target->flags |= CLS_VISITED;
 
-    /* It's probably a container, so make it speculative in case it holds an
-       interesting value. */
-    if (target->generic_count)
-        mark |= CLS_GC_SPECULATIVE;
-
     lily_named_sym *member_iter = target->members;
 
     while (member_iter) {
