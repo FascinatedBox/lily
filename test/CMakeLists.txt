@@ -1,10 +1,17 @@
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
 # The coverage library needs to build in this directory so scripts can load it.
-add_library(covlib SHARED lily_covlib.c)
+
+if(NOT WIN32)
+    add_library(covlib SHARED lily_covlib.c)
+else()
+    add_library(covlib SHARED lily_covlib.c $<TARGET_OBJECTS:liblily_obj>)
+endif()
+
 set_target_properties(covlib PROPERTIES
                       PREFIX ""
-                      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/test/")
+                      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/test/"
+                      RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/test/")
 
 add_subdirectory(libraries)
 
