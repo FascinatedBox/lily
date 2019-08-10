@@ -1,16 +1,26 @@
 version: 1.0.{build}
+image: Visual Studio 2017
 platform:
   - x64
 
+install:
+  # AppVeyor doesn't have ninja so tell it where and how to get ninja.
+  # These are run as independent commands, so pushd/popd don't work.
+  - mkdir C:\projects\deps
+  - cd C:\projects\deps
+  - set NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-win.zip"
+  - appveyor DownloadFile %NINJA_URL% -FileName ninja.zip
+  - 7z x ninja.zip -oC:\projects\deps\ninja > nul
+  - set PATH=C:\projects\deps\ninja;%PATH%
+  - ninja --version
+  # Finish off by going back to where we started.
+  - cd %APPVEYOR_BUILD_FOLDER%
+
+before_build:
+  # Required by -GNinja
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+
 build_script:
-  #- cmd: mkdir build
-  #- cmd: cd build
-  #- cmd: cmake ../ -G "Visual Studio 14 2015 Win64"
-  #- cmd: cmake --build . --config Release
-  #- cmd: cp Release/lily.exe ../lily
-  #- cmd: cp Release/pre-commit-tests.exe ../pre-commit-tests.exe
-  #- cmd: cd ..
-  # todo: Find out why AppVeyor is failing and fix it.
-  - cmd: dir
-  ## todo: Find out why covlib tests are failing.
-  #- cmd: pre-commit-tests.exe --skip-covlib
+  - cmd: cmake -GNinja .
+  - cmd: ninja
+  - cmd: pre-commit-tests.exe --skip-covlib
