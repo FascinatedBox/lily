@@ -64,7 +64,7 @@ t.interpret_for_error("Fail to unify the elements of a List.",
     SyntaxError: List elements do not have a consistent type.\n\
     Expected Type: Integer\n\
     Received Type: String\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     var v = [1, "2"]
@@ -75,7 +75,7 @@ t.interpret_for_error("Fail to unify the values of a Hash.",
     SyntaxError: Hash values do not have a consistent type.\n\
     Expected Type: Integer\n\
     Received Type: String\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     var v = [1 => 1, 2 => "2"]
@@ -86,7 +86,7 @@ t.interpret_for_error("Fail to unify the keys of a Hash.",
     SyntaxError: Hash keys do not have a consistent type.\n\
     Expected Type: Integer\n\
     Received Type: String\n    \
-        from test/[subinterp]:1:\
+        from test\/[subinterp]:1:\
     """,
     """\
     var v = [1 => 1, "2" => 2]

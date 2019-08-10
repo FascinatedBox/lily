@@ -145,7 +145,7 @@ t.interpret_for_error("Two keyargs with a duplicate target.",
 t.interpret_for_error("Unsupported keyargs on plain define.",
     """\
     SyntaxError: f does not specify any keyword arguments.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     define f(a: Integer) {}
@@ -156,7 +156,7 @@ t.interpret_for_error("Unsupported keyargs on plain define.",
 t.interpret_for_error("Unsupported keyargs on class method.",
     """\
     SyntaxError: Example.f does not specify any keyword arguments.\n    \
-        from test/[subinterp]:5:\
+        from test\/[subinterp]:5:\
     """,
     """\
     class Example {
@@ -169,7 +169,7 @@ t.interpret_for_error("Unsupported keyargs on class method.",
 t.interpret_for_error("Unsupported keyargs on enum method.",
     """\
     SyntaxError: Example.f does not specify any keyword arguments.\n    \
-        from test/[subinterp]:7:\
+        from test\/[subinterp]:7:\
     """,
     """\
     enum Example {
@@ -184,7 +184,7 @@ t.interpret_for_error("Unsupported keyargs on enum method.",
 t.interpret_for_error("Unsupported keyargs on lambda.",
     """\
     SyntaxError: v is not capable of receiving keyword arguments.\n    \
-        from test/[subinterp]:3:\
+        from test\/[subinterp]:3:\
     """,
     """\
     var v = (|a: Integer| 0 )
@@ -195,7 +195,7 @@ t.interpret_for_error("Unsupported keyargs on lambda.",
 t.interpret_for_error("Unsupported keyargs on upvalue.",
     """\
     SyntaxError: g is not capable of receiving keyword arguments.\n    \
-        from test/[subinterp]:4:\
+        from test\/[subinterp]:4:\
     """,
     """\
     define f(:a a: Integer) {
@@ -209,7 +209,7 @@ t.interpret_for_error("Unsupported keyargs on upvalue.",
 t.interpret_for_error("Keyargs too many args.",
     """\
     SyntaxError: Wrong number of arguments to f (4 for 1).\n    \
-        from test/[subinterp]:2:\
+        from test\/[subinterp]:2:\
     """,
     """\
     define f(:a a: Integer) {}
@@ -219,7 +219,7 @@ t.interpret_for_error("Keyargs too many args.",
 t.interpret_for_error("Keyargs too many args.",
     """\
     SyntaxError: Wrong number of arguments to f (4 for 1).\n    \
-        from test/[subinterp]:2:\
+        from test\/[subinterp]:2:\
     """,
     """\
     define f(:a a: Integer) {}
@@ -231,7 +231,7 @@ t.interpret_for_error("Keyargs wrong arg type.",
     SyntaxError: Argument #1 to f is invalid:\n\
         Expected Type: Integer\n\
         Received Type: String\n    \
-        from test/[subinterp]:2:\
+        from test\/[subinterp]:2:\
     """,
     """\
     define f(:a a: Integer) {}

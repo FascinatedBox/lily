@@ -158,10 +158,10 @@ t.interpret("Verify contents of an exception raised by vm.",
         }
 
         var expected_trace =
-        ["test\/[subinterp]:21: in __main__",
-         "test\/[subinterp]:17: in f",
-         "test\/[subinterp]:11: in g",
-         "test\/[subinterp]:3: in h"]
+        ["test\\/[subinterp]:21: in __main__",
+         "test\\/[subinterp]:17: in f",
+         "test\\/[subinterp]:11: in g",
+         "test\\/[subinterp]:3: in h"]
 
         if e.traceback != expected_trace: {
             print("trace given is \\n" ++ e.traceback.join("\\n"))
@@ -199,10 +199,10 @@ t.interpret("Verify contents of a raised exception.",
         }
 
         var expected_trace =
-        ["test\/[subinterp]:21: in __main__",
-         "test\/[subinterp]:17: in f",
-         "test\/[subinterp]:11: in g",
-         "test\/[subinterp]:3: in h"]
+        ["test\\/[subinterp]:21: in __main__",
+         "test\\/[subinterp]:17: in f",
+         "test\\/[subinterp]:11: in g",
+         "test\\/[subinterp]:3: in h"]
 
         if e.traceback != expected_trace: {
             raise Exception("Traceback is incorrect.")
