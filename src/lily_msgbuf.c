@@ -88,16 +88,16 @@ static void add_escaped_raw(lily_msgbuf *msgbuf, int is_bytestring,
     int i, start;
 
     for (i = 0, start = 0;i < len;i++) {
-        char ch = str[i];
+        unsigned char ch = str[i];
         int need_escape = 1;
 
         if (isprint(ch) ||
-            ((unsigned char)ch > 127 && is_bytestring == 0)) {
+            (ch > 127 && is_bytestring == 0)) {
             need_escape = 0;
             escape_char = 0;
         }
         else
-            escape_char = get_escape(ch);
+            escape_char = get_escape((char)ch);
 
         if (need_escape) {
             if (i != start)
@@ -107,7 +107,7 @@ static void add_escaped_raw(lily_msgbuf *msgbuf, int is_bytestring,
             if (escape_char)
                 lily_mb_add_char(msgbuf, escape_char);
             else
-                add_escaped_char(msgbuf, ch);
+                add_escaped_char(msgbuf, (char)ch);
 
             start = i + 1;
         }

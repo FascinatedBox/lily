@@ -100,6 +100,9 @@ t.assert("String.is_alnum with true case.",
 t.assert("String.is_alnum denies partial alpha.",
          (|| "abc123()".is_alnum() == false ))
 
+t.assert("String.is_alnum with utf8",
+         (|| "ÀÈÌaÒÜ".is_alnum() == false ))
+
 
 t.assert("String.is_alpha empty false case.",
          (|| "".is_alpha() == false ))
@@ -109,6 +112,9 @@ t.assert("String.is_alpha with true case.",
 
 t.assert("String.is_alpha denies partial alpha.",
          (|| "abc123".is_alpha() == false ))
+
+t.assert("String.is_alpha with utf8",
+         (|| "ÀÈÌaÒÜ".is_alpha() == false ))
 
 
 t.assert("String.is_digit empty false case.",
@@ -120,6 +126,9 @@ t.assert("String.is_digit with true case.",
 t.assert("String.is_digit denies partial digit.",
          (|| "abc123".is_digit() == false ))
 
+t.assert("String.is_digit with utf8",
+         (|| "ÀÈÌaÒÜ".is_digit() == false ))
+
 
 t.assert("String.is_space empty false case.",
          (|| "".is_space() == false ))
@@ -128,6 +137,9 @@ t.assert("String.is_space full spectrum true case.",
 
 t.assert("String.is_space denies partial space.",
          (|| "abc ".is_space() == false ))
+
+t.assert("String.is_space with utf8",
+         (|| "ÀÈÌaÒÜ".is_space() == false ))
 
 
 t.assert("String.lstrip empty remove string.",

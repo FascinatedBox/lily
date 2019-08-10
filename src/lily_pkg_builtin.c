@@ -2456,7 +2456,8 @@ void lily_builtin_String_##WRAP_NAME(lily_state *s) \
     int ok = 1; \
 \
     for (i = 0;i < length;i++) { \
-        if (WRAPPED_CALL(loop_str[i]) == 0) { \
+        unsigned char ch = (unsigned char)loop_str[i]; \
+        if (WRAPPED_CALL(ch) == 0) { \
             ok = 0; \
             break; \
         } \

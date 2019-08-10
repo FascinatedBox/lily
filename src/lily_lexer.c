@@ -643,8 +643,10 @@ static uint64_t scan_decimal(lily_lex_state *lexer, int *pos, int *is_integer,
         else if (*new_ch == '.') {
             /* The second check is important for things like '10.@(...',
                10.to_string, and more. */
+            unsigned char next_ch = (unsigned char)*(new_ch + 1);
+
             if (have_dot == 1 ||
-                isdigit(*(new_ch + 1)) == 0)
+                isdigit(next_ch) == 0)
                 break;
 
             have_dot = 1;
@@ -1192,7 +1194,7 @@ int lily_lexer_digit_rescan(lily_lex_state *lexer)
 {
     int pos = lexer->input_pos - 1;
     char *input = lexer->input_buffer;
-    char ch = ' ';
+    int ch = ' ';
 
     while (pos) {
         ch = input[pos];
