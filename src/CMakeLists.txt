@@ -5,8 +5,6 @@ file(GLOB lily_SOURCES *.c *.h)
 add_library(liblily_obj OBJECT ${lily_SOURCES})
 add_library(liblily SHARED $<TARGET_OBJECTS:liblily_obj>)
 
-target_link_libraries(liblily m)
-
 if(NOT MSVC)
     if(LILY_NEED_DL)
         target_link_libraries(liblily dl)
@@ -15,6 +13,10 @@ if(NOT MSVC)
     set_target_properties(liblily_obj PROPERTIES COMPILE_FLAGS "-fPIC")
     # This prevents the shared library being named libliblily
     set_target_properties(liblily PROPERTIES PREFIX "")
+endif()
+
+if(LILY_NEED_M)
+    target_link_libraries(liblily m)
 endif()
 
 install(TARGETS liblily

@@ -44,6 +44,14 @@ else()
     set(LILY_NEED_DL 1)
 endif()
 
+# Windows doesn't have a math library to link against.
+
+if(WIN32)
+    set(LILY_NEED_M 0)
+else()
+    set(LILY_NEED_M 1)
+endif()
+
 add_subdirectory(src)
 add_subdirectory(run)
 add_subdirectory(test)
