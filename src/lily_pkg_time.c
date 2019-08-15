@@ -7,6 +7,7 @@ The time package provides access to basic time information on the system.
 #include <time.h>
 
 #include "lily.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_time_bindings.h"
 
 /**

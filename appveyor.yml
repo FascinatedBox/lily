@@ -23,4 +23,4 @@ before_build:
 build_script:
   - cmd: cmake -GNinja .
   - cmd: ninja
-  - cmd: pre-commit-tests.exe --skip-covlib
+  - cmd: pre-commit-tests.exe

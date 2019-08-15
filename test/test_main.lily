@@ -47,10 +47,6 @@ import verify_pkg_math
 import sys
 import test
 
-if sys.argv[-1] != "--skip-covlib": {
-    verify_covlib.add_tests()
-}
-
 var test_group = test.t
 
 var pass_total = 0

@@ -10,6 +10,7 @@ The sys package provides access to the arguments given to Lily.
 
 #include "lily.h"
 #include "lily_vm.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_sys_bindings.h"
 
 /**

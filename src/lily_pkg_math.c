@@ -11,6 +11,7 @@ and constants.
 #include <stdlib.h>
 
 #include "lily.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_math_bindings.h"
 
 /**

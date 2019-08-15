@@ -1,7 +1,5 @@
 import test
 
-define add_tests {
-
 var t = test.t
 
 t.scope(__file__)
@@ -154,4 +152,3 @@ t.interpret("Cover inheriting from foreign-based native class.",
         raise Exception("failed")
     }
     """)
-}

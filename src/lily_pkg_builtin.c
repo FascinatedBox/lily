@@ -18,6 +18,7 @@ foundation of Lily.
 #include "lily_value_raw.h"
 #include "lily_value_flags.h"
 #include "lily_alloc.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_builtin_bindings.h"
 
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy

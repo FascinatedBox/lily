@@ -11,8 +11,6 @@ int main(int argc, char **argv)
     lily_config config;
 
     lily_config_init(&config);
-    config.argc = argc;
-    config.argv = argv;
 
     lily_state *state = lily_new_state(&config);
     lily_module_register(state, "extend", lily_extend_info_table,

@@ -27,6 +27,7 @@ number generation.
 #define MTWIST_TWIST(u, v)  ( (MTWIST_MIXBITS(u, v) >> 1) ^ ( (v) & UINT32_C(1) ? MTWIST_MATRIX_A : UINT32_C(0)) )
 
 #include "lily.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_random_bindings.h"
 
 static void destroy_Random(lily_random_Random *r)
