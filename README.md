@@ -1,6 +1,6 @@
 Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=master)](https://travis-ci.org/FascinatedBox/lily)
 
-Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/github/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
+Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
 
 Test Coverage: [![codecov](https://codecov.io/gh/FascinatedBox/lily/branch/master/graph/badge.svg)](https://codecov.io/gh/FascinatedBox/lily)
 
