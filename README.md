@@ -13,7 +13,7 @@ Lily is a programming language focused on expressiveness and type safety.
 ```
 scoped enum Color { Black, Blue, Cyan, Green, Magenta, Red, White, Yellow }
 
-class Terminal(var @foreground: Color, width_str: String)
+class Terminal(public var @foreground: Color, width_str: String)
 {
     public var @width = width_str.parse_i().unwrap_or(80)
 
