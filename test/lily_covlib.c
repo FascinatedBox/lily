@@ -318,13 +318,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
         lily_free_state(subinterp);
     }
     {
-        /* Render a file. */
-        lily_state *subinterp = lily_new_state(&config);
-        lily_load_file(subinterp, "test/uncommon/to_render.lily");
-        lily_render_content(subinterp);
-        lily_free_state(subinterp);
-    }
-    {
         /* Search for function that doesn't exist. */
         lily_state *subinterp = lily_new_state(&config);
         lily_load_string(subinterp, "[subinterp]", "10");
