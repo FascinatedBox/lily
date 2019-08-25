@@ -435,6 +435,10 @@ typedef struct lily_proto_ {
 /* This module is currently being executed. */
 #define MODULE_IN_EXECUTION  0x4
 
+/* This is a module that is defined in Lily's core like math or sys. This module
+   is available everywhere. */
+#define MODULE_IS_PREDEFINED 0x8
+
 #define LILY_LAST_ID       65528
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_ID_SELF       65529

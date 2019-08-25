@@ -404,6 +404,20 @@ void lily_covlib__cover_misc_api(lily_state *s)
         lily_validate_content(subinterp);
         lily_free_state(subinterp);
     }
+    {
+        lily_config config2;
+        lily_config_init(&config2);
+
+        /* Registered modules shouldn't be globally visible. */
+        lily_state *subinterp = lily_new_state(&config2);
+        lily_module_register(subinterp, "covlib", lily_covlib_info_table,
+                lily_covlib_call_table);
+        lily_load_string(subinterp, "test/[testing]", "import gcheck");
+        lily_parse_content(subinterp);
+        const char *output = lily_error_message(subinterp);
+        (void)output;
+        lily_free_state(subinterp);
+    }
 }
 
 /**

@@ -63,6 +63,7 @@ extern lily_type *lily_unit_type;
     API functions can be found at the bottom of this file. **/
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
+static void mark_builtin_modules(lily_parse_state *);
 void lily_module_register(lily_state *, const char *, const char **,
         lily_call_entry_func *);
 void lily_default_import_func(lily_state *, const char *);
@@ -218,6 +219,8 @@ lily_state *lily_new_state(lily_config *config)
             lily_time_call_table);
     lily_module_register(parser->vm, "math", lily_math_info_table,
             lily_math_call_table);
+
+    mark_builtin_modules(parser);
 
     parser->executing = 0;
     parser->content_to_parse = 0;
@@ -430,6 +433,15 @@ static void handle_rewind(lily_parse_state *parser)
     rs->main_last_module_link = main_module->module_chain;
     rs->main_last_module = parser->module_top;
     rs->line_num = parser->lex->line_num;
+}
+
+static void mark_builtin_modules(lily_parse_state *parser)
+{
+    lily_module_entry *module_iter = parser->module_start;
+    while (module_iter) {
+        module_iter->flags |= MODULE_IS_PREDEFINED;
+        module_iter = module_iter->next;
+    }
 }
 
 /***
@@ -4330,6 +4342,28 @@ static void parse_verify_import_path(lily_parse_state *parser)
     }
 }
 
+static lily_module_entry *find_registered_module(lily_parse_state *parser,
+        const char *target)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *module = lily_find_registered_module(symtab, target);
+
+    if (module &&
+        (module->flags & MODULE_IS_PREDEFINED) == 0) {
+        /* Prevent registered modules from being loaded outside of the initial
+           package. This allows a different embedder to simulate the module by
+           only needing to supply a single file at the initial root. It also
+           prevents potential issues from name conflicts in subpackages. */
+        const char *active_root = symtab->active_module->root_dirname;
+        const char *main_root = parser->main_module->root_dirname;
+
+        if (strcmp(active_root, main_root) != 0)
+            module = NULL;
+    }
+
+    return module;
+}
+
 static void keyword_import(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -4365,7 +4399,7 @@ static void keyword_import(lily_parse_state *parser)
                     search_start);
 
         if (path_tail == NULL)
-            module = lily_find_registered_module(symtab, lex->label);
+            module = find_registered_module(parser, lex->label);
 
         /* Is there a cached version that was loaded somewhere else? */
         if (module == NULL) {
