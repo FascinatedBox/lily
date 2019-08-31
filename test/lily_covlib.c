@@ -186,6 +186,59 @@ void lily_covlib__cover_value_as(lily_state *s)
 }
 
 /**
+define cover_optional_integer(   a: *Integer = 100,
+                              :b b: *Integer = 200,
+                              :c c: *Integer = 300): Integer
+
+Cover calling lily_optional_integer.
+*/
+void lily_covlib__cover_optional_integer(lily_state *s)
+{
+    int64_t arg_a = lily_optional_integer(s, 0, 100);
+    int64_t arg_b = lily_optional_integer(s, 1, 200);
+    int64_t arg_c = lily_optional_integer(s, 2, 300);
+    int64_t total = arg_a + arg_b + arg_c;
+
+    lily_return_integer(s, total);
+}
+
+/**
+define cover_optional_boolean(   a: *Boolean = true,
+                              :b b: *Boolean = true,
+                              :c c: *Boolean = true): Integer
+
+Cover calling lily_optional_integer.
+*/
+void lily_covlib__cover_optional_boolean(lily_state *s)
+{
+    int arg_a = lily_optional_boolean(s, 0, 1);
+    int arg_b = lily_optional_boolean(s, 1, 1);
+    int arg_c = lily_optional_boolean(s, 2, 1);
+    int total = arg_a + arg_b + arg_c;
+
+    lily_return_integer(s, total);
+}
+
+/**
+define cover_optional_string(   a: *String = "",
+                             :b b: *String = "",
+                             :c c: *String = ""): String
+
+Cover calling lily_optional_integer.
+*/
+void lily_covlib__cover_optional_string(lily_state *s)
+{
+    const char *arg_a = lily_optional_string_raw(s, 0, "");
+    const char *arg_b = lily_optional_string_raw(s, 1, "");
+    const char *arg_c = lily_optional_string_raw(s, 2, "");
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+
+    lily_mb_add_fmt(msgbuf, "%s%s%s", arg_a, arg_b, arg_c);
+    lily_push_string(s, lily_mb_raw(msgbuf));
+    lily_return_top(s);
+}
+
+/**
 define cover_value_group(a: Boolean,
                          b: Byte,
                          c: ByteString,

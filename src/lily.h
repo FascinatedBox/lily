@@ -934,6 +934,29 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id);
 // Calls lily_arg_isa with LILY_ID_SUCCESS.
 #define lily_arg_is_success(s, index) lily_arg_isa(s, index, LILY_ID_SUCCESS)
 
+///////////////////////////
+// Section: Optional Values
+///////////////////////////
+// Utility functions for getting optional values.
+//
+// These functions check for an argument existing, and provide a fallback if it
+// doesn't. These functions work for optional arguments (where the function
+// receives a smaller count of arguments), as well as keyed optional arguments
+// (where the caller receives placeholder arguments).
+
+// Function: lily_optional_boolean
+// Fetch a Boolean at 'index' or use the 'fallback' value.
+int lily_optional_boolean(lily_state *s, int pos, int fallback);
+
+// Function: lily_optional_integer
+// Fetch an Integer at 'index' or use the 'fallback' value.
+int64_t lily_optional_integer(lily_state *s, int pos, int64_t fallback);
+
+// Function: lily_optional_string_raw
+// Fetch the backing of a String at 'index' or use the 'fallback' value.
+const char *lily_optional_string_raw(lily_state *s, int pos,
+                                     const char *fallback);
+
 /////////////////////////
 // Section: Stack pushing
 /////////////////////////

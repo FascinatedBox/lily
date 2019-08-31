@@ -103,6 +103,50 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
     return result_id == class_id;
 }
 
+/* Attempt to safely get the raw value of the argument at 'index' as long as it
+   has the marker 'base'. If the argument is missing, unset, or has the wrong
+   base, then the fallback value is returned. */
+static lily_raw_value get_arg_or(lily_state *s, int index, uint32_t base,
+        lily_raw_value fallback)
+{
+    lily_raw_value result = fallback;
+
+    if (lily_arg_count(s) > index) {
+        lily_value *v = s->call_chain->start[index];
+
+        if (FLAGS_TO_BASE(v) == base)
+            result = v->value;
+    }
+
+    return result;
+}
+
+int lily_optional_boolean(lily_state *s, int index, int fallback)
+{
+    lily_raw_value fake = {.integer = fallback};
+    lily_raw_value raw = get_arg_or(s, index, V_BOOLEAN_BASE, fake);
+
+    return (int)raw.integer;
+}
+
+int64_t lily_optional_integer(lily_state *s, int index, int64_t fallback)
+{
+    lily_raw_value fake = {.integer = fallback};
+    lily_raw_value raw = get_arg_or(s, index, V_INTEGER_BASE, fake);
+
+    return raw.integer;
+}
+
+const char *lily_optional_string_raw(lily_state *s, int index,
+        const char *fallback)
+{
+    lily_string_val sv = {.string = (char *)fallback, .size = 0};
+    lily_raw_value fake = {.string = &sv};
+    lily_raw_value raw = get_arg_or(s, index, V_STRING_BASE, fake);
+
+    return raw.string->string;
+}
+
 lily_value_group lily_value_get_group(lily_value *value)
 {
     lily_value_group result = lily_isa_unit;

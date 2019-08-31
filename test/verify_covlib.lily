@@ -152,3 +152,56 @@ t.interpret("Cover inheriting from foreign-based native class.",
         raise Exception("failed")
     }
     """)
+
+t.interpret("Cover lily_optional_* functions.",
+    """
+    import covlib
+
+    var b_values = [
+        <["A, B, C", 0, covlib.cover_optional_boolean(false, false, false)]>,
+        <["A, B, _", 1, covlib.cover_optional_boolean(false, false)]>,
+        <["A, _, C", 1, covlib.cover_optional_boolean(false, :c false)]>,
+        <["A, _, _", 2, covlib.cover_optional_boolean(false)]>,
+        <["_, B, C", 1, covlib.cover_optional_boolean(:b false, :c false)]>,
+        <["_, B, _", 2, covlib.cover_optional_boolean(:b false)]>,
+        <["_, _, C", 2, covlib.cover_optional_boolean(:c false)]>,
+        <["_, _, _", 3, covlib.cover_optional_boolean()]>,
+    ]
+
+    var i_values = [
+        <["A, B, C", 6, covlib.cover_optional_integer(1, 2, 3)]>,
+        <["A, B, _", 303, covlib.cover_optional_integer(1, 2)]>,
+        <["A, _, C", 204, covlib.cover_optional_integer(1, :c 3)]>,
+        <["A, _, _", 501, covlib.cover_optional_integer(1)]>,
+        <["_, B, C", 105, covlib.cover_optional_integer(:b 2, :c 3)]>,
+        <["_, B, _", 402, covlib.cover_optional_integer(:b 2)]>,
+        <["_, _, C", 303, covlib.cover_optional_integer(:c 3)]>,
+        <["_, _, _", 600, covlib.cover_optional_integer()]>,
+    ]
+
+    var s_values = [
+        <["A, B, C", "123", covlib.cover_optional_string("1", "2", "3")]>,
+        <["A, B, _", "12",  covlib.cover_optional_string("1", "2")]>,
+        <["A, _, C", "13",  covlib.cover_optional_string("1", :c "3")]>,
+        <["A, _, _", "1",   covlib.cover_optional_string("1")]>,
+        <["_, B, C", "23",  covlib.cover_optional_string(:b "2", :c "3")]>,
+        <["_, B, _", "2",   covlib.cover_optional_string(:b "2")]>,
+        <["_, _, C", "3",   covlib.cover_optional_string(:c "3")]>,
+        <["_, _, _", "",    covlib.cover_optional_string()]>,
+    ]
+
+    define check_table[A, B](source: List[Tuple[A, B, B]]) {
+        for i in 0...source.size() - 1: {
+            var v = source[i]
+
+            if v[1] != v[2]: {
+                raise Exception("Test '{0}' failed (want {1}, have {2})."
+                        .format(v[0], v[1], v[2]))
+            }
+        }
+    }
+
+    check_table(b_values)
+    check_table(i_values)
+    check_table(s_values)
+    """)
