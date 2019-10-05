@@ -1,0 +1,40 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestByteStringMethods < TestCase
+{
+    public define test_each_byte
+    {
+        var output: List[Byte] = []
+
+        B"abc".each_byte(|b| b |> output.push )
+
+        assert_equal(output, ['a', 'b', 'c'])
+    }
+
+    public define test_encode
+    {
+        assert_equal(B"\195\169".encode("error").unwrap(), "é")
+        assert_equal(B""        .encode("error").unwrap(), "")
+        assert_equal(B"asdf"    .encode("error").unwrap(), "asdf")
+
+        B"0"           .encode("invalidmode").is_none() |> assert_true
+        B"\000"        .encode("error")      .is_none() |> assert_true
+        B"\255\255\255".encode("error")      .is_none() |> assert_true
+    }
+
+    public define test_size
+    {
+        assert_equal(B"abc"               .size(), 3)
+        assert_equal("abc".to_bytestring().size(), 3)
+    }
+
+    public define test_slice
+    {
+        assert_equal(B"abc".slice(),      B"abc")
+        assert_equal(B"abc".slice(0, -1), B"ab")
+        assert_equal(B"abc".slice(1, 2),  B"b")
+        assert_equal(B"abc".slice(2, 1),  B"")
+        assert_equal(B"abc".slice(1, 5),  B"")
+    }
+}

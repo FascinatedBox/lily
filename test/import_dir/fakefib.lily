@@ -1,1 +1,0 @@
-define fakefib(n: Integer): Integer { return n }

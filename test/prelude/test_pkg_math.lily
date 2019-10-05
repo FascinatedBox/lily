@@ -1,0 +1,132 @@
+import (Interpreter,
+        TestCase) "../t/testing", math
+
+class TestPkgMath < TestCase
+{
+    public define test_abs
+    {
+        assert_equal(math.abs(-34), 34)
+    }
+
+    public define test_acos
+    {
+        assert_near_equal(math.acos(math.pi / 4.0), 0.6674572160283838)
+    }
+
+    public define test_asin
+    {
+        assert_near_equal(math.asin(math.pi / 4.0), 0.9033391107665127)
+    }
+
+    public define test_atan
+    {
+        assert_near_equal(math.atan(math.pi / 4.0), 0.6657737500283538)
+    }
+
+    public define test_ceil
+    {
+        assert_near_equal(math.ceil(23.4), 24.0)
+    }
+
+    public define test_cos
+    {
+        assert_near_equal(math.cos(math.pi), -1.0)
+    }
+
+    public define test_cosh
+    {
+        assert_near_equal(math.cosh(math.pi), 11.591953275521519)
+    }
+
+    public define test_exp
+    {
+        assert_near_equal(math.exp(3.0), 20.085536923187668)
+    }
+
+    public define test_fabs
+    {
+        assert_near_equal(math.fabs(-3.0), 3.0)
+    }
+
+    public define test_floor
+    {
+        assert_near_equal(math.floor(23.4), 23.0)
+    }
+
+    public define test_fmod
+    {
+        assert_near_equal(math.fmod(3.0, 2.0), 1.0)
+    }
+
+    public define test_ldexp
+    {
+        assert_near_equal(math.ldexp(5.0, 4), 80.0)
+    }
+
+    public define test_log
+    {
+        assert_near_equal(math.log(math.exp(1.0)), 1.0)
+    }
+
+    public define test_log10
+    {
+        assert_near_equal(math.log10(10.0), 1.0)
+    }
+
+    public define test_modf
+    {
+        var ip_fp = math.modf(23.4)
+
+        assert_near_equal(ip_fp[0], 23.0)
+        assert_near_equal(ip_fp[1], 0.4)
+    }
+
+    public define test_pow
+    {
+        assert_near_equal(math.pow(2.0, 5.0), 32.0)
+
+        math.pow(999999.0, 99999.0)
+            |> math.is_infinity
+            |> assert_true
+    }
+
+    public define test_sin
+    {
+        assert_near_equal(math.sin(math.pi / 2.0), 1.0)
+    }
+
+    public define test_sinh
+    {
+        assert_near_equal(math.sinh(math.pi / 2.0), 2.3012989023072947)
+    }
+
+    public define test_sqrt
+    {
+        assert_near_equal(math.sqrt(25.0), 5.0)
+
+        -1.0
+            |> math.sqrt
+            |> math.is_nan
+            |> assert_true
+    }
+
+    public define test_tan
+    {
+        assert_near_equal(math.tan(math.pi / 8.0), 0.41421356237309503)
+    }
+
+    public define test_tanh
+    {
+        assert_near_equal(math.tanh(math.pi / 8.0), 0.3736847479012153)
+    }
+
+    public define test_to_deg
+    {
+        assert_near_equal(math.to_deg(math.pi), 180.0)
+    }
+
+    public define test_to_rad
+    {
+        assert_near_equal(math.to_rad(180.0), math.pi)
+    }
+}

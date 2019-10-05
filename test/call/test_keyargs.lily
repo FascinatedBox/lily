@@ -1,0 +1,306 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestKeyargs < TestCase
+{
+    public define test_base
+    {
+        var t = Interpreter()
+
+        # base (Keyarg only call)
+
+        assert_parse_string(t, """
+            define f(:a a: Integer, :b b: String, :c c: List[Boolean]) {
+                if <[a, b, c]> != <[1, "2", [true]]>: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            f(:a 1, :b "2", :c [true])
+        """)
+
+        # base (Keyarg only call to verify order)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var expect = [111, 222, 333]
+
+            define f(:aa a: Integer,
+                     :bb b: Integer,
+                     :cc c: Integer) {
+                var got = [a, b, c]
+
+                if got != expect: {
+                    stderr.print("Expected {0}, but have {1} instead."
+                            .format(expect, got))
+                }
+            }
+
+            f(:aa 111, :bb 222, :cc 333)
+            f(:aa 111, :cc 333, :bb 222)
+            f(:bb 222, :aa 111, :cc 333)
+            f(:bb 222, :cc 333, :aa 111)
+            f(:cc 333, :aa 111, :bb 222)
+            f(:cc 333, :bb 222, :aa 111)
+        """)
+
+        # base (Keyargs followed by posarg)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(a: Integer, b: Integer, :c c: Integer, :d d: Integer) {
+                if [a, b, c, d] != [5, 10, 15, 20]: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            f(5, 10, :c 15, :d 20)
+            f(5, 10, :d 20, :c 15)
+        """)
+    }
+
+    public define test_keyoptvar
+    {
+        var t = Interpreter()
+
+        # keyoptvar (Call with vararg defaulting)
+
+        assert_parse_string(t, """
+            define vakeyopt_fn(expect: Integer,
+                               :a a: *Integer = 1,
+                               :b b: *Integer = 2,
+                               :c c: *Integer...=[3, 4])
+            {
+                var total = a + b
+
+                for i in 0...c.size() - 1: {
+                    total += c[i]
+                }
+
+                if total != expect: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            vakeyopt_fn(12, :a 2, :b 3)
+        """)
+
+        # keyoptvar (Call without vararg defaulting)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define vakeyopt_fn(expect: Integer,
+                               :a a: *Integer = 1,
+                               :b b: *Integer = 2,
+                               :c c: *Integer...=[3, 4])
+            {
+                var total = a + b
+
+                for i in 0...c.size() - 1: {
+                    total += c[i]
+                }
+
+                if total != expect: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            vakeyopt_fn(18, :c 5, :c 10)
+        """)
+    }
+
+    public define test_keyvar
+    {
+        var t = Interpreter()
+
+        # keyvar (pos+key args for vararg, only vararg)
+
+        assert_parse_string(t, """
+            define f(:a a: Integer...) {
+                if a != [5, 10, 15, 20]: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            f(5, 10, :a 15, :a 20)
+        """)
+
+        # keyvar (pos+key args for vararg, one posarg before)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define keyvar_total(:u unused: String, :va args: Integer...): Integer
+            {
+                var va_total = 0
+
+                for i in 0...args.size() - 1: {
+                    va_total += args[i]
+                }
+
+                return va_total
+            }
+
+            var tests = [
+                [6, keyvar_total(:u "a", :va 1, :va 2, :va 3)],
+                [6, keyvar_total(   "a", :va 1, :va 2, :va 3)],
+                [6, keyvar_total(   "a",     1, :va 2, :va 3)],
+                [6, keyvar_total(   "a",     1,     2, :va 3)],
+                [0, keyvar_total(:u "a")],
+            ]
+
+            for i in 0...tests.size() - 1: {
+                var t = tests[i]
+
+                if t[0] != t[1]: {
+                    raise Exception("Keyvar total #{0} failed.".format(i + 1))
+                }
+            }
+        """)
+
+        # keyvar (pos+key args, multiple mixes)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define keyvar_total_nopad(:va args: Integer...): Integer
+            {
+                var va_total = 0
+
+                for i in 0...args.size() - 1: {
+                    va_total += args[i]
+                }
+
+                return va_total
+            }
+
+            var tests = [
+                [6, keyvar_total_nopad(:va 1, :va 2, :va 3)],
+                [6, keyvar_total_nopad(    1, :va 2, :va 3)],
+                [6, keyvar_total_nopad(    1,     2, :va 3)],
+                [0, keyvar_total_nopad()],
+            ]
+
+            for i in 0...tests.size() - 1: {
+                var t = tests[i]
+
+                if t[0] != t[1]: {
+                    raise Exception("Keyvar nopad total #{0} failed.".format(i + 1))
+                }
+            }
+        """)
+    }
+
+    public define test_method
+    {
+        var t = Interpreter()
+
+        # method (Class method referenced by instance for keyargs)
+
+        assert_parse_string(t, """
+            class Example {
+                public define f(:a a: Integer): Integer {
+                    return a
+                }
+            }
+
+            if Example().f(:a 10) != 10: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_optarg
+    {
+        var t = Interpreter()
+
+        # optarg (Basic test sending all arguments)
+
+        assert_parse_string(t, """
+            define keyopt_fn(x: Integer,
+                             :a a: *Integer = 0,
+                             :b b: *Integer = 0)
+            {
+                if x != 1 || a != 2 || b != 3: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            keyopt_fn(1, :b 3, :a 2)
+        """)
+
+        # optarg (Basic test sending one of two arguments)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define keyopt_fn(x: Integer,
+                             :a a: *Integer = 100,
+                             :b b: *Integer = 200)
+            {
+                if x != 1 || a != 100 || b != 3: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            keyopt_fn(1, :b 3)
+        """)
+
+        # optarg (Spectrum with one posarg, two keyopt args)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define keyopt_fn(expect: Integer,
+                             :a a: *Integer = 0,
+                             :b b: *Integer = 0)
+            {
+                var total = a + b
+
+                if total != expect: {
+                    raise Exception("Failed.")
+                }
+            }
+
+            keyopt_fn(3, :a 1, :b 2)
+            keyopt_fn(1, :a 1)
+            keyopt_fn(3,    1, :b 2)
+            keyopt_fn(2, :b 2)
+            keyopt_fn(3, :b 2, :a 1)
+        """)
+    }
+
+    public define test_variant
+    {
+        var t = Interpreter()
+
+        # variant (keyargs only for a flat variant)
+
+        assert_parse_string(t, """
+            enum Example {
+                One(:a Integer, :b String, :c Boolean),
+                Two
+            }
+
+            var v = One(:c false, :a 10, :b "asdf")
+            var v2 = One(10, "asdf", false)
+
+            if v != v2: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # variant (keyargs only for a scoped variant)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            scoped enum Example {
+                One(:a Integer, :b String, :c Boolean),
+                Two
+            }
+
+            var v = Example.One(:b "asdf", :a 10, :c false)
+            var v2 = Example.One(10, "asdf", false)
+
+            if v != v2: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+}

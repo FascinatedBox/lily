@@ -1,0 +1,196 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestInference < TestCase
+{
+    public define test_assign_infer_dot
+    {
+        var t = Interpreter()
+
+        # assign inference (dot to concrete List)
+
+        assert_parse_string(t, """
+            class ConcreteBox {
+                public var @v = [0]
+            }
+
+            var cb = ConcreteBox()
+
+            cb.v = []
+        """)
+
+        # assign inference (dot to generic List)
+
+        assert_parse_string(t, """
+            class GenericBox[A](a: A) {
+                public var @v = [a]
+            }
+
+            var gb = GenericBox(1)
+
+            gb.v = []
+        """)
+    }
+
+    public define test_assign_infer_simple
+    {
+        var t = Interpreter()
+
+        # assign inference (assign to concrete List)
+
+        assert_parse_string(t, """
+            define base_inference(a: List[Integer]) {
+                a = []
+            }
+        """)
+
+        # assign inference (assign to generic List)
+
+        assert_parse_string(t, """
+            define generic_base_inference[A](a: List[A]) {
+                a = []
+            }
+        """)
+    }
+
+    public define test_assign_infer_subscript
+    {
+        var t = Interpreter()
+
+        # assign inference (subscript to concrete List)
+
+        assert_parse_string(t, """
+            define subscript_concrete(a: List[List[Integer]]) {
+                a[0] = []
+            }
+        """)
+
+        # assign inference (subscript simple generic case)
+
+        assert_parse_string(t, """
+            define subscript_generic[A](a: List[List[A]]) {
+                a[0] = []
+            }
+        """)
+    }
+
+    public define test_assign_infer_subscript_dot
+    {
+        var t = Interpreter()
+
+        # assign inference (subscript property to concrete List)
+
+        assert_parse_string(t, """
+            class ConcretePropSubscript {
+                public var @v = [[1]]
+            }
+
+            var cps = ConcretePropSubscript()
+            cps.v[0] = []
+        """)
+
+        # assign inference (subscript property to generic List)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class GenericPropSubscript[A](a: A) {
+                public var @v = [[a]]
+            }
+
+            var gps = GenericPropSubscript(1)
+            gps.v[0] = []
+        """)
+    }
+
+    public define test_enum_inference
+    {
+        var t = Interpreter()
+        assert_parse_string(t, """
+            enum Dual[A, B] {
+                One(A),
+                Two(B)
+            }
+
+            define f[A](a: A, b: A) {}
+
+            f(One(10), Two(""))
+            var v = [One(5), One(10), Two([1])]
+        """)
+    }
+
+    public define test_infer_by_result
+    {
+        var t = Interpreter()
+
+        # 'f' knows that A must be Integer, and should send that down as the
+        # inference to draw from.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to g is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](value1: A, value2: A) {  }
+            define g[A](value1: A): A { return value1 }
+            f(10, g("10"))
+        """)
+    }
+
+    public define test_keyarg_inference
+    {
+        var t = Interpreter()
+
+        # keyarg inference (generic parameter)
+
+        assert_parse_string(t, """
+            define f[A](:h h: A,
+                        :g g: Function(A => A)): A { return g(h) }
+
+            var v: Integer = f(:g (|a| a),
+                               :h 10)
+        """)
+
+        # keyarg inference (generic vararg parameter)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f[A](:va va: A...) {}
+            f(:va 1, :va 2, :va 3)
+        """)
+    }
+
+    public define test_lambda_inference
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define and_then[A, B, C](f: Function(A => B), g: Function(B => C)): Function(A => C)
+            {
+                return (|a| g(f(a)) )
+            }
+
+            define piped_and_then[A, B, C](f: Function(A => B), g: Function(B => C)): Function(A => C)
+            {
+                return (|a| a |> f |> g )
+            }
+
+            define f(a: Integer): Integer { return a * a }
+
+            and_then(f, f)(10)
+            piped_and_then(f, and_then(f, f))(20)
+        """)
+    }
+
+    public define test_solve_generic_varargs
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define f[A, B, C, D, E, F](values: F...) {}
+            define k[A](v1: A, v2: A) { f(v1, v2) }
+            k(1, 2)
+        """)
+    }
+}

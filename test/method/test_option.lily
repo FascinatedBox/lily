@@ -1,0 +1,95 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestOptionMethods < TestCase
+{
+    public define test__is_none
+    {
+        None.is_none()    |> assert_true
+        Some(1).is_none() |> assert_false
+    }
+
+    public define test__is_some
+    {
+        None   .is_some() |> assert_false
+        Some(1).is_some() |> assert_true
+    }
+
+    public define test_and
+    {
+        None   .and(None)   .is_none() |> assert_true
+        None   .and(Some(1)).is_none() |> assert_true
+        Some(1).and(None)   .is_none() |> assert_true
+        Some(1).and(Some(2)).is_none() |> assert_false
+    }
+
+    public define test_and_then
+    {
+        var v = None.@(Option[Integer]).and_then(|x| Some(0 / 0))
+        v.is_none() |> assert_true
+
+        var v2 = Some(4).and_then(|x| Some(x * x)).unwrap()
+        assert_equal(v2, 16)
+    }
+
+    public define test_map
+    {
+        var v: Option[Integer] = None
+        v.map(|x| 0 / 0).is_none() |> assert_true
+
+        var v2 = Some([1, 2, 3]).map(List.size).unwrap()
+        assert_equal(v2, 3)
+    }
+
+    public define test_or
+    {
+        var v = None.@(Option[Integer]).or(None)
+        v.is_none() |> assert_true
+
+        var v2 = None.@(Option[Integer]).or(Some(2)).unwrap()
+        assert_equal(v2, 2)
+
+        var v3 = Some(1).or(None).unwrap()
+        assert_equal(v3, 1)
+
+        var v4 = Some(1).or(Some(2)).unwrap()
+        assert_equal(v4, 1)
+    }
+
+    public define test_or_else
+    {
+        var v = None.@(Option[Integer]).or_else(|| Some(1)).unwrap()
+        assert_equal(v, 1)
+
+        var v2 = Some(1).or_else(|| Some(0 / 0)).unwrap()
+        assert_equal(v2, 1)
+    }
+
+    public define test_unwrap
+    {
+        assert_raises(
+                "ValueError: unwrap called on None.",
+                (|| None.@(Option[Integer]).unwrap()
+                    unit ))
+
+        var v = Some(1).unwrap()
+        assert_equal(v, 1)
+    }
+
+    public define test_unwrap_or
+    {
+        var v = None.@(Option[Integer]).unwrap_or(5)
+        assert_equal(v, 5)
+
+        assert_equal(Some(1).unwrap_or(5), 1)
+    }
+
+    public define test_unwrap_or_else
+    {
+        var v = None.@(Option[Integer]).unwrap_or_else(|| 5)
+        assert_equal(v, 5)
+
+        var v2 = Some(1).unwrap_or_else(|| 0 / 0)
+        assert_equal(v2, 1)
+    }
+}

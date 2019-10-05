@@ -1,0 +1,354 @@
+import (Interpreter,
+        LibraryTarget,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestBadImport < TestCase
+{
+    private var @t_brace_at_end =
+        StringTarget(
+            :path "brace_at_end",
+            :data "}"
+        )
+
+    private var @t_tag_at_end =
+        StringTarget(
+            :path "tag_at_end",
+            :data "?>"
+        )
+
+    private var @t_invalid_token =
+        StringTarget(
+            :path "invalid_token",
+            :data ";"
+        )
+
+    private var @t_var_exporter =
+        StringTarget(
+            :path "var_exporter",
+            :data "var v = 10"
+        )
+
+    private var @t_fff =
+        StringTarget(
+            :path "fff",
+            :data "import var_exporter"
+        )
+
+    private var @t_bad_asdf =
+        LibraryTarget(
+            :path "bad_asdf",
+            :redirect "test\/t\/backbone"
+        )
+
+    public define test_bad_direct_import
+    {
+        var t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        # bad direct import (trailing comma)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not ')'.\n    \
+                from [test]:2:\n\
+        """,
+        """
+            import (ref_var,) var_exporter
+        """)
+
+        # bad direct import (target a module)
+
+        t = Interpreter.with_targets(
+            @t_fff,
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to directly import modules ('var_exporter').\n    \
+                from [test]:3:\n\
+        """,
+        """
+            import (var_exporter) fff
+        """)
+
+        # bad direct import (missing symbol)
+
+        t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'missing' inside of module 'var_exporter'.\n    \
+                from [test]:3:\n\
+        """,
+        """
+            import (missing) var_exporter
+        """)
+
+        # bad direct import (missing symbol on foreign module)
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'missing' inside of module 'sys'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            import (missing) sys
+        """)
+
+        # bad direct import (duplicate import)
+
+        t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'v' has already been declared.\n    \
+                from [test]:3:\n\
+        """,
+        """
+            import (v, v) var_exporter
+        """)
+
+        # bad direct import (using as)
+
+        t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use 'as' when only specific items are being imported.\n    \
+                from [test]:2:\n\
+        """,
+        """
+            import (v) var_exporter as f
+        """)
+
+        # bad direct import (empty)
+
+        t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not ')'.\n    \
+                from [test]:2:\n\
+        """,
+        """
+            import () var_exporter
+        """)
+    }
+
+    public define test_bad_import_path
+    {
+    	var t = Interpreter()
+
+        # bad import path (invalid token)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'import' expected a path (identifier or string), not invalid token.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import ?
+        """)
+
+        # bad import path (begin with a slash)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Import path cannot begin or end with '/'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import "/wrong"
+        """)
+
+        # bad import path (end with a slash)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Import path cannot begin or end with '/'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import "wrong/"
+        """)
+
+        # bad import path (quoting an identifier)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Simple import paths do not need to be quoted.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import "asdf"
+        """)
+
+        # bad import path (empty string)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Import path must not be empty.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import ""
+        """)
+
+        # bad import path (escape characters)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Import path cannot contain escape characters.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import "\\n"
+        """)
+
+        # bad import path (triple-quote string)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Import path cannot be a triple-quote string.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import \"\"\"asdf\"\"\"
+        """)
+    }
+
+    public define test_bad_imported_file {
+        var t = Interpreter.with_targets(
+            @t_brace_at_end
+        )
+
+        # bad imported file (brace at end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: '}' outside of a block.\n    \
+                from brace_at_end.lily:1:\n\
+        """,
+        """
+            import brace_at_end
+        """)
+
+        # bad imported file (end tag)
+
+        t = Interpreter.with_targets(
+            @t_tag_at_end
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '?>'.\n    \
+                from tag_at_end.lily:1:\n\
+        """,
+        """
+            import tag_at_end
+        """)
+
+        # bad imported file (invalid)
+
+        t = Interpreter.with_targets(
+            @t_invalid_token
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'invalid token'.\n    \
+                from invalid_token.lily:1:\n\
+        """,
+        """
+            import invalid_token
+        """)
+    }
+
+    public define test_import_bad_library
+    {
+        # The library exists, but the tables are missing.
+
+        var message = """\
+            SyntaxError: Cannot import 'bad_asdf':\n    \
+                no preloaded package 'bad_asdf'\n    \
+                no file '.\/test\/t\/backbone.{lib}'\n    \
+                from [test]:1:\n\
+        """
+
+        if '\/' == '/': {
+            message = message.replace("{lib}", "so")
+        else:
+            message = message.replace("{lib}", "dll")
+        }
+
+        var t = Interpreter.with_targets(
+            @t_bad_asdf
+        )
+
+        assert_parse_fails(t, message, "import bad_asdf")
+    }
+
+    public define test_import_missing
+    {
+        # What does a failed import look like?
+
+        var message = """\
+            SyntaxError: Cannot import 'asdf':\n    \
+                no preloaded package 'asdf'\n    \
+                no file '.\/asdf.lily'\n    \
+                no file '.\/asdf.{lib}'\n    \
+                no file '.\/packages\/asdf\/src\/asdf.lily'\n    \
+                no file '.\/packages\/asdf\/src\/asdf.{lib}'\n    \
+                from [test]:1:\n\
+        """
+
+        if '\/' == '/': {
+            message = message.replace("{lib}", "so")
+        else:
+            message = message.replace("{lib}", "dll")
+        }
+
+        var t = Interpreter()
+
+        assert_parse_fails(t, message, "import asdf")
+    }
+
+    public define test_import_rules
+    {
+        var t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        # import rules (wrong symbol in direct import)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected either ',' or ')', not '+'.\n    \
+                from [test]:2:\n\
+        """,
+        """
+            import (v +) var_exporter
+        """)
+
+        # import rules (not within define)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot import a file here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f {
+                import empty
+            }
+        """)
+
+        # import rules (duplicate name with renamed import)
+
+        t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: A module named 'var_access' has already been imported here.\n    \
+                from [test]:3:\n\
+        """,
+        """
+            import var_exporter as var_access
+            import var_access
+        """)
+    }
+}

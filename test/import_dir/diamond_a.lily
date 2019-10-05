@@ -1,9 +1,0 @@
-import "import_dir/diamond_b"
-import "import_dir/diamond_c"
-
-# This tests that packages are loaded the first time, then simply linked
-# up subsequent times.
-# If diamond_d's code is run once, both _b and _c will add 1 to the
-# value, resulting in it being 12.
-# If both _b and _c run _d's code, the _b's increment will be wiped out,
-# resulting in 11.

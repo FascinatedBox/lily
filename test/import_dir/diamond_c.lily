@@ -1,3 +1,0 @@
-import "import_dir/diamond_d"
-
-diamond_d.value += 1

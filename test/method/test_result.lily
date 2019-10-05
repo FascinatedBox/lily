@@ -1,0 +1,29 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestResultMethods < TestCase
+{
+    public define test__is_failure
+    {
+        Failure(1).is_failure() |> assert_true
+        Success(2).is_failure() |> assert_false
+    }
+
+    public define test__is_success
+    {
+        Failure(1).is_success() |> assert_false
+        Success(2).is_success() |> assert_true
+    }
+
+    public define test_failure
+    {
+        assert_equal(Failure(1).failure().unwrap(), 1)
+        Success(2).failure().is_none() |> assert_true
+    }
+
+    public define test_success
+    {
+        Failure(1).success().is_none() |> assert_true
+        assert_equal(Success(2).success().unwrap(), 2)
+    }
+}

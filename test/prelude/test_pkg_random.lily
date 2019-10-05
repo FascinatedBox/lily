@@ -1,0 +1,59 @@
+import (Interpreter,
+        TestCase) "../t/testing", random
+
+class TestPkgRandom < TestCase
+{
+    private define random_ctor_no_seed
+    {
+        var r = random.Random()
+        var to_check = r.between(0, 10)
+        var ok = true
+        for i in 0...100: {
+            var b = r.between(0, 10)
+            if b < 0 || b > 10: {
+                ok = false
+                break
+            }
+        }
+
+        ok |> assert_true
+    }
+
+    private define random_ctor_with_seed
+    {
+        var r = random.Random(1234567890)
+        var to_check = r.between(0, 10)
+        var ok = true
+        for i in 0...100: {
+            var b = r.between(0, 10)
+            if b < 0 || b > 10: {
+                ok = false
+                break
+            }
+        }
+
+        ok |> assert_true
+    }
+
+    public define test_Random_ctor
+    {
+        random_ctor_no_seed()
+        random_ctor_with_seed()
+    }
+
+    public define test_Random_between
+    {
+        assert_raises("ValueError: Interval range is empty.",
+            (|| random.Random().between(0, 0)
+                unit ))
+
+        assert_raises("ValueError: Interval exceeds 32 bits in size.",
+            (|| random.Random().between(-999999999999999, 0)
+                unit ))
+
+
+        assert_raises("ValueError: Interval exceeds 32 bits in size.",
+            (|| random.Random().between(0, 999999999999999)
+                unit ))
+    }
+}

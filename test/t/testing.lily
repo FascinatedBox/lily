@@ -1,0 +1,299 @@
+#[
+    This file is part of the interpreter's testing suite. It's a simplified
+    version of what's available in lily-testkit. This version offloads more to
+    the C side. The less Lily code involved in running the testing suite, the
+    better.
+]#
+
+# The backbone library is in the same directory as this file. However, each
+# test file is run in a separate interpreter as the main source to be parsed. As
+# a result, this import has to backtrack out of that directory to where it
+# started.
+import "../t/backbone"
+
+class TestAssertionFailed(message: String) < Exception(message) {  }
+class TestSkipped(message: String) < Exception(message) {  }
+
+class TestCase < backbone.TestCaseBase
+{
+    private var @fake_error = Exception("")
+
+    # When an error is raised, the traceback includes frames from the driver.
+    # Most subclasses don't do anything interesting and can leave this alone.
+    protected var @trace_overhead = 3
+
+    public define assert_equal[A](left: A, right: A) {
+        if left != right: {
+            var message = """\
+                Assertion (left == right) failed.\n     \
+                  left: `{0}`\n    \
+                 right: `{1}`\
+            """.format(left, right)
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_near_equal(x: Double,
+                                    y: Double,
+                                    delta: *Double=0.0000001) {
+        var is_near = false
+
+        if x == 0.0 && y == 0.0 ||
+           ((x - y) / y < delta): {
+            is_near = true
+        }
+
+        if is_near == false: {
+            var message = """\
+                Assertion (left near right) failed.\n     \
+                  left: `{0}`\n    \
+                 right: `{1}`\n    \
+                 delta: `{2}`\n\
+            """.format(x, y, delta)
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_not_equal[A](left: A, right: A) {
+        if left == right: {
+            var message = """\
+                Assertion (left != right) failed.\n     \
+                  left: `{0}`\n    \
+                 right: `{1}`\
+            """.format(left, right)
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_false(value: Boolean) {
+        if value == true: {
+            var message = "Assertion (value == true) failed."
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_true(value: Boolean) {
+        if value == false: {
+            var message = "Assertion (value == false) failed."
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_parse_string(interp: backbone.Interpreter,
+                                      data: String)
+    {
+        var result = interp.parse_string("[test]", data)
+
+        if result == false: {
+            var message = "Assertion (parse string) failed.\n" ++
+                    interp.error()
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_parse_fails(interp: backbone.Interpreter,
+                                     expect: String,
+                                     data: String)
+    {
+        var result = interp.parse_string("[test]", data)
+
+        if result == true: {
+            var message = "Assertion (parse fails) failed.\n"
+            raise TestAssertionFailed(message)
+        else:
+            var reason = interp.error()
+            if expect != reason: {
+                var message = """\
+                    Assertion (parse fails) failed incorrectly.\n\
+                    (expected)`{0}`\n\
+                    (received)`{1}`""".format(expect, reason)
+                raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
+            }
+        }
+    }
+
+    public define assert_render_fails(interp: backbone.Interpreter,
+                                      expect: String,
+                                      data: String)
+    {
+        var result = interp.render_string("[test]", data)
+
+        if result == true: {
+            var message = "Assertion (render fails) failed.\n"
+            raise TestAssertionFailed(message)
+        else:
+            var reason = interp.error()
+            if expect != reason: {
+                var message = """\
+                    Assertion (render fails) failed incorrectly.\n\
+                    (expected)`{0}`\n\
+                    (received)`{1}`""".format(expect, reason)
+                raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
+            }
+        }
+    }
+
+    public define assert_render_string(interp: backbone.Interpreter,
+                                       data: String)
+    {
+        var result = interp.render_string("[test]", data)
+
+        if result == false: {
+            var message = "Assertion (render string) failed.\n" ++
+                    interp.error()
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    private define error_header(ex: Exception): String {
+        var ex_name = (ex ++ "").lstrip("<").split(" ")[0]
+        var ex_message = ex_name ++ ": " ++ ex.message
+
+        return ex_message
+    }
+
+    public define assert_raises(expect: String, fn: Function()) {
+        try: {
+            fn()
+        except Exception as ex:
+            var e_header = error_header(ex)
+            if e_header != expect: {
+                var message = """\
+                    Assertion (raises) failed.\n    \
+                      expected: `{0}`\n       \
+                         given: `{1}`\
+                """.format(expect, e_header)
+                raise TestAssertionFailed(message)
+            }
+        }
+    }
+
+    public define fail(reason: String) {
+        raise TestAssertionFailed(reason)
+    }
+
+    public define skip(reason: String) {
+        raise TestSkipped(reason)
+    }
+
+    private define test_error(error: Exception): String {
+        # These first few frames are overhead from the test suite itself.
+        var trace = error.traceback.slice(@trace_overhead)
+
+        match error: {
+            case TestAssertionFailed(e):
+                # This was raised by an assert. Don't include the assert call in
+                # the traceback (clip off the top frame).
+                trace = trace.slice(0, -1)
+            else:
+                # This is a raw exception, so keep everything.
+        }
+
+        trace = trace.map(|t| ("    from " ++ t) )
+
+        # Fetch class name through interpolation.
+        var name = (error ++ "").lstrip("<").split(" ")[0]
+        var result = name ++ "\n" ++
+                     error.message ++ "\n" ++
+                     trace.join("\n")
+
+        return result
+    }
+
+    # This should only be called from the backbone.
+    protected define run_one_test[A](value: A, func: Function(A),
+            name: String) {
+        var error = @fake_error
+
+        stdout.write("    test {0}\r".format(name))
+        stdout.flush()
+
+        try: {
+            func(value)
+        except TestSkipped as e:
+            @skip_count += 1
+        except Exception as e:
+            @fail_count += 1
+            error = e
+        }
+
+        stdout.write("                                                            \r")
+
+        if error != @fake_error: {
+            error |> test_error |> stdout.print
+        }
+
+        stdout.flush()
+    }
+}
+
+enum ImportTarget {
+    StringTarget(:path String,
+                 :data String),
+    LibraryTarget(:path String,
+                  :redirect String)
+}
+
+class Interpreter < backbone.Interpreter
+{
+    private var @targets: List[ImportTarget] = []
+
+    private define import_hook(want_path: String)
+    {
+        for i in 0...@targets.size() - 1: {
+            var t = @targets[i]
+
+            match t: {
+                case StringTarget(t_path, t_data):
+                    if want_path == t_path: {
+                        import_use_local_dir("")
+                        import_string(want_path, t_data)
+                        break
+                    }
+                case LibraryTarget(t_path, t_redirect):
+                    if want_path == t_path: {
+                        import_use_local_dir("")
+                        import_library(t_redirect)
+                        break
+                    }
+            }
+        }
+    }
+
+    private static define hook(s: backbone.Interpreter, target: String)
+    {
+        match s: {
+            case Interpreter(i):
+                import_hook(i, target)
+            else:
+        }
+    }
+
+    public static define with_targets(targets: ImportTarget...): Interpreter
+    {
+        var t = Interpreter()
+
+        t.set_hook(hook)
+        t.targets = targets
+
+        return t
+    }
+}

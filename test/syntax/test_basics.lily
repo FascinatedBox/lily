@@ -1,0 +1,1473 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBasics < TestCase
+{
+    public define test_assign_chain
+    {
+        var t = Interpreter()
+
+        # assign chain (simple assign, function parameters)
+
+        assert_parse_string(t, """
+            define f(a: Integer, b: Integer, c: Integer) {
+                a = b = c
+
+                if a == 3 && b == 3: { else: 0 / 0 }
+            }
+
+            f(1, 2, 3)
+        """)
+
+        # assign chain (compound assign, function parameters)
+
+        assert_parse_string(t, """
+            define f2(a: Integer, b: Integer, c: Integer) {
+                a *= b *= c
+
+                if a == 6000 && b == 600 && c == 30: { else: 0 / 0 }
+            }
+
+            f2(10, 20, 30)
+        """)
+
+        # assign chain (simple assign, function locals)
+
+        assert_parse_string(t, """
+            define g {
+                var a = 1, b = 2, c = 3
+                a = b = c
+
+                if a == 3 && b == 3: { else: 0 / 0 }
+            }
+
+            g()
+        """)
+
+        # assign chain (compound assign, function locals)
+
+        assert_parse_string(t, """
+            define g2 {
+                var a = 10, b = 20, c = 30
+                a *= b *= c
+
+                if a == 6000 && b == 600 && c == 30: { else: 0 / 0 }
+            }
+
+            g2()
+        """)
+
+        # assign chain (simple assign, global vars)
+
+        assert_parse_string(t, """
+            var a = 1, b = 2, c = 3
+            a = b = c
+
+            if a == 3 && b == 3: { else: 0 / 0 }
+        """)
+
+        # assign chain (compound assign, global vars)
+
+        assert_parse_string(t, """
+            a = 10
+            b = 20
+            c = 30
+
+            a *= b *= c
+
+            if a == 6000 && b == 600 && c == 30: { else: 0 / 0 }
+        """)
+
+        # assign chain (simple assign, @prop vars)
+
+        assert_parse_string(t, """
+            class SimpleAssign(a: Integer, b: Integer, c: Integer)
+            {
+                public var @a = a
+                public var @b = b
+                public var @c = c
+                @a = @b = @c
+            }
+
+            var sim = SimpleAssign(1, 2, 3)
+
+            if sim.a == 3 && sim.b == 3: { else: 0 / 0 }
+        """)
+
+        # assign chain (compound assign, @prop vars)
+
+        assert_parse_string(t, """
+            class CompoundAssign(a: Integer, b: Integer, c: Integer)
+            {
+                public var @a = a
+                public var @b = b
+                public var @c = c
+                @a *= @b *= @c
+            }
+
+            var com = CompoundAssign(10, 20, 30)
+
+            if com.a == 6000 && com.b == 600 && com.c == 30: { else: 0 / 0 }
+        """)
+
+        # assign chain (simple assign, .prop vars)
+
+        assert_parse_string(t, """
+            class Triad(a: Integer, b: Integer, c: Integer)
+            {
+                public var @a = a
+                public var @b = b
+                public var @c = c
+            }
+
+            var tri = Triad(1, 2, 3)
+
+            tri.a = tri.b = tri.c
+
+            if tri.a == 3 && tri.b == 3 && tri.c == 3: { else: 0 / 0 }
+        """)
+
+        # assign chain (compound assign, .prop vars)
+
+        assert_parse_string(t, """
+            tri = Triad(10, 20, 30)
+
+            tri.a *= tri.b *= tri.c
+
+            if tri.a == 6000 && tri.b == 600 && tri.c == 30: { else: 0 / 0 }
+        """)
+    }
+
+    public define test_comparisons
+    {
+        var t = Interpreter()
+
+        # comparisons (uncommon <, <=, >=, > for Byte)
+
+        assert_parse_string(t, """
+            if 10t > 11t: { 0 / 0 }
+            if 10t >= 10t: { else: 0 / 0 }
+            if 11t <= 11t: { else: 0 / 0 }
+            if 12t <= 11t: { 0 / 0 }
+        """)
+
+        # comparisons (eq/not eq for Hash)
+
+        assert_parse_string(t, """
+            if ["a" => 1, "b" => 2] != ["a" => 2, "b" => 4]: { else: 0 / 0 }
+            if ["a" => 1, "b" => 2] != ["c" => 2, "d" => 4]: { else: 0 / 0 }
+            if ["a" => 1]           != ["a" => 1, "b" => 2]: { else: 0 / 0 }
+            if ["a" => 1, "a" => 2] == ["a" => 2]: { else: 0 / 0 }
+        """)
+
+        # comparisons (eq/not eq for List)
+
+        assert_parse_string(t, """
+            if [1.5]     == [1.5]: { else: 0 / 0 }
+            if [1, 2, 3] != [1, 2, 3, 4]: { else: 0 / 0 }
+        """)
+
+        # comparisons (different non-empty variants of the same enum)
+
+        assert_parse_string(t, """
+            enum Example {
+                One(Integer),
+                Two(Integer)
+            }
+
+            var a = One(1)
+            var b = Two(1)
+
+            if a == b: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_compound_ops
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define left_shift {
+                var v = 1
+                v <<= 1
+                if v == 2: { else: 0 / 0 }
+            }
+
+            define right_shift {
+                var v = 1
+                v >>= 1
+                if v == 0: { else: 0 / 0 }
+            }
+
+            define bitwise_and {
+                var v = 0xf
+                v &= 0x0
+                if v == 0: { else: 0 / 0 }
+            }
+
+            define bitwise_or {
+                var v = 0x1
+                v |= 0x2
+                if v == 0x3: { else: 0 / 0 }
+            }
+
+            define bitwise_xor {
+                var v = 0x1
+                v ^= 0x1
+                if v == 0x0: { else: 0 / 0 }
+            }
+
+            define plus {
+                var v = 1
+                v += 1
+                if v == 2: { else: 0 / 0 }
+            }
+
+            define minus {
+                var v = 1
+                v -= 1
+                if v == 0: { else: 0 / 0 }
+            }
+
+            define multiply {
+                var v = 10
+                v *= 20
+                if v == 200: { else: 0 / 0 }
+            }
+
+            define divide {
+                var v = 1000
+                v /= 10
+                if v == 100: { else: 0 / 0 }
+            }
+
+            define modulo {
+                var v = 10
+                v %= 7
+                if v == 3: { else: 0 / 0 }
+            }
+
+            left_shift()
+            right_shift()
+            bitwise_and()
+            bitwise_or()
+            bitwise_xor()
+            plus()
+            minus()
+            multiply()
+            divide()
+            modulo()
+        """)
+    }
+
+    public define test_digit_collection
+    {
+        var t = Interpreter()
+
+        # digit collection (base cases)
+
+        assert_parse_string(t, """
+            define verify_integer(x: String, y: String) {
+                if x != y: {
+                    0 / 0
+                }
+            }
+
+            define verify_double(x: Double, y: Double) {
+                if x != y: {
+                    0 / 0
+                }
+            }
+
+            verify_integer(0b0110.to_s(),       "6")
+            verify_integer(0c1234567.to_s(),    "342391")
+            verify_integer(0x1234567890.to_s(), "78187493520")
+            verify_integer(0xabcdef.to_s(),     "11259375")
+            verify_integer(0xABCDEF.to_s(),     "11259375")
+
+            verify_integer(0b0000110.to_s(),       "6")
+            verify_integer(0c0001234567.to_s(),    "342391")
+            verify_integer(0x0001234567890.to_s(), "78187493520")
+            verify_integer(0x000abcdef.to_s(),     "11259375")
+            verify_integer(0x000ABCDEF.to_s(),     "11259375")
+
+            verify_double(1e-1, 0.1)
+            verify_double(1e+1, 10.0)
+            verify_double(1e1,  10.0)
+            verify_double(.1,   0.1)
+        """)
+
+        # digit collection (min + max for all digits)
+
+        assert_parse_string(t, """
+            define verify_max(x: String) {
+                if x != "9223372036854775807": {
+                    0 / 0
+                }
+            }
+
+            verify_max(+0b111111111111111111111111111111111111111111111111111111111111111.to_s())
+            verify_max(+0c777777777777777777777.to_s())
+            verify_max(  +9223372036854775807.to_s())
+            verify_max(+0x7fffffffffffffff.to_s())
+            verify_max(+0x7FFFFFFFFFFFFFFF.to_s())
+
+            verify_max(+0b000111111111111111111111111111111111111111111111111111111111111111.to_s())
+            verify_max(+0c000777777777777777777777.to_s())
+            verify_max(  +0009223372036854775807.to_s())
+            verify_max(+0x0007fffffffffffffff.to_s())
+            verify_max(+0x0007FFFFFFFFFFFFFFF.to_s())
+
+            verify_max(0b000111111111111111111111111111111111111111111111111111111111111111.to_s())
+            verify_max(0c000777777777777777777777.to_s())
+            verify_max(  0009223372036854775807.to_s())
+            verify_max(0x0007fffffffffffffff.to_s())
+            verify_max(0x0007FFFFFFFFFFFFFFF.to_s())
+
+            define verify_min(x: String) {
+                if x != "-9223372036854775808": {
+                    0 / 0
+                }
+            }
+
+            verify_min(-0b1000000000000000000000000000000000000000000000000000000000000000.to_s())
+            verify_min(-0c1000000000000000000000.to_s())
+            verify_min(  -9223372036854775808.to_s())
+            verify_min(-0x8000000000000000.to_s())
+
+            verify_min(-0b0001000000000000000000000000000000000000000000000000000000000000000.to_s())
+            verify_min(-0c0001000000000000000000000.to_s())
+            verify_min(  -0009223372036854775808.to_s())
+            verify_min(-0x0008000000000000000.to_s())
+        """)
+    }
+
+    public define test_do_while
+    {
+        var t = Interpreter()
+
+        # do while (base case with failsafe)
+
+        assert_parse_string(t, """
+            var counter = 0
+            var i = 0
+
+            do: {
+                if counter == 15: { 0 / 0 }
+                counter += 1
+                i += 1
+            } while i != 10
+
+            if i != 10: { 0 / 0 }
+            if counter != 10: { 0 / 0 }
+        """)
+
+        # do while (with continue)
+
+        assert_parse_string(t, """
+            i = 0
+            counter = 0
+
+            do: {
+                i += 1
+
+                if i % 2: { continue }
+
+                counter += 1
+            } while i != 10
+
+            if i != 10: { 0 / 0 }
+            if counter != 5: { 0 / 0 }
+        """)
+
+        # do while (with break)
+
+        assert_parse_string(t, """
+            i = 0
+            counter = 0
+
+            do: {
+                i += 1
+
+                if i == 5: { break }
+
+                counter += 1
+            } while i != 10
+
+            if i != 5: { 0 / 0 }
+            if counter != 4: { 0 / 0 }
+        """)
+
+        # do while (literal truthy condition)
+
+        assert_parse_string(t, """
+            i = 0
+
+            do: {
+                i += 1
+
+                if i == 10: {
+                    break
+                }
+            } while 1
+
+            if i != 10: { 0 / 0 }
+        """)
+
+        # do while (literal falsey condition)
+
+        assert_parse_string(t, """
+            i = 1
+
+            do: {
+                i += 1
+            } while 0
+
+            if i != 2: { 0 / 0 }
+        """)
+    }
+
+    public define test_docstrings
+    {
+        var t = Interpreter()
+
+        # docstrings (for class)
+
+        assert_parse_string(t, """
+            ### Documentation for
+            ### example
+            ### class
+            class Example {
+
+            }
+        """)
+
+        # docstrings (for a public method)
+
+        assert_parse_string(t, """
+            class Example2 {
+                ### Docstring for
+                ### public definition
+                public define a {
+
+                }
+            }
+        """)
+    }
+
+    public define test_exit_folding
+    {
+        var t = Interpreter()
+
+        # exit folding (simple if base case)
+
+        assert_parse_string(t, """
+            define with_if(a: Integer) : Integer {
+                if a == 1: {
+                    return 1
+                else:
+                    return 1
+                }
+            }
+        """)
+
+        # exit folding (using if elif else)
+
+        assert_parse_string(t, """
+            define with_elif(a: Integer) : Integer
+            {
+                if a == 1: {
+                    return 1
+                elif a == 2:
+                    return 2
+                else:
+                    return 3
+                }
+            }
+        """)
+
+        # exit folding (using nested if)
+
+        assert_parse_string(t, """
+            define with_nested_if(a: Integer) : Integer
+            {
+                if a == 1: {
+                    if a == 2: {
+                        return 1
+                    elif a == 3:
+                        return 2
+                    else:
+                        return 3
+                    }
+                else:
+                    return 4
+                }
+            }
+        """)
+
+        # exit folding (using raise)
+
+        assert_parse_string(t, """
+            define with_raise(a: Integer) : Integer
+            {
+                if a == 1: {
+                    raise ValueError("")
+                else:
+                    raise ValueError("")
+                }
+            }
+        """)
+
+        # exit folding (using enum match)
+
+        assert_parse_string(t, """
+            define with_enum_match(a: Option[Integer]) : Integer
+            {
+                match a: {
+                    case Some(s):
+                        return 1
+                    case None:
+                        return 2
+                }
+            }
+        """)
+
+        # exit folding (using class match)
+
+        assert_parse_string(t, """
+            class One {}
+            class Two < One {}
+            class Three < Two {}
+
+            define with_class_match(input: One): Integer {
+                match input: {
+                    case Three(t):
+                        return 1
+                    case Two(t):
+                        raise ValueError("")
+                    else:
+                        return 2
+                }
+            }
+        """)
+    }
+
+    public define test_expressions
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define assert_integer(x: Integer, y: Integer) {
+                if x != y: {
+                    0 / 0
+                }
+            }
+
+            define assert_double(x: Double, y: Double) {
+                if x != y: {
+                    0 / 0
+                }
+            }
+
+            assert_integer(1 << 1,  2)
+            assert_integer(1 >> 1,  0)
+            assert_integer(~0,     -1)
+            assert_integer(--10,   10)
+
+            assert_double(-(-1.0), 1.0)
+        """)
+
+        assert_parse_string(t, """
+            assert_double(25.0 / 5.0,  5.0)
+            assert_double(5.0 * 5.0,  25.0)
+            assert_double(5.0 - 5.0,   0.0)
+            assert_double(5.0 + 5.0,  10.0)
+        """)
+    }
+
+    public define test_for_loop_base
+    {
+        var t = Interpreter()
+
+        # for loop base (simple loop)
+
+        assert_parse_string(t, """
+            var counter = 0
+            var gstart = 0
+            var gend = 0
+
+            for i in 0...10: {
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (default step of 1)
+
+        assert_parse_string(t, """
+            counter = 0
+            gstart = 0
+            gend = 0
+
+            for i in 0...10: {
+                if i != counter: { 0 / 0 }
+
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (mutating start has no effect)
+
+        assert_parse_string(t, """
+            counter = 0
+            gstart = 0
+            gend = 10
+
+            for i in gstart...gend: {
+                if i == 5: {
+                    gstart = 20
+                }
+
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (mutating end has no effect)
+
+        assert_parse_string(t, """
+            counter = 0
+            gstart = 0
+            gend = 10
+
+            for i in gstart...gend: {
+                if i == 5: {
+                    gend = 20
+                }
+
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (mutating iterator does not cause early termination)
+
+        assert_parse_string(t, """
+            counter = 0
+            gstart = 0
+            gend = 10
+
+            for i in gstart...gend: {
+                if i == 5: {
+                    i = 20
+                }
+
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (step by 2)
+
+        assert_parse_string(t, """
+            counter = 0
+
+            for i in 0...10 by 2: {
+                if i % 2: { 0 / 0 }
+
+                counter += 1
+            }
+
+            if counter != 6: { 0 / 0 }
+        """)
+
+        # for loop base (step by -1)
+
+        assert_parse_string(t, """
+            counter = 0
+
+            for i in 10...0 by -1: {
+                counter += 1
+            }
+
+            if counter != 11: { 0 / 0 }
+        """)
+
+        # for loop base (positive step skips start over end)
+
+        assert_parse_string(t, """
+            for i in 10...0: { 0 / 0 }
+        """)
+
+        # for loop base (negative step skips start under end)
+
+        assert_parse_string(t, """
+            for i in 0...10 by -1: { 0 / 0 }
+        """)
+
+        # for loop base (positive step does one move for start == end)
+
+        assert_parse_string(t, """
+            counter = 0
+
+            for i in 0...0: {
+                counter += 1
+            }
+
+            if counter != 1: { 0 / 0 }
+        """)
+
+        # for loop base (negative step does one move for start == end)
+
+        assert_parse_string(t, """
+            counter = 0
+
+            for i in 0...0 by -1: {
+                counter += 1
+            }
+
+            if counter != 1: { 0 / 0 }
+        """)
+
+        # for loop base (nested loops)
+
+        assert_parse_string(t, """
+            var v = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+
+            for i in 0...2: {
+                for j in 0...2: {
+                    v[i][j] = 1
+                }
+            }
+
+            if v != [[1, 1, 1], [1, 1, 1], [1, 1, 1]]: { 0 / 0 }
+        """)
+    }
+
+    public define test_for_loops
+    {
+        var t = Interpreter()
+
+        # for loop (global scope, new var, using continue)
+
+        assert_parse_string(t, """
+            var counter = 0
+
+            for i in 0...10: {
+                if i % 2: {
+                    continue
+                }
+                counter += 1
+            }
+
+            if counter != 6: { 0 / 0 }
+        """)
+
+        # for loops (global scope, new var, using break)
+
+        assert_parse_string(t, """
+            counter = 0
+
+            for i in 0...10: {
+                if i == 5: {
+                    break
+                }
+
+                counter += 1
+            }
+
+            if counter != 5: { 0 / 0 }
+        """)
+
+        # for loops (global scope, new var, movement check)
+
+        assert_parse_string(t, """
+            var glist: List[Integer] = []
+
+            counter = 0
+
+            for i in 0...5: {
+                glist.push(i)
+                counter += 1
+            }
+
+            if glist != [0, 1, 2, 3, 4, 5]: { 0 / 0 }
+            if counter != 6: { 0 / 0 }
+        """)
+
+        # for loops (global scope, existing var, movement check)
+
+        assert_parse_string(t, """
+            var globali = 5
+
+            glist = []
+            counter = 0
+
+            for globali in 0...5: {
+                glist.push(globali)
+                counter += 1
+            }
+
+            if glist != [0, 1, 2, 3, 4, 5]: { 0 / 0 }
+            if counter != 6: { 0 / 0 }
+            if globali != 5: { 0 / 0 }
+        """)
+
+        # for loops (define local scope, new var, base check)
+
+        assert_parse_string(t, """
+            define local_new_var_base {
+                var total = 0
+
+                for i in 0...10: {
+                    total += 1
+                }
+
+                if total != 11: { 0 / 0 }
+            }
+
+            local_new_var_base()
+        """)
+
+        # for loops (define local scope, new var, movement)
+
+        assert_parse_string(t, """
+            define local_new_var_movement {
+                var total = 0
+                var values: List[Integer] = []
+
+                for i in 0...5: {
+                    values.push(i)
+                    total += 1
+                }
+
+                if values != [0, 1, 2, 3, 4, 5]: { 0 / 0 }
+                if total != 6: { 0 / 0 }
+            }
+
+            local_new_var_movement()
+        """)
+
+        # for loops (define param scope, base check)
+
+        assert_parse_string(t, """
+            define param_var_base(i: Integer) {
+                var total = 0
+
+                for i in 0...10: {
+                    total += 1
+                }
+
+                if total != 11: { 0 / 0 }
+                if i != 10: { 0 / 0 }
+            }
+
+            param_var_base(5)
+        """)
+
+        # for loops (define param scope, base check)
+
+        assert_parse_string(t, """
+            define param_var_movement(i: Integer) {
+                var total = 0
+                var values: List[Integer] = []
+
+                for i in 0...5: {
+                    values.push(i)
+                    total += 1
+                }
+
+                if values != [0, 1, 2, 3, 4, 5]: { 0 / 0 }
+                if total != 6: { 0 / 0 }
+                if i != 5: { 0 / 0 }
+            }
+
+            param_var_movement(5)
+        """)
+    }
+
+    public define test_hash_basics
+    {
+        var t = Interpreter()
+
+        # hash basics (assign creates values)
+
+        assert_parse_string(t, """
+            var v = ["a" => "a"]
+            v["b"] = "b"
+            v["c"] = "c"
+
+            if v != ["a" => "a", "b" => "b", "c" => "c"]: {
+                0 / 0
+            }
+        """)
+
+        # hash basics (literals are right-biased)
+
+        assert_parse_string(t, """
+            var h = [1 => 1, 1 => 2, 2 => 2, 2 => 4]
+
+            if h != [1 => 2, 2 => 4]: { 0 / 0 }
+        """)
+
+        # hash basics (visiting all values)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var h: Hash[Integer, Integer] = []
+            var reverse_h: Hash[Integer, Integer] = []
+            var i = 0
+            var expect = 0
+            var loop_total = 15
+
+            for i in 0...loop_total: {
+                h[i] = i
+                reverse_h[loop_total - i] = loop_total - i
+                expect += i
+            }
+
+            var local_total = 0
+            h.each_pair(|k, v| local_total += v)
+
+            local_total == expect &&
+            h == reverse_h
+        """)
+    }
+
+    public define test_hash_internals
+    {
+        var t = Interpreter()
+
+        # hash internals (build and use large Hash)
+
+        assert_parse_string(t, """
+            var letters = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+            var h: Hash[String, Integer] = []
+
+            var a = 0
+            var b = 0
+            var c = 0
+
+            for a in 0...letters.size() - 1: {
+                for b in 0...letters.size() - 1: {
+                    for c in 0...letters.size() - 1: {
+                        var new_key = letters[a] ++ letters[b] ++ letters[c]
+                        h[new_key] = 0
+                    }
+                }
+            }
+
+            h.delete("asdf")
+        """)
+
+        # hash internals (hash with colliding member)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var keys = ["moderately able aardvark", "moderately abandoned aardvark"]
+            var h: Hash[String, Integer] = []
+
+            keys.each(|key| h[key] = 0 )
+            h.delete("moderately able aardvark")
+
+            if h.size() != 1: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # hash internals (siphash with long keys)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var h: Hash[String, Integer] = []
+            var i = 0
+            var key = "a"
+
+            for i in 0...32: {
+                h[key] = 0
+                key = key ++ "a"
+            }
+
+            key = ""
+
+            for i in 0...32: {
+                h[key] = 1
+                key = key ++ "a"
+            }
+        """)
+    }
+
+    public define test_magic_words
+    {
+        var t = Interpreter()
+
+        # magic words (__line__ at toplevel line 1)
+
+        assert_parse_string(t, """\
+            var t = __line__
+            if t != 1: {
+                0 / 0
+            }
+        """)
+
+        # magic words (__line__ at toplevel line 3)
+
+        assert_parse_string(t, """\n\n\
+            t = __line__
+            if t != 3: {
+                0 / 0
+            }
+        """)
+
+        # magic words (__function__ at toplevel)
+
+        assert_parse_string(t, """
+            if __function__ != "__main__": {
+                0 / 0
+            }
+        """)
+
+        # magic words (__function__ inside a define)
+
+        assert_parse_string(t, """
+            define f: String {
+                return __function__
+            }
+
+            if f() != "f": {
+                0 / 0
+            }
+        """)
+
+
+        # magic words (__file__ at toplevel)
+
+        assert_parse_string(t, """
+            if __file__ != "[test]": {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_starting_expressions
+    {
+        var t = Interpreter()
+
+        # Check that various tokens are allowed to start an expression.
+
+        assert_parse_string(t, """
+            1
+        """)
+
+        assert_parse_string(t, """
+            1.0
+        """)
+
+        assert_parse_string(t, """
+            [1]
+        """)
+
+        assert_parse_string(t, """
+            <[1]>
+        """)
+
+        assert_parse_string(t, """
+            [1 => 1]
+        """)
+
+        assert_parse_string(t, """
+            true
+        """)
+
+        assert_parse_string(t, """
+            false
+        """)
+
+        assert_parse_string(t, """
+            ""
+        """)
+
+        assert_parse_string(t, """
+            (1)
+        """)
+
+        assert_parse_string(t, """
+            +1
+        """)
+
+        assert_parse_string(t, """
+            -1
+        """)
+    }
+
+    public define test_string_collection
+    {
+        assert_equal("",           """""")
+        assert_equal("abc",        """abc""")
+        assert_equal("\aabc",      """\aabc""")
+        assert_equal("abc\adef",   """abc\adef""")
+        assert_equal("abcdef\a",   """abcdef\a""")
+        assert_equal("\aabc\adef", """\aabc\adef""")
+        assert_equal("\aabcdef\a", """\aabcdef\a""")
+        assert_equal("abc\adef\a", """abc\adef\a""")
+        assert_equal("á",          """á""")
+        assert_equal("\'\b",       """\'\b""")
+    }
+
+    public define test_subscript_basics
+    {
+        var t = Interpreter()
+
+        # subscript basics (subscript get ByteString)
+
+        assert_parse_string(t, """
+            if B"123"[0] != '1': { 0 / 0 }
+        """)
+
+        # subscript basics (subscript assign ByteString)
+
+        assert_parse_string(t, """
+            var bytes = B"123"
+            bytes[0] = '3'
+            if bytes != B"323": { 0 / 0 }
+        """)
+
+        # subscript basics (subscript ByteString and List by Byte)
+
+        assert_parse_string(t, """
+            var bl = B"123"
+            var l = [1, 2, 3]
+
+            var e1 = bl[1t]
+            var e2 = l[1t]
+
+            var ok = (e1 == '2' && e2 == 2)
+
+            if e1 != '2': { 0 / 0 }
+            if e2 != 2: { 0 / 0}
+        """)
+
+        # subscript basics (List uses Byte as unsigned)
+
+        assert_parse_string(t, """
+            l = List.repeat(255, 0)
+            l[200] = 100
+
+            if l[200t] != 100: { 0 / 0 }
+        """)
+
+        # subscript basics (Tuple subscript)
+
+        assert_parse_string(t, """
+            var tup = <["1", 1]>
+            var s = tup[1].to_s()
+
+            if s != "1": { 0 / 0}
+        """)
+
+        # subscript basics (deeper Tuple subscript)
+
+        assert_parse_string(t, """
+            var tup2 = [<[1, [2.0], "3"]>]
+            tup2[0][1] = []
+
+            if tup2 != [<[1, [], "3"]>]: { 0 / 0 }
+        """)
+    }
+
+    public define test_subscripts
+    {
+        assert_equal([1, 2, 3][0],  1)
+        assert_equal([1, 2, 3][2],  3)
+        assert_equal([1, 2, 3][-1], 3)
+    }
+
+    public define test_trailing_comma
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            if [1, 2, 3,]   != [1, 2, 3]: { 0 / 0 }
+            if [1 => 2,]    != [1 => 2]: { 0 / 0 }
+            if <[1, 2, 3,]> != <[1, 2, 3]>: { 0 / 0 }
+        """)
+    }
+
+    public define test_truthiness
+    {
+        var t = Interpreter()
+
+        # truthiness (Boolean false is false)
+
+        assert_parse_string(t, """
+            if false: {
+                0 / 0
+            }
+
+            var bfalse = false
+
+            if bfalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (Boolean true is true)
+
+        assert_parse_string(t, """
+            if true: {
+            else:
+                0 / 0
+            }
+
+            var btrue = true
+
+            if btrue: {
+            else:
+                0 / 0
+            }
+        """)
+
+        # truthiness (Integer 0 is false)
+
+        assert_parse_string(t, """
+            if 0: {
+                0 / 0
+            }
+
+            var ifalse = 0
+
+            if ifalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (Double 0.0 is false)
+
+        assert_parse_string(t, """
+            if 0.0: {
+                0 / 0
+            }
+
+            var dfalse = 0.0
+
+            if dfalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (String "" is false)
+
+        assert_parse_string(t, """
+            if "": {
+                0 / 0
+            }
+
+            var sfalse = ""
+
+            if sfalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (empty List is false)
+
+        assert_parse_string(t, """
+            if [].@(List[Integer]): {
+                0 / 0
+            }
+
+            var lfalse: List[Integer] = []
+
+            if lfalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (non-empty List is true)
+
+        assert_parse_string(t, """
+            if ["f"]: {
+            else:
+                0 / 0
+            }
+
+            var ltrue = ["p"]
+
+            if ltrue: {
+            else:
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_unary
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            if !1 != 0: { 0 / 0 }
+            if !0 != 1: { 0 / 0 }
+            if !true != false: { 0 / 0 }
+            if !false != true: { 0 / 0 }
+            if ![1][0] != 0: { 0 / 0 }
+        """)
+    }
+
+    public define test_verify_misc
+    {
+        var t = Interpreter()
+
+        # verify misc (__main__ can be assigned to var with type)
+
+        assert_parse_string(t, """
+            var f: Function() = __main__
+        """)
+
+        # verify misc (scanning Windows newlines)
+
+        assert_parse_string(t, """
+            var v = 10\r\n\
+            v = 11\r\n\
+            if v != 11: {\r\n\
+                raise Exception("Failed.")
+            }
+        """)
+
+        # verify misc (utf-8 identifier)
+
+        assert_parse_string(t, """
+            var h3llö = "hello"
+        """)
+
+        # verify misc (print fails if stdout is closed)
+
+        assert_parse_string(t, """
+            stdout.close()
+            try: {
+                print(0)
+                raise Exception("Failed.")
+            except ValueError:
+                0
+            }
+        """)
+
+        # verify misc (1 +1 viewed as a binary op)
+
+        assert_parse_string(t, """
+            var w = 1 +1
+        """)
+
+        # verify misc (declare var of type Unit)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v: Unit = unit
+        """)
+
+        # verify misc (check return of Function returning Unit)
+
+        assert_parse_string(t, """
+            define f2 { }
+
+            if f2() != unit: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_while
+    {
+        var t = Interpreter()
+
+        # while (base case with failsafe)
+
+        assert_parse_string(t, """
+            var counter = 0
+            var i = 0
+
+            while i != 10: {
+                if counter == 15: { 0 / 0 }
+                counter += 1
+                i += 1
+            }
+
+            if i != 10: { 0 / 0 }
+            if counter != 10: { 0 / 0 }
+        """)
+
+
+        # while (with continue)
+
+        assert_parse_string(t, """
+            i = 0
+            counter = 0
+
+            while i != 10: {
+                i += 1
+
+                if i % 2: { continue }
+
+                counter += 1
+            }
+
+            if i != 10: { 0 / 0 }
+            if counter != 5: { 0 / 0 }
+        """)
+
+        # while (with break)
+
+        assert_parse_string(t, """
+            i = 0
+            counter = 0
+
+            while i != 10: {
+                i += 1
+
+                if i == 5: { break }
+
+                counter += 1
+            }
+
+            if i != 5: { 0 / 0 }
+            if counter != 4: { 0 / 0 }
+        """)
+
+        # while (skip whole loop)
+
+        assert_parse_string(t, """
+            i = 10
+
+            while i != 10: { 0 / 0 }
+        """)
+
+        # while (literal truthy condition)
+
+        assert_parse_string(t, """
+            i = 0
+
+            while 1: {
+                i += 1
+
+                if i == 10: {
+                    break
+                }
+            }
+
+            if i != 10: { 0 / 0 }
+        """)
+
+        # while (literal falsey condition)
+
+        assert_parse_string(t, """
+            while 0: { 0 / 0 }
+        """)
+    }
+}

@@ -1,0 +1,370 @@
+import (Interpreter,
+        LibraryTarget,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestVerifyCoverage < TestCase
+{
+    private var @t_covlib =
+        LibraryTarget(
+            :path "covlib",
+            :redirect "test/t/backbone"
+        )
+
+    private var @t_packagelib =
+        LibraryTarget(
+            :path "packagelib",
+            :redirect "test/t/backbone"
+        )
+
+    public define test_api_misc
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            covlib.cover_list_reserve()
+            if covlib.cover_func_check((|x| 10 ), Integer.to_s) == false: {
+                raise Exception("cover_func_check failed.")
+            }
+            covlib.cover_list_sfs()
+
+            define f(co: Coroutine[Integer, Integer]): Integer {
+                return 1
+            }
+
+            class Example < Exception("") {
+
+            }
+
+            var co = Coroutine.build(f)
+
+            if covlib.cover_id_checks(co, unit, covlib.Container(""), "abc") == false: {
+                raise Exception("cover_id_checks failed.")
+            }
+
+            define co_base(local_co: Coroutine[Integer, Integer]): Integer { return 0 }
+            define f2(a: Integer) {}
+
+            # Avoid creating another Coroutine by using the same one twice.
+            var saved_co = Coroutine.build(co_base)
+
+            covlib.cover_value_as('a',
+                                  B"123",
+                                  Exception("test"),
+                                  saved_co,
+                                  1.0,
+                                  stdout,
+                                  f2,
+                                  [1 => 1],
+                                  1,
+                                  "1")
+
+            if covlib.cover_value_group(true,
+                                        '1',
+                                        B"1",
+                                        saved_co,
+                                        1.0,
+                                        None,
+                                        stdout,
+                                        f2,
+                                        [1 => 1],
+                                        covlib.Foreign(),
+                                        Exception("x"),
+                                        1,
+                                        [1],
+                                        "1",
+                                        <[1]>,
+                                        unit,
+                                        Some(1)) == false: {
+                raise Exception("cover_value_group failed.")
+            }
+
+            covlib.cover_ci_from_native(f2)
+            covlib.cover_misc_api()
+        """)
+    }
+
+    public define test_api_optional
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib as c
+
+            var b_values = [
+                <["A, B, C", 0, c.cover_optional_boolean(false, false, false)]>,
+                <["A, B, _", 1, c.cover_optional_boolean(false, false)]>,
+                <["A, _, C", 1, c.cover_optional_boolean(false, :c false)]>,
+                <["A, _, _", 2, c.cover_optional_boolean(false)]>,
+                <["_, B, C", 1, c.cover_optional_boolean(:b false, :c false)]>,
+                <["_, B, _", 2, c.cover_optional_boolean(:b false)]>,
+                <["_, _, C", 2, c.cover_optional_boolean(:c false)]>,
+                <["_, _, _", 3, c.cover_optional_boolean()]>,
+            ]
+
+            var i_values = [
+                <["A, B, C", 6, c.cover_optional_integer(1, 2, 3)]>,
+                <["A, B, _", 303, c.cover_optional_integer(1, 2)]>,
+                <["A, _, C", 204, c.cover_optional_integer(1, :c 3)]>,
+                <["A, _, _", 501, c.cover_optional_integer(1)]>,
+                <["_, B, C", 105, c.cover_optional_integer(:b 2, :c 3)]>,
+                <["_, B, _", 402, c.cover_optional_integer(:b 2)]>,
+                <["_, _, C", 303, c.cover_optional_integer(:c 3)]>,
+                <["_, _, _", 600, c.cover_optional_integer()]>,
+            ]
+
+            var s_values = [
+                <["A, B, C", "123", c.cover_optional_string("1", "2", "3")]>,
+                <["A, B, _", "12",  c.cover_optional_string("1", "2")]>,
+                <["A, _, C", "13",  c.cover_optional_string("1", :c "3")]>,
+                <["A, _, _", "1",   c.cover_optional_string("1")]>,
+                <["_, B, C", "23",  c.cover_optional_string(:b "2", :c "3")]>,
+                <["_, B, _", "2",   c.cover_optional_string(:b "2")]>,
+                <["_, _, C", "3",   c.cover_optional_string(:c "3")]>,
+                <["_, _, _", "",    c.cover_optional_string()]>,
+            ]
+
+            define check_table[A, B](source: List[Tuple[A, B, B]]) {
+                for i in 0...source.size() - 1: {
+                    var v = source[i]
+
+                    if v[1] != v[2]: {
+                        raise Exception("Test '{0}' failed (want {1}, have {2})."
+                                .format(v[0], v[1], v[2]))
+                    }
+                }
+            }
+
+            check_table(b_values)
+            check_table(i_values)
+            check_table(s_values)
+        """)
+    }
+
+    public define test_foreign_enums
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        # foreign enums (flat)
+
+        assert_parse_string(t, """
+            import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
+
+            var v = "" ++ FlatTwo
+            if v != "FlatTwo": {
+                raise Exception("Failed to interpolate.")
+            }
+
+            define f(l: List[FlatEnum]): List[Integer] {
+                var result: List[Integer] = []
+
+                for i in 0...l.size() - 1: {
+                    var e = l[i]
+                    match e: {
+                        case FlatOne:
+                            result.push(1)
+                        case FlatTwo:
+                            result.push(2)
+                        case FlatThree:
+                            result.push(3)
+                    }
+                }
+
+                return result
+            }
+
+            var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
+            if v2 != [1, 2, 3, 2, 1]: {
+                raise Exception("Failed to match and transform.")
+            }
+        """)
+
+        # foreign enums (scoped)
+
+        t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
+
+            var v = "" ++ FlatTwo
+            if v != "FlatTwo": {
+                raise Exception("Failed to interpolate.")
+            }
+
+            define f(l: List[FlatEnum]): List[Integer] {
+                var result: List[Integer] = []
+
+                for i in 0...l.size() - 1: {
+                    var e = l[i]
+                    match e: {
+                        case FlatOne:
+                            result.push(1)
+                        case FlatTwo:
+                            result.push(2)
+                        case FlatThree:
+                            result.push(3)
+                    }
+                }
+
+                return result
+            }
+
+            var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
+            if v2 != [1, 2, 3, 2, 1]: {
+                raise Exception("Failed to match and transform.")
+            }
+        """)
+    }
+
+    public define test_foreign_error_recovery
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            var h = [1 => 1, 2 => 2, 3 => 3, 4 => 4]
+
+            try: {
+                h.select(|key, value| h.delete(key) true )
+                raise Exception("Hash.delete did not fail properly during select.")
+            except RuntimeError:
+                0
+            }
+
+            try: {
+                h.delete(4)
+            except RuntimeError:
+                raise Exception("Hash.delete should not fail outside select.")
+            }
+
+            try: {
+                h.select(|key, value|
+                    if key == 2: {
+                        key = key / 0
+                    }
+
+                    true )
+                raise Exception("Hash.select should have raised an error.")
+            except DivisionByZeroError:
+                0
+            }
+
+            try: {
+                h.delete(1)
+            except DivisionByZeroError:
+                raise Exception("Hash.select did not recover properly.")
+            }
+        """)
+    }
+
+    public define test_foreign_inherit
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            class InheritedContainer(x: String) < covlib.Container(x) {
+                public define do_update(y: String) {
+                    update(y ++ y)
+                }
+            }
+
+            var i = InheritedContainer("abc")
+            i.do_update("xyz")
+
+            if i.fetch() != "xyzxyz": {
+                raise Exception("failed")
+            }
+        """)
+    }
+
+    public define test_hash_corruption
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            var hash: Hash[String, Integer] = []
+
+            define f: Integer {
+                var i = 1
+                hash[i ++ i] = i
+
+                return hash["11"]
+            }
+
+            f()
+            f()
+        """)
+    }
+
+    public define test_parse_expr_api
+    {
+        var t = Interpreter()
+
+        # parse expr api (simple Integer value)
+
+        assert_equal(
+            t.parse_expr("[test]", "10").unwrap(),
+            "(Integer): 10"
+        )
+
+        # parse expr api (String values are quoted)
+
+        assert_equal(
+            t.parse_expr("[test]", "\"asdf\"").unwrap(),
+            "(String): \"asdf\""
+        )
+
+        # parse expr api (broken expression returns None, sets error)
+
+        t.parse_expr("[test]", "10 +").is_none() |> assert_true
+        assert_equal(
+            t.error(),
+            """\
+                SyntaxError: Unexpected token 'end of file'.\n    \
+                    from [test]:1:\n\
+            """
+        )
+    }
+
+    public define test_print_main_type
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Integer' to type 'Function ()'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v = __main__
+            v = 1
+        """)
+    }
+
+    public define test_print_varopt_type
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (*Integer...)' to type 'Integer'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: *Integer... = []) { }
+
+            var v: Integer = f
+        """)
+    }
+}

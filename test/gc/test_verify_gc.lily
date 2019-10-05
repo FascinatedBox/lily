@@ -1,0 +1,97 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVerifyGc < TestCase
+{
+    public define test_circular_at_exit
+    {
+        var t = Interpreter()
+
+        # circular at exit (self-reference through Option)
+
+        assert_parse_string(t, """
+            class Example {
+                public var @a: Option[Example] = None
+            }
+
+            var v = Example()
+            v.a = Some(v)
+        """)
+    }
+
+    public define test_deref
+    {
+        var t = Interpreter()
+
+        # deref (drop Coroutine by deref)
+        # Most Coroutine values are dropped by the gc because they have a
+        # reference to themselves on their stack.
+
+        assert_parse_string(t, """
+            define base_one(co: Coroutine[Integer, Integer]): Integer { return 0 }
+
+            var other_co = Coroutine.build(base_one)
+
+            define co_base(co: Coroutine[Integer, Integer]): Integer {
+                co = other_co
+                return 10
+            }
+
+            define f {
+                var local_co = Coroutine.build(co_base)
+                local_co.resume_with(0)
+            }
+            f()
+            f()
+        """)
+    }
+
+    public define test_gc_drop
+    {
+        var t = Interpreter()
+
+        # gc drop (drop Function closures)
+
+        assert_parse_string(t, """
+            define no_op {}
+
+            define closure_base: Function() {
+                var inner_fn = no_op
+                define a {
+                    inner_fn = a
+                }
+                return a
+            }
+
+            define f {
+                var lst: List[Function()] = []
+
+                for i in 0...5: {
+                    var local_fn = closure_base()
+                    local_fn()
+                    lst.push(local_fn)
+                }
+
+                for i in 0...lst.size() - 1: {
+                    lst[i] = no_op
+                }
+            }
+
+            f()
+            f()
+        """)
+
+        # gc drop (drop Coroutine holding derefable value)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, List[Function(Integer)]]): Integer {
+                co.yield(1)
+                return 1
+            }
+
+            var co = Coroutine.build(f)
+            co.resume_with([(|x| 10)])
+        """)
+    }
+}

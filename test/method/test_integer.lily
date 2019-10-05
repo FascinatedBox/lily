@@ -1,0 +1,25 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestIntegerMethods < TestCase
+{
+    public define test_to_bool
+    {
+        assert_equal(1 .to_bool(), true)
+        assert_equal(0 .to_bool(), false)
+        assert_equal(-1.to_bool(), true)
+    }
+
+    public define test_to_byte
+    {
+        assert_equal(0  .to_byte(), 0t)
+        assert_equal(255.to_byte(), 255t)
+    }
+
+    public define test_to_d
+    {
+        assert_equal(500 .to_d(), 500.0)
+        assert_equal(-250.to_d(), -250.0)
+        assert_equal(0   .to_d(), 0.0)
+    }
+}

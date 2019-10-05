@@ -1,0 +1,155 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestQuantification < TestCase
+{
+    public define test_quantified_not_forall
+    {
+        var t = Interpreter()
+
+        # This should fail because A is quantified by f's scope.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #2 to f is invalid:\n\
+            Expected Type: List[Integer]\n\
+            Received Type: List[A]\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f[A](a: List[A], b: List[A]) {}
+
+            define g[A](a: List[A]) {
+                f([1], a)
+            }
+        """)
+    }
+
+    public define test_quantified_parameters
+    {
+        var t = Interpreter()
+
+        # quantification (parameters that are functions are quantified)
+        # Inside of 'f', all generics are quantified, even those of functions
+        # passed to it. This requires rank-2 polymorphism to work.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to g is invalid:\n\
+            Expected Type: A\n\
+            Received Type: B\n    \
+                from [test]:4:\n\
+        """,
+        """\
+        # This isn't allowed because A and B may be incompatible types.
+        # Ex: A being an integer, B as a string.
+            define f[A, B](g: Function(A), value: B) {
+                g(value)
+            }
+        """)
+    }
+
+    public define test_quantify_once
+    {
+        var t = Interpreter()
+
+        # quantification (solve as a generic only once, flat inference)
+        # The call to 'f' expects and gets the following:
+        #
+        # one: Box for A.
+        # two: List[g's A] for B.
+        # three: List[Box] for B.
+        #
+        # This is the same as above but in a different context.
+
+        assert_parse_fails(t, """\
+            SyntaxError: List elements do not have a consistent type.\n\
+            Expected Type: A\n\
+            Received Type: Box\n    \
+                from [test]:10:\n\
+        """,
+        """\
+            class Box(a: Integer) {}
+
+            define f[A, B](one: A, two: B, three: B) {
+
+            }
+
+            define g[A, B](value: A, value2: B) {
+                var a = Box(10)
+
+                f(a, [value], [a])
+            }
+        """)
+    }
+
+    public define test_quantify_once_nested
+    {
+        var t = Interpreter()
+
+        # quantification (solve as a generic only once, nested inference)
+        # The call to 'f' expects and gets the following:
+        #
+        # one: List[Box] for A.
+        # two: List[g's A] for B
+        # three: List[List[Integer]] for B.
+        #
+        # This is wrong because B is not a forall A that can be narrowed down,
+        # but instead the g's quantified A that cannot be narrowed.
+
+        assert_parse_fails(t, """\
+            SyntaxError: List elements do not have a consistent type.\n\
+            Expected Type: A\n\
+            Received Type: List[Integer]\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class Box(a: Integer) {}
+
+            define f[A, B](one: A, two: B, three: B) {  }
+
+            define g[A](one: A) {
+                f([Box(10)], [one], [[1]])
+            }
+        """)
+    }
+
+    public define test_quantify_result
+    {
+        # This is supposed to work because Option.unwrap is generic and
+        # unquantified in this scope. This tries to cause a syntax error after
+        # to make sure that the solving wrote the correct resulting type.
+
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #2 to List.push is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v = [Some(1)].map(Option.unwrap)
+            v.push("")
+        """)
+    }
+
+    public define test_quantify_to_concrete
+    {
+        var t = Interpreter()
+
+        # quantification (generic against concrete type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #2 to f is invalid:\n\
+            Expected Type: A\n\
+            Received Type: Integer\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f[A](v1: A, v2: A) {  }
+
+            define g[A](v1: A) {
+                f(v1, 10)
+            }
+        """)
+    }
+}

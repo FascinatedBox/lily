@@ -1,0 +1,238 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestLambdas < TestCase
+{
+    public define test_base
+    {
+        var t = Interpreter()
+
+        # base (passed as function argument)
+
+        assert_parse_string(t, """
+            define f(g: Function(Integer => String)): String
+            {
+                return g(10)
+            }
+
+            f(|a| a.to_s())
+        """)
+
+        # base (returning a keyword)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            [true].map(|a| true)
+        """)
+
+        # base (nested within an expression)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var f: Function( => Integer) =
+            (|| 10 + (|| 20 + 30 )() )
+
+            if f() != 60: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_inference
+    {
+        var t = Interpreter()
+
+        # inference (narrowing a return to Unit)
+
+        assert_parse_string(t, """
+            define f(g: Function(Integer, Integer))
+            {
+                g(1, 2)
+            }
+
+            f((|a, b| a + b))
+        """)
+
+        # inference (carrying inference from a first hash parameter)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var h = ["+" => (|a: Integer, b: Integer| a + b),
+                     "-" => (|a, b| a - b),
+                     "*" => (|a, b| a * b),
+                     "/" => (|a, b| a / b)]
+        """)
+
+        # inference (through a call pipe)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            (|e| e * e) |> [1, 2, 3].map
+        """)
+
+        # inference (becoming varargs)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(g: Function(Integer...)) { g(1, 2, 3) }
+
+            f(|a| a == [1, 2, 3])
+        """)
+
+        # inference (carrying generic type inference over)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            # This is a function that takes a given value and performs two
+            # transformations upon it. The result of the transformations is then
+            # yielded.
+            define f[A, B, C](value: A,
+                              g: Function(A => B),
+                              h: Function(B => C)): C {
+                return h(g(value))
+            }
+
+            f(
+              # A = double
+              10.0,
+
+              # A = double, so 'a' is an double. The result is unknown, so the
+              # result is left alone.
+              # B = Integer.
+              (|a| a.to_i()),
+
+              # B = Integer, so 'b' is an Integer. Again, unable to determine
+              # the result, so no type inference is done on the result.
+              # C = string
+              (|b| b.to_s())
+              )
+        """)
+    }
+
+    public define test_lexing
+    {
+        var t = Interpreter()
+
+        # lexing (multi-line block inside lambda)
+
+        assert_parse_string(t, """
+            var v = (|a: Integer|
+                var is_ten = false
+                if a == 10: {
+                    is_ten = true
+                }
+                is_ten
+            )
+        """)
+
+        # lexing (comment block inside lambda)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = [(|| #[
+
+
+            ]#
+            __line__ )(), __line__]
+
+            if v[0] != v[1]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (comment lines inside lambda)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = [(||
+                var
+                #
+                #
+                w = #
+                # !@#$%^&*()
+                __line__
+                w )(), __line__ - 1]
+
+            if v[0] != v[1]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (multi line string inside lambda)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = (|| \"""\\
+                This \\
+                is \\
+                a \\
+                test.\\
+                \""" )()
+
+            if v != "This is a test.": {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (single quote inside lambda)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = (|| ['a', 'b', 'c'])
+
+            if v() != ['a', 'b', 'c']: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (newline escape inside lambda)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            if (|| "\\n" )() != "\\n": {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (quote escape inside lambda)
+
+        assert_parse_string(t, """
+            if (|| "\\"" )() != "\\"": {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # lexing (bytestring containing nil)
+
+        assert_parse_string(t, """
+            if (|| B"\\000" )() != B"\\000": {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_verify_restore
+    {
+        var t = Interpreter()
+
+        # verify restore (check storage save and restore)
+
+        assert_parse_string(t, """
+            class Box[A](input: A)
+            {
+                public var @input = input
+            }
+
+            var v =
+                (||
+                    (||
+                        Box(
+                            (|| 1)
+                        )
+                    )
+                )
+
+            v()()
+        """)
+    }
+}

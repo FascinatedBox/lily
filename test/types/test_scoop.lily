@@ -1,0 +1,41 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestScoop < TestCase
+{
+    public define test_scoop_as_argument
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Function (String, List[?])\n\
+            Received Type: Function (String, $1... => String)\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f[A](a: Function(String, List[A]), b: A, c: A): List[A] {
+                return [b, c]
+            }
+
+            f(String.format, 1, "2") |> print
+        """)
+    }
+
+    public define test_scoop_from_zip
+    {
+        var t = Interpreter()
+
+        # List.zip shouldn't send scoop back if the input is empty.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Integer' to type 'List[Tuple[Integer, Unit]]'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = [1, 2].zip([])
+
+            v = 1
+        """)
+    }
+}

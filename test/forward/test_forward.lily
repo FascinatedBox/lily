@@ -1,0 +1,83 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestForward < TestCase
+{
+    public define test_method_call
+    {
+        var t = Interpreter()
+        assert_parse_string(t, """
+            class Example(public var @x: Integer) {
+                forward public define square(Integer): Integer { ... }
+
+                public define square_x {
+                    @x = square(@x)
+                }
+
+                public define square(x: Integer): Integer { return x * x }
+            }
+
+            var v = Example(10)
+            v.square_x()
+            v.square_x()
+            if v.x != 10000: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_optarg_vararg
+    {
+        var t = Interpreter()
+        assert_parse_string(t, """
+            var results: List[Integer] = []
+
+            forward define varopt(*Integer, *Integer, *Integer...): Integer { ... }
+
+            results = [varopt(),
+                       varopt(5),
+                       varopt(5, 10),
+                       varopt(5, 10, 20, 30)]
+
+            if results != [6, 10, 18, 65]: {
+                raise Exception("Failed.")
+            }
+
+            define varopt(x: *Integer = 1,
+                          y: *Integer = 2,
+                          extra: *Integer... = [3]): Integer
+            {
+                return x + y + extra.fold(0, (|a, b| a + b) )
+            }
+        """)
+    }
+
+    public define test_recursion
+    {
+        var t = Interpreter()
+        assert_parse_string(t, """
+            var v: List[Integer] = []
+            forward define g(Integer) { ... }
+
+            define f(n: Integer) {
+                if n: {
+                    v.push(n)
+                    g(n - 1)
+                }
+            }
+
+            define g(n: Integer) {
+                if n: {
+                    v.push(n)
+                    f(n - 1)
+                }
+            }
+
+            f(10)
+
+            if v != [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+}

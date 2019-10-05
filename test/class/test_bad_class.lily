@@ -1,0 +1,702 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadClass < TestCase
+{
+    public define test_bad_constructor
+    {
+        var t = Interpreter()
+
+        # bad constructor (cannot use return)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'return' not allowed in a class constructor.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class example {
+                if 1: {
+                    return self
+                }
+            }
+        """)
+
+        # bad constructor (cannot close over self)
+        # Blocked because it creates a closure at the instance level.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to close over self in a class constructor.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                public var @a = 1
+                public var @b = (|| @a += 1 )
+            }
+        """)
+
+        # bad constructor (closing over constructor vars)
+        # Blocked because it creates a closure at the instance level.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to close over variables from a class constructor.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Example(a: Integer) {
+                public define f {
+                    var v = a
+                }
+            }
+        """)
+    }
+
+    public define test_bad_decl
+    {
+        var t = Interpreter()
+
+        # bad decl (redeclare property as method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A property in class Test already has the name @abc.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                public var @abc = 10
+                public define abc {
+
+                }
+            }
+        """)
+
+        # bad decl (redeclare method as property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'Test' already has the name 'abc'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Test {
+                public define abc {
+
+                }
+                public var @abc = 10
+            }
+        """)
+
+        # bad decl (declare property twice)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A property in class ABC already has the name @a.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class ABC { public var @a = 1 public var @a = 1 }
+        """)
+
+        # bad decl (declare method twice)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'ABC' already has the name 'a'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class ABC { public define a {} public define a {} }
+        """)
+
+        # bad decl (redeclare predefined class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A built-in class named 'Exception' already exists.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Exception {}
+        """)
+
+        # bad decl (declare class twice)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class 'AlreadyExists' has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class AlreadyExists {}
+            class AlreadyExists {}
+        """)
+
+        # bad decl (class method shadows constructor var)
+
+        assert_parse_fails(t, """\
+            SyntaxError: x has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test(x: Integer) {
+                public define x {}
+            }
+        """)
+    }
+
+    public define test_bad_inheritance
+    {
+        var t = Interpreter()
+
+        # bad inheritance (inherit from foreign class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'Integer' cannot be inherited from.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class abc < Integer {  }
+        """)
+
+        # bad inheritance (inherit from itself)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class cannot inherit from itself!\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class abc < abc {  }
+        """)
+
+        # bad inheritance (inherit from enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'Two' cannot be inherited from.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Test {
+                One,
+                Two
+            }
+
+            class example < Two { }
+        """)
+
+        # bad inheritance (inherit from missing class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class 'DoesNotExist' does not exist.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class One < DoesNotExist {}
+        """)
+
+        # bad inheritance (inherit from var)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class 'v' does not exist.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v = 10
+            class Test < v { }
+        """)
+
+        # bad inheritance (inherit reordered generics)
+        # This is blocked for two reasons:
+        # One, that it has limited use (and is likely wrong)
+        # Two, that not allowing it means that generics within a class remain
+        # consistent (the A of a base class is the A of any superclass, no
+        # matter how deep the lineage).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to First is invalid:\n\
+            Expected Type: A\n\
+            Received Type: B\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class First[A](value: A) {  }
+
+            class Second[A, B](v1: A, v2: B) < First(v2) {  }
+        """)
+    }
+
+    public define test_bad_match
+    {
+        var t = Interpreter()
+
+        # bad match (class match using generics)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class matching only works for types without generics.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class One[A](a: A) {}
+
+            var v = One(1)
+
+            match v: {
+                case One(o):
+            }
+        """)
+
+        # bad match (class match not inheriting base)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class Three does not inherit from matching class One.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+            class Three {}
+
+            var v: One = Two()
+
+            match v: {
+                case Three(t):
+            }
+        """)
+
+        # bad match (require else clause)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match against a class must have an 'else' case.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class One {}
+
+            var v = One()
+
+            match v: {
+                case One(o):
+            }
+        """)
+    }
+
+    public define test_bad_misc
+    {
+        var t = Interpreter()
+
+        # bad misc (use missing var)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {
+                @xyz = 10
+            }
+        """)
+    }
+
+    public define test_bad_scope
+    {
+        var t = Interpreter()
+
+        # bad scope (protected shorthand var outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Test.a is marked protected, and not available here.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Test(protected var @a: Integer) { }
+
+            var t = Test(1)
+            t.a = 5
+        """)
+
+        # bad scope (private shorthand var outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Test.a is marked private, and not available here.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Test(private var @a: Integer) { }
+
+            var t = Test(1)
+            t.a = 5
+        """)
+
+        # bad scope (protected var outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Test.x is marked protected, and not available here.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Test { protected var @x = 10 }
+
+            Test().x = 11
+        """)
+
+        # bad scope (protected method outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: abc.f is marked protected, and not available here.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class abc {
+                protected define f {}
+            }
+
+            abc.f(abc())
+        """)
+
+        # bad scope (private method from parent)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f is a private member of class One, and not visible here.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class One {
+                private define f {}
+            }
+
+            class Two < One {
+                public define g {
+                    f()
+                }
+            }
+        """)
+
+        # bad scope (private method from parent using self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f is a private member of class One, and not visible here.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class One {
+                private define f {}
+            }
+
+            class Two < One {
+                public define g {
+                    self.f()
+                }
+            }
+        """)
+
+        # bad scope (private property from parent)
+
+        assert_parse_fails(t, """\
+            SyntaxError: abc.f is marked private, and not available here.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class abc {
+                private define f {}
+            }
+
+            class def < abc {
+                abc.f()
+            }
+        """)
+
+        # bad scope (no var scope)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class var declaration must start with a scope.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {
+                var @a = 1
+            }
+        """)
+
+        # bad scope (no method scope)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class method declaration must start with a scope.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {
+                define f {}
+            }
+        """)
+    }
+
+    public define test_bad_shorthand
+    {
+        var t = Interpreter()
+
+        # bad shorthand (property self-initialization)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid use of uninitialized property '@a'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Test(public var @a: *Integer = @a) { }
+        """)
+
+        # bad shorthand (missing scope)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Constructor var declaration must start with a scope.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Test(var @a: Integer) { }
+        """)
+
+        # bad shorthand (missing var)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'var' after scope was given.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Test(public @x: Integer) { }
+        """)
+    }
+
+    public define test_bad_static
+    {
+        var t = Interpreter()
+
+        # bad static (static before scope)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'static' must follow a scope (public, protected, or private).\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Example {
+                static public define g(a: Integer) {
+                }
+            }
+        """)
+
+        # bad static (using self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Static methods do not have access to self.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Example {
+                public var @a = 10
+                public static define f {
+                    @a = 12
+                }
+            }
+        """)
+
+        # bad static (returning self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'self' return type not allowed on a static method.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {
+                public static define f: self {
+                }
+            }
+        """)
+
+        # bad static (protected static outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Example.f is marked protected, and not available here.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class Example {
+                protected static define f { }
+            }
+
+            Example.f()
+        """)
+
+        # bad static (private static outside class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f is a private member of class One, and not visible here.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class One {
+                private static define f { }
+            }
+
+            class Two < One {
+                f()
+            }
+        """)
+    }
+
+    public define test_class_rules
+    {
+        var t = Interpreter()
+
+        # class rules (class inside class)
+        # Blocked because I don't want them.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a class here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class c1(a: Integer) {
+                class c2(b: Integer) {
+
+                }
+            }
+        """)
+
+        # class rules (class inside of if)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a class here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            if 1: {
+                class abc() {
+                }
+            }
+        """)
+
+        # class rules (single letter class name)
+        # Blocked because it interferes with generics.
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'A' is not a valid class name (too short).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class A() {}
+        """)
+
+        # class rules (properties start with at)
+        # Blocked for consistency.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class properties must start with @.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class ABC { public var a: integer }
+        """)
+
+        # class rules (self to get property)
+        # blocked for consistency (require @<name> always)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Use @<name> to get/set properties, not self.<name>.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Point(x: Integer, y: Integer) {
+                public var @x = x
+                public var @y = self.x
+            }
+        """)
+
+        # class rules (assign to method)
+        # Blocked for consistency with standard defines.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Left side of = is not assignable.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Test {
+                public define f: Integer { return 10 }
+                public define g: Integer { return 20 }
+            }
+
+            var v = Test()
+            v.f = Test.g
+        """)
+
+        # class rules (class prop self init)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid use of uninitialized property '@x'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Point {
+                public var @x: Integer = @x
+            }
+        """)
+
+        # class rules (method of a generic type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class A has no method or property named asdf.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f[A](a: A) {
+                a.asdf()
+            }
+        """)
+
+        # class rules (prop use inside constructor)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Base(message: String) {
+                public var @abc = message
+            }
+            class Parent < Base(@abc) {
+                @abc = @abc ++ "10"
+            }
+
+            Parent()
+        """)
+
+        # class rules (call scoped out definition)
+
+        assert_parse_fails(t, """\
+            SyntaxError: g has not been declared.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Example {
+                public define f {
+                    define g {
+                    }
+                }
+
+                g()
+            }
+        """)
+
+        # class rules (lambda cannot send self back)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambdas cannot return the self type (not a class method).\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            class Abc {
+                public define f: self {  }
+                public define g[A](a: Function(Abc => A), b: Function( => A)): Function( => A) {
+                    return b
+                }
+
+                public define h {
+                    g(f, (|| 10 ))()()
+                }
+            }
+
+            Abc().h()
+        """)
+    }
+}

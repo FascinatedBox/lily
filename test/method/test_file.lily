@@ -1,0 +1,244 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestFileMethods < TestCase
+{
+    public define test_close
+    {
+        var v = File.open("io_test_file.txt", "w")
+
+        v.close()
+        v.close()
+    }
+
+    private define each_line_verify
+    {
+        var v = File.open("test\/file_for_io.txt", "r")
+        var expect = """\
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. In efficitur lacinia tortor, ac commodo metus vulputate non.\n\
+        12345\n\
+        Praesent👏blandit👏purus👏sit👏amet👏urna👏faucibus👏dapibus.\n\
+        Nulla lacus turpis, ornare at nisl id, rhoncus venenatis urna.\n\
+        Suspendisse leo nulla, interdum eget erat at, vehicula gravida enim.\n\
+        Integer ultricies metus nisl, nec tempus nisi imperdiet eu. Suspendisse tincidunt id odio ac consequat. Proin faucibus nisi a elit egestas eleifend. Nullam at fermentum nisl, ut pharetra lorem. Sed blandit ante in sapien efficitur, sit amet accumsan enim dictum. Praesent blandit lorem nec orci interdum, eu pharetra felis tincidunt. Vivamus vestibulum risus non accumsan vestibulum.\n\
+        """
+
+        var lines: List[String] = []
+
+        v.each_line(|l| l.encode().unwrap() |> lines.push )
+        assert_equal(lines.join(""), expect)
+    }
+
+    private define each_line_closed
+    {
+        assert_raises(
+                "IOError: IO operation on closed file.",
+                (|| var v = File.open("io_test_file.txt", "w")
+                    v.close()
+                    v.each_line(|l| 0 )
+                    unit ))
+    }
+
+    private define each_line_write_only
+    {
+        assert_raises(
+                "IOError: File not open for reading.",
+                (|| File.open("io_test_file.txt", "w")
+                        .each_line(|l| 0 )
+                    unit ))
+    }
+
+    public define test_each_line
+    {
+        each_line_verify()
+        each_line_closed()
+        each_line_write_only()
+    }
+
+    private define flush_write_file
+    {
+        assert_raises(
+                "IOError: IO operation on closed file.",
+                (|| var v = File.open("io_test_file.txt", "w")
+                     v.close()
+                    v.flush()
+                    unit ))
+    }
+
+    public define test_flush
+    {
+        flush_write_file()
+
+        var v = File.open("io_test_file.txt", "w")
+        v.write("test")
+        v.flush()
+    }
+
+    private define open_mode_rplus
+    {
+        var f = File.open("io_test_file.txt", "r+")
+        f.close()
+    }
+
+    private define open_mode_rb
+    {
+        var f = File.open("io_test_file.txt", "rb")
+        f.close()
+    }
+
+    private define open_mode_invalid
+    {
+        assert_raises(
+                "IOError: Invalid mode 'z' given.",
+                (|| var v = File.open("io_test_file.txt", "z")
+                    unit ))
+    }
+
+    private define open_throws_with_errno
+    {
+        # The exact message depends on platform.
+        var ok = false
+        try: {
+            var f = File.open("xyz", "r")
+        except IOError as e:
+            if e.message.starts_with("Errno "): {
+                ok = true
+            }
+        }
+
+        ok |> assert_true
+    }
+
+    public define test_open
+    {
+        open_mode_rb()
+        open_mode_rplus()
+        open_mode_invalid()
+        open_throws_with_errno()
+    }
+
+    private define print_verify
+    {
+        var f = File.open("io_test_file.txt", "w")
+        f.print(123)
+        f.print("asdf")
+        f.close()
+    }
+
+    private define print_closed
+    {
+        assert_raises(
+                "IOError: IO operation on closed file.",
+                (|| var f = File.open("io_test_file.txt", "w")
+                       f.close()
+                       f.print(123)
+                       unit ))
+    }
+
+    public define test_print
+    {
+        print_verify()
+        print_closed()
+    }
+
+    private define read_line_verify
+    {
+        var f = File.open("test\/file_for_io.txt", "r")
+        var expect = """\
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. In efficitur lacinia tortor, ac commodo metus vulputate non.\n\
+        12345\n\
+        Praesent👏blandit👏purus👏sit👏amet👏urna👏faucibus👏dapibus.\n\
+        Nulla lacus turpis, ornare at nisl id, rhoncus venenatis urna.\n\
+        Suspendisse leo nulla, interdum eget erat at, vehicula gravida enim.\n\
+        Integer ultricies metus nisl, nec tempus nisi imperdiet eu. Suspendisse tincidunt id odio ac consequat. Proin faucibus nisi a elit egestas eleifend. Nullam at fermentum nisl, ut pharetra lorem. Sed blandit ante in sapien efficitur, sit amet accumsan enim dictum. Praesent blandit lorem nec orci interdum, eu pharetra felis tincidunt. Vivamus vestibulum risus non accumsan vestibulum.\n\
+        """
+
+        var lines: List[String] = []
+        var i = 0
+
+        # 'i' prevents infinite looping if reading is very broken.
+        while i != 10: {
+            var l = f.read_line()
+                     .encode()
+                     .unwrap()
+
+            if l == "": {
+                break
+            }
+
+            lines.push(l)
+
+            i += 1
+        }
+
+        assert_equal(lines.join(""), expect)
+    }
+
+    private define read_line_closed
+    {
+        assert_raises(
+                "IOError: IO operation on closed file.",
+                (|| var f = File.open("io_test_file.txt", "w")
+                    f.close()
+                    f.read_line()
+                    unit ))
+    }
+
+    private define read_line_write
+    {
+        assert_raises(
+                "IOError: File not open for reading.",
+                (|| var f = File.open("io_test_file.txt", "w")
+                    f.read_line()
+                    unit ))
+    }
+
+    public define test_read_line
+    {
+        read_line_verify()
+        read_line_closed()
+        read_line_write()
+    }
+
+    private define write_verify_utf8
+    {
+        var f = File.open("io_test_file.txt", "w")
+        f.write("♡")
+        f.close()
+
+        var v = File.open("io_test_file.txt", "r")
+                .read_line()
+                .encode()
+                .unwrap()
+
+        assert_equal(v, "♡")
+    }
+
+    private define write_verify_plain
+    {
+        var f = File.open("io_test_file.txt", "w")
+        f.write("1234567890")
+        f.close()
+
+        var v = File.open("io_test_file.txt", "r")
+                .read_line()
+                .encode()
+                .unwrap()
+
+        assert_equal(v, "1234567890")
+    }
+
+    private define write_non_string
+    {
+        var f = File.open("io_test_file.txt", "w")
+        f.write(123)
+        f.close()
+    }
+
+    public define test_write
+    {
+        write_verify_plain()
+        write_verify_utf8()
+        write_non_string()
+    }
+}

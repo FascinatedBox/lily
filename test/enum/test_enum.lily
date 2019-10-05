@@ -1,0 +1,223 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestEnum < TestCase
+{
+    public define test_base
+    {
+        var t = Interpreter()
+
+        # base (assign to class property)
+
+        assert_parse_string(t, """
+            class Test {
+                public var @value: Option[String] = None
+            }
+
+            var v = Some(10)
+            v = None
+
+            var t = Test()
+            t.value = Some("x")
+        """)
+
+        # base (Hash of variants)
+
+        assert_parse_string(t, """
+            var h: Hash[Integer, Option[Integer]] = [1 => None, 2 => Some(10), 3 => Some(11)]
+        """)
+
+        # base (vararg call)
+
+        assert_parse_string(t, """
+            define f[A](values: Option[A]...) {  }
+
+            f(None, None, None)
+            f(None, Some(10), None)
+            f(Some(10), Some(10))
+        """)
+    }
+
+    public define test_match
+    {
+        var t = Interpreter()
+
+        # match (simple Option case)
+
+        assert_parse_string(t, """
+            var v = Some(1)
+            var w: Option[Integer] = None
+
+            define f(a: Option[Integer]): Boolean {
+                match a: {
+                    case Some(s):
+                        return true
+                    case None:
+                        return false
+                }
+            }
+
+            if f(v) != true || f(w) != false: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # match (using else)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum RGB {
+                Red,
+                Green,
+                Blue
+            }
+
+            var red_count = 0
+            var else_count = 0
+            var colors = [Red, Blue, Green]
+
+            for i in 0...colors.size()-1: {
+                match colors[i]: {
+                    case Red: red_count += 1
+                    else: else_count += 1
+                }
+            }
+
+            if red_count != 1 || else_count != 2: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # match (multiple decompositions)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Abc[A] {
+                Def(A, A, A),
+                Ghi(A)
+            }
+
+            define f(a: Abc[Integer]): Integer {
+                match a: {
+                    case Def(b, c, d):
+                        return b + c + d
+                    case Ghi(e):
+                        return e
+                }
+            }
+
+            var v = Def(100, 200, 300)
+            var w = Ghi(400)
+
+            if f(v) != 600 || f(w) != 400: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # match (skip decomposition with _)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = Some(1)
+            match v: {
+                case Some(_):
+                case None:
+            }
+        """)
+
+        # match (using self in method)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Test {
+                Left,
+                Right
+                define is_left: Boolean {
+                    match self: {
+                        case Left:
+                            return true
+                        case Right:
+                            return false
+                    }
+                }
+            }
+
+            var v = Left
+            var w = Right
+
+            if v.is_left() == false || w.is_left() == true: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_methods
+    {
+        var t = Interpreter()
+
+        # methods (enum member function called on variant)
+
+        assert_parse_string(t, """
+            enum Test[A] {
+                One(A),
+                Two
+
+                define or_else(other: A) : A {
+                    match self: {
+                        case One(s):
+                            return s
+                        case Two:
+                            return other
+                    }
+                }
+            }
+
+            if Test.or_else(One(1), 2) != 1: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_scope
+    {
+        var t = Interpreter()
+
+        # scope (no collision for scoped + non-scoped enums)
+
+        assert_parse_string(t, """
+            enum StrangeSpeed {
+                Fast,
+                Medium,
+                Slow
+            }
+
+            scoped enum Speed {
+                Fast,
+                Medium,
+                Slow
+            }
+        """)
+
+        # scope (use scoped enums)
+
+        assert_parse_string(t, """
+            scoped enum ScopeTest[A] {
+                One(A),
+                Two
+            }
+
+            var v = [ScopeTest.One(1), ScopeTest.Two, ScopeTest.One(2)]
+            var check: ScopeTest[Integer] = v[0]
+        """)
+
+        # scope (matching scoped enum)
+
+        assert_parse_string(t, """
+            match check: {
+                case ScopeTest.One(s):
+                case ScopeTest.Two:
+                    raise Exception("Failed.")
+            }
+        """)
+    }
+}

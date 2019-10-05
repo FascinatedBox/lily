@@ -1,0 +1,44 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVarargs < TestCase
+{
+    public define test_basic
+    {
+        var t = Interpreter()
+
+        # basic (vararg to global define)
+
+        assert_parse_string(t, """
+            define padded_vararg_total(unused: String, args: Integer...): Integer
+            {
+                var va_total = 0
+                args.each(|a| va_total += a )
+                return va_total
+            }
+
+            define just_vararg_total(args: Integer...): Integer
+            {
+                var va_total = 0
+                args.each(|a| va_total += a )
+                return va_total
+            }
+
+            if padded_vararg_total("", 1, 2, 3) != 6: {
+                0 / 0
+            }
+
+            if padded_vararg_total("") != 0: {
+                0 / 0
+            }
+
+            if just_vararg_total(1, 2, 3) != 6: {
+                0 / 0
+            }
+
+            if just_vararg_total() != 0: {
+                0 / 0
+            }
+        """)
+    }
+}

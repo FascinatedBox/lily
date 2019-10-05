@@ -1,5 +1,0 @@
-# This file is imported by covlib tests. In the scenario, covlib registers
-# itself to a subinterpreter. That subinterpreter then loads this package which
-# tries to load covlib. However, since covlib is not a preloaded package, it
-# is not available from this package (even though it was registered).
-import covlib

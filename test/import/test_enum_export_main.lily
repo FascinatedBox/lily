@@ -1,0 +1,4 @@
+import enum_exporter
+import enum_export_user
+
+var v = enum_export_user.User(enum_export_user.enum_exporter.One(1), enum_exporter.Two("2"))

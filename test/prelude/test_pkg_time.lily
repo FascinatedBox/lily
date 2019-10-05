@@ -1,0 +1,27 @@
+import (Interpreter,
+        TestCase) "../t/testing", time
+
+class TestPkgTime < TestCase
+{
+    public define test_Time_clock
+    {
+        time.Time.clock()
+    }
+
+    public define test_Time_now
+    {
+        time.Time.now()
+    }
+
+    public define test_Time_since_epoch
+    {
+        var tm = time.Time.now()
+        tm.since_epoch()
+    }
+
+    public define test_Time_to_s
+    {
+        var tm = time.Time.now()
+        tm.to_s()
+    }
+}

@@ -1,0 +1,452 @@
+import (Interpreter,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestImport < TestCase
+{
+    private var @t_var_exporter =
+        StringTarget(
+            :path "var_exporter",
+            :data """
+                var v = 10
+            """
+        )
+
+    private var @t_export_var =
+        StringTarget(
+            :path "export_var",
+            :data """
+                import var_exporter
+                if var_exporter.v != 10: {
+                    0 / 0
+                }
+            """
+        )
+
+    private var @t_deep_access =
+        StringTarget(
+            :path "deep_access",
+            :data """
+                import deep_middle
+
+                if deep_middle.deep_bottom.bottomFunc(10) != 10: {
+                    0 / 0
+                }
+
+                var v = deep_middle.deep_bottom.BottomClass()
+
+                define f(g: deep_middle.deep_bottom.BottomClass) {
+                }
+            """
+        )
+
+    private var @t_deep_middle =
+        StringTarget(
+            :path "deep_middle",
+            :data """
+                import deep_bottom
+            """
+        )
+
+    private var @t_deep_bottom =
+        StringTarget(
+            :path "deep_bottom",
+            :data """
+                define bottomFunc(i: Integer): Integer { return i }
+
+                class BottomClass {
+                }
+            """
+        )
+
+    private var @t_diamond =
+        StringTarget(
+            :path "diamond",
+            :data """
+                import diamond_a
+                import diamond_b
+                import diamond_d
+
+                if diamond_d.d != 30: {
+                    0 / 0
+                }
+            """
+        )
+
+    private var @t_diamond_a =
+        StringTarget(
+            :path "diamond_a",
+            :data """
+                import diamond_d
+                diamond_d.d += 10
+            """
+        )
+
+    private var @t_diamond_b =
+        StringTarget(
+            :path "diamond_b",
+            :data """
+                import diamond_d
+                diamond_d.d += 10
+            """
+        )
+
+    private var @t_diamond_d =
+        StringTarget(
+            :path "diamond_d",
+            :data """
+                var d = 10
+            """
+        )
+
+    private var @t_one =
+        StringTarget(
+            :path "one",
+            :data """
+                var v = 10
+            """
+        )
+
+    private var @t_two =
+        StringTarget(
+            :path "two",
+            :data """
+                var v = 100
+            """
+        )
+
+    private var @t_three =
+        StringTarget(
+            :path "three",
+            :data """
+                var v = 1000
+            """
+        )
+
+    private var @t_four =
+        StringTarget(
+            :path "four",
+            :data """
+                var v = 10000
+            """
+        )
+
+    private var @t_five =
+        StringTarget(
+            :path "five",
+            :data """
+                import var_exporter
+            """
+        )
+
+    private var @t_ref_import =
+        StringTarget(
+            :path "ref_import",
+            :data """
+                import (v) var_exporter
+            """
+        )
+
+    private var @t_ref_target =
+        StringTarget(
+            :path "ref_target",
+            :data """
+                define ref_define: Integer { return 10 }
+
+                var ref_var = 10
+
+                class RefSquarer {
+                    public define square(a: Integer): Integer { return a + a }
+                }
+
+                scoped enum ScopedOption[A] {
+                    ScopedSome(A),
+                    ScopedNone
+                }
+
+                enum FlatOption[A] {
+                    FlatSome(A),
+                    FlatNone
+                }
+            """
+        )
+
+    private var @t_fakefib =
+        StringTarget(
+            :path "fakefib",
+            :data """
+                define fakefib(n: Integer): Integer { return n }
+            """
+        )
+
+    private var @t_ref_diamond =
+        StringTarget(
+            :path "ref_diamond",
+            :data """
+                import (AA, BB) ref_left
+                import (f) ref_right
+            """
+        )
+
+    private var @t_ref_right =
+        StringTarget(
+            :path "ref_right",
+            :data """
+                import (AA) ref_left
+
+                define f {}
+            """
+        )
+
+    private var @t_ref_left =
+        StringTarget(
+            :path "ref_left",
+            :data """
+                class AA {
+                }
+
+                class BB {
+                }
+            """
+        )
+
+    public define test_import_as
+    {
+        var t = Interpreter.with_targets(
+            @t_five,
+            @t_var_exporter
+        )
+
+        assert_parse_string(t, """
+            import five as a
+
+            if a.var_exporter.v != 10: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_import_diamond
+    {
+        # import diamond (verify import runs code only once)
+
+        var t = Interpreter.with_targets(
+            @t_diamond,
+            @t_diamond_a,
+            @t_diamond_b,
+            @t_diamond_d
+        )
+
+        assert_parse_string(t, """
+            import diamond
+        """)
+    }
+
+    public define test_import_refs
+    {
+        var t = Interpreter.with_targets(
+            @t_ref_target
+        )
+
+        # import refs (simple var case)
+
+        assert_parse_string(t, """
+            import (ref_var) ref_target
+        """)
+
+        # import refs (multiple refs)
+
+        t = Interpreter.with_targets(
+            @t_ref_target
+        )
+
+        assert_parse_string(t, """
+            import (ref_var, RefSquarer) ref_target
+
+            if RefSquarer().square(ref_var) != 20: {
+                0 / 0
+            }
+        """)
+
+        # import refs (scoped enum)
+
+        t = Interpreter.with_targets(
+            @t_ref_target
+        )
+
+        assert_parse_string(t, """
+            import (ScopedOption) ref_target
+
+            var v = ScopedOption.ScopedSome(1)
+
+            match v: {
+                case ScopedOption.ScopedNone:
+                    0 / 0
+                case ScopedOption.ScopedSome(s):
+            }
+        """)
+
+        # import refs (flat enum)
+
+        t = Interpreter.with_targets(
+            @t_ref_target
+        )
+
+        assert_parse_string(t, """
+            import (FlatOption, FlatSome, FlatNone) ref_target
+
+            var v: FlatOption[Integer] = FlatNone
+
+            match v: {
+                case FlatNone:
+                case FlatSome(s):
+                    0 / 0
+            }
+        """)
+
+        # import refs (dynaload var by import ref)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            import (argv) sys
+        """)
+
+        # import refs (dynaload class by import ref)
+
+        assert_parse_string(t, """
+            import (Time) time
+        """)
+
+        # import refs (direct import of direct symbol)
+
+        t = Interpreter.with_targets(
+            @t_ref_target
+        )
+
+        assert_parse_string(t, """
+            import (ref_var) ref_target
+
+            if ref_var != 10: {
+                0 / 0
+            }
+        """)
+
+        # import refs (direct import shadowing module name)
+
+        t = Interpreter.with_targets(
+            @t_fakefib
+        )
+
+        assert_parse_string(t, """
+            import (fakefib) fakefib
+
+            if fakefib(10) != 10: {
+                0 / 0
+            }
+        """)
+
+        # import refs (ref of a ref var)
+
+        t = Interpreter.with_targets(
+            @t_ref_import,
+            @t_var_exporter
+        )
+
+        assert_parse_string(t, """
+		    import (v) ref_import
+
+		    var ref_import = 10
+
+		    if v != 10: {
+		    	0 / 0
+		    }
+        """)
+
+        # import refs (nested direct import)
+
+        t = Interpreter.with_targets(
+            @t_ref_diamond,
+            @t_ref_left,
+            @t_ref_right
+        )
+
+        assert_parse_string(t, """
+            import ref_diamond
+        """)
+    }
+
+    public define test_multi_import
+    {
+        var t = Interpreter.with_targets(
+            @t_one,
+            @t_two,
+            @t_three,
+            @t_four
+        )
+
+        assert_parse_string(t, """
+            import one, two
+            import three, four
+
+            if one.v != 10 ||
+               two.v != 100 ||
+               three.v != 1000 ||
+               four.v != 10000: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_run_enum_export
+    {
+        Interpreter()
+            .parse_file("test\/import\/test_enum_export_main.lily")
+            |> assert_true
+    }
+
+    public define test_run_rooted_base
+    {
+        Interpreter()
+            .parse_file("test\/import\/test_rooted_base.lily")
+            |> assert_true
+    }
+
+    public define test_symbol_access
+    {
+        var t = Interpreter.with_targets(
+            @t_var_exporter,
+            @t_export_var
+        )
+
+        # symbol access (import to access a symbol)
+
+        assert_parse_string(t, """
+            import export_var
+        """)
+
+        # var access (deep access to symbols)
+
+        t = Interpreter.with_targets(
+            @t_deep_access,
+            @t_deep_middle,
+            @t_deep_bottom
+        )
+
+        assert_parse_string(t, """
+            import deep_access
+        """)
+    }
+
+    public define test_verify_module_type
+    {
+        var t = Interpreter.with_targets(
+            @t_one
+        )
+
+        assert_parse_string(t, """
+            import one
+
+            var f: Function() = one.__module__
+        """)
+    }
+}

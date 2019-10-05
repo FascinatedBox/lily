@@ -1,0 +1,129 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVariance < TestCase
+{
+    public define test_bad_narrow_variance
+    {
+        var t = Interpreter()
+
+        # bad narrow invariance (invariant narrow to Unit)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #2 to List.push is invalid:\n\
+            Expected Type: List[Function ( => Integer)]\n\
+            Received Type: List[Function ()]\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            var l: List[List[Function( => Integer)]] = []
+
+            define f {}
+            var l2 = [f]
+
+            l.push(l2)
+        """)
+
+        # bad narrow invariance (covariant narrow to Unit)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to g is invalid:\n\
+            Expected Type: Function ( => Integer)\n\
+            Received Type: Function ()\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            define f {}
+
+            define g(h: Function( => Integer)): Integer {
+                return h()
+            }
+
+            g(f)
+        """)
+
+        # bad narrow invariance (contravariant narrow to Unit)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (Function ())' to type 'Function (Function ( => Integer))'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(g: Function(Function( => Integer)),
+                     h: Function(Function())) {
+                g = h
+            }
+        """)
+    }
+
+    public define test_narrow_away_optargs
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, *Integer)'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f(a: Integer) {  }
+            define g(a: Integer, b: *Integer=10) {  }
+
+            var h = g
+                h = f
+        """)
+    }
+
+    public define test_narrow_extra_optargs
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define f(a: Integer, b: *Integer=10) {  }
+
+            define g(a: Function(Integer)) {  }
+
+            g(f)
+        """)
+    }
+
+    public define test_narrow_mismatch_optargs
+    {
+        var t = Interpreter()
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f(a: String): String { return "10" }
+            define g(a: Integer, b: *Integer=10): Integer { return 10 }
+
+            var h = f
+                h = g
+        """)
+    }
+
+    public define test_narrow_mismatched_returns
+    {
+        var t = Interpreter()
+        assert_parse_string(t, """
+            define f(a: Integer): String { return "" }
+            define g(a: Integer): Integer { return 0 }
+
+            var lst = [f, g]
+        """)
+    }
+
+    public define test_static_list_hash_narrow
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            class One {}
+            class Two < One {}
+            class Three < Two {}
+
+            var l = [Three(), Two(), One()]
+            var h = [1 => Three(), 2 => Two(), 3 => One()]
+        """)
+    }
+}

@@ -1,0 +1,17 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBooleanMethods < TestCase
+{
+    public define test_to_i
+    {
+        assert_equal(true.to_i(),  1)
+        assert_equal(false.to_i(), 0)
+    }
+
+    public define test_to_s
+    {
+        assert_equal(true.to_s(),  "true")
+        assert_equal(false.to_s(), "false")
+    }
+}

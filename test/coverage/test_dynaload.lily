@@ -1,0 +1,70 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestDynaload < TestCase
+{
+    public define test_dynaload_class_names
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            try: {
+                1 / 0
+            except Exception as e:
+                var v = "{0}".format(e)
+                if v.starts_with("<DivisionByZeroError at ") == false ||
+                   v.ends_with(">") == false: {
+                    raise Exception("Interpolation failed.")
+                }
+            }
+        """)
+    }
+
+    public define test_dynaload_name_clash
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define ends_with(a: String, b: String) {  }
+
+            var s = "".ends_with("")
+        """)
+    }
+
+    public define test_dynaload_restores_generics
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            class Test[A, B]
+            {
+                Some(1).is_none()
+
+                public define abc(key: A): Test[A, B]
+                {
+                    return self
+                }
+            }
+        """)
+    }
+
+    public define test_dynaload_then_property
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            class Test {
+                public var @contents = [1, 2, 3]
+
+                public define check(source: String) {
+                    var f = File.open(source, "r")
+                    var lines: List[String] = []
+
+                    f.each_line(|l| l.encode().unwrap() |> lines.push )
+
+                    @contents.size()
+                }
+            }
+        """)
+    }
+}

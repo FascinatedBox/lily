@@ -1,0 +1,214 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestStringMethods < TestCase
+{
+    public define test_ends_with
+    {
+        "1"     .ends_with("2")     |> assert_false
+        "1"     .ends_with("12345") |> assert_false
+        "1"     .ends_with("1")     |> assert_true
+        "ÀÈÌaÒÜ".ends_with("aÒÜ")   |> assert_true
+    }
+
+    public define test_find_with
+    {
+         "12"    .find("1")    .is_some() |> assert_true
+         "ÀÈaÌÒÜ".find("ÈaÌ")  .is_some() |> assert_true
+         "1"     .find("12345").is_some() |> assert_false
+         ""      .find("")     .is_some() |> assert_false
+         "1234"  .find("5")    .is_some() |> assert_false
+         "1234"  .find("1", 9) .is_some() |> assert_false
+         "1234"  .find("3", 2) .is_some() |> assert_true
+    }
+
+    public define test_format
+    {
+        assert_equal("{0}{0}"    .format(0),       "00")
+        assert_equal("{00000000}".format(0),       "0")
+        assert_equal("{1}a{2}"   .format(0, 1, 2), "1a2")
+        assert_equal("abc"       .format(0, 1, 2), "abc")
+
+        assert_raises("ValueError: Format specifier is empty.",
+            (|| "{".format(0) ))
+
+        assert_raises("ValueError: Format specifier is not numeric.",
+            (|| "{a}".format(0) ))
+
+        assert_raises("ValueError: Format must be between 0...99.",
+               (|| "{100}".format(0) ))
+
+        assert_raises("ValueError: Format specifier is empty.",
+               (|| "{}".format(0) ))
+
+        assert_raises("IndexError: Format specifier is too large.",
+               (|| "{5}".format(0) ))
+    }
+
+    public define test_html_encode
+    {
+        assert_equal("<&>"  .html_encode(), "&lt;&amp;&gt;")
+        assert_equal("+<&>+".html_encode(), "+&lt;&amp;&gt;+")
+        assert_equal("<+&+>".html_encode(), "&lt;+&amp;+&gt;")
+        assert_equal("asdf" .html_encode(), "asdf")
+    }
+
+    public define test_is_alnum
+    {
+        ""        .is_alnum() |> assert_false
+        "a"       .is_alnum() |> assert_true
+        "abc123()".is_alnum() |> assert_false
+        "ÀÈÌaÒÜ"  .is_alnum() |> assert_false
+    }
+
+    public define test_is_alpha
+    {
+        ""      .is_alpha() |> assert_false
+        "a"     .is_alpha() |> assert_true
+        "abc123".is_alpha() |> assert_false
+        "ÀÈÌaÒÜ".is_alpha() |> assert_false
+    }
+
+    public define test_is_digit
+    {
+        ""      .is_digit() |> assert_false
+        "123"   .is_digit() |> assert_true
+        "abc123".is_digit() |> assert_false
+        "ÀÈÌaÒÜ".is_digit() |> assert_false
+    }
+
+    public define test_is_space
+    {
+        ""       .is_space() |> assert_false
+        " \t\r\n".is_space() |> assert_true
+        "abc "   .is_space() |> assert_false
+        "ÀÈÌaÒÜ" .is_space() |> assert_false
+    }
+
+    public define test_lower
+    {
+        assert_equal("abc".lower(), "abc")
+        assert_equal("ABC".lower(), "abc")
+    }
+
+    public define test_lstrip
+    {
+        assert_equal("abc"     .lstrip(""),    "abc")
+        assert_equal("aabbab12".lstrip("ab"),  "12")
+        assert_equal("aaaaa"   .lstrip("a"),   "")
+        assert_equal("ÀÈaÌÒÜ"  .lstrip("ÀÈ"),  "aÌÒÜ")
+        assert_equal("À¡aa¡À"  .lstrip("À¢"),  "¡aa¡À")
+        assert_equal("¥"       .lstrip("¦"),   "¥")
+        assert_equal("¦"       .lstrip("¦¦"),  "")
+    }
+
+    public define test_parse_i
+    {
+        assert_equal("+12345"              .parse_i().unwrap(), 12345)
+        assert_equal("0001"                .parse_i().unwrap(), 1)
+        assert_equal("0"                   .parse_i().unwrap(), 0)
+        assert_equal("9223372036854775807" .parse_i().unwrap(),
+                     9223372036854775807)
+        assert_equal("-9223372036854775808".parse_i().unwrap(),
+                     -9223372036854775808)
+        ""                    .parse_i().is_none() |> assert_true
+        "9223372036854775808" .parse_i().is_none() |> assert_true
+        "-9223372036854775809".parse_i().is_none() |> assert_true
+        "123abc"              .parse_i().is_none() |> assert_true
+    }
+
+    public define test_replace
+    {
+        assert_equal("abc"      .replace("",     ""),    "abc")
+        assert_equal("abc"      .replace("abcd", "0"),   "abc")
+        assert_equal("a-b-c"    .replace("-",    "+"),   "a+b+c")
+        assert_equal("-abc-"    .replace("-",    "+"),   "+abc+")
+        assert_equal("---"      .replace("---",  ""),    "")
+        assert_equal("a--b--c--".replace("--",   "+"),   "a+b+c+")
+        assert_equal("asdf"     .replace("ag",   "xyz"), "asdf")
+    }
+
+    public define test_rstrip
+    {
+        assert_equal("abc"     .rstrip(""),    "abc")
+        assert_equal("abc"     .rstrip("c"),   "ab")
+        assert_equal("12aabbab".rstrip("ab"),  "12")
+        assert_equal("aaaaa"   .rstrip("a"),   "")
+        assert_equal("ÀÈaÌÒÜ"  .rstrip("ÌÒÜ"), "ÀÈa")
+        assert_equal("¡"       .rstrip("á"),   "¡")
+        assert_equal("À¡aa¡À"  .rstrip("À¢"),  "À¡aa¡")
+    }
+
+    public define test_size
+    {
+        assert_equal(""   .size(), 0)
+        assert_equal("abc".size(), 3)
+    }
+
+    public define test_slice
+    {
+        assert_equal("abc"  .slice(),       "abc")
+        assert_equal("abc"  .slice(0, -1),  "ab")
+        assert_equal("abc"  .slice(1, 2),   "b")
+        assert_equal("abc"  .slice(2, 1),   "")
+        assert_equal("abc"  .slice(1, 5),   "")
+        assert_equal("À"    .slice(0, 1),   "")
+        assert_equal("abcde".slice(-4, -2), "bc")
+    }
+
+    public define test_split
+    {
+        assert_equal("123"    .split(" "),    ["123"])
+        assert_equal("1 2 3"  .split(" "),    ["1", "2", "3"])
+        assert_equal("1 2 3"  .split(),       ["1", "2", "3"])
+        assert_equal("1ab2ab" .split("ab"),   ["1", "2", ""])
+        assert_equal("1ÀÀ2À"  .split("À"),    ["1", "", "2", ""])
+        assert_equal("   "    .split(" "),    ["", "", "", ""])
+        assert_equal("abc.def".split(".xyz"), ["abc.def"])
+
+        "1 2 3".split(" ")[0].is_digit() |> assert_true
+
+        assert_raises("ValueError: Cannot split by empty string.",
+                (|| "a".split("") ))
+    }
+
+    public define test_starts_with
+    {
+        "123"   .starts_with("12345") |> assert_false
+        "1"     .starts_with("1")     |> assert_true
+        "ÀÈÌaÒÜ".starts_with("ÀÈ")    |> assert_true
+        "1"     .starts_with("2")     |> assert_false
+        "123"   .starts_with("12345") |> assert_false
+        "1"     .starts_with("1")     |> assert_true
+        "ÀÈÌaÒÜ".starts_with("ÀÈ")    |> assert_true
+    }
+
+    public define test_strip
+    {
+        assert_equal("asdf"  .strip("z"),  "asdf")
+        assert_equal(""      .strip("a"),  "")
+        assert_equal("aabaa" .strip(""),   "aabaa")
+        assert_equal("aaaaa" .strip("a"),  "")
+        assert_equal("aabaa" .strip("a"),  "b")
+        assert_equal("À¡aa¡À".strip("À"),  "¡aa¡")
+        assert_equal("À¡aa¡À".strip("À¢"), "¡aa¡")
+    }
+
+    public define test_to_bytestring
+    {
+        assert_equal("abc".to_bytestring(), B"abc")
+    }
+
+    public define test_trim
+    {
+        assert_equal("abc"              .trim(), "abc")
+        assert_equal(" \t\r\nabc\t\r\n ".trim(), "abc")
+        assert_equal("    "             .trim(), "")
+    }
+
+    public define test_upper
+    {
+        assert_equal("ABC".upper(), "ABC")
+        assert_equal("abc".upper(), "ABC")
+    }
+}

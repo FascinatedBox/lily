@@ -1,0 +1,473 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadCall < TestCase
+{
+    public define test_basic_calls
+    {
+        var t = Interpreter()
+
+        # basic calls (wrong count to plain call)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to f (1 for 0).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f {}
+
+            f(1)
+        """)
+
+        # basic calls (wrong count to global var function)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to v is invalid:\n\
+            Expected Type: String\n\
+            Received Type: Integer\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v = String.parse_i
+            v(1)
+        """)
+
+        # basic calls (wrong count to parameter function)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to g (3 for 1).\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f(g: Function(Integer)) {
+                g(1, 2, 3)
+            }
+        """)
+
+        # basic calls (wrong count to anonymous function)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            class Test
+            {
+                public define test : Function(Integer, Integer => Boolean)
+                {
+                    return (|x, y| x == y)
+                }
+            }
+
+            var z = Test().test()()
+        """)
+
+        # basic calls (empty Function as wrong type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Function ()\n\
+            Received Type: Integer\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(g: Function()) {  }
+
+            f(10)
+        """)
+    }
+
+    public define test_class_calls
+    {
+        var t = Interpreter()
+
+        # class calls (wrong count from method to ctor)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Test.method (0 for 1).\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Test
+            {
+                public define method(x: Integer) {  }
+                method()
+            }
+        """)
+
+        # class calls (wrong count to class method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Test.method (1 for 0).\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Test
+            {
+                public define method {  }
+            }
+
+            var t = Test()
+            t.method(123)
+        """)
+
+        # class calls (wrong count to class prop function)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to abc.a (3 for 0).\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class abc {
+                public var @a = (|| 10)
+            }
+
+            var d = abc()
+            d.a(1, 2, 3)
+        """)
+
+        # class calls (wrong arg count to instance without instance method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            String.ends_with("a", "b", "c")
+        """)
+
+        # class calls (wrong arg count to static method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Example.g (2 for 3).\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            class Example {
+                public static define g(a: Integer, b: String, c: Integer) {
+                }
+            }
+
+            Example.g(10, "20")
+        """)
+
+        # class calls (wrong arg count to static call of static method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to File.open is invalid:\n\
+            Expected Type: String\n\
+            Received Type: File\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            stdin.open("r")
+        """)
+    }
+
+    public define test_closure_calls
+    {
+        var t = Interpreter()
+
+        # closure calls (wrong count to closure function)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to g (1 for 0).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: Integer) {
+                define g { a += 1 }
+                g(1)
+            }
+        """)
+    }
+
+    public define test_enum_calls
+    {
+        var t = Interpreter()
+
+        # enum calls (empty flat variant with args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variant Gamma should not get args.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            enum TestE {
+                Alpha,
+                Beta,
+                Gamma
+            }
+            Gamma()
+        """)
+
+        # enum calls (non-empty flat variant no args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Some (none for 1).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = Some
+        """)
+
+        # enum calls (non-empty flat variant too many args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Some (2 for 1).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = Some(1, 2)
+        """)
+
+        # enum calls (non-empty scoped variant wrong count)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to One (2 for 1).\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            scoped enum Test[A] {
+                One(A),
+                Two
+            }
+
+            var opt: Test[Integer] = Test.One(1, 2)
+        """)
+
+        # enum calls (non-empty flat wrong vararg count)
+        # This is blocked for consistency with defined functions, which are not
+        # auto invoked when passed no args.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to One (none for 0+).\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Test[A] {
+                One(A...),
+                Two
+            }
+
+            var v = One
+        """)
+    }
+
+    public define test_invalid_calls
+    {
+        var t = Interpreter()
+
+        # invalid calls (call against Integer)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot anonymously call resulting type 'Integer'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            (10)()
+        """)
+    }
+
+    public define test_keyarg_calls
+    {
+        var t = Interpreter()
+
+        # keyarg calls (too many args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to f (4 for 1).\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f(:a a: Integer) {}
+            f(1, 2, 3, :a 1)
+        """)
+
+        # keyarg calls (not there)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f does not have a keyword named ':b'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(:a a: Integer) {  }
+
+            f(:b 1)
+        """)
+
+        # keyarg calls (missing keyargs before and after)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to f is missing parameters:\n\
+            * Parameter #1 of type Integer.\n\
+            * Parameter #3 of type Double.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: Integer, :b b: String, c: Double) {}
+
+            f(:b "a")
+        """)
+
+        # keyarg calls (duplicate target by keyargs only)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to f has multiple values for parameter ':a'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f(:a a: Integer, :b b: Integer) {}
+            f(:a 1, :a 2)
+        """)
+
+        # keyarg calls (wrong type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+                Expected Type: Integer\n\
+                Received Type: String\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f(:a a: Integer) {}
+            f(:a "")
+        """)
+    }
+
+    public define test_mixarg_calls
+    {
+        var t = Interpreter()
+
+        # mixarg calls (opt+var with too few)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to f (1 for 2+).\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f(a: Integer, b: Integer, c: *Integer = 10, d: *Integer...=[]) {
+
+            }
+
+            f(1)
+        """)
+
+        # mixarg calls (key+var missing only parameters)
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            SyntaxError: Call to f is missing parameters:\n\
+            * Parameter #1 (:a) of type Integer.\n\
+            * Parameter #3 (:c) of type Double.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(:a a: Integer, :b b: String, :c c: Double, :d d: Byte...) {}
+
+            f(:b "a")
+        """)
+
+        # mixarg calls (key+opt missing only parameters)
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            SyntaxError: Call to f is missing parameters:\n\
+            * Parameter #1 (:a) of type Integer.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            define f(:a a: Integer,
+                     :b b: String,
+                     :c c: *Double=0.0,
+                     :d d: *Boolean=true) {}
+
+            f(:b "a")
+        """)
+    }
+
+    public define test_optarg_calls
+    {
+        var t = Interpreter()
+
+        # optarg calls (too few with 1 required)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to f (0 for 1..2).\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f(a: Integer, b: *Integer = 10) {
+
+            }
+
+            f()
+        """)
+    }
+
+    public define test_vararg_calls
+    {
+        var t = Interpreter()
+
+        # vararg calls (wrong count when using class method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Test.method (0 for 1+).\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Test
+            {
+                public define method(x: Integer, y: Integer...) {  }
+            }
+
+            var t = Test()
+            t.method()
+        """)
+
+        # vararg calls (wrong type BEFORE the end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f(a: Integer, b: String...) {
+            }
+
+            f("4")
+        """)
+
+        # vararg calls (wrong type AT the end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f(a: Integer...) {
+            }
+
+            f("4")
+        """)
+
+        # vararg calls (wrong type PAST the end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #4 to f is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f(a: Integer...) {
+            }
+
+            f(1, 2, 3, "4")
+        """)
+    }
+}

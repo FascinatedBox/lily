@@ -1,2 +1,0 @@
-import "import_dir/diamond_a", "import_dir/diamond_b"
-import "import_dir/diamond_c", "import_dir/diamond_d"

@@ -1,0 +1,217 @@
+import (Interpreter,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestBadForward < TestCase
+{
+    private var @t_unresolved_target =
+        StringTarget(
+            :path "unresolved_target",
+            :data """
+                forward define f { ... }
+                forward define g { ... }
+                forward define h { ... }
+            """
+        )
+
+    public define test_bad_resolution
+    {
+        var t = Interpreter()
+
+        # bad resolution (with scope qualifier)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: protected).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                forward protected define f(Integer) { ... }
+                public define f(a: Integer) {}
+            }
+        """)
+
+        # bad resolution (with static qualifier)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: private static).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                forward private static define f(Integer) { ... }
+                private define f(a: Integer) {}
+            }
+        """)
+
+        # bad resolution (expected public)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong qualifiers in resolution of Example.f (expected: public).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                forward public define f { ... }
+                protected define f {}
+            }
+        """)
+
+        # bad resolution (wrong type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Declaration does not match prior forward declaration at line 2.\n\
+            Expected: Function (Test, Integer)\n\
+            Received: Function (Test, String)\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                forward public define f(Integer) { ... }
+                public define f(a: String) {}
+            }
+        """)
+    }
+
+    public define test_duplicate
+    {
+        var t = Interpreter()
+
+        # duplicate forward (of toplevel definition)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A forward declaration for f already exists.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward define f(Integer) { ... }
+            forward define f(Integer) { ... }
+        """)
+
+        # duplicate forward (of class method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A forward declaration for f already exists.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                forward public define f(Integer) { ... }
+                forward public define f(Integer) { ... }
+            }
+        """)
+
+        # duplicate forward (class method and toplevel)
+        # Blocked because it's this way for regular method definitions.
+
+        assert_parse_fails(t, """\
+            SyntaxError: f has already been declared.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f {}
+
+            class Example {
+                forward public define f(Integer) { ... }
+            }
+        """)
+    }
+
+    public define test_unresolved_at_end
+    {
+        var t = Interpreter()
+
+        # unresolved at end (of class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of class with unresolved forward(s):\n\
+            * Test.f at line 2\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Test {
+                forward public define f(Integer) { ... }
+            }
+        """)
+
+        # unresolved at end (of first file)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):\n\
+            * f at line 1\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward define f(String): String { ... }
+        """)
+
+        # unresolved at end (of class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot declare a class property when there are unresolved forward(s):\n\
+            * Test.f at line 2\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                forward public define f(Integer) { ... }
+                public var @x = 10
+            }
+        """)
+
+        # unresolved at end (trying to import)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use 'import' when there are unresolved forward(s):\n\
+            * f at line 1\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward define f { ... }
+            import notachance
+        """)
+
+        # unresolved at end (var decl with unresolved)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot declare a global var when there are unresolved forward(s):\n\
+            * f at line 1\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward define f { ... }
+            var v = 10
+            define f { }
+        """)
+
+        # unresolved at end (import unresolved module)
+
+        t = Interpreter.with_targets(
+            @t_unresolved_target
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):\n\
+            * h at line 4\n\
+            * g at line 3\n\
+            * f at line 2\n    \
+                from unresolved_target.lily:5:\n\
+        """,
+        """\
+            import unresolved_target
+        """)
+
+        # unresolved at end (template not complete)
+
+        t = Interpreter()
+
+        assert_render_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):\n\
+            * f at line 1\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            <?lily forward define f(String): String { ... } ?>
+        """)
+    }
+}

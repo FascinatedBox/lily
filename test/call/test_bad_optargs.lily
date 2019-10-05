@@ -1,0 +1,112 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadOptargs < TestCase
+{
+    public define test_bad_value
+    {
+        var t = Interpreter()
+
+        # bad value (enum given non-member)
+
+        assert_parse_fails(t, """\
+            SyntaxError: what has not been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Test {
+                One,
+                Two
+            }
+
+            define f(a: *Test = what)
+        """)
+
+        # bad value (Boolean given non-Boolean)
+
+        assert_parse_fails(t, """\
+            SyntaxError: hello has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: *Boolean=hello) { }
+        """)
+    }
+
+    public define test_optarg_rules
+    {
+        var t = Interpreter()
+
+        # optarg rules (no default arguments for lambdas)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not '*'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|a: *Integer=10| a )
+        """)
+
+        # optarg rules (no optargs for variants)
+        # Blocked because these aren't functions.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variant types cannot have default values.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            enum Test {
+                Check(*Integer),
+                Blank
+            }
+        """)
+
+        # optarg rules (default value cannot be a lambda)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Optional arguments are not allowed to use lambdas.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: *Integer=(|| 10)()) {
+
+            }
+
+            f(1)
+        """)
+
+        # optarg rules (optarg self reference in constructor)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Constructor for class Test is not initialized.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Test(a: *Test=Test()) {
+            }
+        """)
+
+        # optarg rules (optarg self reference in define)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'f'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: *Integer=f(1)): Integer {
+                return 10
+            }
+        """)
+
+        # optarg rules (required argument after optional)
+        # Blocked because it makes the type system more difficult.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Non-optional argument follows optional argument.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: *Integer=10, b: Integer) {  }
+        """)
+    }
+}

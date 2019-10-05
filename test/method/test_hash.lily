@@ -1,0 +1,131 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestHashMethods < TestCase
+{
+    public define test_clear
+    {
+        var v = [1 => 1, 2 => 2]
+        v.clear()
+        assert_equal(v, [])
+
+        var v2 = [1 => 1]
+        v2.clear()
+        v2.clear()
+        assert_equal(v2, [])
+
+        assert_raises(
+                "RuntimeError: Cannot remove key from hash during iteration.",
+                (|| var v3 = [1 => 1]
+                    v3.each_pair(|k_, v_| v3.clear() )
+                    unit ))
+    }
+
+    public define test_delete
+    {
+        var v = [1 => 1, 2 => 2, 3 => 3]
+        v.delete(1)
+        v.delete(2)
+        assert_equal(v, [3 => 3])
+
+        var v2 = [1 => 1, 2 => 2, 3 => 3]
+        v2.delete(-1)
+        assert_equal(v2, [1 => 1, 2 => 2, 3 => 3])
+    }
+
+    private define each_pair_empty
+    {
+        var v: Hash[Integer, Integer] = []
+        v.each_pair(|k_, v_| 0 / 0)
+    }
+
+    private define each_pair_order
+    {
+        var v = [0 => 0, 1 => -1, 2 => -2]
+        var entries = [0, 0, 0]
+
+        v.each_pair(|k_, v_| entries[k_] = v_ )
+        assert_equal(entries, [0, -1, -2])
+    }
+
+    public define test_each_pair
+    {
+        each_pair_empty()
+        each_pair_order()
+    }
+
+    public define test_get
+    {
+        var v = [1 => 100, 2 => 200, 3 => 300].get(5)
+        v.is_none() |> assert_true
+
+        var v2 = [1 => 100, 2 => 200, 3 => 300].get(1).unwrap()
+        assert_equal(v2, 100)
+    }
+
+    public define test_has_key
+    {
+        var v = [1 => 1].has_key(1)
+        v |> assert_true
+
+        var v2 = [1 => 1].has_key(2)
+        v2 |> assert_false
+    }
+
+    public define test_keys
+    {
+        var v = [1 => 1, 2 => 2]
+        var entries = [0, 0, 0]
+
+        v.keys().each(|e| entries[e] = 1 )
+        assert_equal(entries, [0, 1, 1])
+    }
+
+    private define map_values_empty
+    {
+        var v: Hash[Integer, Integer] = []
+        v.map_values(|v_| 0 / 0)
+    }
+
+    public define test_map_values
+    {
+        map_values_empty()
+        var v = [1 => "1", 2 => "a", 3 => "2"].map_values(String.parse_i)
+
+        assert_equal(v, [1 => Some(1), 2 => None, 3 => Some(2)])
+    }
+
+    public define test_merge
+    {
+        var v = [1 => 1, 2 => 2]
+        var v2 = [3 => 3]
+
+        assert_equal(Hash.merge(v, v2), [1 => 1, 2 => 2, 3 => 3])
+
+        var v3 = [1 => 1, 2 => 2]
+        var v4 = [2 => 4]
+
+        assert_equal(v3.merge(v4), [1 => 1, 2 => 4])
+    }
+
+    public define test_reject
+    {
+        var v = [1 => 1, 2 => 2, 3 => 3].reject(|k_, v_| (k_ % 2) == 1)
+        assert_equal(v, [2 => 2])
+    }
+
+    public define test_select
+    {
+        var v = [1 => 1, 2 => 2, 3 => 3].select(|k_, v_| true)
+        assert_equal(v, [1 => 1, 2 => 2, 3 => 3])
+    }
+
+    public define test_size
+    {
+        var v: Hash[Integer, Integer] = []
+        assert_equal(v.size(), 0)
+
+        var v2 = [1 => 1]
+        assert_equal(v2.size(), 1)
+    }
+}

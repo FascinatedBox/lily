@@ -1,0 +1,245 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadException < TestCase
+{
+    public define test_exception_rules
+    {
+        var t = Interpreter()
+
+        # exception rules (no generics)
+        # This is blocked because the interpreter doesn't retain full type
+        # information in the vm. It knows the class, but not the whole type.
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'except' type cannot have subtypes.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            class Ex[A](message: String, v: A) < Exception(message)
+            {
+                public var @value = v
+            }
+
+            try: {
+                raise Ex("", 100)
+            except Ex[Integer] as e:
+                if e.value != 100:
+                    raise Exception("Failed.")
+            }
+        """)
+
+        # exception rules (must derive from exception)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid class 'String' given to raise.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            raise "abc"
+        """)
+
+        # exception rules (try var in except clause)
+        # Blocked because the vars might be unset.
+
+        assert_parse_fails(t, """\
+            SyntaxError: v has not been declared.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            try: {
+                var v = 10
+            except Exception:
+                v = 11
+            }
+        """)
+
+        # exception rules (must inherit Exception)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'String' is not a valid exception class.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            try: {
+                1 / 0
+            except String:
+                0
+            }
+        """)
+
+        # exception rules (unreachable except clause)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'except' clause is unreachable.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            try: {
+                1 / 0
+            except Exception:
+                1
+            except IndexError:
+                2
+            }
+        """)
+
+        # exception rules (var already declared)
+
+        assert_parse_fails(t, """\
+            SyntaxError: v has already been declared.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            var v = 10
+            try: {
+                1
+            except Exception as v:
+                1
+            }
+        """)
+    }
+
+    public define test_raise_check
+    {
+        var t = Interpreter()
+
+        # raise check (check traceback line)
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            Exception: Test\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            raise Exception("Test")
+        """)
+
+        # raise check (check traceback when a method throws)
+
+        assert_parse_fails(t, """\
+            ValueError: Message.\n\
+            Traceback:\n    \
+                from [test]:5: in Example.action\n    \
+                from [test]:8: in Example\n    \
+                from [test]:11: in __main__\n\
+        """,
+        """\
+            class Example {
+                public define action {
+                    if 1: {
+                        var k = ValueError("Message.")
+                        raise k
+                    }
+                }
+                action()
+            }
+
+            Example()
+        """)
+
+        # raise check (check throwing custom exception)
+
+        assert_parse_fails(t, """\
+            MyException: Correct!\n\
+            Traceback:\n    \
+                from [test]:5: in __main__\n\
+        """,
+        """\
+            class MyException(msg: String) < Exception(msg) {
+
+            }
+
+            raise MyException("Correct!")
+        """)
+
+        # raise check (raise from an except clause)
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:4: in __main__\n\
+        """,
+        """\
+            try: {
+                raise ValueError("10")
+            except ValueError:
+                var v = 1 / 0
+            }
+        """)
+
+        # raise check (empty message)
+
+        assert_parse_fails(t, """\
+            ValueError\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            raise ValueError("")
+        """)
+
+        # raise check (within a class constructor)
+
+        assert_parse_fails(t, """\
+            ValueError: Test\n\
+            Traceback:\n    \
+                from [test]:3: in Example\n    \
+                from [test]:6: in __main__\n\
+        """,
+        """\
+            class Example
+            {
+                raise ValueError("Test")
+            }
+
+            Example()
+        """)
+
+        # raise check (check return popping try blocks)
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            ValueError: Test\n\
+            Traceback:\n    \
+                from [test]:15: in g\n    \
+                from [test]:19: in __main__\n\
+        """,
+        """\
+            define f(a: Integer)
+            {
+                try: {
+                    while 1: {
+                        1
+                        return
+                    }
+                except Exception as e:
+                    raise Exception("Failed.")
+                }
+            }
+
+            define g
+            {
+                raise ValueError("Test")
+            }
+
+            f(1)
+            g()
+        """)
+
+        # raise check (function returning A can always raise)
+
+        assert_parse_fails(t, """\
+            ValueError: Test.\n\
+            Traceback:\n    \
+                from [test]:1: in always_fail\n    \
+                from [test]:3: in __main__\n\
+        """,
+        """\
+            define always_fail[A]: A { raise ValueError("Test.") }
+
+            var w: List[Integer] = [always_fail()]
+        """)
+    }
+}

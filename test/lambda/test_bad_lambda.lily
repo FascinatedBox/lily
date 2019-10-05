@@ -1,0 +1,74 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadLambda < TestCase
+{
+    public define test_lambda_rules
+    {
+        var t = Interpreter()
+
+        # lambda rules (no unresolved parameters)
+        # Blocked because this makes the type system MUCH more difficult.
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot infer type of 'a'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f[A](g: Function(A => A)) {
+
+            }
+
+            f((|a| a))
+        """)
+
+        # lambda rules (must not be empty)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of lambda'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| )
+        """)
+
+        # lambda rules (raise not allowed)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'raise' not allowed in a lambda.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| raise ValueError("") )
+        """)
+
+        # lambda rules (return not allowed)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'return' not allowed in a lambda.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| return )
+        """)
+    }
+
+    public define test_unterminated
+    {
+        var t = Interpreter()
+
+        # unterminated (with last line being '#')
+        # The blank line at start is intentional.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unterminated lambda (started at line 2).\n    \
+                from [test]:6:\n\
+        """,
+        """\
+
+            var v = (||
+                var w
+                =
+            #
+        """)
+    }
+}

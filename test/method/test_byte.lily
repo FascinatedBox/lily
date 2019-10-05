@@ -1,0 +1,12 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestByteMethods < TestCase
+{
+    public define test_to_i
+    {
+        assert_equal(0t  .to_i(), 0)
+        assert_equal(255t.to_i(), 255)
+        assert_equal(128t.to_i(), 128)
+    }
+}

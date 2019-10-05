@@ -1,0 +1,379 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVerifyCoroutine < TestCase
+{
+    public define test_basic
+    {
+        var t = Interpreter()
+
+        # basic (resume once)
+
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, Unit]): Integer {
+                co.yield(1)
+                return 0
+            }
+
+            if Coroutine.build(f).resume().unwrap() != 1: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # basic (resume twice)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, Unit]) {
+                co.yield(1)
+                co.yield(2)
+            }
+
+            var c = Coroutine.build(f)
+
+            if c.resume().unwrap() != 1 ||
+               c.resume().unwrap() != 2: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # basic (yield from a List of values)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, Unit], source: List[Integer]): Integer {
+                for i in 0...source.size() - 1: {
+                    co.yield(source[i])
+                }
+
+                return 0 / 0
+            }
+
+            var input = [5, 10, 15, 20, 25]
+            var co = Coroutine.build_with_value(f, input)
+            var output = input.map(|l| co.resume().unwrap() )
+
+            if input != output || co.resume().is_some(): {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # basic (check call stack)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define fn(co: Coroutine[List[String], Unit]) {
+                co.yield(calltrace())
+            }
+
+            var expect = ["[test]:3: in fn"]
+
+            if Coroutine.build(fn).resume().unwrap() != expect: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_co_receive
+    {
+        var t = Interpreter()
+
+        # receive (Integer value transfer)
+
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, Integer]): Integer {
+                for i in 0...5: {
+                    co.yield(co.receive() * 2)
+                }
+
+                return 0 / 0
+            }
+
+            var co = Coroutine.build(f)
+            var lst: List[Integer] = []
+
+            for i in 1...5: {
+                co.resume_with(i).unwrap() |> lst.push
+            }
+
+            if lst != [2, 4, 6, 8, 10]: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_coroutine_closure
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define producer(yield_over: List[Integer]): Coroutine[Integer, Unit] {
+                define producer_fn(co: Coroutine[Integer, Unit]): Integer {
+                    var index = 0
+                    for i in 0...yield_over.size() - 1: {
+                        co.yield(yield_over[i])
+                    }
+
+                    return 0 / 0
+                }
+
+                return Coroutine.build(producer_fn)
+            }
+
+            define filter(incoming_co: Coroutine[Integer, Unit]): Coroutine[Integer, Unit] {
+                define filter_fn(filter_co: Coroutine[Integer, Unit]): Integer {
+                    while 1: {
+                        var x = incoming_co.resume().unwrap()
+
+                        if x % 2: {
+                            continue
+                        }
+
+                        filter_co.yield(x)
+                    }
+
+                    return 0 / 0
+                }
+
+                return Coroutine.build(filter_fn)
+            }
+
+            define coro_all(co: Coroutine[Integer, Unit]): List[Integer] {
+                var result: List[Integer] = []
+
+                while 1: {
+                    match co.resume(): {
+                        case Some(s):
+                            result.push(s)
+                        case None:
+                            break
+                    }
+                }
+
+                return result
+            }
+
+            var co_producer = producer([1, 2, 3, 4, 5, 6])
+            var co_filter = filter(co_producer)
+            var output = coro_all(co_filter)
+
+            if output != [2, 4, 6]: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_coroutine_exception
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define f(co: Coroutine[Integer, Unit]): Integer {
+                co.yield(1 / 0)
+                return 0
+            }
+
+            if Coroutine.build(f).resume().is_some(): {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_incorrect
+    {
+        var t = Interpreter()
+
+        # incorrect (resume broken coroutine)
+
+        assert_parse_string(t, """
+            define broken(co: Coroutine[Integer, Unit]): Integer {
+                return 1 / 0
+            }
+
+            var co = Coroutine.build(broken)
+            var lst = [co.resume(), co.resume()]
+
+            if lst != [None, None]: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # incorrect (resume done coroutine)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define done(co: Coroutine[Integer, Unit]) {
+                co.yield(1)
+            }
+
+            var co = Coroutine.build(done)
+            var lst = [co.resume(), co.resume()]
+
+            if lst != [Some(1), None]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # incorrect (resume running coroutine)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v: Option[Integer] = None
+
+            define running(co: Coroutine[Integer, Unit]): Integer {
+                v = co.resume()
+                return 1
+            }
+
+            var co = Coroutine.build(running).resume()
+
+            if v != None: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # incorrect (receive from another coroutine)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define recv_other(co_: Coroutine[Integer, Unit]): Integer {
+                return 1
+            }
+
+            try: {
+                Coroutine.build(recv_other).receive()
+            except RuntimeError as e:
+                if e.message != "Attempt to receive a value from another coroutine.": {
+                    raise Exception("Failed.")
+                }
+            }
+        """)
+
+        # incorrect (yield from another coroutine)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define yield_other(co_: Coroutine[Integer, Unit]): Integer {
+                return 1
+            }
+
+            try: {
+                Coroutine.build(yield_other).yield(1)
+            except RuntimeError as e:
+                if e.message != "Cannot yield from another coroutine.": {
+                    raise Exception("Failed")
+                }
+            }
+        """)
+
+        # incorrect (yield in foreign call)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define yield_foreign(co_: Coroutine[Integer, Unit]): Integer {
+                var lst = [1, 2, 3]
+                lst.each(|e| co_.yield(e) )
+                return 1
+            }
+
+            if Coroutine.build(yield_foreign).resume().is_some(): {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_status
+    {
+        var t = Interpreter()
+
+        # status (.is_done on all states)
+
+        assert_parse_string(t, """
+            define fn: Coroutine[Integer, Unit] {
+                define fn2(co: Coroutine[Integer, Unit]): Integer {
+                    return 1
+                }
+
+                var co = Coroutine.build(fn2)
+                co.resume()
+
+                return co
+            }
+
+            var co = fn()
+            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
+
+            if lst != [true, false, false, false]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # status (.is_failed on all states)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define fn: Coroutine[Integer, Unit] {
+                define fn2(co: Coroutine[Integer, Unit]): Integer {
+                    return 0 / 0
+                }
+
+                var co = Coroutine.build(fn2)
+                co.resume()
+
+                return co
+            }
+
+            var co = fn()
+            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
+
+            if lst != [false, true, false, false]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # status (.is_running on all states)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define fn: List[Boolean] {
+                var out: List[Boolean] = []
+
+                define fn2(co: Coroutine[Integer, Unit]): Integer {
+                    out = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
+                    return 0 / 0
+                }
+
+                var co = Coroutine.build(fn2)
+                co.resume()
+
+                return out
+            }
+
+            if fn() != [false, false, true, false]: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # status (.is_waiting on all states)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define fn: Coroutine[Integer, Unit] {
+                define fn2(co: Coroutine[Integer, Unit]): Integer {
+                    return 1
+                }
+
+                var co = Coroutine.build(fn2)
+
+                return co
+            }
+
+            var co = fn()
+            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
+
+            if lst != [false, false, false, true]: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+}

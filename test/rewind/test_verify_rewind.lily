@@ -1,0 +1,227 @@
+import (Interpreter,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestVerifyRewind < TestCase
+{
+    public define test_rewind_bad_token
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            1-\
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            1-\
+        """)
+    }
+
+    public define test_rewind_broken_import
+    {
+        var t = Interpreter.with_targets(
+            StringTarget(
+                :path "invalid_token",
+                :data """
+                    ?
+                """
+            )
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'invalid token'.\n    \
+                from invalid_token.lily:2:\n\
+        """,
+        """
+            import invalid_token
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'invalid token'.\n    \
+                from invalid_token.lily:2:\n\
+        """,
+        """
+            import invalid_token
+        """)
+    }
+
+    public define test_rewind_expression
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ')'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = ((((((((1 + ) + 2) + 3)\
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ')'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = ((((((((1 + ) + 2) + 3)\
+        """)
+    }
+
+    public define test_rewind_nested_condition
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+		    if 1: { if 2: {
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+		    if 1: { if 2: {
+        """)
+    }
+
+    public define test_rewind_optarg_expression
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ')'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+		    define f(a: *Integer=(10 + 20 + )
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ')'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+		    define f(a: *Integer=(10 + 20 + )
+        """)
+    }
+
+    public define test_rewind_try_block
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            try: { 1 / 0 except ValueError: 0 }
+        """)
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            try: { 1 / 0 except ValueError: 0 }
+        """)
+    }
+
+    public define test_save_valid_class
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            class One {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '+'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Two < One {} +
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '+'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class Two < One {} +
+        """)
+    }
+
+    public define test_save_valid_define
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            define f {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define g {}
+            f() +
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define g {}
+            f() +
+        """)
+    }
+
+    public define test_save_valid_import
+    {
+        var t = Interpreter.with_targets(
+            StringTarget(
+                :path "var_exporter",
+                :data """
+                    var v = 10
+                """
+            )
+        )
+
+        assert_parse_fails(t, """\
+            Exception: 1010\n\
+            Traceback:\n    \
+                from [test]:4: in __main__\n\
+        """,
+        """
+            import (v) var_exporter
+
+            raise Exception(v ++ v)
+        """)
+
+        assert_parse_fails(t, """\
+            Exception: 1010\n\
+            Traceback:\n    \
+                from [test]:4: in __main__\n\
+        """,
+        """
+            import (v) var_exporter
+
+            raise Exception(v ++ v)
+        """)
+    }
+}

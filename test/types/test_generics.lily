@@ -1,0 +1,97 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestGenerics < TestCase
+{
+    public define test_bad_list_hash_unify
+    {
+        var t = Interpreter()
+
+        # bad list hash unify (fail on a List)
+
+        assert_parse_fails(t, """\
+            SyntaxError: List elements do not have a consistent type.\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = [1, "2"]
+        """)
+
+        # bad list hash unify (fail on Hash key)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Hash keys do not have a consistent type.\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = [1 => 1, "2" => 2]
+        """)
+
+        # bad list hash unify (fail on Hash value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Hash values do not have a consistent type.\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = [1 => 1, 2 => "2"]
+        """)
+    }
+
+    public define test_close_over_generic
+    {
+        var t = Interpreter()
+
+        # Blocked because even though 'g' is an inner function, it may have a
+        # different A than 'f'.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot close over a var of an incomplete type in this scope.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f[A](a: A) {
+                define g {
+                    var v = a
+                }
+            }
+        """)
+    }
+
+    public define test_inherit_generics
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define check_generics_inherited {
+                define a[A] {
+                    define b(v1: A) {
+
+                    }
+                }
+            }
+        """)
+    }
+
+    public define test_too_many_generics
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Too many generics.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            enum Test[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, a] {
+                Test0
+                Test1
+            }
+        """)
+    }
+}

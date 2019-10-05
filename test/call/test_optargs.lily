@@ -1,0 +1,213 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestOptargs < TestCase
+{
+    public define test_base
+    {
+        var t = Interpreter()
+
+        # base (toplevel function with one optarg)
+
+        assert_parse_string(t, """
+            define one_opt(a: *Integer=10): Integer
+            {
+                return a
+            }
+
+            if one_opt() != 10: {
+                0 / 0
+            }
+
+            if one_opt(1) != 1: {
+                0 / 0
+            }
+        """)
+
+        # base (toplevel function with two optargs)
+
+        assert_parse_string(t, """
+            define two_opt(a: *Integer=10,
+                           b: *String="20"): Integer
+            {
+                return a + b.parse_i().unwrap()
+            }
+
+            if two_opt() != 30: {
+                0 / 0
+            }
+
+            if two_opt(20) != 40: {
+                0 / 0
+            }
+
+            if two_opt(20, "40") != 60: {
+                0 / 0
+            }
+        """)
+
+        # base (optarg expression)
+
+        assert_parse_string(t, """
+            define opt_expr(a: *Integer = 10 + 20,
+                            b: *String = "  30  ".trim()): Integer
+            {
+                return a + b.parse_i().unwrap()
+            }
+
+            if opt_expr() != 60: {
+                0 / 0
+            }
+
+            if opt_expr(10) != 40: {
+                0 / 0
+            }
+
+            if opt_expr(10, "20") != 30: {
+                0 / 0
+            }
+        """)
+
+        # base (enum as optarg)
+
+        assert_parse_string(t, """
+            define opt_enum(a: *Option[String] = Some("1")): String
+            {
+                match a: {
+                    case Some(s):
+                        return s
+                    case None:
+                        return ""
+                }
+            }
+
+            if opt_enum() != "1": {
+                0 / 0
+            }
+
+            if opt_enum(Some("10")) != "10": {
+                0 / 0
+            }
+
+            if opt_enum(None) != "": {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_class_optarg
+    {
+        var t = Interpreter()
+
+        # class (shorthand ctor)
+
+        assert_parse_string(t, """
+            class Test(public var @a: String,
+                       public var @b: String,
+                       public var @c: *Boolean = false)
+            {
+            }
+
+            var t = Test("a", "b")
+            if t.c != false: {
+                0 / 0
+            }
+
+            var t2 = Test("c", "d", true)
+            if t2.c != true: {
+                0 / 0
+            }
+        """)
+
+        # class (ctor)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Point(x: *Integer=0, y: *Integer=0)
+            {
+                public var @x = x
+                public var @y = y
+            }
+
+            var p = Point()
+
+            if p.x != 0 || p.y != 0: {
+                0 / 0
+            }
+
+            p = Point(1)
+
+            if p.x != 1 || p.y != 0: {
+                0 / 0
+            }
+
+            p = Point(1, 1)
+
+            if p.x != 1 || p.y != 1: {
+                0 / 0
+            }
+        """)
+
+        # class (method)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class abc {
+                public define ghi(a: *Integer=10) {
+                }
+            }
+
+            abc().ghi()
+        """)
+    }
+
+    public define test_enum
+    {
+        var t = Interpreter()
+
+        # enum (variant with Function using optarg)
+
+        assert_parse_string(t, """
+            enum abc {
+                ghi(Function(*Integer)),
+                xyz
+            }
+        """)
+    }
+
+    public define test_optvar
+    {
+        var t = Interpreter()
+
+        # optvar (as parameter function)
+
+        assert_parse_string(t, """
+            define f(a: *Integer...=[1, 2, 3]): List[Integer] { return a }
+
+            define g(a: Function(*Integer... => List[Integer])) {
+                if a() != [1, 2, 3]: {
+                    0 / 0
+                }
+
+                if a(3, 2, 1) != [3, 2, 1]: {
+                    0 / 0
+                }
+            }
+
+            g(f)
+        """)
+
+        # optvar (with one optarg before vararg)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            define f(a: Integer, b: *Integer = 10, c: *Integer...=[]) {
+
+            }
+
+            f(1)
+            f(1, 2)
+            f(1, 2, 3, 4, 5)
+        """)
+    }
+}

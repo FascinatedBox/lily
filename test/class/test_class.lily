@@ -1,0 +1,443 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestClass < TestCase
+{
+    public define test_basics
+    {
+        var t = Interpreter()
+
+        # basics (layout check when inheriting a class)
+
+        assert_parse_string(t, """
+            class One {
+                public var @a = 10
+
+                public define increment { @a += 1 }
+            }
+
+            class Two < One {
+                public var @b = "asdf"
+            }
+
+            var t = Two()
+
+            if t.b != "asdf": { 0 / 0 }
+            if t.a != 10: { 0 / 0 }
+        """)
+
+        # basics (assign to inheriting class)
+
+        assert_parse_string(t, """
+            var t2 = One()
+
+            t2 = Two()
+
+            if t2.a != 10: { 0 / 0 }
+        """)
+
+        # basics (subclass calling parent method)
+
+        assert_parse_string(t, """
+            t.increment()
+
+            if t.a != 11: { 0 / 0 }
+            if t.b != "asdf": { 0 / 0 }
+        """)
+    }
+
+    public define test_match
+    {
+        var t = Interpreter()
+
+        # match (base)
+
+        assert_parse_string(t, """
+            class One {}
+            class Two < One {}
+            class Three < Two {}
+
+            define f(input: One): Integer {
+                var out = 0
+
+                match input: {
+                    case Three(t):
+                        out = 3
+                    case Two(t):
+                        out = 2
+                    else:
+                        out = 1
+                }
+
+                return out
+            }
+
+            var v: List[One] = [Three(), Two(), One(), Two(), Three()]
+
+            if v.map(f) != [3, 2, 1, 2, 3]: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # match (proof with method calls)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Base { public define base_str: String { return "B" } }
+            class Left < Base { public define left_str: String { return "L" } }
+            class Right < Base { public define right_str: String { return "R" } }
+            class Up < Base {  }
+
+            define f(input: Base): String {
+                var out = ""
+
+                match input: {
+                    case Left(l):
+                        out = l.left_str()
+                    case Right(r):
+                        out = r.right_str()
+                    else:
+                        out = input.base_str()
+                }
+
+                return out
+            }
+
+            var v: List[Base] = [Right(), Left(), Up(), Left(), Right()]
+
+            if v.map(f) != ["R", "L", "B", "L", "R"]: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # match (_ skips decomposition)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Bottom { }
+            class Left < Bottom { }
+            class Right < Bottom { }
+
+            var v: Bottom = Right()
+
+            match v: {
+                case Left(_):
+                    raise Exception("Failed.")
+                case Right(_):
+                else:
+                    raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_methods
+    {
+        var t = Interpreter()
+
+        # methods (simple calls)
+
+        assert_parse_string(t, """
+            class One {
+                public define check {}
+
+                public define clone: One {
+                    One.check(self)
+                    return One()
+                }
+
+                protected var @a = 1
+                protected define f { }
+
+                self.check()
+            }
+
+            class Two < One {
+                One.check(self)
+                self.check()
+
+                @a += 1
+
+                f()
+                One.f(self)
+
+                public define add {
+                    if 1: {
+                        @a += 1
+                    }
+                }
+            }
+        """)
+
+        # methods (access method by instance)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Example {
+                public define f: List[Integer] { return [1, 2, 3] }
+            }
+
+            var v = Example().f
+
+            if v(Example()) != [1, 2, 3]: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_properties
+    {
+        var t = Interpreter()
+
+        # properties (called as a function)
+
+        assert_parse_string(t, """
+            var v = [1]
+
+            define f(a: Integer): List[Integer] {
+                v.push(a)
+                return v
+            }
+
+            class Example {
+                public var @a = f
+            }
+
+            if Example().a(2) != [1, 2]: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # properties (subscript assignment)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Test {
+                public var @map = ["one" => ["1"]]
+
+                public define add(key: String, val: String) {
+                    if ! @map.has_key(key): {
+                        @map[key] = []
+                    }
+
+                    @map[key].push(val)
+                }
+            }
+        """)
+
+        # properties (name starts with B)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            # This is because the lexer special cases B for B"".
+            class BTest {
+                public var @B = 1
+            }
+        """)
+    }
+
+    public define test_scope
+    {
+        var t = Interpreter()
+
+        # scope (redeclare private property)
+
+        assert_parse_string(t, """
+            class One {
+                private var @a = 10
+                public define one_a: Integer { return @a }
+            }
+
+            class Two < One {
+                private var @a = 20
+                public define two_a: Integer { return @a }
+
+            }
+
+            var v = Two()
+
+            if v.two_a() != 20 || v.one_a() != 10: {
+               raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_self
+    {
+        var t = Interpreter()
+
+        # self (returning type self)
+
+        assert_parse_string(t, """
+            class One {
+                public var @a = 1
+                public define f: self { @a += 100 }
+            }
+
+            class Two < One {
+                public var @b = 2
+                public define g: self { @b += 1000 }
+            }
+
+            var a = Two()
+
+            a = a.f()
+                 .g()
+
+            a = a.g()
+                 .f()
+
+            if a.a != 201 || a.b != 2002: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # self (from inherited constructor)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Parent(x: Parent) { }
+
+            class Child < Parent(self) { }
+        """)
+
+        # self (check type information)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class First {
+                public define doit: self { }
+            }
+
+            class Second < First {
+                public define amethod {}
+            }
+
+            Second().doit().amethod()
+        """)
+    }
+
+    public define test_shorthand_ctor
+    {
+        var t = Interpreter()
+
+        # shorthand constructor (base)
+
+        assert_parse_string(t, """
+            class Test1(public var @x: Integer, y: Integer, public var @z: Integer) {}
+
+            var t1 = Test1(10, 20, 30)
+            if t1.x != 10 || t1.z != 30: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # shorthand constructor (inheritance)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Base(public var @index: Integer) {  }
+            class NthBase(index: Integer, public var @str: String) < Base(index) {  }
+
+            var v = NthBase(1, "abc")
+
+            if v.index != 1 || v.str != "abc": {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # shorthand constructor (using property in class)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Example(public var @x: Integer) {
+                public define f(a: Integer) {}
+                public define add_to_x(y: Integer) {
+                    f(@x)
+                }
+            }
+        """)
+    }
+
+    public define test_static_methods
+    {
+        var t = Interpreter()
+
+        # static methods (base)
+
+        assert_parse_string(t, """
+            class Example {
+                public static define f: Integer {
+                    return 10
+                }
+            }
+
+            if Example.f() != 10: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # static methods (call to non-static)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Example {
+                public var @a = 10
+                public static define f(x: Integer): Integer { return x * x }
+
+                public define g: Integer {
+                    @a = f(@a)
+                    return @a
+                }
+            }
+
+            if Example().g() != 100: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # static methods (call to non-static using instance)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Example {
+                public define f: String {
+                    return "asdf"
+                }
+
+                public static define g(value: Example): String {
+                    return f(value)
+                }
+            }
+
+            var v = Example()
+
+            if Example.g(v) != "asdf": {
+                raise Exception("Failed.")
+            }
+        """)
+    }
+
+    public define test_unlikely
+    {
+        var t = Interpreter()
+
+        # unlikely (classes marked as inheriting based on order)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            # This ensures that the vm does not try to say that Alpha inherits
+            # from Beta because Alpha was first (and there is no lineage).
+            class Alpha(s: String) {
+               public var @s = s
+               public define upper: String {
+                  return @s.upper()
+               }
+            }
+            class Beta(s: String) {
+               public var @a = Alpha(s)
+               public var @b = @a.upper()
+            }
+            var b = Beta("hello")
+        """)
+    }
+}

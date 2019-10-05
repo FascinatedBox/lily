@@ -1,7 +1,0 @@
-import "import_dir/enum_exporter"
-
-class User(left: enum_exporter.Exporter, right: enum_exporter.Exporter)
-{
-    public var @left = left
-    public var @right = right
-}

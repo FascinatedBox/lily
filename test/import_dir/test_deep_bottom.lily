@@ -1,4 +1,0 @@
-define bottomFunc(i: Integer) : Integer { return i }
-
-class BottomClass {
-}

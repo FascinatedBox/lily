@@ -1,0 +1,92 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestCallPipe < TestCase
+{
+    public define test_basic
+    {
+        var t = Interpreter()
+
+        # basic (pipe to global)
+
+        assert_parse_string(t, """
+            define square(a: Integer): Integer { return a * a }
+
+            if (10 |> square) != 100: {
+                0 / 0
+            }
+        """)
+
+        # basic (chain of pipes)
+
+        assert_parse_string(t, """
+            if (10 |> square |> square) != 10000: {
+                0 / 0
+            }
+        """)
+
+        # basic (order of operations)
+
+        assert_parse_string(t, """
+            var order: List[Integer] = []
+
+            define fn(a: Integer): Integer {
+                order.push(a)
+                return a
+            }
+
+            fn(3) |> [fn(1), fn(2)].push
+
+            if order != [1, 2, 3]: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_pipe_self
+    {
+        var t = Interpreter()
+
+        # pipe self (adding self when outside class)
+
+        assert_parse_string(t, """
+            var l: List[Integer] = []
+
+            10 |> l.push
+
+            if l != [10]: {
+                0 / 0
+            }
+        """)
+
+        # pipe self (adding self when inside class)
+
+        assert_parse_string(t, """
+            var check = [0]
+            class Test {
+                public define f(target: List[Integer]) {
+                    target.push(target.size())
+                }
+
+                check |> f
+            }
+
+            Test()
+
+            if check != [0, 1]: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_pipe_variant
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            if (10 |> Some).unwrap() != 10: {
+                0 / 0
+            }
+        """)
+    }
+}

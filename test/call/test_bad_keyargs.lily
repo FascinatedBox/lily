@@ -1,0 +1,109 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadKeyarg < TestCase
+{
+    public define test_keyarg_rules
+    {
+        var t = Interpreter()
+
+        # keyarg rules (no posargs after keyargs)
+        # Blocked to make keyargs easier.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Positional argument after keyword argument.\n    \
+                from [test]:5:\n\
+        """,
+        """
+            define f(:a a: Integer, :b b: String) {
+            }
+
+            f(:b 1, 5)
+        """)
+
+        # keyarg rules (no keyargs with forward)
+        # Blocked to make keyargs easier, and limited use.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Forward declarations not allowed to have keyword arguments.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            forward define f(:a Integer) { ... }
+        """)
+    }
+
+    public define test_unsupported
+    {
+        var t = Interpreter()
+
+        # unsupported (on plain define)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f does not specify any keyword arguments.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: Integer) {}
+
+            f(:a 1)
+        """)
+
+        # unsupported (on class method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Example.f does not specify any keyword arguments.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Example {
+                public define f(a: Integer) {}
+            }
+
+            Example().f(:a 1)
+        """)
+
+        # unsupported (on enum method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Example.f does not specify any keyword arguments.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+                define f(a: Integer) {}
+            }
+
+            One.f(:a 1)
+        """)
+
+        # unsupported (on lambda)
+
+        assert_parse_fails(t, """\
+            SyntaxError: v is not capable of receiving keyword arguments.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = (|a: Integer| 0 )
+
+            v(:a 1)
+        """)
+
+        # unsupported (on nested define)
+
+        assert_parse_fails(t, """\
+            SyntaxError: g is not capable of receiving keyword arguments.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f(:a a: Integer) {
+                var g = f
+                define h {
+                    g(:a 1)
+                }
+            }
+        """)
+    }
+}

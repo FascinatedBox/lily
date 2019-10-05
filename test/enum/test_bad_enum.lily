@@ -1,0 +1,364 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadEnum < TestCase
+{
+    public define test_bad_decl
+    {
+        var t = Interpreter()
+
+        # bad decl (flat enum duplicate names)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class with the name 'One' already exists.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            enum Test[A] {
+                One(A),
+                One(A)
+            }
+        """)
+
+        # bad decl (scoped enum duplicate names)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class with the name 'Fast' already exists.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            scoped enum Speed {
+                Fast,
+                Fast
+            }
+        """)
+    }
+
+    public define test_bad_decompose
+    {
+        var t = Interpreter()
+
+        # bad decompose (duplicate vars)
+
+        assert_parse_fails(t, """\
+            SyntaxError: asdf has already been declared.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            enum Test {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = Two
+
+            match v: {
+                case One(asdf, asdf):
+                case Two:
+            }
+        """)
+
+        # bad decompose (empty for variant with args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '(', not ':'.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case Some:
+                case None:
+            }
+        """)
+
+        # bad decompose (non-empty for empty variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected ':', not '('.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case None(a):
+                case Some(s):
+            }
+        """)
+    }
+
+    public define test_bad_flat
+    {
+        var t = Interpreter()
+
+        # bad flat (optarg using scoped variant as flat)
+
+        assert_parse_fails(t, """\
+            SyntaxError: One has not been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            scoped enum Test {
+                One,
+                Two
+            }
+
+            define f(a: *Test = One) {}
+        """)
+
+        # bad flat (match using scoped variant as flat)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            scoped enum Test {
+                One,
+                Two
+            }
+
+            var v = Test.One
+
+            match v: {
+                case One:
+                case Two:
+            }
+        """)
+
+        # bad flat (assign using scoped enum as flat)
+
+        assert_parse_fails(t, """\
+            SyntaxError: One has not been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            scoped enum Test[A] {
+                One(A),
+                Two
+            }
+
+            var opt: Test[Integer] = One(10)
+        """)
+    }
+
+    public define test_bad_match
+    {
+        var t = Interpreter()
+
+        # bad match (start without case)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'match' must start with a case.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                v = Some(1)
+                case Some(s):
+                None:
+            }
+        """)
+
+        # bad match (not a variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: DoesNotExist is not a member of enum Option.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            match Some(1): {
+                case DoesNotExist:
+            }
+        """)
+    }
+
+    public define test_bad_match_logic
+    {
+        var t = Interpreter()
+
+        # bad match logic (incomplete)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match pattern not exhaustive. The following case(s) are missing:\n\
+            * None\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case Some(s):
+                    1
+            }
+        """)
+
+        # bad match logic (else after else)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'case' in exhaustive match.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                case Two(t):
+            }
+        """)
+
+        # bad match logic (duplicate case)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for class One.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                case One(o):
+            }
+        """)
+
+        # bad match logic (else when exhaustive)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'else' in exhaustive match.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                else:
+            }
+        """)
+
+        # bad match logic (new case when exhaustive)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'case' in exhaustive match.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                case Two(t):
+            }
+        """)
+    }
+
+    public define test_enum_rules
+    {
+        var t = Interpreter()
+
+        # enum rules (no toplevel code in enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '}' or 'define', not 'a label'.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            enum Test {
+                One,
+                Two
+
+                define f {
+                }
+
+                var @v = 10
+            }
+        """)
+
+        # enum rules (no implicit constructor)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot implicitly use the constructor of an enum.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = Option(10)
+        """)
+
+        # enum rules (at least 2 variants)
+        # Blocked since it doesn't seem useful.
+
+        assert_parse_fails(t, """\
+            SyntaxError: An enum must have at least two variants.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            enum Test[A] {
+                One(A)
+            }
+        """)
+
+        # enum rules (not within a define)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define an enum here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            define f {
+                enum Option[A] {
+                    Some(A)
+                    None
+                }
+            }
+        """)
+
+        # enum rules (variant is not a decl type)
+
+        # Forbid using a variant as a type in a declaration.
+        assert_parse_fails(t, """\
+            SyntaxError: Variant types not allowed in a declaration.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Test[A] {
+                One(A),
+                Two
+            }
+
+            var v: One[integer] = One(10)
+        """)
+
+        # enum rules (no empty decl parenth)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Empty () found while reading input arguments. Omit instead.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            enum Example {
+                One()
+            }
+        """)
+    }
+}

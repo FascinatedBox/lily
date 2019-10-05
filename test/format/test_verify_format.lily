@@ -1,0 +1,230 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVerifyFormat < TestCase
+{
+    public define test_basic_containers
+    {
+        var empty_list: List[Integer] = []
+        var empty_hash: Hash[Integer, Integer] = []
+
+        assert_equal(
+            "{0}".format(empty_list),
+            "[]"
+        )
+
+        assert_equal(
+            "{0}".format([1, 2, 3]),
+            "[1, 2, 3]"
+        )
+
+        assert_equal(
+            "{0}".format(empty_hash),
+            "[]"
+        )
+
+        assert_equal(
+            "{0}".format([1 => 1, 2 => 2, 3 => 3]).split(",").size(),
+            3
+        )
+
+        assert_equal(
+            "{0}".format(<[1, [2], 3.5]>),
+            "<[1, [2], 3.5]>"
+        )
+    }
+
+    public define test_basic_value
+    {
+        # Interpolation (++) and String.format both use the same mechanism to
+        # stringify a value. So this is testing interpolation as well.
+
+        var t = Interpreter()
+
+        assert_equal(
+            "{0}".format(5.5),
+            "5.5"
+        )
+
+        assert_equal(
+            "{0}".format('a'),
+            "'a'"
+        )
+
+        assert_equal(
+            "{0}".format('\n'),
+            "'\\n'"
+        )
+
+        assert_equal(
+            "{0}".format('\255'),
+            "'\\255'"
+        )
+
+        assert_equal(
+            "{0}".format(true),
+             "true"
+        )
+
+        assert_equal(
+            "{0}".format(false),
+            "false"
+        )
+
+        assert_equal(
+            "{0}".format(["abc"]),
+            "[\"abc\"]"
+        )
+
+        assert_equal(
+            "{0}".format(B"a\128b\n"),
+            "a\\128b\\n"
+        )
+
+        assert_equal(
+            "{0}".format(unit),
+            "unit"
+        )
+    }
+
+    public define test_enums
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            scoped enum ScopedExample {
+                Zero,
+                One(Integer)
+            }
+
+            var zero = ScopedExample.Zero
+            var one = ScopedExample.One(1)
+
+            if "{0}".format(zero) != "ScopedExample.Zero": {
+                0 / 0
+            }
+
+            if "{0}".format(one) != "ScopedExample.One(1)": {
+                0 / 0
+            }
+        """)
+
+        assert_parse_string(t, """
+            enum FlatExample {
+                FlatZero,
+                FlatOne(Integer)
+            }
+
+            var flat_zero = FlatExample.FlatZero
+            var flat_one = FlatExample.FlatOne(1)
+
+            if "{0}".format(flat_zero) != "FlatZero": {
+                0 / 0
+            }
+
+            if "{0}".format(flat_one) != "FlatOne(1)": {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_file
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            stdin.close()
+
+            if "{0}".format(stdout).starts_with("<open file at ") == false: {
+                0 / 0
+            }
+
+            if "{0}".format(stdin).starts_with("<closed file at ") == false: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_foreign
+    {
+        # foreign (toplevel function)
+
+        assert_equal(
+            "{0}".format(print),
+            "<built-in function print>"
+        )
+
+        # foreign (class constructor)
+
+        assert_equal(
+            "{0}".format(Exception),
+            "<built-in function Exception>"
+        )
+
+        # foreign (class method)
+
+        assert_equal(
+            "{0}".format(String.parse_i),
+            "<built-in function String.parse_i>"
+        )
+
+        # foreign (enum method)
+
+        assert_equal(
+            "{0}".format(Option.and_then),
+            "<built-in function Option.and_then>"
+        )
+    }
+
+    public define test_native
+    {
+        var t = Interpreter()
+
+        # native (toplevel function)
+
+        assert_parse_string(t, """
+            define f { }
+
+            if "{0}".format(f) != "<function f>": {
+                0 / 0
+            }
+        """)
+
+        # native (class constructor)
+
+        assert_parse_string(t, """
+            class Ctor {
+            }
+
+            if "{0}".format(Ctor) != "<function Ctor>": {
+                0 / 0
+            }
+        """)
+
+        # native (class method)
+
+        assert_parse_string(t, """
+            class Example {
+                public define g {}
+            }
+
+            if "{0}".format(Example.g) != "<function Example.g>": {
+                0 / 0
+            }
+        """)
+
+        # native (enum method)
+
+        assert_parse_string(t, """
+            scoped enum TestEnum {
+                TestOne,
+                TestTwo
+                define g {}
+            }
+
+            if "{0}".format(TestEnum.g) != "<function TestEnum.g>": {
+                0 / 0
+            }
+        """)
+    }
+}
