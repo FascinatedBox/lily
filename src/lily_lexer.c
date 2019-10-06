@@ -1695,7 +1695,7 @@ char *tokname(lily_token t)
 {
     static char *toknames[] =
     {")", ",", "{", "}", "[", ":", "~", "^", "^=", "!", "!=", "%", "%=", "*",
-     "*=", "/", "/=", "+", "+=", "++", "-", "-=", "<", "<=", "<<", "<<=", ">",
+     "*=", "/", "/=", "+", "++", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">",
      ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
      "a label", "a property name", "a string", "a bytestring", "a byte",
      "an integer", "a double", "a docstring", "a named argument", ".", "&",
