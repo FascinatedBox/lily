@@ -177,15 +177,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
         lily_type *cmp_type = ts->base[generic_pos];
         ret = 1;
 
-        /* Scoop types can't be the solution, because generics need to be pinned
-           down to one type (concrete or abstract). */
-        if (right->cls->id == LILY_ID_SCOOP)
-            ret = 0;
-        else if (cmp_type == lily_question_type)
-            ts->base[generic_pos] = right;
-        else if (cmp_type == right)
-            ;
-        else if (cmp_type->flags & TYPE_IS_INCOMPLETE) {
+        if (cmp_type->flags & TYPE_IS_INCOMPLETE) {
             lily_type *unify_type;
             unify_type = lily_ts_unify(ts, cmp_type, right);
             if (unify_type)
@@ -381,9 +373,13 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
     int ret = 0;
 
     if (left->cls->id == LILY_ID_QUESTION) {
-        ret = 1;
-        if (flags & T_UNIFY)
-            lily_tm_add(ts->tm, right);
+        /* Scoop is only valid if it's a requirement. It can't be allowed to
+           unify, because it breaks the type system. */
+        if (right->cls->id != LILY_ID_SCOOP) {
+            ret = 1;
+            if (flags & T_UNIFY)
+                lily_tm_add(ts->tm, right);
+        }
     }
     else if (right->cls->id == LILY_ID_QUESTION) {
         ret = 1;

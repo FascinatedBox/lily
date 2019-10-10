@@ -3199,7 +3199,7 @@ static int collect_lambda_args(lily_parse_state *parser,
             if (num_args < infer_count)
                 arg_type = expect_type->subtypes[num_args + 1];
 
-            if (arg_type == NULL || arg_type->flags & TYPE_IS_INCOMPLETE)
+            if (arg_type == NULL || arg_type->flags & TYPE_TO_BLOCK)
                 lily_raise_syn(parser->raiser, "Cannot infer type of '%s'.",
                         lex->label);
 

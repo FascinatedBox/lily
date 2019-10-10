@@ -2565,7 +2565,7 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *right_type = ast->right->result->type;
 
-    if (right_type->flags & TYPE_IS_INCOMPLETE)
+    if (right_type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast->line_num, right_type);
 
     if (left_type != right_type &&
@@ -2620,7 +2620,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
             index_ast);
     lily_type *right_type = ast->right->result->type;
 
-    if (right_type->flags & TYPE_IS_INCOMPLETE)
+    if (right_type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast->line_num, right_type);
 
     if (type_matchup(emit, elem_type, ast->right) == 0) {
@@ -2681,7 +2681,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         lily_raise_adjusted(emit->raiser, ast->line_num,
                 "Left side of %s is not assignable.", opname(ast->op));
 
-    if (right_sym->type->flags & TYPE_IS_INCOMPLETE)
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast->line_num, right_sym->type);
 
     if (left_sym->type != right_sym->type &&

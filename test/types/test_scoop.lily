@@ -38,4 +38,31 @@ class TestScoop < TestCase
             v = 1
         """)
     }
+
+    public define test_scoop_init
+    {
+        var t = Interpreter()
+
+        # scoop init (init by assign).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Right side of assignment is incomplete type 'Function (List[A], List[$1]... => List[Tuple[A, $1]])'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = List.zip
+        """)
+
+        # scoop init (init by prop assign).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Right side of assignment is incomplete type 'Function (List[A], List[$1]... => List[Tuple[A, $1]])'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Example {
+                public var @x = List.zip
+            }
+        """)
+    }
 }

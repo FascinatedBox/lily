@@ -90,7 +90,7 @@ static const lily_class raw_question =
 {
     NULL,
     ITEM_TYPE_CLASS,
-    TYPE_IS_INCOMPLETE,
+    TYPE_IS_INCOMPLETE | TYPE_TO_BLOCK,
     LILY_ID_QUESTION,
     0,
     (lily_type *)&raw_question,
@@ -3362,7 +3362,7 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
     lily_class *scoop      = build_special(symtab, "$1", 0, LILY_ID_SCOOP);
 
-    scoop->self_type->flags |= TYPE_HAS_SCOOP;
+    scoop->self_type->flags |= TYPE_HAS_SCOOP | TYPE_TO_BLOCK;
 
     symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
     symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
