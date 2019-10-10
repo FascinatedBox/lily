@@ -1,3 +1,31 @@
+Version 1.10 (2019-10-10)
+=========================
+
+What's new:
+
+* Lily's library importing now works on Windows. AppVeyor (Windows CI) now runs
+  the full Lily test suite on Windows using ninja (#411).
+
+* Findlily.cmake has been created to allow cross-platform extension libraries.
+  Libraries in garden have been updated to use it.
+
+* A lily_optional_* family of functions has been added to make working with
+  optional arguments easier (#366).
+
+* The interal test suite has been completely rewritten, now using a style
+  similar to testkit. The new test suite is far more organized, and in the
+  process a few useless tests were removed. The rewrite has shown areas that
+  badly need extra testing, as well as opening up interesting possibilities that
+  will be explored by future releases (#444).
+
+Changes:
+
+* Modules registered to the interpreter are now only visible from the first
+  package (#352).
+
+* The scoop type can no longer be on the right side of an initialization
+  expression (#445).
+
 Version 1.9 (2019-7-10)
 =======================
 
