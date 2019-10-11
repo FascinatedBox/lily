@@ -99,13 +99,22 @@ typedef struct lily_import_state_ {
        in symbol searches if using `lily_import_library`. */
     const char *pending_loadname;
 
+    /* The full path that was handed to import. This provides a nicer means of
+       getting lex->label. Used internally. */
+    const char *fullname;
+
     /* The directory the user passed. Goes between the source's root and the
        target. */
     const char *dirname;
 
+    /* 1 if fullname has slashes, 0 otherwise. Used internally. */
+    uint16_t is_slashed_path;
+
     /* 1 if a package import, 0 otherwise. If 1, path building adds a package
        base directory after the dirname above. */
-    int is_package_import;
+    uint16_t is_package_import;
+
+    uint32_t pad;
 } lily_import_state;
 
 extern const char *lily_builtin_info_table[];
@@ -912,12 +921,6 @@ void lily_default_import_func(lily_state *s, const char *target)
 static lily_module_entry *load_module(lily_parse_state *parser,
         const char *name)
 {
-    lily_import_state *ims = parser->ims;
-
-    ims->source_module = parser->symtab->active_module;
-    ims->last_import = NULL;
-    ims->dirname = NULL;
-
     /* 'import' can't execute during an expression, so the data stack and the
        string pool are used to store paths that have been tried. */
     lily_u16_write_1(parser->data_stack, 0);
@@ -4318,33 +4321,50 @@ static void collect_import_refs(lily_parse_state *parser, int *count)
     lily_lexer(lex);
 }
 
-static void parse_verify_import_path(lily_parse_state *parser)
+static void parse_import_path_into_ims(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
+    lily_import_state *ims = parser->ims;
+
+    ims->is_slashed_path = 0;
 
     if (lex->token == tk_double_quote) {
         lily_lexer_verify_path_string(lex);
-        const char *pending_loadname = strrchr(lex->label, LILY_PATH_CHAR);
+        ims->fullname = lex->label;
+
+        const char *pending_loadname = strrchr(ims->fullname, LILY_PATH_CHAR);
 
         if (pending_loadname == NULL)
-            pending_loadname = lex->label;
-        else
+            pending_loadname = ims->fullname;
+        else {
             pending_loadname += 1;
+            ims->is_slashed_path = 1;
+        }
 
-        parser->ims->pending_loadname = pending_loadname;
+        ims->pending_loadname = pending_loadname;
     }
-    else if (lex->token == tk_word)
-        parser->ims->pending_loadname = lex->label;
-    else {
+    else if (lex->token == tk_word) {
+        ims->fullname = lex->label;
+        ims->pending_loadname = ims->fullname;
+    }
+    else
         lily_raise_syn(parser->raiser,
                 "'import' expected a path (identifier or string), not %s.",
                 tokname(lex->token));
-    }
+
+    ims->source_module = parser->symtab->active_module;
+    ims->last_import = NULL;
+    ims->dirname = NULL;
 }
 
 static lily_module_entry *find_registered_module(lily_parse_state *parser,
         const char *target)
 {
+    /* Registered modules are allowed to have non-identifier paths, but it's
+       really not a good idea. Block them to discourage that. */
+    if (parser->ims->is_slashed_path)
+        return NULL;
+
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *module = lily_find_registered_module(symtab, target);
 
@@ -4383,27 +4403,23 @@ static void keyword_import(lily_parse_state *parser)
         if (lex->token == tk_left_parenth)
             collect_import_refs(parser, &import_sym_count);
 
-        parse_verify_import_path(parser);
+        parse_import_path_into_ims(parser);
 
+        lily_import_state *ims = parser->ims;
         lily_module_entry *module = NULL;
-        char *search_start = lex->label;
-        char *path_tail = strrchr(search_start, LILY_PATH_CHAR);
+
         /* Will the name that is going to be added conflict with something that
            has already been added? */
-        if (path_tail != NULL)
-            search_start = path_tail + 1;
-
-        if (lily_find_module(symtab, active, search_start))
+        if (lily_find_module(symtab, active, ims->pending_loadname))
             lily_raise_syn(parser->raiser,
                     "A module named '%s' has already been imported here.",
-                    search_start);
+                    ims->pending_loadname);
 
-        if (path_tail == NULL)
-            module = find_registered_module(parser, lex->label);
+        module = find_registered_module(parser, ims->pending_loadname);
 
         /* Is there a cached version that was loaded somewhere else? */
         if (module == NULL) {
-            module = load_module(parser, lex->label);
+            module = load_module(parser, ims->fullname);
             /* module is never NULL: load_module raises on error. */
 
             /* This is only set on modules that are new and native. */
