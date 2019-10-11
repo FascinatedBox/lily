@@ -351,4 +351,18 @@ class TestBadImport < TestCase
             import var_access
         """)
     }
+
+    public define test_import_skip_preloaded
+    {
+        # Don't check preloaded packages for slashed paths.
+
+        var message = """\
+            SyntaxError: Cannot import 'abc/def':\n    \
+                from [test]:1:\n\
+        """
+
+        var t = Interpreter.with_targets()
+
+        assert_parse_fails(t, message, "import \"abc/def\"")
+    }
 }

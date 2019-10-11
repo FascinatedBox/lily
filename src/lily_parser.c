@@ -929,8 +929,11 @@ static lily_module_entry *load_module(lily_parse_state *parser,
 
     if (parser->ims->last_import == NULL) {
         lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-        lily_mb_add_fmt(msgbuf, "Cannot import '%s':\n", name);
-        lily_mb_add_fmt(msgbuf, "    no preloaded package '%s'", name);
+
+        lily_mb_add_fmt(msgbuf, "Cannot import '%s':", name);
+
+        if (parser->ims->is_slashed_path == 0)
+            lily_mb_add_fmt(msgbuf, "\n    no preloaded package '%s'", name);
 
         lily_buffer_u16 *b = parser->data_stack;
         int i;
