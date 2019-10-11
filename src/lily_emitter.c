@@ -1996,11 +1996,6 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
 static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, int index, lily_type *got)
 {
-    /* If either type contains a scoop, ts resolve will replace it with what the
-       scoop ate. This resets the counters to prevent that, since the error
-       message should include the real type used. */
-    lily_ts_reset_scoops(emit->ts);
-
     lily_type *expected;
 
     if ((call_type->flags & TYPE_IS_VARARGS) == 0 ||
