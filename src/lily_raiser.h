@@ -6,12 +6,23 @@
 # include "lily.h"
 # include "lily_core_types.h"
 
+typedef enum {
+    err_from_emit,
+    err_from_none,
+    err_from_parse,
+    err_from_raw,
+    err_from_vm,
+} lily_error_source;
+
 typedef struct lily_jump_link_ {
     struct lily_jump_link_ *prev;
     struct lily_jump_link_ *next;
 
     jmp_buf jump;
 } lily_jump_link;
+
+struct lily_class_;
+struct lily_ast_;
 
 typedef struct lily_raiser_ {
     lily_jump_link *all_jumps;
@@ -22,21 +33,21 @@ typedef struct lily_raiser_ {
     /* This is a spare msgbuf for building error messages. */
     lily_msgbuf *aux_msgbuf;
 
-    /* Errors raised during parsing use the lexer's current line number as a
-       reference. This doesn't work for errors raised by emitter, which may
-       target a section on a previous line. In such cases, the emitter will set
-       this to a non-zero value. */
-    uint32_t line_adjust;
-    uint32_t is_syn_error;
+    union {
+        struct lily_class_ *error_class;
+        struct lily_ast_ *error_ast;
+    };
+
+    lily_error_source source;
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(void);
 void lily_free_raiser(lily_raiser *);
+void lily_raise_class(lily_raiser *, struct lily_class_ *, const char *);
+void lily_raise_tree(lily_raiser *, struct lily_ast_ *, const char *, ...);
 void lily_raise_syn(lily_raiser *, const char *, ...);
-void lily_raise_err(lily_raiser *, const char *, ...);
+void lily_raise_raw(lily_raiser *, const char *, ...);
 lily_jump_link *lily_jump_setup(lily_raiser *);
 void lily_release_jump(lily_raiser *);
-
-const char *lily_name_for_error(lily_raiser *);
 
 #endif

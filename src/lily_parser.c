@@ -397,7 +397,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_raiser *raiser = parser->raiser;
     lily_mb_flush(raiser->msgbuf);
     lily_mb_flush(raiser->aux_msgbuf);
-    raiser->line_adjust = 0;
+    raiser->source = err_from_none;
 
     /* Rewind the parts of the vm that can be rewound. */
     lily_vm_state *vm = parser->vm;
@@ -5500,54 +5500,92 @@ static void update_main_name(lily_parse_state *parser,
     parser->emit->protos->data[0]->module_path = path;
 }
 
+static void error_add_header(lily_parse_state *parser)
+{
+    lily_raiser *raiser = parser->raiser;
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    const char *name;
+
+    switch (raiser->source) {
+        case err_from_vm:
+            name = raiser->error_class->name;
+            break;
+        case err_from_parse:
+        case err_from_emit:
+            name = "SyntaxError";
+            break;
+        default:
+            name = "Error";
+            break;
+    }
+
+    lily_mb_add(msgbuf, name);
+
+    const char *message = lily_mb_raw(raiser->msgbuf);
+
+    if (message[0] != '\0')
+        lily_mb_add_fmt(msgbuf, ": %s\n", message);
+    else
+        lily_mb_add_char(msgbuf, '\n');
+}
+
+static void error_add_frontend_trace(lily_parse_state *parser)
+{
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    uint16_t line_num = parser->lex->line_num;
+
+    if (parser->raiser->source == err_from_emit)
+        line_num = parser->raiser->error_ast->line_num;
+
+    lily_mb_add_fmt(msgbuf, "    from %s:%d:\n",
+            parser->symtab->active_module->path, line_num);
+}
+
+static void error_add_vm_trace(lily_parse_state *parser)
+{
+    lily_msgbuf *msgbuf = parser->msgbuf;
+    lily_call_frame *frame = parser->vm->call_chain;
+
+    lily_mb_add(msgbuf, "Traceback:\n");
+
+    while (frame->prev) {
+        lily_proto *proto = frame->function->proto;
+
+        if (frame->function->code == NULL)
+            lily_mb_add_fmt(msgbuf, "    from %s: in %s\n", proto->module_path,
+                    proto->name);
+        else
+            lily_mb_add_fmt(msgbuf, "    from %s:%d: in %s\n",
+                    proto->module_path, frame->code[-1], proto->name);
+
+        frame = frame->prev;
+    }
+}
+
 /* This is called when the interpreter encounters an error. This builds an
    error message that is stored within parser's msgbuf. A runner can later fetch
-   this error with lily_get_error. */
+   this error with `lily_error_message`. */
 static void build_error(lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    lily_vm_state *vm = parser->vm;
-    const char *msg = lily_mb_raw(raiser->msgbuf);
 
-    if (vm->exception_cls)
-        lily_mb_add(msgbuf, vm->exception_cls->name);
-    else
-        lily_mb_add(msgbuf, lily_name_for_error(raiser));
+    lily_mb_flush(parser->msgbuf);
 
-    if (msg[0] != '\0')
-        lily_mb_add_fmt(msgbuf, ": %s\n", msg);
-    else
-        lily_mb_add_char(msgbuf, '\n');
+    if (raiser->source == err_from_none)
+        return;
 
-    if (parser->executing == 0) {
-        lily_lex_entry *iter = parser->lex->entry;
-        if (iter) {
-            int fixed_line_num = (raiser->line_adjust == 0 ?
-                    parser->lex->line_num : raiser->line_adjust);
+    error_add_header(parser);
 
-            lily_mb_add_fmt(msgbuf, "    from %s:%d:\n",
-                    parser->symtab->active_module->path, fixed_line_num);
-        }
-    }
-    else {
-        lily_call_frame *frame = parser->vm->call_chain;
-
-        lily_mb_add(msgbuf, "Traceback:\n");
-
-        while (frame->prev) {
-            lily_proto *proto = frame->function->proto;
-
-            if (frame->function->code == NULL)
-                lily_mb_add_fmt(msgbuf, "    from %s: in %s\n",
-                        proto->module_path, proto->name);
-            else
-                lily_mb_add_fmt(msgbuf,
-                        "    from %s:%d: in %s\n",
-                        proto->module_path, frame->code[-1], proto->name);
-
-            frame = frame->prev;
-        }
+    switch (raiser->source) {
+        case err_from_emit:
+        case err_from_parse:
+            error_add_frontend_trace(parser);
+            break;
+        case err_from_vm:
+            error_add_vm_trace(parser);
+            break;
+        default:
+            break;
     }
 }
 
@@ -5562,7 +5600,7 @@ static FILE *load_file_to_parse(lily_parse_state *parser, const char *path)
 #else
         strerror_r(errno, buffer, sizeof(buffer));
 #endif
-        lily_raise_err(parser->raiser, "Failed to open %s: (%s).", path,
+        lily_raise_raw(parser->raiser, "Failed to open %s: (%s).", path,
                 buffer);
     }
 
@@ -5586,7 +5624,7 @@ static int open_first_content(lily_state *s, const char *filename,
         if (content == NULL) {
             char *suffix = strrchr(filename, '.');
             if (suffix == NULL || strcmp(suffix, ".lily") != 0)
-                lily_raise_err(parser->raiser,
+                lily_raise_raw(parser->raiser,
                         "File name must end with '.lily'.");
 
             load_type = et_file;

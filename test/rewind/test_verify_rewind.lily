@@ -53,6 +53,18 @@ class TestVerifyRewind < TestCase
         """)
     }
 
+    public define test_rewind_error_state
+    {
+        var t = Interpreter()
+
+        assert_equal(t.error(), "")
+
+        t.parse_string("[test]", "var x = ?")
+        t.parse_string("[test]", "var w = 10")
+
+        assert_equal(t.error(), "")
+    }
+
     public define test_rewind_expression
     {
         var t = Interpreter()

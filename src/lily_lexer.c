@@ -367,7 +367,7 @@ if (to_check == against) { \
 
 #define READER_END \
 if (utf8_check && lily_is_valid_utf8(input_buffer) == 0) { \
-    lily_raise_err(lexer->raiser, "Invalid utf-8 sequence on line %d.", \
+    lily_raise_raw(lexer->raiser, "Invalid utf-8 sequence on line %d.", \
             lexer->line_num); \
 } \
  \

@@ -4,6 +4,14 @@
 #include "lily_raiser.h"
 #include "lily_alloc.h"
 
+#define HANDLE_VARARGS \
+lily_mb_flush(raiser->msgbuf); \
+ \
+va_list var_args; \
+va_start(var_args, fmt); \
+lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args); \
+va_end(var_args);
+
 lily_raiser *lily_new_raiser(void)
 {
     lily_raiser *raiser = lily_malloc(sizeof(*raiser));
@@ -14,7 +22,7 @@ lily_raiser *lily_new_raiser(void)
     raiser->msgbuf = lily_new_msgbuf(64);
     raiser->aux_msgbuf = lily_new_msgbuf(64);
     raiser->all_jumps = first_jump;
-    raiser->line_adjust = 0;
+    raiser->source = err_from_none;
 
     return raiser;
 }
@@ -62,41 +70,46 @@ void lily_release_jump(lily_raiser *raiser)
     raiser->all_jumps = raiser->all_jumps->prev;
 }
 
+void lily_raise_class(lily_raiser *raiser, struct lily_class_ *error_class,
+                      const char *message)
+{
+    raiser->source = err_from_vm;
+    raiser->error_class = error_class;
+
+    /* This function doesn't need multiple arguments because it's copying over
+       the message that the vm already processed. */
+
+    lily_mb_flush(raiser->msgbuf);
+    lily_mb_add(raiser->msgbuf, message);
+
+    longjmp(raiser->all_jumps->jump, 1);
+}
+
+void lily_raise_raw(lily_raiser *raiser, const char *fmt, ...)
+{
+    raiser->source = err_from_raw;
+
+    HANDLE_VARARGS
+
+    longjmp(raiser->all_jumps->jump, 1);
+}
+
 void lily_raise_syn(lily_raiser *raiser, const char *fmt, ...)
 {
-    lily_mb_flush(raiser->msgbuf);
+    raiser->source = err_from_parse;
 
-    va_list var_args;
-    va_start(var_args, fmt);
-    lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args);
-    va_end(var_args);
+    HANDLE_VARARGS
 
-    raiser->is_syn_error = 1;
     longjmp(raiser->all_jumps->jump, 1);
 }
 
-void lily_raise_err(lily_raiser *raiser, const char *fmt, ...)
+void lily_raise_tree(lily_raiser *raiser, struct lily_ast_ *error_ast,
+                     const char *fmt, ...)
 {
-    lily_mb_flush(raiser->msgbuf);
+    raiser->source = err_from_emit;
+    raiser->error_ast = error_ast;
 
-    va_list var_args;
-    va_start(var_args, fmt);
-    lily_mb_add_fmt_va(raiser->msgbuf, fmt, var_args);
-    va_end(var_args);
+    HANDLE_VARARGS
 
-    raiser->is_syn_error = 0;
     longjmp(raiser->all_jumps->jump, 1);
-}
-
-/* This fetches the name of the currently-registered exception. */
-const char *lily_name_for_error(lily_raiser *raiser)
-{
-    const char *result;
-
-    if (raiser->is_syn_error)
-        result = "SyntaxError";
-    else
-        result = "Error";
-
-    return result;
 }

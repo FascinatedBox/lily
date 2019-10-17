@@ -1087,10 +1087,7 @@ static const char *names[] = {
 
 static void dispatch_exception(lily_vm_state *vm);
 
-/* This raises an error in the vm that won't have a proper value backing it. The
-   id should be the id of some exception class. This may run a faux dynaload of
-   the error, so that printing has a class name to go by. */
-static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
+static void load_exception(lily_vm_state *vm, uint8_t id)
 {
     lily_class *c = vm->gs->class_table[id];
     if (c == NULL) {
@@ -1110,7 +1107,16 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
     }
 
     vm->exception_cls = c;
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
+}
+
+/* This raises an error in the vm that won't have a proper value backing it. The
+   id should be the id of some exception class. This may run a faux dynaload of
+   the error, so that printing has a class name to go by. */
+static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
+{
+    load_exception(vm, id);
+
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
     lily_mb_add(msgbuf, message);
 
     dispatch_exception(vm);
@@ -1119,14 +1125,15 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 #define LILY_ERROR(err, id) \
 void lily_##err##Error(lily_vm_state *vm, const char *fmt, ...) \
 { \
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf); \
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer); \
  \
     va_list var_args; \
     va_start(var_args, fmt); \
     lily_mb_add_fmt_va(msgbuf, fmt, var_args); \
     va_end(var_args); \
  \
-    vm_error(vm, id, lily_mb_raw(msgbuf)); \
+    load_exception(vm, id); \
+    dispatch_exception(vm); \
 }
 
 LILY_ERROR(DivisionByZero, LILY_ID_DBZERROR)
@@ -1139,25 +1146,27 @@ LILY_ERROR(Value,          LILY_ID_VALUEERROR)
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 {
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
 
     if (key->flags & V_STRING_FLAG)
         lily_mb_escape_add_str(msgbuf, key->value.string->string);
     else
         lily_mb_add_fmt(msgbuf, "%ld", key->value.integer);
 
-    vm_error(vm, LILY_ID_KEYERROR, lily_mb_raw(msgbuf));
+    load_exception(vm, LILY_ID_KEYERROR);
+    dispatch_exception(vm);
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
 static void boundary_error(lily_vm_state *vm, int64_t bad_index,
         uint16_t line_num)
 {
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->aux_msgbuf);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
     lily_mb_add_fmt(msgbuf, "Subscript index %ld is out of range.",
             bad_index);
 
-    vm_error(vm, LILY_ID_INDEXERROR, lily_mb_raw(msgbuf));
+    load_exception(vm, LILY_ID_INDEXERROR);
+    dispatch_exception(vm);
 }
 
 /***
@@ -1437,7 +1446,7 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
     vm->exception_value = exception_val;
     vm->exception_cls = raise_cls;
 
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
     lily_mb_add(msgbuf, message);
 
     dispatch_exception(vm);
@@ -1701,7 +1710,7 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {
-    const char *raw_message = lily_mb_raw(vm->raiser->msgbuf);
+    const char *raw_message = lily_mb_raw(vm->vm_buffer);
     lily_container_val *ival = new_container(raised_cls->id, 2);
 
     lily_string_val *sv = lily_new_string_raw(raw_message);
@@ -1811,14 +1820,27 @@ static void dispatch_exception(lily_vm_state *vm)
         vm->catch_chain = catch_iter;
 
         jump_stop = catch_iter->jump_entry->prev;
+
+        while (raiser->all_jumps->prev != jump_stop)
+            raiser->all_jumps = raiser->all_jumps->prev;
     }
-    else
+    else {
+        while (raiser->all_jumps->prev != NULL)
+            raiser->all_jumps = raiser->all_jumps->prev;
+
+        lily_raise_class(vm->raiser, vm->exception_cls,
+                         lily_mb_raw(vm->vm_buffer));
         /* Since nothing in vm can capture the error, go to the first jump. The
            first jump is always parser's jump. */
         jump_stop = NULL;
+        /* Throw the message into the raiser's msgbuf so the parser's traceback
+           has a consistent place for getting the message. */
+        const char *message = lily_mb_raw(vm->vm_buffer);
 
-    while (raiser->all_jumps->prev != jump_stop)
-        raiser->all_jumps = raiser->all_jumps->prev;
+        lily_mb_flush(vm->raiser->msgbuf);
+        lily_mb_add(vm->raiser->msgbuf, message);
+    }
+
 
     longjmp(raiser->all_jumps->jump, 1);
 }
