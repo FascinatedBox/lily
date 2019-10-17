@@ -1553,10 +1553,10 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
    that sends flags as 0. */
 #define get_type(p) get_type_raw(p, 0)
 
-/* Get a type represented by the name given. Largely used by dynaload. */
+/* Get this type, running a dynaload if necessary. Used bv var dynaload. */
 static lily_type *type_by_name(lily_parse_state *parser, const char *name)
 {
-    lily_lexer_load(parser->lex, et_copied_string, name);
+    lily_lexer_load(parser->lex, et_shallow_string, name);
     lily_lexer(parser->lex);
     lily_type *result = get_type(parser);
     lily_pop_lex_entry(parser->lex);
