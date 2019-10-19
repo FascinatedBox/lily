@@ -1614,7 +1614,7 @@ void lily_lexer(lily_lex_state *lexer)
 
 void lily_verify_template(lily_lex_state *lexer)
 {
-    if (strncmp(lexer->input_buffer, "<?lily", 5) != 0)
+    if (strncmp(lexer->input_buffer, "<?lily", 6) != 0)
         lily_raise_syn(lexer->raiser,
                 "Files in template mode must start with '<?lily'.");
 

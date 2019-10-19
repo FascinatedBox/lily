@@ -76,7 +76,7 @@ class TestVerifyTemplate < TestCase
 
         # failure (content must start with template tag)
 
-        assert_render_fails(t,     """\
+        assert_render_fails(t, """\
             SyntaxError: Files in template mode must start with '<?lily'.\n    \
                 from [test]:1:\n\
         """,
@@ -84,10 +84,20 @@ class TestVerifyTemplate < TestCase
             print(1)
         """)
 
+        # failure (content has to start with the full template tag)
+
+        assert_render_fails(t, """\
+            SyntaxError: Files in template mode must start with '<?lily'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            <?lil print(1) ?>
+        """)
+
         # failure (second template pass fails)
 
         t = Interpreter()
-        assert_render_fails(t,     """\
+        assert_render_fails(t, """\
             DivisionByZeroError: Attempt to divide by zero.\n\
             Traceback:\n    \
                 from [test]:1: in __main__\n\
