@@ -76,7 +76,8 @@ typedef struct lily_rewind_state_
     lily_boxed_sym *main_boxed_start;
     lily_module_link *main_last_module_link;
     lily_module_entry *main_last_module;
-    uint32_t line_num;
+    uint16_t line_num;
+    uint16_t pad;
     uint32_t pending;
 } lily_rewind_state;
 

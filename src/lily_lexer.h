@@ -109,8 +109,8 @@ typedef struct lily_lex_state_ {
     char *label;
 
     uint16_t line_num;
-    uint16_t pad1;
-    uint32_t expand_start_line;
+    uint16_t expand_start_line;
+    uint32_t pad;
 
     uint32_t label_size;
     uint32_t pad2;
