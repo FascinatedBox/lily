@@ -120,11 +120,6 @@ typedef struct lily_vm_state_ {
     lily_msgbuf *vm_buffer;
 
     lily_raiser *raiser;
-
-    /* This holds the 'data' blob passed in to the interpreter's options. The
-       mod_lily module uses this to hold the request_rec so that server
-       functions can fetch it back out. */
-    void *data;
 } lily_vm_state;
 
 lily_vm_state *lily_new_vm_state(lily_raiser *);

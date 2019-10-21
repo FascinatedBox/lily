@@ -1939,7 +1939,6 @@ static lily_state *coroutine_build(lily_state *s)
 
     base_vm->gs = s->gs;
     base_vm->depth_max = s->depth_max;
-    base_vm->data = s->data;
     /* Bail out of the vm loop if the Coroutine's base Function completes. */
     toplevel_frame->code = foreign_code;
     /* Don't crash when returning to the toplevel frame. */
