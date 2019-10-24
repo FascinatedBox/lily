@@ -1292,7 +1292,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     }
 }
 
-static lily_class *get_scoop_class(lily_parse_state *parser, int which)
+static lily_class *get_scoop_class(lily_parse_state *parser)
 {
     /* Only two classes ever go here, and scoop is always the last one. */
     return parser->symtab->old_class_chain;
@@ -1480,7 +1480,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
     if (lex->token == tk_word)
         cls = resolve_class_name(parser);
     else if ((flags & F_SCOOP_OK) && lex->token == tk_scoop)
-        cls = get_scoop_class(parser, lex->last_integer);
+        cls = get_scoop_class(parser);
     else {
         NEED_CURRENT_TOK(tk_word)
     }

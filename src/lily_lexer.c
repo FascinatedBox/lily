@@ -1596,7 +1596,6 @@ void lily_lexer(lily_lex_state *lexer)
             input_pos++;
             if (*ch == '1') {
                 input_pos++;
-                lexer->last_integer = 1;
                 token = tk_scoop;
             }
             else
