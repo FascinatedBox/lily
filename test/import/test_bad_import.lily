@@ -357,7 +357,7 @@ class TestBadImport < TestCase
         # Don't check preloaded packages for slashed paths.
 
         var message = """\
-            SyntaxError: Cannot import 'abc/def':\n    \
+            SyntaxError: Cannot import 'abc\/def':\n    \
                 from [test]:1:\n\
         """
 
