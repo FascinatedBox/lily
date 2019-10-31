@@ -772,15 +772,13 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
 
             break;
         }
-        else {
-            if (*(ch + 1) != '#' ||
-                *(ch + 2) != '#')
-                lily_raise_syn(lex->raiser,
-                        "Docblock line does not start with full '###'.");
-            else if (i != offset)
-                lily_raise_syn(lex->raiser,
-                        "Docblock has inconsistent indentation.");
-        }
+        else if (*(ch + 1) != '#' ||
+                 *(ch + 2) != '#')
+            lily_raise_syn(lex->raiser,
+                    "Docblock line does not start with full '###'.");
+        else if (i != offset)
+            lily_raise_syn(lex->raiser,
+                    "Docblock has inconsistent indentation.");
 
         more_to_read = read_line(lex);
         ch = lex->read_cursor;
