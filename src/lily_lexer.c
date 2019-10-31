@@ -1037,8 +1037,6 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
     int i = 0;
     uint16_t start_line = lex->line_num;
 
-    label = lex->label;
-
     while (1) {
         if (*ch == '\n' ||
             (*ch == '#' &&
@@ -1071,6 +1069,11 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
 
                 memset(label + i, '\n', increase);
                 i += increase;
+            }
+            else {
+                /* Insert a space to prevent token gluing. */
+                label[i] = ' ';
+                i++;
             }
             continue;
         }

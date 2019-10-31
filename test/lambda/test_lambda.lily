@@ -209,6 +209,16 @@ class TestLambdas < TestCase
                 raise Exception("Failed.")
             }
         """)
+
+        # lexing (block token gluing)
+
+        assert_parse_fails(t, """\
+            SyntaxError: v has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = (|| v#[]#a#[]#r w = 10 )
+        """)
     }
 
     public define test_verify_restore
