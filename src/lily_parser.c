@@ -3837,7 +3837,7 @@ static lily_var *parse_for_range_value(lily_parse_state *parser,
     return var;
 }
 
-static void process_docstring(lily_parse_state *parser)
+static void process_docblock(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_next_token(lex);
@@ -3858,7 +3858,7 @@ static void process_docstring(lily_parse_state *parser)
     }
     else
         lily_raise_syn(parser->raiser,
-                "Docstring must be followed by a function or class definition.");
+                "Docblock must be followed by a function or class definition.");
 }
 
 /* This is a magic function that will either run one expression or multiple
@@ -3891,8 +3891,8 @@ static void statement(lily_parse_state *parser, int multi)
             expression(parser);
             lily_emit_eval_expr(parser->emit, parser->expr);
         }
-        else if (token == tk_docstring)
-            process_docstring(parser);
+        else if (token == tk_docblock)
+            process_docblock(parser);
         /* The caller will be expecting '}' or maybe ?> / EOF if it's the main
            parse loop. */
         else if (multi)
@@ -5478,8 +5478,8 @@ static void parser_loop(lily_parse_state *parser)
 
             break;
         }
-        else if (lex->token == tk_docstring) {
-            process_docstring(parser);
+        else if (lex->token == tk_docblock) {
+            process_docblock(parser);
         }
         else {
             expression(parser);

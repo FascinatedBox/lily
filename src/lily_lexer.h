@@ -56,7 +56,7 @@ typedef enum {
     tk_byte,
     tk_integer,
     tk_double,
-    tk_docstring,
+    tk_docblock,
     tk_keyword_arg,
     tk_dot,
     tk_bitwise_and,

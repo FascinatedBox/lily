@@ -243,10 +243,10 @@ class TestBadSyntax < TestCase
 
         """)
 
-        # bad comment (docstring with double pound)
+        # bad comment (docblock with double pound)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docstring line does not start with full '###'.\n    \
+            SyntaxError: Docblock line does not start with full '###'.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -255,10 +255,10 @@ class TestBadSyntax < TestCase
             define f {}
         """)
 
-        # bad comment (docstring inconsistent indent)
+        # bad comment (docblock inconsistent indent)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docstring has inconsistent indentation.\n    \
+            SyntaxError: Docblock has inconsistent indentation.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -267,10 +267,10 @@ class TestBadSyntax < TestCase
             define f {}
         """)
 
-        # bad comment (docstring not followed by function or class)
+        # bad comment (docblock not followed by function or class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docstring must be followed by a function or class definition.\n    \
+            SyntaxError: Docblock must be followed by a function or class definition.\n    \
                 from [test]:4:\n\
         """,
         """

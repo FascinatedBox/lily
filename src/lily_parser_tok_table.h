@@ -69,7 +69,7 @@ static const lily_tok_info parser_tok_table[] =
        silly. */
     {tk_integer,          0          , -1},
     {tk_double,           0          , -1},
-    {tk_docstring,        0          , -1},
+    {tk_docblock,         0          , -1},
     {tk_keyword_arg,      0          , -1},
     {tk_dot,              0          , -1},
     {tk_bitwise_and,      0          , expr_bitwise_and},

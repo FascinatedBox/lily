@@ -748,9 +748,9 @@ static void check_label_size(lily_lex_state *lex, uint32_t at_least)
     lex->label_size = new_size;
 }
 
-/* This scans a docstring to verify it has the proper structure. The interpreter
-   doesn't store docstrings though. Instead, that job is left up to tooling. */
-static void scan_docstring(lily_lex_state *lex, char **source_ch)
+/* This scans a docblock to verify it has the proper structure. The interpreter
+   doesn't store docblocks though. Instead, that job is left up to tooling. */
+static void scan_docblock(lily_lex_state *lex, char **source_ch)
 {
     uint16_t offset = (uint16_t)(*source_ch - lex->source);
     char *ch = lex->source;
@@ -769,10 +769,10 @@ static void scan_docstring(lily_lex_state *lex, char **source_ch)
             if (*(ch + 1) != '#' ||
                 *(ch + 2) != '#')
                 lily_raise_syn(lex->raiser,
-                        "Docstring line does not start with full '###'.");
+                        "Docblock line does not start with full '###'.");
             else if (i != offset)
                 lily_raise_syn(lex->raiser,
-                        "Docstring has inconsistent indentation.");
+                        "Docblock has inconsistent indentation.");
         }
 
         if (read_line(lex))
@@ -1401,8 +1401,8 @@ void lily_next_token(lily_lex_state *lex)
             }
             else if (*(ch + 1) == '#' &&
                      *(ch + 2) == '#') {
-                scan_docstring(lex, &ch);
-                token = tk_docstring;
+                scan_docblock(lex, &ch);
+                token = tk_docblock;
             }
             else if (read_line(lex))
                 continue;
@@ -1713,7 +1713,7 @@ char *tokname(lily_token t)
      "*=", "/", "/=", "+", "++", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">",
      ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
      "a label", "a property name", "a string", "a bytestring", "a byte",
-     "an integer", "a double", "a docstring", "a named argument", ".", "&",
+     "an integer", "a double", "a docblock", "a named argument", ".", "&",
      "&=", "&&", "|", "|=", "||", "@(", "...", "|>", "$1", "invalid token",
      "end of lambda", "?>", "end of file"};
     char *result = NULL;
