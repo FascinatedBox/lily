@@ -4,7 +4,7 @@
 # include <stdio.h>
 
 # include "lily_raiser.h"
-# include "lily_symtab.h"
+# include "lily_string_pile.h"
 
 typedef enum {
     tk_right_parenth,
@@ -46,7 +46,7 @@ typedef enum {
     tk_lambda,       /* (| */
     tk_tuple_open,   /* <[ */
     tk_tuple_close,  /* ]> */
-    /* } closes a lambda, so there's no special close token. */
+    /* ) closes a lambda, so there's no special close token. */
     tk_right_bracket,
     tk_arrow,
     tk_word,
@@ -76,73 +76,95 @@ typedef enum {
 } lily_token;
 
 typedef enum {
-    et_file,
-    et_shallow_string,
     et_copied_string,
+    et_file,
     et_lambda,
+    et_shallow_string,
+    et_unused,
 } lily_lex_entry_type;
 
+typedef union {
+    int64_t integer_val;
+    double double_val;
+} lily_lex_number;
+
 typedef struct lily_lex_entry_ {
-    struct lily_lex_state_ *lexer;
-    lily_literal *saved_last_literal;
-    char *saved_input;
-    uint32_t saved_input_pos;
-    uint32_t saved_input_size;
+    union {
+        FILE *entry_file;
+        /* For string-based entries, where to read the next line from. */
+        const char *entry_cursor;
+    };
 
-    lily_token saved_token : 16;
-    lily_token final_token : 16;
-    uint16_t saved_line_num;
-    lily_lex_entry_type entry_type : 16;
-    int64_t saved_last_integer;
+    /* For copied strings, this holds the origin so that it can be free'd when
+       the entry is done. */
+    char *cursor_origin;
 
-    void *source;
-    void *extra;
+    /* These fields are aligned with fields of the same name in lily_lex_state.
+       When another entry becomes current, the lexer's state is saved into the
+       entry. */
+    lily_token token: 16;
+    uint16_t line_num;
+    uint16_t expand_start_line;
+    uint16_t string_length;
+    lily_lex_number n;
+
+    /* Where this entry starts in lexer's string pile. */
+    uint16_t pile_start;
+    /* How long the identifier saved is. */
+    uint16_t ident_length;
+    /* How far the read cursor is from the source line. */
+    uint16_t cursor_offset;
+    lily_lex_entry_type entry_type: 16;
 
     struct lily_lex_entry_ *prev;
     struct lily_lex_entry_ *next;
 } lily_lex_entry;
 
-typedef struct lily_lex_state_ {
-    lily_lex_entry *entry;
-    char *ch_class;
-    char *input_buffer;
+typedef struct {
+    /* Where the next token read should begin. */
+    char *read_cursor;
+    /* A buffer for storing the last identifier read in. This buffer's size is
+       always at least the size of the source, so that identifier reading
+       doesn't need to do buffer size checks when copying over. */
     char *label;
 
-    uint16_t line_num;
-    uint16_t expand_start_line;
-    uint32_t pad;
-
+    char *ch_class;
+    uint32_t source_size;
     uint32_t label_size;
-    uint32_t pad2;
 
-    uint32_t input_size;
-    uint32_t input_pos;
+    lily_token token: 16;
+    uint16_t line_num;
+    /* For tokens that can span multiple lines, this is their starting line. */
+    uint16_t expand_start_line;
+    /* How many bytes are in the String/ByteString literal. */
+    uint16_t string_length;
 
-    int64_t last_integer;
+    lily_lex_number n;
+    char *source;
+    lily_lex_entry *entry;
 
-    lily_token token;
+    /* This holds the source lines and identifiers of entries that aren't
+       current. This pile is not shared anywhere else. */
+    lily_string_pile *string_pile;
 
-    /* When the lexer sees a numeric or string literal, it calls the symtab to
-       make a literal value. Said value is stored here, for the parser to use. */
-    lily_literal *last_literal;
-    lily_symtab *symtab;
     lily_raiser *raiser;
 } lily_lex_state;
 
-void lily_free_lex_state(lily_lex_state *);
+lily_lex_state *lily_new_lex_state(lily_raiser *);
 void lily_rewind_lex_state(lily_lex_state *);
-void lily_grow_lexer_buffers(lily_lex_state *);
-void lily_lexer(lily_lex_state *);
-int lily_lexer_digit_rescan(lily_lex_state *);
-void lily_verify_template(lily_lex_state *);
-int lily_lexer_read_content(lily_lex_state *, char **);
-void lily_lexer_verify_path_string(lily_lex_state *);
+void lily_free_lex_state(lily_lex_state *);
 
 void lily_lexer_load(lily_lex_state *, lily_lex_entry_type, const void *);
-
 void lily_pop_lex_entry(lily_lex_state *);
-lily_lex_state *lily_new_lex_state(lily_raiser *);
+
+void lily_next_token(lily_lex_state *);
 char *tokname(lily_token);
+
+char *lily_read_template_content(lily_lex_state *, int *);
+int lily_read_template_header(lily_lex_state *);
+
+int lily_lexer_digit_rescan(lily_lex_state *);
+void lily_lexer_verify_path_string(lily_lex_state *);
 
 #endif
  

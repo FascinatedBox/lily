@@ -22,6 +22,11 @@ void lily_free_string_pile(lily_string_pile *);
    start after the inserted string. */
 void lily_sp_insert(lily_string_pile *, const char *, uint16_t *);
 
+/* Same as lily_sp_insert, but for sources that may have embedded zeroes. This
+   takes an extra size and uses memcpy. */
+void lily_sp_insert_bytes(lily_string_pile *, const char *, uint16_t *,
+        uint16_t);
+
 /* Fetch a string from the pile that starts from the given index. The string is
    a shallow copy of the buffer, and is thus invalidated if the underlying
    buffer happens to grow. */

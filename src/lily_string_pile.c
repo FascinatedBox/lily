@@ -35,6 +35,24 @@ void lily_sp_insert(lily_string_pile *sp, const char *new_str, uint16_t *pos)
     *pos = want_size;
 }
 
+void lily_sp_insert_bytes(lily_string_pile *sp, const char *new_str,
+        uint16_t *pos, uint16_t new_str_size)
+{
+    size_t want_size = *pos + 1 + new_str_size;
+
+    if (sp->size < want_size) {
+        while (sp->size < want_size)
+            sp->size *= 2;
+
+        char *new_buffer = lily_realloc(sp->buffer,
+                sp->size * sizeof(*new_buffer));
+        sp->buffer = new_buffer;
+    }
+
+    memcpy(sp->buffer + *pos, new_str, new_str_size);
+    *pos = want_size;
+}
+
 char *lily_sp_get(lily_string_pile *sp, int pos)
 {
     return sp->buffer + pos;
