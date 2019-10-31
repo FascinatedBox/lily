@@ -753,7 +753,9 @@ static void check_label_size(lily_lex_state *lex, uint32_t at_least)
 static void scan_docblock(lily_lex_state *lex, char **source_ch)
 {
     uint16_t offset = (uint16_t)(*source_ch - lex->source);
+    uint16_t start_line = lex->line_num;
     char *ch = lex->source;
+    int more_to_read;
 
     while (1) {
         uint16_t i = 0;
@@ -763,8 +765,13 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             i++;
         }
 
-        if (*ch != '#')
+        if (*ch != '#') {
+            if (lex->line_num == start_line)
+                lily_raise_syn(lex->raiser,
+                        "Docblock is preceded by non-whitespace.");
+
             break;
+        }
         else {
             if (*(ch + 1) != '#' ||
                 *(ch + 2) != '#')
@@ -775,9 +782,10 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
                         "Docblock has inconsistent indentation.");
         }
 
-        if (read_line(lex))
-            ch = lex->read_cursor;
-        else
+        more_to_read = read_line(lex);
+        ch = lex->read_cursor;
+
+        if (more_to_read == 0)
             break;
     }
 

@@ -278,6 +278,18 @@ class TestBadSyntax < TestCase
         ### example
         ### class\
         """)
+
+        # bad comment (docblock preceded by non-whitespace).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Docblock is preceded by non-whitespace.\n    \
+                from [test]:2:\n\
+        """,
+        """
+        0 ### blah
+        ### blah
+        ### blah
+        """)
     }
 
     public define test_bad_ctor
