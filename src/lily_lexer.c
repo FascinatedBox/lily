@@ -616,10 +616,14 @@ static void scan_number(lily_lex_state *lex, char **source_ch, lily_token *tok)
     int is_integer = 1;
     uint64_t integer_value = 0;
 
-    if (sign == '-' || sign == '+')
+    if (sign == '-' || sign == '+') {
+        lex->number_sign_offset = (uint16_t)(ch - lex->source);
         ch++;
-    else
+    }
+    else {
+        lex->number_sign_offset = UINT16_MAX;
         sign = 0;
+    }
 
     if (*ch == '0') {
         ch++;
@@ -1164,33 +1168,21 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
 }
 
 /* The lexer reads `-1` and `+1` as negative or positive literals. Most of the
-   time that's correct. But sometimes it's part of, say, `1+1`. This reads back
-   to see if the digit started with + or -. If it did, this returns 1 and
-   rescans the value. Otherwise, this returns 0. */
+   time that's correct. But sometimes it's part of, say, `1+1`. This checks if
+   the last digit scanned had a sign. If it did, the number is rescanned to get
+   the correct value. */
 int lily_lexer_digit_rescan(lily_lex_state *lex)
 {
-    char *ch = lex->read_cursor - 1;
-    char *stop = lex->source;
+    /* This is used to denote that no sign was seen. */
+    if (lex->number_sign_offset == UINT16_MAX)
+        return 0;
 
-    while (ch != stop) {
-        int c = *ch;
+    lily_token t;
+    char *ch = lex->source + lex->number_sign_offset + 1;
 
-        if (isalnum(c) == 0)
-            break;
+    scan_number(lex, &ch, &t);
 
-        ch--;
-    }
-
-    int plus_or_minus = (*ch == '-' || *ch == '+');
-
-    if (plus_or_minus) {
-        lily_token t;
-
-        ch++;
-        scan_number(lex, &ch, &t);
-    }
-
-    return plus_or_minus;
+    return 1;
 }
 
 /** Lexer API **/

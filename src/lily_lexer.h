@@ -136,8 +136,14 @@ typedef struct {
     uint16_t line_num;
     /* For tokens that can span multiple lines, this is their starting line. */
     uint16_t expand_start_line;
-    /* How many bytes are in the String/ByteString literal. */
-    uint16_t string_length;
+    union {
+	    /* How many bytes are in the String/ByteString literal. */
+	    uint16_t string_length;
+	    /* If the last digit scanned had a sign, then that sign is at source
+	       plus this offset.
+	       If there wasn't a sign, this is uint16 max. */
+	    uint16_t number_sign_offset;
+	};
 
     lily_lex_number n;
     char *source;

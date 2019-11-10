@@ -104,8 +104,7 @@ class TestPkgMath < TestCase
     {
         assert_near_equal(math.sqrt(25.0), 5.0)
 
-        -1.0
-            |> math.sqrt
+        math.sqrt(-1.0)
             |> math.is_nan
             |> assert_true
     }
