@@ -1,0 +1,44 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBenchmarks < TestCase
+{
+    private define run_bench(name: String)
+    {
+        var t = Interpreter()
+
+        t.parse_string("test\/benchmark\/__run__.lily", """
+            import sys
+            sys.argv = ["", "--quiet"]
+
+            import (bench_test) \
+        """ ++ name)
+
+        assert_parse_string(t, "bench_test()")
+    }
+
+    public define test_binary_trees
+    {
+        run_bench("binary_trees")
+    }
+
+    public define test_fib
+    {
+        run_bench("fib")
+    }
+
+    public define test_for
+    {
+        run_bench("for")
+    }
+
+    public define test_map_numeric
+    {
+        run_bench("map_numeric")
+    }
+
+    public define test_map_string
+    {
+        run_bench("map_string")
+    }
+}

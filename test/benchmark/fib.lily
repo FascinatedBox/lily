@@ -1,6 +1,4 @@
-import time
-
-var start = time.Time.clock()
+import bench
 
 define fib(n: Integer): Integer
 {
@@ -11,8 +9,18 @@ define fib(n: Integer): Integer
     }
 }
 
-for i in 1...5: {
-    28 |> fib |> print
+define bench_test
+{
+    var begin = 1
+    var end = bench.parameter(5, :quiet 1)
+    var n = bench.parameter(28, :quiet 20)
+    var start = bench.start()
+
+    for i in begin...end: {
+        n |> fib |> bench.log
+    }
+
+    bench.finish(start)
 }
 
-print("Elapsed: {0}".format(time.Time.clock() - start))
+bench.run(bench_test)

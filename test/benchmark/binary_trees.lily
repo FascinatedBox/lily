@@ -1,4 +1,4 @@
-import time
+import bench
 
 enum Tree {
     Leaf(Integer),
@@ -26,30 +26,49 @@ define check_tree(t: Tree): Integer
     }
 }
 
-var min_depth = 4
-var max_depth = 12
-var stretch_depth = max_depth + 1
+define run_stretch(min: Integer, max: Integer)
+{
+    var long_lived_tree = make_tree(0, max + 1)
+    var iterations = 1
+    var stretch_depth = max + 1
 
-var start = time.Time.clock()
-print("stretch tree of depth {0} check: {1}".format(stretch_depth, check_tree(make_tree(0, stretch_depth))))
-
-var long_lived_tree = make_tree(0, max_depth)
-
-var iterations = 1
-for i in 1...max_depth: {
-    iterations *= 2
-}
-
-for depth in min_depth...stretch_depth by 2: {
-    var check = 0
-    for i in 1...iterations: {
-        var k = 1
-        check += check_tree(make_tree(i, depth)) + check_tree(make_tree(-i, depth))
+    for i in 1...max: {
+        iterations *= 2
     }
 
-    iterations /= 4
-    print("{0} trees of depth {1} check: {2}".format(iterations * 2, depth, check))
+    for depth in min...stretch_depth by 2: {
+        var check = 0
+
+        for i in 1...iterations: {
+            var k = 1
+            check += check_tree(make_tree(i, depth)) + check_tree(make_tree(-i, depth))
+        }
+
+        iterations /= 4
+        bench.log("{0} trees of depth {1} check: {2}".format(iterations * 2, depth, check))
+    }
+
+    bench.log("long lived tree of depth {0} check: {1}".format(max, check_tree(long_lived_tree)))
 }
 
-print("long lived tree of depth {0} check: {1}".format(max_depth, check_tree(long_lived_tree)))
-print("Elapsed: {0}".format(time.Time.clock() - start))
+define run_depth(max: Integer)
+{
+    var stretch_depth = max + 1
+    var tree = make_tree(0, stretch_depth)
+    var check = check_tree(tree)
+
+    bench.log("stretch tree of depth {0} check: {1}".format(stretch_depth, check))
+}
+
+define bench_test
+{
+    var min = bench.parameter(4, :quiet 2)
+    var max = bench.parameter(12, :quiet 6)
+    var start = bench.start()
+
+    run_depth(max + 1)
+    run_stretch(min, max)
+    bench.finish(start)
+}
+
+bench.run(bench_test)

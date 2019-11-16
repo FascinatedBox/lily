@@ -1,14 +1,21 @@
-import time
+import bench
 
-var start = time.Time.clock()
-var map: Hash[Integer, Integer] = []
+define bench_test
+{
+    var begin = 0
+    var end = bench.parameter(999999, :quiet 50000)
+    var map: Hash[Integer, Integer] = []
+    var sum = 0
+    var start = bench.start()
 
-for i in 0...999999: {
-    map[i] = i
+    for i in begin...end: {
+        map[i] = i
+    }
+
+    map.each_pair(|k, v| sum += v )
+
+    bench.log(sum)
+    bench.finish(start)
 }
 
-var sum = 0
-map.each_pair(|k, v| sum += v )
-
-print(sum)
-print("Elapsed: {0}".format(time.Time.clock() - start))
+bench.run(bench_test)

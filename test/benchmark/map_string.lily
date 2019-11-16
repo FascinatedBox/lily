@@ -1,3 +1,5 @@
+import bench
+
 var adverbs = [
     "moderately", "really", "slightly", "very"
 ]
@@ -68,29 +70,46 @@ var animals = [
   "wallaby", "wildebeest"
 ]
 
-var keys: List[String] = []
+define fix_size(input: Integer): Integer
+{
+    var result = input
 
-for i in 0...animals.size() - 1: {
-    for j in 0...adjectives.size() - 1: {
-        for k in 0...adverbs.size() - 1: {
-            keys.push("{0} {1} {2}".format(adverbs[k], adjectives[j], animals[i]))
-        }
+    if bench.is_quiet: {
+        result = result / 4
     }
+
+    return result
 }
 
-import time
+define bench_test
+{
+    var keys: List[String] = []
+    var animal_size    = animals.size()    |> fix_size
+    var adjective_size = adjectives.size() |> fix_size
+    var adverb_size    = adverbs.size()    |> fix_size
+    var map: Hash[String, Integer] = []
+    var i = 0
+    var sum = 0
+    var start = bench.start()
 
-var start = time.Time.clock()
-var map: Hash[String, Integer] = []
-var i = 0
-var sum = 0
+    for i in 0...animal_size - 1: {
+        for j in 0...adjective_size - 1: {
+            for k in 0...adverb_size - 1: {
+                var f = "{0} {1} {2}".format(adverbs[k], adjectives[j], animals[i])
+                keys.push(f)
+            }
+        }
+    }
 
-keys.each(|key|
-    map[key] = i
-    i += 1 )
+    keys.each(|key|
+        map[key] = i
+        i += 1 )
 
-keys.each(|key| sum += map[key] )
-keys.each(|key| map.delete(key) )
+    keys.each(|key| sum += map[key] )
+    keys.each(|key| map.delete(key) )
 
-print(sum)
-print("Elapsed: {0}".format(time.Time.clock() - start))
+    bench.log(sum)
+    bench.finish(start)
+}
+
+bench.run(bench_test)

@@ -25,6 +25,11 @@ typedef struct {
     const char **targets;
 } test_group;
 
+const char *benchmark_targets[] = {
+    "test_benchmark.lily",
+    NULL,
+};
+
 const char *call_targets[] = {
     "test_bad_call.lily",
     "test_bad_keyargs.lily",
@@ -172,6 +177,7 @@ test_group all_groups[] = {
     {"syntax",    syntax_targets},
     {"template",  template_targets},
     {"types",     types_targets},
+    {"benchmark", benchmark_targets},
     {NULL,        NULL},
 };
 

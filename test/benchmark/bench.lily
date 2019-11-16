@@ -1,0 +1,43 @@
+import sys, time
+
+var is_quiet = (sys.argv.get(1).unwrap_or("") == "--quiet")
+var start_time = 0
+
+define log[A](message: A)
+{
+    if is_quiet: {
+        return
+    }
+
+    print(message)
+}
+
+define finish(begin: Double)
+{
+    log("Elapsed: {0}".format(time.Time.clock() - begin))
+}
+
+define parameter(usual: Integer, :quiet quiet_value: Integer): Integer
+{
+    if is_quiet: {
+        return quiet_value
+    else:
+        return usual
+    }
+}
+
+define run(f: Function())
+{
+    # Skip the first pass when running from the test suite. The suite will run
+    # the bench call explicitly under an assert.
+    if sys.argv[0] == "": {
+        return
+    }
+
+    f()
+}
+
+define start: Double
+{
+    return time.Time.clock()
+}
