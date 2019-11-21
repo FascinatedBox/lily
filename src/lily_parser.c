@@ -716,6 +716,12 @@ static const char *build_import_path(lily_import_state *ims, const char *target,
     if (ims->dirname == NULL)
         return NULL;
 
+    /* The packages directory is always flat, so slashed paths will always fail
+       to match. Don't let them through. */
+    if (ims->is_package_import &&
+        strchr(target, LILY_PATH_CHAR))
+        return NULL;
+
     lily_msgbuf *path_msgbuf = lily_mb_flush(ims->path_msgbuf);
     const char *root_dirname = ims->source_module->root_dirname;
 

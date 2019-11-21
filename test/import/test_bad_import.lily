@@ -352,6 +352,29 @@ class TestBadImport < TestCase
         """)
     }
 
+    public define test_import_slashed_package
+    {
+        # Don't check in packages for slashed paths.
+
+        var t = Interpreter()
+
+        t.parse_string("[test]", "import \"abc/def\"") |> assert_false
+
+        var split_error = t.error().split("\n")
+        var ok = true
+
+        for i in 0...split_error.size() - 1: {
+            var l = split_error[i]
+
+            if l.find("packages").is_some(): {
+                ok = false
+                break
+            }
+        }
+
+        ok |> assert_true
+    }
+
     public define test_import_skip_preloaded
     {
         # Don't check preloaded packages for slashed paths.
