@@ -81,6 +81,31 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     return emit;
 }
 
+void lily_rewind_emit_state(lily_emit_state *emit)
+{
+    lily_u16_set_pos(emit->patches, 0);
+    lily_u16_set_pos(emit->code, 0);
+    lily_u16_set_pos(emit->closure_spots, 0);
+
+    emit->match_case_pos = 0;
+
+    lily_block *block_stop = emit->block->next;
+    lily_block *block_iter = emit->main_block->next;
+    while (block_iter != block_stop) {
+        if (block_iter->block_type >= block_define) {
+            emit->storages->scope_end = block_iter->storage_start;
+            break;
+        }
+        block_iter = block_iter->next;
+    }
+
+    emit->block = emit->main_block;
+    emit->block->pending_forward_decls = 0;
+    emit->function_block = emit->main_block;
+    emit->function_depth = 1;
+    emit->class_block_depth = 0;
+}
+
 void lily_free_emit_state(lily_emit_state *emit)
 {
     lily_block *current, *temp;

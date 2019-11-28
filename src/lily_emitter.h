@@ -228,5 +228,6 @@ void lily_prepare_main(lily_emit_state *, lily_function_val *);
 void lily_clear_main(lily_emit_state *);
 
 void lily_free_emit_state(lily_emit_state *);
+void lily_rewind_emit_state(lily_emit_state *);
 lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 #endif
