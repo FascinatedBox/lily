@@ -67,7 +67,7 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
     lily_class *result = find_in_cache(gp, name, generic_pos, &i);
 
     if (result == NULL) {
-        lily_class *new_generic = lily_new_raw_class(name);
+        lily_class *new_generic = lily_new_raw_class(name, 0);
         lily_type *t = lily_new_raw_type(new_generic);
 
         t->flags |= TYPE_IS_UNRESOLVED;

@@ -73,7 +73,7 @@ lily_class *lily_find_class_of_member(lily_class *, const char *);
 lily_named_sym *lily_find_member(lily_class *, const char *, lily_class *);
 lily_var *lily_find_var(lily_symtab *, lily_module_entry *, const char *);
 
-lily_class *lily_new_raw_class(const char *);
+lily_class *lily_new_raw_class(const char *, uint16_t);
 lily_class *lily_new_class(lily_symtab *, const char *, uint16_t);
 lily_class *lily_new_enum_class(lily_symtab *, const char *, uint16_t);
 lily_variant_class *lily_new_variant_class(lily_symtab *, lily_class *,

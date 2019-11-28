@@ -566,7 +566,7 @@ lily_var *lily_find_var(lily_symtab *symtab, lily_module_entry *module,
 
 /* This creates a new class that is returned to the caller. The newly-made class
    is not added to the symtab, and has no id set upon it. */
-lily_class *lily_new_raw_class(const char *name)
+lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
 {
     lily_class *new_class = lily_malloc(sizeof(*new_class));
     char *name_copy = lily_malloc((strlen(name) + 1) * sizeof(*name_copy));
@@ -584,6 +584,7 @@ lily_class *lily_new_raw_class(const char *name)
 
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
+    new_class->line_num = line_num;
     new_class->name = name_copy;
     new_class->generic_count = 0;
     new_class->prop_count = 0;
@@ -605,10 +606,11 @@ lily_class *lily_new_raw_class(const char *name)
 lily_class *lily_new_class(lily_symtab *symtab, const char *name,
         uint16_t line_num)
 {
-    lily_class *new_class = lily_new_raw_class(name);
+    lily_class *new_class = lily_new_raw_class(name, line_num);
 
     /* Builtin classes will override this. */
     new_class->module = symtab->active_module;
+    new_class->line_num = line_num;
 
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
