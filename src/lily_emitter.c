@@ -511,6 +511,19 @@ static void grow_storages(lily_storage_stack *stack)
     stack->size = new_size;
 }
 
+/* When a callable block exits, the storages need to be cleared. Clearing the
+   storages prevents outer functions from using storages with wrong ids, which
+   leads to very bad results. */
+static void clear_storages(lily_storage_stack *stack, lily_block *block)
+{
+    int i;
+
+    for (i = block->storage_start;i < stack->scope_end;i++)
+        stack->data[i]->type = NULL;
+
+    stack->scope_end = block->storage_start;
+}
+
 /* This attempts to grab a storage of the given type. It will first attempt to
    get a used storage, then a new one. */
 static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
@@ -708,12 +721,7 @@ void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
     }
 
     write_final_code_for_block(emit, block);
-
-    int i;
-    for (i = block->storage_start;i < emit->storages->scope_end;i++)
-        emit->storages->data[i]->type = NULL;
-
-    emit->storages->scope_end = block->storage_start;
+    clear_storages(emit->storages, block);
 
     if (emit->block->block_type == block_class)
         emit->class_block_depth = 0;
