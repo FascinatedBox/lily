@@ -311,7 +311,9 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 {
     lily_u16_set_pos(parser->data_stack, 0);
     parser->import_pile_current = 0;
+    parser->keyarg_current = 0;
     parser->in_static_call = 0;
+    parser->class_self_type = NULL;
 
     lily_module_entry *module_iter = rs->main_last_module;
     while (module_iter) {
@@ -401,6 +403,8 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_rewind_symtab(parser->symtab, parser->main_module,
             rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
             parser->executing);
+
+    parser->executing = 0;
 }
 
 static void handle_rewind(lily_parse_state *parser)

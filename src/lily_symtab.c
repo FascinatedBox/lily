@@ -173,7 +173,7 @@ void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
 
 void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
         lily_class *stop_class, lily_var *stop_var, lily_boxed_sym *stop_box,
-        int hide)
+        int executing)
 {
     symtab->active_module = main_module;
     symtab->next_reverse_id = LILY_LAST_ID;
@@ -189,10 +189,10 @@ void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
     }
 
     if (main_module->class_chain != stop_class) {
-        if (hide)
-            free_classes_until(main_module->class_chain, stop_class);
-        else
+        if (executing)
             hide_classes(symtab, main_module->class_chain, stop_class);
+        else
+            free_classes_until(main_module->class_chain, stop_class);
 
         main_module->class_chain = stop_class;
     }

@@ -65,6 +65,50 @@ class TestVerifyRewind < TestCase
         assert_equal(t.error(), "")
     }
 
+    public define test_rewind_exec_then_parse
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            0 / 0
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot declare a class property when there are unresolved forward(s):\n\
+            * Test.f at line 2\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Test {
+                forward public define f(Integer) { ... }
+                public var @v = 10
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unterminated lambda (started at line 2).\n    \
+                from [test]:4:\n\
+        """,
+        """\
+
+            var v = (||
+            #
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: v has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            v
+        """)
+    }
+
     public define test_rewind_expression
     {
         var t = Interpreter()
