@@ -32,6 +32,23 @@ class TestBadEnum < TestCase
                 Fast
             }
         """)
+
+        # bad decl (duplicate enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: An enum named 'Example' has already been declared.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+            }
+            enum Example {
+                One,
+                Two
+            }
+        """)
     }
 
     public define test_bad_decompose

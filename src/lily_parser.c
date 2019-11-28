@@ -4590,17 +4590,49 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
         lily_raise_syn(parser->raiser,
                 "'%s' is not a valid class name (too short).", name);
 
-    lily_class *lookup_class = lily_find_class(parser->symtab, NULL, name);
-    if (lookup_class != NULL) {
-        lily_raise_syn(parser->raiser, "Class '%s' has already been declared.",
-                name);
-    }
+    lily_module_entry *builtin = parser->symtab->builtin_module;
+    lily_item *item = (lily_item *)lily_find_class(parser->symtab, NULL, name);
 
-    lily_item *item = try_toplevel_dynaload(parser,
-            parser->symtab->builtin_module, name);
-    if (item && item->item_kind != ITEM_TYPE_VAR)
-        lily_raise_syn(parser->raiser,
-                "A built-in class named '%s' already exists.", name);
+    if (item == NULL)
+        item = try_toplevel_dynaload(parser, builtin, name);
+
+    if (item && item->item_kind != ITEM_TYPE_VAR) {
+        const char *prefix;
+        const char *suffix;
+        const char *what = "";
+        lily_class *cls = NULL;
+
+        /* Only classes, enums, and variants will reach here. Find out which one
+           and report accordingly. */
+        if (item->item_kind == ITEM_TYPE_CLASS ||
+            item->item_kind == ITEM_TYPE_ENUM)
+            cls = (lily_class *)item;
+        else if (item->item_kind == ITEM_TYPE_VARIANT)
+            cls = ((lily_variant_class *)item)->parent;
+
+        if (cls->module == builtin) {
+            prefix = "A built-in";
+            suffix = "already exists.";
+        }
+        else {
+            prefix = "A";
+            suffix = "has already been declared.";
+        }
+
+        if (item->item_kind == ITEM_TYPE_CLASS)
+            what = " class";
+        else if (item->item_kind == ITEM_TYPE_ENUM) {
+            if (cls->line_num == 0)
+                what = " enum";
+            else
+                what = "n enum";
+        }
+        else if (item->item_kind == ITEM_TYPE_VARIANT)
+            what = " variant";
+
+        lily_raise_syn(parser->raiser, "%s%s named '%s' %s", prefix, what, name,
+                suffix);
+    }
 }
 
 static lily_class *parse_and_verify_super(lily_parse_state *parser,

@@ -118,7 +118,7 @@ class TestBadClass < TestCase
         # bad decl (declare class twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class 'AlreadyExists' has already been declared.\n    \
+            SyntaxError: A class named 'AlreadyExists' has already been declared.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -136,6 +136,64 @@ class TestBadClass < TestCase
             class Test(x: Integer) {
                 public define x {}
             }
+        """)
+
+        # bad decl (predefined class redeclared after dynaload)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A built-in class named 'ValueError' already exists.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = ValueError("")
+
+            class ValueError(message: String) < Exception {
+
+            }
+        """)
+
+        # bad decl (ValueError redeclared after dynaload)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A built-in class named 'ValueError' already exists.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = ValueError("")
+
+            class ValueError(message: String) < Exception {
+
+            }
+        """)
+
+        # bad decl (redeclare an enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: An enum named 'Example' has already been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+            }
+
+            class Example {}
+        """)
+
+        # bad decl (redeclare a variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A variant named 'One' has already been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+            }
+
+            class One {}
         """)
     }
 
