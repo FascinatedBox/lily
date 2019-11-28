@@ -128,6 +128,36 @@ class TestVerifyRewind < TestCase
         """)
     }
 
+    public define test_rewind_storages
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '+'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                public var @a = ["1", "2", "3"]
+                public var @b = +
+            }
+        """)
+
+        assert_parse_string(t, """\
+            define f {
+                var a = 1
+                var b = 2
+                var c = ["a", "b", "c"]
+
+                if b != 2: {
+                    0 / 0
+                }
+            }
+
+            f()
+        """)
+    }
+
     public define test_rewind_try_block
     {
         var t = Interpreter()

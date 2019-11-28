@@ -28,6 +28,7 @@ static lily_proto_stack *new_proto_stack(int);
 static void free_proto_stack(lily_proto_stack *);
 static lily_storage_stack *new_storage_stack(int);
 static void free_storage_stack(lily_storage_stack *);
+static void clear_storages(lily_storage_stack *, lily_block *);
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
@@ -91,9 +92,15 @@ void lily_rewind_emit_state(lily_emit_state *emit)
 
     lily_block *block_stop = emit->block->next;
     lily_block *block_iter = emit->main_block->next;
+
+    /* If callable blocks above `__main__` aren't cleared out, they'll be reused
+       without fixing their ids. */
     while (block_iter != block_stop) {
         if (block_iter->block_type >= block_define) {
-            emit->storages->scope_end = block_iter->storage_start;
+            /* This is ordinarily called by function blocks as they exit. Since
+               it's written to clear from the block to the very end, it only
+               needs to be called from the first callable block. */
+            clear_storages(emit->storages, block_iter);
             break;
         }
         block_iter = block_iter->next;
