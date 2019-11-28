@@ -130,6 +130,149 @@ class TestVerifyRewind < TestCase
         """)
     }
 
+    public define test_rewind_forward
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):\n\
+            * f at line 1\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward define f(Integer) { ... }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            f()
+        """)
+    }
+
+    public define test_rewind_hide_broken
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:8: in __main__\n\
+        """,
+        """\
+            class Example {}
+
+            enum Test {
+                One,
+                Two
+            }
+
+            var w = 0 / 0
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Example has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = Example()
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class 'Test' does not exist.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: Test) {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: One has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = One
+        """)
+    }
+
+    public define test_rewind_interpolate_broken
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            class Point(x: Integer, y: Integer) {
+                public var @x = x
+                public var @y = y
+            }
+
+            var p = Point(10, 20)
+
+            if p.x != 10 || p.y != 20: {
+                0 / 0
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:7: in __main__\n\
+        """,
+        """\
+            class Point3(x: Integer, y: Integer, z: Integer) < Point(x, y) {
+                public var @z = z
+            }
+
+            p = Point3(2, 4, 6)
+
+            0 / 0
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Point3 has not been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var p2 = Point3(1, 2, 3)
+        """)
+
+        assert_parse_string(t, """\
+            if p.x != 2 || p.y != 4: {
+                0 / 0
+            }
+
+            var f = "{0}".format(p)
+
+            if f.starts_with("<Point3") == false: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_rewind_keyargs
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '}', not '+'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(:a a: Integer) { + }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: g does not have a keyword named ':a'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define g(:b b: Integer) { }
+
+            g(:a 1)
+        """)
+    }
+
     public define test_rewind_nested_condition
     {
         var t = Interpreter()
