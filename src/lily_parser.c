@@ -3438,7 +3438,7 @@ static void ensure_unique_class_member(lily_parse_state *parser,
                     current_class->name, name);
         else
             lily_raise_syn(parser->raiser,
-                    "A property in class %s already has the name @%s.",
+                    "A property in class '%s' already has the name @%s.",
                     current_class->name, name);
     }
 }
