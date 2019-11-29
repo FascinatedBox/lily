@@ -515,6 +515,44 @@ class TestBadClass < TestCase
         """\
             class Test(public @x: Integer) { }
         """)
+
+        # bad shorthand (duplicate property name)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A property in class 'One' already has the name @a.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class One(public var @a: Integer, public var @a: Integer) {}
+        """)
+
+        # bad shorthand (redeclare super method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'x'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class One {
+                public define x {}
+            }
+
+            class Two(public var @x: Integer) < One {}
+        """)
+
+        # bad shorthand (redeclare super property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'x'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class One {
+                public define x {}
+            }
+
+            class Two(public var @x: Integer) < One {}
+        """)
     }
 
     public define test_bad_static

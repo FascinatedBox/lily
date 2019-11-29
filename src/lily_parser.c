@@ -3426,20 +3426,19 @@ static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
 }
 
 static void ensure_unique_class_member(lily_parse_state *parser,
-        const char *name)
+        lily_class *cls, const char *name)
 {
-    lily_class *current_class = parser->class_self_type->cls;
-    lily_named_sym *sym = lily_find_member(current_class, name, NULL);
+    lily_named_sym *sym = lily_find_member(cls, name, NULL);
 
     if (sym) {
         if (sym->item_kind == ITEM_TYPE_VAR)
             lily_raise_syn(parser->raiser,
                     "A method in class '%s' already has the name '%s'.",
-                    current_class->name, name);
+                    cls->name, name);
         else
             lily_raise_syn(parser->raiser,
                     "A property in class '%s' already has the name @%s.",
-                    current_class->name, name);
+                    cls->name, name);
     }
 }
 
@@ -3449,7 +3448,7 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
     char *name = parser->lex->label;
     lily_class *current_class = parser->class_self_type->cls;
 
-    ensure_unique_class_member(parser, name);
+    ensure_unique_class_member(parser, current_class, name);
 
     lily_prop_entry *prop;
     prop = lily_add_class_property(parser->symtab, current_class, NULL, name,
@@ -4641,14 +4640,17 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
     cls->prop_count += super_class->prop_count;
     cls->inherit_depth = super_class->inherit_depth + 1;
 
-    if (cls->prop_count && cls->members) {
-        /* Properties created through the `var @<name> = ...` shorthand have the
-           wrong index. Fix their register spots before the assigns are written
-           by emitter's function setup. */
+    if (cls->members) {
         lily_named_sym *sym = cls->members;
+
         while (sym) {
-            if (sym->item_kind == ITEM_TYPE_PROPERTY)
+            if (sym->item_kind == ITEM_TYPE_PROPERTY) {
+                /* Shorthand properties have already been checked for uniqueness
+                   against each other. Now that a parent class is known, check
+                   for uniqueness there too. */
+                ensure_unique_class_member(parser, super_class, sym->name);
                 sym->reg_spot += adjust;
+            }
 
             sym = sym->next;
         }
