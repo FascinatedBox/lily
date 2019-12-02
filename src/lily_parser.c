@@ -4816,7 +4816,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
 
         while (parent_iter) {
             parent_iter->flags |= CLS_VISITED;
-            parent_iter = parent_iter->next;
+            parent_iter = parent_iter->parent;
         }
     }
 
@@ -4839,7 +4839,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     parent_iter = target->parent;
     while (parent_iter) {
         parent_iter->flags &= ~CLS_VISITED;
-        parent_iter = parent_iter->next;
+        parent_iter = parent_iter->parent;
     }
 
     target->flags &= ~CLS_VISITED;
