@@ -258,6 +258,10 @@ void lily_free_state(lily_state *vm)
        so that these teardown functions don't double free the code. */
     parser->toplevel_func->proto->code = NULL;
 
+    /* `Unit` is readonly and is buried at the bottom of the symtab. This
+       unlinks it so it isn't destroyed. */
+    parser->symtab->integer_class->next = NULL;
+
     lily_free_raiser(parser->raiser);
 
     lily_free_expr_state(parser->expr);
@@ -1917,14 +1921,6 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
         if (result == NULL && symtab->active_module->info_table)
             result = find_run_class_dynaload(parser, symtab->active_module,
                     lex->label);
-
-        /* Unit is a special case because it's global+readonly because the type
-           system needs to use it often. Since the Unit type isn't common, the
-           search is written manually here. */
-        if (result == NULL && search_module == symtab->builtin_module) {
-            if (strcmp(lex->label, "Unit") == 0)
-                result = lily_unit_type->cls;
-        }
 
         if (result == NULL)
             lily_raise_syn(parser->raiser, "Class '%s' does not exist.",

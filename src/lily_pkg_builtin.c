@@ -69,7 +69,7 @@ static const lily_class raw_unit =
     0,
     (lily_type *)&raw_unit,
     "Unit",
-    0,
+    1953066581, /* The shorthash for `Unit` so it's visible in the symtab. */
     0,
     0,
     0,
@@ -3363,6 +3363,12 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     lily_class *scoop      = build_special(symtab, "$1", 0, LILY_ID_SCOOP);
 
     scoop->self_type->flags |= TYPE_HAS_SCOOP | TYPE_TO_BLOCK;
+
+    /* The `Unit` class is readonly since it's referenced quite often. However,
+       it still needs to be searchable. Bury it at the bottom of the builtin
+       module's symtab. When the symtab is being deleted, it will be unlinked to
+       avoid being free'd. */
+    symtab->integer_class->next = lily_unit_type->cls;
 
     symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
     symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
