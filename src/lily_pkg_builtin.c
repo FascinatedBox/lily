@@ -1,3 +1,4 @@
+
 /**
 library builtin
 
@@ -137,6 +138,35 @@ static const lily_class raw_unset =
 };
 
 const lily_type *lily_unset_type = (lily_type *)&raw_unset;
+
+/* The scoop class is a magic class that is only usable by foreign modules. The
+   type of this class matches to any other type. This, combined with varargs,
+   allows creating functions like `List.zip` and `String.format`. */
+static const lily_class raw_scoop =
+{
+    NULL,
+    ITEM_TYPE_CLASS,
+    TYPE_HAS_SCOOP | TYPE_TO_BLOCK,
+    LILY_ID_SCOOP,
+    0,
+    (lily_type *)&raw_scoop,
+    "$1",
+    0,
+    0,
+    0,
+    0,
+    NULL,
+    NULL,
+    0,
+    0,
+    {0},
+    0,
+    NULL,
+    NULL,
+};
+
+const lily_class *lily_scoop_class = &raw_scoop;
+const lily_type *lily_scoop_type = (lily_type *)&raw_scoop;
 
 /**
 var stdin: File
@@ -3360,9 +3390,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     co_class->id = LILY_ID_COROUTINE;
 
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
-    lily_class *scoop      = build_special(symtab, "$1", 0, LILY_ID_SCOOP);
-
-    scoop->self_type->flags |= TYPE_HAS_SCOOP | TYPE_TO_BLOCK;
 
     /* The `Unit` class is readonly since it's referenced quite often. However,
        it still needs to be searchable. Bury it at the bottom of the builtin

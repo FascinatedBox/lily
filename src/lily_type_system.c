@@ -8,6 +8,7 @@
 #include "lily_type_system.h"
 #include "lily_alloc.h"
 
+extern lily_type *lily_scoop_type;
 extern lily_type *lily_question_type;
 extern lily_type *lily_unit_type;
 
@@ -95,7 +96,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
     }
     else if (type->cls->id == LILY_ID_GENERIC)
         lily_tm_add_unchecked(ts->tm, ts->base[type->generic_pos]);
-    else if (type->cls->id == LILY_ID_SCOOP) {
+    else if (type == lily_scoop_type) {
         int i;
         lily_type **base = ts->base + ts->num_used - ts->scoop_count;
         lily_tm_reserve(ts->tm, ts->scoop_count);
@@ -246,7 +247,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
         ;
     /* The left can't have more unless the last is scoop. */
     else if (left->subtype_count > right->subtype_count) {
-        if (left->subtypes[i]->cls->id == LILY_ID_SCOOP &&
+        if (left->subtypes[i] == lily_scoop_type &&
             (flags & T_UNIFY) == 0 &&
             ret == 1)
             ret = 1;
@@ -375,7 +376,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
     if (left->cls->id == LILY_ID_QUESTION) {
         /* Scoop is only valid if it's a requirement. It can't be allowed to
            unify, because it breaks the type system. */
-        if (right->cls->id != LILY_ID_SCOOP) {
+        if (right != lily_scoop_type) {
             ret = 1;
             if (flags & T_UNIFY)
                 lily_tm_add(ts->tm, right);
@@ -393,7 +394,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
         ret = check_function(ts, left, right, flags);
     else if (left->cls->id == LILY_ID_TUPLE)
         ret = check_tuple(ts, left, right, flags);
-    else if (left->cls->id == LILY_ID_SCOOP)
+    else if (left == lily_scoop_type)
         /* This is a match of a raw scoop versus a single argument. Consider
            this valid and, you know, scoop up the type. */
         ret = collect_scoop(ts, left, right, flags);

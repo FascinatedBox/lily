@@ -11,6 +11,7 @@
 #include "lily_int_code_iter.h"
 
 extern lily_type *lily_question_type;
+extern lily_type *lily_scoop_type;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
 extern lily_type *lily_unset_type;
@@ -3208,7 +3209,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
                method sends down the scoop type for inference.
                The scoop type is only for methods, because it bypasses type
                checking. Send `Unit` instead. */
-            if (elem_type->cls->id == LILY_ID_SCOOP)
+            if (elem_type == lily_scoop_type)
                 elem_type = lily_unit_type;
         }
 
@@ -3304,7 +3305,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     if (expect && expect->cls->id == LILY_ID_LIST)
         elem_type = expect->subtypes[0];
 
-    if (elem_type == NULL || elem_type->cls->id == LILY_ID_SCOOP)
+    if (elem_type == NULL || elem_type == lily_scoop_type)
         elem_type = lily_question_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
