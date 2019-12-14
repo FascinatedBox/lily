@@ -27,8 +27,7 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
     symtab->next_class_id = 1;
-    symtab->old_function_chain = NULL;
-    symtab->old_class_chain = NULL;
+    symtab->hidden_function_chain = NULL;
     symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
     symtab->generics = gp;
@@ -202,9 +201,8 @@ void lily_free_symtab(lily_symtab *symtab)
 {
     free_literals(symtab->literals);
 
-    free_classes(symtab->old_class_chain);
     free_classes(symtab->hidden_class_chain);
-    free_vars(symtab->old_function_chain);
+    free_vars(symtab->hidden_function_chain);
 
     lily_free(symtab);
 }

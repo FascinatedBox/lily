@@ -1026,8 +1026,8 @@ static void hide_block_vars(lily_parse_state *parser)
         var_next = var_iter->next;
 
         if (var_iter->flags & VAR_IS_READONLY) {
-            var_iter->next = parser->symtab->old_function_chain;
-            parser->symtab->old_function_chain = var_iter;
+            var_iter->next = parser->symtab->hidden_function_chain;
+            parser->symtab->hidden_function_chain = var_iter;
             count--;
         }
         else {

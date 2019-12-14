@@ -3365,8 +3365,8 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
     symtab->active_module->class_chain = result->next;
     symtab->next_class_id--;
 
-    result->next = symtab->old_class_chain;
-    symtab->old_class_chain = result;
+    result->next = symtab->hidden_class_chain;
+    symtab->hidden_class_chain = result;
 
     return result;
 }

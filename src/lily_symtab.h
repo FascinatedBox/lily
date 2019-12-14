@@ -14,11 +14,9 @@ typedef struct lily_symtab_ {
 
     /* Defined functions that go out of scope are stuffed in here, unless
        they're class methods. */
-    lily_var *old_function_chain;
+    lily_var *hidden_function_chain;
 
     /* Ditto, for classes. */
-    lily_class *old_class_chain;
-
     lily_class *hidden_class_chain;
 
     /* Symtab uses this to search for generics. */
