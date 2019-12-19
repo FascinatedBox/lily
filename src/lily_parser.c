@@ -4932,22 +4932,22 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        if (variant_count) {
-            lily_class *cls = (lily_class *)lily_find_variant(enum_cls,
+        lily_variant_class *variant_cls = NULL;
+
+        if (variant_count)
+            variant_cls = lily_find_variant(enum_cls, lex->label);
+
+        if (variant_cls == NULL && is_scoped == 0)
+            variant_cls = (lily_variant_class *)lily_find_class(parser->symtab,
+                    NULL, lex->label);
+
+        if (variant_cls)
+            lily_raise_syn(parser->raiser,
+                    "A class with the name '%s' already exists.",
                     lex->label);
 
-            if (cls == NULL && is_scoped == 0)
-                cls = lily_find_class(parser->symtab, NULL, lex->label);
-
-            if (cls) {
-                lily_raise_syn(parser->raiser,
-                        "A class with the name '%s' already exists.",
-                        lex->label);
-            }
-        }
-
-        lily_variant_class *variant_cls = lily_new_variant_class(parser->symtab,
-                enum_cls, lex->label, lex->line_num);
+        variant_cls = lily_new_variant_class(parser->symtab, enum_cls,
+                lex->label, lex->line_num);
         variant_count++;
 
         lily_next_token(lex);

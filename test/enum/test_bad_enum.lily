@@ -49,6 +49,39 @@ class TestBadEnum < TestCase
                 Two
             }
         """)
+
+        # bad decl (first variant collide with class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class with the name 'One' already exists.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class One {}
+
+            enum Example {
+                One,
+                Two
+            }
+        """)
+
+        # bad decl (nth variant collide with class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class with the name 'Four' already exists.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Four {}
+
+            enum Example {
+                One,
+                Two,
+                Three,
+                Four,
+                Five
+            }
+        """)
     }
 
     public define test_bad_decompose
