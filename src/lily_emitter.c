@@ -1888,53 +1888,34 @@ static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
     return result_type;
 }
 
-/* Does an assignment -really- have to be written, or can the last tree's result
-   be rewritten to target the left side? Given a tree (the whole assign), this
-   figures that out.
-   Note: Only valid for basic assignments. Upvalue/subscript/etc. do not belong
-   here. */
-static int assign_optimize_check(lily_ast *ast)
+static int can_optimize_out_assignment(lily_ast *ast)
 {
-    int can_optimize = 1;
+    lily_ast *right_tree = ast->right;
+    int can_optimize = 0;
 
-    do {
-        /* assigning to a global is done differently than with a local, so it
-           can't be optimized. */
-        if (ast->left->tree_type == tree_global_var) {
-            can_optimize = 0;
-            break;
-        }
+    while (right_tree->tree_type == tree_parenth)
+        right_tree = right_tree->arg_start;
 
-        lily_ast *right_tree = ast->right;
+    /* Keep these conditions away from each other since each has a different
+       reason why optimization can't be done. */
 
-        /* Parenths don't write anything, so dive to the bottom of them. */
-        while (right_tree->tree_type == tree_parenth)
-            right_tree = right_tree->arg_start;
-
-        /* Gotta do basic assignments. */
-        if (right_tree->tree_type == tree_local_var) {
-            can_optimize = 0;
-            break;
-        }
-
-        /* && and || work by having one set of cases write down to one storage,
-           and the other set write down to another storage. Because of that, it
-           can't be folded, or the first set of cases will target a storage
-           while the second target the var. */
-        if (right_tree->tree_type == tree_binary &&
-            (right_tree->op == expr_logical_and ||
-             right_tree->op == expr_logical_or)) {
-            can_optimize = 0;
-            break;
-        }
-
-        /* Also check if the right side is an assignment or compound op. */
-        if (right_tree->tree_type == tree_binary &&
-            right_tree->op >= expr_assign) {
-            can_optimize = 0;
-            break;
-        }
-    } while (0);
+    if (ast->left->tree_type == tree_global_var)
+        /* The receiver is a global var and thus in a different scope. */
+        ;
+    else if (right_tree->tree_type == tree_local_var)
+        /* Can't skip basic assignments. */
+        ;
+    else if (right_tree->tree_type == tree_binary &&
+             (right_tree->op == expr_logical_and ||
+              right_tree->op == expr_logical_or))
+        /* These operations do two different writes. */
+        ;
+    else if (right_tree->tree_type == tree_binary &&
+             right_tree->op >= expr_assign)
+        /* Compound ops (+= and the like) can't be skipped. */
+        ;
+    else
+        can_optimize = 1;
 
     return can_optimize;
 }
@@ -2722,7 +2703,7 @@ after_type_check:;
 
     if (left_tt == tree_local_var ||
         left_tt == tree_global_var) {
-        if (assign_optimize_check(ast)) {
+        if (can_optimize_out_assignment(ast)) {
             /* Trees always finish by writing a result and then the line number.
                Optimize out by patching the result to target the left side. */
             int pos = lily_u16_pos(emit->code) - 2;
