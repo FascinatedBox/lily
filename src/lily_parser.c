@@ -2700,14 +2700,19 @@ static void expression_word(lily_parse_state *parser, int *state)
 /* This is called to handle `@<prop>` accesses. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
-    if (parser->class_self_type == NULL)
+    lily_class *current_class = NULL;
+
+    if (parser->class_self_type)
+        current_class = parser->class_self_type->cls;
+
+    if (current_class == NULL ||
+        current_class->item_kind != ITEM_TYPE_CLASS)
         lily_raise_syn(parser->raiser,
                 "Properties cannot be used outside of a class constructor.");
 
     char *name = parser->lex->label;
-    lily_class *current_class = parser->class_self_type->cls;
-
     lily_prop_entry *prop = lily_find_property(current_class, name);
+
     if (prop == NULL) {
         const char *extra = "";
         if (parser->emit->block->block_type == block_class)

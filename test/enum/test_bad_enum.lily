@@ -410,5 +410,42 @@ class TestBadEnum < TestCase
                 One()
             }
         """)
+
+        # enum rules (blocking variants as properties)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+
+                define f {
+                    var v = @One
+                }
+            }
+        """)
+
+        # enum rules (blocking methods as properties)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+
+                define f {
+                }
+
+                define g {
+                    var v = @f
+                }
+            }
+        """)
     }
 }
