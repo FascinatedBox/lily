@@ -2894,7 +2894,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
         lily_expr_state *es = parser->expr;
         int spot = es->pile_current;
         lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
-        lily_es_push_text(es, tree_oo_access, 0, spot);
+        lily_es_push_text(es, tree_oo_access, lex->line_num, spot);
     }
     else if (lex->token == tk_typecast_parenth) {
         lily_next_token(lex);

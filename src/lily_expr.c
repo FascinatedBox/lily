@@ -690,13 +690,13 @@ void lily_es_push_self(lily_expr_state *es)
     merge_value(es, a);
 }
 
-void lily_es_push_text(lily_expr_state *es, lily_tree_type tt, uint32_t start,
+void lily_es_push_text(lily_expr_state *es, lily_tree_type tt, uint16_t start,
         int pos)
 {
     AST_COMMON_INIT(a, tt)
 
-    a->pile_pos = pos;
     a->line_num = start;
+    a->pile_pos = pos;
 
     merge_value(es, a);
 }
