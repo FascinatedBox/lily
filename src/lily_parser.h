@@ -82,7 +82,7 @@ typedef struct lily_parse_state_ {
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, const char *,
         lily_type *);
 lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *,
-        const char *, lily_class *);
+        const char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
 
 #endif

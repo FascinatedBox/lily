@@ -2,7 +2,6 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
-# include "lily_generic_pool.h"
 # include "lily_value_structs.h"
 # include "lily_value_stack.h"
 
@@ -18,9 +17,6 @@ typedef struct lily_symtab_ {
 
     /* Ditto, for classes. */
     lily_class *hidden_class_chain;
-
-    /* Symtab uses this to search for generics. */
-    lily_generic_pool *generics;
 
     /* Each class gets a unique id. This is mostly for the builtin classes
        which have some special behavior sometimes. */
@@ -49,7 +45,7 @@ typedef struct lily_symtab_ {
     lily_class *optarg_class;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(lily_generic_pool *);
+lily_symtab *lily_new_symtab(void);
 void lily_set_builtin(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
@@ -63,13 +59,15 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *, const char *, int);
 lily_literal *lily_get_string_literal(lily_symtab *, const char *);
 lily_literal *lily_get_unit_literal(lily_symtab *);
 
-lily_class *lily_find_class(lily_symtab *, lily_module_entry *, const char *);
-lily_var *lily_find_method(lily_class *, const char *);
+lily_class *lily_find_class(lily_module_entry *, const char *);
+lily_var *lily_find_var(lily_module_entry *, const char *);
+lily_named_sym *lily_find_member(lily_class *, const char *);
+lily_named_sym *lily_find_member_in_class(lily_class *, const char *);
 lily_prop_entry *lily_find_property(lily_class *, const char *);
 lily_variant_class *lily_find_variant(lily_class *, const char *);
-lily_class *lily_find_class_of_member(lily_class *, const char *);
-lily_named_sym *lily_find_member(lily_class *, const char *, lily_class *);
-lily_var *lily_find_var(lily_symtab *, lily_module_entry *, const char *);
+lily_module_entry *lily_find_module(lily_module_entry *, const char *);
+lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
+lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
 
 lily_class *lily_new_raw_class(const char *, uint16_t);
 lily_class *lily_new_class(lily_symtab *, const char *, uint16_t);
@@ -83,9 +81,4 @@ void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
 void lily_fix_enum_variant_ids(lily_symtab *, lily_class *);
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
-
-lily_module_entry *lily_find_module(lily_symtab *, lily_module_entry *,
-        const char *);
-lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
-lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
 #endif

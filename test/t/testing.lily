@@ -256,7 +256,7 @@ class Interpreter < backbone.Interpreter
 {
     private var @targets: List[ImportTarget] = []
 
-    private define import_hook(want_path: String)
+    private define do_import_hook(want_path: String)
     {
         for i in 0...@targets.size() - 1: {
             var t = @targets[i]
@@ -282,7 +282,7 @@ class Interpreter < backbone.Interpreter
     {
         match s: {
             case Interpreter(i):
-                import_hook(i, target)
+                do_import_hook(i, target)
             else:
         }
     }

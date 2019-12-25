@@ -447,5 +447,35 @@ class TestBadEnum < TestCase
                 }
             }
         """)
+
+        # enum rules (access variant by flat enum instance)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to access a variant through an enum instance.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Example {
+                One,
+                Two
+            }
+
+            var v = One.One
+        """)
+
+        # enum rules (access variant by scoped enum instance)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to access a variant through an enum instance.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two
+            }
+
+            var v = Example.One.One
+        """)
     }
 }

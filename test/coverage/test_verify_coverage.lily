@@ -339,6 +339,19 @@ class TestVerifyCoverage < TestCase
         )
     }
 
+    public define test_unit_call_error
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class Unit does not have a constructor.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = Unit()
+        """)
+    }
+
     public define test_print_main_type
     {
         var t = Interpreter()

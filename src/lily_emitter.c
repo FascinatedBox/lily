@@ -1791,8 +1791,10 @@ static void write_build_op(lily_emit_state *emit, int opcode,
 
 /* This checks that 'sym' (either a var or a property) can be used within the
    current scope. If it cannot be, then SyntaxError is raised. */
-static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
+static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
 {
+    lily_sym *sym = ast->sym;
+
     if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
         lily_class *block_class = emit->block->class_entry;
         lily_class *parent;
@@ -1814,7 +1816,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_sym *sym)
             (is_private == 0 &&
              (block_class == NULL || lily_class_greater_eq(parent, block_class) == 0))) {
             char *scope_name = is_private ? "private" : "protected";
-            lily_raise_syn(emit->raiser,
+            lily_raise_tree(emit->raiser, ast,
                        "%s.%s is marked %s, and not available here.",
                        parent->name, name, scope_name);
         }
@@ -2240,34 +2242,28 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start, NULL);
 
-
     lily_class *lookup_class = ast->arg_start->result->type->cls;
     char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
     lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
-            oo_name, NULL);
+            oo_name);
 
     if (item == NULL) {
-        lily_class *cls = lily_find_class_of_member(lookup_class, oo_name);
-        if (cls) {
-            lily_raise_tree(emit->raiser, ast->arg_start,
-                    "%s is a private member of class %s, and not visible here.",
-                    oo_name, cls->name);
-        }
-        else {
-            lily_raise_tree(emit->raiser, ast->arg_start,
-                    "Class %s has no method or property named %s.",
-                    lookup_class->name, oo_name);
-        }
+        lily_raise_tree(emit->raiser, ast->arg_start,
+                "Class %s does not have a member named %s.", lookup_class->name,
+                oo_name);
     }
-    else if (item->item_kind == ITEM_TYPE_PROPERTY &&
-             ast->arg_start->tree_type == tree_self) {
+
+    if (item->item_kind == ITEM_TYPE_PROPERTY &&
+        ast->arg_start->tree_type == tree_self)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Use @<name> to get/set properties, not self.<name>.");
-    }
-    else
-        ast->item = item;
+    else if (item->item_kind == ITEM_TYPE_VARIANT)
+        lily_raise_tree(emit->raiser, ast->arg_start,
+                "Not allowed to access a variant through an enum instance.");
 
-    ensure_valid_scope(emit, (lily_sym *)item);
+    ast->item = item;
+
+    ensure_valid_scope(emit, ast);
 }
 
 /* This is called on oo trees that have been evaluated and which contain a
@@ -2551,7 +2547,7 @@ static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
     if (emit->function_block->self == NULL)
         close_over_class_self(emit, ast);
 
-    ensure_valid_scope(emit, ast->left->sym);
+    ensure_valid_scope(emit, ast->left);
     eval_tree(emit, ast->right, ast->left->property->type);
 }
 
@@ -2561,7 +2557,7 @@ static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
 static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 {
     eval_oo_access_for_item(emit, ast->left);
-    ensure_valid_scope(emit, ast->left->sym);
+    ensure_valid_scope(emit, ast->left);
     /* Can't assign to a method. */
     if (ast->left->item->item_kind != ITEM_TYPE_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
@@ -2774,7 +2770,7 @@ after_type_check:;
    at parse-time. */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
-    ensure_valid_scope(emit, ast->sym);
+    ensure_valid_scope(emit, ast);
     if (emit->function_block->self == NULL)
         close_over_class_self(emit, ast);
 
@@ -3056,7 +3052,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             break;
         }
         case tree_static_func:
-            ensure_valid_scope(emit, ast->sym);
+            ensure_valid_scope(emit, ast);
         default:
             ret->flags |= SYM_NOT_ASSIGNABLE;
             spot = sym->reg_spot;
@@ -3677,13 +3673,11 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
 
     switch (first_tt) {
         case tree_method:
+            ensure_valid_scope(emit, first_arg);
             call_sym = first_arg->sym;
 
-            /* Only non-static methods get an implicit self. */
-            if ((call_sym->flags & VAR_IS_STATIC) == 0) {
-                ast->keep_first_call_arg = 1;
-                first_arg->tree_type = tree_self;
-            }
+            ast->keep_first_call_arg = 1;
+            first_arg->tree_type = tree_self;
             break;
         case tree_defined_func:
         case tree_inherited_new:
@@ -3696,7 +3690,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             }
             break;
         case tree_static_func:
-            ensure_valid_scope(emit, first_arg->sym);
+            ensure_valid_scope(emit, first_arg);
             call_sym = first_arg->sym;
             break;
         case tree_oo_access:

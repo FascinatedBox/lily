@@ -61,7 +61,8 @@ static lily_function_val *get_driver_fn(lily_state *s)
     lily_class *parent_cls = cls->parent;
 
     /* Foreign code can't catch exceptions, so send functions to this. */
-    lily_var *drive_fn_var = lily_find_method(parent_cls, "run_one_test");
+    lily_var *drive_fn_var = (lily_var *)lily_find_member(parent_cls,
+            "run_one_test");
 
     if (drive_fn_var == NULL)
         lily_RuntimeError(s, "Parent class is missing test driving function.");

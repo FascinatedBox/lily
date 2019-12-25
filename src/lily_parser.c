@@ -173,7 +173,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->msgbuf = lily_new_msgbuf(64);
     parser->expr = lily_new_expr_state();
     parser->generics = lily_new_generic_pool();
-    parser->symtab = lily_new_symtab(parser->generics);
+    parser->symtab = lily_new_symtab();
     parser->vm = lily_new_vm_state(raiser);
     parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
@@ -438,6 +438,76 @@ static void mark_builtin_modules(lily_parse_state *parser)
         module_iter->flags |= MODULE_IS_PREDEFINED;
         module_iter = module_iter->next;
     }
+}
+
+/***
+ *      ____                      _
+ *     / ___|  ___  __ _ _ __ ___| |__
+ *     \___ \ / _ \/ _` | '__/ __| '_ \
+ *      ___) |  __/ (_| | | | (__| | | |
+ *     |____/ \___|\__,_|_|  \___|_| |_|
+ *
+ */
+
+static lily_class *find_run_class_dynaload(lily_parse_state *,
+        lily_module_entry *, const char *);
+
+static lily_var *find_active_var(lily_parse_state *parser, const char *name)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_var *result = lily_find_var(m, name);
+
+    return result;
+}
+
+static lily_class *find_active_class(lily_parse_state *parser, const char *name)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_class *result = lily_find_class(m, name);
+
+    return result;
+}
+
+lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
+        const char *name)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_class *result = NULL;
+
+    if (m == symtab->active_module) {
+        lily_module_entry *builtin = symtab->builtin_module;
+
+        result = lily_find_class(builtin, name);
+
+        if (result == NULL && name[1] == '\0')
+            result = lily_gp_find(parser->generics, name);
+
+        if (result == NULL)
+            result = find_run_class_dynaload(parser, builtin, name);
+    }
+
+    if (result == NULL)
+        result = lily_find_class(m, name);
+
+    if (result == NULL && m->info_table)
+        result = find_run_class_dynaload(parser, m, name);
+
+    return result;
+}
+
+lily_sym *find_existing_sym(lily_module_entry *m, const char *name)
+{
+    lily_sym *result = NULL;
+
+    result = (lily_sym *)lily_find_var(m, name);
+
+    if (result == NULL)
+        result = (lily_sym *)lily_find_class(m, name);
+
+    if (result == NULL)
+        result = (lily_sym *)lily_find_module(m, name);
+
+    return result;
 }
 
 /***
@@ -1228,6 +1298,11 @@ static int keyword_by_name(const char *);
     class is properly set. For enums, self_type is used for solving variants, so
     it's important that self_type be right. **/
 
+static void error_var_redeclaration(lily_parse_state *parser, lily_var *var)
+{
+    lily_raise_syn(parser->raiser, "%s has already been declared.", var->name);
+}
+
 /* Given a var, collect the optional argument that goes with it. This will push
    information to parser's data_stack to link the value to the var. The token
    is expected to start on the '=', and will be set at the token after the
@@ -1355,10 +1430,10 @@ static lily_type *get_define_arg(lily_parse_state *parser, int *flags)
 
     NEED_CURRENT_TOK(tk_word)
 
-    lily_var *var = lily_find_var(parser->symtab, NULL, lex->label);
-    if (var != NULL)
-        lily_raise_syn(parser->raiser, "%s has already been declared.",
-                lex->label);
+    lily_var *var = find_active_var(parser, lex->label);
+
+    if (var)
+        error_var_redeclaration(parser, var);
 
     var = new_scoped_var(parser, NULL, lex->label, lex->line_num);
     NEED_NEXT_TOK(tk_colon)
@@ -1609,12 +1684,15 @@ static void collect_generics(lily_parse_state *parser)
    to do. */
 static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
 {
-    int generics_used = lily_gp_num_in_scope(parser->generics);
+    lily_generic_pool *gp = parser->generics;
+    uint16_t generics_used = lily_gp_num_in_scope(gp);
     lily_type *result;
+
     if (generics_used) {
         char name[] = {'A', '\0'};
         while (generics_used) {
-            lily_class *lookup_cls = lily_find_class(parser->symtab, NULL, name);
+            lily_class *lookup_cls = lily_gp_find(gp, name);
+
             lily_tm_add(parser->tm, lookup_cls->self_type);
             name[0]++;
             generics_used--;
@@ -1794,8 +1872,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
  */
 
 static void parse_class_body(lily_parse_state *, lily_class *);
-static lily_class *find_run_class_dynaload(lily_parse_state *,
-        lily_module_entry *, const char *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
@@ -1844,14 +1920,14 @@ static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
     int counter = 0;
     int stop = cid_entry[-1];
     uint16_t *cid_table = m->cid_table;
-    lily_symtab *symtab = parser->symtab;
     lily_module_entry *builtin = parser->module_start;
 
     while (counter < stop) {
         if (cid_table[counter] == 0) {
-            lily_class *cls = lily_find_class(symtab, m, cid_entry);
+            lily_class *cls = lily_find_class(builtin, cid_entry);
+
             if (cls == NULL)
-                cls = lily_find_class(symtab, builtin, cid_entry);
+                cls = lily_find_class(m, cid_entry);
 
             if (cls)
                 cid_table[counter] = cls->id;
@@ -1872,23 +1948,24 @@ static void update_all_cid_tables(lily_parse_state *parser)
     }
 }
 
-/* This function is called when the current label could potentially be a module.
-   If it is, then this function will continue digging until all of the modules
-   have been seen.
-   The result of this is the context from which to continue looking up. */
-static lily_module_entry *resolve_module(lily_parse_state *parser)
+/* This is called when the current label is a module. This walks through the
+   subsequent `.<name>` sequences until one of them finishes with a non-module.
+   The result of this function is the last module given. That module is the
+   namespace that should be used in place of the one given. */
+static lily_module_entry *resolve_module(lily_parse_state *parser,
+        lily_module_entry *m)
 {
-    lily_module_entry *result = NULL;
-    lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_module_entry *search_entry = lily_find_module(symtab, NULL,
-            lex->label);
+    lily_module_entry *result = m;
 
-    while (search_entry) {
-        result = search_entry;
+    while (1) {
         NEED_NEXT_TOK(tk_dot)
         NEED_NEXT_TOK(tk_word)
-        search_entry = lily_find_module(symtab, result, lex->label);
+        m = lily_find_module(m, lex->label);
+        if (m == NULL)
+            break;
+
+        result = m;
     }
 
     return result;
@@ -1901,26 +1978,24 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
+    lily_module_entry *m = symtab->active_module;
 
     NEED_CURRENT_TOK(tk_word)
 
-    lily_module_entry *search_module = resolve_module(parser);
-    lily_class *result = lily_find_class(symtab, search_module, lex->label);
+    lily_class *result = find_or_dl_class(parser, m, lex->label);
+
     if (result == NULL) {
-        if (search_module == NULL)
-            search_module = symtab->builtin_module;
+        m = lily_find_module(m, lex->label);
 
-        if (search_module->info_table)
-            result = find_run_class_dynaload(parser, search_module, lex->label);
-
-        if (result == NULL && symtab->active_module->info_table)
-            result = find_run_class_dynaload(parser, symtab->active_module,
-                    lex->label);
-
-        if (result == NULL)
-            lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
-                    lex->label);
+        if (m) {
+            m = resolve_module(parser, m);
+            result = find_or_dl_class(parser, m, lex->label);
+        }
     }
+
+    if (result == NULL)
+        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
+                lex->label);
 
     return result;
 }
@@ -2081,6 +2156,7 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
     int enum_pos = dyna_index - 1;
     const char **table = m->info_table;
     const char *entry;
+    const char *variant_name;
 
     while (1) {
         entry = table[enum_pos];
@@ -2093,7 +2169,9 @@ static lily_class *dynaload_variant(lily_parse_state *parser,
 
     dynaload_enum(parser, m, enum_pos);
     entry = table[dyna_index];
-    return lily_find_class(parser->symtab, m, entry + DYNA_NAME_OFFSET);
+    variant_name = entry + DYNA_NAME_OFFSET;
+
+    return lily_find_class(m, variant_name);
 }
 
 static lily_class *dynaload_foreign(lily_parse_state *parser,
@@ -2158,7 +2236,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
 
     if (lex->token == tk_lt) {
         lily_next_token(lex);
-        lily_class *parent = lily_find_class(parser->symtab, m, lex->label);
+        lily_class *parent = lily_find_class(m, lex->label);
 
         if (parent == NULL)
             parent = (lily_class *)try_toplevel_dynaload(parser, m, lex->label);
@@ -2341,9 +2419,10 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
    If the entity exists as a dynaload, then the dynaload is run (hence the dl
    part of the name). */
 lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
-        const char *name, lily_class *scope)
+        const char *name)
 {
-    lily_named_sym *member = lily_find_member(cls, name, scope);
+    lily_named_sym *member = lily_find_member(cls, name);
+
     if (member)
         return (lily_item *)member;
 
@@ -2356,29 +2435,13 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
            dynaload table, but one of the parent classes might. */
         lily_class *parent = cls->parent;
 
-        if (cls == scope || parent == NULL)
+        if (parent == NULL)
             break;
 
         cls = parent;
     }
 
     return NULL;
-}
-
-static int constant_by_name(const char *name)
-{
-    int i;
-    uint64_t shorthash = shorthash_for_name(name);
-
-    for (i = 0;i <= CONST_LAST_ID;i++) {
-        if (constants[i].shorthash == shorthash &&
-            strcmp(constants[i].name, name) == 0)
-            return i;
-        else if (constants[i].shorthash > shorthash)
-            break;
-    }
-
-    return -1;
 }
 
 static int keyword_by_name(const char *name)
@@ -2435,66 +2498,8 @@ static int keyword_by_name(const char *name)
    has already been pulled up. */
 #define ST_FORWARD              0x8
 
-/* This handles when a class is seen within an expression. Any import qualifier
-   has already been scanned and is unimportant. The key here is to figure out if
-   this is `<class>.member` or `<class>()`. The first is a static access, while
-   the latter is an implicit `<class>.new()`. */
-static void expression_class_access(lily_parse_state *parser, lily_class *cls,
-        int *state)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_next_token(lex);
-    if (lex->token != tk_dot) {
-        if (cls->flags & CLS_IS_ENUM)
-            lily_raise_syn(parser->raiser,
-                    "Cannot implicitly use the constructor of an enum.");
-
-        /* To be extra safe, the second 'cls' prevents using the <new> of a
-           parent class. */
-        lily_item *target = lily_find_or_dl_member(parser, cls, "<new>", cls);
-        if (target == NULL)
-            lily_raise_syn(parser->raiser,
-                    "Class %s does not have a constructor.", cls->name);
-
-        /* This happens when an optional argument of a constructor tries to use
-           that same constructor. */
-        if (target->flags & SYM_NOT_INITIALIZED)
-            lily_raise_syn(parser->raiser,
-                    "Constructor for class %s is not initialized.", cls->name);
-
-        lily_es_push_static_func(parser->expr, (lily_var *)target);
-        *state = ST_FORWARD | ST_WANT_OPERATOR;
-        return;
-    }
-
-    *state = ST_WANT_OPERATOR;
-
-    NEED_NEXT_TOK(tk_word)
-    /* The second 'cls' ensures that the lookup is static (only entries in this
-       class). */
-    lily_item *item = lily_find_or_dl_member(parser, cls, lex->label, cls);
-
-    if (item && item->item_kind == ITEM_TYPE_VAR) {
-        lily_es_push_static_func(parser->expr, (lily_var *)item);
-        return;
-    }
-
-    /* Enums allow scoped variants through `<enum>.<variant>`. */
-    if (cls->flags & CLS_IS_ENUM) {
-        lily_variant_class *variant = lily_find_variant(cls, lex->label);
-        if (variant) {
-            lily_es_push_variant(parser->expr, variant);
-            return;
-        }
-    }
-
-    lily_raise_syn(parser->raiser, "%s.%s does not exist.", cls->name,
-            lex->label);
-}
-
 /* This is a wrapper function that handles pushing the given literal into the
-   parser's ast pool. This function exists because literals may, in the future,
-   not have a type associated with them (and be just a lily_value). */
+   parser's ast pool. */
 static void push_literal(lily_parse_state *parser, lily_literal *lit)
 {
     lily_class *literal_cls;
@@ -2517,29 +2522,47 @@ static void push_literal(lily_parse_state *parser, lily_literal *lit)
     lily_es_push_literal(parser->expr, literal_cls->self_type, lit->reg_spot);
 }
 
+static int constant_by_name(const char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+
+    for (i = 0;i <= CONST_LAST_ID;i++) {
+        if (constants[i].shorthash == shorthash &&
+            strcmp(constants[i].name, name) == 0)
+            return i;
+        else if (constants[i].shorthash > shorthash)
+            break;
+    }
+
+    return -1;
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
-static void push_constant(lily_parse_state *parser, int key_id)
+static int expression_word_try_constant(lily_parse_state *parser)
 {
     lily_expr_state *es = parser->expr;
     lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    int key_id = constant_by_name(lex->label);
     lily_literal *lit;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
     if (key_id == CONST__LINE__) {
-        int num = parser->lex->line_num;
+        int num = lex->line_num;
 
         if ((int16_t)num <= INT16_MAX)
             lily_es_push_integer(es, (int16_t)num);
         else {
-            lit = lily_get_integer_literal(symtab, parser->lex->line_num);
+            lit = lily_get_integer_literal(symtab, lex->line_num);
             push_literal(parser, lit);
         }
     }
     else if (key_id == CONST__FILE__) {
-        lit = lily_get_string_literal(symtab, parser->symtab->active_module->path);
+        lit = lily_get_string_literal(symtab, symtab->active_module->path);
         push_literal(parser, lit);
     }
     else if (key_id == CONST__FUNCTION__) {
@@ -2551,32 +2574,126 @@ static void push_constant(lily_parse_state *parser, int key_id)
         lily_es_push_boolean(es, 1);
     else if (key_id == CONST_FALSE)
         lily_es_push_boolean(es, 0);
-    else if (key_id == CONST_SELF)
+    else if (key_id == CONST_SELF) {
+        /* The second check is necessary because super ctors set the self type
+           to NULL to block base class member use. */
+        if (parser->class_self_type == NULL &&
+            parser->emit->block->block_type != block_class)
+            lily_raise_syn(parser->raiser,
+                    "'self' must be used within a class.");
+
         lily_es_push_self(es);
+    }
     else if (key_id == CONST_UNIT) {
         lit = lily_get_unit_literal(symtab);
         push_literal(parser, lit);
     }
+
+    return key_id != -1;
 }
 
-/* This is called when a class (enum or regular) is found. This determines how
-   to handle the class: Either push the variant or run a static call, then
-   updates the state. */
-static void dispatch_word_as_class(lily_parse_state *parser, lily_class *cls,
+static int expression_word_try_use_self(lily_parse_state *parser)
+{
+    lily_item *item = NULL;
+
+    if (parser->class_self_type) {
+        lily_class *self_cls = parser->class_self_type->cls;
+        const char *name = parser->lex->label;
+
+        item = lily_find_or_dl_member(parser, self_cls, name);
+
+        if (item) {
+            if (item->item_kind == ITEM_TYPE_VAR) {
+                /* Pushing the item as a method tells emitter to add an implicit
+                   self to the mix. */
+                if (parser->in_static_call == 0 &&
+                    (item->flags & VAR_IS_STATIC) == 0)
+                    lily_es_push_method(parser->expr, (lily_var *)item);
+                else
+                    lily_es_push_static_func(parser->expr, (lily_var *)item);
+            }
+            else if (item->item_kind == ITEM_TYPE_PROPERTY)
+                lily_raise_syn(parser->raiser,
+                        "%s is a property, and must be referenced as @%s.",
+                        name, name);
+            /* If 'self' is a flat enum, then one of the variants would have
+               been found in the flat scope search. So this is a variant of a
+               scoped enum. Do not count this so that the variant names have to
+               be scoped at all times. */
+            else if (item->item_kind == ITEM_TYPE_VARIANT)
+                item = NULL;
+        }
+    }
+
+    return item != NULL;
+}
+
+static void expression_word_ctor(lily_parse_state *parser, lily_class *cls)
+{
+    if (cls->flags & CLS_IS_ENUM)
+        lily_raise_syn(parser->raiser,
+                "Cannot implicitly use the constructor of an enum.");
+
+    lily_var *target = (lily_var *)lily_find_member_in_class(cls, "<new>");
+
+    if (target == NULL && cls->dyna_start)
+        target = (lily_var *)try_method_dynaload(parser, cls, "<new>");
+
+    if (target == NULL)
+        lily_raise_syn(parser->raiser,
+                "Class %s does not have a constructor.", cls->name);
+
+    /* This happens when an optional argument of a constructor tries to use
+       that same constructor. */
+    if (target->flags & SYM_NOT_INITIALIZED)
+        lily_raise_syn(parser->raiser,
+                "Constructor for class %s is not initialized.", cls->name);
+
+    lily_es_push_static_func(parser->expr, target);
+}
+
+/* This handles when a class is seen within an expression. Any import qualifier
+   has already been scanned and is unimportant. The key here is to figure out if
+   this is `<class>.member` or `<class>()`. The first is a static access, while
+   the latter is an implicit `<class>.new()`. */
+static void expression_word_as_class(lily_parse_state *parser, lily_class *cls,
         int *state)
 {
-    if (cls->item_kind == ITEM_TYPE_VARIANT) {
-        lily_es_push_variant(parser->expr, (lily_variant_class *)cls);
-        *state = ST_WANT_OPERATOR;
+    lily_lex_state *lex = parser->lex;
+    lily_next_token(lex);
+
+    if (lex->token != tk_dot) {
+        expression_word_ctor(parser, cls);
+        *state = ST_FORWARD;
+        return;
     }
-    else
-        expression_class_access(parser, cls, state);
+
+    NEED_NEXT_TOK(tk_word)
+
+    lily_item *item = (lily_item *)lily_find_member_in_class(cls, lex->label);
+
+    if (item == NULL && cls->dyna_start)
+        item = try_method_dynaload(parser, cls, lex->label);
+
+    if (item == NULL) {
+        lily_raise_syn(parser->raiser,
+                "Class %s does not have a member named %s.", cls->name,
+                lex->label);
+    }
+
+    if (item->item_kind == ITEM_TYPE_VAR)
+        lily_es_push_static_func(parser->expr, (lily_var *)item);
+    else if (item->item_kind == ITEM_TYPE_VARIANT)
+        lily_es_push_variant(parser->expr, (lily_variant_class *)item);
+    else if (item->item_kind == ITEM_TYPE_PROPERTY)
+        lily_raise_syn(parser->raiser,
+                "Cannot use a class property without a class instance.");
 }
 
 /* This function takes a var and determines what kind of tree to put it into.
    The tree type is used by emitter to group vars into different types as a
    small optimization. */
-static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
+static void expression_word_as_var(lily_parse_state *parser, lily_var *var,
         int *state)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
@@ -2593,27 +2710,6 @@ static void dispatch_word_as_var(lily_parse_state *parser, lily_var *var,
         lily_es_push_local_var(parser->expr, var);
     else
         lily_es_push_upvalue(parser->expr, var);
-
-    *state = ST_WANT_OPERATOR;
-}
-
-/* Something was dynaloaded. Push it into the ast and update state. */
-static void dispatch_dynaload(lily_parse_state *parser, lily_item *dl_item,
-        int *state)
-{
-    lily_expr_state *es = parser->expr;
-
-    if (dl_item->item_kind == ITEM_TYPE_VAR) {
-        lily_var *v = (lily_var *)dl_item;
-        if (v->flags & VAR_IS_READONLY)
-            lily_es_push_defined_func(es, v);
-        else
-            lily_es_push_global_var(es, v);
-
-        *state = ST_WANT_OPERATOR;
-    }
-    else
-        dispatch_word_as_class(parser, (lily_class *)dl_item, state);
 }
 
 /* This is called by expression when there is a word. This is complicated,
@@ -2622,79 +2718,50 @@ static void expression_word(lily_parse_state *parser, int *state)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_module_entry *search_module = resolve_module(parser);
-    lily_module_entry *original_module = search_module;
+    lily_module_entry *m = symtab->active_module;
+    const char *name = lex->label;
 
-    lily_var *var = lily_find_var(symtab, search_module, lex->label);
-    if (var) {
-        dispatch_word_as_var(parser, var, state);
+    lily_sym *sym = find_existing_sym(m, name);
+
+    if (sym) {
+        /* If the name given is a module, there could be more submodules after
+           it to look through. Walk the modules, then do another search in the
+           final module. */
+        if (sym->item_kind == ITEM_TYPE_MODULE) {
+            m = resolve_module(parser, (lily_module_entry *)sym);
+            sym = find_existing_sym(m, name);
+        }
+    }
+    else if (expression_word_try_constant(parser) ||
+             expression_word_try_use_self(parser))
         return;
+    else {
+        /* Since no module was explicitly provided, look through the builtins.
+           This intentionally sets 'm' so that the dynaload check targets the
+           builtin module. */
+        m = symtab->builtin_module;
+        sym = find_existing_sym(m, name);
     }
 
-    if (search_module == NULL) {
-        int const_id = constant_by_name(lex->label);
-        if (const_id != -1) {
-            /* The third check is necessary because super ctors set the self
-               type to NULL to block base class member use. */
-            if (const_id == CONST_SELF &&
-                parser->class_self_type == NULL &&
-                parser->emit->block->block_type != block_class)
-                lily_raise_syn(parser->raiser,
-                        "'self' must be used within a class.");
+    /* As a last resort, try running a dynaload. This will check either the
+       module explicitly provided, or the builtin module.
+       In most other situations, the active module should be checked as well
+       since it could be a foreign module. Since expressions are limited to
+       native modules, it is impossible for the active module to have a dynaload
+       as a last resort. */
+    if (sym == NULL && m->info_table)
+        sym = (lily_sym *)try_toplevel_dynaload(parser, m, name);
 
-            push_constant(parser, const_id);
-            *state = ST_WANT_OPERATOR;
-            return;
-        }
+    if (sym) {
+        if (sym->item_kind == ITEM_TYPE_VAR)
+            expression_word_as_var(parser, (lily_var *)sym, state);
+        else if (sym->item_kind == ITEM_TYPE_VARIANT)
+	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
+        else
+            expression_word_as_class(parser, (lily_class *)sym, state);
     }
-
-    lily_class *cls = lily_find_class(parser->symtab, search_module, lex->label);
-
-    if (cls) {
-        dispatch_word_as_class(parser, cls, state);
-        return;
-    }
-
-    if (search_module == NULL && parser->class_self_type) {
-        lily_item *item = lily_find_or_dl_member(parser,
-                parser->class_self_type->cls, lex->label, NULL);
-
-        if (item && item->item_kind == ITEM_TYPE_VAR) {
-            var = (lily_var *)item;
-
-            if (parser->in_static_call == 0)
-                lily_es_push_method(parser->expr, var);
-            else
-                lily_es_push_static_func(parser->expr, var);
-
-            *state = ST_WANT_OPERATOR;
-            return;
-        }
-    }
-
-    if (search_module == NULL)
-        search_module = symtab->builtin_module;
-
-    if (search_module->info_table) {
-        lily_item *dl_result = try_toplevel_dynaload(parser,
-                search_module, lex->label);
-        if (dl_result) {
-            dispatch_dynaload(parser, dl_result, state);
-            return;
-        }
-    }
-
-    if (original_module == NULL && parser->class_self_type) {
-        lily_class *cls = lily_find_class_of_member(
-                parser->class_self_type->cls, lex->label);
-
-        if (cls)
-            lily_raise_syn(parser->raiser,
-                    "%s is a private member of class %s, and not visible here.",
-                    lex->label, cls->name);
-    }
-
-    lily_raise_syn(parser->raiser, "%s has not been declared.", lex->label);
+    else
+        lily_raise_syn(parser->raiser, "%s has not been declared.", name);
 }
 
 /* This is called to handle `@<prop>` accesses. */
@@ -2711,18 +2778,24 @@ static void expression_property(lily_parse_state *parser, int *state)
                 "Properties cannot be used outside of a class constructor.");
 
     char *name = parser->lex->label;
-    lily_prop_entry *prop = lily_find_property(current_class, name);
+    lily_named_sym *sym = lily_find_member(current_class, name);
 
-    if (prop == NULL) {
+    if (sym == NULL) {
         const char *extra = "";
+
         if (parser->emit->block->block_type == block_class)
             extra = " ('var' keyword missing?)";
 
         lily_raise_syn(parser->raiser, "Property %s is not in class %s.%s",
                 name, current_class->name, extra);
     }
+    else if (sym->item_kind == ITEM_TYPE_VAR) {
+        lily_raise_syn(parser->raiser,
+                "Cannot access a method as a property (use %s instead of @%s).",
+                name, name);
+    }
 
-    lily_es_push_property(parser->expr, prop);
+    lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
     *state = ST_WANT_OPERATOR;
 }
 
@@ -2958,8 +3031,14 @@ static void expression_raw(lily_parse_state *parser)
                     state = ST_DONE;
                 else
                     state = ST_BAD_TOKEN;
-            else
+            else {
                 expression_word(parser, &state);
+                /* Words never start with forward, but might finish with it.
+                   Every word finishes with wanting an operator, but one of them
+                   wants forward as well. This fixes the state so that each case
+                   doesn't need an individual state fix. */
+                state = (state & ST_FORWARD) + ST_WANT_OPERATOR;
+            }
         }
         else if (expr_op != -1) {
             if (state == ST_WANT_OPERATOR) {
@@ -3391,15 +3470,12 @@ static inline void handle_multiline(lily_parse_state *parser, int key_id)
 static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *var;
+    lily_var *var = find_active_var(parser, lex->label);
 
-    var = lily_find_var(parser->symtab, NULL, lex->label);
-    if (var != NULL)
-        lily_raise_syn(parser->raiser, "%s has already been declared.",
-                lex->label);
+    if (var)
+        error_var_redeclaration(parser, var);
 
     var = new_scoped_var(parser, var_type, lex->label, lex->line_num);
-
     lily_next_token(lex);
     return var;
 }
@@ -3408,47 +3484,57 @@ static lily_var *get_named_var(lily_parse_state *parser, lily_type *var_type)
 static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *var;
+    lily_var *var = find_active_var(parser, lex->label);
 
-    var = lily_find_var(parser->symtab, NULL, lex->label);
-    if (var != NULL)
-        lily_raise_syn(parser->raiser, "%s has already been declared.",
-                lex->label);
+    if (var)
+        error_var_redeclaration(parser, var);
 
     var = new_local_var(parser, var_type, lex->label, lex->line_num);
-
     lily_next_token(lex);
     return var;
 }
 
-static void ensure_unique_class_member(lily_parse_state *parser,
-        lily_class *cls, const char *name)
+static void error_member_redeclaration(lily_parse_state *parser,
+        lily_class *cls, lily_named_sym *sym)
 {
-    lily_named_sym *sym = lily_find_member(cls, name, NULL);
-
-    if (sym) {
-        if (sym->item_kind == ITEM_TYPE_VAR)
-            lily_raise_syn(parser->raiser,
-                    "A method in class '%s' already has the name '%s'.",
-                    cls->name, name);
-        else
-            lily_raise_syn(parser->raiser,
-                    "A property in class '%s' already has the name @%s.",
-                    cls->name, name);
-    }
+    if (sym->item_kind == ITEM_TYPE_VAR)
+        lily_raise_syn(parser->raiser,
+                "A method in class '%s' already has the name '%s'.",
+                cls->name, sym->name);
+    else
+        lily_raise_syn(parser->raiser,
+                "A property in class '%s' already has the name @%s.",
+                cls->name, sym->name);
 }
 
 /* The same thing as get_named_var, but with a property instead. */
 static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
 {
     char *name = parser->lex->label;
-    lily_class *current_class = parser->class_self_type->cls;
+    lily_class *cls = parser->class_self_type->cls;
+    lily_named_sym *sym = lily_find_member(cls, name);
 
-    ensure_unique_class_member(parser, current_class, name);
+    if (sym) {
+        if (sym->flags & SYM_SCOPE_PRIVATE) {
+            lily_class *parent;
 
-    lily_prop_entry *prop;
-    prop = lily_add_class_property(parser->symtab, current_class, NULL, name,
-            flags);
+            if (sym->item_kind == ITEM_TYPE_VAR)
+                parent = ((lily_var *)sym)->parent;
+            else
+                parent = ((lily_prop_entry *)sym)->cls;
+
+            /* Private members aren't really private if inheriting classes need
+               to avoid their names. So don't count them. */
+            if (parent != cls)
+                sym = NULL;
+        }
+
+        if (sym)
+            error_member_redeclaration(parser, cls, sym);
+    }
+
+    lily_prop_entry *prop = lily_add_class_property(parser->symtab, cls, NULL,
+            name, flags);
 
     lily_next_token(parser->lex);
     return prop;
@@ -3648,13 +3734,13 @@ static void verify_existing_decl(lily_parse_state *parser, lily_var *var,
 static lily_var *find_existing_define(lily_parse_state *parser,
         lily_class *parent, char *label, int modifiers)
 {
-    lily_var *var = lily_find_var(parser->symtab, NULL, label);
+    lily_var *var = find_active_var(parser, label);
 
     if (var)
         verify_existing_decl(parser, var, modifiers);
 
     if (parent) {
-        lily_named_sym *sym = lily_find_member(parent, label, NULL);
+        lily_named_sym *sym = lily_find_member(parent, label);
 
         if (sym) {
             if (sym->item_kind != ITEM_TYPE_VAR)
@@ -3726,21 +3812,12 @@ static void error_forward_decl_modifiers(lily_parse_state *parser,
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
-static void parse_define_header(lily_parse_state *parser, int modifiers)
+static lily_var *parse_define_var(lily_parse_state *parser, lily_class *parent,
+        int modifiers)
 {
     lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_class *parent = NULL;
-    lily_block_type block_type = parser->emit->block->block_type;
-    int collect_flag = F_COLLECT_DEFINE;
-
-    if (block_type == block_class || block_type == block_enum)
-        parent = parser->class_self_type->cls;
-
     lily_var *old_define = find_existing_define(parser, parent, lex->label,
             modifiers);
-
     lily_var *define_var;
 
     if (old_define) {
@@ -3751,15 +3828,31 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         define_var = old_define;
         lily_emit_resolve_forward_decl(parser->emit, define_var);
     }
-    else {
-        if (modifiers & VAR_IS_FORWARD)
-            collect_flag = F_COLLECT_FORWARD;
-
+    else
         define_var = new_native_define_var(parser, parent, lex->label);
-    }
 
     /* This prevents optargs from using function they're declared in. */
     define_var->flags |= SYM_NOT_INITIALIZED | modifiers;
+
+    return define_var;
+}
+
+static void parse_define_header(lily_parse_state *parser, int modifiers)
+{
+    lily_lex_state *lex = parser->lex;
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_class *parent = NULL;
+    lily_block_type block_type = parser->emit->block->block_type;
+    int collect_flag = F_COLLECT_DEFINE;
+
+    if (modifiers & VAR_IS_FORWARD)
+        collect_flag = F_COLLECT_FORWARD;
+
+    if (block_type == block_class || block_type == block_enum)
+        parent = parser->class_self_type->cls;
+
+    lily_var *define_var = parse_define_var(parser, parent, modifiers);
 
     /* This is the initial result. NULL means the function doesn't return
        anything. If it does, then this spot will be overwritten. */
@@ -4097,7 +4190,7 @@ static void keyword_for(lily_parse_state *parser)
 
     lily_emit_enter_block(parser->emit, block_for_in);
 
-    loop_var = lily_find_var(parser->symtab, NULL, lex->label);
+    loop_var = find_active_var(parser, lex->label);
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
         loop_var = new_local_var(parser, cls->self_type, lex->label,
@@ -4245,26 +4338,6 @@ static void run_loaded_module(lily_parse_state *parser,
     module->flags &= ~MODULE_IN_EXECUTION;
 }
 
-static lily_sym *find_existing_sym(lily_parse_state *parser,
-        lily_module_entry *source, const char *search_name)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_sym *sym;
-
-    sym = (lily_sym *)lily_find_var(symtab, source, search_name);
-
-    if (sym == NULL)
-        sym = (lily_sym *)lily_find_class(symtab, source, search_name);
-
-    if (sym == NULL)
-        sym = (lily_sym *)lily_find_module(symtab, source, search_name);
-
-    if (sym == NULL && source->info_table)
-        sym = (lily_sym *)try_toplevel_dynaload(parser, source, search_name);
-
-    return sym;
-}
-
 static void link_import_syms(lily_parse_state *parser,
         lily_module_entry *source, uint16_t start, int count)
 {
@@ -4273,13 +4346,17 @@ static void link_import_syms(lily_parse_state *parser,
 
     do {
         char *search_name = lily_sp_get(parser->import_ref_strings, start);
-        lily_sym *sym = find_existing_sym(parser, active, search_name);
+        lily_sym *sym = find_existing_sym(active, search_name);
 
         if (sym)
             lily_raise_syn(parser->raiser, "'%s' has already been declared.",
                     search_name);
 
-        sym = find_existing_sym(parser, source, search_name);
+        sym = find_existing_sym(source, search_name);
+
+        if (sym == NULL && source->info_table)
+            sym = (lily_sym *)try_toplevel_dynaload(parser, source,
+                    search_name);
 
         if (sym == NULL)
             lily_raise_syn(parser->raiser,
@@ -4409,7 +4486,7 @@ static void keyword_import(lily_parse_state *parser)
 
         /* Will the name that is going to be added conflict with something that
            has already been added? */
-        if (lily_find_module(symtab, active, ims->pending_loadname))
+        if (lily_find_module(active, ims->pending_loadname))
             lily_raise_syn(parser->raiser,
                     "A module named '%s' has already been imported here.",
                     ims->pending_loadname);
@@ -4482,13 +4559,14 @@ static void process_except(lily_parse_state *parser)
                     lex->label);
 
         NEED_NEXT_TOK(tk_word)
-        exception_var = lily_find_var(parser->symtab, NULL, lex->label);
-        if (exception_var != NULL)
-            lily_raise_syn(parser->raiser, "%s has already been declared.",
-                    exception_var->name);
 
-        exception_var = new_local_var(parser, except_cls->self_type,
-                lex->label, lex->line_num);
+        exception_var = find_active_var(parser, lex->label);
+
+        if (exception_var)
+            error_var_redeclaration(parser, exception_var);
+
+        exception_var = new_local_var(parser, except_cls->self_type, lex->label,
+                lex->line_num);
 
         lily_next_token(lex);
     }
@@ -4568,11 +4646,8 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
         lily_raise_syn(parser->raiser,
                 "'%s' is not a valid class name (too short).", name);
 
-    lily_module_entry *builtin = parser->symtab->builtin_module;
-    lily_item *item = (lily_item *)lily_find_class(parser->symtab, NULL, name);
-
-    if (item == NULL)
-        item = try_toplevel_dynaload(parser, builtin, name);
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
 
     if (item && item->item_kind != ITEM_TYPE_VAR) {
         const char *prefix;
@@ -4588,7 +4663,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
         else if (item->item_kind == ITEM_TYPE_VARIANT)
             cls = ((lily_variant_class *)item)->parent;
 
-        if (cls->module == builtin) {
+        if (cls->module == parser->symtab->builtin_module) {
             prefix = "A built-in";
             suffix = "already exists.";
         }
@@ -4644,7 +4719,12 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
                 /* Shorthand properties have already been checked for uniqueness
                    against each other. Now that a parent class is known, check
                    for uniqueness there too. */
-                ensure_unique_class_member(parser, super_class, sym->name);
+                lily_named_sym *search_sym = lily_find_member(super_class,
+                        sym->name);
+
+                if (search_sym)
+                    error_member_redeclaration(parser, super_class, search_sym);
+
                 sym->reg_spot += adjust;
             }
 
@@ -4660,7 +4740,8 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
         lily_class *super_class)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *class_new = lily_find_method(super_class, "<new>");
+    lily_var *class_new = (lily_var *)lily_find_member_in_class(super_class,
+            "<new>");
 
     /* It's time to process the constructor to be sent. The constructor function
        is inserted as a special 'inherited_new' tree. That will let emitter know
@@ -4943,8 +5024,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
             variant_cls = lily_find_variant(enum_cls, lex->label);
 
         if (variant_cls == NULL && is_scoped == 0)
-            variant_cls = (lily_variant_class *)lily_find_class(parser->symtab,
-                    NULL, lex->label);
+            variant_cls = (lily_variant_class *)find_active_class(parser,
+                    lex->label);
 
         if (variant_cls)
             lily_raise_syn(parser->raiser,
@@ -5411,11 +5492,11 @@ static void maybe_fix_print(lily_parse_state *parser)
 {
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *builtin = symtab->builtin_module;
-    lily_var *stdout_var = lily_find_var(symtab, builtin, "stdout");
+    lily_var *stdout_var = lily_find_var(builtin, "stdout");
     lily_vm_state *vm = parser->vm;
 
     if (stdout_var) {
-        lily_var *print_var = lily_find_var(symtab, builtin, "print");
+        lily_var *print_var = lily_find_var(builtin, "print");
         if (print_var) {
             /* Swap out the default implementation of print for one that will
                check if stdin is closed first. */
@@ -5857,7 +5938,7 @@ lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
     /* todo: Handle scope access, class methods, and so forth. Ideally, it can
        be done without loading any fake files (like dynaloading does), as this
        may be the base of a preloader. */
-    lily_var *v = lily_find_var(vm->gs->parser->symtab, NULL, name);
+    lily_var *v = find_active_var(vm->gs->parser, name);
     lily_function_val *result;
 
     if (v)

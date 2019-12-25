@@ -357,7 +357,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.a is marked protected, and not available here.\n    \
-                from [test]:5:\n\
+                from [test]:4:\n\
         """,
         """\
             class Test(protected var @a: Integer) { }
@@ -370,7 +370,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.a is marked private, and not available here.\n    \
-                from [test]:5:\n\
+                from [test]:4:\n\
         """,
         """\
             class Test(private var @a: Integer) { }
@@ -383,7 +383,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.x is marked protected, and not available here.\n    \
-                from [test]:4:\n\
+                from [test]:3:\n\
         """,
         """\
             class Test { protected var @x = 10 }
@@ -395,7 +395,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: abc.f is marked protected, and not available here.\n    \
-                from [test]:6:\n\
+                from [test]:5:\n\
         """,
         """\
             class abc {
@@ -408,7 +408,7 @@ class TestBadClass < TestCase
         # bad scope (private method from parent)
 
         assert_parse_fails(t, """\
-            SyntaxError: f is a private member of class One, and not visible here.\n    \
+            SyntaxError: One.f is marked private, and not available here.\n    \
                 from [test]:7:\n\
         """,
         """\
@@ -426,7 +426,7 @@ class TestBadClass < TestCase
         # bad scope (private method from parent using self)
 
         assert_parse_fails(t, """\
-            SyntaxError: f is a private member of class One, and not visible here.\n    \
+            SyntaxError: One.f is marked private, and not available here.\n    \
                 from [test]:7:\n\
         """,
         """\
@@ -445,7 +445,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: abc.f is marked private, and not available here.\n    \
-                from [test]:7:\n\
+                from [test]:6:\n\
         """,
         """\
             class abc {
@@ -604,7 +604,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Example.f is marked protected, and not available here.\n    \
-                from [test]:6:\n\
+                from [test]:5:\n\
         """,
         """\
             class Example {
@@ -617,7 +617,7 @@ class TestBadClass < TestCase
         # bad static (private static outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: f is a private member of class One, and not visible here.\n    \
+            SyntaxError: One.f is marked private, and not available here.\n    \
                 from [test]:6:\n\
         """,
         """\
@@ -731,7 +731,7 @@ class TestBadClass < TestCase
         # class rules (method of a generic type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class A has no method or property named asdf.\n    \
+            SyntaxError: Class A does not have a member named asdf.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -793,6 +793,54 @@ class TestBadClass < TestCase
             }
 
             Abc().h()
+        """)
+
+        # class rules (lambda cannot send self back)
+
+        assert_parse_fails(t, """\
+            SyntaxError: x is a property, and must be referenced as @x.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Example {
+                public var @x = 10
+
+                public define f {
+                    var y = x
+                }
+            }
+        """)
+
+        # class rules (static access to property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use a class property without a class instance.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Example {
+                public var @x = 10
+            }
+
+            var v = Example.x
+        """)
+
+        # class rules (method accessed as property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot access a method as a property (use f instead of @f).\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Example {
+                public define f {
+
+                }
+
+                public define g {
+                    var v = @f
+                }
+            }
         """)
     }
 }

@@ -22,7 +22,7 @@
  *                          |_|
  */
 
-lily_symtab *lily_new_symtab(lily_generic_pool *gp)
+lily_symtab *lily_new_symtab(void)
 {
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
@@ -30,7 +30,6 @@ lily_symtab *lily_new_symtab(lily_generic_pool *gp)
     symtab->hidden_function_chain = NULL;
     symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
-    symtab->generics = gp;
     symtab->next_global_id = 0;
     symtab->next_reverse_id = LILY_LAST_ID;
 
@@ -448,17 +447,17 @@ lily_literal *lily_get_unit_literal(lily_symtab *symtab)
 }
 
 /***
- *     __     __
- *     \ \   / /_ _ _ __ ___
- *      \ \ / / _` | '__/ __|
- *       \ V / (_| | |  \__ \
- *        \_/ \__,_|_|  |___/
+ *      ____                      _
+ *     / ___|  ___  __ _ _ __ ___| |__
+ *     \___ \ / _ \/ _` | '__/ __| '_ \
+ *      ___) |  __/ (_| | | | (__| | | |
+ *     |____/ \___|\__,_|_|  \___|_| |_|
  *
  */
 
-/** Symtab doesn't need to do much here since parser is responsible for creation
-    and placement of new vars. Symtab's job here is to provide lookup and
-    hiding of vars. **/
+/** Symtab also provides an interface for other parts of the interpreter to
+    locate symbols. The symtab does not implement access restriction or
+    implement dynaloading. Both of those are the responsibility of parser. */
 
 /* This gets (up to) the first 8 bytes of a name and puts it into a numeric
    value. The numeric value is compared before comparing names to speed things
@@ -497,68 +496,234 @@ static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
     return result;
 }
 
-static lily_var *find_boxed_var(lily_module_entry *m, const char *name,
-        uint64_t shorthash)
-{
-    lily_sym *sym = find_boxed_sym(m, name, shorthash);
-
-    if (sym && sym->item_kind != ITEM_TYPE_VAR)
-        sym = NULL;
-
-    return (lily_var *)sym;
-}
-
-static lily_var *find_var(lily_module_entry *m, const char *name,
-        uint64_t shorthash)
-{
-    lily_var *var_iter = m->var_chain;
-
-    while (var_iter != NULL) {
-        if (var_iter->shorthash == shorthash &&
-            strcmp(var_iter->name, name) == 0) {
-
-            break;
-        }
-        var_iter = var_iter->next;
-    }
-
-    return var_iter;
-}
-
-/* Try to find a var. If the given module is NULL, then search through both the
-   current and builtin modules. For everything else, just search through the
-   module given. */
-lily_var *lily_find_var(lily_symtab *symtab, lily_module_entry *module,
-        const char *name)
+lily_class *lily_find_class(lily_module_entry *m, const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
-    lily_var *result;
+    lily_class *result = NULL;
+    lily_class *class_iter = m->class_chain;
 
-    if (module == NULL) {
-        result = find_var(symtab->builtin_module, name,
-                    shorthash);
-        if (result == NULL) {
-            result = find_var(symtab->active_module, name, shorthash);
-
-            if (result == NULL && symtab->active_module->boxed_chain)
-                result = find_boxed_var(symtab->active_module, name, shorthash);
+    while (class_iter) {
+        if (class_iter->shorthash == shorthash &&
+            strcmp(class_iter->name, name) == 0) {
+            result = class_iter;
+            break;
         }
+
+        if (class_iter->flags & CLS_IS_ENUM &&
+            (class_iter->flags & CLS_ENUM_IS_SCOPED) == 0) {
+            lily_named_sym *sym_iter = class_iter->members;
+
+            while (sym_iter) {
+                if (sym_iter->name_shorthash == shorthash &&
+                    strcmp(sym_iter->name, name) == 0 &&
+                    sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+                    result = (lily_class *)sym_iter;
+                    break;
+                }
+
+                sym_iter = sym_iter->next;
+            }
+
+            if (result)
+                break;
+        }
+
+        class_iter = class_iter->next;
     }
-    else {
-        result = find_var(module, name, shorthash);
-        if (result == NULL && module->boxed_chain)
-            result = find_boxed_var(module, name, shorthash);
+
+    if (result == NULL && m->boxed_chain) {
+        lily_sym *sym = find_boxed_sym(m, name, shorthash);
+
+        if (sym &&
+            (sym->item_kind == ITEM_TYPE_CLASS ||
+             sym->item_kind == ITEM_TYPE_ENUM ||
+             sym->item_kind == ITEM_TYPE_VARIANT))
+            result = (lily_class *)sym;
     }
 
     return result;
 }
 
+lily_var *lily_find_var(lily_module_entry *m, const char *name)
+{
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_var *result = NULL;
+    lily_var *var_iter = m->var_chain;
+
+    while (var_iter != NULL) {
+        if (var_iter->shorthash == shorthash &&
+            strcmp(var_iter->name, name) == 0) {
+            result = var_iter;
+            break;
+        }
+        var_iter = var_iter->next;
+    }
+
+    if (result == NULL && m->boxed_chain) {
+        lily_sym *sym = find_boxed_sym(m, name, shorthash);
+
+        if (sym && sym->item_kind == ITEM_TYPE_VAR)
+            result = (lily_var *)sym;
+    }
+
+    return result;
+}
+
+/* Look for 'name' as a member in 'cls' or any parent of 'cls'. This does not
+   implement blocking against protected or private members. */
+lily_named_sym *lily_find_member(lily_class *cls, const char *name)
+{
+    lily_named_sym *sym_iter = cls->members;
+    lily_named_sym *result = NULL;
+
+    while (1) {
+        if (sym_iter != NULL) {
+            uint64_t shorthash = shorthash_for_name(name);
+
+            while (sym_iter) {
+                if (sym_iter->name_shorthash == shorthash &&
+                    strcmp(sym_iter->name, name) == 0) {
+                    result = sym_iter;
+                    break;
+                }
+
+                sym_iter = sym_iter->next;
+            }
+        }
+
+        cls = cls->parent;
+
+        if (result || cls == NULL)
+            break;
+
+        sym_iter = cls->members;
+    }
+
+    return result;
+}
+
+/* Look for 'name' as a member strictly in 'cls'. This does not implement
+   blocking against protected or private members. */
+lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
+{
+    lily_named_sym *sym_iter = cls->members;
+    lily_named_sym *result = NULL;
+
+    if (sym_iter != NULL) {
+        uint64_t shorthash = shorthash_for_name(name);
+
+        while (sym_iter) {
+            if (sym_iter->name_shorthash == shorthash &&
+                strcmp(sym_iter->name, name) == 0) {
+                result = sym_iter;
+                break;
+            }
+
+            sym_iter = sym_iter->next;
+        }
+    }
+
+    return result;
+}
+
+/* Search for a property within the current class, then upward through parent
+   classes if there are any. */
+lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
+{
+    lily_named_sym *sym = lily_find_member(cls, name);
+    if (sym && sym->item_kind != ITEM_TYPE_PROPERTY)
+        sym = NULL;
+
+    return (lily_prop_entry *)sym;
+}
+
+/* Scoped variants are stored within the enum they're part of. This will try to
+   find a variant stored within 'enum_cls'. */
+lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
+{
+    uint64_t shorthash = shorthash_for_name(name);
+    lily_named_sym *sym_iter = enum_cls->members;
+
+    while (sym_iter) {
+        if (sym_iter->name_shorthash == shorthash &&
+            strcmp(sym_iter->name, name) == 0 &&
+            sym_iter->item_kind != ITEM_TYPE_VAR) {
+            break;
+        }
+
+        sym_iter = sym_iter->next;
+    }
+
+    return (lily_variant_class *)sym_iter;
+}
+
+lily_module_entry *lily_find_module(lily_module_entry *module, const char *name)
+{
+    lily_module_link *link_iter = module->module_chain;
+    lily_module_entry *result = NULL;
+    while (link_iter) {
+        char *as_name = link_iter->as_name;
+        char *loadname = link_iter->module->loadname;
+
+        /* If it was imported like 'import x as y', then as_name will be
+           non-null. In such a case, don't allow fallback access as 'x', just
+           in case something else is imported with the name 'x'. */
+        if ((as_name && strcmp(as_name, name) == 0) ||
+            (as_name == NULL && strcmp(loadname, name) == 0)) {
+            result = link_iter->module;
+            break;
+        }
+
+        link_iter = link_iter->next;
+    }
+
+    return result;
+}
+
+lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
+        const char *path)
+{
+    /* Modules are linked starting after builtin. Skip that, it's not what's
+       being looked for. */
+    lily_module_entry *module_iter = symtab->builtin_module->next;
+    size_t len = strlen(path);
+
+    while (module_iter) {
+        if (module_iter->cmp_len == len &&
+            strcmp(module_iter->path, path) == 0) {
+            break;
+        }
+
+        module_iter = module_iter->next;
+    }
+
+    return module_iter;
+}
+
+lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
+        const char *name)
+{
+    /* Start after the builtin module because nothing actually wants the builtin
+       module. */
+    lily_module_entry *module_iter = symtab->builtin_module->next;
+
+    while (module_iter) {
+        if (module_iter->flags & MODULE_IS_REGISTERED &&
+            strcmp(module_iter->loadname, name) == 0)
+            break;
+
+        module_iter = module_iter->next;
+    }
+
+    return module_iter;
+}
+
 /***
- *       ____ _
- *      / ___| | __ _ ___ ___  ___  ___
- *     | |   | |/ _` / __/ __|/ _ \/ __|
- *     | |___| | (_| \__ \__ \  __/\__ \
- *      \____|_|\__,_|___/___/\___||___/
+ *       ____ _                  _______
+ *      / ___| | __ _ ___ ___   / / ____|_ __  _   _ _ __ ___
+ *     | |   | |/ _` / __/ __| / /|  _| | '_ \| | | | '_ ` _ \
+ *     | |___| | (_| \__ \__ \/ / | |___| | | | |_| | | | | | |
+ *      \____|_|\__,_|___/___/_/  |_____|_| |_|\__,_|_| |_| |_|
  *
  */
 
@@ -634,192 +799,6 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
     return new_class;
 }
 
-static lily_class *find_boxed_class(lily_module_entry *m, const char *name,
-        uint64_t shorthash)
-{
-    lily_sym *sym = find_boxed_sym(m, name, shorthash);
-
-    if (sym && sym->item_kind == ITEM_TYPE_VAR)
-        sym = NULL;
-
-    return (lily_class *)sym;
-}
-
-static lily_class *find_class(lily_module_entry *m, const char *name,
-        uint64_t shorthash)
-{
-    lily_class *class_iter = m->class_chain;
-
-    while (class_iter) {
-        if (class_iter->shorthash == shorthash &&
-            strcmp(class_iter->name, name) == 0)
-            break;
-
-        if (class_iter->flags & CLS_IS_ENUM &&
-            (class_iter->flags & CLS_ENUM_IS_SCOPED) == 0) {
-            lily_named_sym *sym_iter = class_iter->members;
-            while (sym_iter) {
-                if (sym_iter->name_shorthash == shorthash &&
-                    strcmp(sym_iter->name, name) == 0) {
-                    return (lily_class *)sym_iter;
-                }
-
-                sym_iter = sym_iter->next;
-            }
-        }
-
-        class_iter = class_iter->next;
-    }
-
-    return class_iter;
-}
-
-/* Try to find a class. If 'module' is NULL, then search through both the
-   current module AND the builtin module. In all other cases, search just the
-   module given. */
-lily_class *lily_find_class(lily_symtab *symtab, lily_module_entry *module,
-        const char *name)
-{
-    uint64_t shorthash = shorthash_for_name(name);
-    lily_class *result;
-
-    if (module == NULL) {
-        if (name[1] != '\0') {
-            result = find_class(symtab->builtin_module, name,
-                    shorthash);
-            if (result == NULL) {
-                result = find_class(symtab->active_module, name,
-                        shorthash);
-                if (result == NULL && symtab->active_module->boxed_chain)
-                    result = find_boxed_class(symtab->active_module, name,
-                            shorthash);
-            }
-        }
-        else
-            result = lily_gp_find(symtab->generics, name);
-    }
-    else {
-        result = find_class(module, name, shorthash);
-        if (result == NULL && module->boxed_chain)
-            result = find_boxed_class(module, name, shorthash);
-    }
-
-    return result;
-}
-
-/* Does 'name' exist within 'cls' as either a var or a name? If so, return it.
-   If not, or if a private member, return NULL.
-   If 'scope' is NULL, this does a full recursive search through 'cls'.
-   Otherwise, this stops after searching through 'scope'. Calling this with
-   the same scope as the class allows for static lookups. */
-lily_named_sym *lily_find_member(lily_class *cls, const char *name,
-        lily_class *scope)
-{
-    lily_class *start_cls = cls;
-    lily_named_sym *ret = NULL;
-
-    while (1) {
-        if (cls->members != NULL) {
-            uint64_t shorthash = shorthash_for_name(name);
-            lily_named_sym *sym_iter = cls->members;
-            while (sym_iter) {
-                if (sym_iter->name_shorthash == shorthash &&
-                    strcmp(sym_iter->name, name) == 0) {
-
-                    if ((sym_iter->flags & SYM_SCOPE_PRIVATE) == 0 ||
-                        cls == start_cls)
-                        ret = (lily_named_sym *)sym_iter;
-
-                    break;
-                }
-
-                sym_iter = sym_iter->next;
-            }
-        }
-
-        if (ret || scope == cls || cls->parent == NULL)
-            break;
-
-        cls = cls->parent;
-    }
-
-    return ret;
-}
-
-lily_class *lily_find_class_of_member(lily_class *cls, const char *name)
-{
-    lily_class *ret = NULL;
-
-    while (1) {
-        if (cls->members != NULL) {
-            uint64_t shorthash = shorthash_for_name(name);
-            lily_named_sym *sym_iter = cls->members;
-            while (sym_iter) {
-                if (sym_iter->name_shorthash == shorthash &&
-                    strcmp(sym_iter->name, name) == 0) {
-                    ret = cls;
-                    break;
-                }
-
-                sym_iter = sym_iter->next;
-            }
-        }
-
-        if (ret || cls->parent == NULL)
-            break;
-
-        cls = cls->parent;
-    }
-
-    return ret;
-}
-
-/* Try to find a method within the class given. The given class is search first,
-   then any parents of the class. */
-lily_var *lily_find_method(lily_class *cls, const char *name)
-{
-    lily_named_sym *sym = lily_find_member(cls, name, NULL);
-    if (sym && sym->item_kind != ITEM_TYPE_VAR)
-        sym = NULL;
-
-    return (lily_var *)sym;
-}
-
-/* Search for a property within the current class, then upward through parent
-   classes if there are any. */
-lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
-{
-    lily_named_sym *sym = lily_find_member(cls, name, NULL);
-    if (sym && sym->item_kind != ITEM_TYPE_PROPERTY)
-        sym = NULL;
-
-    return (lily_prop_entry *)sym;
-}
-
-static lily_module_entry *find_module(lily_module_entry *module,
-        const char *name)
-{
-    lily_module_link *link_iter = module->module_chain;
-    lily_module_entry *result = NULL;
-    while (link_iter) {
-        char *as_name = link_iter->as_name;
-        char *loadname = link_iter->module->loadname;
-
-        /* If it was imported like 'import x as y', then as_name will be
-           non-null. In such a case, don't allow fallback access as 'x', just
-           in case something else is imported with the name 'x'. */
-        if ((as_name && strcmp(as_name, name) == 0) ||
-            (as_name == NULL && strcmp(loadname, name) == 0)) {
-            result = link_iter->module;
-            break;
-        }
-
-        link_iter = link_iter->next;
-    }
-
-    return result;
-}
-
 /* Create a new property and add it into the class. As a convenience, the
    newly-made property is also returned. */
 lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
@@ -846,15 +825,6 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     return entry;
 }
 
-/***
- *      _____
- *     | ____|_ __  _   _ _ __ ___  ___
- *     |  _| | '_ \| | | | '_ ` _ \/ __|
- *     | |___| | | | |_| | | | | | \__ \
- *     |_____|_| |_|\__,_|_| |_| |_|___/
- *
- */
-
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
 lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
         lily_class *enum_cls, const char *name, uint16_t line_num)
@@ -878,27 +848,6 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     symtab->next_reverse_id--;
 
     return variant;
-}
-
-/* Scoped variants are stored within the enum they're part of. This will try to
-   find a variant stored within 'enum_cls'. */
-lily_variant_class *lily_find_variant(lily_class *enum_cls,
-        const char *name)
-{
-    uint64_t shorthash = shorthash_for_name(name);
-    lily_named_sym *sym_iter = enum_cls->members;
-
-    while (sym_iter) {
-        if (sym_iter->name_shorthash == shorthash &&
-            strcmp(sym_iter->name, name) == 0 &&
-            sym_iter->item_kind != ITEM_TYPE_VAR) {
-            break;
-        }
-
-        sym_iter = sym_iter->next;
-    }
-
-    return (lily_variant_class *)sym_iter;
 }
 
 /* This is called after all variants of an enum are collected, but before
@@ -971,59 +920,6 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
        table. However, this causes them to take over Integer's slot. This makes
        sure that Integer has Integer's slot. */
     lily_vm_add_class_unchecked(vm, symtab->integer_class);
-}
-
-/* Try to find an module named 'name' within the given import. If the given
-   import is NULL, then both the current import AND the builtin import are
-   searched. */
-lily_module_entry *lily_find_module(lily_symtab *symtab,
-        lily_module_entry *module, const char *name)
-{
-    lily_module_entry *result;
-    if (module == NULL)
-        result = find_module(symtab->active_module, name);
-    else
-        result = find_module(module, name);
-
-    return result;
-}
-
-lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
-        const char *path)
-{
-    /* Modules are linked starting after builtin. Skip that, it's not what's
-       being looked for. */
-    lily_module_entry *module_iter = symtab->builtin_module->next;
-    size_t len = strlen(path);
-
-    while (module_iter) {
-        if (module_iter->cmp_len == len &&
-            strcmp(module_iter->path, path) == 0) {
-            break;
-        }
-
-        module_iter = module_iter->next;
-    }
-
-    return module_iter;
-}
-
-lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
-        const char *name)
-{
-    /* Start after the builtin module because nothing actually wants the builtin
-       module. */
-    lily_module_entry *module_iter = symtab->builtin_module->next;
-
-    while (module_iter) {
-        if (module_iter->flags & MODULE_IS_REGISTERED &&
-            strcmp(module_iter->loadname, name) == 0)
-            break;
-
-        module_iter = module_iter->next;
-    }
-
-    return module_iter;
 }
 
 void lily_add_symbol_ref(lily_module_entry *m, lily_sym *sym)
