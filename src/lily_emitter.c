@@ -3228,32 +3228,39 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
          tree_iter = tree_iter->next_arg->next_arg) {
 
         lily_ast *key_tree, *value_tree;
+        lily_type *unify_type;
+
         key_tree = tree_iter;
         value_tree = tree_iter->next_arg;
 
-        lily_type *unify_type;
-
         eval_tree(emit, key_tree, key_type);
+
+        lily_type *key_result = key_tree->result->type;
 
         /* The only valid types for Hash keys are monomorphic so == can be used
            for equality testing. */
-        if (key_type == lily_question_type) {
-            key_type = key_tree->result->type;
-            ensure_valid_key_type(emit, ast, key_type);
-        }
-        else if (key_type != key_tree->result->type) {
-            inconsistent_type_error(emit, key_tree, key_type, "Hash keys");
+        if (key_type != key_result) {
+            if (tree_iter == ast->arg_start) {
+                key_type = key_result;
+                ensure_valid_key_type(emit, ast, key_type);
+            }
+            else
+                inconsistent_type_error(emit, key_tree, key_type, "Hash keys");
         }
 
         eval_tree(emit, value_tree, value_type);
         unify_type = bidirectional_unify(emit->ts, value_type,
                 value_tree->result->type);
 
-        if (unify_type == NULL)
-            inconsistent_type_error(emit, value_tree, value_type,
-                    "Hash values");
-        else
-            value_type = unify_type;
+        if (unify_type == NULL) {
+            if (tree_iter == ast->arg_start)
+                unify_type = value_tree->result->type;
+            else
+                inconsistent_type_error(emit, value_tree, value_type,
+                        "Hash values");
+        }
+
+        value_type = unify_type;
     }
 
     lily_class *hash_cls = emit->symtab->hash_class;
@@ -3291,8 +3298,12 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         lily_type *new_elem_type = bidirectional_unify(emit->ts, elem_type,
                 arg->result->type);
 
-        if (new_elem_type == NULL)
-            inconsistent_type_error(emit, arg, elem_type, "List elements");
+        if (new_elem_type == NULL) {
+            if (arg == ast->arg_start)
+                new_elem_type = arg->result->type;
+            else
+                inconsistent_type_error(emit, arg, elem_type, "List elements");
+        }
 
         elem_type = new_elem_type;
     }

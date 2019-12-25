@@ -982,6 +982,21 @@ class TestBadSyntax < TestCase
         """)
     }
 
+    public define test_list_rules
+    {
+        var t = Interpreter()
+
+        # list rules (ignore expected mismatch for first element)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'List[Integer]' to type 'List[String]'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v: List[String] = [1]
+        """)
+    }
+
     public define test_hash_rules
     {
         var t = Interpreter()
@@ -1004,6 +1019,26 @@ class TestBadSyntax < TestCase
         """,
         """\
             var v = [B"" => 1]
+        """)
+
+        # hash rules (ignore expected mismatch for first key)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Hash[String, String]' to type 'Hash[Integer, String]'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v: Hash[Integer, String] = ["1" => "1"]
+        """)
+
+        # hash rules (ignore expected mismatch for first value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Hash[Integer, Integer]' to type 'Hash[Integer, String]'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v: Hash[Integer, String] = [1 => 1]
         """)
     }
 
