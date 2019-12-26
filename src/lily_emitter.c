@@ -1823,73 +1823,6 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
-/* Subscript assign is in a curious position. The correct order (determined by
-   checking other languages) is that the right evaluates before the left. This
-   causes a chicken-and-egg problem though: The right needs to infer based off
-   of the left, but the left needs to run to generate that.
-
-   The emitter has no support for rewinding. As a bandage, this function does
-   what would be done by doing the eval, except no storages are created. If the
-   left's type is invalid, then NULL will be returned. Otherwise, this returns
-   a type against which the right side should infer. */
-static lily_type *determine_left_type(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_type *result_type = NULL;
-
-    if (ast->tree_type == tree_global_var ||
-        ast->tree_type == tree_local_var)
-        result_type = ast->sym->type;
-    else if (ast->tree_type == tree_subscript) {
-        lily_ast *var_tree = ast->arg_start;
-        lily_ast *index_tree = var_tree->next_arg;
-
-        result_type = determine_left_type(emit, var_tree);
-
-        if (result_type != NULL) {
-            if (result_type->cls->id == LILY_ID_HASH)
-                result_type = result_type->subtypes[1];
-            else if (result_type->cls->id == LILY_ID_TUPLE) {
-                if (index_tree->tree_type != tree_integer)
-                    result_type = NULL;
-                else {
-                    int literal_index = index_tree->backing_value;
-                    if (literal_index < 0 ||
-                        literal_index > result_type->subtype_count)
-                        result_type = NULL;
-                    else
-                        result_type = result_type->subtypes[literal_index];
-                }
-            }
-            else if (result_type->cls->id == LILY_ID_LIST)
-                result_type = result_type->subtypes[0];
-            else if (result_type->cls->id == LILY_ID_BYTESTRING)
-                result_type = emit->symtab->byte_class->self_type;
-        }
-    }
-    else if (ast->tree_type == tree_oo_access) {
-        lily_type *lookup_type = determine_left_type(emit, ast->arg_start);
-        if (lookup_type != NULL) {
-            char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
-            lily_class *lookup_class = lookup_type->cls;
-
-            lily_prop_entry *prop = lily_find_property(lookup_class, oo_name);
-
-            if (prop) {
-                result_type = prop->type;
-                if (result_type->flags & TYPE_IS_UNRESOLVED) {
-                    result_type = lily_ts_resolve_by_second(emit->ts,
-                            lookup_type, result_type);
-                }
-            }
-        }
-    }
-    else if (ast->tree_type == tree_property)
-        result_type = ast->property->type;
-    /* All other are either invalid for the left side of an assignment. */
-
-    return result_type;
-}
-
 static int can_optimize_out_assignment(lily_ast *ast)
 {
     lily_ast *right_tree = ast->right;
@@ -2590,20 +2523,12 @@ static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
         spot = checked_close_over_var(emit, left_var);
 }
 
-/* This handles 'x[y] = z' assignments. These run their own type verification
-   because the verification goes against the subscripted type. */
+/* This handles `x[y] = z` assignments. These are run from left to right
+   (target, index, then source). */
 static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
 {
     lily_ast *var_ast = ast->left->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
-
-    /* This gets the type that the left will be without actually evaluating it.
-       It is important to not run the left before the right, because assigns
-       should be right to left. */
-    lily_type *left_type = determine_left_type(emit, ast->left);
-
-    if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, left_type);
 
     if (var_ast->tree_type != tree_local_var) {
         eval_tree(emit, var_ast, NULL);
@@ -2613,6 +2538,9 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
         }
     }
 
+    /* The index is usually a literal or a var and therefore has no need for
+       inference. Since fetching inference would be a little annoying and
+       unlikely to be useful, don't bother sending any. */
     if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast, NULL);
 
@@ -2620,6 +2548,10 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
 
     lily_type *elem_type = get_subscript_result(emit, var_ast->result->type,
             index_ast);
+
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right, elem_type);
+
     lily_type *right_type = ast->right->result->type;
 
     if (right_type->flags & TYPE_TO_BLOCK)
