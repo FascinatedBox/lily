@@ -58,7 +58,7 @@ class TestBadClass < TestCase
         # bad decl (redeclare property as method)
 
         assert_parse_fails(t, """\
-            SyntaxError: A property in class Test already has the name @abc.\n    \
+            SyntaxError: A property in class 'Test' already has the name @abc.\n    \
                 from [test]:3:\n\
         """,
         """\

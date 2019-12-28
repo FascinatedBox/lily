@@ -3743,21 +3743,12 @@ static lily_var *find_existing_define(lily_parse_state *parser,
         lily_named_sym *sym = lily_find_member(parent, label);
 
         if (sym) {
-            if (sym->item_kind != ITEM_TYPE_VAR)
-                lily_raise_syn(parser->raiser,
-                        "A property in class %s already has the name @%s.",
-                        parent->name, label);
-            else {
-                var = (lily_var *)sym;
-                if ((var->flags & VAR_IS_FORWARD) == 0) {
-                    lily_raise_syn(parser->raiser,
-                            "A method in class '%s' already has the name '%s'.",
-                            parent->name, label);
-                }
+            if (sym->flags & VAR_IS_FORWARD) {
                 verify_existing_decl(parser, (lily_var *)sym, modifiers);
+                var = (lily_var *)sym;
             }
-
-            var = (lily_var *)sym;
+            else
+                error_member_redeclaration(parser, parent, sym);
         }
     }
 
