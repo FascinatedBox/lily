@@ -3507,6 +3507,27 @@ static void error_member_redeclaration(lily_parse_state *parser,
                 cls->name, sym->name);
 }
 
+static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
+{
+    int result = 1;
+
+    if (sym->flags & SYM_SCOPE_PRIVATE) {
+        lily_class *parent;
+
+        if (sym->item_kind == ITEM_TYPE_VAR)
+            parent = ((lily_var *)sym)->parent;
+        else
+            parent = ((lily_prop_entry *)sym)->cls;
+
+        /* Private members aren't really private if inheriting classes need
+           to avoid their names. So don't count them. */
+        if (parent != cls)
+            result = 0;
+    }
+
+    return result;
+}
+
 /* The same thing as get_named_var, but with a property instead. */
 static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
 {
@@ -3514,24 +3535,8 @@ static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
     lily_class *cls = parser->class_self_type->cls;
     lily_named_sym *sym = lily_find_member(cls, name);
 
-    if (sym) {
-        if (sym->flags & SYM_SCOPE_PRIVATE) {
-            lily_class *parent;
-
-            if (sym->item_kind == ITEM_TYPE_VAR)
-                parent = ((lily_var *)sym)->parent;
-            else
-                parent = ((lily_prop_entry *)sym)->cls;
-
-            /* Private members aren't really private if inheriting classes need
-               to avoid their names. So don't count them. */
-            if (parent != cls)
-                sym = NULL;
-        }
-
-        if (sym)
-            error_member_redeclaration(parser, cls, sym);
-    }
+    if (sym && sym_visible_from(cls, sym))
+        error_member_redeclaration(parser, cls, sym);
 
     lily_prop_entry *prop = lily_add_class_property(parser->symtab, cls, NULL,
             name, flags);
@@ -3747,7 +3752,7 @@ static lily_var *find_existing_define(lily_parse_state *parser,
                 verify_existing_decl(parser, (lily_var *)sym, modifiers);
                 var = (lily_var *)sym;
             }
-            else
+            else if (sym_visible_from(parent, sym))
                 error_member_redeclaration(parser, parent, sym);
         }
     }
@@ -4713,7 +4718,7 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
                 lily_named_sym *search_sym = lily_find_member(super_class,
                         sym->name);
 
-                if (search_sym)
+                if (search_sym && sym_visible_from(cls, search_sym))
                     error_member_redeclaration(parser, super_class, search_sym);
 
                 sym->reg_spot += adjust;

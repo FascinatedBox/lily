@@ -259,6 +259,50 @@ class TestClass < TestCase
                raise Exception("Failed.")
             }
         """)
+
+        # scope (redeclare private property in shorthand)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class One {
+                private var @a = 10
+                public define one_a: Integer { return @a }
+            }
+
+            class Two(private var @a: Integer) < One {
+                public define two_a: Integer { return @a }
+
+            }
+
+            var v = Two(20)
+
+            if v.two_a() != 20 || v.one_a() != 10: {
+               raise Exception("Failed.")
+            }
+        """)
+
+
+        # scope (redeclare private property as method)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class One {
+                private var @a = 10
+                public define one_a: Integer { return @a }
+            }
+
+            class Two < One {
+                public define a: String { return "20" }
+                public define two_a: String { return a() }
+
+            }
+
+            var v = Two()
+
+            if v.two_a() != "20" || v.one_a() != 10: {
+               raise Exception("Failed.")
+            }
+        """)
     }
 
     public define test_self
