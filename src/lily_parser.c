@@ -32,6 +32,7 @@ extern lily_type *lily_question_type;
 extern lily_class *lily_scoop_class;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
+extern void lily_prelude_register(lily_vm_state *);
 
 /***
  *      ____       _
@@ -69,6 +70,7 @@ void lily_module_register(lily_state *, const char *, const char **,
         lily_call_entry_func *);
 void lily_default_import_func(lily_state *, const char *);
 void lily_stdout_print(lily_vm_state *);
+void lily_prelude_register(lily_vm_state *);
 
 typedef struct lily_rewind_state_
 {
@@ -121,18 +123,6 @@ typedef struct lily_import_state_ {
 
 extern const char *lily_builtin_info_table[];
 extern lily_call_entry_func lily_builtin_call_table[];
-
-extern const char *lily_sys_info_table[];
-extern lily_call_entry_func lily_sys_call_table[];
-
-extern const char *lily_random_info_table[];
-extern lily_call_entry_func lily_random_call_table[];
-
-extern const char *lily_time_info_table[];
-extern lily_call_entry_func lily_time_call_table[];
-
-extern const char *lily_math_info_table[];
-extern lily_call_entry_func lily_math_call_table[];
 
 void lily_init_pkg_builtin(lily_symtab *);
 
@@ -219,16 +209,7 @@ lily_state *lily_new_state(lily_config *config)
     /* This creates the var representing __main__ and registers it in areas that
        need it. */
     create_main_func(parser);
-
-    lily_module_register(parser->vm, "sys",lily_sys_info_table,
-            lily_sys_call_table);
-    lily_module_register(parser->vm, "random", lily_random_info_table,
-            lily_random_call_table);
-    lily_module_register(parser->vm, "time", lily_time_info_table,
-            lily_time_call_table);
-    lily_module_register(parser->vm, "math", lily_math_info_table,
-            lily_math_call_table);
-
+    lily_prelude_register(parser->vm);
     mark_builtin_modules(parser);
 
     parser->executing = 0;
