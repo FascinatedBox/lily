@@ -17,7 +17,7 @@ typedef struct {
     /* Note: The class id of a variant and of a normal class must have the same
        offset from each other. */
     uint16_t cls_id;
-    uint16_t pad;
+    uint16_t type_subtype_count;
 
     struct lily_type_ *build_type;
 

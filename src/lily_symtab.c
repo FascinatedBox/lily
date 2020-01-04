@@ -834,7 +834,8 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->item_kind = ITEM_TYPE_VARIANT;
     variant->flags = CLS_EMPTY_VARIANT;
     variant->parent = enum_cls;
-    variant->build_type = NULL;
+    variant->type_subtype_count = 0;
+    variant->build_type = (lily_type *)variant;
     variant->shorthash = shorthash_for_name(name);
     variant->line_num = line_num;
     variant->arg_names = NULL;
