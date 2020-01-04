@@ -74,7 +74,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
 {
     if ((type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         lily_tm_add_unchecked(ts->tm, type);
-    else if (type->cls->generic_count != 0) {
+    else if (type->subtype_count) {
         lily_tm_reserve(ts->tm, type->subtype_count + 1 + ts->num_used);
 
         lily_type **subtypes = type->subtypes;
@@ -118,7 +118,7 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 
     if ((type->flags & (TYPE_IS_UNRESOLVED | TYPE_HAS_SCOOP)) == 0)
         ;
-    else if (type->cls->generic_count != 0) {
+    else if (type->subtype_count) {
         /* Resolve handles solving generics and is thus hit pretty often. So
            it reserves the maximum that could possibly be used at once to
            prevent repeated growing checks. */

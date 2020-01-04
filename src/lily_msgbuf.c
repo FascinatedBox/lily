@@ -278,7 +278,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
             lily_mb_add(msgbuf, ")");
         }
     }
-    else if (type->cls->generic_count != 0) {
+    else if (type->subtype_count) {
         int i;
         int is_optarg = type->cls->id == LILY_ID_OPTARG;
 
