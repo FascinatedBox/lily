@@ -27,6 +27,7 @@
 
 var targets = [
     "builtin",
+    "introspect",
     "math",
     "random",
     "sys",

@@ -248,6 +248,8 @@ class TestCase < backbone.TestCaseBase
 enum ImportTarget {
     StringTarget(:path String,
                  :data String),
+    PackageTarget(:path String,
+                  :data String),
     LibraryTarget(:path String,
                   :redirect String)
 }
@@ -265,6 +267,12 @@ class Interpreter < backbone.Interpreter
                 case StringTarget(t_path, t_data):
                     if want_path == t_path: {
                         import_use_local_dir("")
+                        import_string(want_path, t_data)
+                        break
+                    }
+                case PackageTarget(t_path, t_data):
+                    if want_path == t_path: {
+                        import_use_package_dir("")
                         import_string(want_path, t_data)
                         break
                     }

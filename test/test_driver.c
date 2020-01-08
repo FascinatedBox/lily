@@ -118,6 +118,7 @@ const char *method_targets[] = {
 };
 
 const char *prelude_targets[] = {
+    "test_pkg_introspect.lily",
     "test_pkg_math.lily",
     "test_pkg_random.lily",
     "test_pkg_sys.lily",
