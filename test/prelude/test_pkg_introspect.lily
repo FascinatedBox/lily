@@ -377,16 +377,16 @@ class TestPkgIntrospect < TestCase
             check(example_m,
                   :dirname "",
                   :name "example",
-                  :path "nest\/example.lily")
+                  :path "nest\\/example.lily")
         """)
 
         # module entry (check fake)
 
         assert_parse_string(t, """
             check(fake_m,
-                  :dirname "packages\/fake\/src",
+                  :dirname "packages\\/fake\\/src",
                   :name "fake",
-                  :path "packages\/fake\/src\/fake.lily")
+                  :path "packages\\/fake\\/src\\/fake.lily")
         """)
 
         # module entry (check time not included)
