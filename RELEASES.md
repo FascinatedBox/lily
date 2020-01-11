@@ -1,3 +1,57 @@
+Version 1.11 (2020-1-10)
+========================
+
+What's new:
+
+* Marktest, a tool for verifying Lily code in markdown files, was created. Many
+  of the pages on the Lily website are built from markdown and have Lily example
+  code inside. Using marktest, several errors in the example were found and
+  corrected.
+
+* After much thought, the introspection library has been added to the
+  interpreter's prelude. This was done to prevent introspection from
+  accidentally breaking if internals change.
+
+* The lexer went through a substantial rewrite to address the cruft that had
+  built up over time. The rewrite resulted in discovering and fixing several
+  bugs that had gone unnoticed.
+
+* The interpreter's rewind mechanism was put through a stress test. The stress
+  test was built by extracting every failed parse call from the testing suite
+  and running each of them against the same interpreter. This again resulted in
+  discovering several bugs.
+
+* Identifier lookup was rewritten to make it easier to follow. The rewrite
+  resulted in uncovering more bugs.
+
+Changes:
+
+* The interpreter now returns an empty string when the C api is used to ask for
+  the last error message of a valid parse (#439).
+
+* Numeric rescanning, used to fix `x -y` into `x - y`, has been fixed to account
+  for exponents and decimals (#449).
+
+* When importing a slashed path (ex: `import "abc/def"`), the interpreter will
+  no longer check predefined modules (#387). Additionally, those paths will no
+  longer be looked for in the packages directory (#388).
+
+* List and Hash literals no longer complain about mismatched types if the first
+  element has a type that disagrees with inference (#410).
+
+Fixes:
+
+* Shorthand class properties now have a name collision check done against other
+  class properties (#447).
+
+* Lambdas were accidentally allowing token gluing using block comments:
+  `var v = (|| v#[]#a#[]#r w = 10 )` (#450).
+
+* Docblocks were checking every line for preceding non-whitespace, except for
+  the first. The first line is now checked as well (#451).
+
+* Template mode no longer allows `<?lil` to slip by as a valid header (#448).
+
 Version 1.10 (2019-10-10)
 =========================
 
