@@ -576,20 +576,6 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
     return s;
 }
 
-/* This function attempts to get a storage of a particular type that has not
-   been used before. This is used by closures. */
-lily_storage *get_unique_storage(lily_emit_state *emit, lily_type *type)
-{
-    int next_spot = emit->function_block->next_reg_spot;
-    lily_storage *s = NULL;
-
-    do {
-        s = get_storage(emit, type);
-    } while (emit->function_block->next_reg_spot == next_spot);
-
-    return s;
-}
-
 /***
  *      ____  _            _
  *     | __ )| | ___   ___| | _____
@@ -1168,13 +1154,13 @@ static void perform_closure_transform(lily_emit_state *emit,
                       function_block->prev->block_type == block_enum);
 
     if (is_backing) {
-        /* Put the backing closure into a register so it's not lost in a gc
-           sweep. */
-        lily_storage *s = get_unique_storage(emit,
-                function_block->function_var->type);
+        /* Put the closure into a new register so the gc can't accidentally
+           delete it. */
+        uint16_t closure_reg = function_block->next_reg_spot;
 
+        function_block->next_reg_spot++;
         lily_u16_write_4(emit->closure_aux_code, o_closure_new,
-                lily_u16_pos(emit->closure_spots) / 2, s->reg_spot,
+                lily_u16_pos(emit->closure_spots) / 2, closure_reg,
                 first_line);
 
         /* Depth of 3 is the magic number here because that's the depth of a
