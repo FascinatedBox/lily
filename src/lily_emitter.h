@@ -42,7 +42,7 @@ typedef struct lily_block_ {
     /* An index where the patches for this block start off. */
     uint16_t patch_start;
 
-    uint16_t storage_start;
+    uint16_t storage_count;
 
     /* Match blocks: The starting position in emitter's match_cases. */
     uint16_t match_case_start;
@@ -85,7 +85,7 @@ typedef struct lily_block_ {
 
 typedef struct lily_storage_stack_ {
     lily_storage **data;
-    uint16_t scope_end;
+    uint16_t start;
     uint16_t size;
     uint32_t pad;
 } lily_storage_stack;

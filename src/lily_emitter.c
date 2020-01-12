@@ -29,7 +29,7 @@ static lily_proto_stack *new_proto_stack(int);
 static void free_proto_stack(lily_proto_stack *);
 static lily_storage_stack *new_storage_stack(int);
 static void free_storage_stack(lily_storage_stack *);
-static void clear_storages(lily_storage_stack *, lily_block *);
+static void clear_storages(lily_storage_stack *, uint16_t);
 
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
@@ -70,7 +70,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->self = NULL;
     main_block->code_start = 0;
     main_block->next_reg_spot = 0;
-    main_block->storage_start = 0;
+    main_block->storage_count = 0;
     main_block->var_count = 0;
     main_block->flags = 0;
     main_block->pending_forward_decls = 0;
@@ -91,21 +91,14 @@ void lily_rewind_emit_state(lily_emit_state *emit)
 
     emit->match_case_pos = 0;
 
-    lily_block *block_stop = emit->block->next;
-    lily_block *block_iter = emit->main_block->next;
+    lily_storage_stack *stack = emit->storages;
+    uint16_t total = stack->start + emit->function_block->storage_count;
 
-    /* If callable blocks above `__main__` aren't cleared out, they'll be reused
+    /* Storages above `__main__` need to be cleared, or they'll be reused
        without fixing their ids. */
-    while (block_iter != block_stop) {
-        if (block_iter->block_type >= block_define) {
-            /* This is ordinarily called by function blocks as they exit. Since
-               it's written to clear from the block to the very end, it only
-               needs to be called from the first callable block. */
-            clear_storages(emit->storages, block_iter);
-            break;
-        }
-        block_iter = block_iter->next;
-    }
+    stack->start = emit->main_block->storage_count;
+    clear_storages(stack, total - stack->start);
+    stack->start = 0;
 
     emit->block = emit->main_block;
     emit->block->pending_forward_decls = 0;
@@ -486,7 +479,7 @@ static lily_storage_stack *new_storage_stack(int initial)
         result->data[i] = s;
     }
 
-    result->scope_end = 0;
+    result->start = 0;
     result->size = initial;
 
     return result;
@@ -522,14 +515,12 @@ static void grow_storages(lily_storage_stack *stack)
 /* When a callable block exits, the storages need to be cleared. Clearing the
    storages prevents outer functions from using storages with wrong ids, which
    leads to very bad results. */
-static void clear_storages(lily_storage_stack *stack, lily_block *block)
+static void clear_storages(lily_storage_stack *stack, uint16_t count)
 {
-    int i;
+    uint16_t i;
 
-    for (i = block->storage_start;i < stack->scope_end;i++)
+    for (i = stack->start;i < stack->start + count;i++)
         stack->data[i]->type = NULL;
-
-    stack->scope_end = block->storage_start;
 }
 
 /* This attempts to grab a storage of the given type. It will first attempt to
@@ -541,9 +532,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
     int i;
     lily_storage *s = NULL;
 
-    for (i = emit->function_block->storage_start;
-         i < stack->size;
-         i++) {
+    for (i = stack->start;i < stack->size;i++) {
         s = stack->data[i];
 
         /* A storage with a type of NULL is not in use and can be claimed. */
@@ -557,9 +546,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             if (i == stack->size)
                 grow_storages(emit->storages);
 
-            /* This prevents inner functions from using the storages of outer
-               functions as their own. */
-            stack->scope_end = i;
+            emit->function_block->storage_count++;
 
             break;
         }
@@ -649,6 +636,8 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     lily_block *new_block = block_enter_common(emit);
     new_block->block_type = block_type;
 
+    emit->storages->start += emit->function_block->storage_count;
+
     if (block_type == block_class) {
         new_block->class_entry = emit->symtab->active_module->class_chain;
         emit->class_block_depth = emit->function_depth + 1;
@@ -670,7 +659,7 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     emit->function_block = new_block;
 
     new_block->next_reg_spot = 0;
-    new_block->storage_start = emit->storages->scope_end;
+    new_block->storage_count = 0;
     new_block->function_var = call_var;
     new_block->code_start = lily_u16_pos(emit->code);
 
@@ -715,12 +704,13 @@ void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
     }
 
     write_final_code_for_block(emit, block);
-    clear_storages(emit->storages, block);
+    clear_storages(emit->storages, block->storage_count);
 
     if (emit->block->block_type == block_class)
         emit->class_block_depth = 0;
 
     emit->function_block = block->prev_function_block;
+    emit->storages->start -= emit->function_block->storage_count;
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
