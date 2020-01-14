@@ -223,8 +223,26 @@ static int check_function(lily_type_system *ts, lily_type *left,
     int i;
     int count = left->subtype_count;
 
-    if (left->subtype_count > right->subtype_count)
+    if (count > right->subtype_count) {
+        /* Not enough types. This is fine if the unmatched type is scoop (which
+           should always be last). */
+        if (left->subtypes[right->subtype_count] == lily_scoop_type)
+            ;
+        else
+            ret = 0;
+
         count = right->subtype_count;
+    }
+    else if (right->subtype_count > count) {
+        /* Too many types. This is fine if they're either going to scoop, or
+           they're optional. */
+        if (left->subtypes[count-1] == lily_scoop_type)
+            ;
+        else if (right->subtypes[count]->cls->id == LILY_ID_OPTARG)
+            ;
+        else
+            ret = 0;
+    }
 
     flags |= T_CONTRAVARIANT;
 
@@ -242,22 +260,6 @@ static int check_function(lily_type_system *ts, lily_type *left,
             break;
         }
     }
-
-    if (left->subtype_count == right->subtype_count)
-        ;
-    /* The left can't have more unless the last is scoop. */
-    else if (left->subtype_count > right->subtype_count) {
-        if (left->subtypes[i] == lily_scoop_type &&
-            (flags & T_UNIFY) == 0 &&
-            ret == 1)
-            ret = 1;
-        else
-            ret = 0;
-    }
-    /* The right side can have more as long as they're optional. Required
-       cannot follow optional, so only one needs to be tested. */
-    else if (right->subtypes[i]->cls->id != LILY_ID_OPTARG)
-        ret = 0;
 
     if (ret && flags & T_UNIFY)
         unify_call(ts, left, right, left->subtype_count);

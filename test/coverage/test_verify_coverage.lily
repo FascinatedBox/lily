@@ -380,4 +380,71 @@ class TestVerifyCoverage < TestCase
             var v: Integer = f
         """)
     }
+
+    public define test_scoop_narrowing
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        # scoop narrowing (base tests with and without args)
+
+        assert_parse_string(t, """
+            import covlib
+
+            define f {}
+            define g(a: String): Integer { return 0 }
+            define h(a: Integer, b: String): Boolean { return true }
+            define i(a: Integer, b: String, c: Double): Boolean { return true }
+
+            covlib.scoop_narrow(f)
+            covlib.scoop_narrow(g)
+            covlib.scoop_narrow(h)
+
+            covlib.scoop_narrow_with_args(h)
+            covlib.scoop_narrow_with_args(i)
+        """)
+
+        # scoop narrowing (wrong result type skip scoop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
+            Expected Type: Function (Integer, String, $1 => Boolean)\n\
+            Received Type: Function (Integer, String => Integer)\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define j(a: Integer, b: String): Integer { return 0 }
+
+            covlib.scoop_narrow_with_args(j)
+        """)
+
+        # scoop narrowing (wrong result type with scoop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
+            Expected Type: Function (Integer, String, $1 => Boolean)\n\
+            Received Type: Function (Integer, String, Double => Integer)\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define j(a: Integer, b: String, c: Double): Integer { return 0 }
+
+            covlib.scoop_narrow_with_args(j)
+        """)
+
+        # scoop narrowing (too few before scoop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
+            Expected Type: Function (Integer, String, $1 => Boolean)\n\
+            Received Type: Function (Integer => Boolean)\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define j(a: Integer): Boolean { return true }
+
+            covlib.scoop_narrow_with_args(j)
+        """)
+    }
 }

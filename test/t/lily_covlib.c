@@ -323,6 +323,27 @@ void lily_covlib__cover_ci_from_native(lily_state *s)
     lily_return_unit(s);
 }
 
+/**
+define scoop_narrow(f: Function($1))
+
+This is used to cover the type system allowing argument count narrowing for a
+function using scoop. The function itself does nothing.
+*/
+void lily_covlib__scoop_narrow(lily_state *s)
+{
+    lily_return_unit(s);
+}
+
+/**
+define scoop_narrow_with_args(f: Function(Integer, String, $1 => Boolean))
+
+Same as scoop_narrow, but also takes arguments.
+*/
+void lily_covlib__scoop_narrow_with_args(lily_state *s)
+{
+    lily_return_unit(s);
+}
+
 static void ignore_render(const char *to_render, void *data)
 {
     (void)data;

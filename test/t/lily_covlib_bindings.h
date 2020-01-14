@@ -72,6 +72,8 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_optional_string\0(*String,:b *String,:c *String): String"
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Coroutine[Integer,Integer],Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
     ,"F\0cover_ci_from_native\0(Function(Integer))"
+    ,"F\0scoop_narrow\0(Function($1))"
+    ,"F\0scoop_narrow_with_args\0(Function(Integer, String, $1=>Boolean))"
     ,"F\0cover_misc_api\0"
     ,"Z"
 };
@@ -105,6 +107,8 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_optional_string, \
     lily_covlib__cover_value_group, \
     lily_covlib__cover_ci_from_native, \
+    lily_covlib__scoop_narrow, \
+    lily_covlib__scoop_narrow_with_args, \
     lily_covlib__cover_misc_api, \
 };
 #endif
