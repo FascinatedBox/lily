@@ -1852,7 +1852,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
  *            |___/
  */
 
-static void parse_class_body(lily_parse_state *, lily_class *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
@@ -4900,29 +4899,6 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     target->flags |= mark;
 }
 
-static void parse_class_body(lily_parse_state *parser, lily_class *cls)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_type *save_class_self_type = parser->class_self_type;
-    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
-
-    parse_class_header(parser, cls);
-
-    NEED_CURRENT_TOK(tk_left_curly)
-    parse_block_body(parser);
-
-    if (parser->emit->block->pending_forward_decls)
-        error_forward_decl_pending(parser);
-
-    determine_class_gc_flag(parser, parser->class_self_type->cls);
-
-    parser->class_self_type = save_class_self_type;
-    hide_block_vars(parser);
-    lily_emit_leave_call_block(parser->emit, lex->line_num);
-
-    lily_gp_restore_and_unhide(parser->generics, save_generic_start);
-}
-
 static void keyword_class(lily_parse_state *parser)
 {
     lily_block *block = parser->emit->block;
@@ -4931,12 +4907,22 @@ static void keyword_class(lily_parse_state *parser)
 
     lily_lex_state *lex = parser->lex;
     NEED_CURRENT_TOK(tk_word);
-
     ensure_valid_class(parser, lex->label);
 
     lily_class *cls = lily_new_class(parser->symtab, lex->label, lex->line_num);
 
-    parse_class_body(parser, cls);
+    parse_class_header(parser, cls);
+    NEED_CURRENT_TOK(tk_left_curly)
+    parse_block_body(parser);
+
+    if (parser->emit->block->pending_forward_decls)
+        error_forward_decl_pending(parser);
+
+    determine_class_gc_flag(parser, parser->class_self_type->cls);
+    parser->class_self_type = NULL;
+    lily_gp_restore(parser->generics, 0);
+    hide_block_vars(parser);
+    lily_emit_leave_call_block(parser->emit, lex->line_num);
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
