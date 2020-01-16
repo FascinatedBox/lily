@@ -441,6 +441,9 @@ typedef struct lily_proto_ {
    is available everywhere. */
 #define MODULE_IS_PREDEFINED 0x8
 
+/* Storages that are locked will not be overwritten by another value. */
+#define STORAGE_IS_LOCKED 0x1
+
 #define LILY_LAST_ID       65528
 /* Instances of these are never made, so these ids will never be seen by vm. */
 #define LILY_ID_SELF       65529

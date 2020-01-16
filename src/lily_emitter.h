@@ -215,8 +215,9 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
+void lily_emit_create_block_self(lily_emit_state *, lily_type *);
 void lily_emit_write_keyless_optarg_header(lily_emit_state *, lily_type *);
-void lily_emit_write_class_header(lily_emit_state *, lily_type *, uint16_t);
+void lily_emit_write_class_header(lily_emit_state *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
 

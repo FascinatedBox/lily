@@ -3842,11 +3842,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         /* Toplevel non-static class methods have 'self' as an implicit first
            argument. */
         lily_tm_add(parser->tm, parser->class_self_type);
-
-        lily_var *self_var = new_local_var(parser, parser->class_self_type,
-                "(self)", lex->line_num);
-
-        parser->emit->block->self = (lily_storage *)self_var;
+        lily_emit_create_block_self(parser->emit, parser->class_self_type);
     }
 
     collect_call_args(parser, define_var, collect_flag);
@@ -4813,8 +4809,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     if (lex->token == tk_lt)
         super_cls = parse_and_verify_super(parser, cls);
 
-    lily_emit_write_class_header(parser->emit, parser->class_self_type,
-            lex->line_num);
+    lily_emit_create_block_self(parser->emit, parser->class_self_type);
+    lily_emit_write_class_header(parser->emit, lex->line_num);
 
     if (call_var->type->flags & TYPE_HAS_OPTARGS)
         send_optargs_for(parser, call_var);

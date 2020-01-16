@@ -262,13 +262,11 @@ void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
             lily_u16_pos(emit->code) - patch_spot + 1);
 }
 
-void lily_emit_write_class_header(lily_emit_state *emit, lily_type *self_type,
-        uint16_t line_num)
+void lily_emit_write_class_header(lily_emit_state *emit, uint16_t line_num)
 {
-    lily_storage *self = get_storage(emit, self_type);
+    lily_storage *self = emit->function_block->self;
 
-    emit->function_block->self = self;
-    lily_u16_write_4(emit->code, o_instance_new, self_type->cls->id,
+    lily_u16_write_4(emit->code, o_instance_new, self->type->cls->id,
             self->reg_spot, line_num);
 }
 
@@ -538,6 +536,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
         /* A storage with a type of NULL is not in use and can be claimed. */
         if (s->type == NULL) {
             s->type = type;
+            s->flags = 0;
 
             s->reg_spot = emit->function_block->next_reg_spot;
             emit->function_block->next_reg_spot++;
@@ -551,7 +550,8 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             break;
         }
         else if (s->type == type &&
-                 s->expr_num != expr_num) {
+                 s->expr_num != expr_num &&
+                 (s->flags & STORAGE_IS_LOCKED) == 0) {
             s->expr_num = expr_num;
             break;
         }
@@ -856,6 +856,14 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
     emit->block->block_type = new_type;
 }
 
+void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
+{
+    lily_storage *self = get_storage(emit, self_type);
+
+    self->flags |= STORAGE_IS_LOCKED;
+    emit->function_block->self = self;
+}
+
 /***
  *       ____ _
  *      / ___| | ___  ___ _   _ _ __ ___  ___
@@ -983,7 +991,7 @@ static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
     if (find_closed_sym_spot(emit, depth, upper_self) == -1)
         close_over_sym(emit, depth, upper_self);
 
-    emit->function_block->self = get_storage(emit, upper_self->type);
+    lily_emit_create_block_self(emit, upper_self->type);
     emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
