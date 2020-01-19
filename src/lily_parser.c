@@ -3361,7 +3361,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
             parser->symtab->function_class, args_collected + 1);
 
     hide_block_vars(parser);
-    lily_emit_leave_call_block(parser->emit, lex->line_num);
+    lily_emit_finish_block_code(parser->emit, lex->line_num);
+    lily_emit_leave_call_block(parser->emit);
     lily_pop_lex_entry(lex);
 
     return lambda_var;
@@ -4299,7 +4300,8 @@ static void run_loaded_module(lily_parse_state *parser,
     if (parser->emit->block->pending_forward_decls)
         error_forward_decl_pending(parser);
 
-    lily_emit_leave_call_block(parser->emit, lex->line_num);
+    lily_emit_finish_block_code(parser->emit, lex->line_num);
+    lily_emit_leave_call_block(parser->emit);
     /* __module__ vars and functions become global, so don't hide them. */
     lily_pop_lex_entry(parser->lex);
 
@@ -4918,7 +4920,8 @@ static void keyword_class(lily_parse_state *parser)
     parser->class_self_type = NULL;
     lily_gp_restore(parser->generics, 0);
     hide_block_vars(parser);
-    lily_emit_leave_call_block(parser->emit, lex->line_num);
+    lily_emit_finish_block_code(parser->emit, lex->line_num);
+    lily_emit_leave_call_block(parser->emit);
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
@@ -4966,7 +4969,9 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     enum_cls->generic_count = lily_gp_num_in_scope(parser->generics);
 
-    lily_emit_enter_block(parser->emit, block_enum);
+    /* Enums are entered as a function to make them consistent with classes. The
+       call var being NULL is okay since enums won't write any code to it.  */
+    lily_emit_enter_call_block(parser->emit, block_enum, NULL);
 
     parser->class_self_type = build_self_type(parser, enum_cls);
 
@@ -5034,8 +5039,9 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
         }
     }
 
-    /* Enums don't have a constructor, so don't bother hiding block vars. */
-    lily_emit_leave_block(parser->emit);
+    /* Enums don't allow code or have a constructor, so don't write final code
+       or bother hiding block vars. */
+    lily_emit_leave_call_block(parser->emit);
     parser->class_self_type = NULL;
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
@@ -5312,7 +5318,8 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     if ((modifiers & VAR_IS_FORWARD) == 0) {
         parse_block_body(parser);
         hide_block_vars(parser);
-        lily_emit_leave_call_block(parser->emit, lex->line_num);
+        lily_emit_finish_block_code(parser->emit, lex->line_num);
+        lily_emit_leave_call_block(parser->emit);
     }
     else {
         NEED_NEXT_TOK(tk_three_dots)

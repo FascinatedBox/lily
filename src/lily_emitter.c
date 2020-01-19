@@ -573,7 +573,8 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
  */
 
 static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
-static void write_final_code_for_block(lily_emit_state *, lily_block *);
+static void perform_closure_transform(lily_emit_state *, lily_block *,
+		lily_function_val *);
 
 /** The emitter's blocks keep track of the current context of things. Is the
     current block an if with or without an else? Where do storages start? Were
@@ -617,15 +618,6 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     lily_block *new_block = block_enter_common(emit);
     new_block->block_type = block_type;
     new_block->flags |= BLOCK_ALWAYS_EXITS;
-
-    if (block_type == block_enum) {
-        /* Enum entries are not considered function-like, because they do
-            not have a class .new. */
-        new_block->class_entry = emit->symtab->active_module->class_chain;
-        /* This makes enums play nice with closures by making the depth of the
-           self-holding backing closure 3 for both kinds. */
-        emit->function_depth++;
-    }
 
     emit->block = new_block;
 }
@@ -683,32 +675,14 @@ void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
     emit->block->pending_forward_decls--;
 }
 
-void lily_emit_leave_call_block(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_leave_call_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
-
-    if (block->block_type == block_class)
-        lily_u16_write_3(emit->code, o_return_value, block->self->reg_spot,
-                line_num);
-    else if (block->last_exit != lily_u16_pos(emit->code)) {
-        lily_type *type = block->function_var->type->subtypes[0];
-
-        if (type == lily_unit_type)
-            lily_u16_write_2(emit->code, o_return_unit, line_num);
-        else if (type == lily_self_class->self_type)
-            /* The implicit 'self' of a class method is always first (at 0). */
-            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
-        else
-            lily_raise_syn(emit->raiser,
-                    "Missing return statement at end of function.");
-    }
-
-    write_final_code_for_block(emit, block);
-    clear_storages(emit->storages, block->storage_count);
 
     if (emit->block->block_type == block_class)
         emit->class_block_depth = 0;
 
+    clear_storages(emit->storages, block->storage_count);
     emit->function_block = block->prev_function_block;
     emit->storages->start -= emit->function_block->storage_count;
 
@@ -746,10 +720,6 @@ void lily_emit_leave_block(lily_emit_state *emit)
            last except block installed so it doesn't get patched. */
         lily_u16_set_at(emit->code, lily_u16_pop(emit->patches), 0);
     }
-    else if (block_type == block_enum)
-        /* Enums get a fake depth bump to make them work better with
-           closures. */
-        emit->function_depth--;
 
     if ((block_type == block_if_else ||
          block_type == block_match ||
@@ -761,6 +731,62 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     write_patches_since(emit, block->patch_start);
     emit->block = emit->block->prev;
+}
+
+void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
+{
+    lily_block *block = emit->block;
+    lily_var *var = block->function_var;
+    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
+    lily_function_val *f = v->value.function;
+
+    uint16_t code_start, code_size;
+    uint16_t *source;
+
+    if (block->block_type == block_class)
+        lily_u16_write_3(emit->code, o_return_value, block->self->reg_spot,
+                line_num);
+    else if (block->last_exit != lily_u16_pos(emit->code)) {
+        lily_type *type = block->function_var->type->subtypes[0];
+
+        if (type == lily_unit_type)
+            lily_u16_write_2(emit->code, o_return_unit, line_num);
+        else if (type == lily_self_class->self_type)
+            /* The implicit 'self' of a class method is always first (at 0). */
+            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
+        else
+            lily_raise_syn(emit->raiser,
+                    "Missing return statement at end of function.");
+    }
+
+    if ((block->flags & BLOCK_MAKE_CLOSURE) == 0) {
+        code_start = emit->block->code_start;
+        code_size = lily_u16_pos(emit->code) - emit->block->code_start;
+
+        source = emit->code->data;
+    }
+    else {
+        lily_block *prev = block->prev_function_block;
+
+        perform_closure_transform(emit, block, f);
+
+        if (prev->block_type != block_file)
+            prev->flags |= BLOCK_MAKE_CLOSURE;
+
+        code_start = 0;
+        code_size = lily_u16_pos(emit->closure_aux_code);
+        source = emit->closure_aux_code->data;
+    }
+
+    uint16_t *code = lily_malloc((code_size + 1) * sizeof(*code));
+
+    memcpy(code, source + code_start, sizeof(*code) * code_size);
+
+    f->code_len = code_size;
+    f->code = code;
+    f->proto->code = code;
+    f->reg_count = block->next_reg_spot;
+    lily_u16_set_pos(emit->code, block->code_start);
 }
 
 static lily_block *find_deepest_loop(lily_emit_state *emit)
@@ -1377,49 +1403,6 @@ static void perform_closure_transform(lily_emit_state *emit,
     }
 
     lily_u16_set_pos(emit->patches, patch_start);
-}
-
-/* This makes the function value that will be needed by the current code
-   block. If the current function is a closure, then the appropriate transform
-   is done to it. */
-static void write_final_code_for_block(lily_emit_state *emit,
-        lily_block *function_block)
-{
-    lily_var *var = function_block->function_var;
-    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
-    lily_function_val *f = v->value.function;
-
-    int code_start, code_size;
-    uint16_t *source, *code;
-
-    if ((function_block->flags & BLOCK_MAKE_CLOSURE) == 0) {
-        code_start = emit->block->code_start;
-        code_size = lily_u16_pos(emit->code) - emit->block->code_start;
-
-        source = emit->code->data;
-    }
-    else {
-        lily_block *prev = function_block->prev_function_block;
-
-        perform_closure_transform(emit, function_block, f);
-
-        if (prev->block_type != block_file)
-            prev->flags |= BLOCK_MAKE_CLOSURE;
-
-        code_start = 0;
-        code_size = lily_u16_pos(emit->closure_aux_code);
-        source = emit->closure_aux_code->data;
-    }
-
-    code = lily_malloc((code_size + 1) * sizeof(*code));
-    memcpy(code, source + code_start, sizeof(*code) * code_size);
-
-    f->code_len = code_size;
-    f->code = code;
-    f->proto->code = code;
-    f->reg_count = function_block->next_reg_spot;
-
-    lily_u16_set_pos(emit->code, function_block->code_start);
 }
 
 /***
