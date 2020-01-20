@@ -33,6 +33,11 @@ typedef enum {
 /* If this is set on a block, then don't warn about a function not having a
    return value at the end. */
 # define BLOCK_ALWAYS_EXITS 0x2
+/* The closure origin block is the outermost define or lambda block. The origin
+   block is responsible for initializing upvalues for inner functions to use. If
+   the origin block is a class or enum method, the self it holds is the self
+   that inner functions will close over to use. */
+# define BLOCK_CLOSURE_ORIGIN 0x4
 
 typedef struct lily_block_ {
     /* Define/class blocks: This is saved because the var has the name of the

@@ -634,11 +634,21 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
         new_block->class_entry = emit->symtab->active_module->class_chain;
         emit->class_block_depth = emit->function_depth + 1;
     }
+    else if (block_type == block_lambda ||
+             block_type == block_define) {
+        lily_block_type call_block_type = emit->function_block->block_type;
 
-    /* Nested functions are marked this way so that any call to them is
-       guaranteed to give them the upvalues they need. */
-    if (emit->block->block_type == block_define)
-        call_var->flags |= VAR_NEEDS_CLOSURE;
+        if (call_block_type == block_class ||
+            call_block_type == block_file ||
+            call_block_type == block_enum)
+            new_block->flags |= BLOCK_CLOSURE_ORIGIN;
+        else if (call_block_type == block_define)
+            /* Lambdas don't allow definitions, so this must be a definition
+               inside of a definition. Mark it like this so it gets the upvalues
+               it needs if called. */
+            if (emit->block->block_type == block_define)
+                call_var->flags |= VAR_NEEDS_CLOSURE;
+    }
 
     /* This causes vars within this imported file to be seen as global
        vars, instead of locals. Without this, the interpreter gets confused
@@ -766,12 +776,10 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
         source = emit->code->data;
     }
     else {
-        lily_block *prev = block->prev_function_block;
-
         perform_closure_transform(emit, block, f);
 
-        if (prev->block_type != block_file)
-            prev->flags |= BLOCK_MAKE_CLOSURE;
+        if ((block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
+            block->prev_function_block->flags |= BLOCK_MAKE_CLOSURE;
 
         code_start = 0;
         code_size = lily_u16_pos(emit->closure_aux_code);
@@ -994,13 +1002,10 @@ static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
     /* The resulting depth for the backing closure is always the same:
        __main__ is 1, class is 2, backing define is 3. */
     uint16_t depth = 3;
-    lily_block *block = emit->function_block->prev;
+    lily_block *block = emit->function_block;
 
-    while (block->block_type != block_class &&
-           block->block_type != block_enum)
-        block = block->prev;
-
-    block = block->next;
+    while ((block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
+        block = block->prev_function_block;
 
     if (block->block_type != block_define) {
         lily_raise_tree(emit->raiser, ast,
@@ -1171,11 +1176,9 @@ static void perform_closure_transform(lily_emit_state *emit,
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
     int iter_start = emit->block->code_start;
+    int is_backing = (function_block->flags & BLOCK_CLOSURE_ORIGIN);
     uint16_t first_line = iter_for_first_line(emit, iter_start);
     lily_block *prev_block = function_block->prev_function_block;
-    int is_backing = (prev_block->block_type == block_class ||
-                      prev_block->block_type == block_file ||
-                      function_block->prev->block_type == block_enum);
 
     if (is_backing) {
         /* Put the closure into a new register so the gc can't accidentally
@@ -1202,11 +1205,8 @@ static void perform_closure_transform(lily_emit_state *emit,
     else if (emit->block->self) {
         lily_storage *block_self = emit->block->self;
 
-        while (prev_block->block_type != block_class &&
-               prev_block->block_type != block_enum)
-            /* Must use ->prev (and not prev block) because enum isn't a
-               function. */
-            prev_block = prev_block->prev;
+        while ((prev_block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
+            prev_block = prev_block->prev_function_block;
 
         prev_block = prev_block->next;
 
