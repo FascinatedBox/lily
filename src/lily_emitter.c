@@ -892,8 +892,11 @@ void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
 
 void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
 {
-    lily_storage *self = get_storage(emit, self_type);
+    /* It's important that the storage for self not be written over. Use a type
+       that isn't allowed to make sure it's unique, then lock the storage. */
+    lily_storage *self = get_storage(emit, lily_scoop_type);
 
+    self->type = self_type;
     self->flags |= STORAGE_IS_LOCKED;
     emit->function_block->self = self;
 }
