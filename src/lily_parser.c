@@ -1483,6 +1483,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
     }
     else {
         var = new_scoped_var(parser, NULL, lex->label, lex->line_num);
+        var->flags |= VAR_CANNOT_BE_UPVALUE;
         lily_next_token(lex);
     }
 

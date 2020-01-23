@@ -428,6 +428,11 @@ typedef struct lily_proto_ {
 /* This is an incomplete forward declaration. */
 #define VAR_IS_FORWARD          0x400
 
+/* Don't put this var inside of a closure. This is set on class constructor
+   parameters to prevent class methods from referencing them. Preventing this
+   makes implementing closures much easier. */
+#define VAR_CANNOT_BE_UPVALUE   0x800
+
 /* This module was added by being registered. */
 #define MODULE_IS_REGISTERED 0x1
 

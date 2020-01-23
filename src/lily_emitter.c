@@ -78,7 +78,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->function_depth++;
     emit->main_block = main_block;
     emit->function_block = main_block;
-    emit->class_block_depth = 0;
 
     return emit;
 }
@@ -104,7 +103,6 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     emit->block->pending_forward_decls = 0;
     emit->function_block = emit->main_block;
     emit->function_depth = 1;
-    emit->class_block_depth = 0;
 }
 
 void lily_free_emit_state(lily_emit_state *emit)
@@ -630,10 +628,8 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
 
     emit->storages->start += emit->function_block->storage_count;
 
-    if (block_type == block_class) {
+    if (block_type == block_class)
         new_block->class_entry = emit->symtab->active_module->class_chain;
-        emit->class_block_depth = emit->function_depth + 1;
-    }
     else if (block_type == block_lambda ||
              block_type == block_define) {
         lily_block_type call_block_type = emit->function_block->block_type;
@@ -688,9 +684,6 @@ void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
 void lily_emit_leave_call_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
-
-    if (emit->block->block_type == block_class)
-        emit->class_block_depth = 0;
 
     clear_storages(emit->storages, block->storage_count);
     emit->function_block = block->prev_function_block;
@@ -965,7 +958,7 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
         lily_raise_syn(emit->raiser,
                 "Cannot close over a var of an incomplete type in this scope.");
 
-    if (var->function_depth == emit->class_block_depth)
+    if (var->flags & VAR_CANNOT_BE_UPVALUE)
         lily_raise_syn(emit->raiser,
                 "Not allowed to close over variables from a class constructor.");
 
