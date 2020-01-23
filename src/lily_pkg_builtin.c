@@ -33,140 +33,58 @@ const lily_gc_entry lily_gc_stopper =
     NULL
 };
 
-/* This represents a return type of "self", which is special-cased in function
-   returns. */
-static const lily_class raw_self =
-{
-    NULL,
-    ITEM_TYPE_CLASS,
-    0,
-    LILY_ID_SELF,
-    0,
-    (lily_type *)&raw_self,
-    "self",
-    0,
-    0,
-    0,
-    0,
-    NULL,
-    NULL,
-    0,
-    0,
-    {0},
-    0,
-    NULL,
-    NULL,
-};
+#define DEFINE_CONST_CLASS(name, id, shorthash, search_name, flags) \
+static const lily_class name = \
+{ \
+    NULL, \
+    ITEM_TYPE_CLASS, \
+    flags, \
+    id, \
+    0, \
+    (lily_type *)&name, \
+    search_name, \
+    shorthash, \
+    0, \
+    0, \
+    0, \
+    NULL, \
+    NULL, \
+    0, \
+    0, \
+    {0}, \
+    0, \
+    NULL, \
+    NULL, \
+}
 
-const lily_class *lily_self_class = &raw_self;
+/* This is used by the type system to represent an incomplete type. */
+DEFINE_CONST_CLASS(raw_question, LILY_ID_QUESTION, 0, "?",
+                   TYPE_IS_INCOMPLETE | TYPE_TO_BLOCK);
 
-/* Similar to the above, this is the read-only class+type of Unit. */
-static const lily_class raw_unit =
-{
-    NULL,
-    ITEM_TYPE_CLASS,
-    0,
-    LILY_ID_UNIT,
-    0,
-    (lily_type *)&raw_unit,
-    "Unit",
-    1953066581, /* The shorthash for `Unit` so it's visible in the symtab. */
-    0,
-    0,
-    0,
-    NULL,
-    NULL,
-    0,
-    0,
-    {0},
-    0,
-    NULL,
-    NULL,
-};
+/* This is available to class methods, and allows them to return the value for
+   self that was passed. */
+DEFINE_CONST_CLASS(raw_self, LILY_ID_SELF, 0, "self", 0);
 
-const lily_type *lily_unit_type = (lily_type *)&raw_unit;
+/* This matches to any type and remembers what was matched. Essential for
+   methods like `List.zip` and `String.format`. Foreign modules only. */
+DEFINE_CONST_CLASS(raw_scoop, LILY_ID_SCOOP, 0, "$1",
+                   TYPE_HAS_SCOOP | TYPE_TO_BLOCK);
 
-/* The ? type is a placeholder used mostly by emitter. */
-static const lily_class raw_question =
-{
-    NULL,
-    ITEM_TYPE_CLASS,
-    TYPE_IS_INCOMPLETE | TYPE_TO_BLOCK,
-    LILY_ID_QUESTION,
-    0,
-    (lily_type *)&raw_question,
-    "?",
-    0,
-    0,
-    0,
-    0,
-    NULL,
-    NULL,
-    0,
-    0,
-    {0},
-    0,
-    NULL,
-    NULL,
-};
+/* Mismatched function returns narrow to this. */
+DEFINE_CONST_CLASS(raw_unit, LILY_ID_UNIT, 1953066581, "Unit", 0);
 
-const lily_type *lily_question_type = (lily_type *)&raw_question;
+/* When a keyarg function has optional argument holes, this type is used to send
+   empty arguments to fill those holes. */
+DEFINE_CONST_CLASS(raw_unset, LILY_ID_UNSET, 0, "", 0);
 
-/* The unset type is used to send empty arguments when keyword and optional
-   arguments intersect. The user will never see this. */
-static const lily_class raw_unset =
-{
-    NULL,
-    ITEM_TYPE_CLASS,
-    0,
-    LILY_ID_UNSET,
-    0,
-    (lily_type *)&raw_question,
-    "",
-    0,
-    0,
-    0,
-    0,
-    NULL,
-    NULL,
-    0,
-    0,
-    {0},
-    0,
-    NULL,
-    NULL,
-};
-
-const lily_type *lily_unset_type = (lily_type *)&raw_unset;
-
-/* The scoop class is a magic class that is only usable by foreign modules. The
-   type of this class matches to any other type. This, combined with varargs,
-   allows creating functions like `List.zip` and `String.format`. */
-static const lily_class raw_scoop =
-{
-    NULL,
-    ITEM_TYPE_CLASS,
-    TYPE_HAS_SCOOP | TYPE_TO_BLOCK,
-    LILY_ID_SCOOP,
-    0,
-    (lily_type *)&raw_scoop,
-    "$1",
-    0,
-    0,
-    0,
-    0,
-    NULL,
-    NULL,
-    0,
-    0,
-    {0},
-    0,
-    NULL,
-    NULL,
-};
+#undef DEFINE_CONST_CLASS
 
 const lily_class *lily_scoop_class = &raw_scoop;
+const lily_class *lily_self_class = &raw_self;
+const lily_type *lily_question_type = (lily_type *)&raw_question;
 const lily_type *lily_scoop_type = (lily_type *)&raw_scoop;
+const lily_type *lily_unit_type = (lily_type *)&raw_unit;
+const lily_type *lily_unset_type = (lily_type *)&raw_unset;
 
 /**
 var stdin: File
