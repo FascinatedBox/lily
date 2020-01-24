@@ -183,24 +183,6 @@ typedef struct lily_prop_entry_ {
     lily_class *cls;
 } lily_prop_entry;
 
-/* lily_storage is a struct used by emitter to hold info for intermediate
-   values (such as the result of an addition). The emitter will reuse these
-   where possible. For example: If two different lines need to store an
-   integer, then the same storage will be picked. However, reuse does not
-   happen on the same line. */
-typedef struct lily_storage_ {
-    struct lily_storage_ *next;
-    uint16_t item_kind;
-    uint16_t flags;
-    uint16_t reg_spot;
-    uint16_t pad;
-    /* Each expression has a different expr_num. This prevents the same
-       expression from using the same storage twice (which could lead to
-       incorrect data). */
-    lily_type *type;
-    uint32_t expr_num;
-} lily_storage;
-
 /* lily_var is used to represent a declared variable. */
 typedef struct lily_var_ {
     struct lily_var_ *next;

@@ -82,11 +82,34 @@ typedef struct lily_block_ {
     struct lily_block_ *prev_function_block;
 
     /* Where 'self' is at, or NULL if not within a class. */
-    lily_storage *self;
+    struct lily_storage_ *self;
 
     struct lily_block_ *next;
     struct lily_block_ *prev;
 } lily_block;
+
+/* Storages are used to hold values not held by vars. In most cases, storages
+   hold intermediate values for an expression. The emitter attempts to reuse
+   storages where it can unless the storage is locked.
+   This struct has the same layout as lily_sym to allow some simplifications in
+   the emitter. */
+typedef struct lily_storage_ {
+    void *pad1;
+
+    /* This is always ITEM_TYPE_STORAGE. */
+    uint16_t item_kind;
+    /* See STORAGE_* flags. */
+    uint16_t flags;
+    uint16_t reg_spot;
+    uint16_t pad2;
+
+    lily_type *type;
+
+    /* Each expression has a different id to prevent emitter from wrongly using
+       the same storage again. */
+    uint32_t expr_num;
+    uint32_t pad3;
+} lily_storage;
 
 typedef struct lily_storage_stack_ {
     lily_storage **data;
