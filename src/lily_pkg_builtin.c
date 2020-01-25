@@ -3315,9 +3315,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
        avoid being free'd. */
     symtab->integer_class->next = lily_unit_type->cls;
 
-    symtab->integer_class->flags |= CLS_VALID_HASH_KEY;
-    symtab->string_class->flags  |= CLS_VALID_HASH_KEY;
-
     /* This must be set here so that it bubbles up in type building. */
     symtab->function_class->flags |= CLS_GC_TAGGED;
     /* HACK: This ensures that there is space to dynaload builtin classes and

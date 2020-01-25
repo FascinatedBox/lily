@@ -1332,11 +1332,14 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 
     /* Hack: This exists because Lily does not understand constraints. */
     if (type->cls == parser->symtab->hash_class) {
-        lily_type *check_type = type->subtypes[0];
-        if ((check_type->cls->flags & CLS_VALID_HASH_KEY) == 0 &&
-            check_type->cls->id != LILY_ID_GENERIC)
+        lily_type *key_type = type->subtypes[0];
+        uint16_t key_id = key_type->cls->id;
+
+        if (key_id != LILY_ID_INTEGER &&
+            key_id != LILY_ID_STRING &&
+            key_id != LILY_ID_GENERIC)
             lily_raise_syn(parser->raiser, "'^T' is not a valid key for Hash.",
-                    check_type);
+                    key_type);
     }
 }
 

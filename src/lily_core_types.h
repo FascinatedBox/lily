@@ -381,8 +381,6 @@ typedef struct lily_proto_ {
    can be types, these start after TYPE_* flags. */
 
 
-#define CLS_VALID_HASH_KEY 0x0040
-
 #define CLS_IS_ENUM        0x0080
 
 /* This class can become circular, so instances must have a gc tag. */

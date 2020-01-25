@@ -3038,10 +3038,13 @@ static lily_type *bidirectional_unify(lily_type_system *ts,
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
-    if (key_type == NULL)
-        key_type = lily_question_type;
+    uint16_t key_id = lily_self_class->id;
 
-    if ((key_type->cls->flags & CLS_VALID_HASH_KEY) == 0)
+    if (key_type)
+        key_id = key_type->cls->id;
+
+    if (key_id != LILY_ID_INTEGER &&
+        key_id != LILY_ID_STRING)
         lily_raise_tree(emit->raiser, ast,
                 "Type '^T' is not a valid key for Hash.", key_type);
 }
