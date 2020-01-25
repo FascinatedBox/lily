@@ -3499,7 +3499,7 @@ static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
         if (sym->item_kind == ITEM_TYPE_VAR)
             parent = ((lily_var *)sym)->parent;
         else
-            parent = ((lily_prop_entry *)sym)->cls;
+            parent = ((lily_prop_entry *)sym)->parent;
 
         /* Private members aren't really private if inheriting classes need
            to avoid their names. So don't count them. */

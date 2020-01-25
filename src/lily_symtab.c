@@ -484,7 +484,7 @@ static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
     while (boxed_iter) {
         lily_named_sym *sym = boxed_iter->inner_sym;
 
-        if (sym->name_shorthash == shorthash &&
+        if (sym->shorthash == shorthash &&
             strcmp(sym->name, name) == 0) {
             result = (lily_sym *)sym;
             break;
@@ -514,7 +514,7 @@ lily_class *lily_find_class(lily_module_entry *m, const char *name)
             lily_named_sym *sym_iter = class_iter->members;
 
             while (sym_iter) {
-                if (sym_iter->name_shorthash == shorthash &&
+                if (sym_iter->shorthash == shorthash &&
                     strcmp(sym_iter->name, name) == 0 &&
                     sym_iter->item_kind == ITEM_TYPE_VARIANT) {
                     result = (lily_class *)sym_iter;
@@ -581,7 +581,7 @@ lily_named_sym *lily_find_member(lily_class *cls, const char *name)
             uint64_t shorthash = shorthash_for_name(name);
 
             while (sym_iter) {
-                if (sym_iter->name_shorthash == shorthash &&
+                if (sym_iter->shorthash == shorthash &&
                     strcmp(sym_iter->name, name) == 0) {
                     result = sym_iter;
                     break;
@@ -613,7 +613,7 @@ lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
         uint64_t shorthash = shorthash_for_name(name);
 
         while (sym_iter) {
-            if (sym_iter->name_shorthash == shorthash &&
+            if (sym_iter->shorthash == shorthash &&
                 strcmp(sym_iter->name, name) == 0) {
                 result = sym_iter;
                 break;
@@ -645,7 +645,7 @@ lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
     lily_named_sym *sym_iter = enum_cls->members;
 
     while (sym_iter) {
-        if (sym_iter->name_shorthash == shorthash &&
+        if (sym_iter->shorthash == shorthash &&
             strcmp(sym_iter->name, name) == 0 &&
             sym_iter->item_kind != ITEM_TYPE_VAR) {
             break;
@@ -813,13 +813,12 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
     entry->flags = flags;
     entry->name = entry_name;
     entry->type = type;
-    entry->name_shorthash = shorthash_for_name(entry_name);
-    entry->next = NULL;
+    entry->shorthash = shorthash_for_name(entry_name);
     entry->id = cls->prop_count;
-    entry->cls = cls;
+    entry->parent = cls;
     cls->prop_count++;
 
-    entry->next = (lily_prop_entry *)cls->members;
+    entry->next = cls->members;
     cls->members = (lily_named_sym *)entry;
 
     return entry;
@@ -842,7 +841,7 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);
 
-    variant->next = (lily_class *)enum_cls->members;
+    variant->next = enum_cls->members;
     enum_cls->members = (lily_named_sym *)variant;
 
     variant->cls_id = symtab->next_reverse_id;

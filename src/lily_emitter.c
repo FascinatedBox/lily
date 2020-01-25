@@ -1766,7 +1766,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
 
         if (sym->item_kind == ITEM_TYPE_PROPERTY) {
             lily_prop_entry *prop = (lily_prop_entry *)sym;
-            parent = prop->cls;
+            parent = prop->parent;
             name = prop->name;
         }
         else {
@@ -1890,7 +1890,7 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
     }
     else if (item->item_kind == ITEM_TYPE_PROPERTY) {
         lily_prop_entry *p = (lily_prop_entry *)ast->item;
-        lily_mb_add_fmt(msgbuf, "%s.%s", p->cls->name, p->name);
+        lily_mb_add_fmt(msgbuf, "%s.%s", p->parent->name, p->name);
     }
     else if (item->item_kind == ITEM_TYPE_VARIANT) {
         lily_variant_class *v = (lily_variant_class *)ast->item;
