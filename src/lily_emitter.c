@@ -74,9 +74,9 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->var_count = 0;
     main_block->flags = 0;
     main_block->pending_forward_decls = 0;
+    main_block->prev_function_block = NULL;
     emit->block = main_block;
     emit->function_depth++;
-    emit->main_block = main_block;
     emit->function_block = main_block;
 
     return emit;
@@ -90,18 +90,31 @@ void lily_rewind_emit_state(lily_emit_state *emit)
 
     emit->match_case_pos = 0;
 
+    lily_block *block_iter = emit->function_block;
+    lily_block *main_block = block_iter;
     lily_storage_stack *stack = emit->storages;
-    uint16_t total = stack->start + emit->function_block->storage_count;
+    uint16_t total = stack->start + block_iter->storage_count;
+
+    while (block_iter) {
+        lily_block *block_next = block_iter->prev_function_block;
+
+        if (block_next == NULL)
+            break;
+
+        block_iter = block_next;
+    }
+
+    main_block = block_iter;
 
     /* Storages above `__main__` need to be cleared, or they'll be reused
        without fixing their ids. */
-    stack->start = emit->main_block->storage_count;
+    stack->start = main_block->storage_count;
     clear_storages(stack, total - stack->start);
     stack->start = 0;
 
-    emit->block = emit->main_block;
     emit->block->pending_forward_decls = 0;
-    emit->function_block = emit->main_block;
+    emit->block = main_block;
+    emit->function_block = main_block;
     emit->function_depth = 1;
 }
 
@@ -4435,7 +4448,7 @@ void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
 /* This prepares __main__ to be called and sets up the next pass. */
 void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 {
-    int register_count = emit->main_block->next_reg_spot;
+    int register_count = emit->block->next_reg_spot;
 
     lily_u16_write_1(emit->code, o_vm_exit);
 

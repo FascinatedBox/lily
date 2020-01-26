@@ -163,11 +163,6 @@ typedef struct {
 
     struct lily_proto_stack_ *protos;
 
-    /* The block that __main__ is within. This is always the first block (the
-       only one where prev is NULL). New global vars will use this to figure
-       out their id. */
-    lily_block *main_block;
-
     /* The deepest block that will end up yielding a function. This block is the
        one that new locals and storages get their ids from. */
     lily_block *function_block;
