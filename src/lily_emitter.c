@@ -290,7 +290,7 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
     /* The class constructor always inserts itself as the first property. Make
        sure to not include that. */
 
-    while (prop_iter->item_kind == ITEM_TYPE_PROPERTY) {
+    while (prop_iter->item_kind == ITEM_PROPERTY) {
         while (strcmp(var_iter->name, "") != 0)
             var_iter = var_iter->next;
 
@@ -469,7 +469,7 @@ static lily_storage *new_storage(void)
     result->type = NULL;
     result->expr_num = 0;
     result->flags = 0;
-    result->item_kind = ITEM_TYPE_STORAGE;
+    result->item_kind = ITEM_STORAGE;
 
     return result;
 }
@@ -1456,7 +1456,7 @@ void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int index,
     /* Note: 'pos' is the target of a local var, so no global/upvalue checks are
        necessary here. */
 
-    if (match_sym->type->cls->flags & CLS_IS_ENUM)
+    if (match_sym->type->cls->item_kind & ITEM_IS_ENUM)
         lily_u16_write_5(emit->code, o_property_get, index, match_sym->reg_spot,
                 pos, *emit->lex_linenum);
     else
@@ -1531,13 +1531,12 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 
     lily_class *match_class = ast->result->type->cls;
 
-    if ((match_class->flags & CLS_IS_ENUM) == 0 &&
-        (match_class->flags & CLS_IS_FOREIGN))
+    if (match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE))
+        /* Each case pops the last jump and writes in their own. */
+        lily_u16_write_1(emit->patches, 0);
+    else
         lily_raise_syn(emit->raiser,
                 "Match expression is not a user class or enum.");
-
-    /* Each case pops the last jump and writes in their own. */
-    lily_u16_write_1(emit->patches, 0);
 }
 
 /***
@@ -1777,7 +1776,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
         int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
         char *name;
 
-        if (sym->item_kind == ITEM_TYPE_PROPERTY) {
+        if (sym->item_kind == ITEM_PROPERTY) {
             lily_prop_entry *prop = (lily_prop_entry *)sym;
             parent = prop->parent;
             name = prop->name;
@@ -1890,7 +1889,7 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
 {
     lily_item *item = ast->item;
 
-    if (item->item_kind == ITEM_TYPE_VAR) {
+    if (item->item_kind == ITEM_VAR) {
         lily_var *v = (lily_var *)item;
 
         if (v->flags & VAR_IS_READONLY) {
@@ -1901,11 +1900,11 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
         else
             lily_mb_add(msgbuf, v->name);
     }
-    else if (item->item_kind == ITEM_TYPE_PROPERTY) {
+    else if (item->item_kind == ITEM_PROPERTY) {
         lily_prop_entry *p = (lily_prop_entry *)ast->item;
         lily_mb_add_fmt(msgbuf, "%s.%s", p->parent->name, p->name);
     }
-    else if (item->item_kind == ITEM_TYPE_VARIANT) {
+    else if (item->item_kind & ITEM_IS_VARIANT) {
         lily_variant_class *v = (lily_variant_class *)ast->item;
         lily_mb_add_fmt(msgbuf, "%s", v->name);
     }
@@ -2015,7 +2014,7 @@ static void error_keyarg_not_supported(lily_emit_state *emit, lily_ast *ast)
 
     add_call_name_to_msgbuf(emit, msgbuf, ast);
 
-    if (ast->sym->item_kind == ITEM_TYPE_VAR &&
+    if (ast->sym->item_kind == ITEM_VAR &&
         ast->sym->flags & VAR_IS_READONLY)
         lily_mb_add(msgbuf,
                 " does not specify any keyword arguments.");
@@ -2162,11 +2161,11 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
                 oo_name);
     }
 
-    if (item->item_kind == ITEM_TYPE_PROPERTY &&
+    if (item->item_kind == ITEM_PROPERTY &&
         ast->arg_start->tree_type == tree_self)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Use @<name> to get/set properties, not self.<name>.");
-    else if (item->item_kind == ITEM_TYPE_VARIANT)
+    else if (item->item_kind & ITEM_IS_VARIANT)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Not allowed to access a variant through an enum instance.");
 
@@ -2211,7 +2210,7 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
 {
     eval_oo_access_for_item(emit, ast);
     /* An 'x.y' access will either yield a property or a class method. */
-    if (ast->item->item_kind == ITEM_TYPE_PROPERTY)
+    if (ast->item->item_kind == ITEM_PROPERTY)
         oo_property_read(emit, ast);
     else {
         lily_storage *result = get_storage(emit, ast->sym->type);
@@ -2335,10 +2334,10 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
 
     /* Can we reuse a storage instead of making a new one? It's a simple check,
        but every register the vm doesn't need to make helps. */
-    if (lhs_sym->item_kind == ITEM_TYPE_STORAGE &&
+    if (lhs_sym->item_kind == ITEM_STORAGE &&
         lhs_class == storage_class)
         s = (lily_storage *)lhs_sym;
-    else if (rhs_sym->item_kind == ITEM_TYPE_STORAGE &&
+    else if (rhs_sym->item_kind == ITEM_STORAGE &&
              rhs_class == storage_class)
         s = (lily_storage *)rhs_sym;
     else {
@@ -2468,7 +2467,7 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
     eval_oo_access_for_item(emit, ast->left);
     ensure_valid_scope(emit, ast->left);
     /* Can't assign to a method. */
-    if (ast->left->item->item_kind != ITEM_TYPE_PROPERTY)
+    if (ast->left->item->item_kind != ITEM_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
                 "Left side of %s is not assignable.", opname(ast->op));
 
@@ -3324,7 +3323,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
         lily_storage *s = NULL;
 
         for (;arg;arg = arg->next_arg) {
-            if (arg->result->item_kind == ITEM_TYPE_STORAGE &&
+            if (arg->result->item_kind == ITEM_STORAGE &&
                 arg->result->type == return_type) {
                 s = (lily_storage *)arg->result;
                 break;
@@ -3617,7 +3616,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             break;
         case tree_oo_access:
             eval_oo_access_for_item(emit, first_arg);
-            if (first_arg->item->item_kind == ITEM_TYPE_PROPERTY) {
+            if (first_arg->item->item_kind == ITEM_PROPERTY) {
                 oo_property_read(emit, first_arg);
                 call_sym = (lily_sym *)first_arg->sym;
                 call_source_reg = first_arg->result->reg_spot;
@@ -3632,7 +3631,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             break;
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
-            if (variant->flags & CLS_EMPTY_VARIANT)
+            if (variant->item_kind == ITEM_VARIANT_EMPTY)
                 lily_raise_syn(emit->raiser, "Variant %s should not get args.",
                         variant->name);
 
@@ -3854,7 +3853,7 @@ static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
 {
     char *names = NULL;
 
-    if (ast->sym->item_kind == ITEM_TYPE_VAR) {
+    if (ast->sym->item_kind == ITEM_VAR) {
         lily_var *var = (lily_var *)ast->sym;
 
         if (var->flags & VAR_IS_READONLY) {
@@ -3863,7 +3862,7 @@ static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
             names = p->arg_names;
         }
     }
-    else if (ast->sym->item_kind == ITEM_TYPE_VARIANT)
+    else if (ast->sym->item_kind & ITEM_IS_VARIANT)
         names = ast->variant->arg_names;
 
     return names;
@@ -4102,7 +4101,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
 {
     lily_variant_class *variant = ast->variant;
     /* Did this need arguments? It was used incorrectly if so. */
-    if ((variant->flags & CLS_EMPTY_VARIANT) == 0) {
+    if (variant->item_kind == ITEM_VARIANT_FILLED) {
         unsigned int min, max;
         get_func_min_max(variant->build_type, &min, &max);
         ast->keep_first_call_arg = 0;

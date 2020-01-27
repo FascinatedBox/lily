@@ -499,7 +499,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_class *variant_cls = vm->gs->class_table[class_id];
 
         /* For scoped variants, render them how they're written. */
-        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+        if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
             lily_mb_add(msgbuf, variant_cls->parent->name);
             lily_mb_add_char(msgbuf, '.');
         }
@@ -511,7 +511,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         uint16_t class_id = (uint16_t)v->value.integer;
         lily_class *variant_cls = vm->gs->class_table[class_id];
 
-        if (variant_cls->parent->flags & CLS_ENUM_IS_SCOPED) {
+        if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
             lily_mb_add(msgbuf, variant_cls->parent->name);
             lily_mb_add_char(msgbuf, '.');
         }

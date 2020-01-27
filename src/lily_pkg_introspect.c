@@ -166,12 +166,12 @@ static int allow_all(void *any)
 
 static int allow_boxed_classes(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->item_kind == ITEM_TYPE_CLASS;
+    return sym->inner_sym->item_kind & ITEM_IS_CLASS;
 }
 
 static int allow_boxed_enums(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->item_kind == ITEM_TYPE_ENUM;
+    return sym->inner_sym->item_kind & ITEM_IS_ENUM;
 }
 
 static int allow_boxed_functions(lily_boxed_sym *sym)
@@ -181,27 +181,27 @@ static int allow_boxed_functions(lily_boxed_sym *sym)
 
 static int allow_boxed_variants(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->item_kind == ITEM_TYPE_VARIANT;
+    return sym->inner_sym->item_kind & ITEM_IS_VARIANT;
 }
 
 static int allow_boxed_vars(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->item_kind == ITEM_TYPE_VAR;
+    return sym->inner_sym->item_kind == ITEM_VAR;
 }
 
 static int allow_classes(lily_class *cls)
 {
-    return (cls->flags & CLS_IS_ENUM) == 0;
+    return cls->item_kind & ITEM_IS_CLASS;
 }
 
 static int allow_enums(lily_class *cls)
 {
-    return cls->flags & CLS_IS_ENUM;
+    return cls->item_kind & ITEM_IS_ENUM;
 }
 
 static int allow_flat_variants(lily_named_sym *sym, lily_class *parent)
 {
-    return sym->item_kind == ITEM_TYPE_VARIANT &&
+    return sym->item_kind & ITEM_IS_VARIANT &&
            ((lily_variant_class *)sym)->parent == parent;
 }
 
@@ -212,17 +212,17 @@ static int allow_functions(lily_var *var)
 
 static int allow_methods(lily_named_sym *sym)
 {
-    return sym->item_kind == ITEM_TYPE_VAR;
+    return sym->item_kind == ITEM_VAR;
 }
 
 static int allow_properties(lily_named_sym *sym)
 {
-    return sym->item_kind == ITEM_TYPE_PROPERTY;
+    return sym->item_kind == ITEM_PROPERTY;
 }
 
 static int allow_scoped_variants(lily_named_sym *sym)
 {
-    return sym->item_kind == ITEM_TYPE_VARIANT;
+    return sym->item_kind & ITEM_IS_VARIANT;
 }
 
 static int allow_vars(lily_var *var)
@@ -604,7 +604,7 @@ void lily_introspect_ClassEntry_is_foreign(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
     lily_class *entry = introspect_entry->entry;
-    int is_foreign = !!(entry->flags & CLS_IS_FOREIGN);
+    int is_foreign = (entry->item_kind == ITEM_CLASS_FOREIGN);
 
     lily_return_boolean(s, is_foreign);
 }
@@ -620,7 +620,7 @@ void lily_introspect_ClassEntry_is_native(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
     lily_class *entry = introspect_entry->entry;
-    int is_native = !(entry->flags & CLS_IS_FOREIGN);
+    int is_native = (entry->item_kind == ITEM_CLASS_NATIVE);
 
     lily_return_boolean(s, is_native);
 }
@@ -729,7 +729,7 @@ void lily_introspect_VariantEntry_is_empty(lily_state *s)
     lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
     lily_variant_class *entry = introspect_entry->entry;
 
-    lily_return_boolean(s, !!(entry->flags & CLS_EMPTY_VARIANT));
+    lily_return_boolean(s, entry->item_kind == ITEM_VARIANT_EMPTY);
 }
 
 /**
@@ -745,7 +745,7 @@ void lily_introspect_VariantEntry_is_scoped(lily_state *s)
     lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
     lily_class *parent = introspect_entry->parent;
 
-    lily_return_boolean(s, !!(parent->flags & CLS_ENUM_IS_SCOPED));
+    lily_return_boolean(s, parent->item_kind == ITEM_ENUM_SCOPED);
 }
 
 /**
@@ -824,7 +824,7 @@ void lily_introspect_EnumEntry_variants(lily_state *s)
        The variants have the same item kind either way. */
     lily_introspect_EnumEntry *introspect_entry = ARG_EnumEntry(s, 0);
     lily_class *entry = introspect_entry->entry;
-    int is_scoped = entry->flags & CLS_ENUM_IS_SCOPED;
+    int is_scoped = entry->item_kind == ITEM_ENUM_SCOPED;
 
     if (is_scoped) {
         lily_named_sym *source = entry->members;

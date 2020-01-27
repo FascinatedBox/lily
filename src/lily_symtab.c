@@ -81,7 +81,7 @@ static void free_properties(lily_class *cls)
     while (prop_iter) {
         next_prop = prop_iter->next;
 
-        if (prop_iter->item_kind == ITEM_TYPE_VARIANT)
+        if (prop_iter->item_kind & ITEM_IS_VARIANT)
             lily_free(((lily_variant_class *)prop_iter)->arg_names);
 
         lily_free(prop_iter->name);
@@ -509,14 +509,13 @@ lily_class *lily_find_class(lily_module_entry *m, const char *name)
             break;
         }
 
-        if (class_iter->flags & CLS_IS_ENUM &&
-            (class_iter->flags & CLS_ENUM_IS_SCOPED) == 0) {
+        if (class_iter->item_kind == ITEM_ENUM_FLAT) {
             lily_named_sym *sym_iter = class_iter->members;
 
             while (sym_iter) {
                 if (sym_iter->shorthash == shorthash &&
                     strcmp(sym_iter->name, name) == 0 &&
-                    sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+                    sym_iter->item_kind & ITEM_IS_VARIANT) {
                     result = (lily_class *)sym_iter;
                     break;
                 }
@@ -535,9 +534,7 @@ lily_class *lily_find_class(lily_module_entry *m, const char *name)
         lily_sym *sym = find_boxed_sym(m, name, shorthash);
 
         if (sym &&
-            (sym->item_kind == ITEM_TYPE_CLASS ||
-             sym->item_kind == ITEM_TYPE_ENUM ||
-             sym->item_kind == ITEM_TYPE_VARIANT))
+            sym->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM | ITEM_IS_VARIANT))
             result = (lily_class *)sym;
     }
 
@@ -562,7 +559,7 @@ lily_var *lily_find_var(lily_module_entry *m, const char *name)
     if (result == NULL && m->boxed_chain) {
         lily_sym *sym = find_boxed_sym(m, name, shorthash);
 
-        if (sym && sym->item_kind == ITEM_TYPE_VAR)
+        if (sym && sym->item_kind == ITEM_VAR)
             result = (lily_var *)sym;
     }
 
@@ -631,7 +628,7 @@ lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
 lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
 {
     lily_named_sym *sym = lily_find_member(cls, name);
-    if (sym && sym->item_kind != ITEM_TYPE_PROPERTY)
+    if (sym && sym->item_kind != ITEM_PROPERTY)
         sym = NULL;
 
     return (lily_prop_entry *)sym;
@@ -647,7 +644,7 @@ lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
     while (sym_iter) {
         if (sym_iter->shorthash == shorthash &&
             strcmp(sym_iter->name, name) == 0 &&
-            sym_iter->item_kind != ITEM_TYPE_VAR) {
+            sym_iter->item_kind & ITEM_IS_VARIANT) {
             break;
         }
 
@@ -736,7 +733,7 @@ lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
 
     strcpy(name_copy, name);
 
-    new_class->item_kind = ITEM_TYPE_CLASS;
+    new_class->item_kind = ITEM_CLASS_NATIVE;
     new_class->flags = 0;
 
     /* New classes start off as having 0 generics, as well as being their own
@@ -791,8 +788,7 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
     lily_class *new_class = lily_new_class(symtab, name, line_num);
 
     symtab->next_class_id--;
-    new_class->item_kind = ITEM_TYPE_ENUM;
-    new_class->flags |= CLS_IS_ENUM;
+    new_class->item_kind = ITEM_ENUM_FLAT;
     new_class->id = symtab->next_reverse_id;
     symtab->next_reverse_id--;
 
@@ -809,7 +805,7 @@ lily_prop_entry *lily_add_class_property(lily_symtab *symtab, lily_class *cls,
 
     strcpy(entry_name, name);
 
-    entry->item_kind = ITEM_TYPE_PROPERTY;
+    entry->item_kind = ITEM_PROPERTY;
     entry->flags = flags;
     entry->name = entry_name;
     entry->type = type;
@@ -830,8 +826,8 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
 {
     lily_variant_class *variant = lily_malloc(sizeof(*variant));
 
-    variant->item_kind = ITEM_TYPE_VARIANT;
-    variant->flags = CLS_EMPTY_VARIANT;
+    variant->item_kind = ITEM_VARIANT_EMPTY;
+    variant->flags = 0;
     variant->parent = enum_cls;
     variant->type_subtype_count = 0;
     variant->build_type = (lily_type *)variant;
@@ -900,10 +896,10 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
         while (class_iter) {
             lily_vm_add_class_unchecked(vm, class_iter);
 
-            if (class_iter->flags & CLS_IS_ENUM) {
+            if (class_iter->item_kind & ITEM_IS_ENUM) {
                 lily_named_sym *sym_iter = class_iter->members;
                 while (sym_iter) {
-                    if (sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+                    if (sym_iter->item_kind & ITEM_IS_VARIANT) {
                         lily_class *v = (lily_class *)sym_iter;
                         lily_vm_add_class_unchecked(vm, v);
                     }

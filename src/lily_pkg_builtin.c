@@ -37,7 +37,7 @@ const lily_gc_entry lily_gc_stopper =
 static const lily_class name = \
 { \
     NULL, \
-    ITEM_TYPE_CLASS, \
+    ITEM_CLASS_FOREIGN, \
     flags, \
     id, \
     0, \
@@ -3262,9 +3262,9 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
         int generic_count, int dyna_start)
 {
     lily_class *result = lily_new_class(symtab, name, 0);
+    result->item_kind = ITEM_CLASS_FOREIGN;
     result->dyna_start = dyna_start;
     result->generic_count = generic_count;
-    result->flags |= CLS_IS_FOREIGN;
 
     return result;
 }
@@ -3276,9 +3276,9 @@ static lily_class *build_special(lily_symtab *symtab, const char *name,
         int generic_count, int id)
 {
     lily_class *result = lily_new_class(symtab, name, 0);
+    result->item_kind = ITEM_CLASS_FOREIGN;
     result->id = id;
     result->generic_count = generic_count;
-    result->flags |= CLS_IS_FOREIGN;
 
     symtab->active_module->class_chain = result->next;
     symtab->next_class_id--;

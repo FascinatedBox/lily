@@ -94,7 +94,7 @@ static lily_var **methods_for_class(lily_class *cls)
     lily_named_sym *member_iter = cls->members;
 
     while (member_iter) {
-        if (member_iter->item_kind == ITEM_TYPE_VAR)
+        if (member_iter->item_kind == ITEM_VAR)
             method_count++;
 
         member_iter = member_iter->next;
@@ -107,7 +107,7 @@ static lily_var **methods_for_class(lily_class *cls)
     while (member_iter) {
         /* Members are stored in first in, last out order. Reverse that while
            also collecting them. */
-        if (member_iter->item_kind == ITEM_TYPE_VAR) {
+        if (member_iter->item_kind == ITEM_VAR) {
             method_vars[i] = (lily_var *)member_iter;
             i--;
         }

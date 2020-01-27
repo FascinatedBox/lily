@@ -590,7 +590,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->handle = NULL;
     module->call_table = NULL;
     module->boxed_chain = NULL;
-    module->item_kind = ITEM_TYPE_MODULE;
+    module->item_kind = ITEM_MODULE;
     /* If the module has a foreign source, setting the data will drop this. */
     module->flags = MODULE_NOT_EXECUTED;
     module->root_dirname = NULL;
@@ -1050,7 +1050,7 @@ static void put_keyargs_in_target(lily_parse_state *parser, lily_item *target,
 
     memcpy(buffer, source, len);
 
-    if (target->item_kind == ITEM_TYPE_VAR) {
+    if (target->item_kind == ITEM_VAR) {
         lily_var *var = (lily_var *)target;
         lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
 
@@ -1117,7 +1117,7 @@ static lily_var *make_new_var(lily_type *type, const char *name,
     lily_var *var = lily_malloc(sizeof(*var));
 
     var->name = lily_malloc((strlen(name) + 1) * sizeof(*var->name));
-    var->item_kind = ITEM_TYPE_VAR;
+    var->item_kind = ITEM_VAR;
     var->flags = 0;
     strcpy(var->name, name);
     var->line_num = line_num;
@@ -1531,7 +1531,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         NEED_CURRENT_TOK(tk_word)
     }
 
-    if (cls->item_kind == ITEM_TYPE_VARIANT)
+    if (cls->item_kind & ITEM_IS_VARIANT)
         lily_raise_syn(parser->raiser,
                 "Variant types not allowed in a declaration.");
 
@@ -2089,7 +2089,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
        to the variants. On the other hand, scoped enums will have a header that
        points past the variants. */
     if (m->info_table[entry_index + 1 + entry[1]][0] != 'V')
-        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
+        enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
     enum_cls->dyna_start = dyna_index + 1;
 
@@ -2164,7 +2164,7 @@ static lily_class *dynaload_foreign(lily_parse_state *parser,
     const char *entry = m->info_table[dyna_index];
     lily_class *cls = lily_new_class(parser->symtab, entry + 2, 0);
 
-    cls->flags |= CLS_IS_FOREIGN;
+    cls->item_kind = ITEM_CLASS_FOREIGN;
     cls->dyna_start = dyna_index;
 
     return cls;
@@ -2391,7 +2391,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
         lily_module_entry *m, const char *name)
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
-    if (result && result->item_kind != ITEM_TYPE_VAR)
+    if (result && result->item_kind != ITEM_VAR)
         return (lily_class *)result;
     else
         return NULL;
@@ -2587,7 +2587,7 @@ static int expression_word_try_use_self(lily_parse_state *parser)
         item = lily_find_or_dl_member(parser, self_cls, name);
 
         if (item) {
-            if (item->item_kind == ITEM_TYPE_VAR) {
+            if (item->item_kind == ITEM_VAR) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
                 if (parser->in_static_call == 0 &&
@@ -2596,7 +2596,7 @@ static int expression_word_try_use_self(lily_parse_state *parser)
                 else
                     lily_es_push_static_func(parser->expr, (lily_var *)item);
             }
-            else if (item->item_kind == ITEM_TYPE_PROPERTY)
+            else if (item->item_kind == ITEM_PROPERTY)
                 lily_raise_syn(parser->raiser,
                         "%s is a property, and must be referenced as @%s.",
                         name, name);
@@ -2604,7 +2604,7 @@ static int expression_word_try_use_self(lily_parse_state *parser)
                been found in the flat scope search. So this is a variant of a
                scoped enum. Do not count this so that the variant names have to
                be scoped at all times. */
-            else if (item->item_kind == ITEM_TYPE_VARIANT)
+            else if (item->item_kind & ITEM_IS_VARIANT)
                 item = NULL;
         }
     }
@@ -2614,7 +2614,7 @@ static int expression_word_try_use_self(lily_parse_state *parser)
 
 static void expression_word_ctor(lily_parse_state *parser, lily_class *cls)
 {
-    if (cls->flags & CLS_IS_ENUM)
+    if (cls->item_kind & ITEM_IS_ENUM)
         lily_raise_syn(parser->raiser,
                 "Cannot implicitly use the constructor of an enum.");
 
@@ -2665,11 +2665,11 @@ static void expression_word_as_class(lily_parse_state *parser, lily_class *cls,
                 lex->label);
     }
 
-    if (item->item_kind == ITEM_TYPE_VAR)
+    if (item->item_kind == ITEM_VAR)
         lily_es_push_static_func(parser->expr, (lily_var *)item);
-    else if (item->item_kind == ITEM_TYPE_VARIANT)
+    else if (item->item_kind & ITEM_IS_VARIANT)
         lily_es_push_variant(parser->expr, (lily_variant_class *)item);
-    else if (item->item_kind == ITEM_TYPE_PROPERTY)
+    else if (item->item_kind == ITEM_PROPERTY)
         lily_raise_syn(parser->raiser,
                 "Cannot use a class property without a class instance.");
 }
@@ -2711,7 +2711,7 @@ static void expression_word(lily_parse_state *parser, int *state)
         /* If the name given is a module, there could be more submodules after
            it to look through. Walk the modules, then do another search in the
            final module. */
-        if (sym->item_kind == ITEM_TYPE_MODULE) {
+        if (sym->item_kind == ITEM_MODULE) {
             m = resolve_module(parser, (lily_module_entry *)sym);
             sym = find_existing_sym(m, name);
         }
@@ -2737,9 +2737,9 @@ static void expression_word(lily_parse_state *parser, int *state)
         sym = (lily_sym *)try_toplevel_dynaload(parser, m, name);
 
     if (sym) {
-        if (sym->item_kind == ITEM_TYPE_VAR)
+        if (sym->item_kind == ITEM_VAR)
             expression_word_as_var(parser, (lily_var *)sym, state);
-        else if (sym->item_kind == ITEM_TYPE_VARIANT)
+        else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else
             expression_word_as_class(parser, (lily_class *)sym, state);
@@ -2757,7 +2757,7 @@ static void expression_property(lily_parse_state *parser, int *state)
         current_class = parser->class_self_type->cls;
 
     if (current_class == NULL ||
-        current_class->item_kind != ITEM_TYPE_CLASS)
+        current_class->item_kind != ITEM_CLASS_NATIVE)
         lily_raise_syn(parser->raiser,
                 "Properties cannot be used outside of a class constructor.");
 
@@ -2773,7 +2773,7 @@ static void expression_property(lily_parse_state *parser, int *state)
         lily_raise_syn(parser->raiser, "Property %s is not in class %s.%s",
                 name, current_class->name, extra);
     }
-    else if (sym->item_kind == ITEM_TYPE_VAR) {
+    else if (sym->item_kind == ITEM_VAR) {
         lily_raise_syn(parser->raiser,
                 "Cannot access a method as a property (use %s instead of @%s).",
                 name, name);
@@ -3482,7 +3482,7 @@ static lily_var *get_local_var(lily_parse_state *parser, lily_type *var_type)
 static void error_member_redeclaration(lily_parse_state *parser,
         lily_class *cls, lily_named_sym *sym)
 {
-    if (sym->item_kind == ITEM_TYPE_VAR)
+    if (sym->item_kind == ITEM_VAR)
         lily_raise_syn(parser->raiser,
                 "A method in class '%s' already has the name '%s'.",
                 cls->name, sym->name);
@@ -3499,7 +3499,7 @@ static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
     if (sym->flags & SYM_SCOPE_PRIVATE) {
         lily_class *parent;
 
-        if (sym->item_kind == ITEM_TYPE_VAR)
+        if (sym->item_kind == ITEM_VAR)
             parent = ((lily_var *)sym)->parent;
         else
             parent = ((lily_prop_entry *)sym)->parent;
@@ -4340,7 +4340,7 @@ static void link_import_syms(lily_parse_state *parser,
             lily_raise_syn(parser->raiser,
                     "Cannot find symbol '%s' inside of module '%s'.",
                     search_name, source->loadname);
-        else if (sym->item_kind == ITEM_TYPE_MODULE)
+        else if (sym->item_kind == ITEM_MODULE)
             lily_raise_syn(parser->raiser,
                     "Not allowed to directly import modules ('%s').",
                     search_name);
@@ -4627,7 +4627,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
     lily_module_entry *m = parser->symtab->active_module;
     lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
 
-    if (item && item->item_kind != ITEM_TYPE_VAR) {
+    if (item && item->item_kind != ITEM_VAR) {
         const char *prefix;
         const char *suffix;
         const char *what = "";
@@ -4635,10 +4635,9 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
 
         /* Only classes, enums, and variants will reach here. Find out which one
            and report accordingly. */
-        if (item->item_kind == ITEM_TYPE_CLASS ||
-            item->item_kind == ITEM_TYPE_ENUM)
+        if (item->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM))
             cls = (lily_class *)item;
-        else if (item->item_kind == ITEM_TYPE_VARIANT)
+        else if (item->item_kind & ITEM_IS_VARIANT)
             cls = ((lily_variant_class *)item)->parent;
 
         if (cls->module == parser->symtab->builtin_module) {
@@ -4650,15 +4649,15 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
             suffix = "has already been declared.";
         }
 
-        if (item->item_kind == ITEM_TYPE_CLASS)
+        if (item->item_kind & ITEM_IS_CLASS)
             what = " class";
-        else if (item->item_kind == ITEM_TYPE_ENUM) {
+        else if (item->item_kind & ITEM_IS_ENUM) {
             if (cls->line_num == 0)
                 what = " enum";
             else
                 what = "n enum";
         }
-        else if (item->item_kind == ITEM_TYPE_VARIANT)
+        else if (item->item_kind & ITEM_IS_VARIANT)
             what = " variant";
 
         lily_raise_syn(parser->raiser, "%s%s named '%s' %s", prefix, what, name,
@@ -4676,8 +4675,7 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
 
     if (super_class == cls)
         lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
-    else if (super_class->item_kind == ITEM_TYPE_VARIANT ||
-             super_class->flags & (CLS_IS_ENUM | CLS_IS_FOREIGN))
+    else if (super_class->item_kind != ITEM_CLASS_NATIVE)
         lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
                 lex->label);
 
@@ -4693,7 +4691,7 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
         lily_named_sym *sym = cls->members;
 
         while (sym) {
-            if (sym->item_kind == ITEM_TYPE_PROPERTY) {
+            if (sym->item_kind == ITEM_PROPERTY) {
                 /* Shorthand properties have already been checked for uniqueness
                    against each other. Now that a parent class is known, check
                    for uniqueness there too. */
@@ -4823,7 +4821,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     call_var->flags &= ~SYM_NOT_INITIALIZED;
 
-    if (cls->members->item_kind == ITEM_TYPE_PROPERTY)
+    if (cls->members->item_kind == ITEM_PROPERTY)
         lily_emit_write_shorthand_ctor(parser->emit, cls,
                 parser->symtab->active_module->var_chain, lex->line_num);
 
@@ -4881,7 +4879,7 @@ static void determine_class_gc_flag(lily_parse_state *parser,
     lily_named_sym *member_iter = target->members;
 
     while (member_iter) {
-        if (member_iter->item_kind == ITEM_TYPE_PROPERTY)
+        if (member_iter->item_kind == ITEM_PROPERTY)
             mark |= get_gc_flags_for(member_iter->type);
 
         member_iter = member_iter->next;
@@ -4939,7 +4937,7 @@ static void parse_variant_header(lily_parse_state *parser,
     lily_tm_add(parser->tm, variant_cls->parent->self_type);
     collect_call_args(parser, variant_cls, F_COLLECT_VARIANT);
 
-    variant_cls->flags &= ~CLS_EMPTY_VARIANT;
+    variant_cls->item_kind = ITEM_VARIANT_FILLED;
 }
 
 static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
@@ -4964,7 +4962,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
             lex->line_num);
 
     if (is_scoped)
-        enum_cls->flags |= CLS_ENUM_IS_SCOPED;
+        enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
@@ -5071,7 +5069,7 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_word)
-    if (match_class->flags & CLS_ENUM_IS_SCOPED) {
+    if (match_class->item_kind == ITEM_ENUM_SCOPED) {
         if (strcmp(match_class->name, lex->label) != 0)
             lily_raise_syn(parser->raiser,
                     "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
@@ -5097,7 +5095,7 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
     lily_emit_write_match_case(parser->emit, match_sym,
             (lily_class *)variant_case);
 
-    if ((variant_case->flags & CLS_EMPTY_VARIANT) == 0) {
+    if (variant_case->item_kind == ITEM_VARIANT_FILLED) {
         lily_type *build_type = variant_case->build_type;
         lily_type_system *ts = parser->emit->ts;
 
@@ -5152,7 +5150,7 @@ static void error_incomplete_match(lily_parse_state *parser,
             "Match pattern not exhaustive. The following case(s) are missing:");
 
     while (sym_iter) {
-        if (sym_iter->item_kind == ITEM_TYPE_VARIANT) {
+        if (sym_iter->item_kind & ITEM_IS_VARIANT) {
             for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
                 if (sym_iter->id == match_cases[i])
                     break;
@@ -5228,7 +5226,7 @@ static void keyword_match(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "'match' must start with a case.");
 
     lily_sym *match_sym = parser->expr->root->result;
-    int is_enum = match_sym->type->cls->flags & CLS_IS_ENUM;
+    int is_enum = match_sym->type->cls->item_kind & ITEM_IS_ENUM;
     int have_else = 0, case_count = 0, enum_case_max = 0;
 
     if (is_enum)

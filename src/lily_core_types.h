@@ -63,7 +63,7 @@ typedef struct lily_type_ {
        This should not be traversed if this is a class in disguise. */
     struct lily_type_ *next;
 
-    /* If this really is a type, this is ITEM_TYPE_TYPE. */
+    /* If this really is a type, this is ITEM_TYPE. */
     uint16_t item_kind;
     /* See TYPE_* flags. */
     uint16_t flags;
@@ -87,7 +87,11 @@ typedef struct lily_type_ {
 typedef struct lily_class_ {
     struct lily_class_ *next;
 
-    /* This is ITEM_TYPE_CLASS or ITEM_TYPE_ENUM. */
+    /* This is one of the following:
+       ITEM_CLASS_FOREIGN: Class with a foreign representation.
+       ITEM_CLASS_NATIVE:  Inheritable class which may have properties.
+       ITEM_ENUM_FLAT:     Enum with variants visible at toplevel.
+       ITEM_ENUM_SCOPED:   Enum with namespaced variants. */
     uint16_t item_kind;
     /* See CLS_* flags. */
     uint16_t flags;
@@ -146,7 +150,9 @@ typedef struct lily_class_ {
 typedef struct {
     lily_named_sym *next;
 
-    /* This is always ITEM_TYPE_VARIANT. */
+    /* This is one of the following:
+       ITEM_VARIANT_EMPTY: The variant does not take arguments (ex: `None`).
+       ITEM_VARIANT_FILLED: The variant takes 1+ arguments (ex: `Some`). */
     uint16_t item_kind;
     /* See CLS_* flags. */
     uint16_t flags;
@@ -178,7 +184,7 @@ typedef struct {
 typedef struct {
     lily_named_sym *next;
 
-    /* This is always ITEM_TYPE_PROPERTY. */
+    /* This is always ITEM_PROPERTY. */
     uint16_t item_kind;
     /* See SYM_* flags. */
     uint16_t flags;
@@ -198,7 +204,7 @@ typedef struct {
 typedef struct lily_var_ {
     struct lily_var_ *next;
 
-    /* This is always ITEM_TYPE_VAR. */
+    /* This is always ITEM_VAR. */
     uint16_t item_kind;
     /* See VAR_* flags. */
     uint16_t flags;
@@ -251,7 +257,7 @@ typedef struct lily_module_entry_ {
     /* All modules loaded are linked together through here. */
     struct lily_module_entry_ *next;
 
-    /* This is always ITEM_TYPE_MODULE. */
+    /* This is always ITEM_MODULE. */
     uint16_t item_kind;
     /* See MODULE_* flags. */
     uint16_t flags;
@@ -337,17 +343,23 @@ typedef struct lily_proto_ {
 } lily_proto;
 
 
-/* ITEM_TYPE_* flags are for item_kind. */
+/* ITEM_* flags are for item_kind. */
 
 
-#define ITEM_TYPE_CLASS    1
-#define ITEM_TYPE_ENUM     2
-#define ITEM_TYPE_MODULE   3
-#define ITEM_TYPE_PROPERTY 4
-#define ITEM_TYPE_STORAGE  5
-#define ITEM_TYPE_TYPE     6
-#define ITEM_TYPE_VAR      7
-#define ITEM_TYPE_VARIANT  8
+#define ITEM_CLASS_FOREIGN  0x001
+#define ITEM_CLASS_NATIVE   0x002
+#define ITEM_ENUM_FLAT      0x004
+#define ITEM_ENUM_SCOPED    0x008
+#define ITEM_IS_CLASS       (ITEM_CLASS_FOREIGN | ITEM_CLASS_NATIVE)
+#define ITEM_IS_ENUM        (ITEM_ENUM_FLAT | ITEM_ENUM_SCOPED)
+#define ITEM_IS_VARIANT     (ITEM_VARIANT_EMPTY | ITEM_VARIANT_FILLED)
+#define ITEM_MODULE         0x010
+#define ITEM_PROPERTY       0x020
+#define ITEM_STORAGE        0x040
+#define ITEM_TYPE           0x080
+#define ITEM_VAR            0x100
+#define ITEM_VARIANT_EMPTY  0x200
+#define ITEM_VARIANT_FILLED 0x400
 
 
 /* TYPE_* flags are for lily_type. */
@@ -381,23 +393,11 @@ typedef struct lily_proto_ {
    can be types, these start after TYPE_* flags. */
 
 
-#define CLS_IS_ENUM        0x0080
-
 /* This class can become circular, so instances must have a gc tag. */
 #define CLS_GC_TAGGED      0x0100
 
 /* This class might have circular data inside of it. */
 #define CLS_GC_SPECULATIVE 0x0200
-
-/* This class is an enum AND the variants within are scoped. The difference is
-   that scoped variants are accessed using 'enum.variant', while normal
-   variants can use just 'variant'. */
-#define CLS_ENUM_IS_SCOPED 0x0400
-
-#define CLS_EMPTY_VARIANT  0x0800
-
-/* This class does not have an inheritable representation. */
-#define CLS_IS_FOREIGN     0x1000
 
 /* This is a temporary flag set when parser is checking of a class should have a
    gc mark/interest flag set on it. */

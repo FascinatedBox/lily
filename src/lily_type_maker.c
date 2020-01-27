@@ -23,7 +23,7 @@ lily_type_maker *lily_new_type_maker(void)
 lily_type *lily_new_raw_type(lily_class *cls)
 {
     lily_type *new_type = lily_malloc(sizeof(*new_type));
-    new_type->item_kind = ITEM_TYPE_TYPE;
+    new_type->item_kind = ITEM_TYPE;
     new_type->cls = cls;
     new_type->flags = 0;
     new_type->generic_pos = 0;
@@ -148,7 +148,7 @@ lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls, int num_entries)
 
     lily_type *result_type = lookup_type(&fake_type);
     if (result_type == NULL) {
-        fake_type.item_kind = ITEM_TYPE_TYPE;
+        fake_type.item_kind = ITEM_TYPE;
         result_type = build_real_type_for(&fake_type);
     }
 
@@ -170,7 +170,7 @@ lily_type *lily_tm_make_call(lily_type_maker *tm, int flags, lily_class *cls,
 
     lily_type *result_type = lookup_type(&fake_type);
     if (result_type == NULL) {
-        fake_type.item_kind = ITEM_TYPE_TYPE;
+        fake_type.item_kind = ITEM_TYPE;
         result_type = build_real_type_for(&fake_type);
     }
 
