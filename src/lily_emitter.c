@@ -4108,26 +4108,19 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         error_argument_count(emit, ast, -1, min, max);
     }
 
-    lily_u16_write_2(emit->code, o_load_empty_variant, variant->cls_id);
+    /* An empty variant's build type is the enum self type with any generics
+       being solved with ?. Use that unless there's inference to pull from. */
+    lily_type *storage_type = variant->build_type;
 
-    lily_type *storage_type = variant->parent->self_type;
-
-    if (storage_type->subtype_count) {
-        lily_ts_save_point p;
-        lily_ts_scope_save(emit->ts, &p);
-
-        /* Since the variant has no opinion on generics, try to pull any
-           inference possible before defaulting to ?. */
-        if (expect && expect->cls == variant->parent)
-            lily_ts_check(emit->ts, storage_type, expect);
-
-        storage_type = lily_ts_resolve(emit->ts, storage_type);
-
-        lily_ts_scope_restore(emit->ts, &p);
-    }
+    if (storage_type->flags & TYPE_IS_INCOMPLETE &&
+        expect &&
+        expect->cls == variant->parent)
+        storage_type = expect;
 
     lily_storage *s = get_storage(emit, storage_type);
-    lily_u16_write_2(emit->code, s->reg_spot, ast->line_num);
+
+    lily_u16_write_4(emit->code, o_load_empty_variant, variant->cls_id,
+                s->reg_spot, ast->line_num);
     ast->result = (lily_sym *)s;
 }
 

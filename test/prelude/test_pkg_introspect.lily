@@ -644,7 +644,7 @@ class TestPkgIntrospect < TestCase
                   :name "FlatNone",
                   :path "symbols.lily",
                   :scoped "false",
-                  :type "FlatNone")
+                  :type "FlatOption[?]")
         """)
 
         # variant entry (check local scoped variants)
@@ -662,7 +662,7 @@ class TestPkgIntrospect < TestCase
                   :name "LocalScopedNone",
                   :path "[test]",
                   :scoped "true",
-                  :type "LocalScopedNone")
+                  :type "LocalScopedOption")
         """)
 
         # variant entry (check local scoped variants)
@@ -680,7 +680,7 @@ class TestPkgIntrospect < TestCase
                   :name "LocalFlatNone",
                   :path "[test]",
                   :scoped "false",
-                  :type "LocalFlatNone")
+                  :type "LocalFlatOption")
         """)
     }
 }

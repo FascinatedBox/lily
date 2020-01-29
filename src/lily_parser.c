@@ -1692,6 +1692,26 @@ static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
     return result;
 }
 
+static lily_type *build_empty_variant_type(lily_parse_state *parser,
+        lily_class *enum_cls)
+{
+    lily_type_maker *tm = parser->tm;
+    lily_type *result;
+    uint16_t i = 0;
+    uint16_t count = (uint16_t)enum_cls->generic_count;
+
+    if (count) {
+        for (i = 0;i < count;i++)
+            lily_tm_add(tm, lily_question_type);
+
+        result = lily_tm_make(tm, enum_cls, count);
+    }
+    else
+        result = enum_cls->self_type;
+
+    return result;
+}
+
 typedef lily_type *(*collect_fn)(lily_parse_state *, int *);
 
 static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
@@ -1859,6 +1879,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
+static lily_type *build_empty_variant_type(lily_parse_state *, lily_class *);
 
 /* [0...1] of a dynaload are used for header information. */
 #define DYNA_NAME_OFFSET 2
@@ -2094,6 +2115,7 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     enum_cls->dyna_start = dyna_index + 1;
 
     int variant_count = 0;
+    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
 
     do {
         entry_index++;
@@ -2112,6 +2134,8 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
         if (lex->token == tk_left_parenth)
             parse_variant_header(parser, variant_cls);
+        else
+            variant_cls->build_type = empty_type;
 
         entry_index++;
         variant_count++;
@@ -4981,6 +5005,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     lily_next_token(lex);
 
     int variant_count = 0;
+    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
@@ -5005,6 +5030,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
         lily_next_token(lex);
         if (lex->token == tk_left_parenth)
             parse_variant_header(parser, variant_cls);
+        else
+            variant_cls->build_type = empty_type;
 
         if (lex->token == tk_right_curly)
             break;

@@ -159,8 +159,8 @@ typedef struct {
     uint16_t cls_id;
     uint16_t type_subtype_count;
 
-    /* If this is an empty variant, this is the variant cast to a type. The type
-       must not be inserted into the type system.
+    /* If this is an empty variant, this is the enum's self type with any
+       generics solved using ?.
        If this is a variant that takes arguments, this is a `Function` that
        takes those arguments and returns the enum's self type. */
     lily_type *build_type;
