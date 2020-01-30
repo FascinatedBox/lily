@@ -65,7 +65,6 @@ typedef struct lily_type_ {
 
     /* If this really is a type, this is ITEM_TYPE. */
     uint16_t item_kind;
-    /* See TYPE_* flags. */
     uint16_t flags;
     /* If this type is a generic, this is the id (A = 0, B = 1, ...). */
     uint16_t generic_pos;
@@ -93,7 +92,6 @@ typedef struct lily_class_ {
        ITEM_ENUM_FLAT:     Enum with variants visible at toplevel.
        ITEM_ENUM_SCOPED:   Enum with namespaced variants. */
     uint16_t item_kind;
-    /* See CLS_* flags. */
     uint16_t flags;
     uint16_t id;
     /* For monomorphic classes/enums, this is always 0. */
@@ -154,7 +152,6 @@ typedef struct {
        ITEM_VARIANT_EMPTY: The variant does not take arguments (ex: `None`).
        ITEM_VARIANT_FILLED: The variant takes 1+ arguments (ex: `Some`). */
     uint16_t item_kind;
-    /* See CLS_* flags. */
     uint16_t flags;
     uint16_t cls_id;
     uint16_t type_subtype_count;
@@ -186,7 +183,6 @@ typedef struct {
 
     /* This is always ITEM_PROPERTY. */
     uint16_t item_kind;
-    /* See SYM_* flags. */
     uint16_t flags;
     uint16_t id;
     uint16_t pad;
@@ -206,7 +202,6 @@ typedef struct lily_var_ {
 
     /* This is always ITEM_VAR. */
     uint16_t item_kind;
-    /* See VAR_* flags. */
     uint16_t flags;
     /* Every class method, defined function, and lambda occupies a spot in the
        vm's readonly table. For those, this is their position in that table.
@@ -259,7 +254,6 @@ typedef struct lily_module_entry_ {
 
     /* This is always ITEM_MODULE. */
     uint16_t item_kind;
-    /* See MODULE_* flags. */
     uint16_t flags;
     uint16_t pad;
     /* This is set to the length of the path. When searching for modules by path
@@ -362,129 +356,6 @@ typedef struct lily_proto_ {
 #define ITEM_VARIANT_FILLED 0x400
 
 
-/* TYPE_* flags are for lily_type. */
-
-
-/* If set, the type is a function that takes a variable number of values. */
-#define TYPE_IS_VARARGS    0x01
-
-/* This is set on a type when it is a generic (ex: A, B, ...), or when it
-   contains generics at some point. Emitter and vm use this as a fast way of
-   checking if a type needs to be resolved or not. */
-#define TYPE_IS_UNRESOLVED 0x02
-
-/* This is set on function types that have at least one optional argument. This
-   is set so that emitter and ts can easily figure out if the function doesn't
-   have to take some arguments. */
-#define TYPE_HAS_OPTARGS   0x04
-
-/* This is not a valid type for a var or a valid solution for generics. */
-#define TYPE_TO_BLOCK      0x08
-
-/* This is set on a type that either is the ? type, or has a type that contains
-   the ? type within it. */
-#define TYPE_IS_INCOMPLETE 0x10
-
-/* This is a scoop type, or has one inside somewhere. */
-#define TYPE_HAS_SCOOP     0x20
-
-
-/* CLS_* flags are for lily_class and lily_variant_class. Since both of those
-   can be types, these start after TYPE_* flags. */
-
-
-/* This class can become circular, so instances must have a gc tag. */
-#define CLS_GC_TAGGED      0x0100
-
-/* This class might have circular data inside of it. */
-#define CLS_GC_SPECULATIVE 0x0200
-
-/* This is a temporary flag set when parser is checking of a class should have a
-   gc mark/interest flag set on it. */
-#define CLS_VISITED        0x2000
-
-/* If either of these flag values change, then VAL_FROM_CLS_GC_SHIFT must be
-   updated. */
-#define CLS_GC_FLAGS       (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)
-
-
-/* SYM_* flags apply to lily_prop_entry, lily_var, and lily_storage. */
-
-
-/* This is set on vars by parser to prevent them from self initializing. */
-#define SYM_NOT_INITIALIZED 0x01
-
-/* This is set on storages by emitter to prevent assignment. This blocks code
-   such as `[1, 2, 3][0] = 4` or `somefunc() = 2`. */
-#define SYM_NOT_ASSIGNABLE  0x02
-
-/* This var or property is private. If this and the protected flag are both
-   absent, the var or property is public. */
-#define SYM_SCOPE_PRIVATE   0x04
-
-/* This var or property is protected. */
-#define SYM_SCOPE_PROTECTED 0x08
-
-
-/* STORAGE_* flags are for lily_storage. */
-
-
-/* Storages that are locked will not be overwritten by another value. */
-#define STORAGE_IS_LOCKED 0x100
-
-
-/* VAR_* flags only apply to lily_var and start after SYM_* flags. */
-
-
-/* This is set on vars which will be used to hold the value of a defined
-   function, a lambda, or a class constructor. Vars with this flag cannot be
-   assigned to. Additionally, the reg_spot they contain is actually a spot in
-   the vm's 'readonly_table'. */
-#define VAR_IS_READONLY       0x020
-
-/* This flag is set on defined functions that are found inside of other defined
-   functions. Calling a function with this tag may involve the use of closures,
-   so the emitter needs to wrap the given function so that it will have closure
-   information. */
-#define VAR_NEEDS_CLOSURE     0x040
-
-/* Global vars need o_get_global/o_set_global opcodes to get/set them. */
-#define VAR_IS_GLOBAL         0x080
-
-/* This var holds a function that isn't defined in Lily. This is used by the
-   emitter to write specialized code when the target is known to be a foreign
-   function. */
-#define VAR_IS_FOREIGN_FUNC   0x100
-
-/* Static functions don't receive an implicit 'self'. */
-#define VAR_IS_STATIC         0x200
-
-/* This is an incomplete forward declaration. */
-#define VAR_IS_FORWARD        0x400
-
-/* Don't put this var inside of a closure. This is set on class constructor
-   parameters to prevent class methods from referencing them. Preventing this
-   makes implementing closures much easier. */
-#define VAR_CANNOT_BE_UPVALUE 0x800
-
-
-/* MODULE_* flags only apply to lily_module_entry. */
-
-
-/* This module was added by being registered. */
-#define MODULE_IS_REGISTERED 0x1
-
-/* This is a new module that hasn't been fully executed yet. */
-#define MODULE_NOT_EXECUTED  0x2
-
-/* This module is currently being executed. */
-#define MODULE_IN_EXECUTION  0x4
-
-/* This is a module that is defined in Lily's core like math or sys. This module
-   is available everywhere. */
-#define MODULE_IS_PREDEFINED 0x8
-
-
 /* These are important ids in the interpreter. */
 
 
@@ -495,5 +366,127 @@ typedef struct lily_proto_ {
 #define LILY_ID_GENERIC    65531
 #define LILY_ID_OPTARG     65532
 #define LILY_ID_SCOOP      65534
+
+
+/* Here are the symbol flags that are not shared. */
+
+
+/* MODULE_* flags are for lily_module_entry. */
+
+
+/* This module is currently being executed. */
+#define MODULE_IN_EXECUTION  0x1
+
+/* This is a module that is defined in Lily's core like math or sys. This module
+   is available everywhere. */
+#define MODULE_IS_PREDEFINED 0x2
+
+/* This module was added by being registered. */
+#define MODULE_IS_REGISTERED 0x4
+
+/* This is a new module that hasn't been fully executed yet. */
+#define MODULE_NOT_EXECUTED  0x8
+
+
+/* TYPE_* flags are for lily_type. Since lily_class can present itself as
+   lily_type, these flags must not conflict with TYPE_* flags. */
+
+
+/* This is a `Function` that has at least one optional argument. */
+#define TYPE_HAS_OPTARGS   0x01
+
+/* This is the scoop type, or has the scoop type inside. */
+#define TYPE_HAS_SCOOP     0x02
+
+/* This is the ? type or has ? inside of it. This type is used as a placeholder
+   when full type information is not known yet. */
+#define TYPE_IS_INCOMPLETE 0x04
+
+/* This is a generic type or has generic types inside. */
+#define TYPE_IS_UNRESOLVED 0x08
+
+/* This is a `Function` that takes a variable number of arguments. */
+#define TYPE_IS_VARARGS    0x10
+
+/* This is not a valid type for a var or a valid solution for generics. */
+#define TYPE_TO_BLOCK      0x20
+
+
+/* CLS_* flags are for lily_class. */
+
+
+/* This class can become circular, so instances must have a gc tag. */
+#define CLS_GC_TAGGED      0x040
+
+/* This class might have circular data inside of it. */
+#define CLS_GC_SPECULATIVE 0x080
+
+/* If either of these flag values change, then VAL_FROM_CLS_GC_SHIFT must be
+   updated. */
+#define CLS_GC_FLAGS       (CLS_GC_SPECULATIVE | CLS_GC_TAGGED)
+
+/* This is a temporary flag set when parser is checking if a class should have a
+   gc mark/interest flag set on it. */
+#define CLS_VISITED        0x100
+
+
+/* lily_prop_entry does not have any flags. */
+
+
+/* STORAGE_* flags are for lily_storage. */
+
+
+/* Storages that are locked will not be overwritten by another value. */
+#define STORAGE_IS_LOCKED 0x1
+
+
+/* VAR_* flags are for lily_var. */
+
+
+/* This var is a defined function, lambda, or method. The reg_spot field is the
+   var's position in the vm's readonly table. */
+#define VAR_IS_READONLY       0x01
+
+/* This is set on outer definitions when entering another definition or a
+   lambda. This lets emitter know to send closure information. */
+#define VAR_NEEDS_CLOSURE     0x02
+
+/* Vars declared outside of a callable scope are global. */
+#define VAR_IS_GLOBAL         0x04
+
+/* This is a function or method not defined with native Lily code. */
+#define VAR_IS_FOREIGN_FUNC   0x10
+
+/* Static methods don't receive an implicit self. */
+#define VAR_IS_STATIC         0x20
+
+/* This is a forward definition that hasn't been resolved yet. */
+#define VAR_IS_FORWARD        0x40
+
+/* Class constructor parameters are not allowed in closures to make closures
+   easier to implement. */
+#define VAR_CANNOT_BE_UPVALUE 0x80
+
+
+/* lily_variant_class does not have any flags. */
+
+
+/* The remaining flags apply to at least two or more groups of symbols. */
+
+
+/* Emitter sets this on storages to block assignments to defined functions and
+   assignments that make no sense (`[1, 2, 3] = []`). */
+#define SYM_NOT_ASSIGNABLE  0x100
+
+/* Parser sets this on vars and properties to prevent self initialization
+   (`var a = a`). */
+#define SYM_NOT_INITIALIZED 0x200
+
+/* This var or property is private. If this and the protected flag are both
+   absent, the var or property is public. */
+#define SYM_SCOPE_PRIVATE   0x400
+
+/* This var or property is protected. */
+#define SYM_SCOPE_PROTECTED 0x800
 
 #endif

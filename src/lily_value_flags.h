@@ -75,6 +75,6 @@
 
 /* How much do the CLS flags from lily_class need to be shifted to become vm
    VAL gc flags? */
-#define VAL_FROM_CLS_GC_SHIFT   8
+#define VAL_FROM_CLS_GC_SHIFT   10
 
 #endif
