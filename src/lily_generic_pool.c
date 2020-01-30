@@ -61,17 +61,17 @@ static lily_class *find_in_cache(lily_generic_pool *gp, const char *name,
     return NULL;
 }
 
-void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
+lily_type *lily_gp_push(lily_generic_pool *gp, const char *name, int pos)
 {
     int i;
-    lily_class *result = find_in_cache(gp, name, generic_pos, &i);
+    lily_class *result = find_in_cache(gp, name, pos, &i);
 
     if (result == NULL) {
         lily_class *new_generic = lily_new_raw_class(name, 0);
         lily_type *t = lily_new_raw_type(new_generic);
 
         t->flags |= TYPE_IS_UNRESOLVED;
-        t->generic_pos = generic_pos;
+        t->generic_pos = pos;
 
         new_generic->id = LILY_ID_GENERIC;
         new_generic->self_type = t;
@@ -103,6 +103,8 @@ void lily_gp_push(lily_generic_pool *gp, const char *name, int generic_pos)
 
     gp->scope_generics[gp->scope_end] = result;
     gp->scope_end++;
+
+    return result->self_type;
 }
 
 lily_class *lily_gp_find(lily_generic_pool *gp, const char *name)

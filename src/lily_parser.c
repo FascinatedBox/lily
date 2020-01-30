@@ -1610,85 +1610,65 @@ static lily_type *type_by_name(lily_parse_state *parser, const char *name)
     return result;
 }
 
-/* This is called at the start of a class or define. If '[' is present, then
-   generics are collected. Any collection starts from the current scope's
-   generics (so that one does not need to re-specify A if a caller does). */
-static void collect_generics(lily_parse_state *parser)
+/* This is called at the start of a define, class, or enum to collect the
+   generics between square brackets. Collection begins at the current point so
+   that class/enum methods don't need to specify generics again. */
+static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
 
-    if (lex->token == tk_left_bracket) {
-        char ch = 'A' + lily_gp_num_in_scope(parser->generics);
-        char name[] = {ch, '\0'};
+    if (lex->token != tk_left_bracket)
+        return;
 
-        while (1) {
-            NEED_NEXT_TOK(tk_word)
-            if (lex->label[0] != ch || lex->label[1] != '\0') {
-                if (ch == 'Z' + 1) {
-                    lily_raise_syn(parser->raiser, "Too many generics.");
-                }
-                else {
-                    lily_raise_syn(parser->raiser,
-                            "Invalid generic name (wanted %s, got %s).",
-                            name, lex->label);
-                }
-            }
+    lily_type_maker *tm = parser->tm;
+    char ch = 'A' + lily_gp_num_in_scope(parser->generics);
+    char name[] = {ch, '\0'};
 
-            lily_gp_push(parser->generics, name, ch - 'A');
-            lily_next_token(lex);
+    while (1) {
+        NEED_NEXT_TOK(tk_word)
 
-            /* ch has to be updated before finishing, because 'seen' depends on
-               it. Having the wrong # of generics seen (even if off by one)
-               causes strange and major problems. */
-            ch++;
-
-            if (lex->token == tk_right_bracket) {
-                lily_next_token(lex);
-                break;
-            }
-            else if (lex->token != tk_comma)
+        if (lex->label[0] != ch || lex->label[1] != '\0') {
+            if (ch == 'Z' + 1)
+                lily_raise_syn(parser->raiser, "Too many generics.");
+            else {
                 lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ']', not '%s'.",
-                        tokname(lex->token));
-
-            name[0] = ch;
-        }
-        int seen = ch - 'A';
-        lily_ts_generics_seen(parser->emit->ts, seen);
-    }
-}
-
-/* This is called when creating a class and after any generics have been
-   collected.
-   If the class has generics, then the self type will be a type of the class
-   which has all of those generics:
-   `class Box[A]` == `Box[A]`
-   `enum Result[A, B]` == `Result[A, B]`.
-   If the class doesn't have generics, the self type is set and there's nothing
-   to do. */
-static lily_type *build_self_type(lily_parse_state *parser, lily_class *cls)
-{
-    lily_generic_pool *gp = parser->generics;
-    uint16_t generics_used = lily_gp_num_in_scope(gp);
-    lily_type *result;
-
-    if (generics_used) {
-        char name[] = {'A', '\0'};
-        while (generics_used) {
-            lily_class *lookup_cls = lily_gp_find(gp, name);
-
-            lily_tm_add(parser->tm, lookup_cls->self_type);
-            name[0]++;
-            generics_used--;
+                        "Invalid generic name (wanted %s, got %s).",
+                        name, lex->label);
+            }
         }
 
-        result = lily_tm_make(parser->tm, cls, (name[0] - 'A'));
-        cls->self_type = result;
-    }
-    else
-        result = cls->self_type;
+        lily_type *g = lily_gp_push(parser->generics, name, ch - 'A');
 
-    return result;
+        lily_next_token(lex);
+        /* ch has to be updated before finishing, because 'seen' depends on
+           it. Having the wrong # of generics seen (even if off by one)
+           causes strange and major problems. */
+        ch++;
+
+        if (cls)
+            lily_tm_add(tm, g);
+
+        if (lex->token == tk_right_bracket) {
+            lily_next_token(lex);
+            break;
+        }
+        else if (lex->token != tk_comma)
+            lily_raise_syn(parser->raiser,
+                    "Expected either ',' or ']', not '%s'.",
+                    tokname(lex->token));
+
+        name[0] = ch;
+    }
+
+    uint16_t seen = ch - 'A';
+
+    /* ts needs to know how many slots to reserve for solving generics. */
+    lily_ts_generics_seen(parser->emit->ts, seen);
+
+    if (cls) {
+        cls->generic_count = seen;
+        cls->self_type = lily_tm_make(tm, cls, seen);
+    }
 }
 
 static lily_type *build_empty_variant_type(lily_parse_state *parser,
@@ -2008,7 +1988,7 @@ static void dynaload_function(lily_parse_state *parser, lily_module_entry *m,
 
     lily_lexer_load(lex, et_shallow_string, body);
     lily_next_token(lex);
-    collect_generics(parser);
+    collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
     collect_call_args(parser, var, F_COLLECT_DYNALOAD);
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
@@ -2090,12 +2070,11 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     lily_lexer_load(lex, et_shallow_string, body);
     lily_next_token(lex);
-    collect_generics(parser);
+    collect_generics_for(parser, enum_cls);
     lily_pop_lex_entry(lex);
 
-    enum_cls->generic_count = lily_gp_num_in_scope(parser->generics);
     lily_type *save_self_type = parser->class_self_type;
-    parser->class_self_type = build_self_type(parser, enum_cls);
+    parser->class_self_type = enum_cls->self_type;
 
     /* A flat enum like Option will have a header that points past any methods
        to the variants. On the other hand, scoped enums will have a header that
@@ -2230,8 +2209,7 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     lily_class *cls = lily_new_class(parser->symtab, name, 0);
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
-    collect_generics(parser);
-    cls->generic_count = lily_gp_num_in_scope(parser->generics);
+    collect_generics_for(parser, cls);
 
     if (lex->token == tk_lt) {
         lily_next_token(lex);
@@ -3816,7 +3794,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     lily_tm_add(parser->tm, lily_unit_type);
 
     lily_next_token(lex);
-    collect_generics(parser);
+    collect_generics_for(parser, NULL);
     lily_emit_enter_call_block(parser->emit, block_define, define_var);
 
     if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
@@ -4772,12 +4750,11 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     call_var->flags |= SYM_NOT_INITIALIZED;
 
     lily_next_token(lex);
-    collect_generics(parser);
-    cls->generic_count = lily_gp_num_in_scope(parser->generics);
+    collect_generics_for(parser, cls);
 
     lily_emit_enter_call_block(parser->emit, block_class, call_var);
 
-    parser->class_self_type = build_self_type(parser, cls);
+    parser->class_self_type = cls->self_type;
 
     lily_tm_add(parser->tm, parser->class_self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
@@ -4941,15 +4918,13 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
     lily_next_token(lex);
-    collect_generics(parser);
-
-    enum_cls->generic_count = lily_gp_num_in_scope(parser->generics);
+    collect_generics_for(parser, enum_cls);
 
     /* Enums are entered as a function to make them consistent with classes. The
        call var being NULL is okay since enums won't write any code to it.  */
     lily_emit_enter_call_block(parser->emit, block_enum, NULL);
 
-    parser->class_self_type = build_self_type(parser, enum_cls);
+    parser->class_self_type = enum_cls->self_type;
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
