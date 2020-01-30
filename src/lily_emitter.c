@@ -547,7 +547,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
         /* A storage with a type of NULL is not in use and can be claimed. */
         if (s->type == NULL) {
             s->type = type;
-            s->flags = 0;
+            s->flags = SYM_NOT_ASSIGNABLE;
 
             s->reg_spot = emit->function_block->next_reg_spot;
             emit->function_block->next_reg_spot++;
@@ -564,12 +564,12 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
                  s->expr_num != expr_num &&
                  (s->flags & STORAGE_IS_LOCKED) == 0) {
             s->expr_num = expr_num;
+            s->flags = SYM_NOT_ASSIGNABLE;
             break;
         }
     }
 
     s->expr_num = expr_num;
-    s->flags &= ~SYM_NOT_ASSIGNABLE;
 
     return s;
 }
@@ -2201,6 +2201,10 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
     lily_u16_write_5(emit->code, o_property_get, prop->id,
             ast->arg_start->result->reg_spot, result->reg_spot, ast->line_num);
 
+    /* Properties are assignable if their source is assignable. */
+    if ((ast->arg_start->result->flags & SYM_NOT_ASSIGNABLE) == 0)
+        result->flags &= ~SYM_NOT_ASSIGNABLE;
+
     ast->result = (lily_sym *)result;
 }
 
@@ -2340,10 +2344,8 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
     else if (rhs_sym->item_kind == ITEM_STORAGE &&
              rhs_class == storage_class)
         s = (lily_storage *)rhs_sym;
-    else {
+    else
         s = get_storage(emit, storage_class->self_type);
-        s->flags |= SYM_NOT_ASSIGNABLE;
-    }
 
     lily_u16_write_5(emit->code, opcode, lhs_sym->reg_spot, rhs_sym->reg_spot,
             s->reg_spot, ast->line_num);
@@ -2692,6 +2694,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
             emit->function_block->self->reg_spot,
             result->reg_spot, ast->line_num);
 
+    result->flags &= ~SYM_NOT_ASSIGNABLE;
     ast->result = (lily_sym *)result;
 }
 
@@ -2812,11 +2815,12 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *result = get_storage(emit, type_for_result);
 
+    /* Subscripts are assignable if their source is assignable. */
+    if ((var_ast->result->flags & SYM_NOT_ASSIGNABLE) == 0)
+        result->flags &= ~SYM_NOT_ASSIGNABLE;
+
     lily_u16_write_5(emit->code, o_subscript_get, var_ast->result->reg_spot,
             index_ast->result->reg_spot, result->reg_spot, ast->line_num);
-
-    if (var_ast->result->flags & SYM_NOT_ASSIGNABLE)
-        result->flags |= SYM_NOT_ASSIGNABLE;
 
     ast->result = (lily_sym *)result;
 }
@@ -2872,7 +2876,6 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
                 opname(ast->op), lhs_class->name);
 
     storage = get_storage(emit, lhs_class->self_type);
-    storage->flags |= SYM_NOT_ASSIGNABLE;
 
     lily_u16_write_4(emit->code, opcode, ast->left->result->reg_spot,
             storage->reg_spot, ast->line_num);
@@ -2946,6 +2949,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         case tree_global_var:
             opcode = o_global_get;
             spot = sym->reg_spot;
+            ret->flags &= ~SYM_NOT_ASSIGNABLE;
             break;
         case tree_upvalue: {
             opcode = o_closure_get;
@@ -2956,12 +2960,12 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
                 spot = checked_close_over_var(emit, v);
 
             emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+            ret->flags &= ~SYM_NOT_ASSIGNABLE;
             break;
         }
         case tree_static_func:
             ensure_valid_scope(emit, ast);
         default:
-            ret->flags |= SYM_NOT_ASSIGNABLE;
             spot = sym->reg_spot;
             opcode = o_load_readonly;
             break;
@@ -3330,10 +3334,8 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
             }
         }
 
-        if (s == NULL) {
+        if (s == NULL)
             s = get_storage(emit, return_type);
-            s->flags |= SYM_NOT_ASSIGNABLE;
-        }
 
         ast->result = (lily_sym *)s;
     }
