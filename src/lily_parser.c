@@ -1250,7 +1250,6 @@ static void create_main_func(lily_parse_state *parser)
        module cid tables when dynaload executes. */
     parser->vm->call_chain->function = f;
     parser->toplevel_func = f;
-    parser->default_call_type = main_type;
     /* This is used by the magic constant __function__. */
     parser->emit->block->function_var = main_var;
 }
@@ -4249,17 +4248,18 @@ static void run_loaded_module(lily_parse_state *parser,
     module->flags &= ~MODULE_NOT_EXECUTED;
     module->flags |= MODULE_IN_EXECUTION;
 
-    lily_module_entry *save_active = parser->symtab->active_module;
     lily_lex_state *lex = parser->lex;
+    lily_module_entry *save_active = parser->symtab->active_module;
 
     parser->symtab->active_module = module;
 
-    /* lily_emit_enter_block will write new code to this special var. */
-    lily_var *import_var = new_native_define_var(parser, NULL, "__module__");
+    /* This is either `__main__` or another `__module__`. */
+    lily_type *module_type = parser->emit->function_block->function_var->type;
+    lily_var *module_var = new_native_define_var(parser, NULL,
+            "__module__");
 
-    import_var->type = parser->default_call_type;
-
-    lily_emit_enter_call_block(parser->emit, block_file, import_var);
+    module_var->type = module_type;
+    lily_emit_enter_call_block(parser->emit, block_file, module_var);
 
     /* The whole of the file can be thought of as one large statement. */
     lily_next_token(lex);
@@ -4286,7 +4286,7 @@ static void run_loaded_module(lily_parse_state *parser,
     /* __module__ vars and functions become global, so don't hide them. */
     lily_pop_lex_entry(parser->lex);
 
-    lily_emit_write_import_call(parser->emit, import_var);
+    lily_emit_write_import_call(parser->emit, module_var);
 
     parser->symtab->active_module = save_active;
 
