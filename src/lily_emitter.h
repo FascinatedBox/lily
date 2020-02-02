@@ -101,7 +101,10 @@ typedef struct lily_storage_ {
     /* See STORAGE_* flags. */
     uint16_t flags;
     uint16_t reg_spot;
-    uint16_t pad2;
+    /* This storage's location within the closure, or (uint16_t)-1 if this
+       storage is not in the closure. This is only used by the self of
+       class/enum methods. */
+    uint16_t closure_spot;
 
     lily_type *type;
 

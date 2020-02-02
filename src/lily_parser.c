@@ -1122,6 +1122,7 @@ static lily_var *make_new_var(lily_type *type, const char *name,
     strcpy(var->name, name);
     var->line_num = line_num;
     var->shorthash = shorthash_for_name(name);
+    var->closure_spot = (uint16_t)-1;
     var->type = type;
     var->next = NULL;
     var->parent = NULL;

@@ -209,7 +209,9 @@ typedef struct lily_var_ {
        For non-global vars, this is the spot this var occupies in the function
        it was declared in. */
     uint16_t reg_spot;
-    uint16_t pad;
+    /* This var's location within the closure, or (uint16_t)-1 if this var is
+       not closed over. */
+    uint16_t closure_spot;
 
     lily_type *type;
 
@@ -218,7 +220,7 @@ typedef struct lily_var_ {
     uint64_t shorthash;
 
     uint16_t line_num;
-    uint16_t pad2;
+    uint16_t pad;
     /* This is used to determine if a var is an upvalue, local, or global. */
     uint32_t function_depth;
 

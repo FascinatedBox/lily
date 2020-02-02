@@ -904,6 +904,9 @@ void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
 
     self->type = self_type;
     self->flags |= STORAGE_IS_LOCKED;
+    /* This isn't cleared by default because it's the only storage that can be
+       closed over. */
+    self->closure_spot = (uint16_t)-1;
     emit->function_block->self = self;
 }
 
@@ -941,12 +944,6 @@ void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
     However, it carries a side-effect of making method access need to check for
     self existing either closed over or not. **/
 
-static void close_over_sym(lily_emit_state *emit, uint16_t depth, lily_sym *sym)
-{
-    lily_u16_write_2(emit->closure_spots, sym->reg_spot, depth);
-    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
-}
-
 /* This writes o_closure_function which will create a copy of 'func_sym' but
    with closure information. 'target' is a storage where the closed-over copy
    will end up. The result cannot be cached in any way (each invocation should
@@ -975,33 +972,14 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
         lily_raise_syn(emit->raiser,
                 "Not allowed to close over variables from a class constructor.");
 
-    close_over_sym(emit, var->function_depth, (lily_sym *)var);
-    return (lily_u16_pos(emit->closure_spots) - 1) / 2;
+    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+    lily_u16_write_2(emit->closure_spots, var->reg_spot, var->function_depth);
+
+    uint16_t spot = (lily_u16_pos(emit->closure_spots) - 1) / 2;
+
+    var->closure_spot = spot;
+    return spot;
 }
-
-/* See if the given sym has been closed over.
-   Success: The spot
-   Failure: -1 */
-static int find_closed_sym_spot_raw(lily_emit_state *emit, uint16_t depth,
-        uint16_t spot)
-{
-    int result = -1, i;
-
-    for (i = 0;
-         i < lily_u16_pos(emit->closure_spots);
-         i += 2) {
-        if (lily_u16_get(emit->closure_spots, i) == spot &&
-            lily_u16_get(emit->closure_spots, i + 1) == depth) {
-            result = i / 2;
-            break;
-        }
-    }
-
-    return result;
-}
-
-#define find_closed_sym_spot(emit, depth, sym) \
-find_closed_sym_spot_raw(emit, depth, (sym)->reg_spot)
 
 /* Called only when the current call doesn't have a 'self'. This attempts to
    draw 'self' from the closure of the current method.
@@ -1026,13 +1004,19 @@ static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
                 "Static methods do not have access to self.");
     }
 
-    lily_sym *upper_self = (lily_sym *)block->self;
+    lily_storage *upper_self = block->self;
 
-    if (find_closed_sym_spot(emit, depth, upper_self) == -1)
-        close_over_sym(emit, depth, upper_self);
+    if (upper_self->closure_spot == (uint16_t)-1) {
+        lily_u16_write_2(emit->closure_spots, upper_self->reg_spot, depth);
 
-    lily_emit_create_block_self(emit, upper_self->type);
+        uint16_t spot = (lily_u16_pos(emit->closure_spots) - 1) / 2;
+
+        upper_self->closure_spot = spot;
+    }
+
     emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+    lily_emit_create_block_self(emit, upper_self->type);
+    emit->function_block->self->closure_spot = upper_self->closure_spot;
 }
 
 /* This sets up the table used to map from a register spot to where that spot is
@@ -1187,7 +1171,6 @@ static void perform_closure_transform(lily_emit_state *emit,
     int iter_start = emit->block->code_start;
     int is_backing = (function_block->flags & BLOCK_CLOSURE_ORIGIN);
     uint16_t first_line = iter_for_first_line(emit, iter_start);
-    lily_block *prev_block = function_block->prev_function_block;
 
     if (is_backing) {
         /* Put the closure into a new register so the gc can't accidentally
@@ -1199,41 +1182,23 @@ static void perform_closure_transform(lily_emit_state *emit,
                 lily_u16_pos(emit->closure_spots) / 2, closure_reg,
                 first_line);
 
-        /* Depth of 3 is the magic number here because that's the depth of a
-           class method. */
-        if (function_block->self && emit->function_depth == 3) {
-            /* Search for the self of the backing closure at level 3, slot 0. */
-            uint16_t self_spot = find_closed_sym_spot_raw(emit, 3, 0);
-            /* Load register 0 (self) into the closure. */
-            if (self_spot != (uint16_t)-1) {
-                lily_u16_write_4(emit->closure_aux_code, o_closure_set,
-                        self_spot, 0, first_line);
-            }
+        lily_storage *self = function_block->self;
+
+        if (self && self->closure_spot != (uint16_t)-1) {
+            /* Class constructors can't be closures and enums don't have a
+               constructor. So if the backing closure has self inside, then it
+               has to come from a class/enum method. Those methods will always
+               have self as the first spot, hence the zero. */
+            lily_u16_write_4(emit->closure_aux_code, o_closure_set,
+                    self->closure_spot, 0, first_line);
         }
     }
     else if (emit->block->self) {
+        /* Pull self from the closure into the proper register. */
         lily_storage *block_self = emit->block->self;
 
-        while ((prev_block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
-            prev_block = prev_block->prev_function_block;
-
-        prev_block = prev_block->next;
-
-        /* The backing closure is always a class method, never the class
-           constructor itself. Use +1 for the right depth. This search should
-           never fail. */
-
-        /* Why is the depth 3? The backing closure is always a class method.
-           The depth will always be 3 because classes can't be declared inside
-           of another class.
-           __main__ or an import call has depth 1.
-           The class constructor has depth 2.
-           The method has depth 3. */
-        uint16_t self_spot = find_closed_sym_spot(emit, 3,
-                (lily_sym *)prev_block->self);
-
         lily_u16_write_4(emit->closure_aux_code, o_closure_get,
-                self_spot, block_self->reg_spot, first_line);
+                block_self->closure_spot, block_self->reg_spot, first_line);
     }
 
     setup_for_transform(emit, f, is_backing);
@@ -2410,8 +2375,7 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
     else if (left_tt == tree_upvalue) {
         lily_var *left_var = (lily_var *)ast->left->sym;
         /* eval_assign_upvalue makes sure this sym is closed over. */
-        uint16_t spot = find_closed_sym_spot(emit, left_var->function_depth,
-                (lily_sym *)left_var);
+        uint16_t spot = left_var->closure_spot;
 
         lily_storage *s = get_storage(emit, ast->left->sym->type);
         lily_u16_write_4(emit->code, o_closure_get, spot, s->reg_spot,
@@ -2493,8 +2457,7 @@ static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
     eval_tree(emit, ast->right, NULL);
 
     lily_var *left_var = (lily_var *)ast->left->sym;
-    uint16_t spot = find_closed_sym_spot(emit, left_var->function_depth,
-            (lily_sym *)left_var);
+    uint16_t spot = left_var->closure_spot;
 
     if (spot == (uint16_t)-1)
         spot = checked_close_over_var(emit, left_var);
@@ -2645,9 +2608,7 @@ after_type_check:;
                 ast->line_num);
     }
     else if (left_tt == tree_upvalue) {
-        lily_var *left_var = (lily_var *)left_sym;
-        uint16_t spot = find_closed_sym_spot(emit, left_var->function_depth,
-                left_sym);
+        uint16_t spot = ((lily_var *)left_sym)->closure_spot;
 
         lily_u16_write_4(emit->code, o_closure_set, spot, right_sym->reg_spot,
                 ast->line_num);
@@ -2955,7 +2916,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             opcode = o_closure_get;
             lily_var *v = (lily_var *)sym;
 
-            spot = find_closed_sym_spot(emit, v->function_depth, (lily_sym *)v);
+            spot = v->closure_spot;
             if (spot == (uint16_t)-1)
                 spot = checked_close_over_var(emit, v);
 
