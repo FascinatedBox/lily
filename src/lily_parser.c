@@ -2074,9 +2074,6 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     collect_generics_for(parser, enum_cls);
     lily_pop_lex_entry(lex);
 
-    lily_type *save_self_type = parser->class_self_type;
-    parser->class_self_type = enum_cls->self_type;
-
     /* A flat enum like Option will have a header that points past any methods
        to the variants. On the other hand, scoped enums will have a header that
        points past the variants. */
@@ -2120,8 +2117,6 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     if (save_next_class_id)
         parser->symtab->next_class_id = save_next_class_id;
-
-    parser->class_self_type = save_self_type;
 
     return enum_cls;
 }
