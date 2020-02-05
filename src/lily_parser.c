@@ -1781,12 +1781,12 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         lily_next_token(lex);
         if (arg_flags & F_COLLECT_DEFINE &&
             strcmp(lex->label, "self") == 0) {
-            lily_block *block = parser->emit->block->prev;
-            if (block == NULL || block->block_type != block_class)
+            lily_var *v = (lily_var *)target;
+
+            if (v->parent == NULL ||
+                (v->parent->item_kind & ITEM_IS_CLASS) == 0)
                 lily_raise_syn(parser->raiser,
                         "'self' return type only allowed on class methods.");
-
-            lily_var *v = (lily_var *)target;
 
             if (v->flags & VAR_IS_STATIC)
                 lily_raise_syn(parser->raiser,
