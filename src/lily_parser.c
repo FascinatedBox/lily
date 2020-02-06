@@ -158,7 +158,7 @@ lily_state *lily_new_state(lily_config *config)
 
     parser->import_pile_current = 0;
     parser->in_static_call = 0;
-    parser->class_self_type = NULL;
+    parser->current_class = NULL;
     parser->raiser = raiser;
     parser->msgbuf = lily_new_msgbuf(64);
     parser->expr = lily_new_expr_state();
@@ -299,7 +299,7 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     parser->import_pile_current = 0;
     parser->keyarg_current = 0;
     parser->in_static_call = 0;
-    parser->class_self_type = NULL;
+    parser->current_class = NULL;
 
     lily_module_entry *module_iter = rs->main_last_module;
     while (module_iter) {
@@ -2547,7 +2547,7 @@ static int expression_word_try_constant(lily_parse_state *parser)
     else if (key_id == CONST_SELF) {
         /* The second check is necessary because super ctors set the self type
            to NULL to block base class member use. */
-        if (parser->class_self_type == NULL &&
+        if (parser->current_class == NULL &&
             parser->emit->block->block_type != block_class)
             lily_raise_syn(parser->raiser,
                     "'self' must be used within a class.");
@@ -2566,8 +2566,8 @@ static int expression_word_try_use_self(lily_parse_state *parser)
 {
     lily_item *item = NULL;
 
-    if (parser->class_self_type) {
-        lily_class *self_cls = parser->class_self_type->cls;
+    if (parser->current_class) {
+        lily_class *self_cls = parser->current_class;
         const char *name = parser->lex->label;
 
         item = lily_find_or_dl_member(parser, self_cls, name);
@@ -2737,10 +2737,7 @@ static void expression_word(lily_parse_state *parser, int *state)
 /* This is called to handle `@<prop>` accesses. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
-    lily_class *current_class = NULL;
-
-    if (parser->class_self_type)
-        current_class = parser->class_self_type->cls;
+    lily_class *current_class = parser->current_class;
 
     if (current_class == NULL ||
         current_class->item_kind != ITEM_CLASS_NATIVE)
@@ -3477,7 +3474,7 @@ static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
 static lily_prop_entry *get_named_property(lily_parse_state *parser, int flags)
 {
     char *name = parser->lex->label;
-    lily_class *cls = parser->class_self_type->cls;
+    lily_class *cls = parser->current_class;
     lily_named_sym *sym = lily_find_member(cls, name);
 
     if (sym && sym_visible_from(cls, sym))
@@ -3783,7 +3780,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
         collect_flag = F_COLLECT_FORWARD;
 
     if (block_type == block_class || block_type == block_enum)
-        parent = parser->class_self_type->cls;
+        parent = parser->current_class;
 
     lily_var *define_var = parse_define_var(parser, parent, modifiers);
 
@@ -3796,8 +3793,8 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
         /* Toplevel non-static class methods have 'self' as an implicit first
            argument. */
-        lily_tm_add(parser->tm, parser->class_self_type);
-        lily_emit_create_block_self(parser->emit, parser->class_self_type);
+        lily_tm_add(parser->tm, parent->self_type);
+        lily_emit_create_block_self(parser->emit, parent->self_type);
     }
 
     collect_call_args(parser, define_var, collect_flag);
@@ -4689,9 +4686,9 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
     /* Before running these arguments, wipe the class self. This prevents the
        ctor call from using uninitialized base class properties/methods which
        can cause a crash. */
-    lily_type *save_self = parser->class_self_type;
+    lily_class *save_cls = parser->current_class;
 
-    parser->class_self_type = NULL;
+    parser->current_class = NULL;
     lily_es_flush(es);
     lily_es_push_inherited_new(es, class_new);
     lily_es_enter_tree(es, tree_call);
@@ -4732,7 +4729,7 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
     lily_es_leave_tree(parser->expr);
     lily_emit_eval_expr(parser->emit, es);
 
-    parser->class_self_type = save_self;
+    parser->current_class = save_cls;
 }
 
 /* This handles everything needed to create a class, including the inheritance
@@ -4750,9 +4747,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     lily_emit_enter_call_block(parser->emit, block_class, call_var);
 
-    parser->class_self_type = cls->self_type;
+    parser->current_class = cls;
 
-    lily_tm_add(parser->tm, parser->class_self_type);
+    lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
     lily_class *super_cls = NULL;
@@ -4760,7 +4757,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     if (lex->token == tk_lt)
         super_cls = parse_and_verify_super(parser, cls);
 
-    lily_emit_create_block_self(parser->emit, parser->class_self_type);
+    lily_emit_create_block_self(parser->emit, cls->self_type);
     lily_emit_write_class_header(parser->emit, lex->line_num);
 
     if (call_var->type->flags & TYPE_HAS_OPTARGS)
@@ -4865,8 +4862,8 @@ static void keyword_class(lily_parse_state *parser)
     if (parser->emit->block->pending_forward_decls)
         error_forward_decl_pending(parser);
 
-    determine_class_gc_flag(parser, parser->class_self_type->cls);
-    parser->class_self_type = NULL;
+    determine_class_gc_flag(parser, cls);
+    parser->current_class = NULL;
     lily_gp_restore(parser->generics, 0);
     hide_block_vars(parser);
     lily_emit_finish_block_code(parser->emit, lex->line_num);
@@ -4920,7 +4917,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
        call var being NULL is okay since enums won't write any code to it.  */
     lily_emit_enter_call_block(parser->emit, block_enum, NULL);
 
-    parser->class_self_type = enum_cls->self_type;
+    parser->current_class = enum_cls;
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
@@ -4992,7 +4989,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     /* Enums don't allow code or have a constructor, so don't write final code
        or bother hiding block vars. */
     lily_emit_leave_call_block(parser->emit);
-    parser->class_self_type = NULL;
+    parser->current_class = NULL;
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
     lily_next_token(lex);

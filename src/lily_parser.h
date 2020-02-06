@@ -65,7 +65,7 @@ typedef struct lily_parse_state_ {
 
     lily_function_val *toplevel_func;
 
-    lily_type *class_self_type;
+    lily_class *current_class;
     lily_msgbuf *msgbuf;
     lily_lex_state *lex;
     lily_emit_state *emit;
