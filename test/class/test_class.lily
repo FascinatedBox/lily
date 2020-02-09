@@ -335,15 +335,6 @@ class TestClass < TestCase
             }
         """)
 
-        # self (from inherited constructor)
-
-        t = Interpreter()
-        assert_parse_string(t, """
-            class Parent(x: Parent) { }
-
-            class Child < Parent(self) { }
-        """)
-
         # self (check type information)
 
         t = Interpreter()
@@ -420,7 +411,7 @@ class TestClass < TestCase
             }
         """)
 
-        # static methods (call to non-static)
+        # static methods (call from instance to static)
 
         t = Interpreter()
         assert_parse_string(t, """
@@ -439,7 +430,7 @@ class TestClass < TestCase
             }
         """)
 
-        # static methods (call to non-static using instance)
+        # static methods (call to instance method by qualified name)
 
         t = Interpreter()
         assert_parse_string(t, """
@@ -449,7 +440,7 @@ class TestClass < TestCase
                 }
 
                 public static define g(value: Example): String {
-                    return f(value)
+                    return Example.f(value)
                 }
             }
 

@@ -66,7 +66,7 @@ class TestBadToken < TestCase
         # bad class (property outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -431,7 +431,7 @@ class TestBadToken < TestCase
         # bad keyword (self used outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'self' must be used within a class.\n    \
+            SyntaxError: Cannot use self here.\n    \
                 from [test]:1:\n\
         """,
         """\

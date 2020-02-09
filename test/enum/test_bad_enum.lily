@@ -414,7 +414,7 @@ class TestBadEnum < TestCase
         # enum rules (blocking variants as properties)
 
         assert_parse_fails(t, """\
-            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:6:\n\
         """,
         """\
@@ -431,7 +431,7 @@ class TestBadEnum < TestCase
         # enum rules (blocking methods as properties)
 
         assert_parse_fails(t, """\
-            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:9:\n\
         """,
         """\

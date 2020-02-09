@@ -72,8 +72,10 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->next_reg_spot = 0;
     main_block->storage_count = 0;
     main_block->var_count = 0;
-    main_block->flags = 0;
     main_block->pending_forward_decls = 0;
+
+    /* This prevents checking for 'self' from going too far. */
+    main_block->flags = BLOCK_SELF_ORIGIN;
     main_block->prev_function_block = NULL;
     emit->block = main_block;
     emit->function_depth++;
@@ -273,7 +275,8 @@ void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
             lily_u16_pos(emit->code) - patch_spot + 1);
 }
 
-void lily_emit_write_class_header(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
+        uint16_t line_num)
 {
     lily_storage *self = emit->function_block->self;
 
@@ -641,15 +644,18 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
 
     emit->storages->start += emit->function_block->storage_count;
 
-    if (block_type == block_class)
+    if (block_type == block_class) {
         new_block->class_entry = emit->symtab->active_module->class_chain;
+        new_block->flags |= BLOCK_SELF_ORIGIN;
+    }
     else if (block_type == block_lambda ||
              block_type == block_define) {
         lily_block_type call_block_type = emit->function_block->block_type;
 
         if (call_block_type == block_class ||
-            call_block_type == block_file ||
             call_block_type == block_enum)
+            new_block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
+        else if (call_block_type == block_file)
             new_block->flags |= BLOCK_CLOSURE_ORIGIN;
         else if (call_block_type == block_define)
             /* Lambdas don't allow definitions, so this must be a definition
@@ -910,6 +916,85 @@ void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
     emit->function_block->self = self;
 }
 
+void lily_emit_activate_block_self(lily_emit_state *emit)
+{
+    lily_block *block = emit->function_block;
+    lily_block_type block_type = block->block_type;
+    uint16_t flags;
+
+    if (block_type == block_class)
+        flags = SELF_KEYWORD | SELF_METHOD | SELF_PROPERTY;
+    else {
+        lily_class *self_cls = block->self->type->cls;
+
+        if (self_cls->item_kind & ITEM_IS_CLASS)
+            flags = SELF_KEYWORD | SELF_METHOD | SELF_PROPERTY;
+        else
+            flags = SELF_KEYWORD | SELF_METHOD;
+    }
+
+    block->flags |= flags;
+}
+
+#define SELF_FLAGS (SELF_KEYWORD | SELF_PROPERTY | SELF_METHOD)
+
+static int can_use_self(lily_emit_state *emit, uint16_t flag)
+{
+    lily_block *block = emit->function_block;
+
+    /* This block has a self that supports this action. */
+    if (block->flags & flag)
+        return 1;
+
+    /* Is there a self that can be pulled from a closure? */
+    lily_block *origin = block;
+
+    while ((origin->flags & BLOCK_SELF_ORIGIN) == 0)
+        origin = origin->prev_function_block;
+
+    if ((origin->flags & flag) == 0)
+        return 0;
+
+    /* Make sure self is going to be in the closure. */
+    lily_storage *origin_self = origin->self;
+
+    if (origin_self->closure_spot == (uint16_t)-1) {
+        /* The resulting depth for the backing closure is always the same:
+           __main__ is 1, class is 2, backing define is 3. */
+        uint16_t depth = 3;
+
+        lily_u16_write_2(emit->closure_spots, origin_self->reg_spot, depth);
+
+        uint16_t spot = (lily_u16_pos(emit->closure_spots) - 1) / 2;
+
+        origin_self->closure_spot = spot;
+    }
+
+    /* Create a self in this block with information copied over. */
+    lily_emit_create_block_self(emit, origin_self->type);
+    block->flags |= BLOCK_MAKE_CLOSURE | (origin->flags & SELF_FLAGS);
+    block->self->closure_spot = origin_self->closure_spot;
+
+    return 1;
+}
+
+#undef SELF_FLAGS
+
+int lily_emit_can_use_self_keyword(lily_emit_state *emit)
+{
+    return can_use_self(emit, SELF_KEYWORD);
+}
+
+int lily_emit_can_use_self_method(lily_emit_state *emit)
+{
+    return can_use_self(emit, SELF_METHOD);
+}
+
+int lily_emit_can_use_self_property(lily_emit_state *emit)
+{
+    return can_use_self(emit, SELF_PROPERTY);
+}
+
 /***
  *       ____ _
  *      / ___| | ___  ___ _   _ _ __ ___  ___
@@ -981,43 +1066,6 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
     return spot;
 }
 
-/* Called only when the current call doesn't have a 'self'. This attempts to
-   draw 'self' from the closure of the current method.
-   This initializes the current function_block's self field. */
-static void close_over_class_self(lily_emit_state *emit, lily_ast *ast)
-{
-    /* The resulting depth for the backing closure is always the same:
-       __main__ is 1, class is 2, backing define is 3. */
-    uint16_t depth = 3;
-    lily_block *block = emit->function_block;
-
-    while ((block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
-        block = block->prev_function_block;
-
-    if (block->block_type != block_define) {
-        lily_raise_tree(emit->raiser, ast,
-                "Not allowed to close over self in a class constructor.");
-    }
-
-    if (block->self == NULL) {
-        lily_raise_tree(emit->raiser, ast,
-                "Static methods do not have access to self.");
-    }
-
-    lily_storage *upper_self = block->self;
-
-    if (upper_self->closure_spot == (uint16_t)-1) {
-        lily_u16_write_2(emit->closure_spots, upper_self->reg_spot, depth);
-
-        uint16_t spot = (lily_u16_pos(emit->closure_spots) - 1) / 2;
-
-        upper_self->closure_spot = spot;
-    }
-
-    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
-    lily_emit_create_block_self(emit, upper_self->type);
-    emit->function_block->self->closure_spot = upper_self->closure_spot;
-}
 
 /* This sets up the table used to map from a register spot to where that spot is
    in the closure. */
@@ -2418,9 +2466,6 @@ static void eval_assign_global_local(lily_emit_state *emit, lily_ast *ast)
    but not as complicated. */
 static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
 {
-    if (emit->function_block->self == NULL)
-        close_over_class_self(emit, ast);
-
     ensure_valid_scope(emit, ast->left);
     eval_tree(emit, ast->right, ast->left->property->type);
 }
@@ -2641,8 +2686,6 @@ after_type_check:;
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast);
-    if (emit->function_block->self == NULL)
-        close_over_class_self(emit, ast);
 
     if (ast->property->flags & SYM_NOT_INITIALIZED)
         lily_raise_tree(emit->raiser, ast,
@@ -2975,14 +3018,7 @@ static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_storage *self = emit->function_block->self;
-
-    if (self == NULL) {
-        close_over_class_self(emit, ast);
-        self = emit->function_block->self;
-    }
-
-    ast->result = (lily_sym *)self;
+    ast->result = (lily_sym *)emit->function_block->self;
 }
 
 /***

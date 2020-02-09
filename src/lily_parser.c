@@ -157,7 +157,6 @@ lily_state *lily_new_state(lily_config *config)
     lily_raiser *raiser = lily_new_raiser();
 
     parser->import_pile_current = 0;
-    parser->in_static_call = 0;
     parser->current_class = NULL;
     parser->raiser = raiser;
     parser->msgbuf = lily_new_msgbuf(64);
@@ -298,7 +297,6 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     lily_u16_set_pos(parser->data_stack, 0);
     parser->import_pile_current = 0;
     parser->keyarg_current = 0;
-    parser->in_static_call = 0;
     parser->current_class = NULL;
 
     lily_module_entry *module_iter = rs->main_last_module;
@@ -2508,6 +2506,21 @@ static int constant_by_name(const char *name)
     return -1;
 }
 
+static void error_self_usage(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    const char *what;
+
+    if (lex->token == tk_prop_word)
+        what = "a class property";
+    else if (strcmp(lex->label, "self") == 0)
+        what = "self";
+    else
+        what = "an instance method";
+
+    lily_raise_syn(parser->raiser, "Cannot use %s here.", what);
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
@@ -2545,12 +2558,8 @@ static int expression_word_try_constant(lily_parse_state *parser)
     else if (key_id == CONST_FALSE)
         lily_es_push_boolean(es, 0);
     else if (key_id == CONST_SELF) {
-        /* The second check is necessary because super ctors set the self type
-           to NULL to block base class member use. */
-        if (parser->current_class == NULL &&
-            parser->emit->block->block_type != block_class)
-            lily_raise_syn(parser->raiser,
-                    "'self' must be used within a class.");
+        if (lily_emit_can_use_self_keyword(parser->emit) == 0)
+            error_self_usage(parser);
 
         lily_es_push_self(es);
     }
@@ -2576,9 +2585,12 @@ static int expression_word_try_use_self(lily_parse_state *parser)
             if (item->item_kind == ITEM_VAR) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
-                if (parser->in_static_call == 0 &&
-                    (item->flags & VAR_IS_STATIC) == 0)
+                if ((item->flags & VAR_IS_STATIC) == 0) {
+                    if (lily_emit_can_use_self_method(parser->emit) == 0)
+                        error_self_usage(parser);
+
                     lily_es_push_method(parser->expr, (lily_var *)item);
+                }
                 else
                     lily_es_push_static_func(parser->expr, (lily_var *)item);
             }
@@ -2737,13 +2749,10 @@ static void expression_word(lily_parse_state *parser, int *state)
 /* This is called to handle `@<prop>` accesses. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
+    if (lily_emit_can_use_self_property(parser->emit) == 0)
+        error_self_usage(parser);
+
     lily_class *current_class = parser->current_class;
-
-    if (current_class == NULL ||
-        current_class->item_kind != ITEM_CLASS_NATIVE)
-        lily_raise_syn(parser->raiser,
-                "Properties cannot be used outside of a class constructor.");
-
     char *name = parser->lex->label;
     lily_named_sym *sym = lily_find_member(current_class, name);
 
@@ -3795,6 +3804,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
            argument. */
         lily_tm_add(parser->tm, parent->self_type);
         lily_emit_create_block_self(parser->emit, parent->self_type);
+        lily_emit_activate_block_self(parser->emit);
     }
 
     collect_call_args(parser, define_var, collect_flag);
@@ -4757,8 +4767,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     if (lex->token == tk_lt)
         super_cls = parse_and_verify_super(parser, cls);
 
+    /* Don't make 'self' available until the class is fully constructed. */
     lily_emit_create_block_self(parser->emit, cls->self_type);
-    lily_emit_write_class_header(parser->emit, lex->line_num);
+    lily_emit_write_class_init(parser->emit, cls, lex->line_num);
 
     if (call_var->type->flags & TYPE_HAS_OPTARGS)
         send_optargs_for(parser, call_var);
@@ -4771,6 +4782,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     if (super_cls)
         run_super_ctor(parser, cls, super_cls);
+
+    lily_emit_activate_block_self(parser->emit);
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
@@ -5341,9 +5354,6 @@ static void parse_modifier(lily_parse_state *parser, int key)
         NEED_CURRENT_TOK(tk_word)
         key = keyword_by_name(lex->label);
 
-        /* Functions inside a static method can't send 'self'. */
-        parser->in_static_call = 1;
-
         if (key != KEY_DEFINE)
             lily_raise_syn(parser->raiser,
                     "'static' must be followed by 'define', not '%s'.",
@@ -5360,9 +5370,6 @@ static void parse_modifier(lily_parse_state *parser, int key)
     else if (key == KEY_DEFINE) {
         lily_next_token(lex);
         parse_define(parser, modifiers);
-
-        if (modifiers & VAR_IS_STATIC)
-            parser->in_static_call = 0;
     }
     else {
         const char *what = "either 'var' or 'define'";

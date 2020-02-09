@@ -29,15 +29,28 @@ typedef enum {
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */
-# define BLOCK_MAKE_CLOSURE 0x1
+# define BLOCK_MAKE_CLOSURE   0x01
 /* If this is set on a block, then don't warn about a function not having a
    return value at the end. */
-# define BLOCK_ALWAYS_EXITS 0x2
+# define BLOCK_ALWAYS_EXITS   0x02
 /* The closure origin block is the outermost define or lambda block. The origin
    block is responsible for initializing upvalues for inner functions to use. If
    the origin block is a class or enum method, the self it holds is the self
    that inner functions will close over to use. */
-# define BLOCK_CLOSURE_ORIGIN 0x4
+# define BLOCK_CLOSURE_ORIGIN 0x04
+
+/* When searching for a self to close over, stop here. This is only set on
+   class methods (instance or static), enum method, and the main block. */
+# define BLOCK_SELF_ORIGIN    0x08
+
+/* The self of this function block allows `self`. */
+# define SELF_KEYWORD         0x10
+
+/* The self of this function block allows instance methods. */
+# define SELF_METHOD          0x20
+
+/* The self of this function block allows `@<prop>` accesses. */
+# define SELF_PROPERTY        0x40
 
 typedef struct lily_block_ {
     /* Define/class blocks: This is saved because the var has the name of the
@@ -241,9 +254,15 @@ void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 
+void lily_emit_activate_block_self(lily_emit_state *);
 void lily_emit_create_block_self(lily_emit_state *, lily_type *);
+void lily_emit_capture_self(lily_emit_state *, lily_block *);
+int lily_emit_can_use_self_keyword(lily_emit_state *);
+int lily_emit_can_use_self_method(lily_emit_state *);
+int lily_emit_can_use_self_property(lily_emit_state *);
+
+void lily_emit_write_class_init(lily_emit_state *, lily_class *, uint16_t);
 void lily_emit_write_keyless_optarg_header(lily_emit_state *, lily_type *);
-void lily_emit_write_class_header(lily_emit_state *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
 

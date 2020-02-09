@@ -21,17 +21,43 @@ class TestBadClass < TestCase
             }
         """)
 
-        # bad constructor (cannot close over self)
+        # bad constructor (close over self for property)
         # Blocked because it creates a closure at the instance level.
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to close over self in a class constructor.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:3:\n\
         """,
         """\
             class Example {
                 public var @a = 1
                 public var @b = (|| @a += 1 )
+            }
+        """)
+
+        # bad constructor (close over self for instance method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use an instance method here.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                public define f {}
+                public var @b = (|| f() )
+            }
+        """)
+
+        # bad constructor (close over self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                public define f {}
+                public var @b = (|| var w = self )
             }
         """)
 
@@ -255,6 +281,17 @@ class TestBadClass < TestCase
         """\
             var v = 10
             class Test < v { }
+        """)
+
+        # bad inheritance (using self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Parent(x: Parent) { }
+            class Child < Parent(self) { }
         """)
 
         # bad inheritance (inherit reordered generics)
@@ -489,7 +526,7 @@ class TestBadClass < TestCase
         # bad shorthand (property self-initialization)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid use of uninitialized property '@a'.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -575,7 +612,22 @@ class TestBadClass < TestCase
         # bad static (using self)
 
         assert_parse_fails(t, """\
-            SyntaxError: Static methods do not have access to self.\n    \
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Example {
+                public var @a = 10
+                public static define f {
+                    var v = self
+                }
+            }
+        """)
+
+        # bad static (using class property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:4:\n\
         """,
         """\
@@ -583,6 +635,21 @@ class TestBadClass < TestCase
                 public var @a = 10
                 public static define f {
                     @a = 12
+                }
+            }
+        """)
+
+        # bad static (using instance method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use an instance method here.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Example {
+                public define f {}
+                public static define g(value: Example) {
+                    f(value)
                 }
             }
         """)
@@ -743,7 +810,7 @@ class TestBadClass < TestCase
         # class rules (prop use inside constructor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Properties cannot be used outside of a class constructor.\n    \
+            SyntaxError: Cannot use a class property here.\n    \
                 from [test]:4:\n\
         """,
         """\
