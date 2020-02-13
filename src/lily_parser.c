@@ -1138,8 +1138,8 @@ static lily_var *new_local_var(lily_parse_state *parser, lily_type *type,
 
     /* This is always a local var, so it gets an id from the current block. */
     var->function_depth = parser->emit->function_depth;
-    var->reg_spot = parser->emit->function_block->next_reg_spot;
-    parser->emit->function_block->next_reg_spot++;
+    var->reg_spot = parser->emit->scope_block->next_reg_spot;
+    parser->emit->scope_block->next_reg_spot++;
     var->next = parser->symtab->active_module->var_chain;
     parser->symtab->active_module->var_chain = var;
     parser->emit->block->var_count++;
@@ -1166,8 +1166,8 @@ static lily_var *new_scoped_var(lily_parse_state *parser, lily_type *type,
         var->flags |= VAR_IS_GLOBAL;
     }
     else {
-        var->reg_spot = parser->emit->function_block->next_reg_spot;
-        parser->emit->function_block->next_reg_spot++;
+        var->reg_spot = parser->emit->scope_block->next_reg_spot;
+        parser->emit->scope_block->next_reg_spot++;
     }
 
     parser->emit->block->var_count++;
@@ -1250,7 +1250,7 @@ static void create_main_func(lily_parse_state *parser)
     parser->vm->call_chain->function = f;
     parser->toplevel_func = f;
     /* This is used by the magic constant __function__. */
-    parser->emit->block->function_var = main_var;
+    parser->emit->block->scope_var = main_var;
 }
 
 /***
@@ -2550,7 +2550,7 @@ static int expression_word_try_constant(lily_parse_state *parser)
     }
     else if (key_id == CONST__FUNCTION__) {
         lit = lily_get_string_literal(symtab,
-                parser->emit->function_block->function_var->name);
+                parser->emit->scope_block->scope_var->name);
         push_literal(parser, lit);
     }
     else if (key_id == CONST_TRUE)
@@ -3303,7 +3303,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     lily_var *lambda_var = new_native_define_var(parser, NULL, "(lambda)");
 
-    lily_emit_enter_call_block(parser->emit, block_lambda, lambda_var);
+    lily_emit_enter_scope_block(parser->emit, block_lambda, lambda_var);
 
     /* Placeholder for the lambda's return type, unless one isn't found.*/
     lily_tm_add(parser->tm, lily_unit_type);
@@ -3332,7 +3332,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     hide_block_vars(parser);
     lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_call_block(parser->emit);
+    lily_emit_leave_scope_block(parser->emit);
     lily_pop_lex_entry(lex);
 
     return lambda_var;
@@ -3513,7 +3513,7 @@ static void bad_decl_token(lily_parse_state *parser)
 static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         lily_msgbuf *msgbuf)
 {
-    int count = parser->emit->block->pending_forward_decls;
+    int count = parser->emit->block->forward_count;
     lily_module_entry *m = parser->symtab->active_module;
     lily_var *var_iter;
 
@@ -3582,7 +3582,7 @@ static void parse_var(lily_parse_state *parser, int modifiers)
         other_token = tk_prop_word;
     }
 
-    if (block->pending_forward_decls)
+    if (block->forward_count)
         error_forward_decl_keyword(parser, KEY_VAR);
 
     /* This prevents variables from being used to initialize themselves. */
@@ -3797,7 +3797,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     lily_next_token(lex);
     collect_generics_for(parser, NULL);
-    lily_emit_enter_call_block(parser->emit, block_define, define_var);
+    lily_emit_enter_scope_block(parser->emit, block_define, define_var);
 
     if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
         /* Toplevel non-static class methods have 'self' as an implicit first
@@ -4052,7 +4052,7 @@ static int code_is_after_exit(lily_parse_state *parser)
 
 static void keyword_return(lily_parse_state *parser)
 {
-    lily_block *block = parser->emit->function_block;
+    lily_block *block = parser->emit->scope_block;
     lily_type *return_type = NULL;
 
     if (block->block_type == block_class)
@@ -4063,7 +4063,7 @@ static void keyword_return(lily_parse_state *parser)
     else if (block->block_type == block_file)
         lily_raise_syn(parser->raiser, "'return' used outside of a function.");
     else
-        return_type = block->function_var->type->subtypes[0];
+        return_type = block->scope_var->type->subtypes[0];
 
     if (return_type != lily_unit_type)
         expression(parser);
@@ -4235,12 +4235,12 @@ static void run_loaded_module(lily_parse_state *parser,
     parser->symtab->active_module = module;
 
     /* This is either `__main__` or another `__module__`. */
-    lily_type *module_type = parser->emit->function_block->function_var->type;
+    lily_type *module_type = parser->emit->scope_block->scope_var->type;
     lily_var *module_var = new_native_define_var(parser, NULL,
             "__module__");
 
     module_var->type = module_type;
-    lily_emit_enter_call_block(parser->emit, block_file, module_var);
+    lily_emit_enter_scope_block(parser->emit, block_file, module_var);
 
     /* The whole of the file can be thought of as one large statement. */
     lily_next_token(lex);
@@ -4259,11 +4259,11 @@ static void run_loaded_module(lily_parse_state *parser,
         lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                 tokname(lex->token));
 
-    if (parser->emit->block->pending_forward_decls)
+    if (parser->emit->block->forward_count)
         error_forward_decl_pending(parser);
 
     lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_call_block(parser->emit);
+    lily_emit_leave_scope_block(parser->emit);
     /* __module__ vars and functions become global, so don't hide them. */
     lily_pop_lex_entry(parser->lex);
 
@@ -4403,7 +4403,7 @@ static void keyword_import(lily_parse_state *parser)
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot import a file here.");
 
-    if (block->pending_forward_decls)
+    if (block->forward_count)
         error_forward_decl_keyword(parser, KEY_IMPORT);
 
     lily_symtab *symtab = parser->symtab;
@@ -4565,7 +4565,7 @@ static void keyword_except(lily_parse_state *parser)
 
 static void keyword_raise(lily_parse_state *parser)
 {
-    if (parser->emit->function_block->block_type == block_lambda)
+    if (parser->emit->scope_block->block_type == block_lambda)
         lily_raise_syn(parser->raiser, "'raise' not allowed in a lambda.");
 
     expression(parser);
@@ -4755,7 +4755,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_next_token(lex);
     collect_generics_for(parser, cls);
 
-    lily_emit_enter_call_block(parser->emit, block_class, call_var);
+    lily_emit_enter_scope_block(parser->emit, block_class, call_var);
 
     parser->current_class = cls;
 
@@ -4872,7 +4872,7 @@ static void keyword_class(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_left_curly)
     parse_block_body(parser);
 
-    if (parser->emit->block->pending_forward_decls)
+    if (parser->emit->block->forward_count)
         error_forward_decl_pending(parser);
 
     determine_class_gc_flag(parser, cls);
@@ -4880,7 +4880,7 @@ static void keyword_class(lily_parse_state *parser)
     lily_gp_restore(parser->generics, 0);
     hide_block_vars(parser);
     lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_call_block(parser->emit);
+    lily_emit_leave_scope_block(parser->emit);
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
@@ -4928,7 +4928,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     /* Enums are entered as a function to make them consistent with classes. The
        call var being NULL is okay since enums won't write any code to it.  */
-    lily_emit_enter_call_block(parser->emit, block_enum, NULL);
+    lily_emit_enter_scope_block(parser->emit, block_enum, NULL);
 
     parser->current_class = enum_cls;
 
@@ -5001,7 +5001,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     /* Enums don't allow code or have a constructor, so don't write final code
        or bother hiding block vars. */
-    lily_emit_leave_call_block(parser->emit);
+    lily_emit_leave_scope_block(parser->emit);
     parser->current_class = NULL;
 
     lily_gp_restore_and_unhide(parser->generics, save_generic_start);
@@ -5279,7 +5279,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         parse_block_body(parser);
         hide_block_vars(parser);
         lily_emit_finish_block_code(parser->emit, lex->line_num);
-        lily_emit_leave_call_block(parser->emit);
+        lily_emit_leave_scope_block(parser->emit);
     }
     else {
         NEED_NEXT_TOK(tk_three_dots)
@@ -5493,7 +5493,7 @@ static void parser_loop(lily_parse_state *parser)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(lex->token));
 
-            if (parser->emit->block->pending_forward_decls)
+            if (parser->emit->block->forward_count)
                 error_forward_decl_pending(parser);
 
             break;

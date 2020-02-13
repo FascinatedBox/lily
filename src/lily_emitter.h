@@ -52,55 +52,6 @@ typedef enum {
 /* The self of this function block allows `@<prop>` accesses. */
 # define SELF_PROPERTY        0x40
 
-typedef struct lily_block_ {
-    /* Define/class blocks: This is saved because the var has the name of the
-       current function. */
-    lily_var *function_var;
-
-    /* An index where the patches for this block start off. */
-    uint16_t patch_start;
-
-    uint16_t storage_count;
-
-    /* Match blocks: The starting position in emitter's match_cases. */
-    uint16_t match_case_start;
-
-    uint16_t var_count;
-
-    uint8_t flags;
-
-    lily_block_type block_type : 8;
-
-    uint16_t pending_forward_decls;
-
-    /* Functions/lambdas: The start of this thing's code within emitter's
-       code block. */
-    uint32_t code_start;
-
-    /* Define/class blocks: Where the symtab's register allocation was before
-       entry. */
-    uint32_t next_reg_spot;
-
-    /* This is the code position of the last instruction that is known to exit
-       from the block (a return or a raise). This is used to help figure out if
-       a function claiming to return a value will actually do so. */
-    int32_t last_exit;
-
-    /* This is the most recently-entered class. While Lily does not allow users
-       to create nested classes, it is possible for a class to be within a class
-       if there is a dynaload. */
-    lily_class *class_entry;
-
-    /* Note: Only set if the current block is itself a function. */
-    struct lily_block_ *prev_function_block;
-
-    /* Where 'self' is at, or NULL if not within a class. */
-    struct lily_storage_ *self;
-
-    struct lily_block_ *next;
-    struct lily_block_ *prev;
-} lily_block;
-
 /* Storages are used to hold values not held by vars. In most cases, storages
    hold intermediate values for an expression. The emitter attempts to reuse
    storages where it can unless the storage is locked.
@@ -126,6 +77,63 @@ typedef struct lily_storage_ {
     uint32_t expr_num;
     uint32_t pad3;
 } lily_storage;
+
+/* For simplicity, classes, conditions, definitions, modules, and so on are all
+   represented by one kind of block. Make sure to use a scope block when looking
+   for scope information, since non-scope blocks do not carry up-to-date scope
+   information. */
+
+typedef struct lily_block_ {
+    /* All blocks: What kind of block this is (see lily_block_type). */
+    uint16_t block_type;
+    /* All blocks: See definitions above. */
+    uint16_t flags;
+    /* All blocks: This tracks the last known exit in this block from return or
+       raise. If all branches of a block before the end of a function always
+       exit, then there's no need to complain about a missing return. */
+    uint16_t last_exit;
+    /* All blocks: How many vars to drop when this block exits. */
+    uint16_t var_count;
+
+    /* All blocks: Where this block's code starts in emitter's code. Scope
+       blocks use this to slice their code from emitter's code buffer. Loop
+       blocks use this for 'continue'. */
+    uint16_t code_start;
+    /* Scope blocks: The id for the next local var or storage. Global vars get
+       their id from symtab. */
+    uint16_t next_reg_spot;
+    /* Scope blocks: How many storages to drop when this block exits. */
+    uint16_t storage_count;
+    /* Scope blocks: How many pending forward definitions exist. */
+    uint16_t forward_count;
+
+    /* Non-scope blocks: These are places that need to be fixed when a future
+       jump location is known. */
+    uint16_t patch_start;
+    /* Match blocks: Where this block starts in emitter's match cases. */
+    uint16_t match_case_start;
+    uint32_t pad;
+
+    /* Scope blocks: The var that will receive the code when this scope is done.
+       This is NULL for enum blocks which is okay because they don't actually
+       write code. */
+    lily_var *scope_var;
+
+    /* Scope blocks: The current class or enum when processing expressions. */
+    lily_class *class_entry;
+
+    /* Scope blocks: If this block has a self in scope, this is that self. If
+       this block does not have a self, this is NULL. This is also NULL if the
+       current scope has a self in a closure that hasn't been used yet. */
+    lily_storage *self;
+
+    /* Scope blocks: This points to the previous scope block. If this is the
+       block for '__main__', this is NULL. */
+    struct lily_block_ *prev_scope_block;
+
+    struct lily_block_ *prev;
+    struct lily_block_ *next;
+} lily_block;
 
 typedef struct lily_storage_stack_ {
     lily_storage **data;
@@ -179,13 +187,14 @@ typedef struct {
 
     struct lily_proto_stack_ *protos;
 
-    /* The deepest block that will end up yielding a function. This block is the
-       one that new locals and storages get their ids from. */
-    lily_block *function_block;
-
-    /* The currently entered block. This is never NULL, because __main__ is
-       implicitly entered before any user code. */
+    /* This is the current block, which may or may not be a scope block. This is
+       never NULL because '__main__' is created to take toplevel code from the
+       first module. */
     lily_block *block;
+
+    /* This is always the most recent block representing a scope. This block is
+       where ids are handed out from. */
+    lily_block *scope_block;
 
     uint16_t pad2;
 
@@ -243,9 +252,9 @@ void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_emit_change_block_to(lily_emit_state *emit, int);
 
 void lily_emit_enter_block(lily_emit_state *, lily_block_type);
-void lily_emit_enter_call_block(lily_emit_state *, lily_block_type, lily_var *);
+void lily_emit_enter_scope_block(lily_emit_state *, lily_block_type, lily_var *);
 void lily_emit_leave_block(lily_emit_state *);
-void lily_emit_leave_call_block(lily_emit_state *);
+void lily_emit_leave_scope_block(lily_emit_state *);
 void lily_emit_leave_forward_call(lily_emit_state *);
 void lily_emit_resolve_forward_decl(lily_emit_state *, lily_var *);
 void lily_emit_finish_block_code(lily_emit_state *, uint16_t);

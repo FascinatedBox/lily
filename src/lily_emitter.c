@@ -72,14 +72,14 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->next_reg_spot = 0;
     main_block->storage_count = 0;
     main_block->var_count = 0;
-    main_block->pending_forward_decls = 0;
+    main_block->forward_count = 0;
 
     /* This prevents checking for 'self' from going too far. */
     main_block->flags = BLOCK_SELF_ORIGIN;
-    main_block->prev_function_block = NULL;
+    main_block->prev_scope_block = NULL;
     emit->block = main_block;
     emit->function_depth++;
-    emit->function_block = main_block;
+    emit->scope_block = main_block;
 
     return emit;
 }
@@ -92,13 +92,13 @@ void lily_rewind_emit_state(lily_emit_state *emit)
 
     emit->match_case_pos = 0;
 
-    lily_block *block_iter = emit->function_block;
+    lily_block *block_iter = emit->scope_block;
     lily_block *main_block = block_iter;
     lily_storage_stack *stack = emit->storages;
     uint16_t total = stack->start + block_iter->storage_count;
 
     while (block_iter) {
-        lily_block *block_next = block_iter->prev_function_block;
+        lily_block *block_next = block_iter->prev_scope_block;
 
         if (block_next == NULL)
             break;
@@ -114,9 +114,9 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     clear_storages(stack, total - stack->start);
     stack->start = 0;
 
-    emit->block->pending_forward_decls = 0;
+    emit->block->forward_count = 0;
     emit->block = main_block;
-    emit->function_block = main_block;
+    emit->scope_block = main_block;
     emit->function_depth = 1;
 }
 
@@ -278,7 +278,7 @@ void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
 void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
         uint16_t line_num)
 {
-    lily_storage *self = emit->function_block->self;
+    lily_storage *self = emit->scope_block->self;
 
     lily_u16_write_4(emit->code, o_instance_new, self->type->cls->id,
             self->reg_spot, line_num);
@@ -288,7 +288,7 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
         lily_var *var_iter, uint16_t line_num)
 {
     lily_named_sym *prop_iter = cls->members;
-    uint16_t self_reg_spot = emit->function_block->self->reg_spot;
+    uint16_t self_reg_spot = emit->scope_block->self->reg_spot;
 
     /* The class constructor always inserts itself as the first property. Make
        sure to not include that. */
@@ -552,14 +552,14 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             s->type = type;
             s->flags = SYM_NOT_ASSIGNABLE;
 
-            s->reg_spot = emit->function_block->next_reg_spot;
-            emit->function_block->next_reg_spot++;
+            s->reg_spot = emit->scope_block->next_reg_spot;
+            emit->scope_block->next_reg_spot++;
 
             i++;
             if (i == stack->size)
                 grow_storages(emit->storages);
 
-            emit->function_block->storage_count++;
+            emit->scope_block->storage_count++;
 
             break;
         }
@@ -590,15 +590,6 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void perform_closure_transform(lily_emit_state *, lily_block *,
 		lily_function_val *);
 
-/** The emitter's blocks keep track of the current context of things. Is the
-    current block an if with or without an else? Where do storages start? Were
-    any vars created in this scope?
-
-    Blocks are currently in a rough state. They've accidentally grown fat, and
-    likely carry too much info. The same thing represents both a defined
-    function, an if block, etc. Some blocks don't necessarily use all of the
-    items that are inside. **/
-
 static lily_block *block_enter_common(lily_emit_state *emit)
 {
     lily_block *new_block;
@@ -619,7 +610,7 @@ static lily_block *block_enter_common(lily_emit_state *emit)
     new_block->flags = 0;
     new_block->var_count = 0;
     new_block->code_start = lily_u16_pos(emit->code);
-    new_block->pending_forward_decls = 0;
+    new_block->forward_count = 0;
 
     return new_block;
 }
@@ -636,13 +627,13 @@ void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
     emit->block = new_block;
 }
 
-void lily_emit_enter_call_block(lily_emit_state *emit,
-        lily_block_type block_type, lily_var *call_var)
+void lily_emit_enter_scope_block(lily_emit_state *emit,
+        lily_block_type block_type, lily_var *scope_var)
 {
     lily_block *new_block = block_enter_common(emit);
     new_block->block_type = block_type;
 
-    emit->storages->start += emit->function_block->storage_count;
+    emit->storages->start += emit->scope_block->storage_count;
 
     if (block_type == block_class) {
         new_block->class_entry = emit->symtab->active_module->class_chain;
@@ -650,7 +641,7 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     }
     else if (block_type == block_lambda ||
              block_type == block_define) {
-        lily_block_type call_block_type = emit->function_block->block_type;
+        lily_block_type call_block_type = emit->scope_block->block_type;
 
         if (call_block_type == block_class ||
             call_block_type == block_enum)
@@ -662,7 +653,7 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
                inside of a definition. Mark it like this so it gets the upvalues
                it needs if called. */
             if (emit->block->block_type == block_define)
-                call_var->flags |= VAR_NEEDS_CLOSURE;
+                scope_var->flags |= VAR_NEEDS_CLOSURE;
     }
 
     /* This causes vars within this imported file to be seen as global
@@ -671,13 +662,13 @@ void lily_emit_enter_call_block(lily_emit_state *emit,
     if (block_type != block_file)
         emit->function_depth++;
 
-    new_block->prev_function_block = emit->function_block;
+    new_block->prev_scope_block = emit->scope_block;
 
-    emit->function_block = new_block;
+    emit->scope_block = new_block;
 
     new_block->next_reg_spot = 0;
     new_block->storage_count = 0;
-    new_block->function_var = call_var;
+    new_block->scope_var = scope_var;
     new_block->code_start = lily_u16_pos(emit->code);
 
     emit->block = new_block;
@@ -689,24 +680,24 @@ void lily_emit_leave_forward_call(lily_emit_state *emit)
        made. There isn't as much to do, because they don't make storages and
        they can't write code. */
     emit->block = emit->block->prev;
-    emit->function_block = emit->block;
+    emit->scope_block = emit->block;
     emit->function_depth--;
-    emit->block->pending_forward_decls++;
+    emit->block->forward_count++;
 }
 
 void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
 {
     var->flags &= ~VAR_IS_FORWARD;
-    emit->block->pending_forward_decls--;
+    emit->block->forward_count--;
 }
 
-void lily_emit_leave_call_block(lily_emit_state *emit)
+void lily_emit_leave_scope_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
 
     clear_storages(emit->storages, block->storage_count);
-    emit->function_block = block->prev_function_block;
-    emit->storages->start -= emit->function_block->storage_count;
+    emit->scope_block = block->prev_scope_block;
+    emit->storages->start -= emit->scope_block->storage_count;
 
     /* File 'blocks' do not bump up the depth because that's used to determine
        if something is a global or not. */
@@ -758,7 +749,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
 {
     lily_block *block = emit->block;
-    lily_var *var = block->function_var;
+    lily_var *var = block->scope_var;
     lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
     lily_function_val *f = v->value.function;
 
@@ -769,7 +760,7 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
         lily_u16_write_3(emit->code, o_return_value, block->self->reg_spot,
                 line_num);
     else if (block->last_exit != lily_u16_pos(emit->code)) {
-        lily_type *type = block->function_var->type->subtypes[0];
+        lily_type *type = block->scope_var->type->subtypes[0];
 
         if (type == lily_unit_type)
             lily_u16_write_2(emit->code, o_return_unit, line_num);
@@ -791,7 +782,7 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
         perform_closure_transform(emit, block, f);
 
         if ((block->flags & BLOCK_CLOSURE_ORIGIN) == 0)
-            block->prev_function_block->flags |= BLOCK_MAKE_CLOSURE;
+            block->prev_scope_block->flags |= BLOCK_MAKE_CLOSURE;
 
         code_start = 0;
         code_size = lily_u16_pos(emit->closure_aux_code);
@@ -913,12 +904,12 @@ void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
     /* This isn't cleared by default because it's the only storage that can be
        closed over. */
     self->closure_spot = (uint16_t)-1;
-    emit->function_block->self = self;
+    emit->scope_block->self = self;
 }
 
 void lily_emit_activate_block_self(lily_emit_state *emit)
 {
-    lily_block *block = emit->function_block;
+    lily_block *block = emit->scope_block;
     lily_block_type block_type = block->block_type;
     uint16_t flags;
 
@@ -940,7 +931,7 @@ void lily_emit_activate_block_self(lily_emit_state *emit)
 
 static int can_use_self(lily_emit_state *emit, uint16_t flag)
 {
-    lily_block *block = emit->function_block;
+    lily_block *block = emit->scope_block;
 
     /* This block has a self that supports this action. */
     if (block->flags & flag)
@@ -950,7 +941,7 @@ static int can_use_self(lily_emit_state *emit, uint16_t flag)
     lily_block *origin = block;
 
     while ((origin->flags & BLOCK_SELF_ORIGIN) == 0)
-        origin = origin->prev_function_block;
+        origin = origin->prev_scope_block;
 
     if ((origin->flags & flag) == 0)
         return 0;
@@ -1038,7 +1029,7 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
 {
     lily_u16_write_4(emit->code, o_closure_function, func_sym->reg_spot,
             target->reg_spot, *emit->lex_linenum);
-    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+    emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
 /* This function closes over a var, but has a requirement. The requirement is
@@ -1047,8 +1038,8 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
    kinds of a generic that are not equivalent / scoped generics. */
 static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
 {
-    if (emit->function_block->block_type == block_define &&
-        emit->function_block->prev->block_type == block_define &&
+    if (emit->scope_block->block_type == block_define &&
+        emit->scope_block->prev->block_type == block_define &&
         var->type->flags & TYPE_IS_UNRESOLVED)
         lily_raise_syn(emit->raiser,
                 "Cannot close over a var of an incomplete type in this scope.");
@@ -1057,7 +1048,7 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
         lily_raise_syn(emit->raiser,
                 "Not allowed to close over variables from a class constructor.");
 
-    emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+    emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
     lily_u16_write_2(emit->closure_spots, var->reg_spot, var->function_depth);
 
     uint16_t spot = (lily_u16_pos(emit->closure_spots) - 1) / 2;
@@ -1072,18 +1063,18 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
 static void setup_for_transform(lily_emit_state *emit,
         lily_function_val *f, int is_backing)
 {
-    int next_reg_spot = emit->function_block->next_reg_spot;
+    int next_reg_spot = emit->scope_block->next_reg_spot;
 
-    if (emit->transform_size < emit->function_block->next_reg_spot) {
+    if (emit->transform_size < emit->scope_block->next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
                 next_reg_spot * sizeof(*emit->transform_table));
-        emit->transform_size = emit->function_block->next_reg_spot;
+        emit->transform_size = emit->scope_block->next_reg_spot;
     }
 
     memset(emit->transform_table, (uint16_t)-1,
             next_reg_spot * sizeof(*emit->transform_table));
 
-    lily_var *func_var = emit->function_block->function_var;
+    lily_var *func_var = emit->scope_block->scope_var;
     uint16_t line_num = func_var->line_num;
     uint16_t local_count = func_var->type->subtype_count - 1;
     int i, count = 0;
@@ -1209,7 +1200,7 @@ uint16_t iter_for_first_line(lily_emit_state *emit, int pos)
    (emit->block->code_start up to emit->code_pos) into code that will work for
    closures. */
 static void perform_closure_transform(lily_emit_state *emit,
-        lily_block *function_block, lily_function_val *f)
+        lily_block *scope_block, lily_function_val *f)
 {
     if (emit->closure_aux_code == NULL)
         emit->closure_aux_code = lily_new_buffer_u16(8);
@@ -1217,20 +1208,20 @@ static void perform_closure_transform(lily_emit_state *emit,
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
     int iter_start = emit->block->code_start;
-    int is_backing = (function_block->flags & BLOCK_CLOSURE_ORIGIN);
+    int is_backing = (scope_block->flags & BLOCK_CLOSURE_ORIGIN);
     uint16_t first_line = iter_for_first_line(emit, iter_start);
 
     if (is_backing) {
         /* Put the closure into a new register so the gc can't accidentally
            delete it. */
-        uint16_t closure_reg = function_block->next_reg_spot;
+        uint16_t closure_reg = scope_block->next_reg_spot;
 
-        function_block->next_reg_spot++;
+        scope_block->next_reg_spot++;
         lily_u16_write_4(emit->closure_aux_code, o_closure_new,
                 lily_u16_pos(emit->closure_spots) / 2, closure_reg,
                 first_line);
 
-        lily_storage *self = function_block->self;
+        lily_storage *self = scope_block->self;
 
         if (self && self->closure_spot != (uint16_t)-1) {
             /* Class constructors can't be closures and enums don't have a
@@ -2642,7 +2633,7 @@ after_type_check:;
     else if (left_tt == tree_property) {
         lily_u16_write_5(emit->code, o_property_set,
                 ((lily_prop_entry *)left_sym)->id,
-                emit->function_block->self->reg_spot,
+                emit->scope_block->self->reg_spot,
                 right_sym->reg_spot, ast->line_num);
     }
     else if (left_tt == tree_oo_access) {
@@ -2695,7 +2686,7 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     lily_storage *result = get_storage(emit, ast->property->type);
 
     lily_u16_write_5(emit->code, o_property_get, ast->property->id,
-            emit->function_block->self->reg_spot,
+            emit->scope_block->self->reg_spot,
             result->reg_spot, ast->line_num);
 
     result->flags &= ~SYM_NOT_ASSIGNABLE;
@@ -2729,7 +2720,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *s = get_storage(emit, lambda_result->type);
 
-    if ((emit->function_block->flags & BLOCK_MAKE_CLOSURE) == 0)
+    if ((emit->scope_block->flags & BLOCK_MAKE_CLOSURE) == 0)
         lily_u16_write_4(emit->code, o_load_readonly, lambda_result->reg_spot,
                 s->reg_spot, ast->line_num);
     else
@@ -2963,7 +2954,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             if (spot == (uint16_t)-1)
                 spot = checked_close_over_var(emit, v);
 
-            emit->function_block->flags |= BLOCK_MAKE_CLOSURE;
+            emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
             ret->flags &= ~SYM_NOT_ASSIGNABLE;
             break;
         }
@@ -3018,7 +3009,7 @@ static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 
 static void eval_self(lily_emit_state *emit, lily_ast *ast)
 {
-    ast->result = (lily_sym *)emit->function_block->self;
+    ast->result = (lily_sym *)emit->scope_block->self;
 }
 
 /***
@@ -3309,7 +3300,7 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
     if (return_type == lily_self_class->self_type)
         ast->result = ast->arg_start->result;
     else if (ast->first_tree_type == tree_inherited_new)
-        ast->result = (lily_sym *)emit->function_block->self;
+        ast->result = (lily_sym *)emit->scope_block->self;
     else {
         lily_ast *arg = ast->arg_start;
 
@@ -4401,13 +4392,13 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
                     ast->result->type);
         }
 
-        write_pop_try_blocks_up_to(emit, emit->function_block);
+        write_pop_try_blocks_up_to(emit, emit->scope_block);
         lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,
                 ast->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
     }
     else {
-        write_pop_try_blocks_up_to(emit, emit->function_block);
+        write_pop_try_blocks_up_to(emit, emit->scope_block);
         lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
     }
 }
