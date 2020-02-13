@@ -639,12 +639,10 @@ void lily_emit_enter_scope_block(lily_emit_state *emit,
         new_block->class_entry = emit->symtab->active_module->class_chain;
         new_block->flags |= BLOCK_SELF_ORIGIN;
     }
-    else if (block_type == block_lambda ||
-             block_type == block_define) {
+    else if (block_type & (SCOPE_DEFINE | SCOPE_LAMBDA)) {
         lily_block_type call_block_type = emit->scope_block->block_type;
 
-        if (call_block_type == block_class ||
-            call_block_type == block_enum)
+        if (call_block_type & (SCOPE_CLASS | SCOPE_ENUM))
             new_block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
         else if (call_block_type == block_file)
             new_block->flags |= BLOCK_CLOSURE_ORIGIN;

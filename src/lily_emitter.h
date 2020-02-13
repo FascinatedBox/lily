@@ -8,24 +8,28 @@
 # include "lily_buffer_u16.h"
 # include "lily_string_pile.h"
 
+# define SCOPE_CLASS  0x020
+# define SCOPE_DEFINE 0x040
+# define SCOPE_ENUM   0x080
+# define SCOPE_FILE   0x100
+# define SCOPE_LAMBDA 0x200
+
 typedef enum {
-    block_if,
-    block_if_elif,
-    block_if_else,
-    block_while,
-    block_do_while,
-    block_for_in,
-    block_try,
-    block_try_except,
-    block_try_except_all,
-    block_match,
-    block_enum,
-    /* Anything past here has a function created on behalf of it, and thus must
-       go through a special entry/exit. */
-    block_define,
-    block_class,
-    block_lambda,
-    block_file
+    block_class          = 0 | SCOPE_CLASS,
+    block_define         = 1 | SCOPE_DEFINE,
+    block_do_while       = 2,
+    block_enum           = 3 | SCOPE_ENUM,
+    block_file           = 4 | SCOPE_FILE,
+    block_for_in         = 5,
+    block_if             = 6,
+    block_if_elif        = 7,
+    block_if_else        = 8,
+    block_lambda         = 9 | SCOPE_LAMBDA,
+    block_match          = 10,
+    block_try            = 11,
+    block_try_except     = 12,
+    block_try_except_all = 13,
+    block_while          = 14,
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */

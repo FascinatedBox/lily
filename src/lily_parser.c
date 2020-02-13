@@ -3788,7 +3788,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
     if (modifiers & VAR_IS_FORWARD)
         collect_flag = F_COLLECT_FORWARD;
 
-    if (block_type == block_class || block_type == block_enum)
+    if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
         parent = parser->current_class;
 
     lily_var *define_var = parse_define_var(parser, parent, modifiers);
@@ -5251,14 +5251,12 @@ static void keyword_case(lily_parse_state *parser)
 }
 
 #define ANY_SCOPE (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | PUBLIC_SCOPE)
+#define ALLOW_DEFINE (SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
 
 static void parse_define(lily_parse_state *parser, int modifiers)
 {
     lily_block *block = parser->emit->block;
-    if (block->block_type != block_file &&
-        block->block_type != block_define &&
-        block->block_type != block_class &&
-        block->block_type != block_enum)
+    if ((block->block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
     if (block->block_type == block_class &&
@@ -5293,6 +5291,7 @@ static void parse_define(lily_parse_state *parser, int modifiers)
 }
 
 #undef ANY_SCOPE
+#undef ALLOW_DEFINE
 
 static void keyword_define(lily_parse_state *parser)
 {
@@ -5306,7 +5305,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
 
     if (key == KEY_FORWARD) {
         lily_block_type block_type = parser->emit->block->block_type;
-        if (block_type != block_file && block_type != block_class)
+        if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
             lily_raise_syn(parser->raiser,
                     "'forward' qualifier is only for toplevel functions and methods.");
 
