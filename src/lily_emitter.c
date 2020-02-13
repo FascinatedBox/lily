@@ -802,23 +802,20 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
 
 static lily_block *find_deepest_loop(lily_emit_state *emit)
 {
-    lily_block *block, *ret;
-    ret = NULL;
+    lily_block *block_iter = emit->block;
+    lily_block *stop_block = emit->scope_block;
+    lily_block *result = NULL;
 
-    for (block = emit->block; block; block = block->prev) {
-        if (block->block_type == block_while ||
-            block->block_type == block_do_while ||
-            block->block_type == block_for_in) {
-            ret = block;
-            break;
-        }
-        else if (block->block_type >= block_define) {
-            ret = NULL;
+    for (;block_iter != stop_block;block_iter = block_iter->prev) {
+        if (block_iter->block_type == block_while ||
+            block_iter->block_type == block_do_while ||
+            block_iter->block_type == block_for_in) {
+            result = block_iter;
             break;
         }
     }
 
-    return ret;
+    return result;
 }
 
 /* This is called when a patch needs to be put into a particular block. The
