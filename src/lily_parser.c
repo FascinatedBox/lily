@@ -3933,7 +3933,7 @@ static void do_elif(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     hide_block_vars(parser);
-    lily_emit_change_block_to(parser->emit, block_if_elif);
+    lily_emit_branch_switch(parser->emit);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
 
@@ -3947,7 +3947,7 @@ static void do_else(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     hide_block_vars(parser);
-    lily_emit_change_block_to(parser->emit, block_if_else);
+    lily_emit_branch_finalize(parser->emit);
 
     NEED_CURRENT_TOK(tk_colon)
     lily_next_token(lex);
@@ -4472,21 +4472,25 @@ static void keyword_import(lily_parse_state *parser)
 static void process_except(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-
     lily_class *except_cls = get_type(parser)->cls;
-    lily_block_type new_type = block_try_except;
+    lily_emit_state *emit = parser->emit;
 
     /* If it's 'except Exception', then all possible cases have been handled. */
-    if (except_cls->id == LILY_ID_EXCEPTION)
-        new_type = block_try_except_all;
-    else if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, except_cls) == 0)
+    if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, except_cls) == 0)
         lily_raise_syn(parser->raiser, "'%s' is not a valid exception class.",
                 except_cls->name);
     else if (except_cls->generic_count != 0)
         lily_raise_syn(parser->raiser, "'except' type cannot have subtypes.");
 
+    if (emit->block->flags & BLOCK_FINAL_BRANCH)
+        lily_raise_syn(emit->raiser, "'except' clause is unreachable.");
+
     hide_block_vars(parser);
-    lily_emit_change_block_to(parser->emit, new_type);
+
+    if (except_cls->id == LILY_ID_EXCEPTION)
+        lily_emit_branch_finalize(emit);
+    else
+        lily_emit_branch_switch(emit);
 
     lily_var *exception_var = NULL;
     if (lex->token == tk_word) {
@@ -5049,7 +5053,7 @@ static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
                 lex->label);
 
     hide_block_vars(parser);
-    lily_emit_change_match_branch(parser->emit);
+    lily_emit_branch_switch(parser->emit);
     lily_emit_write_match_case(parser->emit, match_sym,
             (lily_class *)variant_case);
 
@@ -5142,7 +5146,7 @@ static void match_case_class(lily_parse_state *parser,
                 cls->name);
 
     hide_block_vars(parser);
-    lily_emit_change_match_branch(parser->emit);
+    lily_emit_branch_switch(parser->emit);
     lily_emit_write_match_case(parser->emit, match_sym, cls);
 
     /* Forbid non-monomorphic types to avoid the question of what to do
@@ -5213,7 +5217,7 @@ static void keyword_match(lily_parse_state *parser)
                             "'else' in exhaustive match.");
 
                 NEED_NEXT_TOK(tk_colon)
-                lily_emit_change_match_branch(parser->emit);
+                lily_emit_branch_switch(parser->emit);
                 lily_next_token(lex);
                 have_else = 1;
             }
@@ -5240,6 +5244,7 @@ static void keyword_match(lily_parse_state *parser)
             error_incomplete_match(parser, match_sym);
     }
 
+    parser->emit->block->flags |= BLOCK_FINAL_BRANCH;
     hide_block_vars(parser);
     lily_next_token(lex);
     lily_emit_leave_block(parser->emit);

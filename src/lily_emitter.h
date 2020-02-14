@@ -22,14 +22,10 @@ typedef enum {
     block_file           = 4 | SCOPE_FILE,
     block_for_in         = 5,
     block_if             = 6,
-    block_if_elif        = 7,
-    block_if_else        = 8,
-    block_lambda         = 9 | SCOPE_LAMBDA,
-    block_match          = 10,
-    block_try            = 11,
-    block_try_except     = 12,
-    block_try_except_all = 13,
-    block_while          = 14,
+    block_lambda         = 7 | SCOPE_LAMBDA,
+    block_match          = 8,
+    block_try            = 9,
+    block_while          = 10,
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */
@@ -55,6 +51,12 @@ typedef enum {
 
 /* The self of this function block allows `@<prop>` accesses. */
 # define SELF_PROPERTY        0x40
+
+/* This block has done at least one branch switch already. */
+# define BLOCK_HAS_BRANCH     0x100
+
+/* This block shouldn't have any more branches. */
+# define BLOCK_FINAL_BRANCH   0x200
 
 /* Storages are used to hold values not held by vars. In most cases, storages
    hold intermediate values for an expression. The emitter attempts to reuse
@@ -245,7 +247,6 @@ void lily_emit_eval_optarg_keyed(lily_emit_state *, lily_ast *);
 
 void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
 int lily_emit_is_duplicate_case(lily_emit_state *, lily_class *);
-void lily_emit_change_match_branch(lily_emit_state *);
 void lily_emit_write_match_case(lily_emit_state *, lily_sym *, lily_class *);
 void lily_emit_decompose(lily_emit_state *, lily_sym *, int, uint16_t);
 
@@ -253,7 +254,8 @@ void lily_emit_break(lily_emit_state *);
 void lily_emit_continue(lily_emit_state *);
 void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 
-void lily_emit_change_block_to(lily_emit_state *emit, int);
+void lily_emit_branch_switch(lily_emit_state *);
+void lily_emit_branch_finalize(lily_emit_state *);
 
 void lily_emit_enter_block(lily_emit_state *, lily_block_type);
 void lily_emit_enter_scope_block(lily_emit_state *, lily_block_type, lily_var *);

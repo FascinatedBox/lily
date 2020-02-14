@@ -360,7 +360,8 @@ static void write_pop_try_blocks_up_to(lily_emit_state *emit,
     int try_count = 0;
 
     while (block_iter != stop_block) {
-        if (block_iter->block_type == block_try)
+        if (block_iter->block_type == block_try &&
+            (block_iter->flags & BLOCK_HAS_BRANCH) == 0)
             try_count++;
 
         block_iter = block_iter->prev;
@@ -723,19 +724,14 @@ void lily_emit_leave_block(lily_emit_state *emit)
     }
     else if (block_type == block_match)
         emit->match_case_pos = emit->block->match_case_start;
-    else if (block_type == block_try ||
-             block_type == block_try_except ||
-             block_type == block_try_except_all) {
+    else if (block_type == block_try)
         /* The vm expects that the last except block will have a 'next' of 0 to
            indicate the end of the 'except' chain. Remove the patch that the
            last except block installed so it doesn't get patched. */
         lily_u16_set_at(emit->code, lily_u16_pop(emit->patches), 0);
-    }
 
-    if ((block_type == block_if_else ||
-         block_type == block_match ||
-         block_type == block_try_except_all) &&
-        block->flags & BLOCK_ALWAYS_EXITS &&
+    if ((block->flags & BLOCK_ALWAYS_EXITS) &&
+        (block->flags & BLOCK_FINAL_BRANCH) &&
         block->last_exit == lily_u16_pos(emit->code)) {
         emit->block->prev->last_exit = lily_u16_pos(emit->code);
     }
@@ -834,58 +830,43 @@ static void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
     }
 }
 
-
-/* This function is called from parser to change the current block into a block
-   of the given type. The emitter does some checks to make sure that the change
-   is valid, as well as jump patching. */
-void lily_emit_change_block_to(lily_emit_state *emit, int new_type)
+/* This handles branch changes for if, match, and try. Each condition finishes
+   by writing a jump to the next branch in case of failure. A patch of zero is
+   used as a placeholder in case of, for example, a branch that does not have a
+   jump because it is always taken. */
+void lily_emit_branch_switch(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
-    lily_block_type current_type = block->block_type;
-
-    if (block->last_exit != lily_u16_pos(emit->code))
-        block->flags &= ~BLOCK_ALWAYS_EXITS;
-
-    if (new_type == block_try_except || new_type == block_try_except_all) {
-        if (current_type == block_try_except_all)
-            lily_raise_syn(emit->raiser, "'except' clause is unreachable.");
-
-        /* If nothing in the 'try' block raises an error, the vm needs to be
-           told to unregister the 'try' block since will become unreachable
-           when the jump below occurs. */
-        if (current_type == block_try)
-            lily_u16_write_1(emit->code, o_catch_pop);
-    }
-
-    int save_jump;
-
-    if (block->last_exit != lily_u16_pos(emit->code)) {
-        /* Write a jump at the end of this branch. It will be patched to target
-           the if/try's exit. */
-        lily_u16_write_2(emit->code, o_jump, 1);
-        save_jump = lily_u16_pos(emit->code) - 1;
-    }
-    else
-        /* This branch has code that is confirmed to return, continue, raise, or
-           do some other action that prevents it from reaching here. Don't
-           bother writing a jump that will never be seen. */
-        save_jump = -1;
-
-    /* The last jump of the previous branch wants to know where the check for
-       the next branch starts. It's right now. */
     uint16_t patch = lily_u16_pop(emit->patches);
 
-    if (patch != 0) {
-        int patch_adjust = lily_u16_get(emit->code, patch);
-        lily_u16_set_at(emit->code, patch,
-                lily_u16_pos(emit->code) + patch_adjust - patch);
+    /* The spot in code has an offset for the patch. */
+    uint16_t adjust = lily_u16_get(emit->code, patch);
+
+    if (block->last_exit != lily_u16_pos(emit->code)) {
+        if ((block->flags & BLOCK_HAS_BRANCH) == 0 &&
+            block->block_type == block_try)
+            lily_u16_write_1(emit->code, o_catch_pop);
+
+        /* Since the current branch isn't confirmed to exit, write an exit jump.
+           This exit jump will persist until the block is done. */
+        lily_u16_write_2(emit->code, o_jump, 1);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+        block->flags &= ~BLOCK_ALWAYS_EXITS;
     }
-    /* else it's a fake branch from a condition that was optimized out. */
 
-    if (save_jump != -1)
-        lily_u16_write_1(emit->patches, save_jump);
+    if (patch != 0) {
+        lily_u16_set_at(emit->code, patch,
+                lily_u16_pos(emit->code) + adjust - patch);
+    }
 
-    emit->block->block_type = new_type;
+    block->flags |= BLOCK_HAS_BRANCH;
+}
+
+void lily_emit_branch_finalize(lily_emit_state *emit)
+{
+    lily_emit_branch_switch(emit);
+
+    emit->block->flags |= BLOCK_FINAL_BRANCH;
 }
 
 void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
@@ -1494,28 +1475,6 @@ void lily_emit_write_match_case(lily_emit_state *emit, lily_sym *match_sym,
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
 
-void lily_emit_change_match_branch(lily_emit_state *emit)
-{
-    lily_block *block = emit->block;
-
-    if (block->match_case_start != emit->match_case_pos) {
-        if (emit->block->last_exit != lily_u16_pos(emit->code))
-            emit->block->flags &= ~BLOCK_ALWAYS_EXITS;
-
-        /* This is the jump of the last o_jump_if_not_class. */
-        int pos = lily_u16_pop(emit->patches);
-        int adjust = lily_u16_get(emit->code, pos);
-
-        /* Write a pending exit jump for the previous case. */
-        lily_u16_write_2(emit->code, o_jump, 1);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-
-        /* The last o_jump_if_not_class will go here. */
-        lily_u16_set_at(emit->code, pos,
-                lily_u16_pos(emit->code) + adjust - pos);
-    }
-}
-
 /* This evaluates the expression to be sent to 'match' The resulting value is
    checked for returning a value that is a valid enum. The match block's state
    is then prepared.
@@ -1523,19 +1482,20 @@ void lily_emit_change_match_branch(lily_emit_state *emit)
 void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    lily_block *block = emit->block;
-    eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
 
-    block->match_case_start = emit->match_case_pos;
+    eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
 
     lily_class *match_class = ast->result->type->cls;
 
-    if (match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE))
-        /* Each case pops the last jump and writes in their own. */
-        lily_u16_write_1(emit->patches, 0);
-    else
+    if ((match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
         lily_raise_syn(emit->raiser,
                 "Match expression is not a user class or enum.");
+
+    lily_block *block = emit->block;
+
+    block->match_case_start = emit->match_case_pos;
+    block->last_exit = lily_u16_pos(emit->code);
+    lily_u16_write_1(emit->patches, 0);
 }
 
 /***
