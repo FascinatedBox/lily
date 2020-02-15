@@ -3303,7 +3303,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
 
     lily_var *lambda_var = new_native_define_var(parser, NULL, "(lambda)");
 
-    lily_emit_enter_scope_block(parser->emit, block_lambda, lambda_var);
+    lily_emit_enter_lambda_block(parser->emit, lambda_var);
 
     /* Placeholder for the lambda's return type, unless one isn't found.*/
     lily_tm_add(parser->tm, lily_unit_type);
@@ -3797,7 +3797,7 @@ static void parse_define_header(lily_parse_state *parser, int modifiers)
 
     lily_next_token(lex);
     collect_generics_for(parser, NULL);
-    lily_emit_enter_scope_block(parser->emit, block_define, define_var);
+    lily_emit_enter_define_block(parser->emit, define_var);
 
     if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
         /* Toplevel non-static class methods have 'self' as an implicit first
@@ -3957,7 +3957,7 @@ static void keyword_if(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_if);
+    lily_emit_enter_if_block(parser->emit);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
     NEED_CURRENT_TOK(tk_colon)
@@ -4084,7 +4084,7 @@ static void keyword_while(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_while);
+    lily_emit_enter_while_block(parser->emit);
 
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
@@ -4122,7 +4122,7 @@ static void keyword_for(lily_parse_state *parser)
 
     NEED_CURRENT_TOK(tk_word)
 
-    lily_emit_enter_block(parser->emit, block_for_in);
+    lily_emit_enter_for_in_block(parser->emit);
 
     loop_var = find_active_var(parser, lex->label);
     if (loop_var == NULL) {
@@ -4186,7 +4186,7 @@ static void keyword_do(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_do_while);
+    lily_emit_enter_do_while_block(parser->emit);
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
@@ -4240,7 +4240,7 @@ static void run_loaded_module(lily_parse_state *parser,
             "__module__");
 
     module_var->type = module_type;
-    lily_emit_enter_scope_block(parser->emit, block_file, module_var);
+    lily_emit_enter_file_block(parser->emit, module_var);
 
     /* The whole of the file can be thought of as one large statement. */
     lily_next_token(lex);
@@ -4487,10 +4487,10 @@ static void process_except(lily_parse_state *parser)
 
     hide_block_vars(parser);
 
-    if (except_cls->id == LILY_ID_EXCEPTION)
-        lily_emit_branch_finalize(emit);
-    else
+    if (except_cls->id != LILY_ID_EXCEPTION)
         lily_emit_branch_switch(emit);
+    else
+        lily_emit_branch_finalize(emit);
 
     lily_var *exception_var = NULL;
     if (lex->token == tk_word) {
@@ -4522,8 +4522,7 @@ static void keyword_try(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_try);
-    lily_emit_try(parser->emit, parser->lex->line_num);
+    lily_emit_enter_try_block(parser->emit, lex->line_num);
 
     NEED_CURRENT_TOK(tk_colon)
     NEED_NEXT_TOK(tk_left_curly)
@@ -4759,7 +4758,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_next_token(lex);
     collect_generics_for(parser, cls);
 
-    lily_emit_enter_scope_block(parser->emit, block_class, call_var);
+    lily_emit_enter_class_block(parser->emit, call_var);
 
     parser->current_class = cls;
 
@@ -4929,10 +4928,7 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
     lily_next_token(lex);
     collect_generics_for(parser, enum_cls);
-
-    /* Enums are entered as a function to make them consistent with classes. The
-       call var being NULL is okay since enums won't write any code to it.  */
-    lily_emit_enter_scope_block(parser->emit, block_enum, NULL);
+    lily_emit_enter_enum_block(parser->emit, enum_cls);
 
     parser->current_class = enum_cls;
 
@@ -5176,7 +5172,7 @@ static void keyword_match(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    lily_emit_enter_block(parser->emit, block_match);
+    lily_emit_enter_match_block(parser->emit);
 
     expression(parser);
     lily_emit_eval_match_expr(parser->emit, parser->expr);

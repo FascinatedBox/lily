@@ -257,15 +257,24 @@ void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_emit_branch_switch(lily_emit_state *);
 void lily_emit_branch_finalize(lily_emit_state *);
 
-void lily_emit_enter_block(lily_emit_state *, lily_block_type);
-void lily_emit_enter_scope_block(lily_emit_state *, lily_block_type, lily_var *);
+void lily_emit_enter_class_block(lily_emit_state *, lily_var *);
+void lily_emit_enter_define_block(lily_emit_state *, lily_var *);
+void lily_emit_enter_do_while_block(lily_emit_state *);
+void lily_emit_enter_enum_block(lily_emit_state *, lily_class *);
+void lily_emit_enter_file_block(lily_emit_state *, lily_var *);
+void lily_emit_enter_for_in_block(lily_emit_state *);
+void lily_emit_enter_if_block(lily_emit_state *);
+void lily_emit_enter_lambda_block(lily_emit_state *, lily_var *);
+void lily_emit_enter_match_block(lily_emit_state *);
+void lily_emit_enter_try_block(lily_emit_state *, uint16_t);
+void lily_emit_enter_while_block(lily_emit_state *);
+
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_leave_scope_block(lily_emit_state *);
 void lily_emit_leave_forward_call(lily_emit_state *);
 void lily_emit_resolve_forward_decl(lily_emit_state *, lily_var *);
 void lily_emit_finish_block_code(lily_emit_state *, uint16_t);
 
-void lily_emit_try(lily_emit_state *, int);
 void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
 void lily_emit_raise(lily_emit_state *, lily_expr_state *);
 

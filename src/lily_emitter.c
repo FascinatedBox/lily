@@ -404,14 +404,6 @@ void lily_emit_continue(lily_emit_state *emit)
     lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
 }
 
-/* The parser has a 'try' and wants the emitter to write the code. */
-void lily_emit_try(lily_emit_state *emit, int line_num)
-{
-    lily_u16_write_3(emit->code, o_catch_push, 1, line_num);
-
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
-}
-
 /* The parser has an 'except' clause and wants emitter to write code for it. */
 void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
         lily_var *except_var, int line_num)
@@ -591,7 +583,7 @@ static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void perform_closure_transform(lily_emit_state *, lily_block *,
 		lily_function_val *);
 
-static lily_block *block_enter_common(lily_emit_state *emit)
+static lily_block *next_block(lily_emit_state *emit)
 {
     lily_block *new_block;
     if (emit->block->next == NULL) {
@@ -606,7 +598,7 @@ static lily_block *block_enter_common(lily_emit_state *emit)
 
     new_block->class_entry = emit->block->class_entry;
     new_block->self = NULL;
-    new_block->patch_start = emit->patches->pos;
+    new_block->patch_start = lily_u16_pos(emit->patches);
     new_block->last_exit = -1;
     new_block->flags = 0;
     new_block->var_count = 0;
@@ -616,61 +608,141 @@ static lily_block *block_enter_common(lily_emit_state *emit)
     return new_block;
 }
 
-/* This enters a block of the given block type. A block's vars are considered to
-   be any vars created after the block has been entered. Information such as the
-   current class entered is inferred from existing info. */
-void lily_emit_enter_block(lily_emit_state *emit, lily_block_type block_type)
+static void setup_scope_block(lily_emit_state *emit, lily_block *new_block)
 {
-    lily_block *new_block = block_enter_common(emit);
-    new_block->block_type = block_type;
-    new_block->flags |= BLOCK_ALWAYS_EXITS;
+    new_block->prev_scope_block = emit->scope_block;
+    new_block->next_reg_spot = 0;
+    new_block->storage_count = 0;
+    new_block->code_start = lily_u16_pos(emit->code);
 
+    emit->storages->start += emit->scope_block->storage_count;
+    emit->scope_block = new_block;
     emit->block = new_block;
 }
 
-void lily_emit_enter_scope_block(lily_emit_state *emit,
-        lily_block_type block_type, lily_var *scope_var)
+void lily_emit_enter_class_block(lily_emit_state *emit, lily_var *var)
 {
-    lily_block *new_block = block_enter_common(emit);
-    new_block->block_type = block_type;
+    lily_block *block = next_block(emit);
 
-    emit->storages->start += emit->scope_block->storage_count;
+    block->flags |= BLOCK_SELF_ORIGIN;
+    block->block_type = block_class;
+    block->scope_var = var;
+    block->class_entry = var->parent;
+    setup_scope_block(emit, block);
+    emit->function_depth++;
+}
 
-    if (block_type == block_class) {
-        new_block->class_entry = emit->symtab->active_module->class_chain;
-        new_block->flags |= BLOCK_SELF_ORIGIN;
-    }
-    else if (block_type & (SCOPE_DEFINE | SCOPE_LAMBDA)) {
-        lily_block_type call_block_type = emit->scope_block->block_type;
+void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var)
+{
+    lily_block *block = next_block(emit);
+    lily_block_type scope_block_type = emit->scope_block->block_type;
 
-        if (call_block_type & (SCOPE_CLASS | SCOPE_ENUM))
-            new_block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
-        else if (call_block_type == block_file)
-            new_block->flags |= BLOCK_CLOSURE_ORIGIN;
-        else if (call_block_type == block_define)
-            /* Lambdas don't allow definitions, so this must be a definition
-               inside of a definition. Mark it like this so it gets the upvalues
-               it needs if called. */
-            if (emit->block->block_type == block_define)
-                scope_var->flags |= VAR_NEEDS_CLOSURE;
-    }
+    if (scope_block_type & (SCOPE_CLASS | SCOPE_ENUM))
+        block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
+    else if (scope_block_type == block_file)
+        block->flags |= BLOCK_CLOSURE_ORIGIN;
+    else if (scope_block_type == block_define)
+        /* This var will need upvalues if it's called. */
+        var->flags |= VAR_NEEDS_CLOSURE;
 
-    /* This causes vars within this imported file to be seen as global
-       vars, instead of locals. Without this, the interpreter gets confused
-       and thinks the imported file's globals are really upvalues. */
-    if (block_type != block_file)
-        emit->function_depth++;
+    block->block_type = block_define;
+    block->scope_var = var;
+    setup_scope_block(emit, block);
+    emit->function_depth++;
+}
 
-    new_block->prev_scope_block = emit->scope_block;
+void lily_emit_enter_do_while_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
 
-    emit->scope_block = new_block;
+    block->block_type = block_do_while;
+    emit->block = block;
+}
 
-    new_block->next_reg_spot = 0;
-    new_block->storage_count = 0;
-    new_block->scope_var = scope_var;
-    new_block->code_start = lily_u16_pos(emit->code);
+void lily_emit_enter_enum_block(lily_emit_state *emit, lily_class *cls)
+{
+    lily_block *block = next_block(emit);
 
-    emit->block = new_block;
+    /* Enum blocks exist as scope blocks so that enum methods know they're enum
+       methods. They don't have a var since they don't execute code. */
+    block->block_type = block_enum;
+    block->class_entry = cls;
+    setup_scope_block(emit, block);
+    emit->function_depth++;
+}
+
+void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_file;
+    block->scope_var = var;
+    setup_scope_block(emit, block);
+    /* Don't bump depth so these vars are seen as global vars. */
+}
+
+void lily_emit_enter_for_in_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_for_in;
+    emit->block = block;
+}
+
+void lily_emit_enter_if_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->flags |= BLOCK_ALWAYS_EXITS;
+    block->block_type = block_if;
+    emit->block = block;
+}
+
+void lily_emit_enter_lambda_block(lily_emit_state *emit, lily_var *var)
+{
+    lily_block *block = next_block(emit);
+    lily_block_type scope_block_type = emit->scope_block->block_type;
+
+    if (scope_block_type == block_class)
+        block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
+    else if (scope_block_type == block_file)
+        block->flags |= BLOCK_CLOSURE_ORIGIN;
+
+    block->block_type = block_lambda;
+    block->scope_var = var;
+    setup_scope_block(emit, block);
+    emit->function_depth++;
+}
+
+void lily_emit_enter_match_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->flags |= BLOCK_ALWAYS_EXITS;
+    block->block_type = block_match;
+    block->match_case_start = emit->match_case_pos;
+    emit->block = block;
+}
+
+void lily_emit_enter_try_block(lily_emit_state *emit, uint16_t line_num)
+{
+    lily_block *block = next_block(emit);
+
+    block->flags |= BLOCK_ALWAYS_EXITS;
+    block->block_type = block_try;
+    emit->block = block;
+
+    /* Each branch of a try block contains a jump to the next branch. */
+    lily_u16_write_3(emit->code, o_catch_push, 1, line_num);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+}
+
+void lily_emit_enter_while_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_while;
+    emit->block = block;
 }
 
 void lily_emit_leave_forward_call(lily_emit_state *emit)
