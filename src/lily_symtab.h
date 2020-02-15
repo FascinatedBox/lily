@@ -24,11 +24,7 @@ typedef struct lily_symtab_ {
 
     uint16_t next_global_id;
 
-    /* Enums and variants are initially given a fake id that counts down from
-       the end. */
-    uint16_t next_reverse_id;
-
-    uint16_t pad;
+    uint32_t pad;
 
     /* These classes are used frequently throughout the interpreter, so they're
        kept here for easy, fast access. */

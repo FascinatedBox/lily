@@ -31,7 +31,6 @@ lily_symtab *lily_new_symtab(void)
     symtab->hidden_class_chain = NULL;
     symtab->literals = lily_new_value_stack();
     symtab->next_global_id = 0;
-    symtab->next_reverse_id = LILY_LAST_ID;
 
     return symtab;
 }
@@ -174,7 +173,6 @@ void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
         int executing)
 {
     symtab->active_module = main_module;
-    symtab->next_reverse_id = LILY_LAST_ID;
 
     if (main_module->boxed_chain != stop_box) {
         free_boxed_syms_since(main_module->boxed_chain, stop_box);
@@ -789,9 +787,13 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
 
     symtab->next_class_id--;
     new_class->item_kind = ITEM_ENUM_FLAT;
-    new_class->id = symtab->next_reverse_id;
-    symtab->next_reverse_id--;
+    new_class->id = 0;
 
+    /* Enums don't interact with the type system or emitter until their
+       definitions, which come after the variants. Hold off on giving them an id
+       until the variants are done. By doing that, enums and their variants can
+       be given a sequential id. That order is expected by foreign bindings for
+       variants, which use 'enum id + variant pos' to compute variant id. */
     return new_class;
 }
 
@@ -828,6 +830,9 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
 
     variant->item_kind = ITEM_VARIANT_EMPTY;
     variant->flags = 0;
+
+    /* Variants get an id when they're done collecting. */
+    variant->cls_id = 0;
     variant->parent = enum_cls;
     variant->type_subtype_count = 0;
     variant->build_type = NULL;
@@ -839,9 +844,7 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
 
     variant->next = enum_cls->members;
     enum_cls->members = (lily_named_sym *)variant;
-
-    variant->cls_id = symtab->next_reverse_id;
-    symtab->next_reverse_id--;
+    enum_cls->variant_size++;
 
     return variant;
 }
@@ -854,13 +857,10 @@ lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
    occur exactly after their enum parent ids. */
 void lily_fix_enum_variant_ids(lily_symtab *symtab, lily_class *enum_cls)
 {
+    enum_cls->id = symtab->next_class_id;
+    symtab->next_class_id += enum_cls->variant_size;
+
     uint16_t next_id = symtab->next_class_id;
-
-    enum_cls->id = next_id;
-    next_id += enum_cls->variant_size;
-    symtab->next_class_id = next_id + 1;
-    symtab->next_reverse_id += enum_cls->variant_size + 1;
-
     lily_named_sym *member_iter = enum_cls->members;
 
     /* Method collection hasn't happened yet, so all members are variants. */
@@ -872,6 +872,8 @@ void lily_fix_enum_variant_ids(lily_symtab *symtab, lily_class *enum_cls)
 
         member_iter = member_iter->next;
     }
+
+    symtab->next_class_id++;
 }
 
 /***

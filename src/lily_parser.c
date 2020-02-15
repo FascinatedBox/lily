@@ -2080,7 +2080,6 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
 
     enum_cls->dyna_start = dyna_index + 1;
 
-    int variant_count = 0;
     lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
 
     do {
@@ -2104,12 +2103,10 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
             variant_cls->build_type = empty_type;
 
         entry_index++;
-        variant_count++;
         entry = table[entry_index];
         lily_pop_lex_entry(lex);
     }
 
-    enum_cls->variant_size = variant_count;
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
     lily_gp_restore_and_unhide(parser->generics, save_generics);
 
@@ -4900,7 +4897,7 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->item_kind = ITEM_VARIANT_FILLED;
 }
 
-static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
+static void parse_enum(lily_parse_state *parser, int is_scoped)
 {
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file)
@@ -4924,8 +4921,6 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     if (is_scoped)
         enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
-    uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
-
     lily_next_token(lex);
     collect_generics_for(parser, enum_cls);
     lily_emit_enter_enum_block(parser->emit, enum_cls);
@@ -4935,15 +4930,12 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
 
-    int variant_count = 0;
     lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
+    lily_variant_class *variant_cls;
 
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        lily_variant_class *variant_cls = NULL;
-
-        if (variant_count)
-            variant_cls = lily_find_variant(enum_cls, lex->label);
+        variant_cls = lily_find_variant(enum_cls, lex->label);
 
         if (variant_cls == NULL && is_scoped == 0)
             variant_cls = (lily_variant_class *)find_active_class(parser,
@@ -4956,7 +4948,6 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
 
         variant_cls = lily_new_variant_class(parser->symtab, enum_cls,
                 lex->label, lex->line_num);
-        variant_count++;
 
         lily_next_token(lex);
         if (lex->token == tk_left_parenth)
@@ -4975,13 +4966,10 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
         }
     }
 
-    if (variant_count < 2) {
+    if (enum_cls->variant_size < 2) {
         lily_raise_syn(parser->raiser,
                 "An enum must have at least two variants.");
     }
-
-    /* Emitter uses this later to determine how many cases are allowed. */
-    enum_cls->variant_size = variant_count;
 
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
 
@@ -5004,10 +4992,8 @@ static lily_class *parse_enum(lily_parse_state *parser, int is_scoped)
     lily_emit_leave_scope_block(parser->emit);
     parser->current_class = NULL;
 
-    lily_gp_restore_and_unhide(parser->generics, save_generic_start);
+    lily_gp_restore(parser->generics, 0);
     lily_next_token(lex);
-
-    return enum_cls;
 }
 
 static void keyword_enum(lily_parse_state *parser)
