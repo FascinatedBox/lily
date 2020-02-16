@@ -168,6 +168,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->rs->pending = 0;
     parser->ims = lily_malloc(sizeof(*parser->ims));
     parser->ims->path_msgbuf = lily_new_msgbuf(64);
+    parser->flags = 0;
 
     parser->vm->gs->parser = parser;
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
@@ -210,9 +211,6 @@ lily_state *lily_new_state(lily_config *config)
     create_main_func(parser);
     lily_prelude_register(parser->vm);
     mark_builtin_modules(parser);
-
-    parser->executing = 0;
-    parser->content_to_parse = 0;
 
     return parser->vm;
 }
@@ -381,14 +379,14 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
     vm->call_chain = call_iter;
     vm->call_depth = 0;
 
+    uint16_t executing = parser->flags & PARSER_IS_EXECUTING;
+
     /* Symtab will choose to hide new classes (if executing) or destroy them (if
        not executing). New vars are destroyed, and the main module is made
        active again. */
     lily_rewind_symtab(parser->symtab, parser->main_module,
             rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
-            parser->executing);
-
-    parser->executing = 0;
+            executing);
 }
 
 static void handle_rewind(lily_parse_state *parser)
@@ -5441,7 +5439,7 @@ static void main_func_setup(lily_parse_state *parser)
     maybe_fix_print(parser);
     update_all_cid_tables(parser);
 
-    parser->executing = 1;
+    parser->flags |= PARSER_IS_EXECUTING;
     lily_call_prepare(parser->vm, parser->toplevel_func);
     /* The above function pushes a Unit value to act as a sink for lily_call to
        put a value into. __main__ won't return a value so get rid of it. */
@@ -5452,7 +5450,7 @@ static void main_func_teardown(lily_parse_state *parser)
 {
     parser->vm->call_chain = parser->vm->call_chain->prev;
     parser->vm->call_depth--;
-    parser->executing = 0;
+    parser->flags &= ~PARSER_IS_EXECUTING;
 }
 
 /* This is the entry point into parsing regardless of the starting mode. This
@@ -5475,7 +5473,8 @@ static void parser_loop(lily_parse_state *parser)
         else if (lex->token == tk_end_tag || lex->token == tk_eof) {
             /* Block handling is recursive, so this can't be reached if there
                are unterminated blocks. */
-            if (parser->rendering == 0 && lex->token == tk_end_tag)
+            if ((parser->flags & PARSER_IS_RENDERING) == 0 &&
+                lex->token == tk_end_tag)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(lex->token));
 
@@ -5632,7 +5631,7 @@ static int open_first_content(lily_state *s, const char *filename,
 {
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->content_to_parse)
+    if (parser->flags & PARSER_HAS_CONTENT)
         return 0;
 
     /* Loading initial content should only be done outside of execution, so
@@ -5665,7 +5664,7 @@ static int open_first_content(lily_state *s, const char *filename,
         /* The first module is now rooted based on the name given. */
         update_main_name(parser, filename);
 
-        parser->content_to_parse = 1;
+        parser->flags = PARSER_HAS_CONTENT;
         return 1;
     }
 
@@ -5687,11 +5686,10 @@ int lily_parse_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->content_to_parse == 0)
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
         return 0;
 
-    parser->content_to_parse = 0;
-    parser->rendering = 0;
+    parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         parser_loop(parser);
@@ -5715,11 +5713,10 @@ int lily_validate_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->content_to_parse == 0)
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
         return 0;
 
-    parser->content_to_parse = 0;
-    parser->rendering = 0;
+    parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         parser_loop(parser);
@@ -5742,11 +5739,10 @@ int lily_render_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->content_to_parse == 0)
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
         return 0;
 
-    parser->content_to_parse = 0;
-    parser->rendering = 1;
+    parser->flags = PARSER_IS_RENDERING;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
@@ -5791,11 +5787,10 @@ int lily_parse_expr(lily_state *s, const char **text)
 
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->content_to_parse == 0)
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
         return 0;
 
-    parser->content_to_parse = 0;
-    parser->rendering = 0;
+    parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;

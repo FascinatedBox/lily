@@ -14,6 +14,18 @@
 # include "lily_value_stack.h"
 # include "lily_generic_pool.h"
 
+/* This is used to prevent multiple content loads and to make sure content
+   handling has content. */
+#define PARSER_HAS_CONTENT  0x1
+
+/* This is used by symtab's rewind to determine what happens to the new symbols
+   from the failed parse. If set, symbols are hidden in case old symbols refer
+   to them (unlikely but possible). Otherwise, the symbols are dropped. */
+#define PARSER_IS_EXECUTING 0x2
+
+/* This is used to make sure the end token is correct. */
+#define PARSER_IS_RENDERING 0x4
+
 struct lily_rewind_state_;
 struct lily_import_state_;
 
@@ -25,24 +37,14 @@ typedef struct lily_parse_state_ {
 
     lily_buffer_u16 *data_stack;
 
-    uint16_t executing;
-
-    /* 1 if there is content to parse, 0 otherwise.
-       Used by content loading to block multiple loads and to prevent running
-       without any content to run on. */
-    uint16_t content_to_parse;
-
     /* The next import should store temp names here. */
     uint32_t import_pile_current;
 
     /* Same idea, but for keyword arguments. */
     uint16_t keyarg_current;
 
-    /* 1 if the first import is in template mode, 0 otherwise.
-       Used to prevent files in non-template mode from having tags. */
-    uint16_t rendering;
-
-    uint32_t pad;
+    /* See PARSER_* flags. */
+    uint16_t flags;
 
     /* The current expression state. */
     lily_expr_state *expr;
