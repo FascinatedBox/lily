@@ -35,28 +35,25 @@ typedef struct lily_parse_state_ {
 
     lily_module_entry *main_module;
 
+    /* This stores positions in data_strings for fetching out later. */
     lily_buffer_u16 *data_stack;
 
-    /* The next import should store temp names here. */
-    uint32_t import_pile_current;
-
-    /* Same idea, but for keyword arguments. */
-    uint16_t keyarg_current;
+    /* The next insertion position into data_strings. */
+    uint16_t data_string_pos;
 
     /* See PARSER_* flags. */
     uint16_t flags;
 
+    uint32_t pad;
+
     /* The current expression state. */
     lily_expr_state *expr;
-
-    /* This stores keyword arguments until the prototype can take them. */
-    lily_string_pile *keyarg_strings;
 
     /* Pile strings are stored here. */
     lily_string_pile *expr_strings;
 
-    /* For code like `import (a, b) c`, this stores a and b. */
-    lily_string_pile *import_ref_strings;
+    /* This holds intermediate strings for keyword arguments and import. */
+    lily_string_pile *data_strings;
 
     /* The parser uses this to hold and register generic classes. */
     lily_generic_pool *generics;

@@ -156,7 +156,7 @@ lily_state *lily_new_state(lily_config *config)
 
     lily_raiser *raiser = lily_new_raiser();
 
-    parser->import_pile_current = 0;
+    parser->data_string_pos = 0;
     parser->current_class = NULL;
     parser->raiser = raiser;
     parser->msgbuf = lily_new_msgbuf(64);
@@ -185,8 +185,6 @@ lily_state *lily_new_state(lily_config *config)
     parser->emit = lily_new_emit_state(parser->symtab, raiser);
     parser->lex = lily_new_lex_state(raiser);
     parser->data_stack = lily_new_buffer_u16(4);
-    parser->keyarg_strings = lily_new_string_pile();
-    parser->keyarg_current = 0;
 
     /* Here's the awful part where parser digs in and links everything that different
        sections need. */
@@ -199,7 +197,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->emit->parser = parser;
 
     parser->expr_strings = parser->emit->expr_strings;
-    parser->import_ref_strings = lily_new_string_pile();
+    parser->data_strings = lily_new_string_pile();
 
     lily_module_entry *main_module = new_module(parser);
 
@@ -278,8 +276,7 @@ void lily_free_state(lily_state *vm)
         module_iter = module_next;
     }
 
-    lily_free_string_pile(parser->import_ref_strings);
-    lily_free_string_pile(parser->keyarg_strings);
+    lily_free_string_pile(parser->data_strings);
     lily_free_symtab(parser->symtab);
     lily_free_generic_pool(parser->generics);
     lily_free_msgbuf(parser->msgbuf);
@@ -293,8 +290,7 @@ void lily_free_state(lily_state *vm)
 static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
 {
     lily_u16_set_pos(parser->data_stack, 0);
-    parser->import_pile_current = 0;
-    parser->keyarg_current = 0;
+    parser->data_string_pos = 0;
     parser->current_class = NULL;
 
     lily_module_entry *module_iter = rs->main_last_module;
@@ -415,6 +411,12 @@ static void mark_builtin_modules(lily_parse_state *parser)
         module_iter->flags |= MODULE_IS_PREDEFINED;
         module_iter = module_iter->next;
     }
+}
+
+static void add_data_string(lily_parse_state *parser, const char *to_add)
+{
+    lily_u16_write_1(parser->data_stack, parser->data_string_pos);
+    lily_sp_insert(parser->data_strings, to_add, &parser->data_string_pos);
 }
 
 /***
@@ -678,17 +680,6 @@ static void set_dirs_on_module(lily_parse_state *parser,
         module->root_dirname = parser->ims->source_module->root_dirname;
 }
 
-static void add_failed_import_path(lily_parse_state *parser, const char *path)
-{
-    /* 'import' isn't allowed inside of an expression, so expr_strings should
-       not be holding anything important. Use it to store paths that have been
-       tried so the interpreter can deliver a better error message. */
-    lily_buffer_u16 *b = parser->data_stack;
-    uint16_t pos = lily_u16_get(b, lily_u16_pos(b) - 1);
-    lily_sp_insert(parser->expr_strings, path, &pos);
-    lily_u16_write_1(b, pos);
-}
-
 static int import_check(lily_parse_state *parser, const char *path)
 {
     lily_module_entry *m = parser->ims->last_import;
@@ -793,7 +784,7 @@ int lily_import_file(lily_state *s, const char *name)
 
     FILE *source = fopen(path, "r");
     if (source == NULL) {
-        add_failed_import_path(parser, path);
+        add_data_string(parser, path);
         return 0;
     }
 
@@ -837,7 +828,7 @@ int lily_import_library(lily_state *s, const char *name)
 
     void *handle = lily_library_load(path);
     if (handle == NULL) {
-        add_failed_import_path(parser, path);
+        add_data_string(parser, path);
         return 0;
     }
 
@@ -851,7 +842,7 @@ int lily_import_library(lily_state *s, const char *name)
             lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
 
     if (info_table == NULL || call_table == NULL) {
-        add_failed_import_path(parser, path);
+        add_data_string(parser, path);
         lily_library_free(handle);
         return 0;
     }
@@ -961,9 +952,7 @@ void lily_default_import_func(lily_state *s, const char *target)
 static lily_module_entry *load_module(lily_parse_state *parser,
         const char *name)
 {
-    /* 'import' can't execute during an expression, so the data stack and the
-       string pool are used to store paths that have been tried. */
-    lily_u16_write_1(parser->data_stack, 0);
+    uint16_t save_pos = lily_u16_pos(parser->data_stack);
 
     parser->config->import_func(parser->vm, name);
 
@@ -976,20 +965,18 @@ static lily_module_entry *load_module(lily_parse_state *parser,
             lily_mb_add_fmt(msgbuf, "\n    no preloaded package '%s'", name);
 
         lily_buffer_u16 *b = parser->data_stack;
-        int i;
+        uint16_t i;
 
-        for (i = 0;i < lily_u16_pos(b) - 1;i++) {
+        for (i = save_pos;i < lily_u16_pos(b);i++) {
             uint16_t check_pos = lily_u16_get(b, i);
             lily_mb_add_fmt(msgbuf, "\n    no file '%s'",
-                    lily_sp_get(parser->expr_strings, check_pos));
+                    lily_sp_get(parser->data_strings, check_pos));
         }
 
         lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
     }
-    else
-        /* Nothing needs to be done for the string pool, because the pool
-           itself doesn't hold a position. */
-        lily_u16_set_pos(parser->data_stack, 0);
+
+    lily_u16_set_pos(parser->data_stack, save_pos);
 
     return parser->ims->last_import;
 }
@@ -1038,10 +1025,10 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
 }
 
 static void put_keyargs_in_target(lily_parse_state *parser, lily_item *target,
-        uint32_t arg_start)
+        uint16_t arg_start)
 {
-    char *source = lily_sp_get(parser->keyarg_strings, arg_start);
-    int len = parser->keyarg_current - arg_start + 1;
+    char *source = lily_sp_get(parser->data_strings, arg_start);
+    int len = parser->data_string_pos - arg_start + 1;
     char *buffer = lily_malloc(len * sizeof(*buffer));
 
     memcpy(buffer, source, len);
@@ -1706,8 +1693,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     /* -1 because Unit is injected at the front beforehand. */
     int result_pos = parser->tm->pos - 1;
     int i = 0;
-    int last_keyarg_pos = 0;
-    uint32_t keyarg_start = parser->keyarg_current;
+    uint16_t last_keyarg_pos = 0;
+    uint16_t keyarg_start = parser->data_string_pos;
     collect_fn arg_collect = NULL;
 
     if ((arg_flags & F_COLLECT_DEFINE)) {
@@ -1744,12 +1731,12 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             if (lex->token == tk_keyword_arg) {
                 while (i != last_keyarg_pos) {
                     last_keyarg_pos++;
-                    lily_sp_insert(parser->keyarg_strings, " ",
-                            &parser->keyarg_current);
+                    lily_sp_insert(parser->data_strings, " ",
+                            &parser->data_string_pos);
                 }
 
-                lily_sp_insert(parser->keyarg_strings, lex->label,
-                        &parser->keyarg_current);
+                lily_sp_insert(parser->data_strings, lex->label,
+                        &parser->data_string_pos);
 
                 last_keyarg_pos++;
                 lily_next_token(lex);
@@ -1816,15 +1803,15 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         while (last_keyarg_pos != i) {
             last_keyarg_pos++;
-            lily_sp_insert(parser->keyarg_strings, " ",
-                    &parser->keyarg_current);
+            lily_sp_insert(parser->data_strings, " ",
+                    &parser->data_string_pos);
         }
 
-        lily_sp_insert(parser->keyarg_strings, "\t",
-                &parser->keyarg_current);
+        lily_sp_insert(parser->data_strings, "\t",
+                &parser->data_string_pos);
 
         put_keyargs_in_target(parser, target, keyarg_start);
-        parser->keyarg_current = keyarg_start;
+        parser->data_string_pos = keyarg_start;
     }
 
     lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
@@ -4269,51 +4256,59 @@ static void run_loaded_module(lily_parse_state *parser,
     module->flags &= ~MODULE_IN_EXECUTION;
 }
 
+/* This links 'count' symbols from 'source' into the active module. The symbol
+   names come from popping names inserted by collect_import_refs. */
 static void link_import_syms(lily_parse_state *parser,
-        lily_module_entry *source, uint16_t start, int count)
+        lily_module_entry *source, uint16_t count)
 {
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
+    lily_buffer_u16 *buffer = parser->data_stack;
+    uint16_t start = lily_u16_pos(buffer) - count;
+    uint16_t iter = start;
+
+    lily_u16_set_pos(parser->data_stack, start);
+    parser->data_string_pos = lily_u16_get(buffer, iter);
 
     do {
-        char *search_name = lily_sp_get(parser->import_ref_strings, start);
-        lily_sym *sym = find_existing_sym(active, search_name);
+        uint16_t search_pos = lily_u16_get(buffer, iter);
+        char *name = lily_sp_get(parser->data_strings, search_pos);
+        lily_sym *sym = find_existing_sym(active, name);
 
         if (sym)
             lily_raise_syn(parser->raiser, "'%s' has already been declared.",
-                    search_name);
+                    name);
 
-        sym = find_existing_sym(source, search_name);
+        sym = find_existing_sym(source, name);
 
         if (sym == NULL && source->info_table)
-            sym = (lily_sym *)try_toplevel_dynaload(parser, source,
-                    search_name);
+            sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
 
         if (sym == NULL)
             lily_raise_syn(parser->raiser,
                     "Cannot find symbol '%s' inside of module '%s'.",
-                    search_name, source->loadname);
+                    name, source->loadname);
         else if (sym->item_kind == ITEM_MODULE)
             lily_raise_syn(parser->raiser,
-                    "Not allowed to directly import modules ('%s').",
-                    search_name);
+                    "Not allowed to directly import modules ('%s').", name);
 
         lily_add_symbol_ref(active, sym);
-        start += strlen(search_name) + 1;
+        iter++;
         count--;
     } while (count);
 }
 
-static void collect_import_refs(lily_parse_state *parser, int *count)
+/* This function collects symbol names within parentheses for import. The result
+   is how many names were collected, and is never zero. */
+static uint16_t collect_import_refs(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    uint16_t top = parser->import_pile_current;
+    uint16_t count = 0;
 
     while (1) {
         NEED_NEXT_TOK(tk_word)
-        lily_sp_insert(parser->import_ref_strings, lex->label, &top);
-        parser->import_pile_current = top;
-        (*count)++;
+        add_data_string(parser, lex->label);
+        count++;
 
         lily_next_token(lex);
 
@@ -4326,6 +4321,7 @@ static void collect_import_refs(lily_parse_state *parser, int *count)
     }
 
     lily_next_token(lex);
+    return count;
 }
 
 static void parse_import_path_into_ims(lily_parse_state *parser)
@@ -4403,12 +4399,14 @@ static void keyword_import(lily_parse_state *parser)
 
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
-    uint32_t save_import_current = parser->import_pile_current;
-    int import_sym_count = 0;
 
     while (1) {
-        if (lex->token == tk_left_parenth)
-            collect_import_refs(parser, &import_sym_count);
+        uint16_t import_sym_count = 0;
+
+        if (lex->token == tk_left_parenth) {
+            lily_u16_write_1(parser->data_stack, parser->data_string_pos);
+            import_sym_count = collect_import_refs(parser);
+        }
 
         parse_import_path_into_ims(parser);
 
@@ -4447,10 +4445,8 @@ static void keyword_import(lily_parse_state *parser)
             lily_next_token(lex);
         }
         else if (import_sym_count) {
-            link_import_syms(parser, module, save_import_current,
-                    import_sym_count);
-            parser->import_pile_current = save_import_current;
-            import_sym_count = 0;
+            link_import_syms(parser, module, import_sym_count);
+            parser->data_string_pos = lily_u16_pop(parser->data_stack);
         }
         else
             link_module_to(active, module, NULL);
