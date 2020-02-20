@@ -1228,6 +1228,7 @@ static void create_main_func(lily_parse_state *parser)
 
     lex->line_num = save_line;
     main_var->type = main_type;
+    main_var->module = parser->symtab->active_module;
 
     /* The vm carries a toplevel frame to hold globals, so that globals survive
        when __main__ is done. The toplevel frame needs a function value to hold
@@ -4222,6 +4223,7 @@ static void run_loaded_module(lily_parse_state *parser,
             "__module__");
 
     module_var->type = module_type;
+    module_var->module = module;
     lily_emit_enter_file_block(parser->emit, module_var);
 
     /* The whole of the file can be thought of as one large statement. */

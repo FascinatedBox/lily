@@ -224,8 +224,15 @@ typedef struct lily_var_ {
     /* This is used to determine if a var is an upvalue, local, or global. */
     uint32_t function_depth;
 
-    /* If this is a class/enum method, this is the parent. NULL otherwise. */
-    lily_class *parent;
+    union {
+        /* If this is a class/enum method, this is the parent. Otherwise, except
+           for the module case below, vars have this set to NULL. */
+        lily_class *parent;
+
+        /* If this is the backing function for a module (`__main__` or
+           `__module__`), this is that module. */
+        struct lily_module_entry_ *module;
+    };
 } lily_var;
 
 /* This represents an import of a whole module. These don't escape symtab, so
