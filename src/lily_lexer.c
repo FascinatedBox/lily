@@ -1658,6 +1658,7 @@ char *lily_read_template_content(lily_lex_state *lex, int *has_more)
             buffer = lex->label;
         }
         else {
+            lex->token = tk_eof;
             *buffer = '\0';
             *has_more = 0;
             return lex->label;
