@@ -3314,8 +3314,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
             parser->symtab->function_class, args_collected + 1);
 
     hide_block_vars(parser);
-    lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_scope_block(parser->emit);
+    lily_emit_leave_lambda_block(parser->emit, lex->line_num);
     lily_pop_lex_entry(lex);
 
     return lambda_var;
@@ -4246,15 +4245,15 @@ static void run_loaded_module(lily_parse_state *parser,
     if (parser->emit->block->forward_count)
         error_forward_decl_pending(parser);
 
-    lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_scope_block(parser->emit);
-    /* __module__ vars and functions become global, so don't hide them. */
-    lily_pop_lex_entry(parser->lex);
+    uint16_t last_line = lex->line_num;
 
-    lily_emit_write_import_call(parser->emit, module_var);
+    /* Vars and functions in this block are globals, so don't hide them. */
+    lily_pop_lex_entry(lex);
 
+    /* Since this writes the call to the `__module__` function in the importer,
+       it has to come after the lex entry is gone. */
+    lily_emit_leave_import_block(parser->emit, lex->line_num, last_line);
     parser->symtab->active_module = save_active;
-
     module->flags &= ~MODULE_IN_EXECUTION;
 }
 
@@ -4875,8 +4874,7 @@ static void keyword_class(lily_parse_state *parser)
     parser->current_class = NULL;
     lily_gp_restore(parser->generics, 0);
     hide_block_vars(parser);
-    lily_emit_finish_block_code(parser->emit, lex->line_num);
-    lily_emit_leave_scope_block(parser->emit);
+    lily_emit_leave_class_block(parser->emit, lex->line_num);
 }
 
 /* This is called when a variant takes arguments. It parses those arguments to
@@ -4985,7 +4983,7 @@ static void parse_enum(lily_parse_state *parser, int is_scoped)
 
     /* Enums don't allow code or have a constructor, so don't write final code
        or bother hiding block vars. */
-    lily_emit_leave_scope_block(parser->emit);
+    lily_emit_leave_enum_block(parser->emit);
     parser->current_class = NULL;
 
     lily_gp_restore(parser->generics, 0);
@@ -5256,20 +5254,16 @@ static void parse_define(lily_parse_state *parser, int modifiers)
 
     NEED_CURRENT_TOK(tk_left_curly)
 
-    if ((modifiers & VAR_IS_FORWARD) == 0) {
+    if ((modifiers & VAR_IS_FORWARD) == 0)
         parse_block_body(parser);
-        hide_block_vars(parser);
-        lily_emit_finish_block_code(parser->emit, lex->line_num);
-        lily_emit_leave_scope_block(parser->emit);
-    }
     else {
         NEED_NEXT_TOK(tk_three_dots)
         NEED_NEXT_TOK(tk_right_curly)
         lily_next_token(lex);
-        hide_block_vars(parser);
-        lily_emit_leave_forward_call(parser->emit);
     }
 
+    hide_block_vars(parser);
+    lily_emit_leave_define_block(parser->emit, lex->line_num);
     lily_gp_restore(parser->generics, save_generic_start);
 }
 

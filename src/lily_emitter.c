@@ -163,16 +163,6 @@ static lily_block *find_deepest_loop(lily_emit_state *);
 static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
-/* This is called from parser to get emitter to write a function call targeting
-   a var. The var should always be an __module__ function. */
-void lily_emit_write_import_call(lily_emit_state *emit, lily_var *var)
-{
-    lily_storage *s = get_storage(emit, lily_unit_type);
-
-    lily_u16_write_5(emit->code, o_call_native, var->reg_spot, 0, s->reg_spot,
-            *emit->lex_linenum);
-}
-
 void lily_emit_eval_optarg(lily_emit_state *emit, lily_ast *ast)
 {
     eval_tree(emit, ast, NULL);
@@ -745,35 +735,19 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
     emit->block = block;
 }
 
-void lily_emit_leave_forward_call(lily_emit_state *emit)
-{
-    /* Forward declarations create a block just in case a 'self' needs to be
-       made. There isn't as much to do, because they don't make storages and
-       they can't write code. */
-    emit->block = emit->block->prev;
-    emit->scope_block = emit->block;
-    emit->function_depth--;
-    emit->block->forward_count++;
-}
-
 void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
 {
     var->flags &= ~VAR_IS_FORWARD;
     emit->block->forward_count--;
 }
 
-void lily_emit_leave_scope_block(lily_emit_state *emit)
+static void leave_scope_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
 
     clear_storages(emit->storages, block->storage_count);
     emit->scope_block = block->prev_scope_block;
     emit->storages->start -= emit->scope_block->storage_count;
-
-    /* File 'blocks' do not bump up the depth because that's used to determine
-       if something is a global or not. */
-    if (block->block_type != block_file)
-        emit->function_depth--;
 
     emit->block = emit->block->prev;
 }
@@ -812,7 +786,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
     emit->block = emit->block->prev;
 }
 
-void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
+static void finish_block_code(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
     lily_var *var = block->scope_var;
@@ -821,22 +795,6 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
 
     uint16_t code_start, code_size;
     uint16_t *source;
-
-    if (block->block_type == block_class)
-        lily_u16_write_3(emit->code, o_return_value, block->self->reg_spot,
-                line_num);
-    else if (block->last_exit != lily_u16_pos(emit->code)) {
-        lily_type *type = block->scope_var->type->subtypes[0];
-
-        if (type == lily_unit_type)
-            lily_u16_write_2(emit->code, o_return_unit, line_num);
-        else if (type == lily_self_class->self_type)
-            /* The implicit 'self' of a class method is always first (at 0). */
-            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
-        else
-            lily_raise_syn(emit->raiser,
-                    "Missing return statement at end of function.");
-    }
 
     if ((block->flags & BLOCK_MAKE_CLOSURE) == 0) {
         code_start = emit->block->code_start;
@@ -864,6 +822,87 @@ void lily_emit_finish_block_code(lily_emit_state *emit, uint16_t line_num)
     f->proto->code = code;
     f->reg_count = block->next_reg_spot;
     lily_u16_set_pos(emit->code, block->code_start);
+}
+
+static int try_write_define_exit(lily_emit_state *emit, uint16_t line_num)
+{
+    lily_block *block = emit->block;
+    int result = 1;
+
+    if (block->last_exit != lily_u16_pos(emit->code)) {
+        lily_type *type = block->scope_var->type->subtypes[0];
+
+        if (type == lily_unit_type)
+            lily_u16_write_2(emit->code, o_return_unit, line_num);
+        else if (type == lily_self_class->self_type)
+            /* The implicit 'self' of a class method is always first (at 0). */
+            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
+        else
+            result = 0;
+    }
+
+    return result;
+}
+
+void lily_emit_leave_class_block(lily_emit_state *emit, uint16_t line_num)
+{
+    uint16_t self_reg = emit->block->self->reg_spot;
+
+    lily_u16_write_3(emit->code, o_return_value, self_reg, line_num);
+    finish_block_code(emit);
+    leave_scope_block(emit);
+    emit->function_depth--;
+}
+
+void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
+{
+    lily_block *block = emit->block;
+
+    if ((block->scope_var->flags & VAR_IS_FORWARD) == 0) {
+        if (try_write_define_exit(emit, line_num) == 0)
+            lily_raise_syn(emit->raiser,
+                    "Missing return statement at end of function.");
+
+        finish_block_code(emit);
+    }
+    else
+        block->prev->forward_count++;
+
+    leave_scope_block(emit);
+    emit->function_depth--;
+}
+
+void lily_emit_leave_enum_block(lily_emit_state *emit)
+{
+    leave_scope_block(emit);
+    emit->function_depth--;
+}
+
+void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
+        uint16_t last_line)
+{
+    lily_var *var = emit->scope_block->scope_var;
+
+    lily_u16_write_2(emit->code, o_return_unit, last_line);
+    finish_block_code(emit);
+    leave_scope_block(emit);
+    /* These blocks don't modify function_depth since that's used to determine
+       if a var is a global or not. */
+
+    lily_storage *s = get_storage(emit, lily_unit_type);
+
+    lily_u16_write_5(emit->code, o_call_native, var->reg_spot, 0, s->reg_spot,
+            line_num);
+}
+
+void lily_emit_leave_lambda_block(lily_emit_state *emit, uint16_t line_num)
+{
+    if (emit->block->last_exit != lily_u16_pos(emit->code))
+        lily_u16_write_2(emit->code, o_return_unit, line_num);
+
+    finish_block_code(emit);
+    leave_scope_block(emit);
+    emit->function_depth--;
 }
 
 static lily_block *find_deepest_loop(lily_emit_state *emit)
