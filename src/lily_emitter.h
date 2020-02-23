@@ -154,9 +154,6 @@ typedef struct lily_proto_stack_ {
     uint32_t size;
 } lily_proto_stack;
 
-/* This is used by the emitter to do dynamic loads (ex: "abc".concat(...)). */
-struct lily_parse_state_t;
-
 typedef struct {
     /* Patches are spots that the block needs to remember for when the block is
        done. They're shared by all blocks, starting from the index of any
