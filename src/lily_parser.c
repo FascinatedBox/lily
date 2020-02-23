@@ -28,6 +28,14 @@ if (lex->token != expected) \
     lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", \
                tokname(expected), tokname(lex->token));
 
+#define NEED_COLON_AND_BRACE \
+NEED_CURRENT_TOK(tk_colon) \
+NEED_NEXT_TOK(tk_left_curly)
+
+#define NEED_COLON_AND_NEXT \
+NEED_CURRENT_TOK(tk_colon) \
+lily_next_token(lex);
+
 extern lily_type *lily_question_type;
 extern lily_class *lily_scoop_class;
 extern lily_class *lily_self_class;
@@ -1474,8 +1482,8 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
         lily_next_token(lex);
     }
 
-    NEED_CURRENT_TOK(tk_colon)
-    lily_next_token(lex);
+    NEED_COLON_AND_NEXT;
+
     lily_type *type = get_nameless_arg(parser, flags);
 
     if (*flags & TYPE_HAS_OPTARGS) {
@@ -3918,10 +3926,7 @@ static void do_elif(lily_parse_state *parser)
     lily_emit_branch_switch(parser->emit);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
-
-    NEED_CURRENT_TOK(tk_colon)
-
-    lily_next_token(lex);
+    NEED_COLON_AND_NEXT;
 }
 
 static void do_else(lily_parse_state *parser)
@@ -3930,9 +3935,7 @@ static void do_else(lily_parse_state *parser)
 
     hide_block_vars(parser);
     lily_emit_branch_finalize(parser->emit);
-
-    NEED_CURRENT_TOK(tk_colon)
-    lily_next_token(lex);
+    NEED_COLON_AND_NEXT;
 }
 
 static void keyword_if(lily_parse_state *parser)
@@ -3942,8 +3945,7 @@ static void keyword_if(lily_parse_state *parser)
     lily_emit_enter_if_block(parser->emit);
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 
     int have_else = 0;
@@ -4070,9 +4072,7 @@ static void keyword_while(lily_parse_state *parser)
 
     expression(parser);
     lily_emit_eval_condition(parser->emit, parser->expr);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     parse_block_body(parser);
 
     hide_block_vars(parser);
@@ -4156,8 +4156,7 @@ static void keyword_for(lily_parse_state *parser)
     lily_emit_finalize_for_in(parser->emit, loop_var, for_start, for_end,
                               for_step, parser->lex->line_num);
 
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     parse_block_body(parser);
 
     hide_block_vars(parser);
@@ -4169,9 +4168,7 @@ static void keyword_do(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_do_while_block(parser->emit);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     parse_block_body(parser);
 
     NEED_CURRENT_TOK(tk_word)
@@ -4503,11 +4500,10 @@ static void process_except(lily_parse_state *parser)
         lily_next_token(lex);
     }
 
-    NEED_CURRENT_TOK(tk_colon)
     lily_emit_except(parser->emit, except_cls->self_type, exception_var,
             lex->line_num);
 
-    lily_next_token(lex);
+    NEED_COLON_AND_NEXT;
 }
 
 static void keyword_try(lily_parse_state *parser)
@@ -4515,9 +4511,7 @@ static void keyword_try(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_try_block(parser->emit, lex->line_num);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 
     while (1) {
@@ -5156,9 +5150,7 @@ static void keyword_match(lily_parse_state *parser)
 
     expression(parser);
     lily_emit_eval_match_expr(parser->emit, parser->expr);
-
-    NEED_CURRENT_TOK(tk_colon)
-    NEED_NEXT_TOK(tk_left_curly)
+    NEED_COLON_AND_BRACE;
     NEED_NEXT_TOK(tk_word)
     if (keyword_by_name(lex->label) != KEY_CASE)
         lily_raise_syn(parser->raiser, "'match' must start with a case.");
