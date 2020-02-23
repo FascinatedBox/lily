@@ -4461,12 +4461,13 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
         write_pop_try_blocks_up_to(emit, emit->scope_block);
         lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,
                 ast->line_num);
-        emit->block->last_exit = lily_u16_pos(emit->code);
     }
     else {
         write_pop_try_blocks_up_to(emit, emit->scope_block);
         lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
     }
+
+    emit->block->last_exit = lily_u16_pos(emit->code);
 }
 
 /* Evaluate the given tree, then try to write instructions that will raise the
