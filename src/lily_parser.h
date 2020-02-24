@@ -26,6 +26,9 @@
 /* This is used to make sure the end token is correct. */
 #define PARSER_IS_RENDERING 0x4
 
+/* Don't allow complex expressions (currently only blocks lambdas). */
+#define PARSER_SIMPLE_EXPR  0x8
+
 struct lily_rewind_state_;
 struct lily_import_state_;
 

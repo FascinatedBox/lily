@@ -64,7 +64,7 @@ class TestBadOptargs < TestCase
         # optarg rules (default value cannot be a lambda)
 
         assert_parse_fails(t, """\
-            SyntaxError: Optional arguments are not allowed to use lambdas.\n    \
+            SyntaxError: Not allowed to use a lambda here.\n    \
                 from [test]:1:\n\
         """,
         """\

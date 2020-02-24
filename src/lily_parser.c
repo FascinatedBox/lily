@@ -1260,7 +1260,7 @@ static lily_type *get_type_raw(lily_parse_state *, int);
 static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
 static lily_prop_entry *get_named_property(lily_parse_state *, int);
-static void expression_raw(lily_parse_state *);
+static void simple_expression(lily_parse_state *);
 static int keyword_by_name(const char *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
@@ -1290,7 +1290,7 @@ static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
     lily_es_push_local_var(parser->expr, var);
     lily_es_push_binary_op(parser->expr, expr_assign);
     lily_next_token(parser->lex);
-    expression_raw(parser);
+    simple_expression(parser);
 }
 
 /* Return a type that is an optional of the type given. This is the only place
@@ -3087,6 +3087,10 @@ static void expression_raw(lily_parse_state *parser)
                  lex->token == tk_tilde)
             expression_unary(parser, &state);
         else if (lex->token == tk_lambda) {
+            if (parser->flags & PARSER_SIMPLE_EXPR)
+                lily_raise_syn(parser->raiser,
+                        "Not allowed to use a lambda here.");
+
             /* This is to allow `x.some_call{|x| ... }`
                to act as        `x.some_call({|x| ... })`
                This is a little thing that helps a lot. Oh, and make sure this
@@ -3137,6 +3141,13 @@ static void expression(lily_parse_state *parser)
 {
     lily_es_flush(parser->expr);
     expression_raw(parser);
+}
+
+static void simple_expression(lily_parse_state *parser)
+{
+    parser->flags |= PARSER_SIMPLE_EXPR;
+    expression_raw(parser);
+    parser->flags &= ~PARSER_SIMPLE_EXPR;
 }
 
 /***
@@ -3258,23 +3269,6 @@ static int collect_lambda_args(lily_parse_state *parser,
     return num_args;
 }
 
-/* Make sure that this lambda isn't the default value for an optional argument.
-   This prevents 'creative' uses of optional arguments. */
-static void ensure_not_in_optargs(lily_parse_state *parser, int line)
-{
-    lily_block *block = parser->emit->block;
-
-    if (block->block_type != block_define &&
-        block->block_type != block_class)
-        return;
-
-    if (block->patch_start != lily_u16_pos(parser->emit->patches)) {
-        parser->lex->line_num = line;
-        lily_raise_syn(parser->raiser,
-                "Optional arguments are not allowed to use lambdas.");
-    }
-}
-
 /* This is the main workhorse of lambda handling. It takes the lambda body and
    works through it. This is fairly complicated, because this happens during
    tree eval. As such, the current state has to be saved and a lambda has to be
@@ -3286,8 +3280,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
-
-    ensure_not_in_optargs(parser, lambda_start_line);
 
     lily_lexer_load(lex, et_lambda, lambda_body);
     lex->line_num = lambda_start_line;
