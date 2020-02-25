@@ -3622,14 +3622,7 @@ static void keyword_var(lily_parse_state *parser)
 static void send_optargs_for(lily_parse_state *parser, lily_var *var)
 {
     lily_type *type = var->type;
-    lily_proto *proto = lily_emit_proto_for_var(parser->emit, var);
-    void (*optarg_func)(lily_emit_state *, lily_ast *) = lily_emit_eval_optarg;
     int count = lily_func_type_num_optargs(type);
-
-    if (proto->arg_names == NULL)
-        lily_emit_write_keyless_optarg_header(parser->emit, type);
-    else
-        optarg_func = lily_emit_eval_optarg_keyed;
 
     lily_es_checkpoint_save(parser->expr);
 
@@ -3641,7 +3634,7 @@ static void send_optargs_for(lily_parse_state *parser, lily_var *var)
 
     for (i = 0;i < count;i++) {
         lily_es_checkpoint_restore(parser->expr);
-        optarg_func(parser->emit, parser->expr->root);
+        lily_emit_eval_optarg(parser->emit, parser->expr->root);
     }
 
     /* Restore the original expression. */

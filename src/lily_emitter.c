@@ -165,104 +165,21 @@ static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
 void lily_emit_eval_optarg(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_tree(emit, ast, NULL);
-    emit->expr_num++;
-
-    uint16_t patch_spot = lily_u16_pop(emit->patches);
-
-    /* This adds +1 because it's fixing o_jump. For that opcode, the jump is 1
-       slot away. */
-    lily_u16_set_at(emit->code, patch_spot,
-            lily_u16_pos(emit->code) - patch_spot + 1);
-}
-
-void lily_emit_eval_optarg_keyed(lily_emit_state *emit, lily_ast *ast)
-{
-    /* Non-keyed optargs always fill from left to right. Those get a header that
-       cascades the tests.
-       Keyed optargs can have holes, which means cascading is not an option.
-       Each of these gets an individual 'skip this init if not true' block.
-       The top-most expression is a binary op, with the left side as the
-       parameter in question. */
+    /* Optional arguments are implemented as assignments. */
     uint16_t target_reg = ast->left->sym->reg_spot;
 
+    /* The jump is 2 spots away from the current code pos. */
+    uint16_t patch = lily_u16_pos(emit->code) + 2;
+
+    /* The offset is 2, but it technically doesn't need to be written because
+       the offset is added as + 2 below. */
     lily_u16_write_3(emit->code, o_jump_if_set, target_reg, 2);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
     eval_tree(emit, ast, NULL);
     emit->expr_num++;
 
-    uint16_t patch_spot = lily_u16_pop(emit->patches);
-
-    /* This is +2 because it's fixing the jump of o_jump_if_unset. The jump is
-       two spots away from the opcode. */
-    lily_u16_set_at(emit->code, patch_spot,
-            lily_u16_pos(emit->code) - patch_spot + 2);
-}
-
-void lily_emit_write_keyless_optarg_header(lily_emit_state *emit,
-        lily_type *type)
-{
-    /* When a function's arguments are not keyed, then arguments fill from left
-       to right. This function writes the tests together so that they cascade.
-       Given this function:
-
-       ```
-       define f(a: *Integer=0, b: *String="", c: *Option[Integer]=None)
-       ```
-
-       The result looks like:
-
-       if a is set
-           if b is set
-               if c is set
-                   jump to done
-               else
-                   jump to init c
-           else
-               jump to init b
-       else
-           jump to init a
-
-       init a
-       init b
-       init c
-       */
-    int i;
-    for (i = type->subtype_count - 1;i > 0;i--) {
-        lily_type *inner = type->subtypes[i];
-        if (inner->cls->id != LILY_ID_OPTARG)
-            break;
-    }
-
-    int patch_start = lily_u16_pos(emit->patches);
-    uint16_t first_reg = (uint16_t)i;
-
-    i = type->subtype_count - i - 1;
-
-    for (;i > 0;i--, first_reg++) {
-        /* If this value is NOT unset, jump to the next test. */
-        lily_u16_write_3(emit->code, o_jump_if_set, first_reg, 5);
-
-        /* Otherwise jump to the assign table. */
-        lily_u16_write_2(emit->code, o_jump, 1);
-        lily_u16_inject(emit->patches, patch_start,
-                lily_u16_pos(emit->code) - 1);
-    }
-
-    /* Write one final jump for when all branches succeed. */
-    lily_u16_write_2(emit->code, o_jump, 1);
-    lily_u16_inject(emit->patches, patch_start,
-            lily_u16_pos(emit->code) - 1);
-
-    /* Patches are injected making them first in first out (instead of last
-       out). The first patch is a jump to 'init a', which happens when none of
-       the optarg values are set. That's right now, so that patch can be taken
-       care of. */
-
-    uint16_t patch_spot = lily_u16_pop(emit->patches);
-    lily_u16_set_at(emit->code, patch_spot,
-            lily_u16_pos(emit->code) - patch_spot + 1);
+    /* If this optional argument was initialized, jump to now. */
+    lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 2);
 }
 
 void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
