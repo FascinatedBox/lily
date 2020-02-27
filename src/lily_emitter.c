@@ -2659,11 +2659,6 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast);
 
-    if (ast->property->flags & SYM_NOT_INITIALIZED)
-        lily_raise_tree(emit->raiser, ast,
-                "Invalid use of uninitialized property '@%s'.",
-                ast->property->name);
-
     lily_storage *result = get_storage(emit, ast->property->type);
 
     lily_u16_write_5(emit->code, o_property_get, ast->property->id,

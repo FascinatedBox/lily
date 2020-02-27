@@ -2762,6 +2762,11 @@ static void expression_property(lily_parse_state *parser, int *state)
                 name, name);
     }
 
+    if (sym->flags & SYM_NOT_INITIALIZED)
+        lily_raise_syn(parser->raiser,
+                "Invalid use of uninitialized property '@%s'.",
+                sym->name);
+
     lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
     *state = ST_WANT_OPERATOR;
 }
