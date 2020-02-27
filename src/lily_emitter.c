@@ -1796,10 +1796,7 @@ static int can_optimize_out_assignment(lily_ast *ast)
     /* Keep these conditions away from each other since each has a different
        reason why optimization can't be done. */
 
-    if (ast->left->tree_type == tree_global_var)
-        /* The receiver is a global var and thus in a different scope. */
-        ;
-    else if (right_tree->tree_type == tree_local_var)
+    if (right_tree->tree_type == tree_local_var)
         /* Can't skip basic assignments. */
         ;
     else if (right_tree->tree_type == tree_binary &&
@@ -2588,8 +2585,7 @@ after_type_check:;
         right_sym = ast->result;
     }
 
-    if (left_tt == tree_local_var ||
-        left_tt == tree_global_var) {
+    if (left_tt == tree_local_var) {
         if (can_optimize_out_assignment(ast)) {
             /* Trees always finish by writing a result and then the line number.
                Optimize out by patching the result to target the left side. */
@@ -2601,10 +2597,8 @@ after_type_check:;
             uint16_t left_id = left_sym->type->cls->id;
             uint16_t opcode;
 
-            if (left_tt == tree_global_var)
-                opcode = o_global_set;
-            else if (left_id == LILY_ID_INTEGER ||
-                     left_id == LILY_ID_DOUBLE)
+            if (left_id == LILY_ID_INTEGER ||
+                left_id == LILY_ID_DOUBLE)
                 opcode = o_assign_noref;
             else
                 opcode = o_assign;
@@ -2612,6 +2606,10 @@ after_type_check:;
             lily_u16_write_4(emit->code, opcode, right_sym->reg_spot,
                     left_sym->reg_spot, ast->line_num);
         }
+    }
+    else if (left_tt == tree_global_var) {
+        lily_u16_write_4(emit->code, o_global_set, right_sym->reg_spot,
+                left_sym->reg_spot, ast->line_num);
     }
     else if (left_tt == tree_property) {
         lily_u16_write_5(emit->code, o_property_set,
