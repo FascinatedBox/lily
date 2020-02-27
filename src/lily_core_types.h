@@ -485,17 +485,22 @@ typedef struct lily_proto_ {
 
 /* Emitter sets this on storages to block assignments to defined functions and
    assignments that make no sense (`[1, 2, 3] = []`). */
-#define SYM_NOT_ASSIGNABLE  0x100
+#define SYM_NOT_ASSIGNABLE  0x0100
 
 /* Parser sets this on vars and properties to prevent self initialization
    (`var a = a`). */
-#define SYM_NOT_INITIALIZED 0x200
+#define SYM_NOT_INITIALIZED 0x0200
 
 /* This var or property is private. If this and the protected flag are both
    absent, the var or property is public. */
-#define SYM_SCOPE_PRIVATE   0x400
+#define SYM_SCOPE_PRIVATE   0x0400
 
 /* This var or property is protected. */
-#define SYM_SCOPE_PROTECTED 0x800
+#define SYM_SCOPE_PROTECTED 0x0800
+
+/* This var or property is public. */
+#define SYM_SCOPE_PUBLIC    0x1000
+
+#define ANY_SCOPE (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | SYM_SCOPE_PUBLIC)
 
 #endif

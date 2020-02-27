@@ -1431,12 +1431,6 @@ static lily_type *get_define_arg(lily_parse_state *parser, int *flags)
     return type;
 }
 
-/* Public scope is defined by the absense of either protected or private. This
-   flag is intentionally high so that it can be set by the public keyword to
-   denote that some modifier was sent at all. The modifier will be stripped by
-   both keywords. */
-#define PUBLIC_SCOPE 0x10000
-
 static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
@@ -1453,7 +1447,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
         else if (keyword == KEY_PROTECTED)
             modifiers = SYM_SCOPE_PROTECTED;
         else if (keyword == KEY_PUBLIC)
-            modifiers = PUBLIC_SCOPE;
+            modifiers = SYM_SCOPE_PUBLIC;
     }
     else if (lex->label[0] == 'v' &&
              strcmp(lex->label, "var") == 0) {
@@ -3559,8 +3553,6 @@ static void parse_var(lily_parse_state *parser, int modifiers)
             lily_raise_syn(parser->raiser,
                     "Class var declaration must start with a scope.");
 
-        modifiers &= ~PUBLIC_SCOPE;
-
         want_token = tk_prop_word;
         other_token = tk_word;
     }
@@ -3700,10 +3692,7 @@ static void error_forward_decl_pending(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
-/* PUBLIC_SCOPE is absent because it's removed before this definition is
-   used. */
-#define ALL_MODIFIERS \
-    (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | VAR_IS_STATIC)
+#define ALL_MODIFIERS (ANY_SCOPE | VAR_IS_STATIC)
 
 static void error_forward_decl_modifiers(lily_parse_state *parser,
         lily_var *define_var)
@@ -5213,7 +5202,6 @@ static void keyword_case(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, "'case' not allowed outside of 'match'.");
 }
 
-#define ANY_SCOPE (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | PUBLIC_SCOPE)
 #define ALLOW_DEFINE (SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
 
 static void parse_define(lily_parse_state *parser, int modifiers)
@@ -5226,8 +5214,6 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         (modifiers & ANY_SCOPE) == 0)
         lily_raise_syn(parser->raiser,
                 "Class method declaration must start with a scope.");
-
-    modifiers &= ~PUBLIC_SCOPE;
 
     lily_lex_state *lex = parser->lex;
     uint16_t save_generic_start = lily_gp_save(parser->generics);
@@ -5249,7 +5235,6 @@ static void parse_define(lily_parse_state *parser, int modifiers)
     lily_gp_restore(parser->generics, save_generic_start);
 }
 
-#undef ANY_SCOPE
 #undef ALLOW_DEFINE
 
 static void keyword_define(lily_parse_state *parser)
@@ -5288,7 +5273,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
         }
 
         if (key == KEY_PUBLIC)
-            modifiers |= PUBLIC_SCOPE;
+            modifiers |= SYM_SCOPE_PUBLIC;
         else if (key == KEY_PROTECTED)
             modifiers |= SYM_SCOPE_PROTECTED;
         else
