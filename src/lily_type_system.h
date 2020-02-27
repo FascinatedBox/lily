@@ -36,7 +36,7 @@ typedef struct {
 } lily_type_system;
 
 lily_type_system *lily_new_type_system(lily_type_maker *);
-
+void lily_rewind_type_system(lily_type_system *);
 void lily_free_type_system(lily_type_system *);
 
 /* The first type (left) is the type that is wanted.
@@ -50,10 +50,6 @@ lily_type *lily_ts_unify(lily_type_system *, lily_type *, lily_type *);
 /* This uses the type system to determine if the first type can be assigned
    to the second type. This understands variance, but will not solve any generics. */
 int lily_ts_type_greater_eq(lily_type_system *, lily_type *, lily_type *);
-
-/* This is called when there is an error. This fixes the scoop counters so that
-   the error prints the scoop types themselves. */
-void lily_ts_reset_scoops(lily_type_system *);
 
 /* This recurses through the given type, building up a new, completely resolved
    type whereever the given type has generics.

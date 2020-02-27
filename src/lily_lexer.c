@@ -198,7 +198,7 @@ static void close_entry(lily_lex_entry *entry)
     entry->entry_type = et_unused;
 }
 
-void lily_rewind_lex_state(lily_lex_state *lex)
+void lily_rewind_lex_state(lily_lex_state *lex, uint16_t line_num)
 {
     lily_lex_entry *entry_iter = lex->entry;
 
@@ -214,8 +214,7 @@ void lily_rewind_lex_state(lily_lex_state *lex)
     }
 
     lex->entry = entry_iter;
-    /* This lets loading know that the first entry is unused. */
-    lex->line_num = 0;
+    lex->line_num = line_num;
 }
 
 void lily_free_lex_state(lily_lex_state *lex)

@@ -157,7 +157,7 @@ typedef struct {
 } lily_lex_state;
 
 lily_lex_state *lily_new_lex_state(lily_raiser *);
-void lily_rewind_lex_state(lily_lex_state *);
+void lily_rewind_lex_state(lily_lex_state *, uint16_t);
 void lily_free_lex_state(lily_lex_state *);
 
 void lily_lexer_load(lily_lex_state *, lily_lex_entry_type, const void *);

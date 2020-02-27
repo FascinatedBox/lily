@@ -25,6 +25,12 @@ lily_generic_pool *lily_new_generic_pool(void)
     return gp;
 }
 
+void lily_rewind_generic_pool(lily_generic_pool *gp)
+{
+    gp->scope_start = 0;
+    gp->scope_end = 0;
+}
+
 void lily_free_generic_pool(lily_generic_pool *gp)
 {
     int i;

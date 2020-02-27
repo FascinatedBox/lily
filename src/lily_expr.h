@@ -182,6 +182,10 @@ typedef struct lily_expr_state_ {
     uint16_t *lex_linenum;
 } lily_expr_state;
 
+lily_expr_state *lily_new_expr_state(void);
+void lily_rewind_expr_state(lily_expr_state *);
+void lily_free_expr_state(lily_expr_state *);
+
 void lily_es_flush(lily_expr_state *);
 void lily_es_checkpoint_save(lily_expr_state *);
 void lily_es_checkpoint_restore(lily_expr_state *);
@@ -189,8 +193,6 @@ void lily_es_checkpoint_reverse_n(lily_expr_state *, int);
 
 void lily_es_collect_arg(lily_expr_state *);
 void lily_es_enter_tree(lily_expr_state *, lily_tree_type);
-void lily_free_expr_state(lily_expr_state *);
-lily_expr_state *lily_new_expr_state(void);
 void lily_es_leave_tree(lily_expr_state *);
 lily_ast *lily_es_get_saved_tree(lily_expr_state *);
 void lily_es_enter_typecast(lily_expr_state *ap, lily_type *type);

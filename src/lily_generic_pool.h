@@ -17,6 +17,8 @@ typedef struct {
 } lily_generic_pool;
 
 lily_generic_pool *lily_new_generic_pool(void);
+void lily_rewind_generic_pool(lily_generic_pool *);
+void lily_free_generic_pool(lily_generic_pool *);
 
 /* Try to find a generic of the given name in the pool. */
 struct lily_class_ *lily_gp_find(lily_generic_pool *, const char *);
@@ -43,7 +45,5 @@ void lily_gp_restore(lily_generic_pool *, uint16_t);
 
 /* Unhide generics from the old scope. */
 void lily_gp_restore_and_unhide(lily_generic_pool *, uint16_t);
-
-void lily_free_generic_pool(lily_generic_pool *);
 
 #endif

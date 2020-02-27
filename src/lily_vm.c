@@ -212,6 +212,24 @@ static void destroy_gc_entries(lily_vm_state *vm)
     }
 }
 
+void lily_rewind_vm(lily_vm_state *vm)
+{
+    lily_vm_catch_entry *catch_iter = vm->catch_chain;
+    lily_call_frame *call_iter = vm->call_chain;
+
+    while (catch_iter->prev)
+        catch_iter = catch_iter->prev;
+
+    while (call_iter->prev)
+        call_iter = call_iter->prev;
+
+    vm->catch_chain = catch_iter;
+    vm->exception_value = NULL;
+    vm->exception_cls = NULL;
+    vm->call_chain = call_iter;
+    vm->call_depth = 0;
+}
+
 void lily_free_vm(lily_vm_state *vm)
 {
     /* If there are any entries left over, then do a final gc pass that will

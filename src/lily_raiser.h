@@ -42,7 +42,9 @@ typedef struct lily_raiser_ {
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(void);
+void lily_rewind_raiser(lily_raiser *);
 void lily_free_raiser(lily_raiser *);
+
 void lily_raise_class(lily_raiser *, struct lily_class_ *, const char *);
 void lily_raise_tree(lily_raiser *, struct lily_ast_ *, const char *, ...);
 void lily_raise_syn(lily_raiser *, const char *, ...);

@@ -295,13 +295,15 @@ void lily_free_state(lily_state *vm)
     lily_free(parser);
 }
 
-static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
+static void rewind_parser(lily_parse_state *parser)
 {
     lily_u16_set_pos(parser->data_stack, 0);
     parser->data_string_pos = 0;
     parser->current_class = NULL;
 
-    lily_module_entry *module_iter = rs->main_last_module;
+    /* Parser's flags are reset when the first content loads. */
+    lily_module_entry *module_iter = parser->rs->main_last_module;
+
     while (module_iter) {
         /* Hide broken modules from being loaded in the next pass as though
            they weren't broken.
@@ -312,102 +314,41 @@ static void rewind_parser(lily_parse_state *parser, lily_rewind_state *rs)
         }
         module_iter = module_iter->next;
     }
+}
 
-    /* Rewind generics */
-    lily_generic_pool *gp = parser->generics;
-    gp->scope_start = 0;
-    gp->scope_end = 0;
-
-    /* Rewind expression state */
-    lily_expr_state *es = parser->expr;
-    es->root = NULL;
-    es->active = NULL;
-
-    if (es->checkpoint_pos) {
-        es->first_tree = es->checkpoints[0]->first_tree;
-        es->checkpoint_pos = 0;
-    }
-
-    es->next_available = es->first_tree;
-
-    lily_ast_save_entry *save_iter = es->save_chain;
-    while (1) {
-        save_iter->entered_tree = NULL;
-        if (save_iter->prev == NULL)
-            break;
-        save_iter = save_iter->prev;
-    }
-    es->save_chain = save_iter;
-    es->save_depth = 0;
-    es->pile_start = 0;
-    es->pile_current = 0;
-
-    /* Rewind emit state */
-    lily_rewind_emit_state(parser->emit);
-
-    /* Rewind ts */
-    lily_type_system *ts = parser->emit->ts;
-    /* ts types can be left alone since ts blasts types on entry instead of
-       cleaning up on exit. Rewind the scoops though, just in case an error was
-       hit during scoop collect. */
-    ts->base = ts->types;
-    ts->num_used = 0;
-    ts->pos = 0;
-    lily_ts_reset_scoops(parser->emit->ts);
-
-    /* Rewind lex state */
-    lily_rewind_lex_state(parser->lex);
-    parser->lex->line_num = rs->line_num;
-
-    /* Rewind raiser */
-    lily_raiser *raiser = parser->raiser;
-    lily_mb_flush(raiser->msgbuf);
-    lily_mb_flush(raiser->aux_msgbuf);
-    raiser->source = err_from_none;
-
-    /* Rewind the parts of the vm that can be rewound. */
-    lily_vm_state *vm = parser->vm;
-
-    lily_vm_catch_entry *catch_iter = vm->catch_chain;
-    while (catch_iter->prev)
-        catch_iter = catch_iter->prev;
-
-    vm->catch_chain = catch_iter;
-    vm->exception_value = NULL;
-    vm->exception_cls = NULL;
-
-    lily_call_frame *call_iter = vm->call_chain;
-    while (call_iter->prev)
-        call_iter = call_iter->prev;
-
-    vm->call_chain = call_iter;
-    vm->call_depth = 0;
-
+static void rewind_interpreter(lily_parse_state *parser)
+{
+    lily_rewind_state *rs = parser->rs;
     uint16_t executing = parser->flags & PARSER_IS_EXECUTING;
 
-    /* Symtab will choose to hide new classes (if executing) or destroy them (if
-       not executing). New vars are destroyed, and the main module is made
-       active again. */
+    rewind_parser(parser);
+    lily_rewind_generic_pool(parser->generics);
+    lily_rewind_expr_state(parser->expr);
+    lily_rewind_emit_state(parser->emit);
+    lily_rewind_type_system(parser->emit->ts);
+    lily_rewind_lex_state(parser->lex, rs->line_num);
+    lily_rewind_raiser(parser->raiser);
+    lily_rewind_vm(parser->vm);
+
+    /* Symtab will hide or delete symbols based on the execution state. Symbols
+       that made it to execution might still be in use and are hidden. If they
+       didn't make it that far, they'll be deleted. */
     lily_rewind_symtab(parser->symtab, parser->main_module,
             rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
             executing);
+
+    parser->rs->pending = 0;
 }
 
-static void handle_rewind(lily_parse_state *parser)
+static void initialize_rewind(lily_parse_state *parser)
 {
     lily_rewind_state *rs = parser->rs;
+    lily_module_entry *m = parser->main_module;
 
-    if (parser->rs->pending) {
-        rewind_parser(parser, rs);
-        parser->rs->pending = 0;
-    }
-
-    lily_module_entry *main_module = parser->main_module;
-    rs->main_class_start = main_module->class_chain;
-    rs->main_var_start = main_module->var_chain;
-    rs->main_boxed_start = main_module->boxed_chain;
-
-    rs->main_last_module_link = main_module->module_chain;
+    rs->main_class_start = m->class_chain;
+    rs->main_var_start = m->var_chain;
+    rs->main_boxed_start = m->boxed_chain;
+    rs->main_last_module_link = m->module_chain;
     rs->main_last_module = parser->module_top;
     rs->line_num = parser->lex->line_num;
 }
@@ -5622,9 +5563,11 @@ static int open_first_content(lily_state *s, const char *filename,
             load_content = content;
         }
 
-        /* Rewind the parser if there's a rewind pending. Must do this before
-           loading the content, or the content gets rewound away. */
-        handle_rewind(parser);
+        /* Rewind before loading content so it starts with a fresh slate. */
+        if (parser->rs->pending)
+            rewind_interpreter(parser);
+
+        initialize_rewind(parser);
         lily_lexer_load(parser->lex, load_type, load_content);
         /* The first module is now rooted based on the name given. */
         update_main_name(parser, filename);

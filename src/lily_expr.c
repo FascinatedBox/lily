@@ -69,6 +69,32 @@ lily_expr_state *lily_new_expr_state(void)
     return es;
 }
 
+void lily_rewind_expr_state(lily_expr_state *es)
+{
+    if (es->checkpoint_pos)
+        es->first_tree = es->checkpoints[0]->first_tree;
+
+    lily_ast_save_entry *save_iter = es->save_chain;
+
+    while (1) {
+        save_iter->entered_tree = NULL;
+
+        if (save_iter->prev == NULL)
+            break;
+
+        save_iter = save_iter->prev;
+    }
+
+    es->next_available = es->first_tree;
+    es->root = NULL;
+    es->active = NULL;
+    es->save_chain = save_iter;
+    es->save_depth = 0;
+    es->pile_start = 0;
+    es->pile_current = 0;
+    es->checkpoint_pos = 0;
+}
+
 void lily_free_expr_state(lily_expr_state *es)
 {
     lily_ast *ast_iter;

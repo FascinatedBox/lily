@@ -123,7 +123,9 @@ typedef struct lily_vm_state_ {
 } lily_vm_state;
 
 lily_vm_state *lily_new_vm_state(lily_raiser *);
+void lily_rewind_vm(lily_vm_state *);
 void lily_free_vm(lily_vm_state *);
+
 void lily_vm_execute(lily_vm_state *);
 
 void lily_vm_ensure_class_table(lily_vm_state *, int);

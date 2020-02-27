@@ -27,6 +27,13 @@ lily_raiser *lily_new_raiser(void)
     return raiser;
 }
 
+void lily_rewind_raiser(lily_raiser *raiser)
+{
+    lily_mb_flush(raiser->msgbuf);
+    lily_mb_flush(raiser->aux_msgbuf);
+    raiser->source = err_from_none;
+}
+
 void lily_free_raiser(lily_raiser *raiser)
 {
     lily_jump_link *jump_next;

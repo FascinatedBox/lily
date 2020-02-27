@@ -53,6 +53,14 @@ lily_type_system *lily_new_type_system(lily_type_maker *tm)
     return ts;
 }
 
+void lily_rewind_type_system(lily_type_system *ts)
+{
+    ts->base = ts->types;
+    ts->num_used = 0;
+    ts->pos = 0;
+    ts->scoop_count = 0;
+}
+
 void lily_free_type_system(lily_type_system *ts)
 {
     lily_free(ts->types);
@@ -446,11 +454,6 @@ lily_type *lily_ts_resolve_by_second(lily_type_system *ts, lily_type *first,
     ts->base = save_base;
 
     return result_type;
-}
-
-void lily_ts_reset_scoops(lily_type_system *ts)
-{
-    ts->scoop_count = 0;
 }
 
 #define COPY(to, from) \
