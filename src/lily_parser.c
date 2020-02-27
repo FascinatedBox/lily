@@ -3694,30 +3694,43 @@ static void error_forward_decl_pending(lily_parse_state *parser)
 
 #define ALL_MODIFIERS (ANY_SCOPE | VAR_IS_STATIC)
 
+static const char *scope_to_str(uint16_t flags)
+{
+    const char *result;
+
+    if (flags & SYM_SCOPE_PRIVATE)
+        result = "private";
+    else if (flags & SYM_SCOPE_PROTECTED)
+        result = "protected";
+    else
+        result = "public";
+
+    return result;
+}
+
+static const char *static_to_str(uint16_t flags)
+{
+    const char *result;
+
+    if (flags & VAR_IS_STATIC)
+        result = " static";
+    else
+        result = "";
+
+    return result;
+}
+
 static void error_forward_decl_modifiers(lily_parse_state *parser,
         lily_var *define_var)
 {
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     lily_proto *p = lily_emit_proto_for_var(parser->emit, define_var);
-    int modifiers = define_var->flags;
+    uint16_t modifiers = define_var->flags;
+    const char *scope_str = scope_to_str(modifiers);
+    const char *static_str = static_to_str(modifiers);
 
-    lily_mb_add_fmt(msgbuf, "Wrong qualifiers in resolution of %s (expected: ",
-            p->name);
-
-    /* Modifiers are only for class methods, so the source has to be a class
-       method. */
-    if (define_var->flags & SYM_SCOPE_PRIVATE)
-        lily_mb_add(msgbuf, "private");
-    else if (define_var->flags & SYM_SCOPE_PROTECTED)
-        lily_mb_add(msgbuf, "protected");
-    else
-        lily_mb_add(msgbuf, "public");
-
-    if (modifiers & VAR_IS_STATIC)
-        lily_mb_add(msgbuf, " static");
-
-    lily_mb_add(msgbuf, ").");
-    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+    lily_raise_syn(parser->raiser,
+            "Wrong qualifiers in resolution of %s (expected: %s%s).",
+            p->name, scope_str, static_str);
 }
 
 static lily_var *parse_define_var(lily_parse_state *parser, lily_class *parent,
@@ -5261,23 +5274,16 @@ static void parse_modifier(lily_parse_state *parser, int key)
     if (key == KEY_PUBLIC ||
         key == KEY_PROTECTED ||
         key == KEY_PRIVATE) {
-
-        if (parser->emit->block->block_type != block_class) {
-            const char *name = "public";
-            if (key == KEY_PROTECTED)
-                name = "protected";
-            else if (key == KEY_PRIVATE)
-                name = "private";
-
-            lily_raise_syn(parser->raiser, "'%s' is not allowed here.", name);
-        }
-
         if (key == KEY_PUBLIC)
             modifiers |= SYM_SCOPE_PUBLIC;
         else if (key == KEY_PROTECTED)
             modifiers |= SYM_SCOPE_PROTECTED;
         else
             modifiers |= SYM_SCOPE_PRIVATE;
+
+        if (parser->emit->block->block_type != block_class)
+            lily_raise_syn(parser->raiser, "'%s' is not allowed here.",
+                    scope_to_str(modifiers));
 
         if (modifiers & VAR_IS_FORWARD)
             lily_next_token(lex);
