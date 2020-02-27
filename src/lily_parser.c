@@ -2794,38 +2794,38 @@ static void check_valid_close_tok(lily_parse_state *parser)
    just an operator. */
 static int maybe_digit_fixup(lily_parse_state *parser)
 {
-    int fixed = 0;
-    int is_positive = parser->lex->n.integer_val >= 0;
+    lily_lex_state *lex = parser->lex;
+    int result = 0;
 
-    if (lily_lexer_digit_rescan(parser->lex)) {
-        if (is_positive)
-            lily_es_push_binary_op(parser->expr, expr_plus);
-        else
-            lily_es_push_binary_op(parser->expr, expr_minus);
+    if (lex->token == tk_integer || lex->token == tk_double) {
+        int is_positive = lex->n.integer_val >= 0;
 
-        fixed = 1;
+        if (lily_lexer_digit_rescan(lex)) {
+            if (is_positive)
+                lily_es_push_binary_op(parser->expr, expr_plus);
+            else
+                lily_es_push_binary_op(parser->expr, expr_minus);
+
+            result = 1;
+        }
     }
 
-    return fixed;
+    return result;
 }
 
 /* This handles literals, and does that fixup thing if that's necessary. */
 static void expression_literal(lily_parse_state *parser, int *state)
 {
     lily_lex_state *lex = parser->lex;
-    lily_token token = parser->lex->token;
 
-    if (*state == ST_WANT_OPERATOR) {
-        if ((token == tk_integer || token == tk_double) &&
-            maybe_digit_fixup(parser))
-            goto integer_case;
-        else if (parser->expr->save_depth == 0)
+    if (*state == ST_WANT_OPERATOR &&
+        maybe_digit_fixup(parser) == 0) {
+        if (parser->expr->save_depth == 0)
             *state = ST_DONE;
         else
             *state = ST_BAD_TOKEN;
     }
     else if (lex->token == tk_integer) {
-integer_case: ;
         if (lex->n.integer_val <= INT16_MAX &&
             lex->n.integer_val >= INT16_MIN)
             lily_es_push_integer(parser->expr, (int16_t)
