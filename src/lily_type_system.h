@@ -82,9 +82,6 @@ void lily_ts_scope_restore(lily_type_system *, lily_ts_save_point *);
    how many were collected. max_seen may or may not be updated. */
 void lily_ts_generics_seen(lily_type_system *, int);
 
-/* How many members of the type given are of the optarg class? */
-int lily_func_type_num_optargs(lily_type *);
-
 /* Determine if the first class passed is either a base class or the same class
    as the second one. This doesn't take the ts because the information needed
    is within the classes themselves. */

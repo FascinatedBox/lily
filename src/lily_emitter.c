@@ -160,27 +160,7 @@ void lily_free_emit_state(lily_emit_state *emit)
 
 static lily_storage *get_storage(lily_emit_state *, lily_type *);
 static lily_block *find_deepest_loop(lily_emit_state *);
-static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
-
-void lily_emit_eval_optarg(lily_emit_state *emit, lily_ast *ast)
-{
-    /* Optional arguments are implemented as assignments. */
-    uint16_t target_reg = ast->left->sym->reg_spot;
-
-    /* The jump is 2 spots away from the current code pos. */
-    uint16_t patch = lily_u16_pos(emit->code) + 2;
-
-    /* The offset is 2, but it technically doesn't need to be written because
-       the offset is added as + 2 below. */
-    lily_u16_write_3(emit->code, o_jump_if_set, target_reg, 2);
-
-    eval_tree(emit, ast, NULL);
-    emit->expr_num++;
-
-    /* If this optional argument was initialized, jump to now. */
-    lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 2);
-}
 
 void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
         uint16_t line_num)
@@ -213,11 +193,9 @@ void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
     }
 }
 
-/* This function writes the code necessary to get a for <var> in x...y style
-   loop to work. */
-void lily_emit_finalize_for_in(lily_emit_state *emit, lily_var *user_loop_var,
-        lily_var *for_start, lily_var *for_end, lily_sym *for_step,
-        int line_num)
+void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
+        lily_var *for_start, lily_var *for_end, lily_var *for_step,
+        uint16_t line_num)
 {
     lily_sym *target;
     int need_sync = user_loop_var->flags & VAR_IS_GLOBAL;
@@ -282,45 +260,45 @@ static void write_pop_try_blocks_up_to(lily_emit_state *emit,
 }
 
 /* The parser has a 'break' and wants the emitter to write the code. */
-void lily_emit_break(lily_emit_state *emit)
+int lily_emit_try_write_break(lily_emit_state *emit)
 {
-    lily_block *loop_block = find_deepest_loop(emit);
+    lily_block *block = find_deepest_loop(emit);
 
-    if (loop_block == NULL)
-        lily_raise_syn(emit->raiser, "'break' used outside of a loop.");
+    if (block == NULL)
+        return 0;
 
-    write_pop_try_blocks_up_to(emit, loop_block);
-
-    /* Write the jump, then figure out where to put it. */
+    write_pop_try_blocks_up_to(emit, block);
     lily_u16_write_2(emit->code, o_jump, 1);
 
-    inject_patch_into_block(emit, loop_block, lily_u16_pos(emit->code) - 1);
+    uint16_t patch = lily_u16_pos(emit->code) - 1;
+
+    if (emit->block == block)
+        lily_u16_write_1(emit->patches, patch);
+    else {
+        lily_u16_inject(emit->patches, block->next->patch_start, patch);
+
+        /* The blocks after the one that got the new patch need to have their
+           starts adjusted or they'll think it belongs to them. */
+        for (block = block->next; block; block = block->next)
+            block->patch_start++;
+    }
+
+    return 1;
 }
 
 /* The parser has a 'continue' and wants the emitter to write the code. */
-void lily_emit_continue(lily_emit_state *emit)
+int lily_emit_try_write_continue(lily_emit_state *emit)
 {
     lily_block *loop_block = find_deepest_loop(emit);
 
     if (loop_block == NULL)
-        lily_raise_syn(emit->raiser, "'continue' used outside of a loop.");
+        return 0;
 
     write_pop_try_blocks_up_to(emit, loop_block);
 
-    int where = loop_block->code_start - lily_u16_pos(emit->code);
+    uint16_t where = loop_block->code_start - lily_u16_pos(emit->code);
     lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
-}
-
-/* The parser has an 'except' clause and wants emitter to write code for it. */
-void lily_emit_except(lily_emit_state *emit, lily_type *except_type,
-        lily_var *except_var, int line_num)
-{
-    lily_u16_write_4(emit->code, o_exception_catch, except_type->cls->id, 2,
-            line_num);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
-
-    if (except_var)
-        lily_u16_write_2(emit->code, o_exception_store, except_var->reg_spot);
+    return 1;
 }
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
@@ -486,7 +464,6 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
  *
  */
 
-static void inject_patch_into_block(lily_emit_state *, lily_block *, uint16_t);
 static void perform_closure_transform(lily_emit_state *, lily_block *,
 		lily_function_val *);
 
@@ -556,6 +533,11 @@ void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var)
     block->scope_var = var;
     setup_scope_block(emit, block);
     emit->function_depth++;
+
+    if (var->parent && (var->flags & VAR_IS_STATIC) == 0) {
+        lily_emit_create_block_self(emit, var->parent->self_type);
+        lily_emit_activate_block_self(emit);
+    }
 }
 
 void lily_emit_enter_do_while_block(lily_emit_state *emit)
@@ -650,12 +632,6 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
 
     block->block_type = block_while;
     emit->block = block;
-}
-
-void lily_emit_resolve_forward_decl(lily_emit_state *emit, lily_var *var)
-{
-    var->flags &= ~VAR_IS_FORWARD;
-    emit->block->forward_count--;
 }
 
 static void leave_scope_block(lily_emit_state *emit)
@@ -840,24 +816,6 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     return result;
 }
 
-/* This is called when a patch needs to be put into a particular block. The
-   given block may or may not be the current block. */
-static void inject_patch_into_block(lily_emit_state *emit, lily_block *block,
-        uint16_t patch)
-{
-    /* This is the most recent block, so add the patch to the top. */
-    if (emit->block == block)
-        lily_u16_write_1(emit->patches, patch);
-    else {
-        lily_u16_inject(emit->patches, block->next->patch_start, patch);
-
-        /* The blocks after the one that got the new patch need to have their
-           starts adjusted or they'll think it belongs to them. */
-        for (block = block->next; block; block = block->next)
-            block->patch_start++;
-    }
-}
-
 /* This handles branch changes for if, match, and try. Each condition finishes
    by writing a jump to the next branch in case of failure. A patch of zero is
    used as a placeholder in case of, for example, a branch that does not have a
@@ -895,6 +853,22 @@ void lily_emit_branch_finalize(lily_emit_state *emit)
     lily_emit_branch_switch(emit);
 
     emit->block->flags |= BLOCK_FINAL_BRANCH;
+}
+
+void lily_emit_except_switch(lily_emit_state *emit, lily_class *except_cls,
+        lily_var *except_var, uint16_t line_num)
+{
+    if (except_cls->id != LILY_ID_EXCEPTION)
+        lily_emit_branch_switch(emit);
+    else
+        lily_emit_branch_finalize(emit);
+
+    lily_u16_write_4(emit->code, o_exception_catch, except_cls->id, 2,
+            line_num);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+
+    if (except_var)
+        lily_u16_write_2(emit->code, o_exception_store, except_var->reg_spot);
 }
 
 void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
@@ -1454,62 +1428,102 @@ static void grow_match_cases(lily_emit_state *emit)
         sizeof(*emit->match_cases) * emit->match_case_size);
 }
 
-/* This is written when match wants a value from the source. When matching on an
-   enum, 'index' is a spot to pull from. For matches on a user-class, this only
-   needs to store the value over into another register. The assign there is
-   necessary so that the source var will have the right type. */
-void lily_emit_decompose(lily_emit_state *emit, lily_sym *match_sym, int index,
-        uint16_t pos)
+static int is_duplicate_case(lily_emit_state *emit, lily_class *cls)
 {
-    /* Note: 'pos' is the target of a local var, so no global/upvalue checks are
-       necessary here. */
+    uint16_t cls_id = cls->id;
+    uint16_t i;
+    int result = 0;
 
-    if (match_sym->type->cls->item_kind & ITEM_IS_ENUM)
-        lily_u16_write_5(emit->code, o_property_get, index, match_sym->reg_spot,
-                pos, *emit->lex_linenum);
-    else
-        lily_u16_write_4(emit->code, o_assign, match_sym->reg_spot, pos,
-                *emit->lex_linenum);
-}
-
-int lily_emit_is_duplicate_case(lily_emit_state *emit, lily_class *cls)
-{
-    if (emit->match_case_pos >= emit->match_case_size)
-        grow_match_cases(emit);
-
-    lily_block *block = emit->block;
-    int cls_id = cls->id, ret = 0;
-    int i;
-
-    for (i = block->match_case_start;i < emit->match_case_pos;i++) {
+    for (i = emit->block->match_case_start;i < emit->match_case_pos;i++) {
         if (emit->match_cases[i] == cls_id) {
-            ret = 1;
+            result = 1;
             break;
         }
     }
 
-    return ret;
+    return result;
 }
 
-void lily_emit_write_match_case(lily_emit_state *emit, lily_sym *match_sym,
-        lily_class *cls)
+void lily_emit_write_class_case(lily_emit_state *emit, lily_var *var)
 {
+    lily_u16_write_4(emit->code, o_assign, emit->block->match_reg,
+            var->reg_spot, *emit->lex_linenum);
+}
+
+void lily_emit_write_variant_case(lily_emit_state *emit, lily_var *var,
+        uint16_t index)
+{
+    lily_u16_write_5(emit->code, o_property_get, index, emit->block->match_reg,
+            var->reg_spot, *emit->lex_linenum);
+}
+
+lily_type *lily_emit_type_for_variant(lily_emit_state *emit,
+        lily_variant_class *cls)
+{
+    lily_type *build_type = cls->build_type;
+    lily_type *match_type = emit->block->match_type;
+    lily_type *result = lily_ts_resolve_by_second(emit->ts, match_type,
+            build_type);
+
+    return result;
+}
+
+int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
+{
+    lily_block *block = emit->block;
+
+    if (emit->match_case_pos >= emit->match_case_size)
+        grow_match_cases(emit);
+
+    if (is_duplicate_case(emit, cls) ||
+        block->flags & BLOCK_FINAL_BRANCH)
+        return 0;
+
+    uint16_t match_reg = block->match_reg;
+
+    lily_emit_branch_switch(emit);
     emit->match_cases[emit->match_case_pos] = cls->id;
     emit->match_case_pos++;
 
-    lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id,
-            match_sym->reg_spot, 3);
-
+    /* If this isn't the class, jump to the next branch (or exit). */
+    lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id, match_reg, 3);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+
+    if (cls->item_kind & ITEM_IS_VARIANT) {
+        uint16_t count = emit->match_case_pos - block->match_case_start;
+
+        if (count == cls->parent->variant_size)
+            block->flags |= BLOCK_FINAL_BRANCH;
+    }
+
+    return 1;
 }
 
-/* This evaluates the expression to be sent to 'match' The resulting value is
-   checked for returning a value that is a valid enum. The match block's state
-   is then prepared.
-   The pool is cleared out for the next expression after this. */
-void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
+int lily_emit_try_match_finalize(lily_emit_state *emit)
+{
+    lily_block *block = emit->block;
+
+    if (emit->block->flags & BLOCK_FINAL_BRANCH)
+        return 0;
+
+    lily_class *match_cls = block->match_type->cls;
+
+    if (match_cls->item_kind & ITEM_IS_ENUM) {
+        uint16_t count = emit->match_case_pos - block->match_case_start;
+
+        if (count == match_cls->variant_size)
+            return 0;
+    }
+
+    lily_emit_branch_finalize(emit);
+    return 1;
+}
+
+/* Evaluate an expression for 'match'. */
+void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
+    lily_block *block = emit->block;
 
     eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
 
@@ -1519,10 +1533,12 @@ void lily_emit_eval_match_expr(lily_emit_state *emit, lily_expr_state *es)
         lily_raise_syn(emit->raiser,
                 "Match expression is not a user class or enum.");
 
-    lily_block *block = emit->block;
-
     block->match_case_start = emit->match_case_pos;
     block->last_exit = lily_u16_pos(emit->code);
+    block->match_reg = ast->result->reg_spot;
+    block->match_type = ast->result->type;
+
+    /* Branch switching expects a patch, so write a fake one to skip over. */
     lily_u16_write_1(emit->patches, 0);
 }
 
@@ -4252,18 +4268,32 @@ static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
 
 /* This evaluates an expression at the root of the given pool, then resets the
    pool for the next expression. */
-void lily_emit_eval_expr(lily_emit_state *emit, lily_expr_state *es)
+void lily_eval_expr(lily_emit_state *emit, lily_expr_state *es)
 {
     eval_tree(emit, es->root, NULL);
     emit->expr_num++;
 }
 
-/* This is used by 'for...in'. It evaluates an expression, then writes an
-   assignment that targets 'var'.
-   Since this is used by 'for...in', it checks to make sure that the expression
-   returns a value of type integer. If it does not, then SyntaxError is raised.
-   The pool given will be cleared. */
-void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
+void lily_eval_optarg(lily_emit_state *emit, lily_ast *ast)
+{
+    /* Optional arguments are implemented as assignments. */
+    uint16_t target_reg = ast->left->sym->reg_spot;
+
+    /* The jump is 2 spots away from the current code pos. */
+    uint16_t patch = lily_u16_pos(emit->code) + 2;
+
+    /* The offset is 2, but it technically doesn't need to be written because
+       the offset is added as + 2 below. */
+    lily_u16_write_3(emit->code, o_jump_if_set, target_reg, 2);
+
+    eval_tree(emit, ast, NULL);
+    emit->expr_num++;
+
+    /* If this optional argument was initialized, jump to now. */
+    lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 2);
+}
+
+void lily_eval_to_loop_var(lily_emit_state *emit, lily_expr_state *es,
         lily_var *var)
 {
     lily_ast *ast = es->root;
@@ -4271,7 +4301,7 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
     eval_tree(emit, ast, NULL);
     emit->expr_num++;
 
-    if (ast->result->type->cls->id != LILY_ID_INTEGER) {
+    if (ast->result->type != var->type) {
         lily_raise_syn(emit->raiser,
                    "Expected type 'Integer', but got type '^T'.",
                    ast->result->type);
@@ -4283,51 +4313,62 @@ void lily_emit_eval_expr_to_var(lily_emit_state *emit, lily_expr_state *es,
             var->reg_spot, ast->line_num);
 }
 
-/* Evaluate the root of the given pool, making sure that the result is something
-   that can be truthy/falsey. SyntaxError is raised if the result isn't.
-   Since this is called to evaluate conditions, this also writes any needed jump
-   or patch necessary. */
-void lily_emit_eval_condition(lily_emit_state *emit, lily_expr_state *es)
+static int is_false_tree(lily_ast *ast)
+{
+    int result = 0;
+
+    if (ast->tree_type == tree_boolean ||
+        ast->tree_type == tree_byte ||
+        ast->tree_type == tree_integer)
+        result = (ast->backing_value != 0);
+
+    return result;
+}
+
+/* Evaluate an expression that falls through if truthy, or jumps to the next
+   branch if falsey. */
+void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    lily_block_type current_type = emit->block->block_type;
 
-    if (((ast->tree_type == tree_boolean ||
-          ast->tree_type == tree_byte ||
-          ast->tree_type == tree_integer) &&
-          ast->backing_value != 0) == 0) {
-        eval_enforce_value(emit, ast, NULL,
-                "Conditional expression has no value.");
-        ensure_valid_condition_type(emit, ast->result->type);
+    if (is_false_tree(ast)) {
+        /* Write a fake jump for block transition to skip over. */
+        lily_u16_write_1(emit->patches, 0);
+        return;
+    }
 
-        if (current_type != block_do_while)
-            emit_jump_if(emit, ast, 0);
-        else {
-            int location = lily_u16_pos(emit->code) - emit->block->code_start;
-            lily_u16_write_4(emit->code, o_jump_if, 1, ast->result->reg_spot,
-                    (uint16_t)-location);
-        }
+    eval_enforce_value(emit, ast, NULL, "Conditional expression has no value.");
+    ensure_valid_condition_type(emit, ast->result->type);
+
+    /* Jump if false (0) to the next branch. The branch will be patched when the
+       next condition comes in.  */
+    emit_jump_if(emit, ast, 0);
+}
+
+/* Evaluate an expression that exits if truthy, or jumps back up if falsey. */
+void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
+{
+    lily_ast *ast = es->root;
+
+    if (is_false_tree(ast)) {
+        uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
+        lily_u16_write_2(emit->code, o_jump, (uint16_t)-location);
+        return;
     }
-    else {
-        if (current_type != block_do_while) {
-            /* Code that handles if/elif/else transitions expects each branch to
-               write a jump. There's no easy way to tell it that none was made...
-               so give it a fake jump. */
-            lily_u16_write_1(emit->patches, 0);
-        }
-        else {
-            /* A do-while block is negative because it jumps back up. */
-            int location = lily_u16_pos(emit->code) - emit->block->code_start;
-            lily_u16_write_2(emit->code, o_jump, (uint16_t)-location);
-        }
-    }
+
+    eval_enforce_value(emit, ast, NULL, "Conditional expression has no value.");
+    ensure_valid_condition_type(emit, ast->result->type);
+
+    uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
+    lily_u16_write_4(emit->code, o_jump_if, 1, ast->result->reg_spot,
+            (uint16_t)-location);
 }
 
 /* This is called from parser to evaluate the last expression that is within a
    lambda. 'full_type' is either a type describing what the lambda wants, or
    NULL if the lambda has no opinion. The latter can happen with a lambda is on
    the right side of a newly-declared var with no inference information. */
-void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
+void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
         lily_type *full_type)
 {
     lily_type *wanted_type = NULL;
@@ -4352,7 +4393,7 @@ void lily_emit_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
 /* This handles the 'return' keyword. If parser has the pool filled with some
    expression, then run that expression (checking the result). The pool will be
    cleared out if there was an expression. */
-void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
+void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
         lily_type *return_type)
 {
     if (return_type != lily_unit_type) {
@@ -4380,10 +4421,7 @@ void lily_emit_eval_return(lily_emit_state *emit, lily_expr_state *es,
     emit->block->last_exit = lily_u16_pos(emit->code);
 }
 
-/* Evaluate the given tree, then try to write instructions that will raise the
-   result of the tree.
-   SyntaxError happens if the tree's result is not raise-able. */
-void lily_emit_raise(lily_emit_state *emit, lily_expr_state *es)
+void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
     eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.");

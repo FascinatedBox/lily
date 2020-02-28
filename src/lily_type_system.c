@@ -489,19 +489,6 @@ void lily_ts_generics_seen(lily_type_system *ts, int amount)
         ts->max_seen = amount;
 }
 
-int lily_func_type_num_optargs(lily_type *type)
-{
-    int i;
-    for (i = type->subtype_count - 1;i > 0;i--) {
-        lily_type *inner = type->subtypes[i];
-        if (inner->cls->id != LILY_ID_OPTARG)
-            break;
-    }
-
-
-    return type->subtype_count - i - 1;
-}
-
 int lily_class_greater_eq(lily_class *left, lily_class *right)
 {
     int ret = 0;

@@ -173,7 +173,8 @@ typedef struct lily_expr_state_ {
     /* Where should inserting to the string pile start from? */
     uint16_t pile_current;
 
-    uint16_t pad;
+    /* How many optarg expressions are currently saved. */
+    uint16_t optarg_count;
 
     lily_ast_checkpoint_entry **checkpoints;
     uint32_t checkpoint_pos;
@@ -189,7 +190,8 @@ void lily_free_expr_state(lily_expr_state *);
 void lily_es_flush(lily_expr_state *);
 void lily_es_checkpoint_save(lily_expr_state *);
 void lily_es_checkpoint_restore(lily_expr_state *);
-void lily_es_checkpoint_reverse_n(lily_expr_state *, int);
+void lily_es_optarg_save(lily_expr_state *);
+void lily_es_optarg_finish(lily_expr_state *);
 
 void lily_es_collect_arg(lily_expr_state *);
 void lily_es_enter_tree(lily_expr_state *, lily_tree_type);
@@ -213,5 +215,6 @@ void lily_es_push_upvalue(lily_expr_state *, lily_var *);
 void lily_es_push_integer(lily_expr_state *, int16_t);
 void lily_es_push_boolean(lily_expr_state *, int16_t);
 void lily_es_push_byte(lily_expr_state *, uint8_t);
+void lily_es_push_assign_to(lily_expr_state *, lily_sym *);
 
 #endif

@@ -1217,19 +1217,11 @@ static void error_var_redeclaration(lily_parse_state *parser, lily_var *var)
     lily_raise_syn(parser->raiser, "%s has already been declared.", var->name);
 }
 
-/* Given a var, collect the optional argument that goes with it. This will push
-   information to parser's data_stack to link the value to the var. The token
-   is expected to start on the '=', and will be set at the token after the
-   optional value. */
-static void collect_optarg_for(lily_parse_state *parser, lily_var *var)
+/* Collect the assignment for an optional argument. */
+static void collect_optarg_for(lily_parse_state *parser, lily_sym *sym)
 {
-    /* This saves either the expression before optargs runs, or the previous
-       optarg expression. The last expression will be saved by whatever function
-       ends up writing optargs. */
-    lily_es_checkpoint_save(parser->expr);
-
-    lily_es_push_local_var(parser->expr, var);
-    lily_es_push_binary_op(parser->expr, expr_assign);
+    lily_es_optarg_save(parser->expr);
+    lily_es_push_assign_to(parser->expr, sym);
     lily_next_token(parser->lex);
     simple_expression(parser);
 }
@@ -1279,7 +1271,6 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 /* These are flags used by argument collection. They start high so that type and
    class flags don't collide with them. */
 #define F_SCOOP_OK          0x040000
-#define F_COLLECT_FORWARD   0x080000
 #define F_COLLECT_DEFINE    0x100000
 #define F_COLLECT_DYNALOAD (0x200000 | F_SCOOP_OK)
 #define F_COLLECT_CLASS     0x400000
@@ -1364,7 +1355,7 @@ static lily_type *get_define_arg(lily_parse_state *parser, int *flags)
            var the concrete underlying type, and the caller the true optarg
            containing type. */
         var->type = type->subtypes[0];
-        collect_optarg_for(parser, var);
+        collect_optarg_for(parser, (lily_sym *)var);
     }
     else
         var->type = type;
@@ -1427,7 +1418,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
            var the concrete underlying type, and the caller the true optarg
            containing type. */
         var->type = type->subtypes[0];
-        collect_optarg_for(parser, var);
+        collect_optarg_for(parser, (lily_sym *)var);
     }
     else
         var->type = type;
@@ -1545,6 +1536,8 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
+
     if (lex->token != tk_left_bracket)
         return;
 
@@ -1647,7 +1640,12 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             result_pos--;
         }
 
-        arg_collect = get_define_arg;
+        lily_var *var = (lily_var *)target;
+
+        if ((var->flags & VAR_IS_FORWARD) == 0)
+            arg_collect = get_define_arg;
+        else
+            arg_collect = get_nameless_arg;
     }
     else if (arg_flags & F_COLLECT_DYNALOAD)
         arg_collect = get_nameless_arg;
@@ -1655,14 +1653,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         arg_collect = get_class_arg;
     else if (arg_flags & F_COLLECT_VARIANT)
         arg_collect = get_variant_arg;
-    else if (arg_flags & F_COLLECT_FORWARD) {
-        if (parser->emit->block->self) {
-            i++;
-            result_pos--;
-        }
-
-        arg_collect = get_nameless_arg;
-    }
 
     if (lex->token == tk_left_parenth) {
         lily_next_token(lex);
@@ -1915,7 +1905,6 @@ static void dynaload_function(lily_parse_state *parser, lily_module_entry *m,
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
 
     lily_lexer_load(lex, et_shallow_string, body);
-    lily_next_token(lex);
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
     collect_call_args(parser, var, F_COLLECT_DYNALOAD);
@@ -1997,7 +1986,6 @@ static lily_class *dynaload_enum(lily_parse_state *parser, lily_module_entry *m,
     const char *body = name + strlen(name) + 1;
 
     lily_lexer_load(lex, et_shallow_string, body);
-    lily_next_token(lex);
     collect_generics_for(parser, enum_cls);
     lily_pop_lex_entry(lex);
 
@@ -2124,7 +2112,6 @@ static lily_class *dynaload_native(lily_parse_state *parser,
     lily_lex_state *lex = parser->lex;
 
     lily_lexer_load(lex, et_shallow_string, body);
-    lily_next_token(lex);
 
     lily_class *cls = lily_new_class(parser->symtab, name, 0);
     uint16_t save_generic_start = lily_gp_save_and_hide(parser->generics);
@@ -3132,11 +3119,11 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             if (lex->token != tk_end_lambda)
                 /* This expression isn't the last one, so it can do whatever it
                    wants to do. */
-                lily_emit_eval_expr(parser->emit, parser->expr);
+                lily_eval_expr(parser->emit, parser->expr);
             else {
                 /* The last expression is what will be returned, so give it the
                    inference information of the lambda. */
-                lily_emit_eval_lambda_body(parser->emit, parser->expr,
+                lily_eval_lambda_body(parser->emit, parser->expr,
                         expect_type);
 
                 if (parser->expr->root->result)
@@ -3516,19 +3503,12 @@ static void parse_var(lily_parse_state *parser, int modifiers)
             bad_decl_token(parser);
 
         NEED_CURRENT_TOK(want_token)
-
         if (lex->token == tk_word) {
             sym = (lily_sym *)get_named_var(parser, NULL);
             sym->flags |= SYM_NOT_INITIALIZED;
-            if (sym->flags & VAR_IS_GLOBAL)
-                lily_es_push_global_var(parser->expr, (lily_var *)sym);
-            else
-                lily_es_push_local_var(parser->expr, (lily_var *)sym);
         }
-        else {
+        else
             sym = (lily_sym *)get_named_property(parser, flags);
-            lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
-        }
 
         if (lex->token == tk_colon) {
             lily_next_token(lex);
@@ -3540,10 +3520,10 @@ static void parse_var(lily_parse_state *parser, int modifiers)
                     "An initialization expression is required here.");
         }
 
-        lily_es_push_binary_op(parser->expr, expr_assign);
+        lily_es_push_assign_to(parser->expr, sym);
         lily_next_token(lex);
         expression_raw(parser);
-        lily_emit_eval_expr(parser->emit, parser->expr);
+        lily_eval_expr(parser->emit, parser->expr);
 
         if (lex->token != tk_comma)
             break;
@@ -3557,63 +3537,25 @@ static void keyword_var(lily_parse_state *parser)
     parse_var(parser, 0);
 }
 
-static void send_optargs_for(lily_parse_state *parser, lily_var *var)
+static void finish_define_init(lily_parse_state *parser, lily_var *var)
 {
-    lily_type *type = var->type;
-    int count = lily_func_type_num_optargs(type);
+    uint16_t count = parser->expr->optarg_count;
 
-    lily_es_checkpoint_save(parser->expr);
+    if (count) {
+        uint16_t i;
 
-    /* This reorders optarg expressions to be last to first, so they can be
-       popped. */
-    lily_es_checkpoint_reverse_n(parser->expr, count);
+        /* This reverses optargs to allow for a pop+eval loop. */
+        lily_es_optarg_finish(parser->expr);
 
-    int i;
-
-    for (i = 0;i < count;i++) {
-        lily_es_checkpoint_restore(parser->expr);
-        lily_emit_eval_optarg(parser->emit, parser->expr->root);
-    }
-
-    /* Restore the original expression. */
-    lily_es_checkpoint_restore(parser->expr);
-}
-
-static void verify_existing_decl(lily_parse_state *parser, lily_var *var,
-        int modifiers)
-{
-    if ((var->flags & VAR_IS_FORWARD) == 0) {
-        lily_raise_syn(parser->raiser, "%s has already been declared.",
-                var->name);
-    }
-    else if (modifiers & VAR_IS_FORWARD) {
-        lily_raise_syn(parser->raiser,
-                "A forward declaration for %s already exists.", var->name);
-    }
-}
-
-static lily_var *find_existing_define(lily_parse_state *parser,
-        lily_class *parent, char *label, int modifiers)
-{
-    lily_var *var = find_active_var(parser, label);
-
-    if (var)
-        verify_existing_decl(parser, var, modifiers);
-
-    if (parent) {
-        lily_named_sym *sym = lily_find_member(parent, label);
-
-        if (sym) {
-            if (sym->flags & VAR_IS_FORWARD) {
-                verify_existing_decl(parser, (lily_var *)sym, modifiers);
-                var = (lily_var *)sym;
-            }
-            else if (sym_visible_from(parent, sym))
-                error_member_redeclaration(parser, parent, sym);
+        for (i = 0;i < count;i++) {
+            lily_es_checkpoint_restore(parser->expr);
+            lily_eval_optarg(parser->emit, parser->expr->root);
         }
+
+        lily_es_checkpoint_restore(parser->expr);
     }
 
-    return var;
+    var->flags &= ~SYM_NOT_INITIALIZED;
 }
 
 static void error_forward_decl_pending(lily_parse_state *parser)
@@ -3632,8 +3574,6 @@ static void error_forward_decl_pending(lily_parse_state *parser)
     add_unresolved_defines_to_msgbuf(parser, msgbuf);
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
-
-#define ALL_MODIFIERS (ANY_SCOPE | VAR_IS_STATIC)
 
 static const char *scope_to_str(uint16_t flags)
 {
@@ -3672,103 +3612,6 @@ static void error_forward_decl_modifiers(lily_parse_state *parser,
     lily_raise_syn(parser->raiser,
             "Wrong qualifiers in resolution of %s (expected: %s%s).",
             p->name, scope_str, static_str);
-}
-
-static lily_var *parse_define_var(lily_parse_state *parser, lily_class *parent,
-        int modifiers)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_var *old_define = find_existing_define(parser, parent, lex->label,
-            modifiers);
-    lily_var *define_var;
-
-    if (old_define) {
-        if ((old_define->flags & ALL_MODIFIERS) !=
-            (modifiers & ALL_MODIFIERS))
-            error_forward_decl_modifiers(parser, old_define);
-
-        define_var = old_define;
-        lily_emit_resolve_forward_decl(parser->emit, define_var);
-    }
-    else
-        define_var = new_native_define_var(parser, parent, lex->label);
-
-    /* This prevents optargs from using function they're declared in. */
-    define_var->flags |= SYM_NOT_INITIALIZED | modifiers;
-
-    return define_var;
-}
-
-static void parse_define_header(lily_parse_state *parser, int modifiers)
-{
-    lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_class *parent = NULL;
-    lily_block_type block_type = parser->emit->block->block_type;
-    int collect_flag = F_COLLECT_DEFINE;
-
-    if (modifiers & VAR_IS_FORWARD)
-        collect_flag = F_COLLECT_FORWARD;
-
-    if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
-        parent = parser->current_class;
-
-    lily_var *define_var = parse_define_var(parser, parent, modifiers);
-
-    lily_tm_add(parser->tm, lily_unit_type);
-
-    lily_next_token(lex);
-    collect_generics_for(parser, NULL);
-    lily_emit_enter_define_block(parser->emit, define_var);
-
-    if (parent && (define_var->flags & VAR_IS_STATIC) == 0) {
-        /* Toplevel non-static class methods have 'self' as an implicit first
-           argument. */
-        lily_tm_add(parser->tm, parent->self_type);
-        lily_emit_create_block_self(parser->emit, parent->self_type);
-        lily_emit_activate_block_self(parser->emit);
-    }
-
-    collect_call_args(parser, define_var, collect_flag);
-
-    NEED_CURRENT_TOK(tk_left_curly)
-
-    if (define_var->type->flags & TYPE_HAS_OPTARGS &&
-        collect_flag != F_COLLECT_FORWARD)
-        send_optargs_for(parser, define_var);
-
-    define_var->flags &= ~SYM_NOT_INITIALIZED;
-}
-
-#undef ALL_MODIFIERS
-
-static lily_var *parse_for_range_value(lily_parse_state *parser,
-        const char *name)
-{
-    lily_expr_state *es = parser->expr;
-    expression(parser);
-
-    /* Don't allow assigning expressions, since that just looks weird.
-       ex: for i in a += 10..5
-       Also, it makes no real sense to do that. */
-    if (es->root->tree_type == tree_binary &&
-        es->root->op >= expr_assign) {
-        lily_raise_syn(parser->raiser,
-                   "For range value expression contains an assignment.");
-    }
-
-    lily_class *cls = parser->symtab->integer_class;
-
-    /* For loop values are created as vars so there's a name in case of a
-       problem. This name doesn't have to be unique, since it will never be
-       found by the user. */
-    lily_var *var = new_local_var(parser, cls->self_type, name,
-            parser->lex->line_num);
-
-    lily_emit_eval_expr_to_var(parser->emit, es, var);
-
-    return var;
 }
 
 static void process_docblock(lily_parse_state *parser)
@@ -3814,7 +3657,7 @@ static void statement(lily_parse_state *parser, int multi)
             }
             else {
                 expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->expr);
+                lily_eval_expr(parser->emit, parser->expr);
             }
         }
         else if (token == tk_integer || token == tk_double ||
@@ -3823,7 +3666,7 @@ static void statement(lily_parse_state *parser, int multi)
                  token == tk_prop_word || token == tk_bytestring ||
                  token == tk_byte) {
             expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->expr);
+            lily_eval_expr(parser->emit, parser->expr);
         }
         else if (token == tk_docblock)
             process_docblock(parser);
@@ -3858,7 +3701,7 @@ static void do_elif(lily_parse_state *parser)
     hide_block_vars(parser);
     lily_emit_branch_switch(parser->emit);
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->expr);
+    lily_eval_entry_condition(parser->emit, parser->expr);
     NEED_COLON_AND_NEXT;
 }
 
@@ -3877,7 +3720,7 @@ static void keyword_if(lily_parse_state *parser)
 
     lily_emit_enter_if_block(parser->emit);
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->expr);
+    lily_eval_entry_condition(parser->emit, parser->expr);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 
@@ -3888,7 +3731,7 @@ static void keyword_if(lily_parse_state *parser)
             int key = keyword_by_name(lex->label);
             if (key == -1) {
                 expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->expr);
+                lily_eval_expr(parser->emit, parser->expr);
             }
             else if (key != KEY_ELIF && key != KEY_ELSE) {
                 lily_next_token(lex);
@@ -3906,7 +3749,7 @@ static void keyword_if(lily_parse_state *parser)
         }
         else if (lex->token != tk_right_curly) {
             expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->expr);
+            lily_eval_expr(parser->emit, parser->expr);
         }
 
         if (lex->token == tk_word && have_else == 0) {
@@ -3985,7 +3828,7 @@ static void keyword_return(lily_parse_state *parser)
     if (return_type != lily_unit_type)
         expression(parser);
 
-    lily_emit_eval_return(parser->emit, parser->expr, return_type);
+    lily_eval_return(parser->emit, parser->expr, return_type);
 
     if (code_is_after_exit(parser)) {
         const char *extra = ".";
@@ -4004,7 +3847,7 @@ static void keyword_while(lily_parse_state *parser)
     lily_emit_enter_while_block(parser->emit);
 
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->expr);
+    lily_eval_entry_condition(parser->emit, parser->expr);
     NEED_COLON_AND_BRACE;
     parse_block_body(parser);
 
@@ -4014,7 +3857,8 @@ static void keyword_while(lily_parse_state *parser)
 
 static void keyword_continue(lily_parse_state *parser)
 {
-    lily_emit_continue(parser->emit);
+    if (lily_emit_try_write_continue(parser->emit) == 0)
+        lily_raise_syn(parser->raiser, "'continue' used outside of a loop.");
 
     if (code_is_after_exit(parser))
         lily_raise_syn(parser->raiser,
@@ -4023,23 +3867,70 @@ static void keyword_continue(lily_parse_state *parser)
 
 static void keyword_break(lily_parse_state *parser)
 {
-    lily_emit_break(parser->emit);
+    if (lily_emit_try_write_break(parser->emit) == 0)
+        lily_raise_syn(parser->raiser, "'break' used outside of a loop.");
 
     if (code_is_after_exit(parser))
         lily_raise_syn(parser->raiser,
                 "Statement(s) after 'break' will not execute.");
 }
 
-static void keyword_for(lily_parse_state *parser)
+static void parse_for_expr(lily_parse_state *parser, lily_var *var)
+{
+    lily_expr_state *es = parser->expr;
+
+    lily_next_token(parser->lex);
+    expression(parser);
+
+    /* Don't allow assigning expressions, since that just looks weird.
+       ex: for i in a += 10..5
+       Also, it makes no real sense to do that. */
+    if (es->root->tree_type == tree_binary &&
+        es->root->op >= expr_assign) {
+        lily_raise_syn(parser->raiser,
+                   "For range value expression contains an assignment.");
+    }
+
+    lily_eval_to_loop_var(parser->emit, parser->expr, var);
+}
+
+static void expect_word(lily_parse_state *parser, const char *what)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *loop_var;
 
     NEED_CURRENT_TOK(tk_word)
 
+    if (strcmp(lex->label, what) != 0)
+        lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", what,
+                lex->label);
+}
+
+static int extra_if_word(lily_parse_state *parser, const char *what)
+{
+    lily_lex_state *lex = parser->lex;
+    int result = 0;
+
+    if (lex->token == tk_word) {
+        if (strcmp(lex->label, what) != 0)
+            lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", what,
+                    lex->label);
+
+        result = 1;
+    }
+
+    return result;
+}
+
+static void keyword_for(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_type *integer_type = parser->symtab->integer_class->self_type;
+
+    NEED_CURRENT_TOK(tk_word)
     lily_emit_enter_for_in_block(parser->emit);
 
-    loop_var = find_active_var(parser, lex->label);
+    lily_var *loop_var = find_active_var(parser, lex->label);
+
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
         loop_var = new_local_var(parser, cls->self_type, lex->label,
@@ -4051,47 +3942,29 @@ static void keyword_for(lily_parse_state *parser)
                    loop_var->type);
     }
 
-    NEED_NEXT_TOK(tk_word)
-    if (strcmp(lex->label, "in") != 0)
-        lily_raise_syn(parser->raiser, "Expected 'in', not '%s'.", lex->label);
+    lily_var *for_start = new_local_var(parser, integer_type, "", 0);
+    lily_var *for_end = new_local_var(parser, integer_type, "", 0);
+    lily_var *for_step = new_local_var(parser, integer_type, "", 0);
 
     lily_next_token(lex);
-
-    lily_var *for_start, *for_end;
-    lily_sym *for_step;
-
-    for_start = parse_for_range_value(parser, "(for start)");
-
+    expect_word(parser, "in");
+    parse_for_expr(parser, for_start);
     NEED_CURRENT_TOK(tk_three_dots)
-    lily_next_token(lex);
+    parse_for_expr(parser, for_end);
 
-    for_end = parse_for_range_value(parser, "(for end)");
-
-    if (lex->token == tk_word) {
-        if (strcmp(lex->label, "by") != 0)
-            lily_raise_syn(parser->raiser, "Expected 'by', not '%s'.",
-                    lex->label);
-
-        lily_next_token(lex);
-        for_step = (lily_sym *)parse_for_range_value(parser, "(for step)");
-    }
+    if (extra_if_word(parser, "by"))
+        parse_for_expr(parser, for_step);
     else {
-        lily_var *step_var = new_local_var(parser,
-                parser->symtab->integer_class->self_type, "(for step)",
-                lex->line_num);
-        /* Must flush manually since expression isn't being called. */
         lily_es_flush(parser->expr);
+        lily_es_push_assign_to(parser->expr, (lily_sym *)for_step);
         lily_es_push_integer(parser->expr, 1);
-        lily_emit_eval_expr_to_var(parser->emit, parser->expr, step_var);
-        for_step = (lily_sym *)step_var;
+        lily_eval_expr(parser->emit, parser->expr);
     }
 
-    lily_emit_finalize_for_in(parser->emit, loop_var, for_start, for_end,
-                              for_step, parser->lex->line_num);
-
+    lily_emit_write_for_header(parser->emit, loop_var, for_start, for_end,
+                               for_step, lex->line_num);
     NEED_COLON_AND_BRACE;
     parse_block_body(parser);
-
     hide_block_vars(parser);
     lily_emit_leave_block(parser->emit);
 }
@@ -4103,33 +3976,14 @@ static void keyword_do(lily_parse_state *parser)
     lily_emit_enter_do_while_block(parser->emit);
     NEED_COLON_AND_BRACE;
     parse_block_body(parser);
+    expect_word(parser, "while");
 
-    NEED_CURRENT_TOK(tk_word)
-    /* This could do a keyword scan, but there's only one correct answer
-       so...nah. */
-    if (strcmp(lex->label, "while") != 0)
-        lily_raise_syn(parser->raiser, "Expected 'while', not '%s'.",
-                lex->label);
-
-    /* Now prep the token for expression. Save the resulting tree so that
-       it can be eval'd specially. */
-    lily_next_token(lex);
-
-    /* Hide vars before running the expression to prevent using inner vars in
-       the condition. This is necessary because vars declared in the block
-       cannot be guaranteed to be initialized:
-       ```
-       do: {
-           if a == b: {
-               continue
-           }
-           var v = 10
-       } while v == 10
-       ``` */
+    /* Hide vars before running the expression because inner vars may have had
+       their initialization skipped over. */
     hide_block_vars(parser);
-
+    lily_next_token(lex);
     expression(parser);
-    lily_emit_eval_condition(parser->emit, parser->expr);
+    lily_eval_exit_condition(parser->emit, parser->expr);
     lily_emit_leave_block(parser->emit);
 }
 
@@ -4396,6 +4250,7 @@ static void process_except(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     lily_class *except_cls = get_type(parser)->cls;
     lily_emit_state *emit = parser->emit;
+    lily_var *exception_var = NULL;
 
     /* If it's 'except Exception', then all possible cases have been handled. */
     if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, except_cls) == 0)
@@ -4405,37 +4260,16 @@ static void process_except(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "'except' type cannot have subtypes.");
 
     if (emit->block->flags & BLOCK_FINAL_BRANCH)
-        lily_raise_syn(emit->raiser, "'except' clause is unreachable.");
+        lily_raise_syn(parser->raiser, "'except' clause is unreachable.");
 
     hide_block_vars(parser);
 
-    if (except_cls->id != LILY_ID_EXCEPTION)
-        lily_emit_branch_switch(emit);
-    else
-        lily_emit_branch_finalize(emit);
-
-    lily_var *exception_var = NULL;
-    if (lex->token == tk_word) {
-        if (strcmp(parser->lex->label, "as") != 0)
-            lily_raise_syn(parser->raiser, "Expected 'as', not '%s'.",
-                    lex->label);
-
+    if (extra_if_word(parser, "as")) {
         NEED_NEXT_TOK(tk_word)
-
-        exception_var = find_active_var(parser, lex->label);
-
-        if (exception_var)
-            error_var_redeclaration(parser, exception_var);
-
-        exception_var = new_local_var(parser, except_cls->self_type, lex->label,
-                lex->line_num);
-
-        lily_next_token(lex);
+        exception_var = get_local_var(parser, except_cls->self_type);
     }
 
-    lily_emit_except(parser->emit, except_cls->self_type, exception_var,
-            lex->line_num);
-
+    lily_emit_except_switch(emit, except_cls, exception_var, lex->line_num);
     NEED_COLON_AND_NEXT;
 }
 
@@ -4452,7 +4286,7 @@ static void keyword_try(lily_parse_state *parser)
             int key = keyword_by_name(lex->label);
             if (key == -1) {
                 expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->expr);
+                lily_eval_expr(parser->emit, parser->expr);
             }
             else if (key != KEY_EXCEPT) {
                 lily_next_token(lex);
@@ -4491,7 +4325,7 @@ static void keyword_raise(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "'raise' not allowed in a lambda.");
 
     expression(parser);
-    lily_emit_raise(parser->emit, parser->expr);
+    lily_eval_raise(parser->emit, parser->expr);
 
     if (code_is_after_exit(parser))
         lily_raise_syn(parser->raiser,
@@ -4545,8 +4379,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
     }
 }
 
-static lily_class *parse_and_verify_super(lily_parse_state *parser,
-        lily_class *cls)
+static void parse_super(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
     NEED_NEXT_TOK(tk_word)
@@ -4587,45 +4420,31 @@ static lily_class *parse_and_verify_super(lily_parse_state *parser,
             sym = sym->next;
         }
     }
-
-    return super_class;
 }
 
 /* There's a class to inherit from, so run the constructor. */
-static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
-        lily_class *super_class)
+static void super_expression(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
-    lily_var *class_new = (lily_var *)lily_find_member_in_class(super_class,
+    lily_class *super_cls = cls->parent;
+    lily_var *class_new = (lily_var *)lily_find_member_in_class(super_cls,
             "<new>");
-
-    /* It's time to process the constructor to be sent. The constructor function
-       is inserted as a special 'inherited_new' tree. That will let emitter know
-       that generics have to solve as themselves. Such a guarantee ensures that
-       the A of one class is not the B of an upward class.
-
-       Normally it's fine for expressions to go on after a call. But in this
-       case, no expressions should occur after the parentheses.
-
-       ```
-       class Two(value: Integer) > One(value)[0]
-       ```
-
-       Because of the above two requirements, expressions need to be handled
-       directly instead of using a simpler call to expression_raw. */
-
     lily_expr_state *es = parser->expr;
-    /* Before running these arguments, wipe the class self. This prevents the
-       ctor call from using uninitialized base class properties/methods which
-       can cause a crash. */
-    lily_class *save_cls = parser->current_class;
 
+    /* This prevents the class from using uninitialized data from itself or from
+       the class it's trying to inherit. */
     parser->current_class = NULL;
     lily_es_flush(es);
+
+    /* This is a special tree that tells emitter to nail generics in place
+       instead of allowing solving. that makes ts far far simpler, because the
+       A of a class is the A of the parent for any number of levels. */
     lily_es_push_inherited_new(es, class_new);
     lily_es_enter_tree(es, tree_call);
-    /* This causes expression to stop on ',' and ')'. It's safe to do this
-       because dynaload doesn't come through here. */
+
+    /* This makes expression bail on ',' and ')'. That prevents expression from
+       trying to be "helpful" and allowing subscripts/dot access/etc. against
+       the constructor. */
     es->save_depth = 0;
 
     lily_next_token(parser->lex);
@@ -4656,12 +4475,11 @@ static void run_super_ctor(lily_parse_state *parser, lily_class *cls,
         }
     }
 
-    /* Tree exit will drop the depth down by 1, so fix it first. */
+    /* Gotta fix the depth before the drop, or it'll roll into negative. */
     parser->expr->save_depth = 1;
     lily_es_leave_tree(parser->expr);
-    lily_emit_eval_expr(parser->emit, es);
-
-    parser->current_class = save_cls;
+    lily_eval_expr(parser->emit, es);
+    parser->current_class = cls;
 }
 
 /* This handles everything needed to create a class, including the inheritance
@@ -4674,36 +4492,26 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     /* Prevent optargs from using this function. */
     call_var->flags |= SYM_NOT_INITIALIZED;
 
-    lily_next_token(lex);
-    collect_generics_for(parser, cls);
-
     lily_emit_enter_class_block(parser->emit, call_var);
-
     parser->current_class = cls;
-
+    collect_generics_for(parser, cls);
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
-    lily_class *super_cls = NULL;
-
     if (lex->token == tk_lt)
-        super_cls = parse_and_verify_super(parser, cls);
+        parse_super(parser, cls);
 
     /* Don't make 'self' available until the class is fully constructed. */
     lily_emit_create_block_self(parser->emit, cls->self_type);
     lily_emit_write_class_init(parser->emit, cls, lex->line_num);
-
-    if (call_var->type->flags & TYPE_HAS_OPTARGS)
-        send_optargs_for(parser, call_var);
-
-    call_var->flags &= ~SYM_NOT_INITIALIZED;
+    finish_define_init(parser, call_var);
 
     if (cls->members->item_kind == ITEM_PROPERTY)
         lily_emit_write_shorthand_ctor(parser->emit, cls,
                 parser->symtab->active_module->var_chain, lex->line_num);
 
-    if (super_cls)
-        run_super_ctor(parser, cls, super_cls);
+    if (cls->parent)
+        super_expression(parser, cls);
 
     lily_emit_activate_block_self(parser->emit);
 }
@@ -4818,7 +4626,7 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->item_kind = ITEM_VARIANT_FILLED;
 }
 
-static void parse_enum(lily_parse_state *parser, int is_scoped)
+static void ensure_valid_enum(lily_parse_state *parser, int is_scoped)
 {
     lily_block *block = parser->emit->block;
     if (block->block_type != block_file)
@@ -4835,28 +4643,33 @@ static void parse_enum(lily_parse_state *parser, int is_scoped)
     }
 
     ensure_valid_class(parser, lex->label);
+}
 
+static void parse_enum(lily_parse_state *parser, int is_scoped)
+{
+    ensure_valid_enum(parser, is_scoped);
+
+    lily_lex_state *lex = parser->lex;
     lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
             lex->line_num);
 
     if (is_scoped)
         enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
-    lily_next_token(lex);
-    collect_generics_for(parser, enum_cls);
     lily_emit_enter_enum_block(parser->emit, enum_cls);
-
     parser->current_class = enum_cls;
+    collect_generics_for(parser, enum_cls);
+
+    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
 
-    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
-    lily_variant_class *variant_cls;
-
     while (1) {
         NEED_CURRENT_TOK(tk_word)
-        variant_cls = lily_find_variant(enum_cls, lex->label);
+
+        lily_variant_class *variant_cls = lily_find_variant(enum_cls,
+                lex->label);
 
         if (variant_cls == NULL && is_scoped == 0)
             variant_cls = (lily_variant_class *)find_active_class(parser,
@@ -4927,89 +4740,23 @@ static void keyword_scoped(lily_parse_state *parser)
     parse_enum(parser, 1);
 }
 
-static void match_case_enum(lily_parse_state *parser, lily_sym *match_sym)
+/* This is called when a match against a class or enum is not considered
+   complete. Matches for a class need to have an else, and matches against enums
+   need all variants covered. */
+static void error_incomplete_match(lily_parse_state *parser)
 {
-    lily_type *match_input_type = match_sym->type;
-    lily_class *match_class = match_input_type->cls;
-    lily_lex_state *lex = parser->lex;
+    lily_block *block = parser->emit->block;
+    lily_class *match_class = block->match_type->cls;
 
-    NEED_CURRENT_TOK(tk_word)
-    if (match_class->item_kind == ITEM_ENUM_SCOPED) {
-        if (strcmp(match_class->name, lex->label) != 0)
-            lily_raise_syn(parser->raiser,
-                    "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
-                    match_class->name, lex->label, match_class->name);
+    if ((match_class->item_kind & ITEM_IS_CLASS))
+        lily_raise_syn(parser->raiser,
+                "Match against a class must have an 'else' case.");
 
-        NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_TOK(tk_word)
-    }
-
-    lily_variant_class *variant_case = lily_find_variant(match_class,
-            lex->label);
-
-    if (variant_case == NULL)
-        lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
-                lex->label, match_class->name);
-
-    if (lily_emit_is_duplicate_case(parser->emit, (lily_class *)variant_case))
-        lily_raise_syn(parser->raiser, "Already have a case for variant %s.",
-                lex->label);
-
-    hide_block_vars(parser);
-    lily_emit_branch_switch(parser->emit);
-    lily_emit_write_match_case(parser->emit, match_sym,
-            (lily_class *)variant_case);
-
-    if (variant_case->item_kind == ITEM_VARIANT_FILLED) {
-        lily_type *build_type = variant_case->build_type;
-        lily_type_system *ts = parser->emit->ts;
-
-        NEED_NEXT_TOK(tk_left_parenth)
-        /* There should be as many identifiers as there are arguments to this
-           variant's creation type.
-           Also, start at 1 so that the return at [0] is skipped. */
-        NEED_NEXT_TOK(tk_word)
-
-        int i;
-        for (i = 1;i < build_type->subtype_count;i++) {
-            lily_type *var_type = lily_ts_resolve_by_second(ts,
-                    match_input_type, build_type->subtypes[i]);
-
-            if (strcmp(lex->label, "_") == 0)
-                lily_next_token(lex);
-            else {
-                lily_var *var = get_local_var(parser, var_type);
-                lily_emit_decompose(parser->emit, match_sym, i - 1,
-                        var->reg_spot);
-            }
-
-            if (i != build_type->subtype_count - 1) {
-                NEED_CURRENT_TOK(tk_comma)
-                NEED_NEXT_TOK(tk_word)
-            }
-        }
-        NEED_CURRENT_TOK(tk_right_parenth)
-    }
-    /* else the variant does not take arguments, and cannot decompose because
-       there is nothing inside to decompose. */
-
-    NEED_NEXT_TOK(tk_colon)
-    lily_next_token(lex);
-}
-
-/* This is called when an enum match block is missing one or more cases. An
-   error message as well as the classes that are missing are written to a
-   msgbuf. This finishes by raising a SyntaxError. */
-static void error_incomplete_match(lily_parse_state *parser,
-        lily_sym *match_sym)
-{
-    lily_class *match_class = match_sym->type->cls;
-    int match_case_start = parser->emit->block->match_case_start;
-
-    int i;
     lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
     lily_named_sym *sym_iter = match_class->members;
+    int match_case_start = block->match_case_start;
     int *match_cases = parser->emit->match_cases + match_case_start;
+    int i;
 
     lily_mb_add(msgbuf,
             "Match pattern not exhaustive. The following case(s) are missing:");
@@ -5031,26 +4778,41 @@ static void error_incomplete_match(lily_parse_state *parser,
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
-static void match_case_class(lily_parse_state *parser,
-        lily_sym *match_sym)
+static lily_var *parse_match_target(lily_parse_state *parser, lily_type *type)
 {
     lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-    lily_class *cls = resolve_class_name(parser);
+    lily_var *result;
 
-    if (lily_class_greater_eq(match_sym->type->cls, cls) == 0) {
-        lily_raise_syn(parser->raiser,
-                "Class %s does not inherit from matching class %s.", cls->name,
-                match_sym->type->cls->name);
+    NEED_NEXT_TOK(tk_word)
+
+    if (strcmp(lex->label, "_") != 0)
+        result = get_local_var(parser, type);
+    else {
+        lily_next_token(lex);
+        result = NULL;
     }
 
-    if (lily_emit_is_duplicate_case(parser->emit, cls))
-        lily_raise_syn(parser->raiser, "Already have a case for class %s.",
-                cls->name);
+    return result;
+}
 
-    hide_block_vars(parser);
-    lily_emit_branch_switch(parser->emit);
-    lily_emit_write_match_case(parser->emit, match_sym, cls);
+static lily_class *parse_match_class(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *match_cls = parser->emit->block->match_type->cls;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_class *cls = resolve_class_name(parser);
+
+    if (lily_class_greater_eq(match_cls, cls) == 0) {
+        lily_raise_syn(parser->raiser,
+                "Class %s does not inherit from matching class %s.", cls->name,
+                match_cls->name);
+    }
+
+    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
+        lily_raise_syn(parser->raiser, "Already have a case for class %s.",
+                lex->label);
 
     /* Forbid non-monomorphic types to avoid the question of what to do
        if the match class has more generics. */
@@ -5060,19 +4822,90 @@ static void match_case_class(lily_parse_state *parser,
                 cls->name);
     }
 
-    NEED_NEXT_TOK(tk_left_parenth)
-    NEED_NEXT_TOK(tk_word)
+    return cls;
+}
 
-    if (strcmp(lex->label, "_") == 0)
-        lily_next_token(lex);
-    else {
-        lily_var *var = get_local_var(parser, cls->self_type);
-        lily_emit_decompose(parser->emit, match_sym, 0, var->reg_spot);
+static lily_class *parse_match_variant(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_block *block = parser->emit->block;
+    lily_class *match_cls = block->match_type->cls;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    if (match_cls->item_kind == ITEM_ENUM_SCOPED) {
+        if (strcmp(match_cls->name, lex->label) != 0)
+            lily_raise_syn(parser->raiser,
+                    "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
+                    match_cls->name, lex->label, match_cls->name);
+
+        NEED_NEXT_TOK(tk_dot)
+        NEED_NEXT_TOK(tk_word)
+    }
+
+    lily_variant_class *variant = lily_find_variant(match_cls, lex->label);
+
+    if (variant == NULL)
+        lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
+                lex->label, match_cls->name);
+
+    if (lily_emit_try_match_switch(parser->emit, (lily_class *)variant) == 0)
+        lily_raise_syn(parser->raiser, "Already have a case for variant %s.",
+                lex->label);
+
+    return (lily_class *)variant;
+}
+
+static void parse_match_case(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *match_cls = parser->emit->block->match_type->cls;
+    lily_class *cls;
+
+    lily_next_token(lex);
+
+    if (match_cls->item_kind & ITEM_IS_ENUM)
+        cls = parse_match_variant(parser);
+    else
+        cls = parse_match_class(parser);
+
+    hide_block_vars(parser);
+
+    /* Empty variants don't have anything to unpack. */
+    if (cls->item_kind == ITEM_VARIANT_EMPTY)
+        return;
+
+    NEED_NEXT_TOK(tk_left_parenth)
+
+    if (cls->item_kind == ITEM_VARIANT_FILLED) {
+        lily_variant_class *variant = (lily_variant_class *)cls;
+        lily_type *t = lily_emit_type_for_variant(parser->emit, variant);
+
+        /* Skip [0] since it's the return and not one of the arguments. */
+        lily_type **var_types = t->subtypes + 1;
+        uint16_t stop = t->subtype_count - 1;
+        uint16_t i;
+
+        for (i = 0;i < stop;i++) {
+            lily_var *var = parse_match_target(parser, var_types[i]);
+
+            if (var)
+                lily_emit_write_variant_case(parser->emit, var, i);
+
+            if (i == stop - 1)
+                break;
+
+            NEED_CURRENT_TOK(tk_comma)
+        }
+    }
+    else if (cls->item_kind & ITEM_IS_CLASS) {
+        lily_var *var = parse_match_target(parser, cls->self_type);
+
+        if (var)
+            lily_emit_write_class_case(parser->emit, var);
     }
 
     NEED_CURRENT_TOK(tk_right_parenth)
-    NEED_NEXT_TOK(tk_colon)
-    lily_next_token(lex);
 }
 
 static void keyword_match(lily_parse_state *parser)
@@ -5080,47 +4913,35 @@ static void keyword_match(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_match_block(parser->emit);
-
     expression(parser);
-    lily_emit_eval_match_expr(parser->emit, parser->expr);
+    lily_eval_match(parser->emit, parser->expr);
     NEED_COLON_AND_BRACE;
     NEED_NEXT_TOK(tk_word)
+
     if (keyword_by_name(lex->label) != KEY_CASE)
         lily_raise_syn(parser->raiser, "'match' must start with a case.");
 
-    lily_sym *match_sym = parser->expr->root->result;
-    int is_enum = match_sym->type->cls->item_kind & ITEM_IS_ENUM;
-    int have_else = 0, case_count = 0, enum_case_max = 0;
-
-    if (is_enum)
-        enum_case_max = match_sym->type->cls->variant_size;
+    lily_block *block = parser->emit->block;
 
     while (1) {
         if (lex->token == tk_word) {
             int key = keyword_by_name(lex->label);
             if (key == KEY_CASE) {
-                if (have_else)
+                if (block->flags & BLOCK_FINAL_BRANCH)
                     lily_raise_syn(parser->raiser,
                             "'case' in exhaustive match.");
 
+                parse_match_case(parser);
                 lily_next_token(lex);
-                if (is_enum)
-                    match_case_enum(parser, match_sym);
-                else
-                    match_case_class(parser, match_sym);
-
-                case_count++;
+                NEED_COLON_AND_NEXT;
             }
             else if (key == KEY_ELSE) {
-                if (have_else ||
-                    (is_enum && case_count == enum_case_max))
+                if (lily_emit_try_match_finalize(parser->emit) == 0)
                     lily_raise_syn(parser->raiser,
                             "'else' in exhaustive match.");
 
-                NEED_NEXT_TOK(tk_colon)
-                lily_emit_branch_switch(parser->emit);
                 lily_next_token(lex);
-                have_else = 1;
+                NEED_COLON_AND_NEXT;
             }
             else if (key != -1) {
                 lily_next_token(lex);
@@ -5128,7 +4949,7 @@ static void keyword_match(lily_parse_state *parser)
             }
             else {
                 expression(parser);
-                lily_emit_eval_expr(parser->emit, parser->expr);
+                lily_eval_expr(parser->emit, parser->expr);
             }
         }
         else if (lex->token != tk_right_curly)
@@ -5137,15 +4958,9 @@ static void keyword_match(lily_parse_state *parser)
             break;
     }
 
-    if (have_else == 0) {
-        if (is_enum == 0)
-            lily_raise_syn(parser->raiser,
-                    "Match against a class must have an 'else' case.");
-        else if (case_count != enum_case_max)
-            error_incomplete_match(parser, match_sym);
-    }
+    if ((block->flags & BLOCK_FINAL_BRANCH) == 0)
+        error_incomplete_match(parser);
 
-    parser->emit->block->flags |= BLOCK_FINAL_BRANCH;
     hide_block_vars(parser);
     lily_next_token(lex);
     lily_emit_leave_block(parser->emit);
@@ -5156,11 +4971,66 @@ static void keyword_case(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, "'case' not allowed outside of 'match'.");
 }
 
+#define ALL_MODIFIERS (ANY_SCOPE | VAR_IS_STATIC)
+
+static void verify_resolve_define_var(lily_parse_state *parser,
+        lily_var *define_var, int modifiers)
+{
+    if ((define_var->flags & VAR_IS_FORWARD) == 0)
+        error_var_redeclaration(parser, define_var);
+    else if (modifiers & VAR_IS_FORWARD)
+        lily_raise_syn(parser->raiser,
+                "A forward declaration for %s already exists.",
+                define_var->name);
+    else if ((define_var->flags & ALL_MODIFIERS) !=
+             (modifiers & ALL_MODIFIERS))
+        error_forward_decl_modifiers(parser, define_var);
+
+    /* This forward definition is no longer forward. */
+    define_var->flags &= ~VAR_IS_FORWARD;
+    parser->emit->block->forward_count--;
+}
+
+#undef ALL_MODIFIERS
+
+static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
+        int modifiers)
+{
+    const char *name = parser->lex->label;
+    lily_var *define_var = find_active_var(parser, name);
+
+    if (define_var == NULL && parent) {
+        lily_named_sym *named_sym = lily_find_member(parent, name);
+
+        if (named_sym == NULL)
+            ;
+        else if (named_sym->flags & VAR_IS_FORWARD)
+            define_var = (lily_var *)named_sym;
+        else if (sym_visible_from(parent, named_sym))
+            error_member_redeclaration(parser, parent, named_sym);
+    }
+
+    if (define_var)
+        verify_resolve_define_var(parser, define_var, modifiers);
+    else
+        define_var = new_native_define_var(parser, parent, name);
+
+    /* This prevents optargs from using function they're declared in. */
+    define_var->flags |= SYM_NOT_INITIALIZED | modifiers;
+
+    return define_var;
+}
+
 #define ALLOW_DEFINE (SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
 
 static void parse_define(lily_parse_state *parser, int modifiers)
 {
     lily_block *block = parser->emit->block;
+    lily_lex_state *lex = parser->lex;
+    lily_class *parent = NULL;
+    lily_block_type block_type = block->block_type;
+    uint16_t save_generic_start = lily_gp_save(parser->generics);
+
     if ((block->block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
@@ -5169,11 +5039,24 @@ static void parse_define(lily_parse_state *parser, int modifiers)
         lily_raise_syn(parser->raiser,
                 "Class method declaration must start with a scope.");
 
-    lily_lex_state *lex = parser->lex;
-    uint16_t save_generic_start = lily_gp_save(parser->generics);
+    if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
+        parent = parser->current_class;
 
-    parse_define_header(parser, modifiers);
+    NEED_CURRENT_TOK(tk_word)
 
+    lily_var *define_var = parse_new_define(parser, parent, modifiers);
+
+    lily_emit_enter_define_block(parser->emit, define_var);
+    collect_generics_for(parser, NULL);
+    lily_tm_add(parser->tm, lily_unit_type);
+
+    if (define_var->parent && (define_var->flags & VAR_IS_STATIC) == 0)
+        /* Toplevel non-static class methods have 'self' as an implicit first
+           argument. */
+        lily_tm_add(parser->tm, define_var->parent->self_type);
+
+    collect_call_args(parser, define_var, F_COLLECT_DEFINE);
+    finish_define_init(parser, define_var);
     NEED_CURRENT_TOK(tk_left_curly)
 
     if ((modifiers & VAR_IS_FORWARD) == 0)
@@ -5394,7 +5277,7 @@ static void parser_loop(lily_parse_state *parser)
         }
         else {
             expression(parser);
-            lily_emit_eval_expr(parser->emit, parser->expr);
+            lily_eval_expr(parser->emit, parser->expr);
         }
     }
 }
@@ -5705,7 +5588,7 @@ int lily_parse_expr(lily_state *s, const char **text)
 
         lily_next_token(lex);
         expression(parser);
-        lily_emit_eval_expr(parser->emit, parser->expr);
+        lily_eval_expr(parser->emit, parser->expr);
         NEED_CURRENT_TOK(tk_eof);
 
         lily_sym *sym = parser->expr->root->result;

@@ -52,6 +52,7 @@ lily_expr_state *lily_new_expr_state(void)
     es->checkpoints = NULL;
     es->checkpoint_pos = 0;
     es->checkpoint_size = 1;
+    es->optarg_count = 0;
 
     grow_checkpoints(es);
 
@@ -93,6 +94,7 @@ void lily_rewind_expr_state(lily_expr_state *es)
     es->pile_start = 0;
     es->pile_current = 0;
     es->checkpoint_pos = 0;
+    es->optarg_count = 0;
 }
 
 void lily_free_expr_state(lily_expr_state *es)
@@ -203,16 +205,24 @@ void lily_es_checkpoint_restore(lily_expr_state *es)
     es->first_tree = checkpoint->first_tree;
 }
 
+void lily_es_optarg_save(lily_expr_state *es)
+{
+    lily_es_checkpoint_save(es);
+    es->optarg_count++;
+}
+
 /* This is called by parser before evaluating optional arguments. Optional
    argument expressions need to be evaluated from first to last, but they're in
    last to first order. This flips them into order so that checkpoint restore
    can be used.
    Note that optargs starts by saving the initial expression, which does not get
    included in the rotation. */
-void lily_es_checkpoint_reverse_n(lily_expr_state *es, int count)
+void lily_es_optarg_finish(lily_expr_state *es)
 {
+    lily_es_optarg_save(es);
+
     int to = es->checkpoint_pos - 1;
-    int from = to - count + 1;
+    int from = es->checkpoint_pos - es->optarg_count + 1;
     int range = (to + 1 - from) / 2;
 
     for (;range;range--, from++, to--) {
@@ -220,6 +230,8 @@ void lily_es_checkpoint_reverse_n(lily_expr_state *es, int count)
         es->checkpoints[from] = es->checkpoints[to];
         es->checkpoints[to] = temp;
     }
+
+    es->optarg_count = 0;
 }
 
 static void add_new_tree(lily_expr_state *es)
@@ -714,6 +726,18 @@ void lily_es_push_self(lily_expr_state *es)
     AST_COMMON_INIT(a, tree_self);
 
     merge_value(es, a);
+}
+
+void lily_es_push_assign_to(lily_expr_state *es, lily_sym *sym)
+{
+    if (sym->item_kind == ITEM_PROPERTY)
+        lily_es_push_property(es, (lily_prop_entry *)sym);
+    else if (sym->flags & VAR_IS_GLOBAL)
+        lily_es_push_global_var(es, (lily_var *)sym);
+    else
+        lily_es_push_local_var(es, (lily_var *)sym);
+
+    lily_es_push_binary_op(es, expr_assign);
 }
 
 void lily_es_push_text(lily_expr_state *es, lily_tree_type tt, uint16_t start,

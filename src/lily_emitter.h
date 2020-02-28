@@ -118,12 +118,19 @@ typedef struct lily_block_ {
     uint16_t patch_start;
     /* Match blocks: Where this block starts in emitter's match cases. */
     uint16_t match_case_start;
-    uint32_t pad;
+    /* Match blocks: This is the register that the match source is in. */
+    uint16_t match_reg;
+    uint16_t pad;
 
-    /* Scope blocks: The var that will receive the code when this scope is done.
-       This is NULL for enum blocks which is okay because they don't actually
-       write code. */
-    lily_var *scope_var;
+    union {
+        /* Scope blocks: The var that will receive the code when this scope is
+           done. This is NULL for enum blocks which is okay because they don't
+           actually write code. */
+        lily_var *scope_var;
+
+        /* Match blocks: This is the type of the match expression. */
+        lily_type *match_type;
+    };
 
     /* Scope blocks: The current class or enum when processing expressions. */
     lily_class *class_entry;
@@ -235,26 +242,22 @@ lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 void lily_rewind_emit_state(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 
-void lily_emit_eval_condition(lily_emit_state *, lily_expr_state *);
-void lily_emit_eval_expr_to_var(lily_emit_state *, lily_expr_state *,
-        lily_var *);
-void lily_emit_eval_expr(lily_emit_state *, lily_expr_state *);
-void lily_emit_finalize_for_in(lily_emit_state *, lily_var *, lily_var *,
-        lily_var *, lily_sym *, int);
-void lily_emit_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
-void lily_emit_eval_optarg(lily_emit_state *, lily_ast *);
-
-void lily_emit_eval_match_expr(lily_emit_state *, lily_expr_state *);
-int lily_emit_is_duplicate_case(lily_emit_state *, lily_class *);
-void lily_emit_write_match_case(lily_emit_state *, lily_sym *, lily_class *);
-void lily_emit_decompose(lily_emit_state *, lily_sym *, int, uint16_t);
-
-void lily_emit_break(lily_emit_state *);
-void lily_emit_continue(lily_emit_state *);
-void lily_emit_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
+void lily_eval_entry_condition(lily_emit_state *, lily_expr_state *);
+void lily_eval_exit_condition(lily_emit_state *, lily_expr_state *);
+void lily_eval_to_loop_var(lily_emit_state *, lily_expr_state *, lily_var *);
+void lily_eval_expr(lily_emit_state *, lily_expr_state *);
+void lily_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
+void lily_eval_optarg(lily_emit_state *, lily_ast *);
+void lily_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
+void lily_eval_raise(lily_emit_state *, lily_expr_state *);
+void lily_eval_match(lily_emit_state *, lily_expr_state *);
 
 void lily_emit_branch_switch(lily_emit_state *);
 void lily_emit_branch_finalize(lily_emit_state *);
+void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *,
+        uint16_t);
+int lily_emit_try_match_switch(lily_emit_state *, lily_class *);
+int lily_emit_try_match_finalize(lily_emit_state *);
 
 void lily_emit_enter_class_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_define_block(lily_emit_state *, lily_var *);
@@ -274,10 +277,7 @@ void lily_emit_leave_define_block(lily_emit_state *, uint16_t);
 void lily_emit_leave_enum_block(lily_emit_state *);
 void lily_emit_leave_import_block(lily_emit_state *, uint16_t, uint16_t);
 void lily_emit_leave_lambda_block(lily_emit_state *, uint16_t);
-void lily_emit_resolve_forward_decl(lily_emit_state *, lily_var *);
-
-void lily_emit_except(lily_emit_state *, lily_type *, lily_var *, int);
-void lily_emit_raise(lily_emit_state *, lily_expr_state *);
+int lily_emit_try_leave_match_block(lily_emit_state *);
 
 void lily_emit_activate_block_self(lily_emit_state *);
 void lily_emit_create_block_self(lily_emit_state *, lily_type *);
@@ -287,8 +287,17 @@ int lily_emit_can_use_self_method(lily_emit_state *);
 int lily_emit_can_use_self_property(lily_emit_state *);
 
 void lily_emit_write_class_init(lily_emit_state *, lily_class *, uint16_t);
+void lily_emit_write_for_header(lily_emit_state *, lily_var *, lily_var *,
+        lily_var *, lily_var *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
+
+lily_type *lily_emit_type_for_variant(lily_emit_state *, lily_variant_class *);
+void lily_emit_write_variant_case(lily_emit_state *, lily_var *, uint16_t);
+void lily_emit_write_class_case(lily_emit_state *, lily_var *);
+
+int lily_emit_try_write_break(lily_emit_state *);
+int lily_emit_try_write_continue(lily_emit_state *);
 
 lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, const char *,
         const char *);
