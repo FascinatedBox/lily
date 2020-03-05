@@ -71,8 +71,8 @@ lily_class *lily_new_enum_class(lily_symtab *, const char *, uint16_t);
 lily_variant_class *lily_new_variant_class(lily_symtab *, lily_class *,
         const char *, uint16_t);
 
-lily_prop_entry *lily_add_class_property(lily_symtab *, lily_class *,
-        lily_type *, const char *, int);
+lily_prop_entry *lily_add_class_property(lily_class *, lily_type *,
+        const char *, uint16_t);
 void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
 void lily_fix_enum_variant_ids(lily_symtab *, lily_class *);

@@ -57,27 +57,6 @@ class TestBasics < TestCase
             g2()
         """)
 
-        # assign chain (simple assign, global vars)
-
-        assert_parse_string(t, """
-            var a = 1, b = 2, c = 3
-            a = b = c
-
-            if a == 3 && b == 3: { else: 0 / 0 }
-        """)
-
-        # assign chain (compound assign, global vars)
-
-        assert_parse_string(t, """
-            a = 10
-            b = 20
-            c = 30
-
-            a *= b *= c
-
-            if a == 6000 && b == 600 && c == 30: { else: 0 / 0 }
-        """)
-
         # assign chain (simple assign, @prop vars)
 
         assert_parse_string(t, """
@@ -135,6 +114,27 @@ class TestBasics < TestCase
             tri.a *= tri.b *= tri.c
 
             if tri.a == 6000 && tri.b == 600 && tri.c == 30: { else: 0 / 0 }
+        """)
+
+        # assign chain (simple assign, global vars)
+
+        assert_parse_string(t, """
+            var a = 1, b = 2, c = 3
+            a = b = c
+
+            if a == 3 && b == 3: { else: 0 / 0 }
+        """)
+
+        # assign chain (compound assign, global vars)
+
+        assert_parse_string(t, """
+            a = 10
+            b = 20
+            c = 30
+
+            a *= b *= c
+
+            if a == 6000 && b == 600 && c == 30: { else: 0 / 0 }
         """)
     }
 
