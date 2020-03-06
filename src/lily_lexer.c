@@ -167,8 +167,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->label = lily_malloc(lex->label_size * sizeof(*lex->label));
     lex->ch_class = ch_class;
     lex->token = tk_eof;
-    /* This must start at 0 since the line reader will bump it by one. This also
-       lets loading know the first entry is unused. */
+    /* This must start at 0 since the line reader will bump it by one. */
     lex->line_num = 0;
     lex->expand_start_line = 0;
     lex->string_length = 0;
@@ -1298,7 +1297,7 @@ void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
     lily_lex_entry *current = lex->entry;
     lily_lex_entry *new_entry;
 
-    if (lex->line_num) {
+    if (current->entry_type != et_unused) {
         /* Make sure a next entry exists before doing the save. Saving will
            scribble the pile start on the next, so next needs to be not-NULL. */
         new_entry = current->next;
