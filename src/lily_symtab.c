@@ -823,8 +823,8 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
 }
 
 /* This creates a new variant called 'name' and installs it into 'enum_cls'. */
-lily_variant_class *lily_new_variant_class(lily_symtab *symtab,
-        lily_class *enum_cls, const char *name, uint16_t line_num)
+lily_variant_class *lily_new_variant_class(lily_class *enum_cls,
+        const char *name, uint16_t line_num)
 {
     lily_variant_class *variant = lily_malloc(sizeof(*variant));
 
