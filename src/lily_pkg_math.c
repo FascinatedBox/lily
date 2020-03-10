@@ -23,7 +23,7 @@ void lily_math__abs(lily_state *s)
 {
     int64_t x = lily_arg_integer(s, 0);
 
-    lily_return_integer(s, abs(x));
+    lily_return_integer(s, llabs(x));
 }
 
 /**

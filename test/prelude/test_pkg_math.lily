@@ -6,6 +6,7 @@ class TestPkgMath < TestCase
     public define test_abs
     {
         assert_equal(math.abs(-34), 34)
+        assert_equal(math.abs(-3000000000), 3000000000)
     }
 
     public define test_acos
