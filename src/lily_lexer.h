@@ -5,75 +5,7 @@
 
 # include "lily_raiser.h"
 # include "lily_string_pile.h"
-
-typedef enum {
-    tk_right_parenth,
-    tk_comma,
-    tk_left_curly,
-    tk_right_curly,
-    tk_left_bracket,
-    tk_colon,
-    tk_tilde,
-    tk_bitwise_xor,
-    tk_bitwise_xor_eq,
-    tk_not,
-    tk_not_eq,
-    tk_modulo,
-    tk_modulo_eq,
-    tk_multiply,
-    tk_multiply_eq,
-    tk_divide,
-    tk_divide_eq,
-    tk_plus,
-    tk_plus_plus,
-    tk_plus_eq,
-    tk_minus,
-    tk_minus_eq,
-    /* Note: Lexer assumes that less and greater have x_eq, x_shift, and
-       x_shift_eq are 1, 2, and 3 places after the less/greater token.
-       You can move lt/gt so long as all four tokens are moved together. */
-    tk_lt,
-    tk_lt_eq,
-    tk_left_shift,
-    tk_left_shift_eq,
-    tk_gt,
-    tk_gt_eq,
-    tk_right_shift,
-    tk_right_shift_eq,
-    tk_equal,
-    tk_eq_eq,
-    tk_left_parenth,
-    tk_lambda,       /* (| */
-    tk_tuple_open,   /* <[ */
-    tk_tuple_close,  /* ]> */
-    /* ) closes a lambda, so there's no special close token. */
-    tk_right_bracket,
-    tk_arrow,
-    tk_word,
-    tk_prop_word,
-    tk_double_quote,
-    tk_bytestring,
-    tk_byte,
-    tk_integer,
-    tk_double,
-    tk_docblock,
-    tk_keyword_arg,
-    tk_dot,
-    tk_bitwise_and,
-    tk_bitwise_and_eq,
-    tk_logical_and,
-    tk_bitwise_or,
-    tk_bitwise_or_eq,
-    tk_logical_or,
-    tk_typecast_parenth,
-    tk_three_dots,
-    tk_func_pipe,
-    tk_scoop,
-    tk_invalid,
-    tk_end_lambda,
-    tk_end_tag,
-    tk_eof
-} lily_token;
+# include "lily_token.h"
 
 typedef enum {
     et_copied_string,
@@ -128,7 +60,6 @@ typedef struct {
        doesn't need to do buffer size checks when copying over. */
     char *label;
 
-    char *ch_class;
     uint32_t source_size;
     uint32_t label_size;
 
@@ -164,7 +95,7 @@ void lily_lexer_load(lily_lex_state *, lily_lex_entry_type, const void *);
 void lily_pop_lex_entry(lily_lex_state *);
 
 void lily_next_token(lily_lex_state *);
-char *tokname(lily_token);
+const char *tokname(lily_token);
 
 char *lily_read_template_content(lily_lex_state *, int *);
 int lily_read_template_header(lily_lex_state *);

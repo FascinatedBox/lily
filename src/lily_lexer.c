@@ -7,149 +7,14 @@
 
 #include "lily_config.h"
 #include "lily_lexer.h"
+#include "lily_lexer_data.h"
 #include "lily_utf8.h"
 #include "lily_alloc.h"
-
-/* Group 1: Increment pos, return a simple token. */
-#define CC_G_ONE_OFFSET  0
-/* CC_LEFT_PARENTH isn't here because (| opens a lambda. */
-#define CC_RIGHT_PARENTH 0
-#define CC_COMMA         1
-#define CC_LEFT_CURLY    2
-#define CC_RIGHT_CURLY   3
-#define CC_LEFT_BRACKET  4
-#define CC_COLON         5
-#define CC_TILDE         6
-#define CC_G_ONE_LAST    6
-
-/* Group 2: Return self, or self= */
-#define CC_G_TWO_OFFSET  7
-#define CC_CARET         7
-#define CC_NOT           8
-#define CC_PERCENT       9
-#define CC_MULTIPLY      10
-#define CC_DIVIDE        11
-#define CC_G_TWO_LAST    11
-
-/* Greater and Less are able to do shifts, self=, and self. < can become <[,
-   but the reverse of that is ]>, so these two aren't exactly the same. So
-   there's no group for them. */
-#define CC_GREATER       12
-#define CC_LESS          13
-#define CC_PLUS          14
-#define CC_MINUS         15
-#define CC_WORD          16
-#define CC_DOUBLE_QUOTE  17
-#define CC_NUMBER        18
-#define CC_LEFT_PARENTH  19
-#define CC_RIGHT_BRACKET 20
-
-#define CC_EQUAL         21
-#define CC_NEWLINE       22
-#define CC_SHARP         23
-#define CC_DOT           24
-#define CC_AT            25
-#define CC_AMPERSAND     26
-#define CC_VBAR          27
-#define CC_QUESTION      28
-#define CC_B             29
-#define CC_DOLLAR        30
-#define CC_SINGLE_QUOTE  31
-#define CC_INVALID       32
-
-/* Is the given character a valid identifier? This table is checked after the
-   first letter, so it includes numbers.
-   The 80-BF range is marked as okay because read_line verifies that they are
-   not starting a sequence. */
-static const char ident_table[256] =
-{
-     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-/* 0 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 1 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 2 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
-/* 4 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-/* 6 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-/* 8 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 9 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* A */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* B */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* C */ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* D */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* E */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* F */ 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-/* Group 1 doesn't need a table because the token is just ch_class[ch]. */
-static const lily_token grp_two_table[] =
-{
-    tk_bitwise_xor, tk_not, tk_modulo, tk_multiply, tk_divide
-};
-
-static const lily_token grp_two_eq_table[] =
-{
-    tk_bitwise_xor_eq, tk_not_eq, tk_modulo_eq, tk_multiply_eq, tk_divide_eq,
-};
 
 /** Lexer init and deletion **/
 lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
 {
     lily_lex_state *lex = lily_malloc(sizeof(*lex));
-
-    char *ch_class = lily_malloc(256 * sizeof(*ch_class));
-
-    /* Initialize ch_class, which is used to determine what 'class' a letter
-       is in. */
-    memset(ch_class, CC_INVALID, (256 * sizeof(char)));
-
-    int i;
-    for (i = 'a';i <= 'z';i++)
-        ch_class[i] = CC_WORD;
-
-    for (i = 'A';i <= 'Z';i++)
-        ch_class[i] = CC_WORD;
-
-    for (i = '0';i <= '9';i++)
-        ch_class[i] = CC_NUMBER;
-
-    /* These are valid 2, 3, and 4 byte sequence starters. */
-    for (i = 194;i <= 244;i++)
-        ch_class[i] = CC_WORD;
-
-    ch_class[(unsigned char)'B'] = CC_B;
-    ch_class[(unsigned char)'_'] = CC_WORD;
-    ch_class[(unsigned char)'('] = CC_LEFT_PARENTH;
-    ch_class[(unsigned char)')'] = CC_RIGHT_PARENTH;
-    ch_class[(unsigned char)'"'] = CC_DOUBLE_QUOTE;
-    ch_class[(unsigned char)'\''] = CC_SINGLE_QUOTE;
-    ch_class[(unsigned char)'@'] = CC_AT;
-    ch_class[(unsigned char)'?'] = CC_QUESTION;
-    ch_class[(unsigned char)'#'] = CC_SHARP;
-    ch_class[(unsigned char)'='] = CC_EQUAL;
-    ch_class[(unsigned char)'.'] = CC_DOT;
-    ch_class[(unsigned char)','] = CC_COMMA;
-    ch_class[(unsigned char)'+'] = CC_PLUS;
-    ch_class[(unsigned char)'-'] = CC_MINUS;
-    ch_class[(unsigned char)'{'] = CC_LEFT_CURLY;
-    ch_class[(unsigned char)'}'] = CC_RIGHT_CURLY;
-    ch_class[(unsigned char)'<'] = CC_LESS;
-    ch_class[(unsigned char)'>'] = CC_GREATER;
-    ch_class[(unsigned char)':'] = CC_COLON;
-    ch_class[(unsigned char)'!'] = CC_NOT;
-    ch_class[(unsigned char)'*'] = CC_MULTIPLY;
-    ch_class[(unsigned char)'/'] = CC_DIVIDE;
-    ch_class[(unsigned char)'&'] = CC_AMPERSAND;
-    ch_class[(unsigned char)'%'] = CC_PERCENT;
-    ch_class[(unsigned char)'|'] = CC_VBAR;
-    ch_class[(unsigned char)'^'] = CC_CARET;
-    ch_class[(unsigned char)'['] = CC_LEFT_BRACKET;
-    ch_class[(unsigned char)']'] = CC_RIGHT_BRACKET;
-    ch_class[(unsigned char)'$'] = CC_DOLLAR;
-    ch_class[(unsigned char)'~'] = CC_TILDE;
-    ch_class[(unsigned char)'\n'] = CC_NEWLINE;
-
     lily_lex_entry *entry = lily_malloc(sizeof(*entry));
 
     /* Only these fields need to be set. The other fields will be set when this
@@ -165,8 +30,8 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     /* The read cursor is only accessed during line reads and token fetching.
        None of those occur without a source being set first. */
     lex->label = lily_malloc(lex->label_size * sizeof(*lex->label));
-    lex->ch_class = ch_class;
     lex->token = tk_eof;
+
     /* This must start at 0 since the line reader will bump it by one. */
     lex->line_num = 0;
     lex->expand_start_line = 0;
@@ -237,7 +102,6 @@ void lily_free_lex_state(lily_lex_state *lex)
 
     lily_free_string_pile(lex->string_pile);
     lily_free(lex->source);
-    lily_free(lex->ch_class);
     lily_free(lex->label);
     lily_free(lex);
 }
@@ -607,7 +471,7 @@ static uint64_t scan_hex(char **source_ch)
 /* This handles all numeric scanning. 'pos' is used as the starting spot. The
    results are sent to 'tok' (which is set to either tk_integer or tk_double),
    and 'new_ch' (which is set to the place to start scanning from next time). */
-static void scan_number(lily_lex_state *lex, char **source_ch, lily_token *tok)
+static void scan_number(lily_lex_state *lex, char **source_ch, uint16_t *tok)
 {
     char *ch = *source_ch;
     char sign = *ch;
@@ -1175,7 +1039,7 @@ int lily_lexer_digit_rescan(lily_lex_state *lex)
     if (lex->number_sign_offset == UINT16_MAX)
         return 0;
 
-    lily_token t;
+    uint16_t t;
     char *ch = lex->source + lex->number_sign_offset + 1;
 
     scan_number(lex, &ch, &t);
@@ -1340,295 +1204,265 @@ void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
     read_line(lex);
 }
 
+#define move_2_set_token(t) \
+{ \
+    ch += 2; \
+    token = t; \
+}
+
+#define move_set_token(t) \
+{ \
+    ch++; \
+    token = t; \
+}
+
+/* This function pulls up the next token. This function is called extremely
+   often, so it needs to be fast. */
 void lily_next_token(lily_lex_state *lex)
 {
-    lily_token token;
-    char *ch_class = lex->ch_class;
+start: ;
+    char *ch = lex->read_cursor;
 
-    while (1) {
-        char *ch = lex->read_cursor;
+    while (*ch == ' ' || *ch == '\t')
+        ch++;
 
-        while (*ch == ' ' || *ch == '\t')
-            ch++;
+    /* Lexer's ch_table is used to reduce the number of cases:
+       * Invalid characters become tk_invalid.
 
-        int group = ch_class[(unsigned char)*ch];
+       * Identifier letters (except 'B') are tk_word.
+         B is CC_B because it can start a ByteString.
 
-        if (group == CC_WORD) {
-            token = tk_word;
+       * If the character by itself is a valid token, it's that token.
+         (tk_dot for '.', tk_bitwise_and for '&', etc.)
+         Valid single characters only need to move the cursor.
 
-            label_handling: ;
+       * Characters without a single token representation get one of the
+         CC_* values defined in src/lily_lexer_tables.h.
+         These fake token values will never be returned by this function. */
+    uint16_t token = ch_table[(unsigned char)*ch];
 
+    switch (token) {
+        case tk_word: {
+word_case: ;
             char *label = lex->label;
-
             do {
                 *label = *ch;
                 label++;
                 ch++;
             } while (ident_table[(unsigned char)*ch]);
-
             *label = '\0';
+            break;
         }
-        else if (group == CC_COLON) {
+        case tk_colon:
             ch++;
-
             if (ident_table[(unsigned char)*ch]) {
                 token = tk_keyword_arg;
-                goto label_handling;
+                goto word_case;
             }
-            else
-                token = group;
-        }
-        else if (group <= CC_G_ONE_LAST) {
+            break;
+        case tk_comma:
+        case tk_left_bracket:
+        case tk_left_curly:
+        case tk_right_curly:
+        case tk_right_parenth:
+        case tk_tilde:
             ch++;
-            /* This is okay because the first group starts at 0, and the tokens
-               for it start at 0. */
-            token = group;
-        }
-        else if (group == CC_NEWLINE) {
-            if (read_line(lex))
-                continue;
-            else if (lex->entry->entry_type != et_lambda)
-                token = tk_eof;
-            else
-                token = tk_end_lambda;
-        }
-        else if (group == CC_SHARP) {
+            break;
+        case CC_SHARP:
             if (*(ch + 1) == '[') {
                 scan_multiline_comment(lex, &ch);
                 lex->read_cursor = ch;
-                continue;
+                goto start;
             }
             else if (*(ch + 1) == '#' &&
                      *(ch + 2) == '#') {
                 scan_docblock(lex, &ch);
                 token = tk_docblock;
+                break;
             }
-            else if (read_line(lex))
-                continue;
-            /* read_line has no more data to offer. */
+            /* Fall through to skip this line. */
+        case CC_NEWLINE:
+            /* Parser will call to pop this entry back when it's ready. */
+            if (read_line(lex))
+                goto start;
             else if (lex->entry->entry_type != et_lambda)
                 token = tk_eof;
             else
                 token = tk_end_lambda;
-        }
-        else if (group == CC_DOUBLE_QUOTE) {
+
+            break;
+        case tk_double_quote:
             scan_string(lex, &ch);
-            token = tk_double_quote;
-        }
-        else if (group == CC_SINGLE_QUOTE) {
+            break;
+        case tk_byte:
             scan_single_quote(lex, &ch);
-            token = tk_byte;
-        }
-        else if (group == CC_B) {
+            break;
+        case CC_B:
             if (*(ch + 1) == '"') {
-                /* This is a bytestring. Don't bump ch so the function figures
-                   it out and does proper scanning. */
+                /* This is a bytestring. Don't bump ch so the function
+                   figures it out and does proper scanning. */
                 scan_string(lex, &ch);
                 token = tk_bytestring;
             }
             else {
                 token = tk_word;
-                goto label_handling;
+                goto word_case;
             }
-        }
-        else if (group <= CC_G_TWO_LAST) {
-            ch++;
-            if (*ch == '=') {
-                ch++;
-                token = grp_two_eq_table[group - CC_G_TWO_OFFSET];
-            }
-            else
-                token = grp_two_table[group - CC_G_TWO_OFFSET];
-        }
-        else if (group == CC_NUMBER)
-            scan_number(lex, &ch, &token);
-        else if (group == CC_DOT) {
-            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lex, &ch, &token);
-            else {
-                ch++;
-                token = tk_dot;
-                if (*ch == '.') {
-                    ch++;
-
-                    if (*ch == '.') {
-                        ch++;
-                        token = tk_three_dots;
-                    }
-                    else
-                        lily_raise_syn(lex->raiser,
-                                "'..' is not a valid token (expected 1 or 3 dots).");
-                }
-            }
-        }
-        else if (group == CC_PLUS) {
-            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lex, &ch, &token);
-            else if (*(ch + 1) == '=') {
-                ch += 2;
-                token = tk_plus_eq;
-            }
-            else if (*(ch + 1) == '+') {
-                if (*(ch + 2) == '=')
-                    lily_raise_syn(lex->raiser,
-                            "'++=' is not a valid token.");
-
-                ch += 2;
-                token = tk_plus_plus;
-            }
-            else {
-                ch++;
-                token = tk_plus;
-            }
-        }
-        else if (group == CC_MINUS) {
-            if (ch_class[(unsigned char)*(ch + 1)] == CC_NUMBER)
-                scan_number(lex, &ch, &token);
-            else if (*(ch + 1) == '=') {
-                ch += 2;
-                token = tk_minus_eq;
-            }
-            else {
-                ch++;
-                token = tk_minus;
-            }
-        }
-        else if (group == CC_LEFT_PARENTH) {
-            ch++;
-            if (*ch == '|') {
-                scan_lambda(lex, &ch);
-                token = tk_lambda;
-            }
-            else
-                token = tk_left_parenth;
-        }
-        else if (group == CC_AMPERSAND) {
-            ch++;
-
-            if (*ch == '&') {
-                ch++;
-                token = tk_logical_and;
-            }
-            else if (*ch == '=') {
-                ch++;
-                token = tk_bitwise_and_eq;
-            }
-            else
-                token = tk_bitwise_and;
-        }
-        else if (group == CC_VBAR) {
-            ch++;
-
-            if (*ch == '|') {
-                ch++;
-                token = tk_logical_or;
-            }
-            else if (*ch == '>') {
-                ch++;
-                token = tk_func_pipe;
-            }
-            else if (*ch == '=') {
-                ch++;
-                token = tk_bitwise_or_eq;
-            }
-            else
-                token = tk_bitwise_or;
-        }
-        else if (group == CC_GREATER || group == CC_LESS) {
-            /* This relies on the assumption that x= is the next token, xx is
-               the token after, and xx= is the token after that. This is
-               mentioned in lily_lexer.h. */
-            if (group == CC_GREATER)
-                token = tk_gt;
-            else
-                token = tk_lt;
-
+            break;
+        /* These five tokens have their assign as +1 from their base. */
+        case tk_bitwise_xor:
+        case tk_divide:
+        case tk_not:
+        case tk_modulo:
+        case tk_multiply:
             ch++;
             if (*ch == '=') {
                 ch++;
                 token++;
             }
-            else if (*ch == *(ch - 1)) {
+            break;
+        case CC_DIGIT:
+            scan_number(lex, &ch, &token);
+            break;
+        case tk_dot:
+            if (ch_table[(unsigned char)*(ch + 1)] == CC_DIGIT)
+                scan_number(lex, &ch, &token);
+            else if (*(ch + 1) != '.')
                 ch++;
-                if (*ch == '=') {
-                    /* xx=, which should be 3 spots after x. */
-                    ch++;
-                    token += 3;
-                }
+            else if (*(ch + 2) == '.') {
+                ch += 3;
+                token = tk_three_dots;
+            }
+            else {
+                lily_raise_syn(lex->raiser,
+                        "'..' is not a valid token (expected 1 or 3 dots).");
+            }
+            break;
+        case tk_plus:
+            if (ch_table[(unsigned char)*(ch + 1)] == CC_DIGIT)
+                scan_number(lex, &ch, &token);
+            else if (*(ch + 1) == '=')
+                move_2_set_token(tk_plus_eq)
+            else if (*(ch + 1) == '+') {
+                if (*(ch + 2) == '=')
+                    lily_raise_syn(lex->raiser,
+                            "'++=' is not a valid token.");
+
+                move_2_set_token(tk_plus_plus)
+            }
+            else
+                ch++;
+
+            break;
+        case tk_minus:
+            if (ch_table[(unsigned char)*(ch + 1)] == CC_DIGIT)
+                scan_number(lex, &ch, &token);
+            else if (*(ch + 1) == '=')
+                move_2_set_token(tk_minus_eq)
+            else
+                ch++;
+            break;
+        case tk_left_parenth:
+            ch++;
+            if (*ch == '|') {
+                scan_lambda(lex, &ch);
+                token = tk_lambda;
+            }
+            break;
+        case tk_bitwise_and:
+            ch++;
+            if (*ch == '&')
+                move_set_token(tk_logical_and)
+            else if (*ch == '=')
+                move_set_token(tk_bitwise_and_eq)
+            break;
+        case tk_bitwise_or:
+            ch++;
+            if (*ch == '|')
+                move_set_token(tk_logical_or)
+            else if (*ch == '>')
+                move_set_token(tk_func_pipe)
+            else if (*ch == '=')
+                move_set_token(tk_bitwise_or_eq)
+            break;
+        case tk_gt:
+            ch++;
+            if (*ch == '>') {
+                ch++;
+                if (*ch == '=')
+                    move_set_token(tk_right_shift_eq)
                 else
-                    /* xx, which should be 2 spots after x. */
-                    token += 2;
+                    token = tk_right_shift;
+                break;
             }
-            else if (*ch == '[' && token == tk_lt) {
-                ch++;
-                token = tk_tuple_open;
-            }
-        }
-        else if (group == CC_EQUAL) {
+            else if (*ch == '=')
+                move_set_token(tk_gt_eq)
+            break;
+        case tk_lt:
             ch++;
-            if (*ch == '=') {
+            if (*ch == '<') {
                 ch++;
-                token = tk_eq_eq;
+                if (*ch == '=')
+                    move_set_token(tk_left_shift_eq)
+                else
+                    token = tk_left_shift;
+                break;
             }
-            else if (*ch == '>') {
-                ch++;
-                token = tk_arrow;
-            }
-            else
-                token = tk_equal;
-        }
-        else if (group == CC_RIGHT_BRACKET) {
+            else if (*ch == '=')
+                move_set_token(tk_lt_eq)
+            else if (*ch == '[')
+                move_set_token(tk_tuple_open)
+            break;
+        case tk_right_bracket:
             ch++;
-            if (*ch == '>') {
-                ch++;
-                token = tk_tuple_close;
-            }
-            else
-                token = tk_right_bracket;
-        }
-        else if (group == CC_AT) {
+            if (*ch == '>')
+                move_set_token(tk_tuple_close)
+            break;
+        case tk_equal:
             ch++;
-            if (*ch == '(') {
-                ch++;
-                token = tk_typecast_parenth;
-            }
-            /* B is not an identifier to allow special-casing ByteString. */
-            else if (ch_class[(unsigned char)*ch] == CC_WORD ||
-                     *ch == 'B') {
+            if (*ch == '=')
+                move_set_token(tk_eq_eq)
+            else if (*ch == '>')
+                move_set_token(tk_arrow)
+            break;
+        case CC_AT:
+            ch++;
+            if (*ch == '(')
+                move_set_token(tk_typecast_parenth)
+            /* Remember that B is not tk_word in ch_table. */
+            else if (IS_IDENT_START((unsigned char)*ch)) {
                 token = tk_prop_word;
-
-                goto label_handling;
+                goto word_case;
             }
             else
                 token = tk_invalid;
-        }
-        else if (group == CC_QUESTION) {
+            break;
+        case CC_QUESTION:
             ch++;
-            if (*ch == '>') {
-                ch++;
-                token = tk_end_tag;
-            }
+            if (*ch == '>')
+                move_set_token(tk_end_tag)
             else
                 token = tk_invalid;
-        }
-        else if (group == CC_DOLLAR) {
+            break;
+        case CC_CASH:
             ch++;
-            if (*ch == '1') {
-                ch++;
-                token = tk_scoop;
-            }
+            if (*ch == '1')
+                move_set_token(tk_scoop)
             else
                 token = tk_invalid;
-        }
-        else
+            break;
+        case tk_invalid:
+        default:
             token = tk_invalid;
-
-        lex->read_cursor = ch;
-        lex->token = token;
-
-        return;
+            break;
     }
+
+    lex->read_cursor = ch;
+    lex->token = (lily_token)token;
 }
+
+#undef move_set_token
+#undef move_2_set_token
 
 int lily_read_template_header(lily_lex_state *lex)
 {
@@ -1705,21 +1539,7 @@ char *lily_read_template_content(lily_lex_state *lex, int *has_more)
     return lex->label;
 }
 
-/* Give a printable name for a given token. Assumes only valid tokens. */
-char *tokname(lily_token t)
+const char *tokname(lily_token t)
 {
-    static char *toknames[] =
-    {")", ",", "{", "}", "[", ":", "~", "^", "^=", "!", "!=", "%", "%=", "*",
-     "*=", "/", "/=", "+", "++", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">",
-     ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
-     "a label", "a property name", "a string", "a bytestring", "a byte",
-     "an integer", "a double", "a docblock", "a named argument", ".", "&",
-     "&=", "&&", "|", "|=", "||", "@(", "...", "|>", "$1", "invalid token",
-     "end of lambda", "?>", "end of file"};
-    char *result = NULL;
-
-    if (t < (sizeof(toknames) / sizeof(toknames[0])))
-        result = toknames[t];
-
-    return result;
+    return token_name_table[t];
 }
