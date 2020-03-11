@@ -471,7 +471,7 @@ static uint64_t scan_hex(char **source_ch)
 /* This handles all numeric scanning. 'pos' is used as the starting spot. The
    results are sent to 'tok' (which is set to either tk_integer or tk_double),
    and 'new_ch' (which is set to the place to start scanning from next time). */
-static void scan_number(lily_lex_state *lex, char **source_ch, uint16_t *tok)
+static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
 {
     char *ch = *source_ch;
     char sign = *ch;
@@ -1039,7 +1039,7 @@ int lily_lexer_digit_rescan(lily_lex_state *lex)
     if (lex->number_sign_offset == UINT16_MAX)
         return 0;
 
-    uint16_t t;
+    uint8_t t;
     char *ch = lex->source + lex->number_sign_offset + 1;
 
     scan_number(lex, &ch, &t);
@@ -1239,7 +1239,7 @@ start: ;
        * Characters without a single token representation get one of the
          CC_* values defined in src/lily_lexer_tables.h.
          These fake token values will never be returned by this function. */
-    uint16_t token = ch_table[(unsigned char)*ch];
+    uint8_t token = ch_table[(unsigned char)*ch];
 
     switch (token) {
         case tk_word: {

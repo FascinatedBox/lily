@@ -34,7 +34,8 @@ typedef struct lily_lex_entry_ {
     /* These fields are aligned with fields of the same name in lily_lex_state.
        When another entry becomes current, the lexer's state is saved into the
        entry. */
-    lily_token token: 16;
+    lily_token token: 8;
+    uint8_t pad;
     uint16_t line_num;
     uint16_t expand_start_line;
     uint16_t string_length;
@@ -63,7 +64,8 @@ typedef struct {
     uint32_t source_size;
     uint32_t label_size;
 
-    lily_token token: 16;
+    lily_token token: 8;
+    uint8_t pad;
     uint16_t line_num;
     /* For tokens that can span multiple lines, this is their starting line. */
     uint16_t expand_start_line;
