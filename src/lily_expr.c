@@ -345,74 +345,6 @@ static void merge_value(lily_expr_state *es, lily_ast *new_tree)
  *
  */
 
-static uint8_t priority_for_op(lily_expr_op o)
-{
-    int prio;
-
-    switch (o) {
-        case expr_assign:
-        case expr_div_assign:
-        case expr_mul_assign:
-        case expr_plus_assign:
-        case expr_minus_assign:
-        case expr_left_shift_assign:
-        case expr_right_shift_assign:
-            prio = 1;
-            break;
-        case expr_logical_or:
-            prio = 2;
-            break;
-        case expr_logical_and:
-            prio = 3;
-            break;
-        case expr_eq_eq:
-        case expr_not_eq:
-        case expr_lt:
-        case expr_gr:
-        case expr_lt_eq:
-        case expr_gr_eq:
-            prio = 4;
-            break;
-        /* Put concat here so it can chain together the output of pipe
-           operations: `a |> b ++ b |> c`. */
-        case expr_plus_plus:
-            prio = 5;
-            break;
-        /* Put pipes here so they capture as much as possible for comparison
-           operations. Ex: `a << b |> fn <= something`. */
-        case expr_func_pipe:
-            prio = 6;
-            break;
-        case expr_bitwise_or:
-        case expr_bitwise_xor:
-        case expr_bitwise_and:
-            prio = 7;
-            break;
-        case expr_left_shift:
-        case expr_right_shift:
-            prio = 8;
-            break;
-        case expr_plus:
-        case expr_minus:
-            prio = 9;
-            break;
-        case expr_multiply:
-        case expr_divide:
-        case expr_modulo:
-            prio = 10;
-            break;
-        case expr_named_arg:
-            prio = 0;
-            break;
-        default:
-            /* Won't happen, but makes -Wall happy. */
-            prio = -1;
-            break;
-    }
-
-    return prio;
-}
-
 static void push_tree_arg(lily_expr_state *es, lily_ast *entered_tree,
         lily_ast *arg)
 {
@@ -512,11 +444,11 @@ lily_ast *lily_es_get_saved_tree(lily_expr_state *es)
     But at their core, most are simple and distinct: Create a tree holding some
     value, and push the value. */
 
-void lily_es_push_binary_op(lily_expr_state *es, lily_expr_op op)
+void lily_es_push_binary_op(lily_expr_state *es, lily_token op)
 {
     /* Call it 'new_ast', because this merge is a bit complex. */
     AST_COMMON_INIT(new_ast, tree_binary)
-    new_ast->priority = priority_for_op(op);
+    new_ast->priority = lily_priority_for_token(op);
     new_ast->op = op;
     new_ast->left = NULL;
     new_ast->right = NULL;
@@ -600,7 +532,7 @@ void lily_es_enter_typecast(lily_expr_state *es, lily_type *type)
     lily_es_collect_arg(es);
 }
 
-void lily_es_push_unary_op(lily_expr_state *es, lily_expr_op op)
+void lily_es_push_unary_op(lily_expr_state *es, lily_token op)
 {
     AST_COMMON_INIT(a, tree_unary)
 
@@ -737,7 +669,7 @@ void lily_es_push_assign_to(lily_expr_state *es, lily_sym *sym)
     else
         lily_es_push_local_var(es, (lily_var *)sym);
 
-    lily_es_push_binary_op(es, expr_assign);
+    lily_es_push_binary_op(es, tk_equal);
 }
 
 void lily_es_push_text(lily_expr_state *es, lily_tree_type tt, uint16_t start,

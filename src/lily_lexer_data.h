@@ -61,4 +61,11 @@ static const char *token_name_table[62] = {
     "end of lambda", "?>", "end of file",
 };
 
+static const uint8_t priority_table[62] = {
+    0, 0, 0, 0, 0, 0, 0, 7, 1, 0, 4, 10, 1, 10, 1, 10,
+    1, 9, 5, 1, 9, 1, 4, 4, 8, 1, 4, 4, 8, 1, 1, 4,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    7, 1, 3, 7, 1, 2, 0, 0, 6, 0, 0, 0, 0,
+};
+
 #endif

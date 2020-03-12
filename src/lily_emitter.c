@@ -1639,17 +1639,6 @@ lily_proto *lily_emit_proto_for_var(lily_emit_state *emit, lily_var *var)
     return v->value.function->proto;
 }
 
-/* Return a string representation of the given op. */
-static const char *opname(lily_expr_op op)
-{
-    static const char *opnames[] =
-    {"+", "++", "-", "==", "<", "<=", ">", ">=", "!=", "%", "*", "/", "<<",
-     ">>", "&", "|", "^", "!", "-", "~", "&&", "||", "|>", "=", "+=", "-=",
-     "%=", "*=", "/=", "<<=", ">>=", "&=", "|=", "^="};
-
-    return opnames[op];
-}
-
 /* Check if 'type' is something that can be considered truthy/falsey.
    Keep this synced with the vm's o_jump_if calculation.
    Failure: SyntaxError is raised. */
@@ -1816,12 +1805,12 @@ static int can_optimize_out_assignment(lily_ast *ast)
         /* Can't skip basic assignments. */
         ;
     else if (right_tree->tree_type == tree_binary &&
-             (right_tree->op == expr_logical_and ||
-              right_tree->op == expr_logical_or))
+             (right_tree->op == tk_logical_and ||
+              right_tree->op == tk_logical_or))
         /* These operations do two different writes. */
         ;
     else if (right_tree->tree_type == tree_binary &&
-             right_tree->op >= expr_assign)
+             IS_ASSIGN_TOKEN(right_tree->op))
         /* Compound ops (+= and the like) can't be skipped. */
         ;
     else
@@ -2251,35 +2240,35 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
         int op = ast->op;
 
         if (lhs_id == LILY_ID_INTEGER) {
-            if (op == expr_plus)
+            if (op == tk_plus)
                 opcode = o_int_add;
-            else if (op == expr_minus)
+            else if (op == tk_minus)
                 opcode = o_int_minus;
-            else if (op == expr_multiply)
+            else if (op == tk_multiply)
                 opcode = o_int_multiply;
-            else if (op == expr_divide)
+            else if (op == tk_divide)
                 opcode = o_int_divide;
-            else if (op == expr_modulo)
+            else if (op == tk_modulo)
                 opcode = o_int_modulo;
-            else if (op == expr_left_shift)
+            else if (op == tk_left_shift)
                 opcode = o_int_left_shift;
-            else if (op == expr_right_shift)
+            else if (op == tk_right_shift)
                 opcode = o_int_right_shift;
-            else if (op == expr_bitwise_and)
+            else if (op == tk_bitwise_and)
                 opcode = o_int_bitwise_and;
-            else if (op == expr_bitwise_or)
+            else if (op == tk_bitwise_or)
                 opcode = o_int_bitwise_or;
-            else if (op == expr_bitwise_xor)
+            else if (op == tk_bitwise_xor)
                 opcode = o_int_bitwise_xor;
         }
         else if (lhs_id == LILY_ID_DOUBLE) {
-            if (op == expr_plus)
+            if (op == tk_plus)
                 opcode = o_number_add;
-            else if (op == expr_minus)
+            else if (op == tk_minus)
                 opcode = o_number_minus;
-            else if (op == expr_multiply)
+            else if (op == tk_multiply)
                 opcode = o_number_multiply;
-            else if (op == expr_divide)
+            else if (op == tk_divide)
                 opcode = o_number_divide;
         }
 
@@ -2287,49 +2276,49 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
             lhs_id == LILY_ID_BYTE ||
             lhs_id == LILY_ID_DOUBLE ||
             lhs_id == LILY_ID_STRING) {
-            if (op == expr_lt_eq) {
+            if (op == tk_lt_eq) {
                 lily_sym *temp = rhs_sym;
                 rhs_sym = lhs_sym;
                 lhs_sym = temp;
                 opcode = o_compare_greater_eq;
             }
-            else if (op == expr_lt) {
+            else if (op == tk_lt) {
                 lily_sym *temp = rhs_sym;
                 rhs_sym = lhs_sym;
                 lhs_sym = temp;
                 opcode = o_compare_greater;
             }
-            else if (op == expr_gr_eq)
+            else if (op == tk_gt_eq)
                 opcode = o_compare_greater_eq;
-            else if (op == expr_gr)
+            else if (op == tk_gt)
                 opcode = o_compare_greater;
         }
 
-        if (op == expr_eq_eq)
+        if (op == tk_eq_eq)
             opcode = o_compare_eq;
-        else if (op == expr_not_eq)
+        else if (op == tk_not_eq)
             opcode = o_compare_not_eq;
     }
 
     if (opcode == -1)
         lily_raise_tree(emit->raiser, ast,
                    "Invalid operation: ^T %s ^T.", ast->left->result->type,
-                   opname(ast->op), ast->right->result->type);
+                   tokname(ast->op), ast->right->result->type);
 
     lily_class *storage_class;
     switch (ast->op) {
-        case expr_plus:
-        case expr_minus:
-        case expr_multiply:
-        case expr_divide:
+        case tk_plus:
+        case tk_minus:
+        case tk_multiply:
+        case tk_divide:
             storage_class = lhs_sym->type->cls;
             break;
-        case expr_eq_eq:
-        case expr_lt:
-        case expr_lt_eq:
-        case expr_gr:
-        case expr_gr_eq:
-        case expr_not_eq:
+        case tk_eq_eq:
+        case tk_lt:
+        case tk_lt_eq:
+        case tk_gt:
+        case tk_gt_eq:
+        case tk_not_eq:
             storage_class = emit->symtab->boolean_class;
             break;
         default:
@@ -2361,32 +2350,32 @@ static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
    so this won't double-eval. */
 static void set_compound_spoof_op(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_expr_op spoof_op;
+    lily_token spoof_op;
 
-    if (ast->op == expr_div_assign)
-        spoof_op = expr_divide;
-    else if (ast->op == expr_mul_assign)
-        spoof_op = expr_multiply;
-    else if (ast->op == expr_modulo_assign)
-        spoof_op = expr_modulo;
-    else if (ast->op == expr_plus_assign)
-        spoof_op = expr_plus;
-    else if (ast->op == expr_minus_assign)
-        spoof_op = expr_minus;
-    else if (ast->op == expr_left_shift_assign)
-        spoof_op = expr_left_shift;
-    else if (ast->op == expr_right_shift_assign)
-        spoof_op = expr_right_shift;
-    else if (ast->op == expr_bitwise_and_assign)
-        spoof_op = expr_bitwise_and;
-    else if (ast->op == expr_bitwise_or_assign)
-        spoof_op = expr_bitwise_or;
-    else if (ast->op == expr_bitwise_xor_assign)
-        spoof_op = expr_bitwise_xor;
+    if (ast->op == tk_divide_eq)
+        spoof_op = tk_divide;
+    else if (ast->op == tk_multiply_eq)
+        spoof_op = tk_multiply;
+    else if (ast->op == tk_modulo_eq)
+        spoof_op = tk_modulo;
+    else if (ast->op == tk_plus_eq)
+        spoof_op = tk_plus;
+    else if (ast->op == tk_minus_eq)
+        spoof_op = tk_minus;
+    else if (ast->op == tk_left_shift_eq)
+        spoof_op = tk_left_shift;
+    else if (ast->op == tk_right_shift_eq)
+        spoof_op = tk_right_shift;
+    else if (ast->op == tk_bitwise_and_eq)
+        spoof_op = tk_bitwise_and;
+    else if (ast->op == tk_bitwise_or_eq)
+        spoof_op = tk_bitwise_or;
+    else if (ast->op == tk_bitwise_xor_eq)
+        spoof_op = tk_bitwise_xor;
     else {
-        spoof_op = expr_assign;
+        spoof_op = tk_equal;
         lily_raise_syn(emit->raiser, "Invalid compound op: %s.",
-                opname(ast->op));
+                tokname(ast->op));
     }
 
     ast->op = spoof_op;
@@ -2435,7 +2424,7 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
         /* Run the compound op now that ->left is set properly. */
     }
 
-    lily_expr_op save_op = ast->op;
+    lily_token save_op = ast->op;
 
     set_compound_spoof_op(emit, ast);
     emit_binary_op(emit, ast);
@@ -2467,7 +2456,7 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
     /* Can't assign to a method. */
     if (ast->left->item->item_kind != ITEM_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
-                "Left side of %s is not assignable.", opname(ast->op));
+                "Left side of %s is not assignable.", tokname(ast->op));
 
     lily_type *left_type = get_solved_property_type(emit, ast->left);
 
@@ -2506,7 +2495,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
         eval_tree(emit, var_ast, NULL);
         if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
             lily_raise_tree(emit->raiser, ast,
-                    "Left side of %s is not assignable.", opname(ast->op));
+                    "Left side of %s is not assignable.", tokname(ast->op));
         }
     }
 
@@ -2583,7 +2572,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
     }
     else
         lily_raise_tree(emit->raiser, ast,
-                "Left side of %s is not assignable.", opname(ast->op));
+                "Left side of %s is not assignable.", tokname(ast->op));
 
     if (right_sym->type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast, right_sym->type);
@@ -2594,7 +2583,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
 after_type_check:;
 
-    if (ast->op > expr_assign) {
+    if (ast->op != tk_equal) {
         emit_compound_op(emit, ast);
         /* Compound eval simulates a binary op to produce a result. That result
            is the actual right side to use. */
@@ -2655,18 +2644,18 @@ after_type_check:;
                 index_sym->reg_spot, right_sym->reg_spot, ast->line_num);
     }
 
-    if (ast->parent &&
-         (ast->parent->tree_type != tree_binary ||
-          ast->parent->op < expr_assign)) {
-        lily_raise_syn(emit->raiser,
-                "Cannot nest an assignment within an expression.");
+    if (ast->parent) {
+        if (ast->parent->tree_type == tree_binary &&
+            IS_ASSIGN_TOKEN(ast->parent->op))
+            ast->result = right_sym;
+        else
+            lily_raise_syn(emit->raiser,
+                    "Cannot nest an assignment within an expression.");
     }
-    else if (ast->parent == NULL) {
+    else {
         /* This prevents conditions from using the result of an assignment. */
         ast->result = NULL;
     }
-    else
-        ast->result = right_sym;
 }
 
 /* This handles ```@<name>```. Properties, unlike member access, are validated
@@ -2726,7 +2715,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *result;
     int andor_start;
-    int jump_on = (ast->op == expr_logical_or);
+    int jump_on = (ast->op == tk_logical_or);
 
     /* The top-most and/or will start writing patches, and then later write down
        all of those patches. This is okay to do, because the current block
@@ -2757,7 +2746,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
         result = get_storage(emit, symtab->boolean_class->self_type);
 
-        int truthy = (ast->op == expr_logical_and);
+        int truthy = (ast->op == tk_logical_and);
 
         lily_u16_write_4(emit->code, o_load_boolean, truthy, result->reg_spot,
                 ast->line_num);
@@ -2838,29 +2827,29 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     uint16_t opcode = 0, lhs_id = lhs_class->id;
     lily_storage *storage;
 
-    lily_expr_op op = ast->op;
+    lily_token op = ast->op;
 
     if (lhs_id == LILY_ID_BOOLEAN) {
-        if (op == expr_unary_not)
+        if (op == tk_not)
             opcode = o_unary_not;
     }
     else if (lhs_id == LILY_ID_INTEGER) {
-        if (op == expr_unary_minus)
+        if (op == tk_minus)
             opcode = o_unary_minus;
-        else if (op == expr_unary_not)
+        else if (op == tk_not)
             opcode = o_unary_not;
-        else if (op == expr_unary_bitwise_not)
+        else if (op == tk_tilde)
             opcode = o_unary_bitwise_not;
     }
     else if (lhs_id == LILY_ID_DOUBLE) {
-        if (op == expr_unary_minus)
+        if (op == tk_minus)
             opcode = o_unary_minus;
     }
 
     if (opcode == 0)
         lily_raise_tree(emit->raiser, ast,
                 "Invalid operation: %s%s.",
-                opname(ast->op), lhs_class->name);
+                tokname(ast->op), lhs_class->name);
 
     storage = get_storage(emit, lhs_class->self_type);
 
@@ -3879,7 +3868,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
         int pos;
 
         if (arg->tree_type == tree_binary &&
-            arg->op == expr_named_arg) {
+            arg->op == tk_keyword_arg) {
             have_keyargs = 1;
             char *key_name = lily_sp_get(emit->expr_strings,
                     arg->left->pile_pos);
@@ -3956,7 +3945,7 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         int is_vararg = 0;
         uint16_t pos = arg->keyword_arg_pos;
 
-        if (arg->tree_type == tree_binary && arg->op == expr_named_arg)
+        if (arg->tree_type == tree_binary && arg->op == tk_keyword_arg)
             real_arg = arg->right;
 
         lily_type *arg_type;
@@ -4132,7 +4121,7 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
 
     if (ast->parent == NULL ||
         (ast->parent->tree_type != tree_binary ||
-         ast->parent->op != expr_plus_plus)) {
+         ast->parent->op != tk_plus_plus)) {
         lily_u16_write_2(emit->code, o_interpolation, 0);
 
         int fix_spot = lily_u16_pos(emit->code) - 1;
@@ -4142,7 +4131,7 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
 
         while (1) {
             if (iter_ast->tree_type != tree_binary ||
-                iter_ast->op != expr_plus_plus)
+                iter_ast->op != tk_plus_plus)
                 break;
 
             iter_ast = iter_ast->left;
@@ -4202,13 +4191,13 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect);
     else if (ast->tree_type == tree_binary) {
-        if (ast->op >= expr_assign)
+        if (IS_ASSIGN_TOKEN(ast->op))
             eval_assign(emit, ast);
-        else if (ast->op == expr_logical_or || ast->op == expr_logical_and)
+        else if (ast->op == tk_logical_or || ast->op == tk_logical_and)
             eval_logical_op(emit, ast);
-        else if (ast->op == expr_func_pipe)
+        else if (ast->op == tk_func_pipe)
             eval_func_pipe(emit, ast, expect);
-        else if (ast->op == expr_plus_plus)
+        else if (ast->op == tk_plus_plus)
             eval_plus_plus(emit, ast);
         else {
             if (ast->left->tree_type != tree_local_var)

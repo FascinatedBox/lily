@@ -4,6 +4,7 @@
 # include <stdint.h>
 
 # include "lily_core_types.h"
+# include "lily_token.h"
 
 typedef enum {
     expr_plus,
@@ -58,7 +59,7 @@ typedef struct lily_ast_ {
     lily_tree_type tree_type: 8;
 
     union {
-        lily_expr_op op: 8;
+        lily_token op: 8;
         lily_tree_type first_tree_type: 8;
     };
 
@@ -199,13 +200,13 @@ void lily_es_leave_tree(lily_expr_state *);
 lily_ast *lily_es_get_saved_tree(lily_expr_state *);
 void lily_es_enter_typecast(lily_expr_state *ap, lily_type *type);
 void lily_es_push_local_var(lily_expr_state *, lily_var *);
-void lily_es_push_binary_op(lily_expr_state *, lily_expr_op);
+void lily_es_push_binary_op(lily_expr_state *, lily_token);
 void lily_es_push_global_var(lily_expr_state *, lily_var *);
 void lily_es_push_defined_func(lily_expr_state *, lily_var *);
 void lily_es_push_method(lily_expr_state *, lily_var *);
 void lily_es_push_static_func(lily_expr_state *, lily_var *);
 void lily_es_push_literal(lily_expr_state *, lily_type *, uint16_t);
-void lily_es_push_unary_op(lily_expr_state *, lily_expr_op);
+void lily_es_push_unary_op(lily_expr_state *, lily_token);
 void lily_es_push_property(lily_expr_state *, lily_prop_entry *);
 void lily_es_push_variant(lily_expr_state *, lily_variant_class *);
 void lily_es_push_text(lily_expr_state *, lily_tree_type, uint16_t, int);

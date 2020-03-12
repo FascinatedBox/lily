@@ -97,7 +97,6 @@ void lily_lexer_load(lily_lex_state *, lily_lex_entry_type, const void *);
 void lily_pop_lex_entry(lily_lex_state *);
 
 void lily_next_token(lily_lex_state *);
-const char *tokname(lily_token);
 
 char *lily_read_template_content(lily_lex_state *, int *);
 int lily_read_template_header(lily_lex_state *);

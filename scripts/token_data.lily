@@ -110,6 +110,67 @@ for i in 0...cc_names.size() - 1: {
 
     cc_data[name] = (i + token_data_size).to_s()
 }
+var priority_data = [
+    1 => [
+        "tk_bitwise_and_eq",
+        "tk_bitwise_or_eq",
+        "tk_bitwise_xor_eq",
+        "tk_divide_eq",
+        "tk_eq_eq",
+        "tk_equal",
+        "tk_gt_eq",
+        "tk_left_shift_eq",
+        "tk_lt_eq",
+        "tk_minus_eq",
+        "tk_modulo_eq",
+        "tk_multiply_eq",
+        "tk_not_eq",
+        "tk_plus_eq",
+        "tk_right_shift_eq",
+    ],
+    2 => [
+        "tk_logical_or",
+    ],
+    3 => [
+        "tk_logical_and",
+    ],
+    4 => [
+        "tk_eq_eq",
+        "tk_not_eq",
+        "tk_lt",
+        "tk_gt",
+        "tk_lt_eq",
+        "tk_gt_eq",
+    ],
+    # Put concat here so it can chain together the output of pipe ops:
+    # `a |> b ++ b |> c`.
+    5 => [
+        "tk_plus_plus",
+    ],
+    # Put pipes here so they capture as much as possible for comparison ops:
+    # `a << b |> fn <= something`.
+    6 => [
+        "tk_func_pipe",
+    ],
+    7 => [
+        "tk_bitwise_or",
+        "tk_bitwise_xor",
+        "tk_bitwise_and",
+    ],
+    8 => [
+        "tk_left_shift",
+        "tk_right_shift",
+    ],
+    9 => [
+        "tk_plus",
+        "tk_minus",
+    ],
+    10 => [
+        "tk_multiply",
+        "tk_divide",
+        "tk_modulo",
+    ],
+]
 
 define write_header(f: File, name: String)
 {
@@ -139,14 +200,18 @@ define write_table_header(f: File, info: String, size: Integer)
     f.write("static const " ++ info ++ "[" ++ size ++ "] = {\n")
 }
 
-define write_numeric_table(f: File, table: List[String])
+define write_numeric_table[A](f: File, table: List[A])
 {
-    for i in 0...255 by 16: {
+    for i in 0...table.size() - 1 by 16: {
         var slice = table.slice(i, i + 16)
-                         .join(", ")
 
-        slice = "    " ++ slice ++ ",\n"
-        f.write(slice)
+        if slice.size() == 0: {
+            slice = table.slice(i, table.size() - 1)
+        }
+
+        var slice_str = "    " ++ slice.join(", ") ++ ",\n"
+
+        f.write(slice_str)
     }
 
     f.write("};\n\n")
@@ -285,6 +350,32 @@ define write_token_name_table(f: File)
     write_string_table(f, token_table)
 }
 
+define write_priority_table(f: File)
+{
+    var priority_table = List.repeat(token_data.size(), 0)
+    var priority_keys = priority_data.keys()
+    var id_map: Hash[String, Integer] = []
+
+    for i in 0...token_data.size() - 1: {
+        id_map[token_data[i][2]] = i
+    }
+
+    # The priority table is a Hash keyed by priority.
+    for i in 0...priority_keys.size() - 1: {
+        var key = priority_keys[i]
+        var token_list = priority_data[key]
+
+        for j in 0...token_list.size() - 1: {
+            var token = token_list[j]
+
+            priority_table[id_map[token]] = key
+        }
+    }
+
+    write_table_header(f, "uint8_t priority_table", priority_table.size())
+    write_numeric_table(f, priority_table)
+}
+
 define write_token_enum(f: File)
 {
     var token_names = token_data.map(|m| m[2] )
@@ -297,7 +388,14 @@ define write_token_enum(f: File)
         f.write(t)
     }
 
-    f.write("} lily_token;\n\n")
+    f.write("} lily_token;\n")
+
+    f.write("""\n\
+# define IS_ASSIGN_TOKEN(t) (lily_priority_for_token(t) == 1)
+
+int lily_priority_for_token(lily_token);
+const char *tokname(lily_token);\n\n\
+    """)
 }
 
 define finish_file(f: File, path: String)
@@ -318,6 +416,7 @@ define write_lily_lexer_data
     write_ident_defines(f)
     write_ident_table(f)
     write_token_name_table(f)
+    write_priority_table(f)
     finish_file(f, path)
 }
 

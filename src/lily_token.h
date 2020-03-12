@@ -68,4 +68,9 @@ typedef enum {
     tk_eof,
 } lily_token;
 
+# define IS_ASSIGN_TOKEN(t) (lily_priority_for_token(t) == 1)
+
+int lily_priority_for_token(lily_token);
+const char *tokname(lily_token);
+
 #endif

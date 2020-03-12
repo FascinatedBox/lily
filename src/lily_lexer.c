@@ -1543,3 +1543,8 @@ const char *tokname(lily_token t)
 {
     return token_name_table[t];
 }
+
+int lily_priority_for_token(lily_token t)
+{
+    return priority_table[t];
+}

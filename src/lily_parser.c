@@ -2769,9 +2769,9 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 
         if (lily_lexer_digit_rescan(lex)) {
             if (is_positive)
-                lily_es_push_binary_op(parser->expr, expr_plus);
+                lily_es_push_binary_op(parser->expr, tk_plus);
             else
-                lily_es_push_binary_op(parser->expr, expr_minus);
+                lily_es_push_binary_op(parser->expr, tk_minus);
 
             result = 1;
         }
@@ -2872,20 +2872,13 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
     *state = ST_DEMAND_VALUE;
 }
 
-/* Unary expressions! These are easy, because it's only two. */
+/* Unary expressions! These are easy, because tokens are ops. */
 static void expression_unary(lily_parse_state *parser, int *state)
 {
     if (*state == ST_WANT_OPERATOR)
         *state = ST_BAD_TOKEN;
     else {
-        lily_token token = parser->lex->token;
-        if (token == tk_minus)
-            lily_es_push_unary_op(parser->expr, expr_unary_minus);
-        else if (token == tk_not)
-            lily_es_push_unary_op(parser->expr, expr_unary_not);
-        else if (token == tk_tilde)
-            lily_es_push_unary_op(parser->expr, expr_unary_bitwise_not);
-
+        lily_es_push_unary_op(parser->expr, parser->lex->token);
         *state = ST_DEMAND_VALUE;
     }
 }
@@ -2946,7 +2939,7 @@ static void expression_named_arg(lily_parse_state *parser, int *state)
     int spot = es->pile_current;
     lily_sp_insert(parser->expr_strings, parser->lex->label, &es->pile_current);
     lily_es_push_text(es, tree_oo_access, 0, spot);
-    lily_es_push_binary_op(es, expr_named_arg);
+    lily_es_push_binary_op(es, tk_keyword_arg);
     *state = ST_DEMAND_VALUE;
 }
 
@@ -2976,7 +2969,7 @@ static void expression_raw(lily_parse_state *parser)
         }
         else if (expr_op != -1) {
             if (state == ST_WANT_OPERATOR) {
-                lily_es_push_binary_op(parser->expr, (lily_expr_op)expr_op);
+                lily_es_push_binary_op(parser->expr, lex->token);
                 state = ST_DEMAND_VALUE;
             }
             else if (lex->token == tk_minus)
@@ -3893,7 +3886,7 @@ static void parse_for_expr(lily_parse_state *parser, lily_var *var)
        ex: for i in a += 10..5
        Also, it makes no real sense to do that. */
     if (es->root->tree_type == tree_binary &&
-        es->root->op >= expr_assign) {
+        IS_ASSIGN_TOKEN(es->root->op)) {
         lily_raise_syn(parser->raiser,
                    "For range value expression contains an assignment.");
     }
