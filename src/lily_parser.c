@@ -2780,6 +2780,62 @@ static int maybe_digit_fixup(lily_parse_state *parser)
     return result;
 }
 
+static void expression_right_parenth(lily_parse_state *parser, int *state)
+{
+    if (*state == ST_DEMAND_VALUE)
+        *state = ST_BAD_TOKEN;
+    else if (*state == ST_WANT_OPERATOR &&
+             parser->expr->save_depth == 0)
+        *state = ST_DONE;
+    else {
+        check_valid_close_tok(parser);
+        lily_es_leave_tree(parser->expr);
+        *state = ST_WANT_OPERATOR;
+    }
+}
+
+static void expression_right_bracket(lily_parse_state *parser, int *state)
+{
+    if (*state == ST_DEMAND_VALUE) {
+        if (parser->expr->save_depth) {
+            check_valid_close_tok(parser);
+            lily_es_leave_tree(parser->expr);
+            *state = ST_WANT_OPERATOR;
+        }
+        else
+            *state = ST_BAD_TOKEN;
+    }
+    else if (*state == ST_WANT_OPERATOR &&
+             parser->expr->save_depth == 0)
+        *state = ST_DONE;
+    else {
+        check_valid_close_tok(parser);
+        lily_es_leave_tree(parser->expr);
+        *state = ST_WANT_OPERATOR;
+    }
+}
+
+static void expression_tuple_close(lily_parse_state *parser, int *state)
+{
+    if (*state == ST_DEMAND_VALUE) {
+        if (parser->expr->save_depth) {
+            check_valid_close_tok(parser);
+            lily_es_leave_tree(parser->expr);
+            *state = ST_WANT_OPERATOR;
+        }
+        else
+            *state = ST_BAD_TOKEN;
+    }
+    else if (*state == ST_WANT_OPERATOR &&
+             parser->expr->save_depth == 0)
+        *state = ST_DONE;
+    else {
+        check_valid_close_tok(parser);
+        lily_es_leave_tree(parser->expr);
+        *state = ST_WANT_OPERATOR;
+    }
+}
+
 /* This handles literals, and does that fixup thing if that's necessary. */
 static void expression_literal(lily_parse_state *parser, int *state)
 {
@@ -2881,6 +2937,36 @@ static void expression_unary(lily_parse_state *parser, int *state)
         lily_es_push_unary_op(parser->expr, parser->lex->token);
         *state = ST_DEMAND_VALUE;
     }
+}
+
+static void expression_lambda(lily_parse_state *parser, int *state)
+{
+    if (parser->flags & PARSER_SIMPLE_EXPR)
+        lily_raise_syn(parser->raiser, "Not allowed to use a lambda here.");
+
+    /* Checking for an operator allows this
+        
+       `x.some_call(|x| ... )`
+
+       to act like
+
+       `x.some_call((|x| ... ))`
+
+       which cuts a level of parentheses. */
+    if (*state == ST_WANT_OPERATOR)
+        lily_es_enter_tree(parser->expr, tree_call);
+
+    lily_expr_state *es = parser->expr;
+    int spot = es->pile_current;
+    lily_lex_state *lex = parser->lex;
+
+    lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
+    lily_es_push_text(parser->expr, tree_lambda, lex->expand_start_line, spot);
+
+    if (*state == ST_WANT_OPERATOR)
+        lily_es_leave_tree(parser->expr);
+
+    *state = ST_WANT_OPERATOR;
 }
 
 /* This handles two rather different things. It could be an `x.y` access, OR
@@ -3011,31 +3097,12 @@ static void expression_raw(lily_parse_state *parser)
                 state = ST_WANT_VALUE;
             }
         }
-        else if (lex->token == tk_right_parenth ||
-                 lex->token == tk_right_bracket ||
-                 lex->token == tk_tuple_close) {
-            if (state == ST_DEMAND_VALUE) {
-                /* This must check for save depth because it can be activated
-                   with code like `var v = [10] ]`. */
-                if (parser->expr->save_depth &&
-                    (lex->token == tk_right_bracket ||
-                     lex->token == tk_tuple_close)) {
-                    check_valid_close_tok(parser);
-                    lily_es_leave_tree(parser->expr);
-                    state = ST_WANT_OPERATOR;
-                }
-                else
-                    state = ST_BAD_TOKEN;
-            }
-            else if (state == ST_WANT_OPERATOR &&
-                     parser->expr->save_depth == 0)
-                state = ST_DONE;
-            else {
-                check_valid_close_tok(parser);
-                lily_es_leave_tree(parser->expr);
-                state = ST_WANT_OPERATOR;
-            }
-        }
+        else if (lex->token == tk_right_parenth)
+            expression_right_parenth(parser, &state);
+        else if (lex->token == tk_right_bracket)
+            expression_right_bracket(parser, &state);
+        else if (lex->token == tk_tuple_close)
+            expression_tuple_close(parser, &state);
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote || lex->token == tk_bytestring ||
                  lex->token == tk_byte)
@@ -3046,30 +3113,8 @@ static void expression_raw(lily_parse_state *parser)
                  lex->token == tk_not ||
                  lex->token == tk_tilde)
             expression_unary(parser, &state);
-        else if (lex->token == tk_lambda) {
-            if (parser->flags & PARSER_SIMPLE_EXPR)
-                lily_raise_syn(parser->raiser,
-                        "Not allowed to use a lambda here.");
-
-            /* This is to allow `x.some_call{|x| ... }`
-               to act as        `x.some_call({|x| ... })`
-               This is a little thing that helps a lot. Oh, and make sure this
-               goes before the 'val_or_end' case, because lambdas are starting
-               tokens. */
-            if (state == ST_WANT_OPERATOR)
-                lily_es_enter_tree(parser->expr, tree_call);
-
-            lily_expr_state *es = parser->expr;
-            int spot = es->pile_current;
-            lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
-            lily_es_push_text(parser->expr, tree_lambda, lex->expand_start_line,
-                    spot);
-
-            if (state == ST_WANT_OPERATOR)
-                lily_es_leave_tree(parser->expr);
-
-            state = ST_WANT_OPERATOR;
-        }
+        else if (lex->token == tk_lambda)
+            expression_lambda(parser, &state);
         /* Make sure this case stays lower down. If it doesn't, then certain
            expressions will exit before they really should. */
         else if (parser_tok_table[lex->token].val_or_end &&
