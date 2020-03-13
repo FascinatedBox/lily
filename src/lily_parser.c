@@ -2405,18 +2405,22 @@ static int keyword_by_name(const char *name)
     definition up as a string and hands it off to parser. As such, that part is
     not included here. Besides, it's long and complex anyway. **/
 
+/* Expression dispatch functions will never see these two. */
+#define ST_BAD_TOKEN            0
+#define ST_DONE                 1
 
+/* These are the values that dispatch functions will see. */
 /* I need a value to work with. */
-#define ST_DEMAND_VALUE         1
+#define ST_DEMAND_VALUE         2
 /* A binary op or an operation (dot call, call, subscript), or a close. */
-#define ST_WANT_OPERATOR        2
+#define ST_WANT_OPERATOR        3
 /* A value is nice, but not required (ex: call arguments). */
-#define ST_WANT_VALUE           3
-#define ST_DONE                 4
-#define ST_BAD_TOKEN            5
+#define ST_WANT_VALUE           4
+
 /* Normally, the next token is pulled up after an expression_* helper has been
    called. If this is or'd onto the state, then it's assumed that the next token
-   has already been pulled up. */
+   has already been pulled up.
+   Dispatch functions will never see this. */
 #define ST_FORWARD              0x8
 
 /* This is a wrapper function that handles pushing the given literal into the
@@ -2839,16 +2843,15 @@ static void expression_tuple_close(lily_parse_state *parser, int *state)
 /* This handles literals, and does that fixup thing if that's necessary. */
 static void expression_literal(lily_parse_state *parser, int *state)
 {
-    lily_lex_state *lex = parser->lex;
-
     if (*state == ST_WANT_OPERATOR &&
         maybe_digit_fixup(parser) == 0) {
-        if (parser->expr->save_depth == 0)
-            *state = ST_DONE;
-        else
-            *state = ST_BAD_TOKEN;
+        *state = (parser->expr->save_depth == 0);
+        return;
     }
-    else if (lex->token == tk_integer) {
+
+    lily_lex_state *lex = parser->lex;
+
+    if (lex->token == tk_integer) {
         if (lex->n.integer_val <= INT16_MAX &&
             lex->n.integer_val >= INT16_MIN)
             lily_es_push_integer(parser->expr, (int16_t)
@@ -2858,30 +2861,25 @@ static void expression_literal(lily_parse_state *parser, int *state)
                     lex->n.integer_val);
             push_literal(parser, lit);
         }
-
-        *state = ST_WANT_OPERATOR;
     }
-    else if (lex->token == tk_byte) {
+    else if (lex->token == tk_byte)
         lily_es_push_byte(parser->expr, (uint8_t) lex->n.integer_val);
-        *state = ST_WANT_OPERATOR;
-    }
     else if (lex->token == tk_double_quote) {
         lily_literal *lit = lily_get_string_literal(parser->symtab, lex->label);
         push_literal(parser, lit);
-        *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_bytestring) {
         lily_literal *lit = lily_get_bytestring_literal(parser->symtab,
                 lex->label, lex->string_length);
         push_literal(parser, lit);
-        *state = ST_WANT_OPERATOR;
     }
     else if (lex->token == tk_double) {
         lily_literal *lit = lily_get_double_literal(parser->symtab,
                 lex->n.double_val);
         push_literal(parser, lit);
-        *state = ST_WANT_OPERATOR;
     }
+
+    *state = ST_WANT_OPERATOR;
 }
 
 /* Both comma and arrow do similar-ish things, so they're both handled here. The
@@ -3040,10 +3038,7 @@ static void expression_raw(lily_parse_state *parser)
         int expr_op = parser_tok_table[lex->token].expr_op;
         if (lex->token == tk_word) {
             if (state == ST_WANT_OPERATOR)
-                if (parser->expr->save_depth == 0)
-                    state = ST_DONE;
-                else
-                    state = ST_BAD_TOKEN;
+                state = (parser->expr->save_depth == 0);
             else {
                 expression_word(parser, &state);
                 /* Words never start with forward, but might finish with it.
