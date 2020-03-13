@@ -3059,21 +3059,21 @@ static void expression_raw(lily_parse_state *parser)
                 state = ST_BAD_TOKEN;
         }
         else if (lex->token == tk_left_parenth) {
-            if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
+            if (state != ST_WANT_OPERATOR) {
                 lily_es_enter_tree(parser->expr, tree_parenth);
                 state = ST_DEMAND_VALUE;
             }
-            else if (state == ST_WANT_OPERATOR) {
+            else {
                 lily_es_enter_tree(parser->expr, tree_call);
                 state = ST_WANT_VALUE;
             }
         }
         else if (lex->token == tk_left_bracket) {
-            if (state == ST_WANT_VALUE || state == ST_DEMAND_VALUE) {
+            if (state != ST_WANT_OPERATOR) {
                 lily_es_enter_tree(parser->expr, tree_list);
                 state = ST_WANT_VALUE;
             }
-            else if (state == ST_WANT_OPERATOR) {
+            else {
                 lily_es_enter_tree(parser->expr, tree_subscript);
                 state = ST_DEMAND_VALUE;
             }
