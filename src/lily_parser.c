@@ -2882,14 +2882,8 @@ static void expression_literal(lily_parse_state *parser, int *state)
     *state = ST_WANT_OPERATOR;
 }
 
-/* Both comma and arrow do similar-ish things, so they're both handled here. The
-   & 0x1 trick is used to detect even/odd-ness. A properly-formed hash should
-   look like `[1 => 1, 2 => 2, 3 => 3...]`. If it isn't, then args_collected
-   will be odd/even when it shouldn't be. */
-static void expression_comma_arrow(lily_parse_state *parser, int *state)
+static void expression_comma(lily_parse_state *parser, int *state)
 {
-    lily_lex_state *lex = parser->lex;
-
     if (parser->expr->active == NULL)
         lily_raise_syn(parser->raiser, "Expected a value, not ','.");
 
@@ -2899,27 +2893,46 @@ static void expression_comma_arrow(lily_parse_state *parser, int *state)
         return;
     }
 
-    if (lex->token == tk_comma) {
-        if (last_tree->tree_type == tree_hash &&
-            (last_tree->args_collected & 0x1) == 0)
-            lily_raise_syn(parser->raiser,
-                    "Expected a key => value pair before ','.");
-        if (last_tree->tree_type == tree_subscript)
-            lily_raise_syn(parser->raiser,
-                    "Subscripts cannot contain ','.");
+    lily_tree_type last_tt = last_tree->tree_type;
+
+    /* Hash literals are linked as key, value, key, value. Commas get the
+       values, so an even argument count is wrong here.  */
+    if (last_tt == tree_hash &&
+        (last_tree->args_collected & 0x1) == 0)
+        lily_raise_syn(parser->raiser,
+                "Expected a key => value pair before ','.");
+    else if (last_tt == tree_subscript)
+        lily_raise_syn(parser->raiser, "Subscripts cannot contain ','.");
+
+    lily_es_collect_arg(parser->expr);
+    *state = ST_DEMAND_VALUE;
+}
+
+static void expression_arrow(lily_parse_state *parser, int *state)
+{
+    if (parser->expr->active == NULL)
+        lily_raise_syn(parser->raiser, "Expected a value, not ','.");
+
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
+    if (last_tree == NULL) {
+        *state = ST_BAD_TOKEN;
+        return;
     }
-    else if (lex->token == tk_arrow) {
-        if (last_tree->tree_type == tree_list) {
-            if (last_tree->args_collected == 0)
-                last_tree->tree_type = tree_hash;
-            else
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(tk_arrow));
-        }
-        else if (last_tree->tree_type != tree_hash ||
-                 (last_tree->args_collected & 0x1) == 1)
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(tk_arrow));
+
+    lily_tree_type last_tt = last_tree->tree_type;
+
+    if (last_tt == tree_list &&
+        last_tree->args_collected == 0)
+        last_tree->tree_type = tree_hash;
+    /* Hashes are linked as key, value, key, value. Arrows get the keys, so they
+       should see an even argument count. */
+    else if (last_tt == tree_hash &&
+             (last_tree->args_collected & 0x1) == 0)
+        ;
+    else {
+        /* No special error message because arrows are really rare. */
+        *state = ST_BAD_TOKEN;
+        return;
     }
 
     lily_es_collect_arg(parser->expr);
@@ -3116,8 +3129,10 @@ static void expression_raw(lily_parse_state *parser)
                  parser->expr->save_depth == 0 &&
                  state == ST_WANT_OPERATOR)
             state = ST_DONE;
-        else if (lex->token == tk_comma || lex->token == tk_arrow)
-            expression_comma_arrow(parser, &state);
+        else if (lex->token == tk_comma)
+            expression_comma(parser, &state);
+        else if (lex->token == tk_arrow)
+            expression_arrow(parser, &state);
         else if (lex->token == tk_keyword_arg)
             expression_named_arg(parser, &state);
         else
