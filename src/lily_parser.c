@@ -2992,8 +2992,15 @@ static void expression_lambda(lily_parse_state *parser, int *state)
    checking if either of them is correct. */
 static void expression_dot(lily_parse_state *parser, int *state)
 {
+    if (*state != ST_WANT_OPERATOR) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
     lily_lex_state *lex = parser->lex;
+
     lily_next_token(lex);
+
     if (lex->token == tk_word) {
         lily_expr_state *es = parser->expr;
         int spot = es->pile_current;
@@ -3014,8 +3021,6 @@ static void expression_dot(lily_parse_state *parser, int *state)
                 "Expected either '%s' or '%s', not '%s'.",
                 tokname(tk_word), tokname(tk_typecast_parenth),
                 tokname(lex->token));
-
-    *state = ST_WANT_OPERATOR;
 }
 
 static void expression_named_arg(lily_parse_state *parser, int *state)

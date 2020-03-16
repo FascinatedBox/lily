@@ -289,6 +289,66 @@ class TestBadToken < TestCase
         """\
             var a = 10.@(Integer+
         """)
+
+        # bad expression (dot for binary op)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = 10 + .to_i()
+        """)
+
+        # bad expression (dot for list)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = [1, .to_i()]
+        """)
+
+        # bad expression (dot at toplevel)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            .to_s()
+        """)
+
+        # bad expression (cast for binary op)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = 10 + .@(Integer)
+        """)
+
+        # bad expression (cast for list)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = [1, .@(Integer)]
+        """)
+
+        # bad expression (cast for toplevel)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '.'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            .@(Integer)
+        """)
     }
 
     public define test_bad_forward
