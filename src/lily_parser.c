@@ -3007,6 +3007,7 @@ static void expression_dot(lily_parse_state *parser, int *state)
 
         lily_es_enter_typecast(parser->expr, cast_type);
         lily_es_leave_tree(parser->expr);
+        NEED_CURRENT_TOK(tk_right_parenth)
     }
     else
         lily_raise_syn(parser->raiser,

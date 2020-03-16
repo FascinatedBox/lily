@@ -279,6 +279,16 @@ class TestBadToken < TestCase
         """\
             var a = (1 + 1, 2 + 2)
         """)
+
+        # bad expression (typecast wrong close token)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected ')', not '+'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = 10.@(Integer+
+        """)
     }
 
     public define test_bad_forward
