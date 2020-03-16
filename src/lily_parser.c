@@ -2907,7 +2907,12 @@ static void expression_comma(lily_parse_state *parser, int *state)
         lily_raise_syn(parser->raiser, "() expression cannot contain ','.");
 
     lily_es_collect_arg(parser->expr);
-    *state = ST_DEMAND_VALUE;
+
+    if (last_tt == tree_call || last_tt == tree_named_call)
+        *state = ST_DEMAND_VALUE;
+    /* Allow a trailing comma for lists, hashes, and tuples. */
+    else
+        *state = ST_WANT_VALUE;
 }
 
 static void expression_arrow(lily_parse_state *parser, int *state)
