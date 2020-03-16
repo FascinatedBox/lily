@@ -2903,6 +2903,8 @@ static void expression_comma(lily_parse_state *parser, int *state)
                 "Expected a key => value pair before ','.");
     else if (last_tt == tree_subscript)
         lily_raise_syn(parser->raiser, "Subscripts cannot contain ','.");
+    else if (last_tt == tree_parenth)
+        lily_raise_syn(parser->raiser, "() expression cannot contain ','.");
 
     lily_es_collect_arg(parser->expr);
     *state = ST_DEMAND_VALUE;

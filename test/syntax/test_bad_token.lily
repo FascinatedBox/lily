@@ -269,6 +269,16 @@ class TestBadToken < TestCase
             var a: Integer = 0
             a = ((a)
         """)
+
+        # bad expression (comma in parenth expression)
+
+        assert_parse_fails(t, """\
+            SyntaxError: () expression cannot contain ','.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a = (1 + 1, 2 + 2)
+        """)
     }
 
     public define test_bad_forward
