@@ -2786,58 +2786,35 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 
 static void expression_right_parenth(lily_parse_state *parser, int *state)
 {
-    if (*state == ST_DEMAND_VALUE)
+    if (*state == ST_DEMAND_VALUE) {
         *state = ST_BAD_TOKEN;
-    else if (*state == ST_WANT_OPERATOR &&
-             parser->expr->save_depth == 0)
-        *state = ST_DONE;
-    else {
-        check_valid_close_tok(parser);
-        lily_es_leave_tree(parser->expr);
-        *state = ST_WANT_OPERATOR;
+        return;
     }
+    else if (*state == ST_WANT_OPERATOR &&
+             parser->expr->save_depth == 0) {
+        *state = ST_DONE;
+        return;
+    }
+
+    check_valid_close_tok(parser);
+    lily_es_leave_tree(parser->expr);
+    *state = ST_WANT_OPERATOR;
 }
 
-static void expression_right_bracket(lily_parse_state *parser, int *state)
+static void expression_bracket_tuple(lily_parse_state *parser, int *state)
 {
     if (*state == ST_DEMAND_VALUE) {
-        if (parser->expr->save_depth) {
-            check_valid_close_tok(parser);
-            lily_es_leave_tree(parser->expr);
-            *state = ST_WANT_OPERATOR;
-        }
-        else
-            *state = ST_BAD_TOKEN;
+        *state = ST_BAD_TOKEN;
+        return;
     }
-    else if (*state == ST_WANT_OPERATOR &&
-             parser->expr->save_depth == 0)
-        *state = ST_DONE;
-    else {
-        check_valid_close_tok(parser);
-        lily_es_leave_tree(parser->expr);
-        *state = ST_WANT_OPERATOR;
+    else if (parser->expr->save_depth == 0) {
+        *state = (*state == ST_WANT_OPERATOR);
+        return;
     }
-}
 
-static void expression_tuple_close(lily_parse_state *parser, int *state)
-{
-    if (*state == ST_DEMAND_VALUE) {
-        if (parser->expr->save_depth) {
-            check_valid_close_tok(parser);
-            lily_es_leave_tree(parser->expr);
-            *state = ST_WANT_OPERATOR;
-        }
-        else
-            *state = ST_BAD_TOKEN;
-    }
-    else if (*state == ST_WANT_OPERATOR &&
-             parser->expr->save_depth == 0)
-        *state = ST_DONE;
-    else {
-        check_valid_close_tok(parser);
-        lily_es_leave_tree(parser->expr);
-        *state = ST_WANT_OPERATOR;
-    }
+    check_valid_close_tok(parser);
+    lily_es_leave_tree(parser->expr);
+    *state = ST_WANT_OPERATOR;
 }
 
 /* This handles literals, and does that fixup thing if that's necessary. */
@@ -3058,7 +3035,12 @@ static void expression_named_arg(lily_parse_state *parser, int *state)
 static void expression_raw(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int state = ST_DEMAND_VALUE;
+    int state;
+
+    if (parser->expr->root || parser->expr->save_depth)
+        state = ST_DEMAND_VALUE;
+    else
+        state = ST_WANT_VALUE;
 
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
@@ -3120,10 +3102,9 @@ static void expression_raw(lily_parse_state *parser)
         }
         else if (lex->token == tk_right_parenth)
             expression_right_parenth(parser, &state);
-        else if (lex->token == tk_right_bracket)
-            expression_right_bracket(parser, &state);
-        else if (lex->token == tk_tuple_close)
-            expression_tuple_close(parser, &state);
+        else if (lex->token == tk_right_bracket ||
+                 lex->token == tk_tuple_close)
+            expression_bracket_tuple(parser, &state);
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote || lex->token == tk_bytestring ||
                  lex->token == tk_byte)
