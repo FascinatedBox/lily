@@ -16,18 +16,23 @@
 
 /* This is used to prevent multiple content loads and to make sure content
    handling has content. */
-#define PARSER_HAS_CONTENT  0x1
+#define PARSER_HAS_CONTENT  0x01
 
 /* This is used by symtab's rewind to determine what happens to the new symbols
    from the failed parse. If set, symbols are hidden in case old symbols refer
    to them (unlikely but possible). Otherwise, the symbols are dropped. */
-#define PARSER_IS_EXECUTING 0x2
+#define PARSER_IS_EXECUTING 0x02
 
 /* This is used to make sure the end token is correct. */
-#define PARSER_IS_RENDERING 0x4
+#define PARSER_IS_RENDERING 0x04
 
 /* Don't allow complex expressions (currently only blocks lambdas). */
-#define PARSER_SIMPLE_EXPR  0x8
+#define PARSER_SIMPLE_EXPR  0x08
+
+/* Consider `class Error(message: String) < Exception(message) { ... }`. A
+   typical expression call would allow calls or subscripts against the
+   `Exception` call. This tells expression to not allow that. */
+#define PARSER_SUPER_EXPR   0x10
 
 struct lily_rewind_state_;
 struct lily_import_state_;

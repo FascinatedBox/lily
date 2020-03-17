@@ -30,7 +30,7 @@ class TestBadToken < TestCase
         # class (constructor wrong token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '}'.\n    \
+            SyntaxError: Unexpected token '}'.\n    \
                 from [test]:2:\n\
         """,
         """\

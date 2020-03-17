@@ -2786,19 +2786,26 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 
 static void expression_right_parenth(lily_parse_state *parser, int *state)
 {
+    uint16_t depth = parser->expr->save_depth;
+
     if (*state == ST_DEMAND_VALUE) {
         *state = ST_BAD_TOKEN;
         return;
     }
-    else if (*state == ST_WANT_OPERATOR &&
-             parser->expr->save_depth == 0) {
+    else if (*state == ST_WANT_OPERATOR && depth == 0) {
         *state = ST_DONE;
         return;
     }
 
     check_valid_close_tok(parser);
     lily_es_leave_tree(parser->expr);
-    *state = ST_WANT_OPERATOR;
+
+    if ((parser->flags & PARSER_SUPER_EXPR) == 0 || depth != 1)
+        /* This results in a value, so an operator should be next. */
+        *state = ST_WANT_OPERATOR;
+    else
+        /* Super expressions should stop when they're done. */
+        *state = ST_DONE;
 }
 
 static void expression_bracket_tuple(lily_parse_state *parser, int *state)
@@ -4489,43 +4496,26 @@ static void super_expression(lily_parse_state *parser, lily_class *cls)
        A of a class is the A of the parent for any number of levels. */
     lily_es_push_inherited_new(es, class_new);
     lily_es_enter_tree(es, tree_call);
-
-    /* This makes expression bail on ',' and ')'. That prevents expression from
-       trying to be "helpful" and allowing subscripts/dot access/etc. against
-       the constructor. */
-    es->save_depth = 0;
-
     lily_next_token(parser->lex);
 
     if (lex->token == tk_left_parenth) {
-        /* Since the call was already entered, skip the first '(' or the parser
-           will attempt to enter it again. */
         lily_next_token(lex);
         if (lex->token == tk_right_parenth)
             lily_raise_syn(parser->raiser,
                     "Empty () not needed here for inherited new.");
 
-        while (1) {
-            expression_raw(parser);
-            lily_es_collect_arg(parser->expr);
-            if (lex->token == tk_comma) {
-                lily_next_token(lex);
-                continue;
-            }
-            else if (lex->token == tk_right_parenth) {
-                lily_next_token(lex);
-                break;
-            }
-            else
-                lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ')', not '%s'.",
-                        tokname(lex->token));
-        }
-    }
+        /* Call expression to handle the rest. This flag tells expression to
+           stop on ')'. If this raises, rewind will fix the flags. */
+        parser->flags |= PARSER_SUPER_EXPR;
+        expression_raw(parser);
+        parser->flags &= ~PARSER_SUPER_EXPR;
 
-    /* Gotta fix the depth before the drop, or it'll roll into negative. */
-    parser->expr->save_depth = 1;
-    lily_es_leave_tree(parser->expr);
+        /* Move past the closing ')' to line up with the else case below. */
+        lily_next_token(lex);
+    }
+    else
+        lily_es_leave_tree(parser->expr);
+
     lily_eval_expr(parser->emit, es);
     parser->current_class = cls;
 }
