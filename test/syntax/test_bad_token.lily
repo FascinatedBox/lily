@@ -198,7 +198,7 @@ class TestBadToken < TestCase
         # bad expression (comma at end of file)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ','.\n    \
+            SyntaxError: Unexpected token ','.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -348,6 +348,26 @@ class TestBadToken < TestCase
         """,
         """\
             .@(Integer)
+        """)
+
+        # bad expression (toplevel comma)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ','.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            ,
+        """)
+
+        # bad expression (toplevel arrow)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '=>'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            =>
         """)
     }
 
@@ -707,7 +727,7 @@ class TestBadToken < TestCase
         # bad list hash (arrow outside of brackets)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '=>'.\n    \
+            SyntaxError: Expected a value, not '=>'.\n    \
                 from [test]:1:\n\
         """,
         """\

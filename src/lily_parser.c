@@ -2416,6 +2416,8 @@ static int keyword_by_name(const char *name)
 #define ST_WANT_OPERATOR        3
 /* A value is nice, but not required (ex: call arguments). */
 #define ST_WANT_VALUE           4
+/* Want a value, but don't write about expecting a value in errors. */
+#define ST_TOPLEVEL             5
 
 /* Normally, the next token is pulled up after an expression_* helper has been
    called. If this is or'd onto the state, then it's assumed that the next token
@@ -2868,15 +2870,20 @@ static void expression_literal(lily_parse_state *parser, int *state)
 
 static void expression_comma(lily_parse_state *parser, int *state)
 {
-    if (parser->expr->active == NULL)
-        lily_raise_syn(parser->raiser, "Expected a value, not ','.");
-
-    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
-    if (last_tree == NULL) {
+    if (*state == ST_WANT_OPERATOR) {
+        if (parser->expr->save_depth == 0) {
+            *state = ST_DONE;
+            return;
+        }
+    }
+    else if (*state == ST_TOPLEVEL) {
         *state = ST_BAD_TOKEN;
         return;
     }
+    else
+        lily_raise_syn(parser->raiser, "Expected a value, not ','.");
 
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
     lily_tree_type last_tt = last_tree->tree_type;
 
     /* Hash literals are linked as key, value, key, value. Commas get the
@@ -2901,15 +2908,20 @@ static void expression_comma(lily_parse_state *parser, int *state)
 
 static void expression_arrow(lily_parse_state *parser, int *state)
 {
-    if (parser->expr->active == NULL)
-        lily_raise_syn(parser->raiser, "Expected a value, not ','.");
-
-    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
-    if (last_tree == NULL) {
+    if (*state == ST_WANT_OPERATOR) {
+        if (parser->expr->save_depth == 0) {
+            *state = ST_DONE;
+            return;
+        }
+    }
+    else if (*state == ST_TOPLEVEL) {
         *state = ST_BAD_TOKEN;
         return;
     }
+    else
+        lily_raise_syn(parser->raiser, "Expected a value, not '=>'.");
 
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
     lily_tree_type last_tt = last_tree->tree_type;
 
     if (last_tt == tree_list &&
@@ -3047,7 +3059,7 @@ static void expression_raw(lily_parse_state *parser)
     if (parser->expr->root || parser->expr->save_depth)
         state = ST_DEMAND_VALUE;
     else
-        state = ST_WANT_VALUE;
+        state = ST_TOPLEVEL;
 
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
