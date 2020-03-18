@@ -9,7 +9,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
+            SyntaxError: Expected a value, not 'end of file'.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -17,7 +17,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
+            SyntaxError: Expected a value, not 'end of file'.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -402,7 +402,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
+            SyntaxError: Expected a value, not 'end of file'.\n    \
                 from [test]:3:\n\
         """,
         """\
@@ -411,7 +411,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
+            SyntaxError: Expected a value, not 'end of file'.\n    \
                 from [test]:3:\n\
         """,
         """\

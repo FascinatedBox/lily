@@ -3112,18 +3112,19 @@ static void expression_raw(lily_parse_state *parser)
             expression_unary(parser, &state);
         else if (lex->token == tk_lambda)
             expression_lambda(parser, &state);
-        /* Make sure this case stays lower down. If it doesn't, then certain
-           expressions will exit before they really should. */
-        else if (parser_tok_table[lex->token].val_or_end &&
-                 parser->expr->save_depth == 0 &&
-                 state == ST_WANT_OPERATOR)
-            state = ST_DONE;
         else if (lex->token == tk_comma)
             expression_comma(parser, &state);
         else if (lex->token == tk_arrow)
             expression_arrow(parser, &state);
         else if (lex->token == tk_keyword_arg)
             expression_named_arg(parser, &state);
+        else if (lex->token == tk_colon ||
+                 lex->token == tk_right_curly ||
+                 lex->token == tk_three_dots ||
+                 lex->token == tk_end_lambda ||
+                 lex->token == tk_end_tag ||
+                 lex->token == tk_eof)
+            expression_close_token(parser, &state);
         else
             state = ST_BAD_TOKEN;
 

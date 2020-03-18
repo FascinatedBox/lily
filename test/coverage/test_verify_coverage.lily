@@ -333,7 +333,7 @@ class TestVerifyCoverage < TestCase
         assert_equal(
             t.error(),
             """\
-                SyntaxError: Unexpected token 'end of file'.\n    \
+                SyntaxError: Expected a value, not 'end of file'.\n    \
                     from [test]:1:\n\
             """
         )

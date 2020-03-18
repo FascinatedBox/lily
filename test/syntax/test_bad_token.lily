@@ -30,12 +30,12 @@ class TestBadToken < TestCase
         # class (constructor wrong token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '}'.\n    \
+            SyntaxError: Expected closing token ')', not '}'.\n    \
                 from [test]:2:\n\
         """,
         """\
             class One(a: Integer, b: Integer) {}
-            class Two(a: Integer, b: Integer) < One(a }
+            class Two(a: Integer, b: Integer) < One(a}
         """)
 
         # class (inherit sending empty parenth)
@@ -262,7 +262,7 @@ class TestBadToken < TestCase
         # bad expression (mismatched finish parentheses)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
+            SyntaxError: Expected closing token ')', not 'end of file'.\n    \
                 from [test]:3:\n\
         """,
         """\
