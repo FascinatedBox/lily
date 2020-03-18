@@ -783,7 +783,7 @@ class TestBadToken < TestCase
         # bad syntax (left parenth when expecting value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token ')'.\n    \
+            SyntaxError: Expected a value, not ')'.\n    \
                 from [test]:1:\n\
         """,
         """\

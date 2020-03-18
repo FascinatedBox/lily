@@ -2739,28 +2739,6 @@ static void expression_property(lily_parse_state *parser, int *state)
     *state = ST_WANT_OPERATOR;
 }
 
-/* This makes sure that the current token is the right kind of token for closing
-   the current tree. If it is not, then SyntaxError is raised. */
-static void check_valid_close_tok(lily_parse_state *parser)
-{
-    lily_token token = parser->lex->token;
-    lily_ast *ast = lily_es_get_saved_tree(parser->expr);
-    lily_tree_type tt = ast->tree_type;
-    lily_token expect;
-
-    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
-        tt == tree_named_call)
-        expect = tk_right_parenth;
-    else if (tt == tree_tuple)
-        expect = tk_tuple_close;
-    else
-        expect = tk_right_bracket;
-
-    if (token != expect)
-        lily_raise_syn(parser->raiser, "Expected closing token '%s', not '%s'.",
-                tokname(expect), tokname(token));
-}
-
 /* There's this annoying problem where 1-1 can be 1 - 1 or 1 -1. This is called
    if an operator is wanted but a digit is given instead. It checks to see if
    the numeric token can be broken up into an operator and a value, instead of
@@ -2786,44 +2764,43 @@ static int maybe_digit_fixup(lily_parse_state *parser)
     return result;
 }
 
-static void expression_right_parenth(lily_parse_state *parser, int *state)
+static void expression_close_token(lily_parse_state *parser, int *state)
 {
     uint16_t depth = parser->expr->save_depth;
+    lily_token token = parser->lex->token;
 
-    if (*state == ST_DEMAND_VALUE) {
-        *state = ST_BAD_TOKEN;
-        return;
-    }
-    else if (*state == ST_WANT_OPERATOR && depth == 0) {
-        *state = ST_DONE;
-        return;
-    }
-
-    check_valid_close_tok(parser);
-    lily_es_leave_tree(parser->expr);
-
-    if ((parser->flags & PARSER_SUPER_EXPR) == 0 || depth != 1)
-        /* This results in a value, so an operator should be next. */
-        *state = ST_WANT_OPERATOR;
-    else
-        /* Super expressions should stop when they're done. */
-        *state = ST_DONE;
-}
-
-static void expression_bracket_tuple(lily_parse_state *parser, int *state)
-{
-    if (*state == ST_DEMAND_VALUE) {
-        *state = ST_BAD_TOKEN;
-        return;
-    }
-    else if (parser->expr->save_depth == 0) {
+    if (*state == ST_DEMAND_VALUE)
+        lily_raise_syn(parser->raiser, "Expected a value, not '%s'.",
+                tokname(token));
+    else if (depth == 0) {
         *state = (*state == ST_WANT_OPERATOR);
         return;
     }
 
-    check_valid_close_tok(parser);
-    lily_es_leave_tree(parser->expr);
     *state = ST_WANT_OPERATOR;
+
+    lily_ast *tree = lily_es_get_saved_tree(parser->expr);
+    lily_tree_type tt = tree->tree_type;
+    lily_token expect;
+
+    if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
+        tt == tree_named_call) {
+        if ((parser->flags & PARSER_SUPER_EXPR) && depth == 1)
+            /* Super expressions should stop when they're done. */
+            *state = ST_DONE;
+
+        expect = tk_right_parenth;
+    }
+    else if (tt == tree_tuple)
+        expect = tk_tuple_close;
+    else
+        expect = tk_right_bracket;
+
+    if (token != expect)
+        lily_raise_syn(parser->raiser, "Expected closing token '%s', not '%s'.",
+                tokname(expect), tokname(token));
+
+    lily_es_leave_tree(parser->expr);
 }
 
 /* This handles literals, and does that fixup thing if that's necessary. */
@@ -3119,11 +3096,10 @@ static void expression_raw(lily_parse_state *parser)
                 state = ST_WANT_VALUE;
             }
         }
-        else if (lex->token == tk_right_parenth)
-            expression_right_parenth(parser, &state);
-        else if (lex->token == tk_right_bracket ||
+        else if (lex->token == tk_right_parenth ||
+                 lex->token == tk_right_bracket ||
                  lex->token == tk_tuple_close)
-            expression_bracket_tuple(parser, &state);
+            expression_close_token(parser, &state);
         else if (lex->token == tk_integer || lex->token == tk_double ||
                  lex->token == tk_double_quote || lex->token == tk_bytestring ||
                  lex->token == tk_byte)
