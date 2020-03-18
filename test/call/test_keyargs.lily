@@ -266,6 +266,29 @@ class TestKeyargs < TestCase
         """)
     }
 
+    public define test_super
+    {
+        var t = Interpreter()
+
+        # super (Calling super with keyargs)
+
+        assert_parse_string(t, """
+            class One(:a a: Double, :b b: Integer, :c c: List[String]) {
+                public var @a = a
+                public var @b = b
+                public var @c = c
+            }
+            class Two(d: List[String], e: Double, f: Integer)
+                < One(:a e, :b f, :c d) {}
+
+            var c = Two(["a", "b"], 5.0, 100)
+
+            if c.a != 5.0: { 0 / 0 }
+            if c.b != 100: { 0 / 0 }
+            if c.c != ["a", "b"]: { 0 / 0 }
+        """)
+    }
+
     public define test_variant
     {
         var t = Interpreter()

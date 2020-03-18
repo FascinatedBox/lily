@@ -3000,16 +3000,12 @@ static void expression_named_arg(lily_parse_state *parser, int *state)
 {
     lily_expr_state *es = parser->expr;
 
-    if (es->root) {
+    if (es->root || parser->expr->save_depth == 0) {
         *state = ST_BAD_TOKEN;
         return;
     }
 
     lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
-    if (last_tree == NULL) {
-        *state = ST_BAD_TOKEN;
-        return;
-    }
 
     if (last_tree->tree_type != tree_call &&
         last_tree->tree_type != tree_named_call) {

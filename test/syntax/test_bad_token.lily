@@ -425,18 +425,6 @@ class TestBadToken < TestCase
     {
         var t = Interpreter()
 
-        # bad keyargs (keyarg after value)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.\n    \
-                from [test]:3:\n\
-        """,
-        """\
-            define f(:a a: Integer) {  }
-
-            f(0 :a 5)
-        """)
-
         # bad keyargs (in a static list)
 
         assert_parse_fails(t, """\
@@ -449,14 +437,24 @@ class TestBadToken < TestCase
             var v = [:a 5]
         """)
 
-        # bad keyargs (outside anything)
+        # bad keyargs (in parenth)
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token 'a named argument'.\n    \
                 from [test]:1:\n\
         """,
         """\
-            var v = :a 5
+            var v = (:a 5)
+        """)
+
+        # bad keyargs (in a tuple)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'a named argument'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = <[:a 5]>
         """)
 
         # bad keyargs (after binary op)
@@ -467,6 +465,28 @@ class TestBadToken < TestCase
         """,
         """\
             var v = 1 + :a 5
+        """)
+
+        # bad keyargs (keyarg after value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'a named argument'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(:a a: Integer) {  }
+
+            f(0 :a 5)
+        """)
+
+        # bad keyargs (outside anything)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'a named argument'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = :a 5
         """)
 
         # bad keyargs (toplevel expression)
