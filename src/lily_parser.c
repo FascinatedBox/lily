@@ -2708,6 +2708,11 @@ static void expression_word(lily_parse_state *parser, int *state)
 /* This is called to handle `@<prop>` accesses. */
 static void expression_property(lily_parse_state *parser, int *state)
 {
+    if (*state == ST_WANT_OPERATOR) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
     if (lily_emit_can_use_self_property(parser->emit) == 0)
         error_self_usage(parser);
 
@@ -3078,15 +3083,11 @@ static void expression_raw(lily_parse_state *parser)
                 state = ST_DEMAND_VALUE;
             }
         }
-        else if (lex->token == tk_prop_word) {
-            if (state == ST_WANT_OPERATOR)
-                state = ST_DONE;
-            else
-                expression_property(parser, &state);
-        }
+        else if (lex->token == tk_prop_word)
+            expression_property(parser, &state);
         else if (lex->token == tk_tuple_open) {
             if (state == ST_WANT_OPERATOR)
-                state = ST_DONE;
+                state = (parser->expr->save_depth == 0);
             else {
                 lily_es_enter_tree(parser->expr, tree_tuple);
                 state = ST_WANT_VALUE;
