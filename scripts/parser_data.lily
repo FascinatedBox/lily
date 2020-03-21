@@ -1,0 +1,175 @@
+# This script generates the following:
+#
+# src/lily_parser_data.h
+#
+# * constants: The constant table holds names that are immediate values, such as
+#              __file__, true, unit, and so on.
+#
+# * keywords: The keyword table holds names that are important keywords, such as
+#             if, for, while, and so on.
+#
+
+import (finish_file,
+        open_file,
+        script_name) common
+
+script_name = "scripts/parser_data.lily"
+
+var constants = [
+    "__file__",
+    "__function__",
+    "__line__",
+    "false",
+    "self",
+    "true",
+    "unit",
+]
+var keywords = [
+    "break",
+    "case",
+    "class",
+    "continue",
+    "define",
+    "do",
+    "elif",
+    "else",
+    "enum",
+    "except",
+    "for",
+    "forward",
+    "if",
+    "import",
+    "match",
+    "private",
+    "protected",
+    "public",
+    "raise",
+    "return",
+    "scoped",
+    "static",
+    "try",
+    "var",
+    "while",
+]
+var space = "                                        "
+
+define shorthash(name: String): Integer
+{
+    var name_bytes = name.to_bytestring()
+    var result = 0, shift = 0
+    var stop = name_bytes.size() - 1
+
+    if stop > 7: {
+        stop = 7
+    }
+
+    for i in 0...stop: {
+        result = result | (name_bytes[i].to_i() << shift)
+        shift += 8
+    }
+
+    return result
+}
+
+define sort_entry(left: Tuple[String, Integer], right: Tuple[String, Integer])
+    : Boolean
+{
+    return left[1] >= right[1]
+}
+
+define sort[A](source: List[A], cmp_func: Function(A, A => Boolean))
+    : List[A]
+{
+    var n = source.size()
+    var swapped = true
+
+    while swapped: {
+        swapped = false
+        for i in 1...n-1 by 1: {
+            var a = source[i - 1]
+            var b = source[i]
+
+            if cmp_func(a, b): {
+                var temp = source[i]
+                source[i] = source[i - 1]
+                source[i - 1] = temp
+                swapped = true
+            }
+        }
+
+        n -= 1
+    }
+
+    return source
+}
+
+define write_header(f: File)
+{
+    f.write("""\
+typedef struct {
+    const char *name;
+    uint64_t shorthash;
+} keyword_entry;\n\n\
+    """)
+}
+
+define write_shorthash_table(f: File, name: String,
+                             table: List[Tuple[String, Integer]])
+{
+    var result: List[String] = []
+
+    f.write("keyword_entry " ++ name ++ "[] =\n{\n")
+
+    for i in 0...table.size() - 1: {
+        var entry = table[i]
+        var rec = "    {\"" ++ entry[0] ++ "\", " ++ entry[1] ++ "},\n"
+
+        f.write(rec)
+    }
+
+    f.write("};\n\n")
+}
+
+define write_define_table(f: File, header: String,
+                          table: List[Tuple[String, Integer]])
+{
+    var result: List[String] = []
+    var names = table.map(|t| t[0].upper() )
+                     .push("BAD_ID")
+
+    for i in 0...names.size() - 1: {
+        var n = names[i]
+        var rec = "# define " ++ header ++ n ++ " " ++ i.to_s() ++ "\n"
+
+        f.write(rec)
+    }
+
+    f.write("\n")
+}
+
+define write_lily_parser_data
+{
+    var path = "src/lily_parser_data.h"
+    var f = open_file(path)
+    var records = [
+        <[constants, "constants", "CONST_"]>,
+        <[keywords,  "keywords",  "KEY_"]>,
+    ]
+
+    write_header(f)
+
+    for i in 0...records.size() - 1: {
+        var r = records[i]
+        var table_base = r[0]
+        var table = sort(table_base.map(|m| <[m, shorthash(m)]> ), sort_entry)
+        var name = r[1]
+        var header = r[2]
+
+        write_shorthash_table(f, name, table)
+        write_define_table(f, header, table)
+    }
+
+    finish_file(f, path)
+}
+
+write_lily_parser_data()

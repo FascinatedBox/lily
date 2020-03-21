@@ -9,7 +9,7 @@
 #include "lily_library.h"
 #include "lily_parser.h"
 #include "lily_parser_tok_table.h"
-#include "lily_keyword_table.h"
+#include "lily_parser_data.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
 #include "lily_value_raw.h"
@@ -2371,7 +2371,7 @@ static int keyword_by_name(const char *name)
     int i;
     uint64_t shorthash = shorthash_for_name(name);
 
-    for (i = 0;i <= KEY_LAST_ID;i++) {
+    for (i = 0;i < KEY_BAD_ID;i++) {
         if (keywords[i].shorthash == shorthash &&
             strcmp(keywords[i].name, name) == 0)
             return i;
@@ -2454,7 +2454,7 @@ static int constant_by_name(const char *name)
     int i;
     uint64_t shorthash = shorthash_for_name(name);
 
-    for (i = 0;i <= CONST_LAST_ID;i++) {
+    for (i = 0;i < CONST_BAD_ID;i++) {
         if (constants[i].shorthash == shorthash &&
             strcmp(constants[i].name, name) == 0)
             return i;
@@ -2493,7 +2493,7 @@ static int expression_word_try_constant(lily_parse_state *parser)
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
-    if (key_id == CONST__LINE__) {
+    if (key_id == CONST___LINE__) {
         int num = lex->line_num;
 
         if ((int16_t)num <= INT16_MAX)
@@ -2503,11 +2503,11 @@ static int expression_word_try_constant(lily_parse_state *parser)
             push_literal(parser, lit);
         }
     }
-    else if (key_id == CONST__FILE__) {
+    else if (key_id == CONST___FILE__) {
         lit = lily_get_string_literal(symtab, symtab->active_module->path);
         push_literal(parser, lit);
     }
-    else if (key_id == CONST__FUNCTION__) {
+    else if (key_id == CONST___FUNCTION__) {
         lit = lily_get_string_literal(symtab,
                 parser->emit->scope_block->scope_var->name);
         push_literal(parser, lit);
