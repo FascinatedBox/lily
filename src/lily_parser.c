@@ -2614,7 +2614,7 @@ static void expression_word_as_class(lily_parse_state *parser, lily_class *cls,
 
     if (lex->token != tk_dot) {
         expression_word_ctor(parser, cls);
-        *state = ST_FORWARD;
+        *state = ST_WANT_OPERATOR | ST_FORWARD;
         return;
     }
 
@@ -2666,12 +2666,19 @@ static void expression_word_as_var(lily_parse_state *parser, lily_var *var,
    because a word could be a lot of things.  */
 static void expression_word(lily_parse_state *parser, int *state)
 {
+    if (*state == ST_WANT_OPERATOR) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     lily_module_entry *m = symtab->active_module;
     const char *name = lex->label;
-
     lily_sym *sym = find_existing_sym(m, name);
+
+    /* Words are always values, so an operator should always come next. */
+    *state = ST_WANT_OPERATOR;
 
     if (sym) {
         /* If the name given is a module, there could be more submodules after
@@ -3033,18 +3040,8 @@ static void expression_raw(lily_parse_state *parser)
 
     while (1) {
         int expr_op = parser_tok_table[lex->token].expr_op;
-        if (lex->token == tk_word) {
-            if (state == ST_WANT_OPERATOR)
-                state = (parser->expr->save_depth == 0);
-            else {
-                expression_word(parser, &state);
-                /* Words never start with forward, but might finish with it.
-                   Every word finishes with wanting an operator, but one of them
-                   wants forward as well. This fixes the state so that each case
-                   doesn't need an individual state fix. */
-                state = (state & ST_FORWARD) + ST_WANT_OPERATOR;
-            }
-        }
+        if (lex->token == tk_word)
+            expression_word(parser, &state);
         else if (expr_op != -1) {
             if (state == ST_WANT_OPERATOR) {
                 lily_es_push_binary_op(parser->expr, lex->token);
