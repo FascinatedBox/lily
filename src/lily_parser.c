@@ -8,7 +8,6 @@
 #include "lily_config.h"
 #include "lily_library.h"
 #include "lily_parser.h"
-#include "lily_parser_tok_table.h"
 #include "lily_parser_data.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
@@ -2456,27 +2455,6 @@ static void error_self_usage(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, "Cannot use %s here.", what);
 }
 
-static void push_bytestring(lily_parse_state *parser)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_lex_state *lex = parser->lex;
-    lily_literal *lit = lily_get_bytestring_literal(symtab, lex->label,
-            lex->string_length);
-    lily_type *bytestring_type = symtab->bytestring_class->self_type;
-
-    lily_es_push_literal(parser->expr, bytestring_type, lit->reg_spot);
-}
-
-static void push_double(lily_parse_state *parser)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_lex_state *lex = parser->lex;
-    lily_literal *lit = lily_get_double_literal(symtab, lex->n.double_val);
-    lily_type *double_type = symtab->double_class->self_type;
-
-    lily_es_push_literal(parser->expr, double_type, lit->reg_spot);
-}
-
 static void push_integer(lily_parse_state *parser, int64_t value)
 {
     if (value >= INT16_MIN && value <= INT16_MAX) {
@@ -2507,13 +2485,38 @@ static void push_unit(lily_parse_state *parser)
     lily_es_push_literal(parser->expr, lily_unit_type, lit->reg_spot);
 }
 
+/* There's this annoying problem where 1-1 can be 1 - 1 or 1 -1. This is called
+   if an operator is wanted but a digit is given instead. It checks to see if
+   the numeric token can be broken up into an operator and a value, instead of
+   just an operator. */
+static int maybe_digit_fixup(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    int result = 0;
+    int is_positive = lex->n.integer_val >= 0;
+
+    if (lily_lexer_digit_rescan(lex)) {
+        if (is_positive)
+            lily_es_push_binary_op(parser->expr, tk_plus);
+        else
+            lily_es_push_binary_op(parser->expr, tk_minus);
+
+        result = 1;
+    }
+
+    return result;
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
-static int expression_word_try_constant(lily_parse_state *parser)
+static int expr_word_try_constant(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     int key_id = constant_by_name(lex->label);
+
+    if (key_id == -1)
+        return 0;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
@@ -2536,10 +2539,10 @@ static int expression_word_try_constant(lily_parse_state *parser)
     else if (key_id == CONST_UNIT)
         push_unit(parser);
 
-    return key_id != -1;
+    return 1;
 }
 
-static int expression_word_try_use_self(lily_parse_state *parser)
+static int expr_word_try_use_self(lily_parse_state *parser)
 {
     lily_item *item = NULL;
 
@@ -2578,7 +2581,7 @@ static int expression_word_try_use_self(lily_parse_state *parser)
     return item != NULL;
 }
 
-static void expression_word_ctor(lily_parse_state *parser, lily_class *cls)
+static void expr_word_ctor(lily_parse_state *parser, lily_class *cls)
 {
     if (cls->item_kind & ITEM_IS_ENUM)
         lily_raise_syn(parser->raiser,
@@ -2606,14 +2609,14 @@ static void expression_word_ctor(lily_parse_state *parser, lily_class *cls)
    has already been scanned and is unimportant. The key here is to figure out if
    this is `<class>.member` or `<class>()`. The first is a static access, while
    the latter is an implicit `<class>.new()`. */
-static void expression_word_as_class(lily_parse_state *parser, lily_class *cls,
-        int *state)
+static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
+        uint16_t *state)
 {
     lily_lex_state *lex = parser->lex;
     lily_next_token(lex);
 
     if (lex->token != tk_dot) {
-        expression_word_ctor(parser, cls);
+        expr_word_ctor(parser, cls);
         *state = ST_WANT_OPERATOR | ST_FORWARD;
         return;
     }
@@ -2643,8 +2646,8 @@ static void expression_word_as_class(lily_parse_state *parser, lily_class *cls,
 /* This function takes a var and determines what kind of tree to put it into.
    The tree type is used by emitter to group vars into different types as a
    small optimization. */
-static void expression_word_as_var(lily_parse_state *parser, lily_var *var,
-        int *state)
+static void expr_word_as_var(lily_parse_state *parser, lily_var *var,
+        uint16_t *state)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
         lily_raise_syn(parser->raiser,
@@ -2663,8 +2666,8 @@ static void expression_word_as_var(lily_parse_state *parser, lily_var *var,
 }
 
 /* This is called by expression when there is a word. This is complicated,
-   because a word could be a lot of things.  */
-static void expression_word(lily_parse_state *parser, int *state)
+   because a word could be a lot of things. */
+static void expr_word(lily_parse_state *parser, uint16_t *state)
 {
     if (*state == ST_WANT_OPERATOR) {
         *state = (parser->expr->save_depth == 0);
@@ -2689,8 +2692,8 @@ static void expression_word(lily_parse_state *parser, int *state)
             sym = find_existing_sym(m, name);
         }
     }
-    else if (expression_word_try_constant(parser) ||
-             expression_word_try_use_self(parser))
+    else if (expr_word_try_constant(parser) ||
+             expr_word_try_use_self(parser))
         return;
     else {
         /* Since no module was explicitly provided, look through the builtins.
@@ -2711,81 +2714,91 @@ static void expression_word(lily_parse_state *parser, int *state)
 
     if (sym) {
         if (sym->item_kind == ITEM_VAR)
-            expression_word_as_var(parser, (lily_var *)sym, state);
+            expr_word_as_var(parser, (lily_var *)sym, state);
         else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else
-            expression_word_as_class(parser, (lily_class *)sym, state);
+            expr_word_as_class(parser, (lily_class *)sym, state);
     }
     else
         lily_raise_syn(parser->raiser, "%s has not been declared.", name);
 }
 
-/* This is called to handle `@<prop>` accesses. */
-static void expression_property(lily_parse_state *parser, int *state)
+static void expr_arrow(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        if (parser->expr->save_depth == 0) {
+            *state = ST_DONE;
+            return;
+        }
+    }
+    else if (*state == ST_TOPLEVEL) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+    else
+        lily_raise_syn(parser->raiser, "Expected a value, not '=>'.");
+
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
+    lily_tree_type last_tt = last_tree->tree_type;
+
+    if (last_tt == tree_list &&
+        last_tree->args_collected == 0)
+        last_tree->tree_type = tree_hash;
+    /* Hashes are linked as key, value, key, value. Arrows get the keys, so they
+       should see an even argument count. */
+    else if (last_tt == tree_hash &&
+             (last_tree->args_collected & 0x1) == 0)
+        ;
+    else {
+        /* No special error message because arrows are really rare. */
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    lily_es_collect_arg(parser->expr);
+    *state = ST_DEMAND_VALUE;
+}
+
+static void expr_binary(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        lily_es_push_binary_op(parser->expr, parser->lex->token);
+        *state = ST_DEMAND_VALUE;
+    }
+    else
+        *state = ST_BAD_TOKEN;
+}
+
+static void expr_byte(lily_parse_state *parser, uint16_t *state)
 {
     if (*state == ST_WANT_OPERATOR) {
         *state = (parser->expr->save_depth == 0);
         return;
     }
 
-    if (lily_emit_can_use_self_property(parser->emit) == 0)
-        error_self_usage(parser);
-
-    lily_class *current_class = parser->current_class;
-    char *name = parser->lex->label;
-    lily_named_sym *sym = lily_find_member(current_class, name);
-
-    if (sym == NULL) {
-        const char *extra = "";
-
-        if (parser->emit->block->block_type == block_class)
-            extra = " ('var' keyword missing?)";
-
-        lily_raise_syn(parser->raiser, "Property %s is not in class %s.%s",
-                name, current_class->name, extra);
-    }
-    else if (sym->item_kind == ITEM_VAR) {
-        lily_raise_syn(parser->raiser,
-                "Cannot access a method as a property (use %s instead of @%s).",
-                name, name);
-    }
-
-    if (sym->flags & SYM_NOT_INITIALIZED)
-        lily_raise_syn(parser->raiser,
-                "Invalid use of uninitialized property '@%s'.",
-                sym->name);
-
-    lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
+    lily_es_push_byte(parser->expr, (uint8_t) parser->lex->n.integer_val);
     *state = ST_WANT_OPERATOR;
 }
 
-/* There's this annoying problem where 1-1 can be 1 - 1 or 1 -1. This is called
-   if an operator is wanted but a digit is given instead. It checks to see if
-   the numeric token can be broken up into an operator and a value, instead of
-   just an operator. */
-static int maybe_digit_fixup(lily_parse_state *parser)
+static void expr_bytestring(lily_parse_state *parser, uint16_t *state)
 {
-    lily_lex_state *lex = parser->lex;
-    int result = 0;
-
-    if (lex->token == tk_integer || lex->token == tk_double) {
-        int is_positive = lex->n.integer_val >= 0;
-
-        if (lily_lexer_digit_rescan(lex)) {
-            if (is_positive)
-                lily_es_push_binary_op(parser->expr, tk_plus);
-            else
-                lily_es_push_binary_op(parser->expr, tk_minus);
-
-            result = 1;
-        }
+    if (*state == ST_WANT_OPERATOR) {
+        *state = (parser->expr->save_depth == 0);
+        return;
     }
 
-    return result;
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    lily_literal *lit = lily_get_bytestring_literal(symtab, lex->label,
+            lex->string_length);
+    lily_type *bytestring_type = symtab->bytestring_class->self_type;
+
+    lily_es_push_literal(parser->expr, bytestring_type, lit->reg_spot);
+    *state = ST_WANT_OPERATOR;
 }
 
-static void expression_close_token(lily_parse_state *parser, int *state)
+static void expr_close_token(lily_parse_state *parser, uint16_t *state)
 {
     uint16_t depth = parser->expr->save_depth;
     lily_token token = parser->lex->token;
@@ -2824,32 +2837,7 @@ static void expression_close_token(lily_parse_state *parser, int *state)
     lily_es_leave_tree(parser->expr);
 }
 
-/* This handles literals, and does that fixup thing if that's necessary. */
-static void expression_literal(lily_parse_state *parser, int *state)
-{
-    if (*state == ST_WANT_OPERATOR &&
-        maybe_digit_fixup(parser) == 0) {
-        *state = (parser->expr->save_depth == 0);
-        return;
-    }
-
-    lily_lex_state *lex = parser->lex;
-
-    if (lex->token == tk_integer)
-        push_integer(parser, lex->n.integer_val);
-    else if (lex->token == tk_byte)
-        lily_es_push_byte(parser->expr, (uint8_t) lex->n.integer_val);
-    else if (lex->token == tk_double_quote)
-        push_string(parser, lex->label);
-    else if (lex->token == tk_bytestring)
-        push_bytestring(parser);
-    else if (lex->token == tk_double)
-        push_double(parser);
-
-    *state = ST_WANT_OPERATOR;
-}
-
-static void expression_comma(lily_parse_state *parser, int *state)
+static void expr_comma(lily_parse_state *parser, uint16_t *state)
 {
     if (*state == ST_WANT_OPERATOR) {
         if (parser->expr->save_depth == 0) {
@@ -2887,87 +2875,10 @@ static void expression_comma(lily_parse_state *parser, int *state)
         *state = ST_WANT_VALUE;
 }
 
-static void expression_arrow(lily_parse_state *parser, int *state)
-{
-    if (*state == ST_WANT_OPERATOR) {
-        if (parser->expr->save_depth == 0) {
-            *state = ST_DONE;
-            return;
-        }
-    }
-    else if (*state == ST_TOPLEVEL) {
-        *state = ST_BAD_TOKEN;
-        return;
-    }
-    else
-        lily_raise_syn(parser->raiser, "Expected a value, not '=>'.");
-
-    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
-    lily_tree_type last_tt = last_tree->tree_type;
-
-    if (last_tt == tree_list &&
-        last_tree->args_collected == 0)
-        last_tree->tree_type = tree_hash;
-    /* Hashes are linked as key, value, key, value. Arrows get the keys, so they
-       should see an even argument count. */
-    else if (last_tt == tree_hash &&
-             (last_tree->args_collected & 0x1) == 0)
-        ;
-    else {
-        /* No special error message because arrows are really rare. */
-        *state = ST_BAD_TOKEN;
-        return;
-    }
-
-    lily_es_collect_arg(parser->expr);
-    *state = ST_DEMAND_VALUE;
-}
-
-/* Unary expressions! These are easy, because tokens are ops. */
-static void expression_unary(lily_parse_state *parser, int *state)
-{
-    if (*state == ST_WANT_OPERATOR)
-        *state = ST_BAD_TOKEN;
-    else {
-        lily_es_push_unary_op(parser->expr, parser->lex->token);
-        *state = ST_DEMAND_VALUE;
-    }
-}
-
-static void expression_lambda(lily_parse_state *parser, int *state)
-{
-    if (parser->flags & PARSER_SIMPLE_EXPR)
-        lily_raise_syn(parser->raiser, "Not allowed to use a lambda here.");
-
-    /* Checking for an operator allows this
-        
-       `x.some_call(|x| ... )`
-
-       to act like
-
-       `x.some_call((|x| ... ))`
-
-       which cuts a level of parentheses. */
-    if (*state == ST_WANT_OPERATOR)
-        lily_es_enter_tree(parser->expr, tree_call);
-
-    lily_expr_state *es = parser->expr;
-    int spot = es->pile_current;
-    lily_lex_state *lex = parser->lex;
-
-    lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
-    lily_es_push_text(parser->expr, tree_lambda, lex->expand_start_line, spot);
-
-    if (*state == ST_WANT_OPERATOR)
-        lily_es_leave_tree(parser->expr);
-
-    *state = ST_WANT_OPERATOR;
-}
-
 /* This handles two rather different things. It could be an `x.y` access, OR
    `x.@(<type>)`. The emitter will have type information, so don't bother
    checking if either of them is correct. */
-static void expression_dot(lily_parse_state *parser, int *state)
+static void expr_dot(lily_parse_state *parser, uint16_t *state)
 {
     if (*state != ST_WANT_OPERATOR) {
         *state = ST_BAD_TOKEN;
@@ -3000,7 +2911,54 @@ static void expression_dot(lily_parse_state *parser, int *state)
                 tokname(lex->token));
 }
 
-static void expression_named_arg(lily_parse_state *parser, int *state)
+static void expr_double(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR &&
+        maybe_digit_fixup(parser) == 0) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
+    lily_lex_state *lex = parser->lex;
+    lily_literal *lit = lily_get_double_literal(parser->symtab,
+            lex->n.double_val);
+    lily_type *double_type = parser->symtab->double_class->self_type;
+
+    lily_es_push_literal(parser->expr, double_type, lit->reg_spot);
+    *state = ST_WANT_OPERATOR;
+}
+
+static void expr_double_quote(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
+    push_string(parser, parser->lex->label);
+    *state = ST_WANT_OPERATOR;
+}
+
+static void expr_integer(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR &&
+        maybe_digit_fixup(parser) == 0) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
+    lily_lex_state *lex = parser->lex;
+
+    push_integer(parser, lex->n.integer_val);
+    *state = ST_WANT_OPERATOR;
+}
+
+static void expr_invalid(lily_parse_state *parser, uint16_t *state)
+{
+    *state = ST_BAD_TOKEN;
+}
+
+static void expr_keyword_arg(lily_parse_state *parser, uint16_t *state)
 {
     lily_expr_state *es = parser->expr;
 
@@ -3026,12 +2984,136 @@ static void expression_named_arg(lily_parse_state *parser, int *state)
     *state = ST_DEMAND_VALUE;
 }
 
+static void expr_lambda(lily_parse_state *parser, uint16_t *state)
+{
+    if (parser->flags & PARSER_SIMPLE_EXPR)
+        lily_raise_syn(parser->raiser, "Not allowed to use a lambda here.");
+
+    /* Checking for an operator allows this
+
+       `x.some_call(|x| ... )`
+
+       to act like
+
+       `x.some_call((|x| ... ))`
+
+       which cuts a level of parentheses. */
+
+    lily_lex_state *lex = parser->lex;
+    lily_expr_state *es = parser->expr;
+    int spot = es->pile_current;
+
+    if (*state == ST_WANT_OPERATOR)
+        lily_es_enter_tree(es, tree_call);
+
+    lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
+    lily_es_push_text(es, tree_lambda, lex->expand_start_line, spot);
+
+    if (*state == ST_WANT_OPERATOR)
+        lily_es_leave_tree(es);
+
+    *state = ST_WANT_OPERATOR;
+}
+
+static void expr_left_bracket(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        lily_es_enter_tree(parser->expr, tree_subscript);
+        *state = ST_DEMAND_VALUE;
+    }
+    else {
+        lily_es_enter_tree(parser->expr, tree_list);
+        *state = ST_WANT_VALUE;
+    }
+}
+
+static void expr_left_parenth(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        lily_es_enter_tree(parser->expr, tree_call);
+        *state = ST_WANT_VALUE;
+    }
+    else {
+        lily_es_enter_tree(parser->expr, tree_parenth);
+        *state = ST_DEMAND_VALUE;
+    }
+}
+
+static void expr_minus(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        lily_es_push_binary_op(parser->expr, tk_minus);
+        *state = ST_DEMAND_VALUE;
+    }
+    else
+        expr_unary(parser, state);
+}
+
+/* This is called to handle `@<prop>` accesses. */
+static void expr_prop_word(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR) {
+        *state = (parser->expr->save_depth == 0);
+        return;
+    }
+
+    if (lily_emit_can_use_self_property(parser->emit) == 0)
+        error_self_usage(parser);
+
+    lily_class *current_class = parser->current_class;
+    char *name = parser->lex->label;
+    lily_named_sym *sym = lily_find_member(current_class, name);
+
+    if (sym == NULL) {
+        const char *extra = "";
+
+        if (parser->emit->block->block_type == block_class)
+            extra = " ('var' keyword missing?)";
+
+        lily_raise_syn(parser->raiser, "Property %s is not in class %s.%s",
+                name, current_class->name, extra);
+    }
+    else if (sym->item_kind == ITEM_VAR) {
+        lily_raise_syn(parser->raiser,
+                "Cannot access a method as a property (use %s instead of @%s).",
+                name, name);
+    }
+
+    if (sym->flags & SYM_NOT_INITIALIZED)
+        lily_raise_syn(parser->raiser,
+                "Invalid use of uninitialized property '@%s'.",
+                sym->name);
+
+    lily_es_push_property(parser->expr, (lily_prop_entry *)sym);
+    *state = ST_WANT_OPERATOR;
+}
+
+static void expr_tuple_open(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR)
+        *state = (parser->expr->save_depth == 0);
+    else {
+        lily_es_enter_tree(parser->expr, tree_tuple);
+        *state = ST_WANT_VALUE;
+    }
+}
+
+static void expr_unary(lily_parse_state *parser, uint16_t *state)
+{
+    if (*state == ST_WANT_OPERATOR)
+        *state = ST_BAD_TOKEN;
+    else {
+        lily_es_push_unary_op(parser->expr, parser->lex->token);
+        *state = ST_DEMAND_VALUE;
+    }
+}
+
 /* This is the magic function that handles expressions. The states it uses are
    defined above. Most callers will use expression instead of this. */
 static void expression_raw(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int state;
+    uint16_t state;
 
     if (parser->expr->root || parser->expr->save_depth)
         state = ST_DEMAND_VALUE;
@@ -3039,80 +3121,7 @@ static void expression_raw(lily_parse_state *parser)
         state = ST_TOPLEVEL;
 
     while (1) {
-        int expr_op = parser_tok_table[lex->token].expr_op;
-        if (lex->token == tk_word)
-            expression_word(parser, &state);
-        else if (expr_op != -1) {
-            if (state == ST_WANT_OPERATOR) {
-                lily_es_push_binary_op(parser->expr, lex->token);
-                state = ST_DEMAND_VALUE;
-            }
-            else if (lex->token == tk_minus)
-                expression_unary(parser, &state);
-            else
-                state = ST_BAD_TOKEN;
-        }
-        else if (lex->token == tk_left_parenth) {
-            if (state != ST_WANT_OPERATOR) {
-                lily_es_enter_tree(parser->expr, tree_parenth);
-                state = ST_DEMAND_VALUE;
-            }
-            else {
-                lily_es_enter_tree(parser->expr, tree_call);
-                state = ST_WANT_VALUE;
-            }
-        }
-        else if (lex->token == tk_left_bracket) {
-            if (state != ST_WANT_OPERATOR) {
-                lily_es_enter_tree(parser->expr, tree_list);
-                state = ST_WANT_VALUE;
-            }
-            else {
-                lily_es_enter_tree(parser->expr, tree_subscript);
-                state = ST_DEMAND_VALUE;
-            }
-        }
-        else if (lex->token == tk_prop_word)
-            expression_property(parser, &state);
-        else if (lex->token == tk_tuple_open) {
-            if (state == ST_WANT_OPERATOR)
-                state = (parser->expr->save_depth == 0);
-            else {
-                lily_es_enter_tree(parser->expr, tree_tuple);
-                state = ST_WANT_VALUE;
-            }
-        }
-        else if (lex->token == tk_right_parenth ||
-                 lex->token == tk_right_bracket ||
-                 lex->token == tk_tuple_close)
-            expression_close_token(parser, &state);
-        else if (lex->token == tk_integer || lex->token == tk_double ||
-                 lex->token == tk_double_quote || lex->token == tk_bytestring ||
-                 lex->token == tk_byte)
-            expression_literal(parser, &state);
-        else if (lex->token == tk_dot)
-            expression_dot(parser, &state);
-        else if (lex->token == tk_minus ||
-                 lex->token == tk_not ||
-                 lex->token == tk_tilde)
-            expression_unary(parser, &state);
-        else if (lex->token == tk_lambda)
-            expression_lambda(parser, &state);
-        else if (lex->token == tk_comma)
-            expression_comma(parser, &state);
-        else if (lex->token == tk_arrow)
-            expression_arrow(parser, &state);
-        else if (lex->token == tk_keyword_arg)
-            expression_named_arg(parser, &state);
-        else if (lex->token == tk_colon ||
-                 lex->token == tk_right_curly ||
-                 lex->token == tk_three_dots ||
-                 lex->token == tk_end_lambda ||
-                 lex->token == tk_end_tag ||
-                 lex->token == tk_eof)
-            expression_close_token(parser, &state);
-        else
-            state = ST_BAD_TOKEN;
+        expr_handlers[lex->token](parser, &state);
 
         if (state == ST_DONE)
             break;

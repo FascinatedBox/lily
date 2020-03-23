@@ -11,7 +11,8 @@
 
 import (finish_file,
         open_file,
-        script_name) common
+        script_name,
+        token_data) common
 
 script_name = "scripts/parser_data.lily"
 
@@ -50,6 +51,61 @@ var keywords = [
     "try",
     "var",
     "while",
+]
+var expression_group_data = [
+    "expr_binary" => [
+        "tk_bitwise_and",
+        "tk_bitwise_and_eq",
+        "tk_bitwise_or",
+        "tk_bitwise_or_eq",
+        "tk_bitwise_xor",
+        "tk_bitwise_xor_eq",
+        "tk_divide",
+        "tk_divide_eq",
+        "tk_eq_eq",
+        "tk_equal",
+        "tk_func_pipe",
+        "tk_gt",
+        "tk_gt_eq",
+        "tk_left_shift",
+        "tk_left_shift_eq",
+        "tk_logical_and",
+        "tk_logical_or",
+        "tk_lt",
+        "tk_lt_eq",
+        "tk_minus_eq",
+        "tk_modulo",
+        "tk_modulo_eq",
+        "tk_multiply",
+        "tk_multiply_eq",
+        "tk_not_eq",
+        "tk_plus",
+        "tk_plus_eq",
+        "tk_plus_plus",
+        "tk_right_shift",
+        "tk_right_shift_eq",
+    ],
+    "expr_close_token" => [
+        "tk_colon",
+        "tk_docblock",
+        "tk_end_lambda",
+        "tk_end_tag",
+        "tk_eof",
+        "tk_left_curly",
+        "tk_right_bracket",
+        "tk_right_curly",
+        "tk_right_parenth",
+        "tk_three_dots",
+        "tk_tuple_close",
+    ],
+    "expr_invalid" => [
+        "tk_scoop",
+        "tk_typecast_parenth",
+    ],
+    "expr_unary" => [
+        "tk_tilde",
+        "tk_not",
+    ],
 ]
 var space = "                                        "
 
@@ -109,7 +165,9 @@ define write_header(f: File)
 typedef struct {
     const char *name;
     uint64_t shorthash;
-} keyword_entry;\n\n\
+} keyword_entry;
+
+typedef void (expr_handler)(lily_parse_state *, uint16_t *);\n\n\
     """)
 }
 
@@ -147,6 +205,65 @@ define write_define_table(f: File, header: String,
     f.write("\n")
 }
 
+define write_expression_handlers(f: File)
+{
+    var token_names = token_data.map(|m| m[2])
+    var token_to_expr_map: Hash[String, String] = []
+    var forward_exprs: Hash[String, Boolean] = []
+    var group_keys = expression_group_data.keys()
+
+    # Default is tk_* -> expr_*.
+    for i in 0...token_names.size() - 1: {
+        var n = token_names[i]
+        var e = n.replace("tk_", "expr_")
+
+        token_to_expr_map[n] = e
+        forward_exprs[e] = true
+    }
+
+    # Tokens in the group map to a different expression function.
+    for i in 0...group_keys.size() - 1: {
+        var k = group_keys[i]
+        var group = expression_group_data[k]
+
+        for j in 0...group.size() - 1: {
+            var target = group[j]
+            var expr = token_to_expr_map[target]
+
+            # Replace what this associates to.
+            token_to_expr_map[target] = k
+
+            # No forward for this one because it doesn't exist.
+            forward_exprs[expr] = false
+        }
+
+        forward_exprs[k] = true
+    }
+
+    var forward_names = forward_exprs.select(|k, v| v)
+                                     .keys()
+
+    forward_names = sort(forward_names, (|a, b| a >= b ))
+
+    # Write prototypes for expression functions to be used.
+    for i in 0...forward_names.size() - 1: {
+        var n = forward_names[i]
+
+        f.write("static void {0}(lily_parse_state *, uint16_t *);\n".format(n))
+    }
+
+    f.write("\nstatic expr_handler *expr_handlers[] =\n{\n")
+
+    # Write the token -> function table.
+    for i in 0...token_names.size() - 1: {
+        var n = token_names[i]
+
+        f.write("    [{0}] = {1},\n".format(n, token_to_expr_map[n]))
+    }
+
+    f.write("};\n\n")
+}
+
 define write_lily_parser_data
 {
     var path = "src/lily_parser_data.h"
@@ -169,6 +286,7 @@ define write_lily_parser_data
         write_define_table(f, header, table)
     }
 
+    write_expression_handlers(f)
     finish_file(f, path)
 }
 

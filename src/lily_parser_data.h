@@ -8,6 +8,8 @@ typedef struct {
     uint64_t shorthash;
 } keyword_entry;
 
+typedef void (expr_handler)(lily_parse_state *, uint16_t *);
+
 keyword_entry constants[] =
 {
     {"true", 1702195828},
@@ -83,5 +85,92 @@ keyword_entry keywords[] =
 # define KEY_PROTECTED 23
 # define KEY_CONTINUE 24
 # define KEY_BAD_ID 25
+
+static void expr_arrow(lily_parse_state *, uint16_t *);
+static void expr_binary(lily_parse_state *, uint16_t *);
+static void expr_byte(lily_parse_state *, uint16_t *);
+static void expr_bytestring(lily_parse_state *, uint16_t *);
+static void expr_close_token(lily_parse_state *, uint16_t *);
+static void expr_comma(lily_parse_state *, uint16_t *);
+static void expr_dot(lily_parse_state *, uint16_t *);
+static void expr_double(lily_parse_state *, uint16_t *);
+static void expr_double_quote(lily_parse_state *, uint16_t *);
+static void expr_integer(lily_parse_state *, uint16_t *);
+static void expr_invalid(lily_parse_state *, uint16_t *);
+static void expr_keyword_arg(lily_parse_state *, uint16_t *);
+static void expr_lambda(lily_parse_state *, uint16_t *);
+static void expr_left_bracket(lily_parse_state *, uint16_t *);
+static void expr_left_parenth(lily_parse_state *, uint16_t *);
+static void expr_minus(lily_parse_state *, uint16_t *);
+static void expr_prop_word(lily_parse_state *, uint16_t *);
+static void expr_tuple_open(lily_parse_state *, uint16_t *);
+static void expr_unary(lily_parse_state *, uint16_t *);
+static void expr_word(lily_parse_state *, uint16_t *);
+
+static expr_handler *expr_handlers[] =
+{
+    [tk_right_parenth] = expr_close_token,
+    [tk_comma] = expr_comma,
+    [tk_left_curly] = expr_close_token,
+    [tk_right_curly] = expr_close_token,
+    [tk_left_bracket] = expr_left_bracket,
+    [tk_colon] = expr_close_token,
+    [tk_tilde] = expr_unary,
+    [tk_bitwise_xor] = expr_binary,
+    [tk_bitwise_xor_eq] = expr_binary,
+    [tk_not] = expr_unary,
+    [tk_not_eq] = expr_binary,
+    [tk_modulo] = expr_binary,
+    [tk_modulo_eq] = expr_binary,
+    [tk_multiply] = expr_binary,
+    [tk_multiply_eq] = expr_binary,
+    [tk_divide] = expr_binary,
+    [tk_divide_eq] = expr_binary,
+    [tk_plus] = expr_binary,
+    [tk_plus_plus] = expr_binary,
+    [tk_plus_eq] = expr_binary,
+    [tk_minus] = expr_minus,
+    [tk_minus_eq] = expr_binary,
+    [tk_lt] = expr_binary,
+    [tk_lt_eq] = expr_binary,
+    [tk_left_shift] = expr_binary,
+    [tk_left_shift_eq] = expr_binary,
+    [tk_gt] = expr_binary,
+    [tk_gt_eq] = expr_binary,
+    [tk_right_shift] = expr_binary,
+    [tk_right_shift_eq] = expr_binary,
+    [tk_equal] = expr_binary,
+    [tk_eq_eq] = expr_binary,
+    [tk_left_parenth] = expr_left_parenth,
+    [tk_lambda] = expr_lambda,
+    [tk_tuple_open] = expr_tuple_open,
+    [tk_tuple_close] = expr_close_token,
+    [tk_right_bracket] = expr_close_token,
+    [tk_arrow] = expr_arrow,
+    [tk_word] = expr_word,
+    [tk_prop_word] = expr_prop_word,
+    [tk_double_quote] = expr_double_quote,
+    [tk_bytestring] = expr_bytestring,
+    [tk_byte] = expr_byte,
+    [tk_integer] = expr_integer,
+    [tk_double] = expr_double,
+    [tk_docblock] = expr_close_token,
+    [tk_keyword_arg] = expr_keyword_arg,
+    [tk_dot] = expr_dot,
+    [tk_bitwise_and] = expr_binary,
+    [tk_bitwise_and_eq] = expr_binary,
+    [tk_logical_and] = expr_binary,
+    [tk_bitwise_or] = expr_binary,
+    [tk_bitwise_or_eq] = expr_binary,
+    [tk_logical_or] = expr_binary,
+    [tk_typecast_parenth] = expr_invalid,
+    [tk_three_dots] = expr_close_token,
+    [tk_func_pipe] = expr_binary,
+    [tk_scoop] = expr_invalid,
+    [tk_invalid] = expr_invalid,
+    [tk_end_lambda] = expr_close_token,
+    [tk_end_tag] = expr_close_token,
+    [tk_eof] = expr_close_token,
+};
 
 #endif
