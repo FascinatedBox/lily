@@ -2425,30 +2425,6 @@ static int keyword_by_name(const char *name)
    Dispatch functions will never see this. */
 #define ST_FORWARD              0x8
 
-/* This is a wrapper function that handles pushing the given literal into the
-   parser's ast pool. */
-static void push_literal(lily_parse_state *parser, lily_literal *lit)
-{
-    lily_class *literal_cls;
-    int base = FLAGS_TO_BASE(lit);
-
-    if (base == V_INTEGER_BASE)
-        literal_cls = parser->symtab->integer_class;
-    else if (base == V_DOUBLE_BASE)
-        literal_cls = parser->symtab->double_class;
-    else if (base == V_STRING_BASE)
-        literal_cls = parser->symtab->string_class;
-    else if (base == V_BYTESTRING_BASE)
-        literal_cls = parser->symtab->bytestring_class;
-    else if (base == V_UNIT_BASE)
-        literal_cls = lily_unit_type->cls;
-    else
-        /* Impossible, but keeps the compiler from complaining. */
-        literal_cls = lily_question_type->cls;
-
-    lily_es_push_literal(parser->expr, literal_cls->self_type, lit->reg_spot);
-}
-
 static int constant_by_name(const char *name)
 {
     int i;
@@ -2480,52 +2456,85 @@ static void error_self_usage(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, "Cannot use %s here.", what);
 }
 
+static void push_bytestring(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    lily_literal *lit = lily_get_bytestring_literal(symtab, lex->label,
+            lex->string_length);
+    lily_type *bytestring_type = symtab->bytestring_class->self_type;
+
+    lily_es_push_literal(parser->expr, bytestring_type, lit->reg_spot);
+}
+
+static void push_double(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    lily_literal *lit = lily_get_double_literal(symtab, lex->n.double_val);
+    lily_type *double_type = symtab->double_class->self_type;
+
+    lily_es_push_literal(parser->expr, double_type, lit->reg_spot);
+}
+
+static void push_integer(lily_parse_state *parser, int64_t value)
+{
+    if (value >= INT16_MIN && value <= INT16_MAX) {
+        lily_es_push_integer(parser->expr, (int16_t)value);
+        return;
+    }
+
+    lily_symtab *symtab = parser->symtab;
+    lily_literal *lit = lily_get_integer_literal(symtab, value);
+    lily_type *integer_type = symtab->integer_class->self_type;
+
+    lily_es_push_literal(parser->expr, integer_type, lit->reg_spot);
+}
+
+static void push_string(lily_parse_state *parser, const char *str)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_type *string_type = symtab->string_class->self_type;
+    lily_literal *lit = lily_get_string_literal(symtab, str);
+
+    lily_es_push_literal(parser->expr, string_type, lit->reg_spot);
+}
+
+static void push_unit(lily_parse_state *parser)
+{
+    lily_literal *lit = lily_get_unit_literal(parser->symtab);
+
+    lily_es_push_literal(parser->expr, lily_unit_type, lit->reg_spot);
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
 static int expression_word_try_constant(lily_parse_state *parser)
 {
-    lily_expr_state *es = parser->expr;
-    lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     int key_id = constant_by_name(lex->label);
-    lily_literal *lit;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
-    if (key_id == CONST___LINE__) {
-        int num = lex->line_num;
-
-        if ((int16_t)num <= INT16_MAX)
-            lily_es_push_integer(es, (int16_t)num);
-        else {
-            lit = lily_get_integer_literal(symtab, lex->line_num);
-            push_literal(parser, lit);
-        }
-    }
-    else if (key_id == CONST___FILE__) {
-        lit = lily_get_string_literal(symtab, symtab->active_module->path);
-        push_literal(parser, lit);
-    }
-    else if (key_id == CONST___FUNCTION__) {
-        lit = lily_get_string_literal(symtab,
-                parser->emit->scope_block->scope_var->name);
-        push_literal(parser, lit);
-    }
+    if (key_id == CONST___LINE__)
+        push_integer(parser, (int64_t)lex->line_num);
+    else if (key_id == CONST___FILE__)
+        push_string(parser, parser->symtab->active_module->path);
+    else if (key_id == CONST___FUNCTION__)
+        push_string(parser, parser->emit->scope_block->scope_var->name);
     else if (key_id == CONST_TRUE)
-        lily_es_push_boolean(es, 1);
+        lily_es_push_boolean(parser->expr, 1);
     else if (key_id == CONST_FALSE)
-        lily_es_push_boolean(es, 0);
+        lily_es_push_boolean(parser->expr, 0);
     else if (key_id == CONST_SELF) {
         if (lily_emit_can_use_self_keyword(parser->emit) == 0)
             error_self_usage(parser);
 
-        lily_es_push_self(es);
+        lily_es_push_self(parser->expr);
     }
-    else if (key_id == CONST_UNIT) {
-        lit = lily_get_unit_literal(symtab);
-        push_literal(parser, lit);
-    }
+    else if (key_id == CONST_UNIT)
+        push_unit(parser);
 
     return key_id != -1;
 }
@@ -2819,33 +2828,16 @@ static void expression_literal(lily_parse_state *parser, int *state)
 
     lily_lex_state *lex = parser->lex;
 
-    if (lex->token == tk_integer) {
-        if (lex->n.integer_val <= INT16_MAX &&
-            lex->n.integer_val >= INT16_MIN)
-            lily_es_push_integer(parser->expr, (int16_t)
-                    lex->n.integer_val);
-        else {
-            lily_literal *lit = lily_get_integer_literal(parser->symtab,
-                    lex->n.integer_val);
-            push_literal(parser, lit);
-        }
-    }
+    if (lex->token == tk_integer)
+        push_integer(parser, lex->n.integer_val);
     else if (lex->token == tk_byte)
         lily_es_push_byte(parser->expr, (uint8_t) lex->n.integer_val);
-    else if (lex->token == tk_double_quote) {
-        lily_literal *lit = lily_get_string_literal(parser->symtab, lex->label);
-        push_literal(parser, lit);
-    }
-    else if (lex->token == tk_bytestring) {
-        lily_literal *lit = lily_get_bytestring_literal(parser->symtab,
-                lex->label, lex->string_length);
-        push_literal(parser, lit);
-    }
-    else if (lex->token == tk_double) {
-        lily_literal *lit = lily_get_double_literal(parser->symtab,
-                lex->n.double_val);
-        push_literal(parser, lit);
-    }
+    else if (lex->token == tk_double_quote)
+        push_string(parser, lex->label);
+    else if (lex->token == tk_bytestring)
+        push_bytestring(parser);
+    else if (lex->token == tk_double)
+        push_double(parser);
 
     *state = ST_WANT_OPERATOR;
 }
