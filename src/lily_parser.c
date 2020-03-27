@@ -3333,63 +3333,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
     stuff. As such, there's no real special attention paid to the rest.
     Near the bottom is parser_loop, which is the entry point of the parser. **/
 
-static void keyword_if(lily_parse_state *);
-static void keyword_do(lily_parse_state *);
-static void keyword_var(lily_parse_state *);
-static void keyword_for(lily_parse_state *);
-static void keyword_try(lily_parse_state *);
-static void keyword_case(lily_parse_state *);
-static void keyword_else(lily_parse_state *);
-static void keyword_elif(lily_parse_state *);
-static void keyword_enum(lily_parse_state *);
-static void keyword_while(lily_parse_state *);
-static void keyword_raise(lily_parse_state *);
-static void keyword_match(lily_parse_state *);
-static void keyword_break(lily_parse_state *);
-static void keyword_class(lily_parse_state *);
-static void keyword_public(lily_parse_state *);
-static void keyword_static(lily_parse_state *);
-static void keyword_scoped(lily_parse_state *);
-static void keyword_define(lily_parse_state *);
-static void keyword_return(lily_parse_state *);
-static void keyword_except(lily_parse_state *);
-static void keyword_import(lily_parse_state *);
-static void keyword_forward(lily_parse_state *);
-static void keyword_private(lily_parse_state *);
-static void keyword_protected(lily_parse_state *);
-static void keyword_continue(lily_parse_state *);
-
-typedef void (keyword_handler)(lily_parse_state *);
-
-/* This is setup so that handlers[key_id] is the handler for that keyword. */
-static keyword_handler *handlers[] = {
-    keyword_if,
-    keyword_do,
-    keyword_var,
-    keyword_for,
-    keyword_try,
-    keyword_case,
-    keyword_else,
-    keyword_elif,
-    keyword_enum,
-    keyword_while,
-    keyword_raise,
-    keyword_match,
-    keyword_break,
-    keyword_class,
-    keyword_public,
-    keyword_static,
-    keyword_scoped,
-    keyword_define,
-    keyword_return,
-    keyword_except,
-    keyword_import,
-    keyword_forward,
-    keyword_private,
-    keyword_protected,
-    keyword_continue,
-};
-
 /* This is used by lambda handling so that statements (and the handler
    declarations) can come after lambdas. */
 static inline void handle_multiline(lily_parse_state *parser, int key_id)

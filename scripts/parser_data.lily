@@ -167,7 +167,8 @@ typedef struct {
     uint64_t shorthash;
 } keyword_entry;
 
-typedef void (expr_handler)(lily_parse_state *, uint16_t *);\n\n\
+typedef void (expr_handler)(lily_parse_state *, uint16_t *);
+typedef void (keyword_handler)(lily_parse_state *);\n\n\
     """)
 }
 
@@ -264,6 +265,32 @@ define write_expression_handlers(f: File)
     f.write("};\n\n")
 }
 
+define write_keyword_handlers(f: File)
+{
+    # Sort by shorthash order for the mapping table.
+    var table_base = sort(keywords.map(|m| <[m, shorthash(m)]> ), sort_entry)
+
+    # See ya shorthashes (only needed them for sorting).
+    var table = table_base.map(|m| "keyword_" ++ m[0] )
+
+    for i in 0...table.size() - 1: {
+        var t = table[i]
+
+        f.write("static void {0}(lily_parse_state *);\n".format(t))
+    }
+
+    f.write("\nstatic keyword_handler *handlers[] =\n{\n")
+
+    # Write the token -> function table.
+    for i in 0...table.size() - 1: {
+        var t = table[i]
+
+        f.write("    {0},\n".format(t))
+    }
+
+    f.write("};\n\n")
+}
+
 define write_lily_parser_data
 {
     var path = "src/lily_parser_data.h"
@@ -287,6 +314,7 @@ define write_lily_parser_data
     }
 
     write_expression_handlers(f)
+    write_keyword_handlers(f)
     finish_file(f, path)
 }
 
