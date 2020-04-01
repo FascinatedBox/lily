@@ -201,7 +201,7 @@ class TestBadEnum < TestCase
         # bad match (start without case)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'match' must start with a case.\n    \
+            SyntaxError: match must start with a case.\n    \
                 from [test]:4:\n\
         """,
         """\
@@ -250,7 +250,7 @@ class TestBadEnum < TestCase
         # bad match logic (else after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'case' in exhaustive match.\n    \
+            SyntaxError: case in exhaustive match.\n    \
                 from [test]:9:\n\
         """,
         """\
@@ -287,7 +287,7 @@ class TestBadEnum < TestCase
         # bad match logic (else when exhaustive)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'else' in exhaustive match.\n    \
+            SyntaxError: else in exhaustive match.\n    \
                 from [test]:9:\n\
         """,
         """\
@@ -306,7 +306,7 @@ class TestBadEnum < TestCase
         # bad match logic (new case when exhaustive)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'case' in exhaustive match.\n    \
+            SyntaxError: case in exhaustive match.\n    \
                 from [test]:9:\n\
         """,
         """\

@@ -638,6 +638,7 @@ static void leave_scope_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
 
+    lily_u16_set_pos(emit->code, block->code_start);
     clear_storages(emit->storages, block->storage_count);
     emit->scope_block = block->prev_scope_block;
     emit->storages->start -= emit->scope_block->storage_count;
@@ -681,7 +682,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
 static void finish_block_code(lily_emit_state *emit)
 {
-    lily_block *block = emit->block;
+    lily_block *block = emit->scope_block;
     lily_var *var = block->scope_var;
     lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
     lily_function_val *f = v->value.function;
@@ -714,7 +715,6 @@ static void finish_block_code(lily_emit_state *emit)
     f->code = code;
     f->proto->code = code;
     f->reg_count = block->next_reg_spot;
-    lily_u16_set_pos(emit->code, block->code_start);
 }
 
 static int try_write_define_exit(lily_emit_state *emit, uint16_t line_num)
@@ -4372,11 +4372,13 @@ void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
        assignment. For all other cases, write the resulting output. If the
        output isn't what the caller wants, then it can always use ts to narrow
        the output to Unit. */
-    if (root_result) {
+    if (root_result)
         lily_u16_write_3(emit->code, o_return_value, root_result->reg_spot,
                 es->root->line_num);
-        emit->block->last_exit = lily_u16_pos(emit->code);
-    }
+    else
+        lily_u16_write_2(emit->code, o_return_unit, es->root->line_num);
+
+    emit->block->last_exit = lily_u16_pos(emit->code);
 }
 
 /* This handles the 'return' keyword. If parser has the pool filled with some

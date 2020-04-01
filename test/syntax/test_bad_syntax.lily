@@ -180,7 +180,7 @@ class TestBadSyntax < TestCase
         # bad blocks (else after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: else after else in multi-line if block.\n    \
+            SyntaxError: else in exhaustive if.\n    \
                 from [test]:5:\n\
         """,
         """\
@@ -196,7 +196,7 @@ class TestBadSyntax < TestCase
         # bad blocks (elif after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: elif after else in multi-line if block.\n    \
+            SyntaxError: elif in exhaustive if.\n    \
                 from [test]:5:\n\
         """,
         """\
@@ -744,7 +744,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:11:\n\
+                from [test]:10:\n\
         """,
         """\
             define f(a: Integer) : Integer
@@ -763,7 +763,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:10:\n\
+                from [test]:9:\n\
         """,
         """\
             define f(a: Option[Integer]) : Integer
@@ -781,7 +781,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:10:\n\
+                from [test]:9:\n\
         """,
         """\
             define f(a: Option[Integer]) : Integer
@@ -799,7 +799,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:15:\n\
+                from [test]:14:\n\
         """,
         """\
             class One {}
@@ -822,7 +822,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:15:\n\
+                from [test]:14:\n\
         """,
         """\
             class One {}
@@ -845,7 +845,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:9:\n\
+                from [test]:8:\n\
         """,
         """\
             define f(a: Integer) : Integer
@@ -933,7 +933,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             define f : Integer {  }

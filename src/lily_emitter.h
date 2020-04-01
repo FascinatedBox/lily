@@ -120,7 +120,8 @@ typedef struct lily_block_ {
     uint16_t match_case_start;
     /* Match blocks: This is the register that the match source is in. */
     uint16_t match_reg;
-    uint16_t pad;
+    /* Define block: Where to restore generics when this block closes. */
+    uint16_t generic_start;
 
     union {
         /* Scope blocks: The var that will receive the code when this scope is

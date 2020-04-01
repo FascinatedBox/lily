@@ -50,6 +50,16 @@ class TestBadLambda < TestCase
         """\
             var v = (|| return )
         """)
+
+        # lambda rules (incomplete block at end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token 'end of lambda'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| if 1: { )
+        """)
     }
 
     public define test_unterminated

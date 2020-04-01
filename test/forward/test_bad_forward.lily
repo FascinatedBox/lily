@@ -126,7 +126,7 @@ class TestBadForward < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Reached end of class with unresolved forward(s):\n\
             * Test.f at line 2\n    \
-                from [test]:4:\n\
+                from [test]:3:\n\
         """,
         """\
             class Test {

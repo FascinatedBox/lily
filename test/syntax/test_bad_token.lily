@@ -691,7 +691,7 @@ class TestBadToken < TestCase
         # bad keyword (case outside of match)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'case' not allowed outside of 'match'.\n    \
+            SyntaxError: case outside of match.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -701,7 +701,7 @@ class TestBadToken < TestCase
         # bad keyword (except outside of try)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'except' outside 'try'.\n    \
+            SyntaxError: except outside of try.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -775,7 +775,7 @@ class TestBadToken < TestCase
 
         # bad keyword (elif without if)
         assert_parse_fails(t, """\
-            SyntaxError: 'elif' without 'if'.\n    \
+            SyntaxError: elif outside of if.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -785,7 +785,7 @@ class TestBadToken < TestCase
         # bad keyword (else without if)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'else' without 'if'.\n    \
+            SyntaxError: else outside of if or match.\n    \
                 from [test]:2:\n\
         """,
         """\
