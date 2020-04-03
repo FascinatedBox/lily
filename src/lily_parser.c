@@ -5124,25 +5124,25 @@ static void parser_loop(lily_parse_state *parser)
         else if (lex->token == tk_eof) {
             lily_block *b = parser->emit->block;
 
-            if (b->block_type != block_file)
+            if (b->block_type != block_file ||
+                parser->flags & PARSER_IS_RENDERING)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(lex->token));
+                        tokname(tk_eof));
             else if (b->forward_count)
                 error_forward_decl_pending(parser);
 
             if (b->prev != NULL)
                 finish_import(parser);
-            else if (parser->flags & PARSER_IS_RENDERING)
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(lex->token));
             else
                 break;
         }
         else if (lex->token == tk_end_tag) {
-            if ((parser->flags & PARSER_IS_RENDERING) == 0 &&
-                lex->token == tk_end_tag)
+            lily_block *b = parser->emit->block;
+
+            if ((parser->flags & PARSER_IS_RENDERING) == 0 ||
+                b->prev != NULL)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(lex->token));
+                        tokname(tk_end_tag));
 
             if (parser->emit->block->forward_count)
                 error_forward_decl_pending(parser);

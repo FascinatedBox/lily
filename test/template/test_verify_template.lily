@@ -105,5 +105,27 @@ class TestVerifyTemplate < TestCase
         """\
             <?lily ?><?lily 0 / 0?>
         """)
+
+        # failure (finish with eof)
+
+        t = Interpreter()
+        assert_render_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            <?lily\
+        """)
+
+        # failure (end tag with pending blocks)
+
+        t = Interpreter()
+        assert_render_fails(t, """\
+            SyntaxError: Unexpected token '?>'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            <?lily define f { ?>
+        """)
     }
 }
