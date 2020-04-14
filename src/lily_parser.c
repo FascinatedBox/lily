@@ -1022,25 +1022,73 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     lily_vs_push(parser->symtab->literals, v);
 }
 
-static void put_keyargs_in_target(lily_parse_state *parser, lily_item *target,
-        uint16_t arg_start)
+/* This takes pairs from parser's data stack and builds a string array. Unlike a
+   typical string array where each element is a small string, this function
+   builds a single backing string. This is done to make deletion easier (element
+   zero is always the backing string), and to reduce the number of allocation
+   calls.
+   The array built is terminated by NULL at the end to allow safe looping.
+   Parser's data stack and strings are fixed by this call at the end. */
+static char **build_strings_by_data(lily_parse_state *parser,
+        uint16_t arg_count, uint16_t key_start)
 {
-    char *source = lily_sp_get(parser->data_strings, arg_start);
-    int len = parser->data_string_pos - arg_start + 1;
-    char *buffer = lily_malloc(len * sizeof(*buffer));
+    lily_buffer_u16 *ds = parser->data_stack;
 
-    memcpy(buffer, source, len);
+    /* If the first argument doesn't have a keyword, insert a zero at the start
+       and push the string by 1. */
+    uint16_t no_first_key = !!lily_u16_get(ds, key_start);
+    uint16_t offset = lily_u16_get(ds, key_start + 1);
+    uint16_t range = parser->data_string_pos - offset;
+    char **keywords = lily_malloc((arg_count + 1) * sizeof(*keywords));
 
+    /* There's no extra +1 because range includes the terminating zero. */
+    char *block = lily_malloc((range + no_first_key) * sizeof(*block));
+    char *source = parser->data_strings->buffer;
+
+    /* Deletion is easier if [0] is always the backing string. If the first
+       argument doesn't have a keyword, then the block starts with "\0". */
+    block[0] = '\0';
+    memcpy(block + no_first_key, source + offset, range * sizeof(*block));
+
+    /* Use the "\0" at the end of the block for empty keys. */
+    char *empty = block + range + no_first_key - 1;
+    uint16_t key_end = lily_u16_pos(parser->data_stack);
+    uint16_t i;
+
+    for (i = 1;i < arg_count;i++)
+        keywords[i] = empty;
+
+    keywords[0] = block;
+    keywords[arg_count] = NULL;
+
+    for (i = key_start;i < key_end;i += 2) {
+        uint16_t arg_pos = lily_u16_get(ds, i);
+        uint16_t string_pos = lily_u16_get(ds, i + 1);
+
+        /* Translate data string position to block position. */
+        uint16_t target_pos = string_pos - offset + no_first_key;
+
+        keywords[arg_pos] = block + target_pos;
+    }
+
+    parser->data_string_pos = lily_u16_get(ds, key_start + 1);
+    lily_u16_set_pos(ds, key_start);
+    return keywords;
+}
+
+static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
+        char **keywords)
+{
     if (target->item_kind == ITEM_VAR) {
         lily_var *var = (lily_var *)target;
         lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
 
-        p->arg_names = buffer;
+        p->keywords = keywords;
     }
     else {
         lily_variant_class *c = (lily_variant_class *)target;
 
-        c->arg_names = buffer;
+        c->keywords = keywords;
     }
 }
 
@@ -1679,8 +1727,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     /* -1 because Unit is injected at the front beforehand. */
     int result_pos = parser->tm->pos - 1;
     int i = 0;
-    uint16_t last_keyarg_pos = 0;
-    uint16_t keyarg_start = parser->data_string_pos;
+    uint16_t keyarg_start = lily_u16_pos(parser->data_stack);
     collect_fn arg_collect = NULL;
 
     if ((arg_flags & F_COLLECT_DEFINE)) {
@@ -1712,16 +1759,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         while (1) {
             if (lex->token == tk_keyword_arg) {
-                while (i != last_keyarg_pos) {
-                    last_keyarg_pos++;
-                    lily_sp_insert(parser->data_strings, " ",
-                            &parser->data_string_pos);
-                }
-
-                lily_sp_insert(parser->data_strings, lex->label,
-                        &parser->data_string_pos);
-
-                last_keyarg_pos++;
+                lily_u16_write_1(parser->data_stack, i);
+                add_data_string(parser, lex->label);
                 lily_next_token(lex);
             }
 
@@ -1773,7 +1812,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         }
     }
 
-    if (last_keyarg_pos) {
+    if (keyarg_start != lily_u16_pos(parser->data_stack)) {
         lily_sym *sym = (lily_sym *)target;
 
         /* Allowing this would mean checking that the argument strings are the
@@ -1784,17 +1823,9 @@ static void collect_call_args(lily_parse_state *parser, void *target,
                     "Forward declarations not allowed to have keyword arguments.");
         }
 
-        while (last_keyarg_pos != i) {
-            last_keyarg_pos++;
-            lily_sp_insert(parser->data_strings, " ",
-                    &parser->data_string_pos);
-        }
+        char **keywords = build_strings_by_data(parser, i, keyarg_start);
 
-        lily_sp_insert(parser->data_strings, "\t",
-                &parser->data_string_pos);
-
-        put_keyargs_in_target(parser, target, keyarg_start);
-        parser->data_string_pos = keyarg_start;
+        put_keywords_in_target(parser, target, keywords);
     }
 
     lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,

@@ -80,8 +80,14 @@ static void free_properties(lily_class *cls)
     while (prop_iter) {
         next_prop = prop_iter->next;
 
-        if (prop_iter->item_kind & ITEM_IS_VARIANT)
-            lily_free(((lily_variant_class *)prop_iter)->arg_names);
+        if (prop_iter->item_kind & ITEM_IS_VARIANT) {
+            lily_variant_class *variant = (lily_variant_class *)prop_iter;
+
+            if (variant->keywords) {
+                lily_free(variant->keywords[0]);
+                lily_free(variant->keywords);
+            }
+        }
 
         lily_free(prop_iter->name);
         lily_free(prop_iter);
@@ -838,7 +844,7 @@ lily_variant_class *lily_new_variant_class(lily_class *enum_cls,
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
     variant->line_num = line_num;
-    variant->arg_names = NULL;
+    variant->keywords = NULL;
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);
 

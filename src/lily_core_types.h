@@ -173,8 +173,8 @@ typedef struct {
     /* A variant's parent is the enum it belongs to. */
     struct lily_class_ *parent;
 
-    /* See lily_proto's arg_names. */
-    char *arg_names;
+    /* See lily_proto's keywords. */
+    char **keywords;
 } lily_variant_class;
 
 /* This represents a property inside of a class. */
@@ -333,16 +333,13 @@ typedef struct lily_proto_ {
        at the same code. */
     uint16_t *code;
 
-    /* If the function doesn't take keyword arguments, then this is NULL.
-       Otherwise, this contains argument names for all arguments in order.
-       The format is as follows:
-       * If the current argument has a name, then that name is inserted, plus a
-         zero terminator. Names are restricted to being whatever is considered a
-         valid identifier.
-       * If the current argument doesn't have a name, a space is put there
-         instead.
-       * The full sequence is terminated by a tab character (\t). */
-    char *arg_names;
+    /* If this function does not take keyword arguments, this is NULL.
+       Otherwise, the array contains one element for each argument, plus a NULL
+       terminator at the end. The first argument is at 0.
+       If an argument does not have a keyword, the keyword is "\0".
+       The array is backed by a single string position 0 holding the start of
+       that string. When freeing keywords, free that and then keywords. */
+    char **keywords;
 } lily_proto;
 
 

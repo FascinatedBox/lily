@@ -1574,7 +1574,12 @@ static void free_proto_stack(lily_proto_stack *stack)
         lily_free(p->name);
         lily_free(p->locals);
         lily_free(p->code);
-        lily_free(p->arg_names);
+
+        if (p->keywords) {
+            lily_free(p->keywords[0]);
+            lily_free(p->keywords);
+        }
+
         lily_free(p);
     }
 
@@ -1625,7 +1630,7 @@ lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
     p->name = proto_name;
     p->locals = NULL;
     p->code = NULL;
-    p->arg_names = NULL;
+    p->keywords = NULL;
 
     protos->data[protos->pos] = p;
     protos->pos++;
@@ -1845,8 +1850,6 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
  *
  */
 
-static char *keypos_to_keyarg(char *, int);
-
 static void inconsistent_type_error(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, const char *context)
 {
@@ -2048,7 +2051,7 @@ static void error_keyarg_before_posarg(lily_emit_state *emit, lily_ast *arg)
 }
 
 static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type, char *keyword_names)
+        lily_type *call_type, char **keywords)
 {
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
@@ -2082,7 +2085,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
                     continue;
                 }
 
-                char *arg_name = keypos_to_keyarg(keyword_names, i);
+                char *key = keywords[i];
 
                 i++;
 
@@ -2091,10 +2094,9 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
                 if (t->cls->id == LILY_ID_OPTARG)
                     continue;
 
-                if (*arg_name != ' ')
+                if (key[0] != '\0')
                     lily_mb_add_fmt(msgbuf,
-                            "\n* Parameter #%d (:%s) of type ^T.", i, arg_name,
-                            t);
+                            "\n* Parameter #%d (:%s) of type ^T.", i, key, t);
                 else
                     lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.", i,
                             t);
@@ -3729,43 +3731,25 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     lily_ts_scope_restore(emit->ts, &p);
 }
 
-static char *keypos_to_keyarg(char *arg_names, int pos)
+static int keyarg_to_pos(char **keywords, const char *to_find)
 {
-    while (pos) {
-        if (*arg_names == ' ')
-            arg_names += 2;
-        else
-            arg_names += strlen(arg_names) + 1;
-
-        pos--;
-    }
-
-    return arg_names;
-}
-
-static int keyarg_to_pos(const char *valid, const char *keyword_given)
-{
-    int index = 0;
-    char *iter = (char *)valid;
+    int i = 0;
 
     while (1) {
-        if (*iter == ' ') {
-            iter += 2;
-            index++;
-        }
-        else if (*iter == '\t') {
-            index = -1;
+        char *key = keywords[i];
+
+        if (key == NULL) {
+            i = -1;
             break;
         }
-        else if (strcmp(iter, keyword_given) == 0)
+
+        if (key[0] && strcmp(key, to_find) == 0)
             break;
-        else {
-            iter += strlen(iter) + 1;
-            index++;
-        }
+
+        i++;
     }
 
-    return index;
+    return i;
 }
 
 static lily_type *get_va_type(lily_type *call_type)
@@ -3815,9 +3799,9 @@ static lily_ast *relink_arg(lily_ast *source_ast, lily_ast *new_ast)
     return source_ast;
 }
 
-static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
+static char **get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
 {
-    char *names = NULL;
+    char **names = NULL;
 
     if (ast->sym->item_kind == ITEM_VAR) {
         lily_var *var = (lily_var *)ast->sym;
@@ -3825,11 +3809,11 @@ static char *get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
         if (var->flags & VAR_IS_READONLY) {
             lily_proto *p = lily_emit_proto_for_var(emit, var);
 
-            names = p->arg_names;
+            names = p->keywords;
         }
     }
     else if (ast->sym->item_kind & ITEM_IS_VARIANT)
-        names = ast->variant->arg_names;
+        names = ast->variant->keywords;
 
     return names;
 }
@@ -3859,9 +3843,9 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
 
-    char *keyword_names = get_keyarg_names(emit, ast);
+    char **keywords = get_keyarg_names(emit, ast);
 
-    if (keyword_names == NULL)
+    if (keywords == NULL)
         error_keyarg_not_supported(emit, ast);
 
     for (i = 0; arg != NULL; i++, arg = arg->next_arg) {
@@ -3873,7 +3857,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
             char *key_name = lily_sp_get(emit->expr_strings,
                     arg->left->pile_pos);
 
-            pos = keyarg_to_pos(keyword_names, key_name);
+            pos = keyarg_to_pos(keywords, key_name);
 
             if (pos == -1)
                 error_keyarg_not_valid(emit, ast, arg);
@@ -3900,7 +3884,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     get_func_min_max(call_type, &min, &max);
 
     if (min > num_args)
-        error_keyarg_missing_params(emit, ast, call_type, keyword_names);
+        error_keyarg_missing_params(emit, ast, call_type, keywords);
 }
 
 static void run_named_call(lily_emit_state *emit, lily_ast *ast,
