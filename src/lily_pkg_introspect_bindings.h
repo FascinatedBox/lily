@@ -122,8 +122,10 @@ typedef struct lily_introspect_ModuleEntry_ {
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
     "\011TypeEntry\0VarEntry\0PropertyEntry\0FunctionEntry\0MethodEntry\0ClassEntry\0VariantEntry\0EnumEntry\0ModuleEntry\0"
-    ,"C\01TypeEntry\0"
+    ,"C\03TypeEntry\0"
     ,"m\0as_string\0(TypeEntry): String"
+    ,"m\0class_name\0(TypeEntry): String"
+    ,"m\0module_id\0(TypeEntry): Integer"
     ,"C\03VarEntry\0"
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
@@ -164,7 +166,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
     ,"m\0name\0(EnumEntry): String"
     ,"m\0module_path\0(EnumEntry): String"
-    ,"C\015ModuleEntry\0"
+    ,"C\016ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0boxed_functions\0(ModuleEntry): List[FunctionEntry]"
@@ -172,6 +174,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0boxed_vars\0(ModuleEntry): List[VarEntry]"
     ,"m\0classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0dirname\0(ModuleEntry): String"
+    ,"m\0id\0(ModuleEntry): Integer"
     ,"m\0enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0functions\0(ModuleEntry): List[FunctionEntry]"
     ,"m\0modules_used\0(ModuleEntry): List[ModuleEntry]"
@@ -188,6 +191,8 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     NULL, \
     lily_introspect_TypeEntry_as_string, \
+    lily_introspect_TypeEntry_class_name, \
+    lily_introspect_TypeEntry_module_id, \
     NULL, \
     lily_introspect_VarEntry_line_number, \
     lily_introspect_VarEntry_name, \
@@ -236,6 +241,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ModuleEntry_boxed_vars, \
     lily_introspect_ModuleEntry_classes, \
     lily_introspect_ModuleEntry_dirname, \
+    lily_introspect_ModuleEntry_id, \
     lily_introspect_ModuleEntry_enums, \
     lily_introspect_ModuleEntry_functions, \
     lily_introspect_ModuleEntry_modules_used, \

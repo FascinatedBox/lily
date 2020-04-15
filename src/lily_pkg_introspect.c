@@ -330,6 +330,11 @@ static void unpack_and_return_type(lily_state *s)
     lily_return_top(s);
 }
 
+static void return_module_id(lily_state *s, lily_module_entry *m)
+{
+    lily_return_integer(s, (int64_t)m);
+}
+
 /**
 foreign class TypeEntry {
     layout {
@@ -354,6 +359,30 @@ void lily_introspect_TypeEntry_as_string(lily_state *s)
     lily_mb_add_fmt(msgbuf, "^T", entry);
     lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
+}
+
+/**
+define TypeEntry.class_name: String
+
+Return the name of the class that this type wraps over.
+*/
+void lily_introspect_TypeEntry_class_name(lily_state *s)
+{
+    FETCH_FIELD(TypeEntry, lily_type, const char *, cls->name,
+            lily_push_string);
+}
+
+/**
+define TypeEntry.module_id: Integer
+
+Return a unique id that is based on the module that the underlying type comes
+from. This is equivalent to the id that 'ModuleEntry.id' returns for that same
+module.
+*/
+void lily_introspect_TypeEntry_module_id(lily_state *s)
+{
+    UNPACK_FIRST_ARG(TypeEntry, lily_type *);
+    return_module_id(s, entry->cls->module);
 }
 
 /**
@@ -973,6 +1002,20 @@ void lily_introspect_ModuleEntry_dirname(lily_state *s)
 {
     FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, dirname,
            lily_push_string, "");
+}
+
+/**
+define ModuleEntry.id: Integer
+
+Return a unique id that is based on the underlying module (not the instance).
+If two 'ModuleEntry' instances both have the same underlying module, they will
+have the same id.
+*/
+void lily_introspect_ModuleEntry_id(lily_state *s)
+{
+    lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
+
+    return_module_id(s, introspect_entry->entry);
 }
 
 /**
