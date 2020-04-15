@@ -386,6 +386,17 @@ void lily_introspect_TypeEntry_module_id(lily_state *s)
 }
 
 /**
+define TypeEntry.class_id: Integer
+
+Return the id of the class that this type wraps over.
+*/
+void lily_introspect_TypeEntry_class_id(lily_state *s)
+{
+    UNPACK_FIRST_ARG(TypeEntry, lily_type *);
+    lily_return_integer(s, entry->cls->id);
+}
+
+/**
 foreign class VarEntry {
     layout {
         lily_var *entry;
