@@ -18,21 +18,24 @@
    handling has content. */
 #define PARSER_HAS_CONTENT  0x01
 
+/* Manifest files have different rules. */
+#define PARSER_IN_MANIFEST  0x02
+
 /* This is used by symtab's rewind to determine what happens to the new symbols
    from the failed parse. If set, symbols are hidden in case old symbols refer
    to them (unlikely but possible). Otherwise, the symbols are dropped. */
-#define PARSER_IS_EXECUTING 0x02
+#define PARSER_IS_EXECUTING 0x04
 
 /* This is used to make sure the end token is correct. */
-#define PARSER_IS_RENDERING 0x04
+#define PARSER_IS_RENDERING 0x08
 
 /* Don't allow complex expressions (currently only blocks lambdas). */
-#define PARSER_SIMPLE_EXPR  0x08
+#define PARSER_SIMPLE_EXPR  0x10
 
 /* Consider `class Error(message: String) < Exception(message) { ... }`. A
    typical expression call would allow calls or subscripts against the
    `Exception` call. This tells expression to not allow that. */
-#define PARSER_SUPER_EXPR   0x10
+#define PARSER_SUPER_EXPR   0x20
 
 struct lily_rewind_state_;
 struct lily_import_state_;

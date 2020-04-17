@@ -5380,6 +5380,30 @@ int lily_load_string(lily_state *s, const char *context,
     return open_first_content(s, context, (char *)str);
 }
 
+int lily_parse_manifest(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
+        return 0;
+
+    parser->flags = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
+
+        /* Manifest should never run code. */
+        lily_clear_main(parser->emit);
+
+        return 1;
+    }
+    else
+        parser->rs->pending = 1;
+
+    return 0;
+}
+
 int lily_parse_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;

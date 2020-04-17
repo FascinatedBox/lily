@@ -217,6 +217,20 @@ int lily_load_string(lily_state *s, const char *context, const char *str);
 // Returns 1 on success, 0 on failure.
 int lily_parse_content(lily_state *s);
 
+// Function: lily_parse_manifest
+// Parse content as a manifest file.
+//
+// This parses the content provided as a manifest file. A manifest file
+// describes the api that a foreign library will export. The content is consumed
+// regardless of this function's result.
+//
+// Manifest files are blocked from expressions, preventing them from running any
+// code. After calling to parse a manifest, an embedder can use the
+// introspection api to traverse the symtab.
+//
+// Returns 1 on success, 0 on failure.
+int lily_parse_manifest(lily_state *s);
+
 // Function: lily_render_content
 // Parse content prepared for the interpreter.
 //
