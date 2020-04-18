@@ -5189,6 +5189,52 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
+static void manifest_loop(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    int key_id = -1;
+
+    parser->flags |= PARSER_IN_MANIFEST;
+
+    /* This is a trick inspired by "use strict". Code files passed to manifest
+       parsing will fail here. Manifest files passed to code parsing will fail
+       to load this module. */
+    lily_next_token(lex);
+    expect_word(parser, "import");
+    lily_next_token(lex);
+    expect_word(parser, "manifest");
+    lily_next_token(lex);
+
+    while (1) {
+        if (lex->token == tk_word) {
+            key_id = keyword_by_name(lex->label);
+
+            if (key_id == KEY_DEFINE) {
+                lily_next_token(lex);
+                keyword_define(parser);
+                parse_block_exit(parser);
+            }
+        }
+        else if (lex->token == tk_right_curly)
+            parse_block_exit(parser);
+        else if (lex->token == tk_eof) {
+            lily_block *b = parser->emit->block;
+
+            if (b->block_type != block_file)
+                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
+                        tokname(tk_eof));
+
+            if (b->prev != NULL)
+                finish_import(parser);
+            else
+                break;
+        }
+        else
+            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
+                    tokname(lex->token));
+    }
+}
+
 static void update_main_name(lily_parse_state *parser,
         const char *filename)
 {
@@ -5390,6 +5436,8 @@ int lily_parse_manifest(lily_state *s)
     parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        manifest_loop(parser);
+
         lily_pop_lex_entry(parser->lex);
         lily_mb_flush(parser->msgbuf);
 
