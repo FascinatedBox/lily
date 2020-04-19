@@ -187,6 +187,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->ims = lily_malloc(sizeof(*parser->ims));
     parser->ims->path_msgbuf = lily_new_msgbuf(64);
     parser->flags = 0;
+    parser->modifiers = 0;
 
     parser->vm->gs->parser = parser;
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
@@ -309,6 +310,7 @@ static void rewind_parser(lily_parse_state *parser)
 {
     lily_u16_set_pos(parser->data_stack, 0);
     parser->data_string_pos = 0;
+    parser->modifiers = 0;
     parser->current_class = NULL;
 
     /* Parser's flags are reset when the first content loads. */
@@ -3518,11 +3520,12 @@ static void error_forward_decl_keyword(lily_parse_state *parser, int key)
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
-static void parse_var(lily_parse_state *parser, int modifiers)
+static void keyword_var(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_sym *sym = NULL;
     lily_block *block = parser->emit->block;
+    uint16_t modifiers = parser->modifiers;
 
     lily_token want_token, other_token;
     if (block->block_type == block_class) {
@@ -3577,11 +3580,6 @@ static void parse_var(lily_parse_state *parser, int modifiers)
 
         lily_next_token(lex);
     }
-}
-
-static void keyword_var(lily_parse_state *parser)
-{
-    parse_var(parser, 0);
 }
 
 static void finish_define_init(lily_parse_state *parser, lily_var *var)
@@ -4805,13 +4803,14 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
 
 #define ALLOW_DEFINE (SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
 
-static void parse_define(lily_parse_state *parser, int modifiers)
+static void keyword_define(lily_parse_state *parser)
 {
     lily_block *block = parser->emit->block;
     lily_lex_state *lex = parser->lex;
     lily_class *parent = NULL;
     lily_block_type block_type = block->block_type;
     uint16_t generic_start = lily_gp_save(parser->generics);
+    uint16_t modifiers = parser->modifiers;
 
     if ((block->block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
@@ -4850,11 +4849,6 @@ static void parse_define(lily_parse_state *parser, int modifiers)
 }
 
 #undef ALLOW_DEFINE
-
-static void keyword_define(lily_parse_state *parser)
-{
-    parse_define(parser, 0);
-}
 
 static void parse_modifier(lily_parse_state *parser, int key)
 {
@@ -4910,16 +4904,18 @@ static void parse_modifier(lily_parse_state *parser, int key)
                     lex->label);
     }
 
+    parser->modifiers = modifiers;
+
     if (key == KEY_VAR) {
         if (modifiers & VAR_IS_FORWARD)
             lily_raise_syn(parser->raiser, "Cannot use 'forward' with 'var'.");
 
         lily_next_token(lex);
-        parse_var(parser, modifiers);
+        keyword_var(parser);
     }
     else if (key == KEY_DEFINE) {
         lily_next_token(lex);
-        parse_define(parser, modifiers);
+        keyword_define(parser);
     }
     else {
         const char *what = "either 'var' or 'define'";
@@ -4930,6 +4926,8 @@ static void parse_modifier(lily_parse_state *parser, int key)
         lily_raise_syn(parser->raiser, "Expected %s, but got '%s'.", what,
                 lex->label);
     }
+
+    parser->modifiers = 0;
 }
 
 static void keyword_public(lily_parse_state *parser)
