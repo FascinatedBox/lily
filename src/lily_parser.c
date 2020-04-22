@@ -4944,6 +4944,18 @@ static void keyword_static(lily_parse_state *parser)
 static void keyword_forward(lily_parse_state *parser)
 {
     parse_modifier(parser, KEY_FORWARD);
+
+    /* Forward always leads to a definition that's left open. Close the
+       definition and advance the token. */
+
+    lily_lex_state *lex = parser->lex;
+    lily_emit_state *emit = parser->emit;
+    lily_block *block = emit->block;
+
+    hide_block_vars(parser);
+    lily_gp_restore(parser->generics, block->generic_start);
+    lily_emit_leave_define_block(emit, lex->line_num);
+    lily_next_token(lex);
 }
 
 static void keyword_private(lily_parse_state *parser)

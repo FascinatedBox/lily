@@ -56,7 +56,6 @@ typedef struct lily_parse_state_ {
     uint16_t flags;
 
     uint16_t modifiers;
-
     uint16_t pad;
 
     /* The current expression state. */
