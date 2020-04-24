@@ -1765,24 +1765,15 @@ static void write_build_op(lily_emit_state *emit, int opcode,
    current scope. If it cannot be, then SyntaxError is raised. */
 static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_sym *sym = ast->sym;
+    lily_named_sym *sym = (lily_named_sym *)ast->sym;
 
     if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
         lily_class *block_class = emit->block->class_entry;
-        lily_class *parent;
-        int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
-        char *name;
 
-        if (sym->item_kind == ITEM_PROPERTY) {
-            lily_prop_entry *prop = (lily_prop_entry *)sym;
-            parent = prop->parent;
-            name = prop->name;
-        }
-        else {
-            lily_var *v = (lily_var *)sym;
-            parent = v->parent;
-            name = v->name;
-        }
+        /* Vars and properties have this at the same offset. */
+        lily_class *parent = sym->parent;
+        int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
+        char *name = sym->name;
 
         if ((is_private && block_class != parent) ||
             (is_private == 0 &&

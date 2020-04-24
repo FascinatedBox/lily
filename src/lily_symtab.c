@@ -806,7 +806,7 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
 /* Create a new property and add it into the class. As a convenience, the
    newly-made property is also returned. */
 lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
-        const char *name, uint16_t flags)
+        const char *name, uint16_t line_num, uint16_t flags)
 {
     lily_prop_entry *entry = lily_malloc(sizeof(*entry));
     char *entry_name = lily_malloc((strlen(name) + 1) * sizeof(*entry_name));
@@ -819,6 +819,7 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
     entry->type = type;
     entry->shorthash = shorthash_for_name(entry_name);
     entry->id = cls->prop_count;
+    entry->line_num = line_num;
     entry->parent = cls;
     cls->prop_count++;
 

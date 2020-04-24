@@ -2311,7 +2311,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
         uint16_t modifiers = source_mods[rec - '1'];
         lily_type *type = get_type_raw(parser, 0);
 
-        lily_add_class_property(cls, type, dyna_get_name(ds), modifiers);
+        lily_add_class_property(cls, type, dyna_get_name(ds), 0, modifiers);
         lily_pop_lex_entry(lex);
         dyna_iter_next(ds);
     } while (1);
@@ -3423,18 +3423,10 @@ static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
 {
     int result = 1;
 
-    if (sym->flags & SYM_SCOPE_PRIVATE) {
-        lily_class *parent;
-
-        if (sym->item_kind == ITEM_VAR)
-            parent = ((lily_var *)sym)->parent;
-        else
-            parent = ((lily_prop_entry *)sym)->parent;
-
+    if (sym->flags & SYM_SCOPE_PRIVATE && sym->parent != cls) {
         /* Private members aren't really private if inheriting classes need
            to avoid their names. So don't count them. */
-        if (parent != cls)
-            result = 0;
+        result = 0;
     }
 
     return result;
@@ -3450,7 +3442,8 @@ static lily_prop_entry *declare_property(lily_parse_state *parser,
     if (sym && sym_visible_from(cls, sym))
         error_member_redeclaration(parser, cls, sym);
 
-    lily_prop_entry *prop = lily_add_class_property(cls, NULL, name, flags);
+    lily_prop_entry *prop = lily_add_class_property(cls, NULL, name,
+            parser->lex->line_num, flags);
 
     lily_next_token(parser->lex);
     return prop;

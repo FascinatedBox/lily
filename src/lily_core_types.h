@@ -53,6 +53,10 @@ typedef struct lily_named_sym_ {
     char *name;
 
     uint64_t shorthash;
+
+    uint64_t pad2;
+
+    struct lily_class_ *parent;
 } lily_named_sym;
 
 /* This represents a type for a property, storage, or var. Instances of this are
@@ -192,6 +196,10 @@ typedef struct {
     char *name;
 
     uint64_t shorthash;
+
+    uint16_t line_num;
+    uint16_t pad2;
+    uint32_t pad3;
 
     lily_class *parent;
 } lily_prop_entry;
