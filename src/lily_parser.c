@@ -4839,6 +4839,10 @@ static void keyword_define(lily_parse_state *parser)
 
     collect_call_args(parser, define_var, F_COLLECT_DEFINE);
     finish_define_init(parser, define_var);
+
+    if (parser->flags & PARSER_IN_MANIFEST)
+        return;
+
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
 
@@ -5199,6 +5203,20 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
+static void manifest_define(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_emit_state *emit = parser->emit;
+
+    /* Manifest definitions are like forward definitions in that they shouldn't
+       be running code. Close the definition to make sure of that. */
+    lily_next_token(lex);
+    keyword_define(parser);
+    hide_block_vars(parser);
+    lily_gp_restore(parser->generics, emit->block->generic_start);
+    lily_emit_leave_define_block(emit, lex->line_num);
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5219,11 +5237,8 @@ static void manifest_loop(lily_parse_state *parser)
         if (lex->token == tk_word) {
             key_id = keyword_by_name(lex->label);
 
-            if (key_id == KEY_DEFINE) {
-                lily_next_token(lex);
-                keyword_define(parser);
-                parse_block_exit(parser);
-            }
+            if (key_id == KEY_DEFINE)
+                manifest_define(parser);
         }
         else if (lex->token == tk_right_curly)
             parse_block_exit(parser);
