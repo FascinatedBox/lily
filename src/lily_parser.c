@@ -186,6 +186,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->rs->pending = 0;
     parser->ims = lily_malloc(sizeof(*parser->ims));
     parser->ims->path_msgbuf = lily_new_msgbuf(64);
+    parser->doc = NULL;
     parser->flags = 0;
     parser->modifiers = 0;
 
@@ -230,6 +231,25 @@ lily_state *lily_new_state(lily_config *config)
     mark_builtin_modules(parser);
 
     return parser->vm;
+}
+
+static void free_docs(lily_doc_stack *d)
+{
+    if (d == NULL)
+        return;
+
+    char ***data = d->data;
+    uint16_t i;
+
+    for (i = 0;i < d->pos;i++) {
+        char **d = data[i];
+
+        lily_free(d[0]);
+        lily_free(d);
+    }
+
+    lily_free(d->data);
+    lily_free(d);
 }
 
 static void free_links_until(lily_module_link *link_iter,
@@ -302,6 +322,7 @@ void lily_free_state(lily_state *vm)
     lily_free_msgbuf(parser->ims->path_msgbuf);
     lily_free(parser->ims);
     lily_free(parser->rs);
+    free_docs(parser->doc);
 
     lily_free(parser);
 }
@@ -1154,6 +1175,7 @@ static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
     var->line_num = line_num;
     var->shorthash = shorthash_for_name(name);
     var->closure_spot = (uint16_t)-1;
+    var->doc_id = (uint16_t)-1;
     var->type = type;
     var->next = NULL;
     var->parent = NULL;
@@ -5196,15 +5218,71 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
+static void grow_docs(lily_doc_stack *d)
+{
+    uint16_t new_size = d->size * 2;
+    char ***new_data = lily_realloc(d->data,
+            sizeof(*new_data) * d->size * 2);
+
+    d->data = new_data;
+    d->size = new_size;
+}
+
+static void init_doc(lily_parse_state *parser)
+{
+    if (parser->doc)
+        return;
+
+    lily_doc_stack *d = lily_malloc(sizeof(*d));
+
+    d->data = lily_malloc(4 * sizeof(*d->data));
+    d->pos = 0;
+    d->size = 4;
+    parser->doc = d;
+}
+
+static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
+{
+    lily_doc_stack *d = parser->doc;
+
+    if (d->pos == d->size)
+        grow_docs(d);
+
+    char **text = build_strings_by_data(parser, arg_count, 0);
+    uint16_t result = d->pos;
+
+    d->data[d->pos] = text;
+    d->pos++;
+
+    /* Set to 1 to leave the initial 0 entry. */
+    lily_u16_set_pos(parser->data_stack, 1);
+    return result;
+}
+
+static void set_manifest_define_doc(lily_parse_state *parser)
+{
+    lily_var *define_var = parser->emit->scope_block->scope_var;
+    lily_var *var_iter = parser->symtab->active_module->var_chain;
+    uint16_t i;
+
+    for (i = 1;var_iter != define_var;i++, var_iter = var_iter->next) {
+        lily_u16_write_1(parser->data_stack, i);
+        add_data_string(parser, var_iter->name);
+    }
+
+    define_var->doc_id = build_doc_data(parser, count + 1);
+}
+
 static void manifest_define(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_emit_state *emit = parser->emit;
 
-    /* Manifest definitions are like forward definitions in that they shouldn't
-       be running code. Close the definition to make sure of that. */
     lily_next_token(lex);
     keyword_define(parser);
+    set_manifest_define_doc(parser);
+
+    /* Close the definition to prevent storing code. */
     hide_block_vars(parser);
     lily_gp_restore(parser->generics, emit->block->generic_start);
     lily_emit_leave_define_block(emit, lex->line_num);
@@ -5213,7 +5291,7 @@ static void manifest_define(lily_parse_state *parser)
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int key_id = -1;
+    int have_docblock = 0, key_id = -1;
 
     parser->flags |= PARSER_IN_MANIFEST;
 
@@ -5226,9 +5304,30 @@ static void manifest_loop(lily_parse_state *parser)
     expect_word(parser, "manifest");
     lily_next_token(lex);
 
+    /* Doc entries will always start with the docblock at 0. */
+    lily_u16_write_1(parser->data_stack, 0);
+
     while (1) {
+        if (lex->token == tk_docblock) {
+            /* Store documentation for the keyword to pull. */
+            add_data_string(parser, lex->label);
+            lily_next_token(lex);
+            have_docblock = 1;
+
+            if (lex->token != tk_word)
+                lily_raise_syn(parser->raiser,
+                        "Expected a keyword after docblock, but got %s.\n",
+                        tokname(lex->token));
+        }
+
         if (lex->token == tk_word) {
             key_id = keyword_by_name(lex->label);
+
+            if (have_docblock == 0)
+                /* No docblock, so save an empty string to get pulled. */
+                add_data_string(parser, "");
+
+            have_docblock = 0;
 
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
@@ -5246,6 +5345,12 @@ static void manifest_loop(lily_parse_state *parser)
                 finish_import(parser);
             else
                 break;
+        }
+        else if (lex->token == tk_docblock) {
+            /* Store documentation for the keyword to pull. */
+            add_data_string(parser, lex->label);
+            key_id = get_docblock_target(parser);
+            goto word_case;
         }
         else
             lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
@@ -5454,6 +5559,7 @@ int lily_parse_manifest(lily_state *s)
     parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        init_doc(parser);
         manifest_loop(parser);
 
         lily_pop_lex_entry(parser->lex);

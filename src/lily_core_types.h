@@ -228,7 +228,7 @@ typedef struct lily_var_ {
     uint64_t shorthash;
 
     uint16_t line_num;
-    uint16_t pad;
+    uint16_t doc_id;
     /* This is used to determine if a var is an upvalue, local, or global. */
     uint32_t function_depth;
 

@@ -137,7 +137,8 @@ const char *lily_introspect_info_table[] = {
     ,"m\0is_public\0(PropertyEntry): Boolean"
     ,"m\0name\0(PropertyEntry): String"
     ,"m\0type\0(PropertyEntry): TypeEntry"
-    ,"C\03FunctionEntry\0"
+    ,"C\04FunctionEntry\0"
+    ,"m\0doc\0(FunctionEntry): String"
     ,"m\0name\0(FunctionEntry): String"
     ,"m\0line_number\0(FunctionEntry): Integer"
     ,"m\0type\0(FunctionEntry): TypeEntry"
@@ -206,6 +207,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_PropertyEntry_name, \
     lily_introspect_PropertyEntry_type, \
     NULL, \
+    lily_introspect_FunctionEntry_doc, \
     lily_introspect_FunctionEntry_name, \
     lily_introspect_FunctionEntry_line_number, \
     lily_introspect_FunctionEntry_type, \

@@ -40,6 +40,13 @@
 struct lily_rewind_state_;
 struct lily_import_state_;
 
+typedef struct {
+    char ***data;
+    uint16_t pos;
+    uint16_t size;
+    uint32_t pad;
+} lily_doc_stack;
+
 typedef struct lily_parse_state_ {
     lily_module_entry *module_start;
     lily_module_entry *module_top;
@@ -83,6 +90,7 @@ typedef struct lily_parse_state_ {
     lily_config *config;
     struct lily_rewind_state_ *rs;
     struct lily_import_state_ *ims;
+    lily_doc_stack *doc;
 } lily_parse_state;
 
 lily_var *lily_parser_lambda_eval(lily_parse_state *, int, const char *,

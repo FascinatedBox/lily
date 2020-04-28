@@ -614,14 +614,13 @@ static void check_label_size(lily_lex_state *lex, uint32_t at_least)
     lex->label_size = new_size;
 }
 
-/* This scans a docblock to verify it has the proper structure. The interpreter
-   doesn't store docblocks though. Instead, that job is left up to tooling. */
 static void scan_docblock(lily_lex_state *lex, char **source_ch)
 {
     uint16_t offset = (uint16_t)(*source_ch - lex->source);
     uint16_t start_line = lex->line_num;
+    uint16_t label_pos = 0;
+    char *label = lex->label;
     char *ch = lex->source;
-    int more_to_read;
 
     while (1) {
         uint16_t i = 0;
@@ -646,14 +645,27 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             lily_raise_syn(lex->raiser,
                     "Docblock has inconsistent indentation.");
 
-        more_to_read = read_line(lex);
-        ch = lex->read_cursor;
+        while (*ch != '\n') {
+            label[label_pos] = *ch;
+            label_pos++;
+            ch++;
+        }
 
-        if (more_to_read == 0)
+        label[label_pos] = '\n';
+        label_pos++;
+
+        int line_length = read_line(lex);
+
+        if (line_length == 0)
             break;
+
+        check_label_size(lex, label_pos + line_length);
+        label = lex->label;
+        ch = lex->read_cursor;
     }
 
     *source_ch = ch;
+    label[label_pos] = '\0';
 }
 
 /* Scan a String or ByteString literal. This starts on the cursor provided and

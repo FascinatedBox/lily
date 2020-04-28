@@ -335,6 +335,17 @@ static void return_module_id(lily_state *s, lily_module_entry *m)
     lily_return_integer(s, (int64_t)m);
 }
 
+static void return_doc(lily_state *s, uint16_t doc_id)
+{
+    const char *str = "";
+
+    if (doc_id != (uint16_t)-1)
+        str = s->gs->parser->doc->data[doc_id][0];
+
+    lily_push_string(s, str);
+    lily_return_top(s);
+}
+
 /**
 foreign class TypeEntry {
     layout {
@@ -511,6 +522,17 @@ foreign class FunctionEntry {
 
 This is a foreign class that wraps over a toplevel function of a package.
 */
+
+/**
+define FunctionEntry.doc: String
+
+Return the docblock for this definition, or an empty string.
+*/
+void lily_introspect_FunctionEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+    return_doc(s, entry->doc_id);
+}
 
 /**
 define FunctionEntry.name: String
