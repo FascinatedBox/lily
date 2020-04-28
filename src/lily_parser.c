@@ -5263,9 +5263,10 @@ static void set_manifest_define_doc(lily_parse_state *parser)
 {
     lily_var *define_var = parser->emit->scope_block->scope_var;
     lily_var *var_iter = parser->symtab->active_module->var_chain;
+    uint16_t count = parser->emit->scope_block->var_count;
     uint16_t i;
 
-    for (i = 1;var_iter != define_var;i++, var_iter = var_iter->next) {
+    for (i = count;i > 0;i--) {
         lily_u16_write_1(parser->data_stack, i);
         add_data_string(parser, var_iter->name);
     }
@@ -5345,12 +5346,6 @@ static void manifest_loop(lily_parse_state *parser)
                 finish_import(parser);
             else
                 break;
-        }
-        else if (lex->token == tk_docblock) {
-            /* Store documentation for the keyword to pull. */
-            add_data_string(parser, lex->label);
-            key_id = get_docblock_target(parser);
-            goto word_case;
         }
         else
             lily_raise_syn(parser->raiser, "Unexpected token '%s'.",

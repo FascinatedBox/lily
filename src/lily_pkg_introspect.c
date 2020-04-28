@@ -346,6 +346,16 @@ static void return_doc(lily_state *s, uint16_t doc_id)
     lily_return_top(s);
 }
 
+static char **get_doc_text(lily_state *s, uint16_t doc_id)
+{
+    char **text = NULL;
+
+    if (doc_id != (uint16_t)-1)
+        text = s->gs->parser->doc->data[doc_id];
+
+    return text;
+}
+
 /**
 foreign class TypeEntry {
     layout {
@@ -405,6 +415,28 @@ void lily_introspect_TypeEntry_class_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
     lily_return_integer(s, entry->cls->id);
+}
+
+/**
+native class ParameterEntry(name: String, key: String, t: TypeEntry) {
+    var @name: String,
+    var @keyword: String,
+    var @type: TypeEntry
+}
+
+This is a native class representing a definition parameter.
+*/
+void lily_introspect_ParameterEntry_new(lily_state *s)
+{
+    lily_container_val *con = lily_push_super(s, ID_ParameterEntry(s), 3);
+    lily_value *name = lily_arg_value(s, 0);
+    lily_value *key = lily_arg_value(s, 1);
+    lily_value *t = lily_arg_value(s, 2);
+
+    SET_ParameterEntry__name(con, name);
+    SET_ParameterEntry__keyword(con, key);
+    SET_ParameterEntry__type(con, t);
+    lily_return_super(s);
 }
 
 /**
@@ -526,7 +558,8 @@ This is a foreign class that wraps over a toplevel function of a package.
 /**
 define FunctionEntry.doc: String
 
-Return the docblock for this definition, or an empty string.
+Return the docblock of this function, or an empty string. Docblocks are only
+saved when a function is parsed in manifest mode.
 */
 void lily_introspect_FunctionEntry_doc(lily_state *s)
 {
@@ -552,6 +585,56 @@ Return the line number that this function was declared on.
 void lily_introspect_FunctionEntry_line_number(lily_state *s)
 {
     lily_introspect_VarEntry_line_number(s);
+}
+
+static const char *get_block_string(char **block, int index)
+{
+    const char *str = "";
+
+    if (block)
+        str = block[index];
+
+    return str;
+}
+
+/**
+define FunctionEntry.parameters: List[ParameterEntry]
+
+Return the parameters of this function. Functions processed outside of manifest
+mode will have empty names.
+*/
+void lily_introspect_FunctionEntry_parameters(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+
+    lily_type **types = entry->type->subtypes;
+    lily_emit_state *emit = s->gs->parser->emit;
+    char **keywords = lily_emit_proto_for_var(emit, entry)->keywords;
+    char **doc = get_doc_text(s, entry->doc_id);
+    uint16_t count = entry->type->subtype_count;
+    uint16_t i;
+
+    /* -1 to offset skipping the return at [0]. */
+    lily_container_val *list_val = lily_push_list(s, count - 1);
+
+    for (i = 1;i < count;i++) {
+        lily_container_val *new_parameter = lily_push_instance(s,
+                ID_ParameterEntry(s), 3);
+        lily_introspect_TypeEntry *new_type = INIT_TypeEntry(s);
+
+        /* No adjustment because the docblock and return match at 0. */
+        lily_push_string(s, get_block_string(doc, i));
+        SETFS_ParameterEntry__name(s, new_parameter);
+
+        /* -1 because keywords start at 0. */
+        lily_push_string(s, get_block_string(keywords, i - 1));
+        SETFS_ParameterEntry__keyword(s, new_parameter);
+        new_type->entry = types[i];
+        SETFS_ParameterEntry__type(s, new_parameter);
+        lily_con_set_from_stack(s, list_val, i - 1);
+    }
+
+    lily_return_top(s);
 }
 
 /**

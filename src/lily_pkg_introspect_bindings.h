@@ -20,6 +20,28 @@ typedef struct lily_introspect_TypeEntry_ {
 #define INIT_TypeEntry(state)\
 (lily_introspect_TypeEntry *) lily_push_foreign(state, ID_TypeEntry(state), (lily_destroy_func)destroy_TypeEntry, sizeof(lily_introspect_TypeEntry))
 
+#define GET_ParameterEntry__name(c_) \
+lily_con_get(c_, 0)
+#define SET_ParameterEntry__name(c_, v_) \
+lily_con_set(c_, 0, v_)
+#define SETFS_ParameterEntry__name(state, c_) \
+lily_con_set_from_stack(state, c_, 0)
+#define GET_ParameterEntry__keyword(c_) \
+lily_con_get(c_, 1)
+#define SET_ParameterEntry__keyword(c_, v_) \
+lily_con_set(c_, 1, v_)
+#define SETFS_ParameterEntry__keyword(state, c_) \
+lily_con_set_from_stack(state, c_, 1)
+#define GET_ParameterEntry__type(c_) \
+lily_con_get(c_, 2)
+#define SET_ParameterEntry__type(c_, v_) \
+lily_con_set(c_, 2, v_)
+#define SETFS_ParameterEntry__type(state, c_) \
+lily_con_set_from_stack(state, c_, 2)
+#define ID_ParameterEntry(state) lily_cid_at(state, 1)
+#define SUPER_ParameterEntry(state)\
+lily_push_super(state, ID_ParameterEntry(state), 3)
+
 typedef struct lily_introspect_VarEntry_ {
     LILY_FOREIGN_HEADER
     lily_var *entry;
@@ -28,7 +50,7 @@ typedef struct lily_introspect_VarEntry_ {
 (lily_introspect_VarEntry *)lily_arg_generic(state, index)
 #define AS_VarEntry(v_)\
 ((lily_introspect_VarEntry *)(lily_as_generic(v_)))
-#define ID_VarEntry(state) lily_cid_at(state, 1)
+#define ID_VarEntry(state) lily_cid_at(state, 2)
 #define INIT_VarEntry(state)\
 (lily_introspect_VarEntry *) lily_push_foreign(state, ID_VarEntry(state), (lily_destroy_func)destroy_VarEntry, sizeof(lily_introspect_VarEntry))
 
@@ -41,7 +63,7 @@ typedef struct lily_introspect_PropertyEntry_ {
 (lily_introspect_PropertyEntry *)lily_arg_generic(state, index)
 #define AS_PropertyEntry(v_)\
 ((lily_introspect_PropertyEntry *)(lily_as_generic(v_)))
-#define ID_PropertyEntry(state) lily_cid_at(state, 2)
+#define ID_PropertyEntry(state) lily_cid_at(state, 3)
 #define INIT_PropertyEntry(state)\
 (lily_introspect_PropertyEntry *) lily_push_foreign(state, ID_PropertyEntry(state), (lily_destroy_func)destroy_PropertyEntry, sizeof(lily_introspect_PropertyEntry))
 
@@ -53,7 +75,7 @@ typedef struct lily_introspect_FunctionEntry_ {
 (lily_introspect_FunctionEntry *)lily_arg_generic(state, index)
 #define AS_FunctionEntry(v_)\
 ((lily_introspect_FunctionEntry *)(lily_as_generic(v_)))
-#define ID_FunctionEntry(state) lily_cid_at(state, 3)
+#define ID_FunctionEntry(state) lily_cid_at(state, 4)
 #define INIT_FunctionEntry(state)\
 (lily_introspect_FunctionEntry *) lily_push_foreign(state, ID_FunctionEntry(state), (lily_destroy_func)destroy_FunctionEntry, sizeof(lily_introspect_FunctionEntry))
 
@@ -66,7 +88,7 @@ typedef struct lily_introspect_MethodEntry_ {
 (lily_introspect_MethodEntry *)lily_arg_generic(state, index)
 #define AS_MethodEntry(v_)\
 ((lily_introspect_MethodEntry *)(lily_as_generic(v_)))
-#define ID_MethodEntry(state) lily_cid_at(state, 4)
+#define ID_MethodEntry(state) lily_cid_at(state, 5)
 #define INIT_MethodEntry(state)\
 (lily_introspect_MethodEntry *) lily_push_foreign(state, ID_MethodEntry(state), (lily_destroy_func)destroy_MethodEntry, sizeof(lily_introspect_MethodEntry))
 
@@ -78,7 +100,7 @@ typedef struct lily_introspect_ClassEntry_ {
 (lily_introspect_ClassEntry *)lily_arg_generic(state, index)
 #define AS_ClassEntry(v_)\
 ((lily_introspect_ClassEntry *)(lily_as_generic(v_)))
-#define ID_ClassEntry(state) lily_cid_at(state, 5)
+#define ID_ClassEntry(state) lily_cid_at(state, 6)
 #define INIT_ClassEntry(state)\
 (lily_introspect_ClassEntry *) lily_push_foreign(state, ID_ClassEntry(state), (lily_destroy_func)destroy_ClassEntry, sizeof(lily_introspect_ClassEntry))
 
@@ -91,7 +113,7 @@ typedef struct lily_introspect_VariantEntry_ {
 (lily_introspect_VariantEntry *)lily_arg_generic(state, index)
 #define AS_VariantEntry(v_)\
 ((lily_introspect_VariantEntry *)(lily_as_generic(v_)))
-#define ID_VariantEntry(state) lily_cid_at(state, 6)
+#define ID_VariantEntry(state) lily_cid_at(state, 7)
 #define INIT_VariantEntry(state)\
 (lily_introspect_VariantEntry *) lily_push_foreign(state, ID_VariantEntry(state), (lily_destroy_func)destroy_VariantEntry, sizeof(lily_introspect_VariantEntry))
 
@@ -103,7 +125,7 @@ typedef struct lily_introspect_EnumEntry_ {
 (lily_introspect_EnumEntry *)lily_arg_generic(state, index)
 #define AS_EnumEntry(v_)\
 ((lily_introspect_EnumEntry *)(lily_as_generic(v_)))
-#define ID_EnumEntry(state) lily_cid_at(state, 7)
+#define ID_EnumEntry(state) lily_cid_at(state, 8)
 #define INIT_EnumEntry(state)\
 (lily_introspect_EnumEntry *) lily_push_foreign(state, ID_EnumEntry(state), (lily_destroy_func)destroy_EnumEntry, sizeof(lily_introspect_EnumEntry))
 
@@ -115,18 +137,23 @@ typedef struct lily_introspect_ModuleEntry_ {
 (lily_introspect_ModuleEntry *)lily_arg_generic(state, index)
 #define AS_ModuleEntry(v_)\
 ((lily_introspect_ModuleEntry *)(lily_as_generic(v_)))
-#define ID_ModuleEntry(state) lily_cid_at(state, 8)
+#define ID_ModuleEntry(state) lily_cid_at(state, 9)
 #define INIT_ModuleEntry(state)\
 (lily_introspect_ModuleEntry *) lily_push_foreign(state, ID_ModuleEntry(state), (lily_destroy_func)destroy_ModuleEntry, sizeof(lily_introspect_ModuleEntry))
 
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
-    "\011TypeEntry\0VarEntry\0PropertyEntry\0FunctionEntry\0MethodEntry\0ClassEntry\0VariantEntry\0EnumEntry\0ModuleEntry\0"
+    "\012TypeEntry\0ParameterEntry\0VarEntry\0PropertyEntry\0FunctionEntry\0MethodEntry\0ClassEntry\0VariantEntry\0EnumEntry\0ModuleEntry\0"
     ,"C\04TypeEntry\0"
     ,"m\0as_string\0(TypeEntry): String"
     ,"m\0class_name\0(TypeEntry): String"
     ,"m\0module_id\0(TypeEntry): Integer"
     ,"m\0class_id\0(TypeEntry): Integer"
+    ,"N\04ParameterEntry\0"
+    ,"m\0<new>\0(String,String,TypeEntry): ParameterEntry"
+    ,"3\0name\0String"
+    ,"3\0keyword\0String"
+    ,"3\0type\0TypeEntry"
     ,"C\03VarEntry\0"
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
@@ -137,10 +164,11 @@ const char *lily_introspect_info_table[] = {
     ,"m\0is_public\0(PropertyEntry): Boolean"
     ,"m\0name\0(PropertyEntry): String"
     ,"m\0type\0(PropertyEntry): TypeEntry"
-    ,"C\04FunctionEntry\0"
+    ,"C\05FunctionEntry\0"
     ,"m\0doc\0(FunctionEntry): String"
     ,"m\0name\0(FunctionEntry): String"
     ,"m\0line_number\0(FunctionEntry): Integer"
+    ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0type\0(FunctionEntry): TypeEntry"
     ,"C\06MethodEntry\0"
     ,"m\0function_name\0(MethodEntry): String"
@@ -197,6 +225,11 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_TypeEntry_module_id, \
     lily_introspect_TypeEntry_class_id, \
     NULL, \
+    lily_introspect_ParameterEntry_new, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
     lily_introspect_VarEntry_line_number, \
     lily_introspect_VarEntry_name, \
     lily_introspect_VarEntry_type, \
@@ -210,6 +243,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_FunctionEntry_doc, \
     lily_introspect_FunctionEntry_name, \
     lily_introspect_FunctionEntry_line_number, \
+    lily_introspect_FunctionEntry_parameters, \
     lily_introspect_FunctionEntry_type, \
     NULL, \
     lily_introspect_MethodEntry_function_name, \
