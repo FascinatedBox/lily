@@ -738,6 +738,18 @@ This is a foreign class that wraps over a Lily class.
 */
 
 /**
+define ClassEntry.doc: String
+
+Return the docblock of this class, or an empty string. Docblocks are only saved
+when a class is parsed in manifest mode.
+*/
+void lily_introspect_ClassEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ClassEntry, lily_class *);
+    return_doc(s, entry->doc_id);
+}
+
+/**
 define ClassEntry.is_foreign: Boolean
 
 This is the opposite of `ClassEntry.is_native`.

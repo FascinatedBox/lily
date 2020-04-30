@@ -5289,6 +5289,22 @@ static void manifest_define(lily_parse_state *parser)
     lily_emit_leave_define_block(emit, lex->line_num);
 }
 
+static void manifest_class(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+    keyword_class(parser);
+
+    /* This sets the docblock and arg information on the constructor. */
+    set_manifest_define_doc(parser);
+
+    lily_var *define_var = parser->emit->scope_block->scope_var;
+
+    /* Give the info to the class too since it has the docblock. */
+    parser->current_class->doc_id = define_var->doc_id;
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5332,6 +5348,8 @@ static void manifest_loop(lily_parse_state *parser)
 
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
+            else if (key_id == KEY_CLASS)
+                manifest_class(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);

@@ -749,6 +749,7 @@ lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->line_num = line_num;
+    new_class->doc_id = (uint16_t)-1;
     new_class->name = name_copy;
     new_class->generic_count = 0;
     new_class->prop_count = 0;

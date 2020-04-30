@@ -177,7 +177,8 @@ const char *lily_introspect_info_table[] = {
     ,"m\0is_protected\0(MethodEntry): Boolean"
     ,"m\0is_public\0(MethodEntry): Boolean"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\07ClassEntry\0"
+    ,"C\010ClassEntry\0"
+    ,"m\0doc\0(ClassEntry): String"
     ,"m\0is_foreign\0(ClassEntry): Boolean"
     ,"m\0is_native\0(ClassEntry): Boolean"
     ,"m\0methods\0(ClassEntry): List[MethodEntry]"
@@ -253,6 +254,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_is_public, \
     lily_introspect_MethodEntry_type, \
     NULL, \
+    lily_introspect_ClassEntry_doc, \
     lily_introspect_ClassEntry_is_foreign, \
     lily_introspect_ClassEntry_is_native, \
     lily_introspect_ClassEntry_methods, \

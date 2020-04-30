@@ -114,8 +114,8 @@ typedef struct lily_class_ {
     uint64_t shorthash;
 
     uint16_t line_num;
-    uint16_t pad1;
-    uint32_t pad2;
+    uint16_t doc_id;
+    uint32_t pad1;
 
     struct lily_class_ *parent;
 
