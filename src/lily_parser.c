@@ -5332,6 +5332,9 @@ static void manifest_loop(lily_parse_state *parser)
 
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
+            else
+                lily_raise_syn(parser->raiser,
+                        "Invalid keyword %s for manifest.", lex->label);
         }
         else if (lex->token == tk_right_curly)
             parse_block_exit(parser);
