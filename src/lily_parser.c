@@ -5305,6 +5305,29 @@ static void manifest_class(lily_parse_state *parser)
     parser->current_class->doc_id = define_var->doc_id;
 }
 
+static void manifest_modifier(lily_parse_state *parser, int key)
+{
+    lily_lex_state *lex = parser->lex;
+    uint16_t modifiers = 0;
+
+    if (key == KEY_PUBLIC)
+        modifiers |= SYM_SCOPE_PUBLIC;
+    else if (key == KEY_PROTECTED)
+        modifiers |= SYM_SCOPE_PROTECTED;
+    else if (key == KEY_PRIVATE)
+        modifiers |= SYM_SCOPE_PRIVATE;
+
+    NEED_NEXT_TOK(tk_word)
+    key = keyword_by_name(lex->label);
+    parser->modifiers = modifiers;
+
+    /* No else because invalid keywords will be caught on the next pass. */
+    if (key == KEY_DEFINE)
+        manifest_define(parser);
+
+    parser->modifiers = 0;
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5350,6 +5373,10 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_define(parser);
             else if (key_id == KEY_CLASS)
                 manifest_class(parser);
+            else if (key_id == KEY_PUBLIC ||
+                     key_id == KEY_PROTECTED ||
+                     key_id == KEY_PRIVATE)
+                manifest_modifier(parser, key_id);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);
