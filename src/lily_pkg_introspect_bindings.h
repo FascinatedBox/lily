@@ -192,7 +192,8 @@ const char *lily_introspect_info_table[] = {
     ,"m\0module_path\0(VariantEntry): String"
     ,"m\0name\0(VariantEntry): String"
     ,"m\0type\0(VariantEntry): TypeEntry"
-    ,"C\04EnumEntry\0"
+    ,"C\05EnumEntry\0"
+    ,"m\0doc\0(EnumEntry): String"
     ,"m\0methods\0(EnumEntry): List[MethodEntry]"
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
     ,"m\0name\0(EnumEntry): String"
@@ -269,6 +270,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_name, \
     lily_introspect_VariantEntry_type, \
     NULL, \
+    lily_introspect_EnumEntry_doc, \
     lily_introspect_EnumEntry_methods, \
     lily_introspect_EnumEntry_variants, \
     lily_introspect_EnumEntry_name, \

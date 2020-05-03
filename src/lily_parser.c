@@ -5305,6 +5305,17 @@ static void manifest_class(lily_parse_state *parser)
     parser->current_class->doc_id = define_var->doc_id;
 }
 
+static void manifest_enum(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+    keyword_enum(parser);
+
+    /* Enums only need the docblock. */
+    parser->current_class->doc_id = build_doc_data(parser, 0);
+}
+
 static void manifest_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
@@ -5377,6 +5388,8 @@ static void manifest_loop(lily_parse_state *parser)
                      key_id == KEY_PROTECTED ||
                      key_id == KEY_PRIVATE)
                 manifest_modifier(parser, key_id);
+            else if (key_id == KEY_ENUM)
+                manifest_enum(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);

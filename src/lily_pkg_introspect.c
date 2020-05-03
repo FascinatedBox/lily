@@ -948,6 +948,17 @@ This is a foreign class that wraps over an enum.
 */
 
 /**
+define EnumEntry.doc: String
+
+Return the docblock of this enum, or an empty string. Docblocks are only saved
+when an enum is parsed in manifest mode.
+*/
+void lily_introspect_EnumEntry_doc(lily_state *s)
+{
+    lily_introspect_ClassEntry_doc(s);
+}
+
+/**
 define EnumEntry.methods: List[MethodEntry]
 
 Return the methods that were declared in this class. There is no guarantee as to
