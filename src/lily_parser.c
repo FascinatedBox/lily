@@ -5316,6 +5316,53 @@ static void manifest_enum(lily_parse_state *parser)
     parser->current_class->doc_id = build_doc_data(parser, 0);
 }
 
+static void manifest_var(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *cls = parser->current_class;
+    uint16_t modifiers = parser->modifiers;
+    lily_named_sym *sym;
+    lily_token want_token, other_token;
+
+    /* Manifest can use parser's current class because definitions aren't
+       actually entered. */
+    if (cls) {
+        if (cls->item_kind & ITEM_IS_ENUM)
+            lily_raise_syn(parser->raiser,
+                    "Var declaration not allowed inside of an enum.");
+        else if (modifiers == 0)
+            lily_raise_syn(parser->raiser,
+                    "Class var declaration must start with a scope.");
+
+        want_token = tk_prop_word;
+        other_token = tk_word;
+    }
+    else {
+        want_token = tk_word;
+        other_token = tk_prop_word;
+    }
+
+    lily_next_token(lex);
+
+    /* For this special case, give a useful error message. */
+    if (lex->token == other_token)
+        bad_decl_token(parser);
+
+    NEED_CURRENT_TOK(want_token)
+
+    if (lex->token == tk_word)
+        sym = (lily_named_sym *)declare_scoped_var(parser);
+    else
+        sym = (lily_named_sym *)declare_property(parser, modifiers);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_next_token(lex);
+    sym->type = get_type(parser);
+
+    /* Similar to enums, vars and properties only store the docblock. */
+    sym->doc_id = build_doc_data(parser, 0);
+}
+
 static void manifest_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
@@ -5335,6 +5382,8 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     /* No else because invalid keywords will be caught on the next pass. */
     if (key == KEY_DEFINE)
         manifest_define(parser);
+    else if (key == KEY_VAR)
+        manifest_var(parser);
 
     parser->modifiers = 0;
 }
@@ -5390,6 +5439,8 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_modifier(parser, key_id);
             else if (key_id == KEY_ENUM)
                 manifest_enum(parser);
+            else if (key_id == KEY_VAR)
+                manifest_var(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);

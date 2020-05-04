@@ -821,6 +821,7 @@ lily_prop_entry *lily_add_class_property(lily_class *cls, lily_type *type,
     entry->shorthash = shorthash_for_name(entry_name);
     entry->id = cls->prop_count;
     entry->line_num = line_num;
+    entry->doc_id = (uint16_t)-1;
     entry->parent = cls;
     cls->prop_count++;
 

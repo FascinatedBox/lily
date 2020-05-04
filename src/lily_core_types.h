@@ -54,7 +54,9 @@ typedef struct lily_named_sym_ {
 
     uint64_t shorthash;
 
-    uint64_t pad2;
+    uint16_t line_num;
+    uint16_t doc_id;
+    uint32_t pad2;
 
     struct lily_class_ *parent;
 } lily_named_sym;
@@ -198,8 +200,8 @@ typedef struct {
     uint64_t shorthash;
 
     uint16_t line_num;
-    uint16_t pad2;
-    uint32_t pad3;
+    uint16_t doc_id;
+    uint32_t pad2;
 
     lily_class *parent;
 } lily_prop_entry;

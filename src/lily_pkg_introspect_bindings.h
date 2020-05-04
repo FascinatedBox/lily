@@ -154,11 +154,13 @@ const char *lily_introspect_info_table[] = {
     ,"3\0name\0String"
     ,"3\0keyword\0String"
     ,"3\0type\0TypeEntry"
-    ,"C\03VarEntry\0"
+    ,"C\04VarEntry\0"
+    ,"m\0doc\0(VarEntry): String"
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
     ,"m\0type\0(VarEntry): TypeEntry"
-    ,"C\05PropertyEntry\0"
+    ,"C\06PropertyEntry\0"
+    ,"m\0doc\0(PropertyEntry): String"
     ,"m\0is_private\0(PropertyEntry): Boolean"
     ,"m\0is_protected\0(PropertyEntry): Boolean"
     ,"m\0is_public\0(PropertyEntry): Boolean"
@@ -232,10 +234,12 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
+    lily_introspect_VarEntry_doc, \
     lily_introspect_VarEntry_line_number, \
     lily_introspect_VarEntry_name, \
     lily_introspect_VarEntry_type, \
     NULL, \
+    lily_introspect_PropertyEntry_doc, \
     lily_introspect_PropertyEntry_is_private, \
     lily_introspect_PropertyEntry_is_protected, \
     lily_introspect_PropertyEntry_is_public, \

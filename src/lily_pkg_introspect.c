@@ -450,6 +450,18 @@ This is a foreign class that wraps over a var.
 */
 
 /**
+define VarEntry.doc: String
+
+Return the docblock of this var, or an empty string. Docblocks are only saved
+when a var is parsed in manifest mode.
+*/
+void lily_introspect_VarEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(VarEntry, lily_var *);
+    return_doc(s, entry->doc_id);
+}
+
+/**
 define VarEntry.line_number: Integer
 
 Return the line number this var was declared on.
@@ -491,6 +503,18 @@ foreign class PropertyEntry {
 
 This is a foreign class that wraps over a class property.
 */
+
+/**
+define PropertyEntry.doc: String
+
+Return the docblock of this property, or an empty string. Docblocks are only
+saved when a property is parsed in manifest mode.
+*/
+void lily_introspect_PropertyEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
+    return_doc(s, entry->doc_id);
+}
 
 /**
 define PropertyEntry.is_private: Boolean
