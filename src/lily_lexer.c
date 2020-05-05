@@ -645,6 +645,14 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             lily_raise_syn(lex->raiser,
                     "Docblock has inconsistent indentation.");
 
+        /* Don't include the triple # in the docblock. */
+        ch += 3;
+
+        /* Same for the spacing that comes after. */
+        while (*ch == ' ' || *ch == '\t')
+            ch++;
+
+        /* The rest goes into the outgoing text. */
         while (*ch != '\n') {
             label[label_pos] = *ch;
             label_pos++;
