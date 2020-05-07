@@ -5305,6 +5305,16 @@ static void manifest_class(lily_parse_state *parser)
     parser->current_class->doc_id = define_var->doc_id;
 }
 
+static void manifest_foreign(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+    expect_word(parser, "class");
+    manifest_class(parser);
+    parser->current_class->item_kind = ITEM_CLASS_FOREIGN;
+}
+
 static void manifest_enum(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5330,6 +5340,9 @@ static void manifest_var(lily_parse_state *parser)
         if (cls->item_kind & ITEM_IS_ENUM)
             lily_raise_syn(parser->raiser,
                     "Var declaration not allowed inside of an enum.");
+        else if (cls->item_kind == ITEM_CLASS_FOREIGN)
+            lily_raise_syn(parser->raiser,
+                    "Foreign classes cannot have vars.");
         else if (modifiers == 0)
             lily_raise_syn(parser->raiser,
                     "Class var declaration must start with a scope.");
@@ -5441,6 +5454,8 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_enum(parser);
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
+            else if (strcmp("foreign", lex->label) == 0)
+                manifest_foreign(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);
