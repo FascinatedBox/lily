@@ -5100,7 +5100,7 @@ static void parse_block_exit(lily_parse_state *parser)
         case block_enum:
             parser->current_class = NULL;
             lily_gp_restore(parser->generics, 0);
-            lily_emit_leave_enum_block(emit);
+            lily_emit_leave_scope_block(emit);
             lily_next_token(lex);
             break;
         case block_do_while:
@@ -5286,7 +5286,9 @@ static void manifest_define(lily_parse_state *parser)
     /* Close the definition to prevent storing code. */
     hide_block_vars(parser);
     lily_gp_restore(parser->generics, emit->block->generic_start);
-    lily_emit_leave_define_block(emit, lex->line_num);
+
+    /* This exits the definition without doing a return check. */
+    lily_emit_leave_scope_block(emit);
 }
 
 static void manifest_class(lily_parse_state *parser)

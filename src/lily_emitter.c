@@ -634,18 +634,6 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
     emit->block = block;
 }
 
-static void leave_scope_block(lily_emit_state *emit)
-{
-    lily_block *block = emit->block;
-
-    lily_u16_set_pos(emit->code, block->code_start);
-    clear_storages(emit->storages, block->storage_count);
-    emit->scope_block = block->prev_scope_block;
-    emit->storages->start -= emit->scope_block->storage_count;
-
-    emit->block = emit->block->prev;
-}
-
 void lily_emit_leave_block(lily_emit_state *emit)
 {
     lily_block *block;
@@ -743,8 +731,7 @@ void lily_emit_leave_class_block(lily_emit_state *emit, uint16_t line_num)
 
     lily_u16_write_3(emit->code, o_return_value, self_reg, line_num);
     finish_block_code(emit);
-    leave_scope_block(emit);
-    emit->function_depth--;
+    lily_emit_leave_scope_block(emit);
 }
 
 void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
@@ -761,14 +748,7 @@ void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
     else
         block->prev->forward_count++;
 
-    leave_scope_block(emit);
-    emit->function_depth--;
-}
-
-void lily_emit_leave_enum_block(lily_emit_state *emit)
-{
-    leave_scope_block(emit);
-    emit->function_depth--;
+    lily_emit_leave_scope_block(emit);
 }
 
 void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
@@ -778,9 +758,11 @@ void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
 
     lily_u16_write_2(emit->code, o_return_unit, last_line);
     finish_block_code(emit);
-    leave_scope_block(emit);
-    /* These blocks don't modify function_depth since that's used to determine
-       if a var is a global or not. */
+
+    /* These blocks don't bump the depth since that's used for determining
+       globals. Bump the depth to offset the drop that this function does. */
+    emit->function_depth++;
+    lily_emit_leave_scope_block(emit);
 
     lily_storage *s = get_storage(emit, lily_unit_type);
 
@@ -794,7 +776,19 @@ void lily_emit_leave_lambda_block(lily_emit_state *emit, uint16_t line_num)
         lily_u16_write_2(emit->code, o_return_unit, line_num);
 
     finish_block_code(emit);
-    leave_scope_block(emit);
+    lily_emit_leave_scope_block(emit);
+}
+
+void lily_emit_leave_scope_block(lily_emit_state *emit)
+{
+    lily_block *block = emit->block;
+
+    lily_u16_set_pos(emit->code, block->code_start);
+    clear_storages(emit->storages, block->storage_count);
+    emit->scope_block = block->prev_scope_block;
+    emit->storages->start -= emit->scope_block->storage_count;
+
+    emit->block = emit->block->prev;
     emit->function_depth--;
 }
 
