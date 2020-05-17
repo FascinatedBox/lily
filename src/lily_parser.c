@@ -5259,19 +5259,50 @@ static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
     return result;
 }
 
+static void write_generics(lily_parse_state *parser, uint16_t where)
+{
+    lily_generic_pool *gp = parser->generics;
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    /* Since generics are required to be in letter order, introspect only needs
+       the total available. It can walk the generic pool later on. */
+    char range = (char)(gp->scope_end - gp->scope_start);
+
+    lily_mb_add_char(msgbuf, range);
+    lily_u16_write_1(parser->data_stack, where);
+    add_data_string(parser, lily_mb_raw(msgbuf));
+}
+
 static void set_manifest_define_doc(lily_parse_state *parser)
 {
     lily_var *define_var = parser->emit->scope_block->scope_var;
     lily_var *var_iter = parser->symtab->active_module->var_chain;
     uint16_t count = parser->emit->scope_block->var_count;
+    uint16_t offset = 0;
     uint16_t i;
 
-    for (i = count;i > 0;i--) {
+    if (define_var->parent &&
+        (define_var->flags & VAR_IS_STATIC) == 0 &&
+        define_var->name[0] != '<') {
+        /* This is a non-static class method. The self of class methods is held
+           in a storage instead of a var, but is in the type. An extra space is
+           added later so that parameters and types line up. */
+        offset = 1;
+        count++;
+    }
+
+    for (i = count;i > offset;i--) {
         lily_u16_write_1(parser->data_stack, i);
         add_data_string(parser, var_iter->name);
     }
 
-    define_var->doc_id = build_doc_data(parser, count + 1);
+    if (offset) {
+        lily_u16_write_1(parser->data_stack, i);
+        add_data_string(parser, "");
+    }
+
+    write_generics(parser, count + 1);
+    define_var->doc_id = build_doc_data(parser, count + 2);
 }
 
 static void manifest_define(lily_parse_state *parser)
@@ -5324,7 +5355,8 @@ static void manifest_enum(lily_parse_state *parser)
     lily_next_token(lex);
     keyword_enum(parser);
 
-    /* Enums only need the docblock. */
+    /* Enums only need the docblock. Generics aren't written because the enum
+       has enough information for introspect to rebuild generics. */
     parser->current_class->doc_id = build_doc_data(parser, 0);
 }
 

@@ -591,6 +591,55 @@ void lily_introspect_FunctionEntry_doc(lily_state *s)
     return_doc(s, entry->doc_id);
 }
 
+static char *get_var_generics(lily_state *s, lily_var *v)
+{
+    /* Generics are stored after arguments. */
+    uint16_t generic_spot = v->type->subtype_count;
+    char **doc_data = s->gs->parser->doc->data[v->doc_id];
+    char *result = doc_data[generic_spot];
+
+    return result;
+}
+
+static void return_generics(lily_state *s, char *generic_str)
+{
+    /* Cache generics are in letter order. All this function needs to do is to
+       iter the saved count of times. */
+    lily_class **generics = s->gs->parser->generics->cache_generics;
+    uint16_t count = (uint16_t)generic_str[0];
+    lily_container_val *list_val = lily_push_list(s, count);
+    uint16_t i;
+
+    for (i = 0;i < count;i++) {
+        lily_class *g = generics[i];
+        lily_introspect_TypeEntry *new_type = INIT_TypeEntry(s);
+
+        new_type->entry = g->self_type;
+        lily_con_set_from_stack(s, list_val, i);
+    }
+
+    lily_return_top(s);
+}
+
+/**
+define FunctionEntry.generics: List[TypeEntry]
+
+Return the generic types available to this function. Functions defined outside
+of manifest mode will always return `[]`.
+*/
+void lily_introspect_FunctionEntry_generics(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+
+    if (entry->doc_id == (uint16_t)-1) {
+        lily_push_list(s, 0);
+        lily_return_top(s);
+        return;
+    }
+
+    return_generics(s, get_var_generics(s, entry));
+}
+
 /**
 define FunctionEntry.name: String
 
@@ -696,6 +745,17 @@ void lily_introspect_MethodEntry_function_name(lily_state *s)
 }
 
 /**
+define MethodEntry.generics: List[TypeEntry]
+
+Return the generic types available to this method (including those from the
+class/enum). Methods defined outside of manifest mode will always return `[]`.
+*/
+void lily_introspect_MethodEntry_generics(lily_state *s)
+{
+    lily_introspect_FunctionEntry_generics(s);
+}
+
+/**
 define MethodEntry.line_number: Integer
 
 Return the line number that this method was declared on.
@@ -771,6 +831,36 @@ void lily_introspect_ClassEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(ClassEntry, lily_class *);
     return_doc(s, entry->doc_id);
+}
+
+/**
+define ClassEntry.generics: List[TypeEntry]
+
+Return the generic types available to this class. Classes defined outside of
+manifest mode will always return `[]`.
+*/
+void lily_introspect_ClassEntry_generics(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ClassEntry, lily_class *);
+
+    /* The first test isn't technically necessary right now since enough
+       information is stored on the class. It's blocked anyway so that there's
+       no regression in this function when generics become more exciting.
+       The second test blocks magic classes (Function and Tuple), which have
+       a count of -1 to denote that they take any amount. The lack of a cast on
+       the second is intended, as the count is signed. */
+    if (entry->doc_id == (uint16_t)-1 ||
+        entry->generic_count == -1) {
+        lily_push_list(s, 0);
+        lily_return_top(s);
+        return;
+    }
+
+    /* All other classes have a reasonable maximum that fits in any char. */
+    char count = (char)entry->generic_count;
+    char generic_str[] = {count, '\0'};
+
+    return_generics(s, generic_str);
 }
 
 /**
@@ -980,6 +1070,17 @@ when an enum is parsed in manifest mode.
 void lily_introspect_EnumEntry_doc(lily_state *s)
 {
     lily_introspect_ClassEntry_doc(s);
+}
+
+/**
+define EnumEntry.generics: List[TypeEntry]
+
+Return the generic types available to this enum. Enums defined outside of
+manifest mode will always return `[]`.
+*/
+void lily_introspect_EnumEntry_generics(lily_state *s)
+{
+    lily_introspect_ClassEntry_generics(s);
 }
 
 /**
