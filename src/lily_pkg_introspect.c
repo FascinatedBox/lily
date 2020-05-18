@@ -1291,6 +1291,18 @@ void lily_introspect_ModuleEntry_dirname(lily_state *s)
 }
 
 /**
+define ModuleEntry.doc: String
+
+Return the docblock of this module, or an empty string. Docblocks are only saved
+when a module is parsed in manifest mode.
+*/
+void lily_introspect_ModuleEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ModuleEntry, lily_module_entry *);
+    return_doc(s, entry->doc_id);
+}
+
+/**
 define ModuleEntry.id: Integer
 
 Return a unique id that is based on the underlying module (not the instance).

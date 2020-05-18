@@ -560,6 +560,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->loadname = NULL;
     module->dirname = NULL;
     module->path = NULL;
+    module->doc_id = (uint16_t)-1;
     module->cmp_len = 0;
     module->info_table = NULL;
     module->cid_table = NULL;
@@ -5440,6 +5441,34 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     parser->modifiers = 0;
 }
 
+static void manifest_library(lily_parse_state *parser)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_block *scope_block = parser->emit->scope_block;
+    lily_lex_state *lex = parser->lex;
+
+    if (scope_block->block_type != block_file)
+        lily_raise_syn(parser->raiser,
+                "Library keyword must be at toplevel.");
+
+    lily_var *scope_var = scope_block->scope_var;
+
+    if (scope_var->doc_id != (uint16_t)-1)
+        lily_raise_syn(parser->raiser,
+                "Library keyword has already been used.");
+
+    /* The purpose of this keyword is to give the module a docblock by giving
+       the module load function a docblock. */
+    NEED_NEXT_TOK(tk_word)
+
+    if (m->class_chain || m->var_chain != scope_var)
+        lily_raise_syn(parser->raiser,
+                "Library keyword must come before other keywords.");
+
+    m->doc_id = build_doc_data(parser, 0);
+    lily_next_token(lex);
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5495,6 +5524,8 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_var(parser);
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
+            else if (strcmp("library", lex->label) == 0)
+                manifest_library(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);

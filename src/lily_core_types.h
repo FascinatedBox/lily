@@ -274,7 +274,8 @@ typedef struct lily_module_entry_ {
     /* This is always ITEM_MODULE. */
     uint16_t item_kind;
     uint16_t flags;
-    uint16_t pad;
+    uint16_t doc_id;
+
     /* This is set to the length of the path. When searching for modules by path
        to find a duplicate, this is checked before the path.
        Modules can be hidden from path search by setting this to 0. */
