@@ -1084,6 +1084,28 @@ void lily_introspect_EnumEntry_generics(lily_state *s)
 }
 
 /**
+define EnumEntry.is_flat: Boolean
+
+Returns true if the enum's variants are visible at toplevel, false otherwise.
+*/
+void lily_introspect_EnumEntry_is_flat(lily_state *s)
+{
+    UNPACK_FIRST_ARG(EnumEntry, lily_class *);
+    lily_return_boolean(s, entry->item_kind == ITEM_ENUM_FLAT);
+}
+
+/**
+define EnumEntry.is_scoped: Boolean
+
+Returns true if the enum's variants are namespaced, false otherwise.
+*/
+void lily_introspect_EnumEntry_is_scoped(lily_state *s)
+{
+    UNPACK_FIRST_ARG(EnumEntry, lily_class *);
+    lily_return_boolean(s, entry->item_kind == ITEM_ENUM_SCOPED);
+}
+
+/**
 define EnumEntry.methods: List[MethodEntry]
 
 Return the methods that were declared in this class. There is no guarantee as to
