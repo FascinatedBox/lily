@@ -5427,8 +5427,13 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     parser->modifiers = modifiers;
 
     /* No else because invalid keywords will be caught on the next pass. */
-    if (key == KEY_DEFINE)
+    if (key == KEY_DEFINE) {
+        if (modifiers & (SYM_SCOPE_PROTECTED | SYM_SCOPE_PRIVATE))
+            lily_raise_syn(parser->raiser,
+                    "Class methods defined in manifest mode must be public.");
+
         manifest_define(parser);
+    }
     else if (key == KEY_VAR)
         manifest_var(parser);
 
