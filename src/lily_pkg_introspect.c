@@ -802,6 +802,17 @@ void lily_introspect_MethodEntry_is_public(lily_state *s)
 }
 
 /**
+define MethodEntry.is_static: Boolean
+
+Return `true` if the method is static, `false` otherwise.
+*/
+void lily_introspect_MethodEntry_is_static(lily_state *s)
+{
+    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
+    lily_return_boolean(s, !!(entry->flags & VAR_IS_STATIC));
+}
+
+/**
 define MethodEntry.type: TypeEntry
 
 Return the type of the method provided.

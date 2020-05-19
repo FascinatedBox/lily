@@ -4870,6 +4870,18 @@ static void keyword_define(lily_parse_state *parser)
 
 #undef ALLOW_DEFINE
 
+static void verify_static_modifier(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    NEED_NEXT_TOK(tk_word)
+
+    if (keyword_by_name(lex->label) != KEY_DEFINE)
+        lily_raise_syn(parser->raiser,
+                "'static' must be followed by 'define', not '%s'.",
+                lex->label);
+}
+
 static void parse_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
@@ -4914,14 +4926,8 @@ static void parse_modifier(lily_parse_state *parser, int key)
 
     if (key == KEY_STATIC) {
         modifiers |= VAR_IS_STATIC;
-        lily_next_token(lex);
-        NEED_CURRENT_TOK(tk_word)
-        key = keyword_by_name(lex->label);
-
-        if (key != KEY_DEFINE)
-            lily_raise_syn(parser->raiser,
-                    "'static' must be followed by 'define', not '%s'.",
-                    lex->label);
+        verify_static_modifier(parser);
+        key = KEY_DEFINE;
     }
 
     parser->modifiers = modifiers;
@@ -5425,6 +5431,13 @@ static void manifest_modifier(lily_parse_state *parser, int key)
 
     NEED_NEXT_TOK(tk_word)
     key = keyword_by_name(lex->label);
+
+    if (key == KEY_STATIC) {
+        modifiers |= VAR_IS_STATIC;
+        verify_static_modifier(parser);
+        key = KEY_DEFINE;
+    }
+
     parser->modifiers = modifiers;
 
     /* No else because invalid keywords will be caught on the next pass. */
