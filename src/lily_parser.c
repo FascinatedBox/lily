@@ -5353,6 +5353,12 @@ static void manifest_foreign(lily_parse_state *parser)
     expect_word(parser, "class");
     manifest_class(parser);
     parser->current_class->item_kind = ITEM_CLASS_FOREIGN;
+
+    lily_named_sym *sym = parser->current_class->members;
+
+    if (sym->item_kind == ITEM_PROPERTY)
+        lily_raise_syn(parser->raiser,
+                "Only native classes can have class properties.");
 }
 
 static void manifest_enum(lily_parse_state *parser)
@@ -5383,7 +5389,7 @@ static void manifest_var(lily_parse_state *parser)
                     "Var declaration not allowed inside of an enum.");
         else if (cls->item_kind == ITEM_CLASS_FOREIGN)
             lily_raise_syn(parser->raiser,
-                    "Foreign classes cannot have vars.");
+                    "Only native classes can have class properties.");
         else if (modifiers == 0)
             lily_raise_syn(parser->raiser,
                     "Class var declaration must start with a scope.");
