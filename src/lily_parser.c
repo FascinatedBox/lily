@@ -5482,6 +5482,22 @@ static void manifest_library(lily_parse_state *parser)
     lily_next_token(lex);
 }
 
+static void manifest_block_exit(lily_parse_state *parser)
+{
+    lily_block_type block_type = parser->emit->block->block_type;
+
+    if (block_type == block_file)
+        lily_raise_syn(parser->raiser, "'}' outside of a block.");
+    else if (block_type == block_class)
+        hide_block_vars(parser);
+    /* Otherwise it's an enum, and there's nothing more to do for those. */
+
+    parser->current_class = NULL;
+    lily_gp_restore(parser->generics, 0);
+    lily_emit_leave_scope_block(parser->emit);
+    lily_next_token(parser->lex);
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5544,7 +5560,7 @@ static void manifest_loop(lily_parse_state *parser)
                         "Invalid keyword %s for manifest.", lex->label);
         }
         else if (lex->token == tk_right_curly)
-            parse_block_exit(parser);
+            manifest_block_exit(parser);
         else if (lex->token == tk_eof) {
             lily_block *b = parser->emit->block;
 
