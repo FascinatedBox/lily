@@ -5348,8 +5348,15 @@ static void manifest_class(lily_parse_state *parser)
 static void manifest_foreign(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
+    int is_static = 0;
 
     lily_next_token(lex);
+
+    if (lex->token == tk_word && strcmp(lex->label, "static") == 0) {
+        is_static = 1;
+        lily_next_token(lex);
+    }
+
     expect_word(parser, "class");
     manifest_class(parser);
     parser->current_class->item_kind = ITEM_CLASS_FOREIGN;
@@ -5359,6 +5366,15 @@ static void manifest_foreign(lily_parse_state *parser)
     if (sym->item_kind == ITEM_PROPERTY)
         lily_raise_syn(parser->raiser,
                 "Only native classes can have class properties.");
+
+    if (is_static) {
+        /* Hide the constructor (it's the only entry). */
+        lily_var *ctor = (lily_var *)sym;
+
+        ctor->next = parser->symtab->hidden_function_chain;
+        parser->symtab->hidden_function_chain = ctor;
+        parser->current_class->members = NULL;
+    }
 }
 
 static void manifest_enum(lily_parse_state *parser)
