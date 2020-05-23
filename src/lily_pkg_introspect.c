@@ -813,6 +813,17 @@ void lily_introspect_MethodEntry_is_static(lily_state *s)
 }
 
 /**
+define MethodEntry.parameters: List[ParameterEntry]
+
+Return the parameters of this method. Methods processed outside of manifest mode
+will have empty names.
+*/
+void lily_introspect_MethodEntry_parameters(lily_state *s)
+{
+    lily_introspect_FunctionEntry_parameters(s);
+}
+
+/**
 define MethodEntry.type: TypeEntry
 
 Return the type of the method provided.
