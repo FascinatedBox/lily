@@ -330,6 +330,17 @@ static void unpack_and_return_type(lily_state *s)
     lily_return_top(s);
 }
 
+static void unpack_and_return_result_type(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+    lily_type *t = entry->type;
+
+    lily_introspect_TypeEntry *boxed_type = INIT_TypeEntry(s);
+    boxed_type->entry = t->subtypes[0];
+
+    lily_return_top(s);
+}
+
 static void return_module_id(lily_state *s, lily_module_entry *m)
 {
     lily_return_integer(s, (int64_t)m);
@@ -711,6 +722,16 @@ void lily_introspect_FunctionEntry_parameters(lily_state *s)
 }
 
 /**
+define FunctionEntry.result_type: TypeEntry
+
+Return the type that this function returns when called.
+*/
+void lily_introspect_FunctionEntry_result_type(lily_state *s)
+{
+    unpack_and_return_result_type(s);
+}
+
+/**
 define FunctionEntry.type: TypeEntry
 
 Return the type of the definition provided.
@@ -821,6 +842,16 @@ will have empty names.
 void lily_introspect_MethodEntry_parameters(lily_state *s)
 {
     lily_introspect_FunctionEntry_parameters(s);
+}
+
+/**
+define MethodEntry.result_type: TypeEntry
+
+Return the type that this method returns when called.
+*/
+void lily_introspect_MethodEntry_result_type(lily_state *s)
+{
+    unpack_and_return_result_type(s);
 }
 
 /**
