@@ -917,6 +917,18 @@ void lily_introspect_ClassEntry_generics(lily_state *s)
 }
 
 /**
+define ClassEntry.id: Integer
+
+Return the internal id of this class.
+*/
+void lily_introspect_ClassEntry_id(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ClassEntry, lily_class *);
+
+    lily_return_integer(s, entry->id);
+}
+
+/**
 define ClassEntry.is_foreign: Boolean
 
 This is the opposite of `ClassEntry.is_native`.
@@ -1134,6 +1146,16 @@ manifest mode will always return `[]`.
 void lily_introspect_EnumEntry_generics(lily_state *s)
 {
     lily_introspect_ClassEntry_generics(s);
+}
+
+/**
+define EnumEntry.id: Integer
+
+Return the internal id of this enum.
+*/
+void lily_introspect_EnumEntry_id(lily_state *s)
+{
+    lily_introspect_ClassEntry_id(s);
 }
 
 /**

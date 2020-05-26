@@ -185,9 +185,10 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\011ClassEntry\0"
+    ,"C\012ClassEntry\0"
     ,"m\0doc\0(ClassEntry): String"
     ,"m\0generics\0(ClassEntry): List[TypeEntry]"
+    ,"m\0id\0(ClassEntry): Integer"
     ,"m\0is_foreign\0(ClassEntry): Boolean"
     ,"m\0is_native\0(ClassEntry): Boolean"
     ,"m\0methods\0(ClassEntry): List[MethodEntry]"
@@ -201,9 +202,10 @@ const char *lily_introspect_info_table[] = {
     ,"m\0module_path\0(VariantEntry): String"
     ,"m\0name\0(VariantEntry): String"
     ,"m\0type\0(VariantEntry): TypeEntry"
-    ,"C\010EnumEntry\0"
+    ,"C\011EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
     ,"m\0generics\0(EnumEntry): List[TypeEntry]"
+    ,"m\0id\0(EnumEntry): Integer"
     ,"m\0is_flat\0(EnumEntry): Boolean"
     ,"m\0is_scoped\0(EnumEntry): Boolean"
     ,"m\0methods\0(EnumEntry): List[MethodEntry]"
@@ -278,6 +280,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     lily_introspect_ClassEntry_doc, \
     lily_introspect_ClassEntry_generics, \
+    lily_introspect_ClassEntry_id, \
     lily_introspect_ClassEntry_is_foreign, \
     lily_introspect_ClassEntry_is_native, \
     lily_introspect_ClassEntry_methods, \
@@ -294,6 +297,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     lily_introspect_EnumEntry_doc, \
     lily_introspect_EnumEntry_generics, \
+    lily_introspect_EnumEntry_id, \
     lily_introspect_EnumEntry_is_flat, \
     lily_introspect_EnumEntry_is_scoped, \
     lily_introspect_EnumEntry_methods, \
