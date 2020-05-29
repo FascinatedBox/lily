@@ -144,10 +144,11 @@ typedef struct lily_introspect_ModuleEntry_ {
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
     "\012TypeEntry\0ParameterEntry\0VarEntry\0PropertyEntry\0FunctionEntry\0MethodEntry\0ClassEntry\0VariantEntry\0EnumEntry\0ModuleEntry\0"
-    ,"C\03TypeEntry\0"
+    ,"C\04TypeEntry\0"
     ,"m\0as_string\0(TypeEntry): String"
     ,"m\0class_name\0(TypeEntry): String"
     ,"m\0class_id\0(TypeEntry): Integer"
+    ,"m\0inner_types\0(TypeEntry): List[TypeEntry]"
     ,"N\04ParameterEntry\0"
     ,"m\0<new>\0(String,String,TypeEntry): ParameterEntry"
     ,"3\0name\0String"
@@ -238,6 +239,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_TypeEntry_as_string, \
     lily_introspect_TypeEntry_class_name, \
     lily_introspect_TypeEntry_class_id, \
+    lily_introspect_TypeEntry_inner_types, \
     NULL, \
     lily_introspect_ParameterEntry_new, \
     NULL, \

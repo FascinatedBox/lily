@@ -411,6 +411,33 @@ void lily_introspect_TypeEntry_class_id(lily_state *s)
 }
 
 /**
+define TypeEntry.inner_types: List[TypeEntry]
+
+Returns the type(s) that this type has inside, or `[]` if there are none. Types
+are listed from left to right. The only exception is `Function`, which always
+has the result first, followed by inner types from left to right.
+*/
+void lily_introspect_TypeEntry_inner_types(lily_state *s)
+{
+    UNPACK_FIRST_ARG(TypeEntry, lily_type *);
+
+    /* Function's behavior is due to how parser builds Function types. */
+    uint16_t count = entry->subtype_count;
+    lily_type **inner_types = entry->subtypes;
+    lily_container_val *list_val = lily_push_list(s, count);
+    uint16_t i;
+
+    for (i = 0;i < count;i++) {
+        lily_introspect_TypeEntry *new_type = INIT_TypeEntry(s);
+
+        new_type->entry = inner_types[i];
+        lily_con_set_from_stack(s, list_val, i);
+    }
+
+    lily_return_top(s);
+}
+
+/**
 native class ParameterEntry(name: String, key: String, t: TypeEntry) {
     var @name: String,
     var @keyword: String,
