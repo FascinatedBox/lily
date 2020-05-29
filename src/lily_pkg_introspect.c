@@ -1047,6 +1047,31 @@ This is a foreign class that wraps over an enum variant.
 */
 
 /**
+define VariantEntry.enum_id: Integer
+
+Return the id of the enum parent of this variant.
+*/
+void lily_introspect_VariantEntry_enum_id(lily_state *s)
+{
+    UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
+
+    lily_return_integer(s, entry->parent->id);
+}
+
+/**
+define VariantEntry.enum_name: String
+
+Return the name of the enum parent of this variant.
+*/
+void lily_introspect_VariantEntry_enum_name(lily_state *s)
+{
+    UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
+
+    lily_push_string(s, entry->parent->name);
+    lily_return_top(s);
+}
+
+/**
 define VariantEntry.is_empty: Boolean
 
 Returns true if the variant is empty, false otherwise. Empty variants are

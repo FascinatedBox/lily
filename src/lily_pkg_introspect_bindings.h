@@ -195,10 +195,12 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(ClassEntry): String"
     ,"m\0parent\0(ClassEntry): Option[ClassEntry]"
     ,"m\0properties\0(ClassEntry): List[PropertyEntry]"
-    ,"C\04VariantEntry\0"
+    ,"C\06VariantEntry\0"
     ,"m\0is_empty\0(VariantEntry): Boolean"
     ,"m\0is_scoped\0(VariantEntry): Boolean"
     ,"m\0name\0(VariantEntry): String"
+    ,"m\0enum_id\0(VariantEntry): Integer"
+    ,"m\0enum_name\0(VariantEntry): String"
     ,"m\0type\0(VariantEntry): TypeEntry"
     ,"C\010EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
@@ -287,6 +289,8 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_is_empty, \
     lily_introspect_VariantEntry_is_scoped, \
     lily_introspect_VariantEntry_name, \
+    lily_introspect_VariantEntry_enum_id, \
+    lily_introspect_VariantEntry_enum_name, \
     lily_introspect_VariantEntry_type, \
     NULL, \
     lily_introspect_EnumEntry_doc, \
