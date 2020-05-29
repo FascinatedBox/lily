@@ -376,13 +376,13 @@ typedef struct lily_proto_ {
 /* These are important ids in the interpreter. */
 
 
-#define LILY_LAST_ID       65528
+#define LILY_LAST_ID       65529
 /* Instances of these are never made, so these ids will never be seen by vm. */
-#define LILY_ID_SELF       65529
-#define LILY_ID_QUESTION   65530
-#define LILY_ID_GENERIC    65531
-#define LILY_ID_OPTARG     65532
-#define LILY_ID_SCOOP      65534
+#define LILY_ID_GENERIC    65530
+#define LILY_ID_OPTARG     65531
+#define LILY_ID_QUESTION   65532
+#define LILY_ID_SCOOP      65533
+#define LILY_ID_SELF       65534
 
 
 /* Here are the symbol flags that are not shared. */
