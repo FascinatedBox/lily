@@ -185,24 +185,22 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\012ClassEntry\0"
+    ,"C\011ClassEntry\0"
     ,"m\0doc\0(ClassEntry): String"
     ,"m\0generics\0(ClassEntry): List[TypeEntry]"
     ,"m\0id\0(ClassEntry): Integer"
     ,"m\0is_foreign\0(ClassEntry): Boolean"
     ,"m\0is_native\0(ClassEntry): Boolean"
     ,"m\0methods\0(ClassEntry): List[MethodEntry]"
-    ,"m\0module_path\0(ClassEntry): String"
     ,"m\0name\0(ClassEntry): String"
     ,"m\0parent\0(ClassEntry): Option[ClassEntry]"
     ,"m\0properties\0(ClassEntry): List[PropertyEntry]"
-    ,"C\05VariantEntry\0"
+    ,"C\04VariantEntry\0"
     ,"m\0is_empty\0(VariantEntry): Boolean"
     ,"m\0is_scoped\0(VariantEntry): Boolean"
-    ,"m\0module_path\0(VariantEntry): String"
     ,"m\0name\0(VariantEntry): String"
     ,"m\0type\0(VariantEntry): TypeEntry"
-    ,"C\011EnumEntry\0"
+    ,"C\010EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
     ,"m\0generics\0(EnumEntry): List[TypeEntry]"
     ,"m\0id\0(EnumEntry): Integer"
@@ -211,7 +209,6 @@ const char *lily_introspect_info_table[] = {
     ,"m\0methods\0(EnumEntry): List[MethodEntry]"
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
     ,"m\0name\0(EnumEntry): String"
-    ,"m\0module_path\0(EnumEntry): String"
     ,"C\016ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
@@ -283,14 +280,12 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ClassEntry_is_foreign, \
     lily_introspect_ClassEntry_is_native, \
     lily_introspect_ClassEntry_methods, \
-    lily_introspect_ClassEntry_module_path, \
     lily_introspect_ClassEntry_name, \
     lily_introspect_ClassEntry_parent, \
     lily_introspect_ClassEntry_properties, \
     NULL, \
     lily_introspect_VariantEntry_is_empty, \
     lily_introspect_VariantEntry_is_scoped, \
-    lily_introspect_VariantEntry_module_path, \
     lily_introspect_VariantEntry_name, \
     lily_introspect_VariantEntry_type, \
     NULL, \
@@ -302,7 +297,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_EnumEntry_methods, \
     lily_introspect_EnumEntry_variants, \
     lily_introspect_EnumEntry_name, \
-    lily_introspect_EnumEntry_module_path, \
     NULL, \
     lily_introspect_ModuleEntry_boxed_classes, \
     lily_introspect_ModuleEntry_boxed_enums, \

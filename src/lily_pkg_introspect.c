@@ -984,20 +984,6 @@ void lily_introspect_ClassEntry_methods(lily_state *s)
 }
 
 /**
-define ClassEntry.module_path: String
-
-Return the path of the module that this class belongs to.
-*/
-void lily_introspect_ClassEntry_module_path(lily_state *s)
-{
-    lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
-    lily_module_entry *m = introspect_entry->entry->module;
-
-    lily_push_string(s, m->path);
-    lily_return_top(s);
-}
-
-/**
 define ClassEntry.name: String
 
 Return the name of the class provided.
@@ -1088,20 +1074,6 @@ void lily_introspect_VariantEntry_is_scoped(lily_state *s)
     lily_class *parent = introspect_entry->parent;
 
     lily_return_boolean(s, parent->item_kind == ITEM_ENUM_SCOPED);
-}
-
-/**
-define VariantEntry.module_path: String
-
-Return the path of the module that this variant belongs to.
-*/
-void lily_introspect_VariantEntry_module_path(lily_state *s)
-{
-    lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
-    lily_module_entry *m = introspect_entry->entry->parent->module;
-
-    lily_push_string(s, m->path);
-    lily_return_top(s);
 }
 
 /**
@@ -1245,16 +1217,6 @@ Return the name of the class provided.
 void lily_introspect_EnumEntry_name(lily_state *s)
 {
     lily_introspect_ClassEntry_name(s);
-}
-
-/**
-define EnumEntry.module_path: String
-
-Return the path of the module that this enum belongs to.
-*/
-void lily_introspect_EnumEntry_module_path(lily_state *s)
-{
-    lily_introspect_ClassEntry_module_path(s);
 }
 
 /**
