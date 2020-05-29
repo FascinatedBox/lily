@@ -144,10 +144,9 @@ typedef struct lily_introspect_ModuleEntry_ {
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
     "\012TypeEntry\0ParameterEntry\0VarEntry\0PropertyEntry\0FunctionEntry\0MethodEntry\0ClassEntry\0VariantEntry\0EnumEntry\0ModuleEntry\0"
-    ,"C\04TypeEntry\0"
+    ,"C\03TypeEntry\0"
     ,"m\0as_string\0(TypeEntry): String"
     ,"m\0class_name\0(TypeEntry): String"
-    ,"m\0module_id\0(TypeEntry): Integer"
     ,"m\0class_id\0(TypeEntry): Integer"
     ,"N\04ParameterEntry\0"
     ,"m\0<new>\0(String,String,TypeEntry): ParameterEntry"
@@ -212,7 +211,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
     ,"m\0name\0(EnumEntry): String"
     ,"m\0module_path\0(EnumEntry): String"
-    ,"C\017ModuleEntry\0"
+    ,"C\016ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0boxed_functions\0(ModuleEntry): List[FunctionEntry]"
@@ -221,7 +220,6 @@ const char *lily_introspect_info_table[] = {
     ,"m\0classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0dirname\0(ModuleEntry): String"
     ,"m\0doc\0(ModuleEntry): String"
-    ,"m\0id\0(ModuleEntry): Integer"
     ,"m\0enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0functions\0(ModuleEntry): List[FunctionEntry]"
     ,"m\0modules_used\0(ModuleEntry): List[ModuleEntry]"
@@ -239,7 +237,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     lily_introspect_TypeEntry_as_string, \
     lily_introspect_TypeEntry_class_name, \
-    lily_introspect_TypeEntry_module_id, \
     lily_introspect_TypeEntry_class_id, \
     NULL, \
     lily_introspect_ParameterEntry_new, \
@@ -313,7 +310,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ModuleEntry_classes, \
     lily_introspect_ModuleEntry_dirname, \
     lily_introspect_ModuleEntry_doc, \
-    lily_introspect_ModuleEntry_id, \
     lily_introspect_ModuleEntry_enums, \
     lily_introspect_ModuleEntry_functions, \
     lily_introspect_ModuleEntry_modules_used, \
