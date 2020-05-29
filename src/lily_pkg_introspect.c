@@ -690,21 +690,11 @@ static const char *get_block_string(char **block, int index)
     return str;
 }
 
-/**
-define FunctionEntry.parameters: List[ParameterEntry]
-
-Return the parameters of this function. Functions processed outside of manifest
-mode will have empty names.
-*/
-void lily_introspect_FunctionEntry_parameters(lily_state *s)
+static void push_parameters(lily_state *s, lily_type *type, char **doc,
+                            char **keywords)
 {
-    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
-
-    lily_type **types = entry->type->subtypes;
-    lily_emit_state *emit = s->gs->parser->emit;
-    char **keywords = lily_emit_proto_for_var(emit, entry)->keywords;
-    char **doc = get_doc_text(s, entry->doc_id);
-    uint16_t count = entry->type->subtype_count;
+    lily_type **types = type->subtypes;
+    uint16_t count = type->subtype_count;
     uint16_t i;
 
     /* -1 to offset skipping the return at [0]. */
@@ -728,6 +718,24 @@ void lily_introspect_FunctionEntry_parameters(lily_state *s)
     }
 
     lily_return_top(s);
+}
+
+/**
+define FunctionEntry.parameters: List[ParameterEntry]
+
+Return the parameters of this function. Functions processed outside of manifest
+mode will have empty names.
+*/
+void lily_introspect_FunctionEntry_parameters(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+
+    lily_emit_state *emit = s->gs->parser->emit;
+    lily_type *type = entry->type;
+    char **doc = get_doc_text(s, entry->doc_id);
+    char **keywords = lily_emit_proto_for_var(emit, entry)->keywords;
+
+    push_parameters(s, type, doc, keywords);
 }
 
 /**
@@ -1110,6 +1118,38 @@ void lily_introspect_VariantEntry_name(lily_state *s)
 {
     FETCH_FIELD(VariantEntry, lily_variant_class, const char *, name,
             lily_push_string);
+}
+
+/**
+define VariantEntry.parameters: List[ParameterEntry]
+
+Return the parameters of this variant, or `[]` if this variant does not take
+parameters. Since variants do not accept parameter names, the name is always
+`""`.
+*/
+void lily_introspect_VariantEntry_parameters(lily_state *s)
+{
+    UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
+
+    lily_type *type = entry->build_type;
+
+    /* The build type of a variant depends on if it takes arguments:
+
+       Variants with arguments will have a Function that returns an enum with
+       any generics known filled in.
+
+       Variants without arguments will return their enum parent with ? in place
+       of any generics. */
+    if (type->cls->id != LILY_ID_FUNCTION) {
+        lily_push_list(s, 0);
+        lily_return_top(s);
+        return;
+    }
+
+    char **doc = NULL;
+    char **keywords = entry->keywords;
+
+    push_parameters(s, type, doc, keywords);
 }
 
 /**
