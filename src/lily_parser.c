@@ -4093,6 +4093,16 @@ static void enter_module(lily_parse_state *parser, lily_module_entry *m)
     lily_next_token(parser->lex);
 }
 
+static void verify_manifest_import(lily_parse_state *parser,
+        lily_module_entry *m)
+{
+    if (parser->ims->is_package_import ||
+        (m->flags & MODULE_IS_PREDEFINED) ||
+        ((m->flags & MODULE_NOT_EXECUTED) == 0))
+        lily_raise_syn(parser->raiser,
+                "Manifest files can only import local manifest files.");
+}
+
 static void import_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -4106,6 +4116,8 @@ static void import_loop(lily_parse_state *parser)
             enter_module(parser, m);
             break;
         }
+        else if (parser->flags & PARSER_IN_MANIFEST)
+            verify_manifest_import(parser, m);
 
         parse_import_link(parser, m);
 
@@ -5255,14 +5267,17 @@ static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
     if (d->pos == d->size)
         grow_docs(d);
 
-    char **text = build_strings_by_data(parser, arg_count, 0);
+    uint16_t start = lily_u16_pos(parser->data_stack) - (arg_count * 2);
+    char **text = build_strings_by_data(parser, arg_count, start);
     uint16_t result = d->pos;
 
     d->data[d->pos] = text;
     d->pos++;
 
-    /* Set to 1 to leave the initial 0 entry. */
-    lily_u16_set_pos(parser->data_stack, 1);
+    /* Text building rewinds the data stack's position to the start. Bump the
+       position to restore the hanging zero that manifest loop pushed. */
+    parser->data_stack->pos++;
+
     return result;
 }
 
@@ -5386,7 +5401,7 @@ static void manifest_enum(lily_parse_state *parser)
 
     /* Enums only need the docblock. Generics aren't written because the enum
        has enough information for introspect to rebuild generics. */
-    parser->current_class->doc_id = build_doc_data(parser, 0);
+    parser->current_class->doc_id = build_doc_data(parser, 1);
 }
 
 static void manifest_var(lily_parse_state *parser)
@@ -5436,7 +5451,7 @@ static void manifest_var(lily_parse_state *parser)
     sym->type = get_type(parser);
 
     /* Similar to enums, vars and properties only store the docblock. */
-    sym->doc_id = build_doc_data(parser, 0);
+    sym->doc_id = build_doc_data(parser, 1);
 }
 
 static void manifest_modifier(lily_parse_state *parser, int key)
@@ -5500,8 +5515,23 @@ static void manifest_library(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Library keyword must come before other keywords.");
 
-    m->doc_id = build_doc_data(parser, 0);
+    m->doc_id = build_doc_data(parser, 1);
     lily_next_token(lex);
+}
+
+static void manifest_import(lily_parse_state *parser, int have_docblock)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (have_docblock)
+        lily_raise_syn(parser->raiser,
+                "Import keyword should not have a docblock.");
+
+    /* Drop the empty string that manifest_loop pushed. This will make the stack
+       line up again when this import closes. */
+    lily_u16_pop(parser->data_stack);
+    lily_next_token(lex);
+    import_loop(parser);
 }
 
 static void manifest_block_exit(lily_parse_state *parser)
@@ -5531,12 +5561,17 @@ static void manifest_loop(lily_parse_state *parser)
        parsing will fail here. Manifest files passed to code parsing will fail
        to load this module. */
     lily_next_token(lex);
+
+    /* Import re-entry starts here because the token has already been pulled. */
+enter_manifest_import:;
     expect_word(parser, "import");
     lily_next_token(lex);
     expect_word(parser, "manifest");
     lily_next_token(lex);
 
-    /* Doc entries will always start with the docblock at 0. */
+    /* Docblocks are built by reading the data stack for pairs of id and string
+       position. Each level of manifest file entry pushes a hanging zero for the
+       initial docblock position to attach to.  */
     lily_u16_write_1(parser->data_stack, 0);
 
     while (1) {
@@ -5573,6 +5608,10 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_enum(parser);
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
+            else if (key_id == KEY_IMPORT) {
+                manifest_import(parser, have_docblock);
+                goto enter_manifest_import;
+            }
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
@@ -5589,6 +5628,9 @@ static void manifest_loop(lily_parse_state *parser)
             if (b->block_type != block_file)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(tk_eof));
+
+            /* Drop the hanging 0 pushed above. */
+            lily_u16_pop(parser->data_stack);
 
             if (b->prev != NULL)
                 finish_import(parser);
