@@ -5620,6 +5620,9 @@ enter_manifest_import:;
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);
         }
+        else if (have_docblock)
+            lily_raise_syn(parser->raiser,
+                    "Docblock must be followed by a keyword.");
         else if (lex->token == tk_right_curly)
             manifest_block_exit(parser);
         else if (lex->token == tk_eof) {
