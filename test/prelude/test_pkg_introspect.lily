@@ -50,14 +50,12 @@ class TestPkgIntrospect < TestCase
             define check(         c: introspect.ClassEntry,
                          :foreign foreign: String,
                          :native  native: String,
-                         :path    path: String,
                          :parent  parent: String)
             {
                 var input = [c.is_foreign().to_s(),
                              c.is_native().to_s(),
-                             c.module_path(),
                              c.parent().map(|a| a.name() ).unwrap_or("")]
-                var expect = [foreign, native, path, parent]
+                var expect = [foreign, native, parent]
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -81,7 +79,6 @@ class TestPkgIntrospect < TestCase
             check(time_c,
                   :foreign "true",
                   :native "false",
-                  :path "[time]",
                   :parent "")
         """)
 
@@ -91,7 +88,6 @@ class TestPkgIntrospect < TestCase
             check(one_c,
                   :foreign "false",
                   :native "true",
-                  :path "[test]",
                   :parent "")
         """)
 
@@ -101,7 +97,6 @@ class TestPkgIntrospect < TestCase
             check(two_c,
                   :foreign "false",
                   :native "true",
-                  :path "[test]",
                   :parent "One")
         """)
     }
@@ -119,12 +114,10 @@ class TestPkgIntrospect < TestCase
             import (FlatOption, ScopedOption) symbols
 
             define check(      e: introspect.EnumEntry,
-                         :name name: String,
-                         :path path: String)
+                         :name name: String)
             {
-                var input = [e.name(),
-                             e.module_path()]
-                var expect = [name, path]
+                var input = [e.name()]
+                var expect = [name]
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -155,32 +148,28 @@ class TestPkgIntrospect < TestCase
 
         assert_parse_string(t, """
             check(flat_e,
-                  :name "FlatOption",
-                  :path "symbols.lily")
+                  :name "FlatOption")
         """)
 
         # enum entry (check scoped_e)
 
         assert_parse_string(t, """
             check(scoped_e,
-                  :name "ScopedOption",
-                  :path "symbols.lily")
+                  :name "ScopedOption")
         """)
 
         # enum entry (check local_flat_e)
 
         assert_parse_string(t, """
             check(local_flat_e,
-                  :name "LocalFlatOption",
-                  :path "[test]")
+                  :name "LocalFlatOption")
         """)
 
         # enum entry (check local_scoped_e)
 
         assert_parse_string(t, """
             check(local_scoped_e,
-                  :name "LocalScopedOption",
-                  :path "[test]")
+                  :name "LocalScopedOption")
         """)
     }
 
@@ -332,13 +321,11 @@ class TestPkgIntrospect < TestCase
 
             define check(         m: introspect.ModuleEntry,
                          :dirname dirname: String,
-                         :name    name: String,
-                         :path    path: String)
+                         :name    name: String)
             {
                 var input = [m.dirname(),
-                             m.name(),
-                             m.path()]
-                var expect = [dirname, name, path]
+                             m.name()]
+                var expect = [dirname, name]
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -358,8 +345,7 @@ class TestPkgIntrospect < TestCase
         assert_parse_string(t, """
             check(main_m,
                   :dirname "",
-                  :name "[main]",
-                  :path "[test]")
+                  :name "[main]")
         """)
 
         # module entry (check introspect)
@@ -367,8 +353,7 @@ class TestPkgIntrospect < TestCase
         assert_parse_string(t, """
             check(introspect_m,
                   :dirname "",
-                  :name "introspect",
-                  :path "[introspect]")
+                  :name "introspect")
         """)
 
         # module entry (check example)
@@ -376,8 +361,7 @@ class TestPkgIntrospect < TestCase
         assert_parse_string(t, """
             check(example_m,
                   :dirname "",
-                  :name "example",
-                  :path "nest\\/example.lily")
+                  :name "example")
         """)
 
         # module entry (check fake)
@@ -385,8 +369,7 @@ class TestPkgIntrospect < TestCase
         assert_parse_string(t, """
             check(fake_m,
                   :dirname "packages\\/fake\\/src",
-                  :name "fake",
-                  :path "packages\\/fake\\/src\\/fake.lily")
+                  :name "fake")
         """)
 
         # module entry (check time not included)
@@ -586,16 +569,14 @@ class TestPkgIntrospect < TestCase
             define check(      v_: introspect.VariantEntry,
                          :empty empty: String,
                          :name name: String,
-                         :path path: String,
                          :scoped scoped: String,
                          :type type: String)
             {
                 var input = [v_.is_empty().to_s(),
                              v_.name(),
-                             v_.module_path(),
                              v_.is_scoped().to_s(),
                              v_.type().as_string()]
-                var expect = [empty, name, path, scoped, type]
+                var expect = [empty, name, scoped, type]
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -635,14 +616,12 @@ class TestPkgIntrospect < TestCase
             check(boxed_flat_some,
                   :empty "false",
                   :name "FlatSome",
-                  :path "symbols.lily",
                   :scoped "false",
                   :type "Function (A => FlatOption[A])")
 
             check(boxed_flat_none,
                   :empty "true",
                   :name "FlatNone",
-                  :path "symbols.lily",
                   :scoped "false",
                   :type "FlatOption[?]")
         """)
@@ -653,14 +632,12 @@ class TestPkgIntrospect < TestCase
             check(local_scoped_some,
                   :empty "false",
                   :name "LocalScopedSome",
-                  :path "[test]",
                   :scoped "true",
                   :type "Function (String => LocalScopedOption)")
 
             check(local_scoped_none,
                   :empty "true",
                   :name "LocalScopedNone",
-                  :path "[test]",
                   :scoped "true",
                   :type "LocalScopedOption")
         """)
@@ -671,14 +648,12 @@ class TestPkgIntrospect < TestCase
             check(local_flat_some,
                   :empty "false",
                   :name "LocalFlatSome",
-                  :path "[test]",
                   :scoped "false",
                   :type "Function (Integer => LocalFlatOption)")
 
             check(local_flat_none,
                   :empty "true",
                   :name "LocalFlatNone",
-                  :path "[test]",
                   :scoped "false",
                   :type "LocalFlatOption")
         """)
