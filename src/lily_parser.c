@@ -1759,6 +1759,9 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         lily_var *var = (lily_var *)target;
 
+        if (parser->flags & PARSER_IN_MANIFEST)
+            arg_flags |= F_SCOOP_OK;
+
         if ((var->flags & VAR_IS_FORWARD) == 0)
             arg_collect = get_define_arg;
         else
