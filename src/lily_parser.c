@@ -4525,15 +4525,12 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
         else
             variant_cls->build_type = empty_type;
 
-        if (lex->token == tk_right_curly)
-            break;
-        else if (lex->token == tk_word && lex->label[0] == 'd' &&
-                 keyword_by_name(lex->label) == KEY_DEFINE)
-            break;
-        else {
-            NEED_CURRENT_TOK(tk_comma)
+        if (lex->token == tk_comma) {
             lily_next_token(lex);
+            continue;
         }
+
+        break;
     }
 
     if (enum_cls->variant_size < 2) {
@@ -4542,6 +4539,23 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     }
 
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
+}
+
+static void enum_method_check(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (lex->token == tk_right_curly)
+        ;
+    else if (lex->token == tk_word &&
+             strcmp(lex->label, "define") == 0) {
+        lily_next_token(lex);
+        keyword_define(parser);
+    }
+    else
+        lily_raise_syn(parser->raiser,
+                "Expected '}' or 'define', not '%s'.",
+                tokname(lex->token));
 }
 
 static void keyword_enum(lily_parse_state *parser)
@@ -4559,6 +4573,9 @@ static void keyword_enum(lily_parse_state *parser)
             lex->line_num);
 
     parse_enum_header(parser, enum_cls);
+
+    if ((parser->flags & PARSER_IN_MANIFEST) == 0)
+        enum_method_check(parser);
 }
 
 static void keyword_scoped(lily_parse_state *parser)
@@ -4579,6 +4596,9 @@ static void keyword_scoped(lily_parse_state *parser)
 
     enum_cls->item_kind = ITEM_ENUM_SCOPED;
     parse_enum_header(parser, enum_cls);
+
+    if ((parser->flags & PARSER_IN_MANIFEST) == 0)
+        enum_method_check(parser);
 }
 
 /* This is called when a match against a class or enum is not considered
@@ -5066,23 +5086,6 @@ static void main_func_teardown(lily_parse_state *parser)
     parser->vm->call_chain = parser->vm->call_chain->prev;
     parser->vm->call_depth--;
     parser->flags &= ~PARSER_IS_EXECUTING;
-}
-
-static void enum_method_check(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    if (lex->token == tk_right_curly)
-        ;
-    else if (lex->token == tk_word &&
-             strcmp(lex->label, "define") == 0) {
-        lily_next_token(lex);
-        keyword_define(parser);
-    }
-    else
-        lily_raise_syn(parser->raiser,
-                "Expected '}' or 'define', not '%s'.",
-                tokname(lex->token));
 }
 
 static void parse_block_exit(lily_parse_state *parser)
