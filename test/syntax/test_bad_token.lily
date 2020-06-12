@@ -681,7 +681,7 @@ class TestBadToken < TestCase
         # bad keyword (scoped without enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'enum' after 'scoped'.\n    \
+            SyntaxError: Expected 'enum', not 'asdf'.\n    \
                 from [test]:1:\n\
         """,
         """\

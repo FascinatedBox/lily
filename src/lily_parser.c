@@ -4487,35 +4487,10 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->item_kind = ITEM_VARIANT_FILLED;
 }
 
-static void ensure_valid_enum(lily_parse_state *parser, int is_scoped)
+static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 {
-    lily_block *block = parser->emit->block;
-    if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Cannot define an enum here.");
-
+    int is_scoped = (enum_cls->item_kind == ITEM_ENUM_SCOPED);
     lily_lex_state *lex = parser->lex;
-    NEED_CURRENT_TOK(tk_word)
-
-    if (is_scoped == 1) {
-        if (strcmp(lex->label, "enum") != 0)
-            lily_raise_syn(parser->raiser, "Expected 'enum' after 'scoped'.");
-
-        NEED_NEXT_TOK(tk_word)
-    }
-
-    ensure_valid_class(parser, lex->label);
-}
-
-static void parse_enum(lily_parse_state *parser, int is_scoped)
-{
-    ensure_valid_enum(parser, is_scoped);
-
-    lily_lex_state *lex = parser->lex;
-    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
-            lex->line_num);
-
-    if (is_scoped)
-        enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
     lily_emit_enter_enum_block(parser->emit, enum_cls);
     parser->current_class = enum_cls;
@@ -4571,12 +4546,39 @@ static void parse_enum(lily_parse_state *parser, int is_scoped)
 
 static void keyword_enum(lily_parse_state *parser)
 {
-    parse_enum(parser, 0);
+    lily_block *block = parser->emit->block;
+    lily_lex_state *lex = parser->lex;
+
+    if (block->block_type != block_file)
+        lily_raise_syn(parser->raiser, "Cannot define an enum here.");
+
+    NEED_CURRENT_TOK(tk_word)
+    ensure_valid_class(parser, lex->label);
+
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
+            lex->line_num);
+
+    parse_enum_header(parser, enum_cls);
 }
 
 static void keyword_scoped(lily_parse_state *parser)
 {
-    parse_enum(parser, 1);
+    lily_block *block = parser->emit->block;
+    lily_lex_state *lex = parser->lex;
+
+    if (block->block_type != block_file)
+        lily_raise_syn(parser->raiser, "Cannot define an enum here.");
+
+    NEED_CURRENT_TOK(tk_word)
+    expect_word(parser, "enum");
+    NEED_NEXT_TOK(tk_word)
+    ensure_valid_class(parser, lex->label);
+
+    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
+            lex->line_num);
+
+    enum_cls->item_kind = ITEM_ENUM_SCOPED;
+    parse_enum_header(parser, enum_cls);
 }
 
 /* This is called when a match against a class or enum is not considered
