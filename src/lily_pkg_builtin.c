@@ -83,7 +83,7 @@ const lily_class *lily_scoop_class = &raw_scoop;
 const lily_class *lily_self_class = &raw_self;
 const lily_type *lily_question_type = (lily_type *)&raw_question;
 const lily_type *lily_scoop_type = (lily_type *)&raw_scoop;
-const lily_type *lily_unit_type = (lily_type *)&raw_unit;
+lily_type *lily_unit_type = (lily_type *)&raw_unit;
 const lily_type *lily_unset_type = (lily_type *)&raw_unset;
 
 /**
@@ -3273,18 +3273,20 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
    Giving them a sequential id is a waste because the vm will want to eventually
    scoop it up into the class table. So don't do that. */
 static lily_class *build_special(lily_symtab *symtab, const char *name,
-        int generic_count, int id)
+        int generic_count, int id, int visible)
 {
     lily_class *result = lily_new_class(symtab, name, 0);
     result->item_kind = ITEM_CLASS_FOREIGN;
     result->id = id;
     result->generic_count = generic_count;
 
-    symtab->active_module->class_chain = result->next;
     symtab->next_class_id--;
 
-    result->next = symtab->hidden_class_chain;
-    symtab->hidden_class_chain = result;
+    if (visible == 0) {
+        symtab->active_module->class_chain = result->next;
+        result->next = symtab->hidden_class_chain;
+        symtab->hidden_class_chain = result;
+    }
 
     return result;
 }
@@ -3307,14 +3309,13 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     /* Coroutine needs an id fix because it comes after Unit. */
     co_class->id = LILY_ID_COROUTINE;
 
-    symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG);
+    symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG, 0);
+    lily_class *unit_cls   = build_special(symtab, "Unit", 0, LILY_ID_UNIT, 1);
 
-    /* The `Unit` class is readonly since it's referenced quite often. However,
-       it still needs to be searchable. Bury it at the bottom of the builtin
-       module's symtab. When the symtab is being deleted, it will be unlinked to
-       avoid being free'd. */
-    symtab->integer_class->next = lily_unit_type->cls;
-
+    /* The `Unit` type is readonly since it's referenced often. A class is
+       created for it too so it's visible for searches. It's the only time that
+       a monomorphic class isn't the self type for itself. */
+    unit_cls->self_type = lily_unit_type;
     /* This must be set here so that it bubbles up in type building. */
     symtab->function_class->flags |= CLS_GC_TAGGED;
     /* HACK: This ensures that there is space to dynaload builtin classes and

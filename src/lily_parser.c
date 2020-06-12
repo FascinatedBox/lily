@@ -274,10 +274,6 @@ void lily_free_state(lily_state *vm)
        so that these teardown functions don't double free the code. */
     parser->toplevel_func->proto->code = NULL;
 
-    /* `Unit` is readonly and is buried at the bottom of the symtab. This
-       unlinks it so it isn't destroyed. */
-    parser->symtab->integer_class->next = NULL;
-
     lily_free_raiser(parser->raiser);
 
     lily_free_expr_state(parser->expr);
