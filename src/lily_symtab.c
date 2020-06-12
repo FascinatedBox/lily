@@ -762,18 +762,14 @@ lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
     return new_class;
 }
 
-/* This creates a new class entity. This entity is used for, well, more than it
-   should be. The entity is going to be either an enum, a variant, or a
-   user-defined class. The class is assumed to be refcounted, because it usually
-   is.
-   The new class is automatically linked up to the current module. No default
-   type is created, in case the newly-made class ends up needing generics. */
+/* This creates a new class-like entity (class or enum) that's linked into the
+   current module's class-like listing. The new class-like entry is given the
+   next available id. */
 lily_class *lily_new_class(lily_symtab *symtab, const char *name,
         uint16_t line_num)
 {
     lily_class *new_class = lily_new_raw_class(name, line_num);
 
-    /* Builtin classes will override this. */
     new_class->module = symtab->active_module;
     new_class->line_num = line_num;
 
