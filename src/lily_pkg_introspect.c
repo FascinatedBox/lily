@@ -438,6 +438,19 @@ void lily_introspect_TypeEntry_inner_types(lily_state *s)
 }
 
 /**
+define TypeEntry.is_vararg_function: Boolean
+
+Returns `true` if this type is a `Function` that allows for variable arguments,
+false otherwise.
+*/
+void lily_introspect_TypeEntry_is_vararg_function(lily_state *s)
+{
+    UNPACK_FIRST_ARG(TypeEntry, lily_type *);
+
+    lily_return_boolean(s, !!(entry->flags & TYPE_IS_VARARGS));
+}
+
+/**
 native class ParameterEntry(name: String, key: String, t: TypeEntry) {
     var @name: String,
     var @keyword: String,
