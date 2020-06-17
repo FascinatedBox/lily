@@ -175,7 +175,8 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0result_type\0(FunctionEntry): TypeEntry"
     ,"m\0type\0(FunctionEntry): TypeEntry"
-    ,"C\012MethodEntry\0"
+    ,"C\013MethodEntry\0"
+    ,"m\0doc\0(MethodEntry): String"
     ,"m\0function_name\0(MethodEntry): String"
     ,"m\0generics\0(MethodEntry): List[TypeEntry]"
     ,"m\0line_number\0(MethodEntry): Integer"
@@ -268,6 +269,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_FunctionEntry_result_type, \
     lily_introspect_FunctionEntry_type, \
     NULL, \
+    lily_introspect_MethodEntry_doc, \
     lily_introspect_MethodEntry_function_name, \
     lily_introspect_MethodEntry_generics, \
     lily_introspect_MethodEntry_line_number, \

@@ -783,6 +783,18 @@ This is a foreign class that wraps over a class or enum method.
 */
 
 /**
+define MethodEntry.doc: String
+
+Return the docblock of this method, or an empty string. Docblocks are only
+saved when a method is parsed in manifest mode.
+*/
+void lily_introspect_MethodEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+    return_doc(s, entry->doc_id);
+}
+
+/**
 define MethodEntry.function_name: String
 
 Return the unqualified name of the function given.
