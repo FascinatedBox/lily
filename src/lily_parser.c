@@ -5936,7 +5936,7 @@ int lily_render_content(lily_state *s)
            that are intended to be run in code mode. It has the nice bonus that
            execution always starts in code mode. */
         if (lily_read_template_header(lex) == 0) {
-            lily_raise_syn(lex->raiser,
+            lily_raise_syn(parser->raiser,
                     "Files in template mode must start with '<?lily'.");
         }
 
