@@ -99,6 +99,7 @@ void lily_pop_lex_entry(lily_lex_state *);
 void lily_next_token(lily_lex_state *);
 
 char *lily_read_template_content(lily_lex_state *, int *);
+int lily_read_manifest_header(lily_lex_state *);
 int lily_read_template_header(lily_lex_state *);
 
 int lily_lexer_digit_rescan(lily_lex_state *);

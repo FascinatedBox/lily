@@ -1484,6 +1484,19 @@ word_case: ;
 #undef move_set_token
 #undef move_2_set_token
 
+int lily_read_manifest_header(lily_lex_state *lex)
+{
+    int result = strcmp(lex->source, "import manifest\n") == 0;
+
+    /* Parser hasn't pulled a token yet to make sure the header check is at the
+       absolute start of the file. Skip the line, but let parser call up the
+       token to be consistent with template header reading below. */
+    if (result)
+        read_line(lex);
+
+    return result;
+}
+
 int lily_read_template_header(lily_lex_state *lex)
 {
     /* An error is raised if this fails, so don't worry about the cursor going

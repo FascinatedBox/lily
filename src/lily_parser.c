@@ -4089,7 +4089,9 @@ static void enter_module(lily_parse_state *parser, lily_module_entry *m)
     module_var->type = module_type;
     module_var->module = m;
     lily_emit_enter_file_block(parser->emit, module_var);
-    lily_next_token(parser->lex);
+
+    if ((parser->flags & PARSER_IN_MANIFEST) == 0)
+        lily_next_token(parser->lex);
 }
 
 static void verify_manifest_import(lily_parse_state *parser,
@@ -5561,16 +5563,14 @@ static void manifest_loop(lily_parse_state *parser)
 
     parser->flags |= PARSER_IN_MANIFEST;
 
+enter_manifest_import:;
     /* This is a trick inspired by "use strict". Code files passed to manifest
        parsing will fail here. Manifest files passed to code parsing will fail
        to load this module. */
-    lily_next_token(lex);
+    if (lily_read_manifest_header(lex) == 0)
+        lily_raise_syn(parser->raiser,
+                "Files in manifest mode must start with 'import manifest'.");
 
-    /* Import re-entry starts here because the token has already been pulled. */
-enter_manifest_import:;
-    expect_word(parser, "import");
-    lily_next_token(lex);
-    expect_word(parser, "manifest");
     lily_next_token(lex);
 
     /* Docblocks are built by reading the data stack for pairs of id and string
