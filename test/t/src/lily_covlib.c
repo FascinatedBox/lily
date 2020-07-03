@@ -1,35 +1,17 @@
-/**
-library covlib
-
-This library helps cover uncommon paths of the interpreter. It is built with the
-backbone so that testing is done through a single library.
-
-The stock interpreter can't load this library because the name doesn't match the
-set of symbols inside. That's okay since this is meant for being used with the
-testing system.
-
-To load this library, create a testing Interpreter class with a redirect target
-of covlib to the backbone. The parser intentionally uses the import name
-provided to allow this kind of redirect.
-*/
-
 #include <string.h>
 
 #include "lily.h"
 #include "lily_int_code_iter.h"
+
 #include "lily_covlib_bindings.h"
 
 LILY_COVLIB_EXPORT
 lily_call_entry_func lily_covlib_call_table[];
 
-/**
-foreign class Foreign() {
-    layout {
-    }
-}
+typedef struct lily_covlib_Foreign_ {
+    LILY_FOREIGN_HEADER
+} lily_covlib_Foreign;
 
-Example foreign value.
-*/
 void destroy_Foreign(lily_covlib_Foreign *f) {}
 void lily_covlib_Foreign_new(lily_state *s)
 {
@@ -37,21 +19,11 @@ void lily_covlib_Foreign_new(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define isa_integer[A](value: A): Boolean
-
-Return True if 'value' is an `Integer`, False otherwise.
-*/
 void lily_covlib__isa_integer(lily_state *s)
 {
     lily_return_boolean(s, lily_arg_isa(s, 0, LILY_ID_INTEGER));
 }
 
-/**
-define cover_list_reserve
-
-Extra tests for api function lily_list_reserve.
-*/
 void lily_covlib__cover_list_reserve(lily_state *s)
 {
     lily_container_val *l = lily_push_list(s, 0);
@@ -78,11 +50,6 @@ void lily_covlib__cover_list_reserve(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define cover_func_check(native: Function(Integer), foreign: Function(Integer => String)): Boolean
-
-Cover calls to fetch raw parts of certain values.
-*/
 void lily_covlib__cover_func_check(lily_state *s)
 {
     lily_function_val *native_function = lily_arg_function(s, 0);
@@ -104,11 +71,6 @@ void lily_covlib__cover_func_check(lily_state *s)
     lily_return_boolean(s, ok);
 }
 
-/**
-define cover_list_sfs
-
-Cover lily_con_set_from_stack having a target to deref.
-*/
 void lily_covlib__cover_list_sfs(lily_state *s)
 {
     /* Stack: +1 List of nothing. */
@@ -136,12 +98,6 @@ void lily_covlib__cover_list_sfs(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define cover_id_checks[A](co: Coroutine[Integer, Integer], u: Unit, c: A, d: String): Boolean
-
-Cover uncommon parts of lily_arg_isa. The last arg should be written as
-Container, but parsekit doesn't understand forward class references.
-*/
 void lily_covlib__cover_id_checks(lily_state *s)
 {
     int ok = 1;
@@ -164,22 +120,6 @@ void lily_covlib__cover_id_checks(lily_state *s)
     lily_return_boolean(s, ok);
 }
 
-/**
-define cover_value_as(a: Byte,
-                      b: ByteString,
-                      c: Exception,
-                      d: Coroutine[Integer, Integer],
-                      e: Double,
-                      f: File,
-                      g: Function(Integer),
-                      h: Hash[Integer, Integer],
-                      i: Integer,
-                      j: String)
-
-lily_as_* functions extract the contents of a value. Since these functions are
-extremely basic (they just pop the lid off and pull out the insides), no
-testing is done on the actual contents. That's covered by the type system.
-*/
 void lily_covlib__cover_value_as(lily_state *s)
 {
     (void)lily_as_byte      (lily_arg_value(s, 0));
@@ -195,13 +135,6 @@ void lily_covlib__cover_value_as(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define cover_optional_integer(   a: *Integer = 100,
-                              :b b: *Integer = 200,
-                              :c c: *Integer = 300): Integer
-
-Cover calling lily_optional_integer.
-*/
 void lily_covlib__cover_optional_integer(lily_state *s)
 {
     int64_t arg_a = lily_optional_integer(s, 0, 100);
@@ -212,13 +145,6 @@ void lily_covlib__cover_optional_integer(lily_state *s)
     lily_return_integer(s, total);
 }
 
-/**
-define cover_optional_boolean(   a: *Boolean = true,
-                              :b b: *Boolean = true,
-                              :c c: *Boolean = true): Integer
-
-Cover calling lily_optional_integer.
-*/
 void lily_covlib__cover_optional_boolean(lily_state *s)
 {
     int arg_a = lily_optional_boolean(s, 0, 1);
@@ -229,13 +155,6 @@ void lily_covlib__cover_optional_boolean(lily_state *s)
     lily_return_integer(s, total);
 }
 
-/**
-define cover_optional_string(   a: *String = "",
-                             :b b: *String = "",
-                             :c c: *String = ""): String
-
-Cover calling lily_optional_integer.
-*/
 void lily_covlib__cover_optional_string(lily_state *s)
 {
     const char *arg_a = lily_optional_string_raw(s, 0, "");
@@ -248,27 +167,6 @@ void lily_covlib__cover_optional_string(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define cover_value_group(a: Boolean,
-                         b: Byte,
-                         c: ByteString,
-                         d: Coroutine[Integer, Integer],
-                         e: Double,
-                         f: Option[Integer],
-                         g: File,
-                         h: Function(Integer),
-                         i: Hash[Integer, Integer],
-                         j: Foreign,
-                         k: Exception,
-                         l: Integer,
-                         m: List[Integer],
-                         n: String,
-                         o: Tuple[Integer],
-                         p: Unit,
-                         q: Option[Integer]): Boolean
-
-This covers calling lily_value_get_group with every kind of value possible.
-*/
 void lily_covlib__cover_value_group(lily_state *s)
 {
     lily_value_group expect[] = {
@@ -308,12 +206,6 @@ void lily_covlib__cover_value_group(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-/**
-define cover_ci_from_native(fn: Function(Integer))
-
-This calls lily_ci_from_native, a function provided so that disassemble can
-walk through opcodes.
-*/
 void lily_covlib__cover_ci_from_native(lily_state *s)
 {
     lily_function_val *func_val = lily_arg_function(s, 0);
@@ -323,22 +215,11 @@ void lily_covlib__cover_ci_from_native(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define scoop_narrow(f: Function($1))
-
-This is used to cover the type system allowing argument count narrowing for a
-function using scoop. The function itself does nothing.
-*/
 void lily_covlib__scoop_narrow(lily_state *s)
 {
     lily_return_unit(s);
 }
 
-/**
-define scoop_narrow_with_args(f: Function(Integer, String, $1 => Boolean))
-
-Same as scoop_narrow, but also takes arguments.
-*/
 void lily_covlib__scoop_narrow_with_args(lily_state *s)
 {
     lily_return_unit(s);
@@ -382,11 +263,6 @@ static void misc_no_global_import_hook(lily_state *s, const char *target)
     }
 }
 
-/**
-define cover_misc_api
-
-Cover a lot of miscellaneous api functions.
-*/
 void lily_covlib__cover_misc_api(lily_state *s)
 {
     lily_config config;
@@ -468,14 +344,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
     }
 }
 
-/**
-native class Container(value: String) {
-    private var @value: String
-}
-
-Example container for testing.
-*/
-
 void lily_covlib_Container_new(lily_state *s)
 {
     lily_container_val *con = SUPER_Container(s);
@@ -483,11 +351,6 @@ void lily_covlib_Container_new(lily_state *s)
     lily_return_super(s);
 }
 
-/**
-define Container.update(x: String)
-
-Set value in container.
-*/
 void lily_covlib_Container_update(lily_state *s)
 {
     lily_container_val *con = lily_arg_container(s, 0);
@@ -495,35 +358,10 @@ void lily_covlib_Container_update(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define Container.fetch: String
-
-Get value inside container.
-*/
 void lily_covlib_Container_fetch(lily_state *s)
 {
     lily_container_val *con = lily_arg_container(s, 0);
     lily_return_value(s, GET_Container__value(con));
 }
-
-/**
-enum FlatEnum {
-    FlatOne,
-    FlatTwo,
-    FlatThree
-}
-
-Flat enum test.
-*/
-
-/**
-scoped enum ScopedEnum {
-    ScopedOne,
-    ScopedTwo,
-    ScopedThree
-}
-
-Scoped enum test.
-*/
 
 LILY_DECLARE_COVLIB_CALL_TABLE

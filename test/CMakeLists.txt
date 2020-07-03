@@ -1,8 +1,8 @@
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
 set(backbone_SOURCES
-    t/lily_backbone.c
-    t/lily_covlib.c)
+    t/src/lily_backbone.c
+    t/src/lily_covlib.c)
 
 if(NOT WIN32)
     add_library(backbone SHARED ${backbone_SOURCES})

@@ -1,13 +1,3 @@
-/**
-library backbone
-
-This library handles the C side of the interpreter's test suite. It's not meant
-for general consumption. For that, try testkit instead.
-
-Only the main test runner should import this backbone directly. All others
-should import the 'testing' library and use the TestCase provided in it.
-*/
-
 #include <string.h>
 
 #include "lily_alloc.h"
@@ -18,15 +8,14 @@ should import the 'testing' library and use the TestCase provided in it.
 #include "lily.h"
 #include "lily_backbone_bindings.h"
 
-/**
-native class TestCaseBase() {
-    var @pass_count: Integer,
-    var @fail_count: Integer,
-    var @skip_count: Integer
-}
+typedef struct lily_backbone_RawInterpreter_ {
+    LILY_FOREIGN_HEADER
+    lily_state *subi;
+    lily_config config;
+    lily_state *sourcei;
+    lily_value interp_reg;
+} lily_backbone_RawInterpreter;
 
-This is a base testing class for subtests to inherit from.
-*/
 void lily_backbone_TestCaseBase_new(lily_state *s)
 {
     lily_container_val *con = SUPER_TestCaseBase(s);
@@ -186,17 +175,6 @@ static void execute_test_methods(lily_state *s, lily_function_val *drive_fn,
     }
 }
 
-/**
-define TestCaseBase.run_tests
-
-Attempt to run the tests that have been defined. If 'targets' is non-empty,
-look for the tests provided. If empty, select all of the tests.
-
-This digs into the interpreter since there's no api for finding out this
-information.
-
-This shouldn't be called directly.
-*/
 void lily_backbone_TestCaseBase_run_tests(lily_state *s)
 {
     lily_function_val *drive_fn = get_driver_fn(s);
@@ -211,19 +189,6 @@ void lily_backbone_TestCaseBase_run_tests(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-foreign class RawInterpreter() {
-    layout {
-        lily_state *subi;
-        lily_config config;
-        lily_state *sourcei;
-        lily_value interp_reg;
-    }
-}
-
-This was copied from spawni.
-*/
-
 static void destroy_RawInterpreter(lily_backbone_RawInterpreter *raw)
 {
     lily_free_state(raw->subi);
@@ -233,15 +198,6 @@ void lily_backbone_RawInterpreter_new(lily_state *s)
 {
     lily_RuntimeError(s, "Not allowed to construct RawInterpreter instances.");
 }
-
-/**
-native class Interpreter() {
-    private var @raw: RawInterpreter,
-    private var @import_hook: Function(Interpreter, String)
-}
-
-This was also copied from spawni.
-*/
 
 void render_noop(const char *to_render, void *data)
 {
@@ -277,12 +233,6 @@ static lily_backbone_RawInterpreter *unpack_rawinterp(lily_state *s)
     return raw;
 }
 
-/**
-define Interpreter.error: String
-
-Get the full error (message and traceback) from the last parse. If there is no
-error, then the result is a `String`.
-*/
 void lily_backbone_Interpreter_error(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -291,12 +241,6 @@ void lily_backbone_Interpreter_error(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define Interpreter.error_message: String
-
-Get just the error message of the last parse as a `String`. If there is no
-error, then the result is an empty `String`.
-*/
 void lily_backbone_Interpreter_error_message(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -305,11 +249,6 @@ void lily_backbone_Interpreter_error_message(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define Interpreter.import_use_local_dir(dir: String)
-
-Wrapper over internal `lily_import_use_local_dir`.
-*/
 void lily_backbone_Interpreter_import_use_local_dir(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -320,11 +259,6 @@ void lily_backbone_Interpreter_import_use_local_dir(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define Interpreter.import_use_package_dir(dir: String)
-
-Wrapper over internal `lily_import_use_package_dir`.
-*/
 void lily_backbone_Interpreter_import_use_package_dir(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -335,11 +269,6 @@ void lily_backbone_Interpreter_import_use_package_dir(lily_state *s)
     lily_return_unit(s);
 }
 
-/**
-define Interpreter.import_file(path: String): Boolean
-
-Wrapper over internal `lily_import_file`.
-*/
 void lily_backbone_Interpreter_import_file(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -349,11 +278,6 @@ void lily_backbone_Interpreter_import_file(lily_state *s)
     lily_return_boolean(s, lily_import_file(subi, path));
 }
 
-/**
-define Interpreter.import_library(path: String): Boolean
-
-Wrapper over internal `lily_import_library`.
-*/
 void lily_backbone_Interpreter_import_library(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -363,11 +287,6 @@ void lily_backbone_Interpreter_import_library(lily_state *s)
     lily_return_boolean(s, lily_import_library(subi, path));
 }
 
-/**
-define Interpreter.import_string(target: String, content: String): Boolean
-
-Wrapper over internal `lily_import_string`.
-*/
 void lily_backbone_Interpreter_import_string(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -378,11 +297,6 @@ void lily_backbone_Interpreter_import_string(lily_state *s)
     lily_return_boolean(s, lily_import_string(subi, target, content));
 }
 
-/**
-define Interpreter.import_current_root_dir: String
-
-Wrapper over internal `import_current_root_dir`.
-*/
 void lily_backbone_Interpreter_import_current_root_dir(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -392,16 +306,6 @@ void lily_backbone_Interpreter_import_current_root_dir(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define Interpreter.parse_expr(context: String, data: String): Option[String]
-
-This parses `data` as an expression that has a result.
-
-On success, a `Some` is returned with the result of the expression turned into a
-`String`. The `String` may be empty if the expression returned an empty result.
-
-On failure, a `None` is returned.
-*/
 void lily_backbone_Interpreter_parse_expr(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -426,12 +330,6 @@ void lily_backbone_Interpreter_parse_expr(lily_state *s)
         lily_return_none(s);
 }
 
-/**
-define Interpreter.parse_file(filename: String): Boolean
-
-This attempts to open `filename` and parse it. If parsing succeeds, then the
-interpreter will attempt to execute the instructions.
-*/
 void lily_backbone_Interpreter_parse_file(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -443,12 +341,6 @@ void lily_backbone_Interpreter_parse_file(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-/**
-define Interpreter.parse_string(context: String, data: String): Boolean
-
-This parses the content of `data` as-is. `context` is used as the source
-filename in the event of an error.
-*/
 void lily_backbone_Interpreter_parse_string(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -461,12 +353,6 @@ void lily_backbone_Interpreter_parse_string(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-/**
-define Interpreter.render_string(context: String, data: String): Boolean
-
-This parses the content of `data` as-is. `context` is used as the source
-filename in the event of an error.
-*/
 void lily_backbone_Interpreter_render_string(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -479,15 +365,6 @@ void lily_backbone_Interpreter_render_string(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-/**
-define Interpreter.validate_file(filename: String): Boolean
-
-This attempts to load 'filename' and only runs a validation pass over the
-content inside. Use this function for syntax-only passes and for introspection.
-
-Beware: This intentionally does not run initialization code, so calling symbols
-from the loaded file may crash.
-*/
 void lily_backbone_Interpreter_validate_file(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -499,15 +376,6 @@ void lily_backbone_Interpreter_validate_file(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-/**
-define Interpreter.validate_string(context: String, data: String): Boolean
-
-This validates the content of `data` as-is. `context` is used as the source
-filename in the event of an error.
-
-Beware: This intentionally does not run initialization code, so calling symbols
-from the loaded string may crash.
-*/
 void lily_backbone_Interpreter_validate_string(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -544,12 +412,6 @@ static void backbone_import_hook(lily_state *s, const char *target)
     /* This is a raw C callback so no returning to either interp. */
 }
 
-/**
-define Interpreter.set_hook(fn: Function(Interpreter, String)): Boolean
-
-Set a custom function to be called when the interpreter wants to import content.
-If a previous hook has already been set, this will replace it.
-*/
 void lily_backbone_Interpreter_set_hook(lily_state *s)
 {
     lily_value *interp_reg = lily_arg_value(s, 0);
