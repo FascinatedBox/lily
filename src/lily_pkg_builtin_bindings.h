@@ -11,36 +11,36 @@
 LILY_BUILTIN_EXPORT
 const char *lily_builtin_info_table[] = {
     "\0\0"
-    ,"N\02Boolean\0"
+    ,"C\02Boolean\0"
     ,"m\0to_i\0(Boolean): Integer"
     ,"m\0to_s\0(Boolean): String"
-    ,"N\01Byte\0"
+    ,"C\01Byte\0"
     ,"m\0to_i\0(Byte): Integer"
-    ,"N\04ByteString\0"
+    ,"C\04ByteString\0"
     ,"m\0each_byte\0(ByteString,Function(Byte))"
     ,"m\0encode\0(ByteString,*String): Option[String]"
     ,"m\0size\0(ByteString): Integer"
     ,"m\0slice\0(ByteString,*Integer,*Integer): ByteString"
-    ,"N\01DivisionByZeroError\0< Exception"
-    ,"m\0<new>\0(String): DivisionByZeroError"
-    ,"N\012Coroutine\0[A,B]"
+    ,"C\012Coroutine\0[A,B]"
     ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
-    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B], C),C): Coroutine[A,B]"
+    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
     ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"
-    ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_running\0[A,B](Coroutine[A,B]): Boolean"
+    ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0receive\0[A,B](Coroutine[A,B]): B"
     ,"m\0resume\0[A,B](Coroutine[A,Unit]): Option[A]"
     ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Option[A]"
     ,"m\0yield\0[A,B](Coroutine[A,B],A)"
-    ,"N\01Double\0"
+    ,"N\01DivisionByZeroError\0< Exception"
+    ,"m\0<new>\0(String): DivisionByZeroError"
+    ,"C\01Double\0"
     ,"m\0to_i\0(Double): Integer"
     ,"N\03Exception\0"
     ,"m\0<new>\0(String): Exception"
     ,"3\0message\0String"
     ,"3\0traceback\0List[String]"
-    ,"N\010File\0"
+    ,"C\010File\0"
     ,"m\0close\0(File)"
     ,"m\0each_line\0(File,Function(ByteString))"
     ,"m\0flush\0(File)"
@@ -49,38 +49,38 @@ const char *lily_builtin_info_table[] = {
     ,"m\0read\0(File,*Integer): ByteString"
     ,"m\0read_line\0(File): ByteString"
     ,"m\0write\0[A](File,A)"
-    ,"N\0Function\0"
-    ,"N\013Hash\0[A,B]"
+    ,"C\0Function\0"
+    ,"C\013Hash\0[A,B]"
     ,"m\0clear\0[A,B](Hash[A,B])"
     ,"m\0delete\0[A,B](Hash[A,B],A)"
-    ,"m\0each_pair\0[A,B](Hash[A,B],Function(A, B))"
+    ,"m\0each_pair\0[A,B](Hash[A,B],Function(A,B))"
     ,"m\0get\0[A,B](Hash[A,B],A): Option[B]"
     ,"m\0has_key\0[A,B](Hash[A,B],A): Boolean"
     ,"m\0keys\0[A,B](Hash[A,B]): List[A]"
     ,"m\0map_values\0[A,B,C](Hash[A,B],Function(B=>C)): Hash[A,C]"
     ,"m\0merge\0[A,B](Hash[A,B],Hash[A,B]...): Hash[A,B]"
-    ,"m\0reject\0[A,B](Hash[A,B],Function(A, B=>Boolean)): Hash[A,B]"
-    ,"m\0select\0[A,B](Hash[A,B],Function(A, B=>Boolean)): Hash[A,B]"
+    ,"m\0reject\0[A,B](Hash[A,B],Function(A,B=>Boolean)): Hash[A,B]"
+    ,"m\0select\0[A,B](Hash[A,B],Function(A,B=>Boolean)): Hash[A,B]"
     ,"m\0size\0[A,B](Hash[A,B]): Integer"
+    ,"N\01IOError\0< Exception"
+    ,"m\0<new>\0(String): IOError"
     ,"N\01IndexError\0< Exception"
     ,"m\0<new>\0(String): IndexError"
-    ,"N\04Integer\0"
+    ,"C\04Integer\0"
     ,"m\0to_bool\0(Integer): Boolean"
     ,"m\0to_byte\0(Integer): Byte"
     ,"m\0to_d\0(Integer): Double"
     ,"m\0to_s\0(Integer): String"
-    ,"N\01IOError\0< Exception"
-    ,"m\0<new>\0(String): IOError"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"N\025List\0[A]"
+    ,"C\025List\0[A]"
     ,"m\0clear\0[A](List[A])"
     ,"m\0count\0[A](List[A],Function(A=>Boolean)): Integer"
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)): List[A]"
     ,"m\0each_index\0[A](List[A],Function(Integer)): List[A]"
-    ,"m\0fold\0[A](List[A],A,Function(A, A=>A)): A"
     ,"m\0fill\0[A](Integer,Function(Integer=>A)): List[A]"
+    ,"m\0fold\0[A](List[A],A,Function(A,A=>A)): A"
     ,"m\0get\0[A](List[A],Integer): Option[A]"
     ,"m\0insert\0[A](List[A],Integer,A)"
     ,"m\0join\0[A](List[A],*String): String"
@@ -90,37 +90,17 @@ const char *lily_builtin_info_table[] = {
     ,"m\0reject\0[A](List[A],Function(A=>Boolean)): List[A]"
     ,"m\0repeat\0[A](Integer,A): List[A]"
     ,"m\0select\0[A](List[A],Function(A=>Boolean)): List[A]"
-    ,"m\0size\0[A](List[A]): Integer"
     ,"m\0shift\0[A](List[A]): A"
+    ,"m\0size\0[A](List[A]): Integer"
     ,"m\0slice\0[A](List[A],*Integer,*Integer): List[A]"
     ,"m\0unshift\0[A](List[A],A): List[A]"
     ,"m\0zip\0[A](List[A],List[$1]...): List[Tuple[A,$1]]"
-    ,"E\012Option\0[A]"
-    ,"m\0and\0[A,B](Option[A],Option[B]): Option[B]"
-    ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])): Option[B]"
-    ,"m\0is_none\0[A](Option[A]): Boolean"
-    ,"m\0is_some\0[A](Option[A]): Boolean"
-    ,"m\0map\0[A,B](Option[A],Function(A=>B)): Option[B]"
-    ,"m\0or\0[A](Option[A],Option[A]): Option[A]"
-    ,"m\0or_else\0[A](Option[A],Function(=>Option[A])): Option[A]"
-    ,"m\0unwrap\0[A](Option[A]): A"
-    ,"m\0unwrap_or\0[A](Option[A],A): A"
-    ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)): A"
-    ,"V\0Some\0(A)"
-    ,"V\0None\0"
-    ,"E\04Result\0[A,B]"
-    ,"m\0failure\0[A,B](Result[A,B]): Option[A]"
-    ,"m\0is_failure\0[A,B](Result[A,B]): Boolean"
-    ,"m\0is_success\0[A,B](Result[A,B]): Boolean"
-    ,"m\0success\0[A,B](Result[A,B]): Option[B]"
-    ,"V\0Failure\0(A)"
-    ,"V\0Success\0(B)"
     ,"N\01RuntimeError\0< Exception"
     ,"m\0<new>\0(String): RuntimeError"
-    ,"N\025String\0"
-    ,"m\0format\0(String,$1...): String"
+    ,"C\025String\0"
     ,"m\0ends_with\0(String,String): Boolean"
     ,"m\0find\0(String,String,*Integer): Option[Integer]"
+    ,"m\0format\0(String,$1...): String"
     ,"m\0html_encode\0(String): String"
     ,"m\0is_alnum\0(String): Boolean"
     ,"m\0is_alpha\0(String): Boolean"
@@ -139,37 +119,57 @@ const char *lily_builtin_info_table[] = {
     ,"m\0to_bytestring\0(String): ByteString"
     ,"m\0trim\0(String): String"
     ,"m\0upper\0(String): String"
-    ,"N\0Tuple\0"
+    ,"C\0Tuple\0"
+    ,"C\0Unit\0"
     ,"N\01ValueError\0< Exception"
     ,"m\0<new>\0(String): ValueError"
-    ,"F\0print\0[A](A)"
+    ,"E\012Option\0[A]"
+    ,"m\0and\0[A,B](Option[A],Option[B]): Option[B]"
+    ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])): Option[B]"
+    ,"m\0is_none\0[A](Option[A]): Boolean"
+    ,"m\0is_some\0[A](Option[A]): Boolean"
+    ,"m\0map\0[A,B](Option[A],Function(A=>B)): Option[B]"
+    ,"m\0or\0[A](Option[A],Option[A]): Option[A]"
+    ,"m\0or_else\0[A](Option[A],Function(=>Option[A])): Option[A]"
+    ,"m\0unwrap\0[A](Option[A]): A"
+    ,"m\0unwrap_or\0[A](Option[A],A): A"
+    ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)): A"
+    ,"V\0None\0"
+    ,"V\0Some\0(A)"
+    ,"E\04Result\0[A,B]"
+    ,"m\0failure\0[A,B](Result[A,B]): Option[A]"
+    ,"m\0is_failure\0[A,B](Result[A,B]): Boolean"
+    ,"m\0is_success\0[A,B](Result[A,B]): Boolean"
+    ,"m\0success\0[A,B](Result[A,B]): Option[B]"
+    ,"V\0Failure\0(A)"
+    ,"V\0Success\0(B)"
     ,"F\0calltrace\0: List[String]"
-    ,"R\0stdin\0File"
+    ,"F\0print\0[A](A)"
     ,"R\0stderr\0File"
+    ,"R\0stdin\0File"
     ,"R\0stdout\0File"
     ,"Z"
 };
 #define Boolean_OFFSET 1
 #define Byte_OFFSET 4
 #define ByteString_OFFSET 6
-#define DivisionByZeroError_OFFSET 11
-#define Coroutine_OFFSET 13
+#define Coroutine_OFFSET 11
+#define DivisionByZeroError_OFFSET 22
 #define Double_OFFSET 24
 #define Exception_OFFSET 26
 #define File_OFFSET 30
 #define Function_OFFSET 39
 #define Hash_OFFSET 40
-#define IndexError_OFFSET 52
-#define Integer_OFFSET 54
-#define IOError_OFFSET 59
+#define IOError_OFFSET 52
+#define IndexError_OFFSET 54
+#define Integer_OFFSET 56
 #define KeyError_OFFSET 61
 #define List_OFFSET 63
-#define Option_OFFSET 85
-#define Result_OFFSET 98
-#define RuntimeError_OFFSET 105
-#define String_OFFSET 107
-#define Tuple_OFFSET 129
-#define ValueError_OFFSET 130
+#define RuntimeError_OFFSET 85
+#define String_OFFSET 87
+#define Tuple_OFFSET 109
+#define Unit_OFFSET 110
+#define ValueError_OFFSET 111
 #define LILY_DECLARE_BUILTIN_CALL_TABLE \
 LILY_BUILTIN_EXPORT \
 lily_call_entry_func lily_builtin_call_table[] = { \
@@ -185,18 +185,18 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_ByteString_size, \
     lily_builtin_ByteString_slice, \
     NULL, \
-    lily_builtin_DivisionByZeroError_new, \
-    NULL, \
     lily_builtin_Coroutine_build, \
     lily_builtin_Coroutine_build_with_value, \
     lily_builtin_Coroutine_is_done, \
     lily_builtin_Coroutine_is_failed, \
-    lily_builtin_Coroutine_is_waiting, \
     lily_builtin_Coroutine_is_running, \
+    lily_builtin_Coroutine_is_waiting, \
     lily_builtin_Coroutine_receive, \
     lily_builtin_Coroutine_resume, \
     lily_builtin_Coroutine_resume_with, \
     lily_builtin_Coroutine_yield, \
+    NULL, \
+    lily_builtin_DivisionByZeroError_new, \
     NULL, \
     lily_builtin_Double_to_i, \
     NULL, \
@@ -226,14 +226,14 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_Hash_select, \
     lily_builtin_Hash_size, \
     NULL, \
+    lily_builtin_IOError_new, \
+    NULL, \
     lily_builtin_IndexError_new, \
     NULL, \
     lily_builtin_Integer_to_bool, \
     lily_builtin_Integer_to_byte, \
     lily_builtin_Integer_to_d, \
     lily_builtin_Integer_to_s, \
-    NULL, \
-    lily_builtin_IOError_new, \
     NULL, \
     lily_builtin_KeyError_new, \
     NULL, \
@@ -242,8 +242,8 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_List_delete_at, \
     lily_builtin_List_each, \
     lily_builtin_List_each_index, \
-    lily_builtin_List_fold, \
     lily_builtin_List_fill, \
+    lily_builtin_List_fold, \
     lily_builtin_List_get, \
     lily_builtin_List_insert, \
     lily_builtin_List_join, \
@@ -253,37 +253,17 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_List_reject, \
     lily_builtin_List_repeat, \
     lily_builtin_List_select, \
-    lily_builtin_List_size, \
     lily_builtin_List_shift, \
+    lily_builtin_List_size, \
     lily_builtin_List_slice, \
     lily_builtin_List_unshift, \
     lily_builtin_List_zip, \
     NULL, \
-    lily_builtin_Option_and, \
-    lily_builtin_Option_and_then, \
-    lily_builtin_Option_is_none, \
-    lily_builtin_Option_is_some, \
-    lily_builtin_Option_map, \
-    lily_builtin_Option_or, \
-    lily_builtin_Option_or_else, \
-    lily_builtin_Option_unwrap, \
-    lily_builtin_Option_unwrap_or, \
-    lily_builtin_Option_unwrap_or_else, \
-    NULL, \
-    NULL, \
-    NULL, \
-    lily_builtin_Result_failure, \
-    lily_builtin_Result_is_failure, \
-    lily_builtin_Result_is_success, \
-    lily_builtin_Result_success, \
-    NULL, \
-    NULL, \
-    NULL, \
     lily_builtin_RuntimeError_new, \
     NULL, \
-    lily_builtin_String_format, \
     lily_builtin_String_ends_with, \
     lily_builtin_String_find, \
+    lily_builtin_String_format, \
     lily_builtin_String_html_encode, \
     lily_builtin_String_is_alnum, \
     lily_builtin_String_is_alpha, \
@@ -304,11 +284,32 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_String_upper, \
     NULL, \
     NULL, \
+    NULL, \
     lily_builtin_ValueError_new, \
-    lily_builtin__print, \
+    NULL, \
+    lily_builtin_Option_and, \
+    lily_builtin_Option_and_then, \
+    lily_builtin_Option_is_none, \
+    lily_builtin_Option_is_some, \
+    lily_builtin_Option_map, \
+    lily_builtin_Option_or, \
+    lily_builtin_Option_or_else, \
+    lily_builtin_Option_unwrap, \
+    lily_builtin_Option_unwrap_or, \
+    lily_builtin_Option_unwrap_or_else, \
+    NULL, \
+    NULL, \
+    NULL, \
+    lily_builtin_Result_failure, \
+    lily_builtin_Result_is_failure, \
+    lily_builtin_Result_is_success, \
+    lily_builtin_Result_success, \
+    NULL, \
+    NULL, \
     lily_builtin__calltrace, \
-    lily_builtin_var_stdin, \
+    lily_builtin__print, \
     lily_builtin_var_stderr, \
+    lily_builtin_var_stdin, \
     lily_builtin_var_stdout, \
 };
 #endif

@@ -8,19 +8,14 @@
 #define LILY_RANDOM_EXPORT
 #endif
 
-typedef struct lily_random_Random_ {
-    LILY_FOREIGN_HEADER
-    uint32_t state[MTWIST_N];
-    uint32_t *next;
-    int remaining;
-} lily_random_Random;
-#define ARG_Random(state, index) \
-(lily_random_Random *)lily_arg_generic(state, index)
-#define AS_Random(v_)\
-((lily_random_Random *)(lily_as_generic(v_)))
-#define ID_Random(state) lily_cid_at(state, 0)
-#define INIT_Random(state)\
-(lily_random_Random *) lily_push_foreign(state, ID_Random(state), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
+#define ARG_Random(s_, i_) \
+(lily_random_Random *)lily_arg_generic(s_, i_)
+#define AS_Random(v_) \
+(lily_random_Random *)lily_as_generic(v_)
+#define ID_Random(s_) \
+lily_cid_at(s_, 0)
+#define INIT_Random(s_) \
+(lily_random_Random *)lily_push_foreign(s_, ID_Random(s_), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
 
 LILY_RANDOM_EXPORT
 const char *lily_random_info_table[] = {

@@ -72,7 +72,7 @@ static void free_vars_since(lily_var *var, lily_var *stop)
 
 #define free_vars(v) free_vars_since(v, NULL)
 
-static void free_properties(lily_class *cls)
+void lily_free_properties(lily_class *cls)
 {
     lily_named_sym *prop_iter = cls->members;
     lily_named_sym *next_prop;
@@ -102,7 +102,7 @@ static void free_classes_until(lily_class *class_iter, lily_class *stop)
         lily_free(class_iter->name);
 
         if (class_iter->members != NULL)
-            free_properties(class_iter);
+            lily_free_properties(class_iter);
 
         lily_type *type_iter = class_iter->all_subtypes;
         lily_type *type_next;

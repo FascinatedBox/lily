@@ -1,9 +1,10 @@
-/**
-library random
+#include <stdio.h>
+#include <stdint.h>
+#include <time.h>
 
-The random package provides access to a Mersenne Twister for pseudo-random
-number generation.
-*/
+#include "lily.h"
+#define LILY_NO_EXPORT
+#include "lily_pkg_random_bindings.h"
 
 /* This uses code from libmtwist which uses The Unlicense:
    https://github.com/dajobe/libmtwist
@@ -11,10 +12,6 @@ number generation.
 
    This randomness library is limited to 32 bit values. It's assumed that most
    ranges will be within 32 bits (4 billion-ish). */
-
-#include <stdio.h>
-#include <stdint.h>
-#include <time.h>
 
 #define MTWIST_N             624
 #define MTWIST_M             397
@@ -26,29 +23,16 @@ number generation.
 #define MTWIST_MIXBITS(u, v) ( ( (u) & MTWIST_UPPER_MASK) | ( (v) & MTWIST_LOWER_MASK) )
 #define MTWIST_TWIST(u, v)  ( (MTWIST_MIXBITS(u, v) >> 1) ^ ( (v) & UINT32_C(1) ? MTWIST_MATRIX_A : UINT32_C(0)) )
 
-#include "lily.h"
-#define LILY_NO_EXPORT
-#include "lily_pkg_random_bindings.h"
+typedef struct {
+    LILY_FOREIGN_HEADER
+    uint32_t state[MTWIST_N];
+    uint32_t *next;
+    int remaining;
+} lily_random_Random;
 
 static void destroy_Random(lily_random_Random *r)
 {
 }
-
-/**
-foreign class Random(seed: *Integer = 0) {
-    layout {
-        uint32_t state[MTWIST_N];
-        uint32_t *next;
-        int remaining;
-    }
-}
-
-The `Random` class provides access to the random number generator. Each
-instance is completely separate from all others.
-
-The constructor for this class takes a seed. If the seed provided is 0 or less,
-then the current time (`time(NULL)` in C) is used instead. 
-*/
 
 void lily_random_Random_new(lily_state *s)
 {
@@ -112,15 +96,6 @@ uint32_t mtwist_u32rand(lily_random_Random* mt)
     return (uint32_t)r;
 }
 
-/**
-define Random.between(lower: Integer, upper: Integer): Integer
-
-Generate a random `Integer` value between `lower` and `upper`.
-
-# Errors
-
-* `ValueError` is raised if the range is empty, or reversed.
-*/
 void lily_random_Random_between(lily_state *s)
 {
     lily_random_Random *r = ARG_Random(s, 0);

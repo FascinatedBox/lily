@@ -1,0 +1,93 @@
+import manifest
+
+### The math package provides access to some useful math functions and
+### constants.
+library math
+
+### Calculates the absolute value of an integer.
+define abs(x: Integer): Integer
+
+### Calculates the arc cosine of a double in radians.
+define acos(x: Double): Double
+
+### Calculates the arc sine of a double in radians.
+define asin(x: Double): Double
+
+### Calculates the arc tangent of a double in radians.
+define atan(x: Double): Double
+
+### Round a double up to the nearest integer.
+define ceil(x: Double): Double
+
+### Calculate the cosine of a double in radians.
+define cos(x: Double): Double
+
+### Calculate the hyperbolic cosine of a double in radians.
+define cosh(x: Double): Double
+
+### Calculate e^x.
+define exp(x: Double): Double
+
+### Calculates the absolute value of a double.
+define fabs(x: Double): Double
+
+### Round a double down to the nearest integer.
+define floor(x: Double): Double
+
+### Calculate the remainder of x/y.
+define fmod(x: Double, y: Double): Double
+
+### Check if a number is infinity
+define is_infinity(x: Double): Boolean
+
+### Check if a number is nan since if x = nan, then x == nan is false
+define is_nan(x: Double): Boolean
+
+### Calculate x * 2^y.
+define ldexp(x: Double, y: Integer): Double
+
+### Calculate the log of a double with base e.
+define log(x: Double): Double
+
+### Calculate the log of a double with base 10.
+define log10(x: Double): Double
+
+### Split a double into an integer and a fractional part <[ipart, fpart]>.
+define modf(x: Double): Tuple[Double, Double]
+
+### Calculate x^y.
+define pow(x: Double, y: Double): Double
+
+### Calculate the sine of a double in radians.
+define sin(x: Double): Double
+
+### Calculate the hyperbolic sine of a double in radians.
+define sinh(x: Double): Double
+
+### Calculate the square root of a double.
+define sqrt(x: Double): Double
+
+### Calculate the tangent of a double in radians.
+define tan(x: Double): Double
+
+### Calculate the hyperbolic tangent of a double in radians.
+define tanh(x: Double): Double
+
+### Convert a double in radians to degrees.
+define to_deg(x: Double): Double
+
+### Convert a double in degrees to radians.
+define to_rad(x: Double): Double
+
+### Value used as an error returned by math functions. +infinity on systems
+### supporting IEEE Std 754-1985.
+var huge: Double
+
+### Value representing unsigned infinity
+var infinity: Double
+
+### Value representing not a number
+var nan: Double
+
+### Value of pi
+var pi: Double

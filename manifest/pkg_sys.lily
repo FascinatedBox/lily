@@ -1,0 +1,24 @@
+import manifest
+
+### The sys package provides access to the arguments given to Lily.
+library sys
+
+### Search the environment for `name`, returning either a `Some` with the
+### contents, or `None`. Internally, this is a wrapper over C's getenv.
+define getenv(name: String): Option[String]
+
+### Return the current recursion limit.
+define recursion_limit: Integer
+
+### Attempt to set `limit` as the maximum recursion limit.
+###
+### # Errors
+###
+### * `ValueError` if `limit` is lower than the current recursion depth, or an
+### unreasonable value (too high or low).
+define set_recursion_limit(limit: Integer)
+
+### This contains arguments sent to the program through the command-line. If
+### Lily was not invoked from the command-line (ex: mod_lily), then this is
+### empty.
+var argv: List[String]

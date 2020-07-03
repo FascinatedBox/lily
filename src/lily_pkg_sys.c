@@ -1,9 +1,3 @@
-/**
-library sys
-
-The sys package provides access to the arguments given to Lily.
-*/
-
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,12 +7,6 @@ The sys package provides access to the arguments given to Lily.
 #define LILY_NO_EXPORT
 #include "lily_pkg_sys_bindings.h"
 
-/**
-var argv: List[String]
-
-This contains arguments sent to the program through the command-line. If Lily
-was not invoked from the command-line (ex: mod_lily), then this is empty.
-*/
 void lily_sys_var_argv(lily_state *s)
 {
     lily_config *config = lily_config_get(s);
@@ -33,12 +21,6 @@ void lily_sys_var_argv(lily_state *s)
     }
 }
 
-/**
-define getenv(name: String): Option[String]
-
-Search the environment for `name`, returning either a `Some` with the contents,
-or `None`. Internally, this is a wrapper over C's getenv.
-*/
 void lily_sys__getenv(lily_state *s)
 {
     char *env = getenv(lily_arg_string_raw(s, 0));
@@ -53,26 +35,11 @@ void lily_sys__getenv(lily_state *s)
         lily_return_none(s);
 }
 
-/**
-define recursion_limit: Integer
-
-Return the current recursion limit.
-*/
 void lily_sys__recursion_limit(lily_state *s)
 {
     lily_return_integer(s, s->depth_max);
 }
 
-/**
-define set_recursion_limit(limit: Integer)
-
-Attempt to set `limit` as the maximum recursion limit.
-
-# Errors
-
-* `ValueError` if `limit` is lower than the current recursion depth, or an
-  unreasonable value (too high or low).
-*/
 void lily_sys__set_recursion_limit(lily_state *s)
 {
     int64_t limit = lily_arg_integer(s, 0);

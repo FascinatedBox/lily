@@ -2220,15 +2220,21 @@ static void fix_predefined_class_id(lily_parse_state *parser, lily_class *cls)
         new_id = LILY_ID_VALUEERROR;
     else if (cls->item_kind & ITEM_IS_ENUM) {
         /* Has to be Option or Result, both of which have two members. */
-
-        if (strcmp(name, "Option") == 0)
-            new_id = LILY_ID_OPTION;
-        else if (strcmp(name, "Result") == 0)
-            new_id = LILY_ID_RESULT;
+        lily_named_sym *first = cls->members;
+        lily_named_sym *second = first->next;
 
         /* No ids were given out. Fix the two variants manually. */
-        cls->members->id = new_id + 2;
-        cls->members->next->id = new_id + 1;
+        if (strcmp(name, "Option") == 0) {
+            new_id = LILY_ID_OPTION;
+            first->id = LILY_ID_SOME;
+            second->id = LILY_ID_NONE;
+        }
+        else if (strcmp(name, "Result") == 0) {
+            new_id = LILY_ID_RESULT;
+            first->id = LILY_ID_SUCCESS;
+            second->id = LILY_ID_FAILURE;
+        }
+
         adjust = 0;
     }
 
@@ -5507,6 +5513,27 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     parser->modifiers = 0;
 }
 
+static void manifest_override_builtin(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *builtin = symtab->builtin_module;
+    lily_block *scope_block = parser->emit->scope_block;
+
+    parser->symtab->active_module = builtin;
+    scope_block->scope_var->module = builtin;
+
+    lily_var *var_iter = builtin->var_chain;
+    uint16_t count = 0;
+
+    while (var_iter) {
+        count++;
+        var_iter = var_iter->next;
+    }
+
+    parser->emit->block->var_count = count;
+    hide_block_vars(parser);
+}
+
 static void manifest_library(lily_parse_state *parser)
 {
     lily_module_entry *m = parser->symtab->active_module;
@@ -5523,15 +5550,25 @@ static void manifest_library(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Library keyword has already been used.");
 
-    /* The purpose of this keyword is to give the module a docblock by giving
-       the module load function a docblock. */
-    NEED_NEXT_TOK(tk_word)
-
     if (m->class_chain || m->var_chain != scope_var)
         lily_raise_syn(parser->raiser,
                 "Library keyword must come before other keywords.");
 
+    /* This keyword takes an identifier to use in place of the loadname. The
+       manifest files for predefined modules need this so they can export the
+       right name for tooling. */
+    NEED_NEXT_TOK(tk_word)
+
+    if (strcmp(lex->label, "builtin") == 0) {
+        manifest_override_builtin(parser);
+        m = parser->symtab->builtin_module;
+    }
+
     m->doc_id = build_doc_data(parser, 1);
+    lily_free(m->loadname);
+    m->loadname = lily_malloc((strlen(lex->label) + 1) * sizeof(*m->loadname));
+    strcpy(m->loadname, lex->label);
+
     lily_next_token(lex);
 }
 
@@ -5564,6 +5601,55 @@ static void manifest_block_exit(lily_parse_state *parser)
     lily_gp_restore(parser->generics, 0);
     lily_emit_leave_scope_block(parser->emit);
     lily_next_token(parser->lex);
+}
+
+static void manifest_predefined(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *builtin = symtab->builtin_module;
+
+    /* This keyword is strictly for the builtin manifest. It allows the builtin
+       module to redefine builtin classes/enums.
+       Unlike other keywords, this one performs limited error checking because
+       it assumes the builtin manifest is correct. */
+    if (symtab->active_module != builtin)
+        lily_raise_syn(parser->raiser,
+                "'predefined' only available to the builtin module.");
+
+    NEED_NEXT_TOK(tk_word)
+
+    lily_class *cls = find_or_dl_class(parser, builtin, lex->label);
+
+    /* Drop everything in this target. The methods have been loaded into vm
+       tables already, so this won't break existing declarations. This will,
+       however, prevent new declarations from doing anything. Tooling works
+       around that by being loaded first.
+       Deleting properties doesn't NULL the members because the usual callers
+       don't need it to do that. */
+    lily_free_properties(cls);
+    cls->members = NULL;
+
+    if (cls->item_kind & ITEM_IS_ENUM) {
+        parse_enum_header(parser, cls);
+        parser->current_class->doc_id = build_doc_data(parser, 1);
+    }
+    else {
+        parse_class_header(parser, cls);
+        set_manifest_define_doc(parser);
+        cls->doc_id = parser->emit->scope_block->scope_var->doc_id;
+        lily_next_token(lex);
+
+        /* Parsing a class header creates a constructor that only native
+           predefined classes need. */
+        if (cls->item_kind == ITEM_CLASS_FOREIGN) {
+            lily_free_properties(cls);
+            cls->members = NULL;
+        }
+    }
+
+    if (cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE))
+        fix_predefined_class_id(parser, parser->current_class);
 }
 
 static void manifest_loop(lily_parse_state *parser)
@@ -5632,6 +5718,8 @@ enter_manifest_import:;
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
                 manifest_library(parser);
+            else if (strcmp("predefined", lex->label) == 0)
+                manifest_predefined(parser);
             else
                 lily_raise_syn(parser->raiser,
                         "Invalid keyword %s for manifest.", lex->label);

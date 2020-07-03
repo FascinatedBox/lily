@@ -45,6 +45,7 @@ lily_symtab *lily_new_symtab(void);
 void lily_set_builtin(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
+void lily_free_properties(lily_class *);
 void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
         lily_var *, lily_boxed_sym *, int);
 void lily_free_symtab(lily_symtab *);

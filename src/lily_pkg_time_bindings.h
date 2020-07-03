@@ -8,17 +8,14 @@
 #define LILY_TIME_EXPORT
 #endif
 
-typedef struct lily_time_Time_ {
-    LILY_FOREIGN_HEADER
-    struct tm local;
-} lily_time_Time;
-#define ARG_Time(state, index) \
-(lily_time_Time *)lily_arg_generic(state, index)
-#define AS_Time(v_)\
-((lily_time_Time *)(lily_as_generic(v_)))
-#define ID_Time(state) lily_cid_at(state, 0)
-#define INIT_Time(state)\
-(lily_time_Time *) lily_push_foreign(state, ID_Time(state), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
+#define ARG_Time(s_, i_) \
+(lily_time_Time *)lily_arg_generic(s_, i_)
+#define AS_Time(v_) \
+(lily_time_Time *)lily_as_generic(v_)
+#define ID_Time(s_) \
+lily_cid_at(s_, 0)
+#define INIT_Time(s_) \
+(lily_time_Time *)lily_push_foreign(s_, ID_Time(s_), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
 
 LILY_TIME_EXPORT
 const char *lily_time_info_table[] = {
@@ -26,8 +23,8 @@ const char *lily_time_info_table[] = {
     ,"C\04Time\0"
     ,"m\0clock\0: Double"
     ,"m\0now\0: Time"
-    ,"m\0to_s\0(Time): String"
     ,"m\0since_epoch\0(Time): Integer"
+    ,"m\0to_s\0(Time): String"
     ,"Z"
 };
 #define LILY_DECLARE_TIME_CALL_TABLE \
@@ -37,7 +34,7 @@ lily_call_entry_func lily_time_call_table[] = { \
     NULL, \
     lily_time_Time_clock, \
     lily_time_Time_now, \
-    lily_time_Time_to_s, \
     lily_time_Time_since_epoch, \
+    lily_time_Time_to_s, \
 };
 #endif

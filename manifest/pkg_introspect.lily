@@ -1,0 +1,322 @@
+import manifest
+
+### This package provides introspection into the interpreter. Introspection
+### allows finding out what modules have been imported and what symbols that
+### those modules hold. Note that the api that this package exports is currently
+### limited.
+###
+### One caveat with introspection is that the interpreter does not automatically
+### load all symbols from foreign libraries. This mechanism (dynaload) means
+### that introspecting a foreign library may not include all of the symbols
+### inside of it. Introspection does not provide any means of finding symbols
+### that are not loaded.
+library introspect
+
+### This is a foreign class that wraps over a type.
+foreign static class TypeEntry
+{
+    ### Return a string that describes the type provided. This uses the same
+    ### type printing that the interpreter's error messages use.
+    public define as_string: String
+
+    ### Return the id of the class that this type wraps over.
+    public define class_id: Integer
+
+    ### Return the name of the class that this type wraps over.
+    public define class_name: String
+
+    ### Returns the type(s) that this type has inside, or `[]` if there are
+    ### none. Types are listed from left to right. The only exception is
+    ### `Function`, which always has the result first, followed by inner types
+    ### from left to right.
+    public define inner_types: List[TypeEntry]
+
+    ### Returns `true` if this type is a `Function` that allows for variable
+    ### arguments, false otherwise.
+    public define is_vararg_function: Boolean
+}
+
+### This is a native class representing a definition parameter.
+class ParameterEntry(name: String, key: String, t: TypeEntry)
+{
+    public var @name: String
+    public var @keyword: String
+    public var @type: TypeEntry
+}
+
+### This is a foreign class that wraps over a var.
+foreign static class VarEntry
+{
+    ### Return the docblock of this var, or an empty string. Docblocks are only
+    ### saved when a var is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the line number this var was declared on.
+    public define line_number: Integer
+
+    ### Return the name of the var provided.
+    public define name: String
+
+    ### Return the type of the var provided.
+    public define type: TypeEntry
+}
+
+### This is a foreign class that wraps over a class property.
+foreign static class PropertyEntry
+{
+    ### Return the docblock of this property, or an empty string. Docblocks are
+    ### only saved when a property is parsed in manifest mode.
+    public define doc: String
+
+    ### Return `true` if the property is private, `false` otherwise.
+    public define is_private: Boolean
+
+    ### Return `true` if the property is protected, `false` otherwise.
+    public define is_protected: Boolean
+
+    ### Return `true` if the property is public, `false` otherwise.
+    public define is_public: Boolean
+
+    ### Return the name of the property.
+    public define name: String
+
+    ### Return the type of the property.
+    public define type: TypeEntry
+}
+
+### This is a foreign class that wraps over a toplevel function of a package.
+foreign static class FunctionEntry
+{
+    ### Return the docblock of this function, or an empty string. Docblocks are
+    ### only saved when a function is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the generic types available to this function. Functions defined
+    ### outside of manifest mode will always return `[]`.
+    public define generics: List[TypeEntry]
+
+    ### Return the line number that this function was declared on.
+    public define line_number: Integer
+
+    ### Return the name of the definition provided.
+    public define name: String
+
+    ### Return the parameters of this function. Functions processed outside of
+    ### manifest mode will have empty names.
+    public define parameters: List[ParameterEntry]
+
+    ### Return the type that this function returns when called.
+    public define result_type: TypeEntry
+
+    ### Return the type of the definition provided.
+    public define type: TypeEntry
+}
+
+### This is a foreign class that wraps over a class or enum method.
+foreign static class MethodEntry
+{
+    ### Return the docblock of this method, or an empty string. Docblocks are
+    ### only saved when a method is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the unqualified name of the function given.
+    public define function_name: String
+
+    ### Return the generic types available to this method (including those from
+    ### the class/enum). Methods defined outside of manifest mode will always
+    ### return `[]`.
+    public define generics: List[TypeEntry]
+
+    ### Return `true` if the method is private, `false` otherwise.
+    public define is_private: Boolean
+
+    ### Return `true` if the method is protected, `false` otherwise.
+    public define is_protected: Boolean
+
+    ### Return `true` if the method is public, `false` otherwise.
+    public define is_public: Boolean
+
+    ### Return `true` if the method is static, `false` otherwise.
+    public define is_static: Boolean
+
+    ### Return the line number that this method was declared on.
+    public define line_number: Integer
+
+    ### Return the parameters of this method. Methods processed outside of
+    ### manifest mode will have empty names.
+    public define parameters: List[ParameterEntry]
+
+    ### Return the type that this method returns when called.
+    public define result_type: TypeEntry
+
+    ### Return the type of the method provided.
+    public define type: TypeEntry
+}
+
+### This is a foreign class that wraps over a Lily class.
+foreign static class ClassEntry
+{
+    ### Return the docblock of this class, or an empty string. Docblocks are
+    ### only saved when a class is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the generic types available to this class. Classes defined
+    ### outside of manifest mode will always return `[]`.
+    public define generics: List[TypeEntry]
+
+    ### Return the internal id of this class.
+    public define id: Integer
+
+    ### This is the opposite of `ClassEntry.is_native`.
+    public define is_foreign: Boolean
+
+    ### Returns 'true' if this class has properties and/or can be inherited.
+    ### Most native classes are found within native Lily modules. However,
+    ### foreign libraries are able to create native classes (ex: `Exception`).
+    public define is_native: Boolean
+
+    ### Return the methods that were declared in this class. There is no
+    ### guarantee as to the order. The constructor's name is <new> to prevent it
+    ### from being named.
+    public define methods: List[MethodEntry]
+
+    ### Return the name of the class provided.
+    public define name: String
+
+    ### If this class inherits from another, this returns that class in a
+    ### 'Some'. Otherwise, this returns 'None'.
+    public define parent: Option[ClassEntry]
+
+    ### Return the properties that were declared on the class provided. If a
+    ### class has been loaded, the properties inside are always loaded. This is
+    ### in contrast to methods which may not be loaded.
+    public define properties: List[PropertyEntry]
+}
+
+### This is a foreign class that wraps over an enum variant.
+foreign static class VariantEntry
+{
+    ### Return the id of the enum parent of this variant.
+    public define enum_id: Integer
+
+    ### Return the name of the enum parent of this variant.
+    public define enum_name: String
+
+    ### Returns true if the variant is empty, false otherwise. Empty variants
+    ### are variants that do not receive any values.
+    public define is_empty: Boolean
+
+    ### Returns true if the variant is scoped, false otherwise. A variant is
+    ### scoped if the enum was prefixed with 'scoped' during declarations.
+    ### Scoped variants must be qualified with their names to be used, whereas
+    ### flat variants are directly available.
+    public define is_scoped: Boolean
+
+    ### Return the name of the variant provided.
+    public define name: String
+
+    ### Return the parameters of this variant, or `[]` if this variant does not
+    ### take parameters. Since variants do not accept parameter names, the name
+    ### is always `""`.
+    public define parameters: List[ParameterEntry]
+
+    ### Return the type of the method provided.
+    public define type: TypeEntry
+}
+
+### This is a foreign class that wraps over an enum.
+foreign static class EnumEntry
+{
+    ### Return the docblock of this enum, or an empty string. Docblocks are only
+    ### saved when an enum is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the generic types available to this enum. Enums defined outside
+    ### of manifest mode will always return `[]`.
+    public define generics: List[TypeEntry]
+
+    ### Return the internal id of this enum.
+    public define id: Integer
+
+    ### Returns true if the enum's variants are visible at toplevel, false
+    ### otherwise.
+    public define is_flat: Boolean
+
+    ### Returns true if the enum's variants are namespaced, false otherwise.
+    public define is_scoped: Boolean
+
+    ### Return the methods that were declared in this class. There is no
+    ### guarantee as to the order.
+    public define methods: List[MethodEntry]
+
+    ### Return the name of the class provided.
+    public define name: String
+
+    ### Return the variants that were declared within this enum. No ordering is
+    ### guaranteed.
+    public define variants: List[VariantEntry]
+}
+
+### This is a foreign class that wraps over a module.
+foreign static class ModuleEntry
+{
+    ### Return all classes that were directly imported into this module (`import
+    ### (someclass) somefile`).
+    public define boxed_classes: List[ClassEntry]
+
+    ### Return all enums that were directly imported into this module (`import
+    ### (someenum) somefile`).
+    public define boxed_enums: List[EnumEntry]
+
+    ### Return all functions that were directly imported into this module
+    ### (`import (somevariant) somefile`).
+    public define boxed_functions: List[FunctionEntry]
+
+    ### Return all variants that were directly imported into this module
+    ### (`import (somevariant) somefile`).
+    public define boxed_variants: List[VariantEntry]
+
+    ### Return all vars that were directly imported into this module (`import
+    ### (somevar) somefile`).
+    public define boxed_vars: List[VarEntry]
+
+    ### Return the classes declared within this module.
+    public define classes: List[ClassEntry]
+
+    ### Return the directory of this module relative to [main].
+    public define dirname: String
+
+    ### Return the docblock of this module, or an empty string. Docblocks are
+    ### only saved when a module is parsed in manifest mode.
+    public define doc: String
+
+    ### Return the enums declared within this module.
+    public define enums: List[EnumEntry]
+
+    ### Return the functions that were declared inside of this module.
+    public define functions: List[FunctionEntry]
+
+    ### Return the modules that were used inside of this module.
+    public define modules_used: List[ModuleEntry]
+
+    ### Return the name of the module. A module's name is the default identifier
+    ### used when a module is imported by other modules.
+    ###
+    ### Note: The origin module always has the name '[main]'.
+    public define name: String
+
+    ### Returns the path used to load the module. Registered modules and modules
+    ### in the prelude will have their name enclosed in brackets (ex: '[sys]').
+    public define path: String
+
+    ### Return the vars declared within this module.
+    public define vars: List[VarEntry]
+}
+
+### Returns the first module loaded.
+define main_module: ModuleEntry
+
+### Return all modules inside of the interpreter. This includes registered
+### modules and modules in the interpreter's prelude. In most cases,
+### `main_module` should be used instead.
+define module_list: List[ModuleEntry]

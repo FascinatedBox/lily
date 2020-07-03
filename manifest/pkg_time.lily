@@ -1,0 +1,25 @@
+import manifest
+
+### The time package provides access to basic time information on the system.
+library time
+
+### Instances of this class represent a single point in time. This class also
+### includes static methods to provide a few extra features.
+foreign static class Time
+{
+    ### Returns the value of `self` as a number of seconds since the epoch.
+    public define since_epoch: Integer
+
+    ### Return a `String` representation of a `Time` instance.
+    ###
+    ### Internally, this calls strftime with `"%Y-%m-%d %H:%M:%S %z"`.
+    ###
+    ### Example output: `"2016-7-10 16:30:00 -0800"`.
+    public define to_s: String
+
+    ### Returns the number of seconds of CPU time the interpreter has used.
+    public static define clock: Double
+
+    ### Returns a `Time` instance representing the current system time.
+    public static define now: Time
+}

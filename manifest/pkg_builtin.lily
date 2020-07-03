@@ -1,0 +1,813 @@
+import manifest
+
+### The builtin package provides the classes, vars, and functions that form the
+### foundation of Lily.
+library builtin
+
+#[
+    The builtin module defines fundamental symbols that are available to every
+    module. The contents of this manifest file are loaded directly into the
+    interpreter's builtin module. This approach ensures that there won't be two
+    classes with the id of a fundamental class.
+
+    There's still the issue of circularity. Almost every predefined class has a
+    method or two that depends on some other class. This file begins with all
+    baked-in classes available, as well as having Option available. The
+    "predefined" keyword is a special keyword for this file only that allows
+    entering an existing class and writing methods to it.
+
+    The symbols in this file are declared in the following groups:
+        1) Baked-in foreign classes
+        2) Enums
+        3) Native classes (exceptions)
+        4) Definitions
+        5) Vars
+]#
+
+
+#[
+    Group 1: Baked-in foreign classes
+]#
+
+
+### The `Boolean` class represents a value that is either `true` or `false`.
+predefined Boolean {
+    ### Convert a `Boolean` to an `Integer`. `true` becomes `1`, `false` becomes
+    ### `0`.
+    public define to_i: Integer
+
+    ### Convert a `Boolean` to a `String`.
+    public define to_s: String
+}
+
+### The `Byte` class represents a wrapper over a single `Byte` value. A `Byte`
+### value is always unsigned, giving it a range from 0 to 255. `Byte` literals
+### are written using 't' as the suffix on an `Integer` value.
+predefined Byte {
+    ### Convert a `Byte` to an `Integer`.
+    public define to_i: Integer
+}
+
+### The `ByteString` class represents a bag of bytes. A `ByteString` may have
+### '\0' values embedded within it. It may also have data that is not valid as
+### utf-8. The `ByteString` class currently does not support any primitive
+### operations.
+predefined ByteString {
+    ### Call `fn` for each `Byte` within the given `ByteString`.
+    public define each_byte(fn: Function(Byte))
+
+    ### Attempt to transform the given `ByteString` into a `String`. The action
+    ### taken depends on the value of `encode`.
+    ###
+    ### If encode is `"error"`, then invalid utf-8 or embedded '\0' values
+    ### within `self` will result in `None`.
+    public define encode(encode: *String="error"): Option[String]
+
+    ### Return the number of `Byte` values within `self`.
+    public define size: Integer
+
+    ### Create a new `ByteString` copying a section of `self` from `start` to
+    ### `stop`.
+    ###
+    ### If a negative index is given, it is treated as an offset from the end of
+    ### `self`, with `-1` being considered the last element.
+    ###
+    ### On error, this generates an empty `ByteString`. Error conditions are:
+    ###
+    ### * Either `start` or `stop` is out of range. * The `start` is larger than
+    ### the `stop` (reversed).
+    public define slice(start: *Integer=0, stop: *Integer=-1): ByteString
+}
+
+### A `Coroutine` is similar to a `Function`, except that it can also yield
+### values at different points along its lifetime. Every `Coroutine` has a
+### callstack that belongs to it, as well as an exception state. A `Coroutine`'s
+### status can be discovered by one of the is_ methods.
+###
+### The `Coroutine` type takes two types. The first is the type that the
+### `Coroutine` will be returning or yielding. The second is the type that the
+### `Coroutine` takes as a message. A `Coroutine` can take empty `Unit` messages
+### for simplicity, or a more interesting type if a more bidirectional kind of
+### messaging is wanted. A `Coroutine` can get the value resumed using
+### `Coroutine.receive` while within the `Coroutine`.
+###
+### The first argument of a `Function` to be made a `Coroutine` is always the
+### `Coroutine` itself. If the `Function` specifies extra arguments, those
+### arguments are to be passed to the intermediate result of `Coroutine.create`.
+predefined Coroutine[A, B] {
+    ### Returns `true` if the `Coroutine` has returned a value instead of
+    ### yielding, `false` otherwise.
+    public define is_done: Boolean
+
+    ### Returns `true` if the `Coroutine` raised an exception, `false`
+    ### otherwise.
+    public define is_failed: Boolean
+
+    ### Returns `true` if the `Coroutine` is running, `false` otherwise. Note
+    ### that this does not mean that the `Coroutine` is the one currently
+    ### running, only that it is running.
+    public define is_running: Boolean
+
+    ### Returns `true` if the `Coroutine` is ready to be resumed, `false`
+    ### otherwise.
+    public define is_waiting: Boolean
+
+    ### This function returns the value that the `Coroutine` is holding, so long
+    ### as the `Coroutine` is the one currently running.
+    ###
+    ### The value stored by the `Coroutine` is initially the first argument sent
+    ### to the intermediate builder. Following that, it is the last value that
+    ### was sent to the `Coroutine` using `Coroutine.resume_with`.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError`: If 'self' is not the current `Coroutine`.
+    public define receive: B
+
+    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
+    ### only if it is currently in the 'waiting' state.
+    ###
+    ### This function includes a value for the `Coroutine` to store. The value
+    ### is stored only if the `Coroutine` is resumed. If stored, the old value
+    ### is ejected from the `Coroutine` provided.
+    ###
+    ### If the `Coroutine` is suspended and yields (or returns) a value, the
+    ### result is a `Some` of that value.
+    ###
+    ### Otherwise, this returns `None`.
+    public define resume_with(value: B): Option[A]
+
+    ### Yield 'value' from the `Coroutine` given. Control returns to whatever
+    ### invoked 'self'.
+    ###
+    ### # Errors:
+    ###
+    ### * `RuntimeError` if `self` is the current `Coroutine`, or within a
+    ### foreign call.
+    public define yield(value: A)
+
+    ### Build a new `Coroutine` that wraps over the `Function` provided.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError`: If 'fn' is not a native function.
+    public static define build(fn: Function(Coroutine[A, B])): Coroutine[A, B]
+
+    ### Build a new Coroutine that wraps over the `Function` provided. The base
+    ### `Function` has the second argument set to 'value' exactly once before
+    ### any resumption takes place. This method is provided so that a
+    ### `Coroutine` can take an extra value (perhaps a `Tuple`) without needing
+    ### to be a closure.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError`: If 'fn' is not a native function.
+    public static define build_with_value[C](fn: Function(Coroutine[A, B], C),
+                                             value: C): Coroutine[A, B]
+
+    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
+    ### only if it is currently in the 'waiting' state.
+    ###
+    ### This function does not send a value to the `Coroutine` which is why it
+    ### requires the second parameter to be `Unit`.
+    ###
+    ### If the `Coroutine` is suspended and yields a value, the result is a
+    ### `Some` of that value.
+    ###
+    ### Otherwise, this returns `None`.
+    ###
+    ### Note that if a `Coroutine` returns a value instead of yielding, the
+    ### value is ignored and the result is `None`.
+    public static define resume(self: Coroutine[A, Unit]): Option[A]
+}
+
+### The `Double` class exists as a wrapper over a C double.
+predefined Double {
+    ### Convert a `Double` to an `Integer`. This is done internally through a
+    ### cast from a C double, to int64_t, the type of `Integer`.
+    public define to_i: Integer
+}
+
+### The `File` class provides a wrapper over a C FILE * struct. A `File` is
+### closed automatically when a scope exits (though not immediately). However,
+### it is also possible to manually close a `File`.
+predefined File {
+    ### Close `self` if it is open, or do nothing if already closed.
+    ###
+    ### For standard streams, this marks the `File` as closed, but does not
+    ### actually close the stream. Embedders, therefore, do not need to worry
+    ### about standard streams being altered or closed by Lily.
+    public define close
+
+    ### Read each line of text from `self`, passing it down to `fn` for
+    ### processing.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if `self` is not open for reading, or is closed.
+    public define each_line(fn: Function(ByteString))
+
+    ### This function writes all buffered data associated with the `File`
+    ### provided.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if `self` is closed or not open for writing.
+    public define flush
+
+    ### Attempt to write the contents of `data` to the file provided. `data` is
+    ### written with a newline at the end.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if `self` is closed or is not open for writing.
+    public define print[A](data: A)
+
+    ### Read `size` bytes from `self`. If `size` is negative, then the full
+    ### contents of `self` are read. This stops if either `size` bytes are read,
+    ### or the end of `self` is reached.
+    ###
+    ### # Errors:
+    ###
+    ### * `IOError` if `self` is not open for reading, or is closed.
+    public define read(size: *Integer=-1): ByteString
+
+    ### Attempt to read a line of text from `self`. Currently, this function
+    ### does not have a way to signal that the end of the file has been reached.
+    ### For now, callers should check the result against `B""`. This will be
+    ### fixed in a future release.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if `self` is not open for reading, or is closed.
+    public define read_line: ByteString
+
+    ### Attempt to write the contents of `data` to the file provided.
+    ###
+    ### # Errors
+    ###
+    ### * If `self` is closed or is not open for writing, `IOError` is raised.
+    public define write[A](data: A)
+
+    ### Attempt to open `path` using the `mode` given. `mode` may be one of the
+    ### following:
+    ###
+    ### * `"r"` (read only, must exist) * `"w"` (write only) * `"a"` (append,
+    ### create if not exist) * `"r+"` (read+write, must exist) * `"w+"`
+    ### (read+write, creates an empty file if needed) * `"a+"` (read+append)
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if unable to open `path`, or an invalid `mode` is provided.
+    public static define open(path: String, mode: String): File
+}
+
+### The `Function` class represents a block of code to be called, which may or
+### may not produce a value. `Function` values are first-class, and can be
+### passed around as arguments, placed into a `List`, and so on.
+###
+### The arguments of a `Function` are denoted within parentheses, with an
+### optional colon at the end to denote the value returned:
+###
+### `Function(Integer): String` (return `String`).
+###
+### `Function(String, String)` (no value returned).
+predefined Function {}
+
+
+
+### The `Hash` class provides a mapping between a key and a value. `Hash` values
+### can be created through `[key1 => value1, key2 => value2, ...]`. When writing
+### a `Hash`, the key is the first type, and the value is the second.
+###
+### `[1 => "a", 2 => "b", 3 => "c"]` would therefore be written as
+### `Hash[Integer, String]`.
+###
+### Currently, only `Integer` and `String` can be used as keys.
+predefined Hash[A, B] {
+    ### Removes all pairs currently present within `self`.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError` if `self` is currently being iterated over.
+    public define clear
+
+    ### Attempt to remove `key` from `self`. If `key` is not present within
+    ### `self`, then nothing happens.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError` if `self` is currently being iterated over.
+    public define delete(key: A)
+
+    ### Iterate through each pair that is present within `self`. For each of the
+    ### pairs, call `fn` with the key and value of each pair.
+    public define each_pair(fn: Function(A, B))
+
+    ### Attempt to find `key` within `self`.
+    ###
+    ### If `key` is present, then a `Some` containing the associated value is
+    ### returned.
+    ###
+    ### Otherwise, this returns None.
+    public define get(key: A): Option[B]
+
+    ### Return `true` if `key` is present within `self`, `false` otherwise.
+    public define has_key(key: A): Boolean
+
+    ### Construct a `List` containing all values that are present within `self`.
+    ### There is no guarantee of the ordering of the resulting `List`.
+    public define keys: List[A]
+
+    ### This iterates through `self` and calls `fn` for each element present.
+    ### The result of this function is a newly-made `Hash` where each value is
+    ### the result of the call to `fn`.
+    public define map_values[C](fn: Function(B => C)): Hash[A, C]
+
+    ### Create a new `Hash` that holds the result of `self` and each `Hash`
+    ### present within `others`.
+    ###
+    ### When duplicate elements are found, the value of the right-most `Hash`
+    ### wins.
+    public define merge(others: Hash[A, B]...): Hash[A, B]
+
+    ### This calls `fn` for each element present within `self`. The result of
+    ### this function is a newly-made `Hash` containing all values for which
+    ### `fn` returns `false`.
+    public define reject(fn: Function(A, B => Boolean)): Hash[A, B]
+
+    ### This calls `fn` for each element present within `self`. The result of
+    ### this function is a newly-made `Hash` containing all values for which
+    ### `fn` returns `true`.
+    public define select(fn: Function(A, B => Boolean)): Hash[A, B]
+
+    ### Returns the number of key+value pairs present within `self`.
+    public define size: Integer
+}
+
+### The `Integer` class is Lily's native numeric type. Internally, it is a
+### wrapper over a C int64_t.
+predefined Integer {
+    ### Converts an `Integer` to a `Boolean`.
+    public define to_bool: Boolean
+
+    ### Convert an `Integer` to a `Byte`, truncating the value if necessary.
+    public define to_byte: Byte
+
+    ### Converts an `Integer` to a `Double`. Internally, this is done by a
+    ### typecast to the `Double` type (a raw C double).
+    public define to_d: Double
+
+    ### Convert an `Integer` to a `String` using base-10.
+    public define to_s: String
+}
+
+### The `List` class represents a container of a given type, written as
+### `List[<inner type>]`. A `List` value can be accessed through a positive
+### index or a negative one (with negative indexes being an offset from the
+### end). Attempting to access an invalid index will produce `IndexError`.
+predefined List[A] {
+    ### Removes all elements present within `self`. No error is raised if `self`
+    ### is being iterated over.
+    public define clear
+
+    ### This calls `fn` for each element within `self`. The result of this
+    ### function is the number of times that `fn` returns `true`.
+    public define count(fn: Function(A => Boolean)): Integer
+
+    ### Attempts to remove index from the List. If index is negative, then it is
+    ### considered an offset from the end of the List.
+    ###
+    ### # Errors
+    ###
+    ### * `IndexError` if `index` is out of range.
+    public define delete_at(index: Integer)
+
+    ### Calls `fn` for each element within `self`. The result of this function
+    ### is `self`, so that this method can be chained with others.
+    public define each(fn: Function(A)): List[A]
+
+    ### Calls `fn` for each element within `self`. Rather than receive the
+    ### elements of `self`, `fn` instead receives the index of each element.
+    public define each_index(fn: Function(Integer)): List[A]
+
+    ### This calls `fn` for each element present within `self`. The first value
+    ### sent to `fn` is initially `start`, but will later be the result of `fn`.
+    ### Therefore, the value as it accumulates can be found in the first value
+    ### sent to `fn`.
+    ###
+    ### The result of this function is the result of doing an accumulation on
+    ### each element within `self`.
+    public define fold(start: A, fn: Function(A, A => A)): A
+
+    ### Attempt to find `index` within `self`.
+    ###
+    ### If the index is within `self`, then the value is returned within a
+    ### `Some`.
+    ###
+    ### Otherwise, this returns None.
+    public define get(index: Integer): Option[A]
+
+    ### Attempt to insert `value` at `index` within `self`. If index is
+    ### negative, then it is treated as an offset from the end of `self`.
+    ###
+    ### # Errors
+    ###
+    ### * `IndexError` if `index` is not within `self`.
+    public define insert(index: Integer, value: A)
+
+    ### Create a `String` consisting of the elements of `self` interleaved with
+    ### `separator`. The elements of self are converted to a `String` as if they
+    ### were interpolated. If `self` is empty, then the result is an empty
+    ### `String`.
+    public define join(separator: *String=""): String
+
+    ### This calls `fn` on each element within `self`. The result of this
+    ### function is a newly-made `List` containing the results of `fn`.
+    public define map[B](fn: Function(A => B)): List[B]
+
+    ### Attempt to remove and return the last element within `self`.
+    ###
+    ### # Errors
+    ###
+    ### * `IndexError` if `self` is empty.
+    public define pop: A
+
+    ### Add `value` to the end of `self`.
+    public define push(value: A): List[A]
+
+    ### This calls `fn` for each element within `self`. The result is a newly-
+    ### made `List` holding each element where `fn` returns `false`.
+    public define reject(fn: Function(A => Boolean)): List[A]
+
+    ### This calls `fn` for each element within `self`. The result is a newly-
+    ### made `List` holding each element where `fn` returns `true`.
+    public define select(fn: Function(A => Boolean)): List[A]
+
+    ### This attempts to remove the last element from `self` and return it.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `self` is empty.
+    public define shift: A
+
+    ### Returns the number of elements that are within `self`.
+    public define size: Integer
+
+    ### Create a new `List` copying a section of `self` from `start` to `stop`.
+    ###
+    ### If a negative index is given, it is treated as an offset from the end of
+    ### `self`, with `-1` being considered the last element.
+    ###
+    ### On error, this generates an empty `List`. Error conditions are:
+    ###
+    ### * Either `start` or `stop` is out of range. * The `start` is larger than
+    ### the `stop` (reversed).
+    public define slice(start: *Integer=0, stop: *Integer=-1): List[A]
+
+    ### Inserts value at the front of self, moving all other elements to the
+    ### right.
+    public define unshift(value: A): List[A]
+
+    ### This creates a `List` that contains a merger of the values within each
+    ### of the elements in 'others' and 'self'.
+    ###
+    ### The `$1` type is a special type that allows this method to work with any
+    ### number of `List` values.
+    ###
+    ### If 'self' is `List[Integer]` and 'others' is `List[String]` and
+    ### `List[Double]`, then the resulting type is `List[Tuple[Integer, String,
+    ### Double]]`.
+    ###
+    ### The size of the result `List` is the same as the smallest `List`
+    ### provided.
+    public define zip(others: List[$1]...): List[Tuple[A, $1]]
+
+    ### Generate a `List` of 'count' items using 'fn'.
+    ###
+    ### This calls 'fn' with an index that starts at `0` and proceeds until
+    ### 'count', and does not include 'count'.
+    ###
+    ### If 'count' is `0` or negative, then the resulting `List` will be empty.
+    public static define fill(count: Integer, fn: Function(Integer => A)): List[A]
+
+    ### This creates a new `List` that contains `value` repeated `count` times.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `count` is less than 1.
+    public static define repeat(count: Integer, value: A): List[A]
+}
+
+### The `String` class provides a wrapper over a C char *. The `String` class is
+### guaranteed to have a single '\0' terminator. Additionally, a `String` is
+### guaranteed to always be valid utf-8.
+###
+### The methods on the `String` class treat the underlying `String` as being
+### immutable, and thus always create a new `String` instead of modifying the
+### existing one.
+predefined String {
+    ### Checks if `self` ends with `end`.
+    public define ends_with(end: String): Boolean
+
+    ### Check for `needle` being within `self`. By default, this begins at the
+    ### start of `self`. If `start` is non-zero, then the search begins `start`
+    ### bytes away from the beginning of `self`. If `start` lies within the
+    ### middle of a utf-8 codepoint, then `None` is automatically returned.
+    ###
+    ### If `needle` is found, the result is a `Some` holding the index.
+    ###
+    ### Otherwise, this returns `None`.
+    public define find(needle: String, start: *Integer=0): Option[Integer]
+
+    ### This creates a new `String` by processing `self` as a format. Format
+    ### specifiers must be between braces (`{}`), and must be between `0` and
+    ### `99`. Each format specifier is replaced with the according argument,
+    ### with the first argument being at 0, the second at 1, and so on.
+    ###
+    ### This function is a useful alternative to interpolation for situations
+    ### where the value is a long expression, or where a single value is to be
+    ### repeated several times.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if a format specifier is malformed or has too many
+    ### digits.
+    ###
+    ### * `IndexError` if the format specifier specifies an out-of-range
+    ### argument.
+    public define format(args: $1...): String
+
+    ### Check for one of `"&"`, `"<"`, or `">"` being within `self`.
+    ###
+    ### If found, a new `String` is contained with any instance of the above
+    ### being replaced by an html-safe value.
+    ###
+    ### If not found, `self` is returned.
+    public define html_encode: String
+
+    ### Return `true` if `self` has only alphanumeric([a-zA-Z0-9]+) characters,
+    ### `false` otherwise.
+    public define is_alnum: Boolean
+
+    ### Return `true` if `self` has only alphabetical([a-zA-Z]+) characters,
+    ### `false` otherwise.
+    public define is_alpha: Boolean
+
+    ### Return `true` if `self` has only digit([0-9]+) characters, `false`
+    ### otherwise.
+    public define is_digit: Boolean
+
+    ### Returns `true` if `self` has only space(" \t\r\n") characters, `false`
+    ### otherwise.
+    public define is_space: Boolean
+
+    ### Checks if any characters within `self` are within [A-Z]. If so, it
+    ### creates a new `String` with [A-Z] replaced by [a-z]. Otherwise, `self`
+    ### is returned.
+    public define lower: String
+
+    ### This walks through `self` from left to right, stopping on the first
+    ### utf-8 chunk that is not found within `to_strip`. The result is a newly-
+    ### made copy of self without the elements within `to_strip` at the front.
+    public define lstrip(to_strip: String): String
+
+    ### Attempts to convert `self` into an `Integer`. Currently, `self` is
+    ### parsed as a base-10 encoded value.
+    ###
+    ### If the value is a valid `Integer`, then a `Some` containing the value is
+    ### returned.
+    ###
+    ### Otherwise, `None` is returned.
+    public define parse_i: Option[Integer]
+
+    ### Create a new `String` consisting of every `needle` replaced with `new`.
+    public define replace(needle: String, new: String): String
+
+    ### This walks through `self` from right to left, stopping on the first
+    ### utf-8 chunk that is not found within `to_strip`. The result is a newly-
+    ### made copy of `self` without the elements of `to_strip` at the end.
+    public define rstrip(to_strip: String): String
+
+    ### Return the number of bytes in `self`. This is equivalent to
+    ### `ByteString.size`.
+    public define size: Integer
+
+    ### Create a new `String` copying a section of `self` from `start` to
+    ### `stop`. This function works using byte indexes into the `String` value.
+    ###
+    ### If a negative index is given, it is treated as an offset from the end of
+    ### `self`, with `-1` being considered the last element.
+    ###
+    ### On error, this generates an empty `String`. Error conditions are:
+    ###
+    ### * Either `start` or `stop` is out of range. * The resulting slice would
+    ### not be valid utf-8. * The `start` is larger than the `stop` (reversed).
+    public define slice(start: *Integer=0, stop: *Integer=-1): String
+
+    ### This attempts to split `self` using `split_by`, with a default value of
+    ### a single space.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `split_by` is empty.
+    public define split(split_by: *String=" "): List[String]
+
+    ### Checks if `self` starts with `with`.
+    public define starts_with(with: String): Boolean
+
+    ### This walks through self from right to left, and then from left to right.
+    ### The result of this is a newly-made `String` without any elements within
+    ### `to_strip` at either end.
+    public define strip(to_strip: String): String
+
+    ### Produce a copy of `self`, as a `ByteString`. This allows per-`Byte`
+    ### operations to be performed.
+    public define to_bytestring: ByteString
+
+    ### Checks if `self` starts or ends with any of `" \t\r\n"`. If it does,
+    ### then a new `String` is made with spaces removed from both sides. If it
+    ### does not, then this returns `self`.
+    public define trim: String
+
+    ### Checks if any characters within self are within [a-z]. If so, it creates
+    ### a new `String` with [a-z] replaced by [A-Z]. Otherwise, `self` is
+    ### returned.
+    public define upper: String
+}
+
+### The `Tuple` class provides a fixed-size container over a set of types.
+### `Tuple` is ideal for situations where a variety of data is needed, but a
+### class is too complex.
+###
+### `Tuple` literals are created by `<[value1, value2, ...]>`. Member of the
+### `Tuple` class can be accessed through subscripts. Unlike `List`, `Tuple`
+### does not support negative indexes.
+predefined Tuple {}
+
+
+#[
+    Group 2: Enums
+]#
+
+
+### The `Option` type presents a way to hold either a value of `A`, or `None`,
+### with `None` being valid for any `Option`. A common use for this is as a
+### return type for functions that may fail, but have no meaningful error
+### message.
+predefined Option[A] {
+    Some(A),
+    None
+
+    ### If `self` is a `Some`, this returns `other`.
+    ###
+    ### Otherwise, this returns `None`.
+    define and[B](other: Option[B]): Option[B]
+
+    ### If `self` is a `Some`, this calls `fn` with the value within the `Some`.
+    ### The result is the result of the `Option` returned by `fn`.
+    ###
+    ### Otherwise, this returns `None`.
+    define and_then[B](fn: Function(A => Option[B])): Option[B]
+
+    ### If `self` is a `Some`, this returns `false`.
+    ###
+    ### Otherwise, this returns `true`.
+    define is_none: Boolean
+
+    ### If `self` is a `Some`, this returns `true`.
+    ###
+    ### Otherwise, this returns `false`.
+    define is_some: Boolean
+
+    ### If `self` is a `Some`, this returns a `Some` holding the result of `fn`.
+    ###
+    ### Otherwise, this returns `None`.
+    define map[B](fn: Function(A => B)): Option[B]
+
+    ### If `self` is a `Some`, this returns `self`.
+    ###
+    ### Otherwise, this returns `alternate`.
+    define or(alternate: Option[A]): Option[A]
+
+    ### If `self` is a `Some`, this returns `self`.
+    ###
+    ### Otherwise, this returns the result of calling `fn`.
+    define or_else(fn: Function( => Option[A])): Option[A]
+
+    ### If `self` is a `Some`, this returns the value contained within.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `self` is `None`.
+    define unwrap: A
+
+    ### If `self` is a `Some`, this returns the value with `self`.
+    ###
+    ### Otherwise, this returns `alternate`.
+    define unwrap_or(alternate: A): A
+
+    ### If `self` is a `Some`, this returns the value with `self`.
+    ###
+    ### Otherwise, this returns the result of calling `fn`.
+    define unwrap_or_else(fn: Function( => A)): A
+}
+
+### `Result` is an enum that holds either a `Failure` or `Success`. This enum is
+### for situations where the function that fails has an error message to
+### deliver. Examples of that include a database query or a more humble rpn
+### calculator.
+predefined Result[A, B] {
+    Failure(A),
+    Success(B)
+
+    ### If `self` contains a `Failure`, produces a `Some(A)`.
+    ###
+    ### If `self` contains a `Right`, produces `None`.
+    define failure: Option[A]
+
+    ### Return `true` if `self` contains a `Failure`, `false` otherwise.
+    define is_failure: Boolean
+
+    ### Return `true` if `self` contains a `Success`, `false` otherwise.
+    define is_success: Boolean
+
+    ### If `self` contains a `Failure`, produces a `None`.
+    ###
+    ### If `self` contains a `Success`, produces `Right(B)`.
+    define success: Option[B]
+}
+
+
+#[
+    Group 3: Native classes (exceptions)
+]#
+
+
+### The `Exception` class is the base class of all exceptions. It defines two
+### properties: A `message` as `String`, and a `traceback` as `List[String]`.
+### The `traceback` field is rewritten whenever an exception instance is raised.
+predefined Exception(message: String) {
+    public var @message: String
+    public var @traceback: List[String]
+}
+
+### The `DivisionByZeroError` is a subclass of `Exception` that is raised when
+### trying to divide or modulo by zero.
+predefined DivisionByZeroError(message: String) < Exception(message) {}
+
+### `IndexError` is a subclass of `Exception` that is raised when attempting to
+### access an index that is out-of-bounds (too low or too high, after accounting
+### for negative wraparound).
+predefined IndexError(message: String) < Exception(message) {}
+
+### `IOError` is a subclass of `Exception` that is raised when an IO operation
+### fails or does not have permission.
+predefined IOError(message: String) < Exception(message) {}
+
+### `KeyError` is a subclass of `Exception` that is raised when trying to get an
+### item from a `Hash` that does not exist.
+predefined KeyError(message: String) < Exception(message) {}
+
+### `RuntimeError` is a subclass of `Exception` that is raised when the
+### recursion limit is exceeded, or when trying to modify a `Hash` while
+### iterating over it.
+predefined RuntimeError(message: String) < Exception(message) {}
+
+### `ValueError` is a subclass of `Exception` that is raised when sending an
+### improper argument to a function, such as trying to call `List.repeat` with a
+### negative amount.
+predefined ValueError(message: String) < Exception(message) {}
+
+
+#[
+    Group 4: Definitions
+]#
+
+
+### Returns a `List` with one `String` for each function that is currently
+### entered.
+define calltrace: List[String]
+
+### Write `value` to `stdout`, plus a newline (`"\n"`). This is equivalent to
+### `stdout.print(value)`.
+###
+### # Errors
+###
+### * `IOError` if `stdout` is closed, or not open for reading.
+define print[A](value: A)
+
+
+#[
+    Group 5: Vars
+]#
+
+
+### Provides a wrapper around the `stderr` present within C.
+var stderr: File
+
+### Provides a wrapper around the `stdin` present within C.
+var stdin: File
+
+### Provides a wrapper around the `stdout` present within C.
+var stdout: File

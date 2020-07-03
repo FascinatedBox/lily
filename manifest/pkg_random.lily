@@ -1,0 +1,20 @@
+import manifest
+
+### The random package provides access to a Mersenne Twister for pseudo-random
+### number generation.
+library random
+
+### The `Random` class provides access to the random number generator. Each
+### instance is completely separate from all others.
+###
+### The constructor for this class takes a seed. If the seed provided is 0 or
+### less, then the current time (`time(NULL)` in C) is used instead.
+foreign class Random(seed: *Integer = 0)
+{
+    ### Generate a random `Integer` value between `lower` and `upper`.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` is raised if the range is empty, or reversed.
+    public define between(lower: Integer, upper: Integer): Integer
+}

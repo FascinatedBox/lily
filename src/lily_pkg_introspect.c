@@ -1,23 +1,10 @@
-/**
-library introspect
-
-This package provides introspection into the interpreter. Introspection allows
-finding out what modules have been imported and what symbols that those modules
-hold. Note that the api that this package exports is currently limited.
-
-One caveat with introspection is that the interpreter does not automatically
-load all symbols from foreign libraries. This mechanism (dynaload) means that
-introspecting a foreign library may not include all of the symbols inside of
-it. Introspection does not provide any means of finding symbols that are not
-loaded.
-*/
-
 #include "lily_vm.h"
 #include "lily_parser.h"
 #include "lily_core_types.h"
 #include "lily_symtab.h"
 
 #include "lily.h"
+#define LILY_NO_EXPORT
 #include "lily_pkg_introspect_bindings.h"
 
 /* Fetch an internal field of a struct, pushing it and returning it as the
@@ -49,42 +36,6 @@ lily_return_top(s);
 #define UNPACK_FIRST_ARG(boxed_type, raw_type) \
 lily_introspect_##boxed_type *introspect_entry = ARG_##boxed_type(s, 0); \
 raw_type entry = introspect_entry->entry
-
-static void destroy_ClassEntry(lily_introspect_ClassEntry *c)
-{
-}
-
-static void destroy_EnumEntry(lily_introspect_EnumEntry *c)
-{
-}
-
-static void destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
-{
-}
-
-static void destroy_MethodEntry(lily_introspect_MethodEntry *m)
-{
-}
-
-static void destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
-{
-}
-
-static void destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
-{
-}
-
-static void destroy_VarEntry(lily_introspect_VarEntry *v)
-{
-}
-
-static void destroy_VariantEntry(lily_introspect_VariantEntry *v)
-{
-}
-
-static void destroy_TypeEntry(lily_introspect_TypeEntry *t)
-{
-}
 
 /* Lily's symbols all start with a next field and are straightforward to extract
    into one of the boxed fields mentioned above. */
@@ -158,6 +109,90 @@ for (i = 0;source != NULL;source = source->next) { \
 } \
  \
 lily_return_top(s);
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_class *entry;
+} lily_introspect_ClassEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_class *entry;
+} lily_introspect_EnumEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_var *entry;
+} lily_introspect_FunctionEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_var *entry;
+    lily_class *parent;
+} lily_introspect_MethodEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_module_entry *entry;
+} lily_introspect_ModuleEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_type *entry;
+} lily_introspect_TypeEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_var *entry;
+} lily_introspect_VarEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_variant_class *entry;
+    lily_class *parent;
+} lily_introspect_VariantEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
+    lily_prop_entry *entry;
+    lily_class *parent;
+} lily_introspect_PropertyEntry;
+
+static void destroy_ClassEntry(lily_introspect_ClassEntry *c)
+{
+}
+
+static void destroy_EnumEntry(lily_introspect_EnumEntry *c)
+{
+}
+
+static void destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
+{
+}
+
+static void destroy_MethodEntry(lily_introspect_MethodEntry *m)
+{
+}
+
+static void destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
+{
+}
+
+static void destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
+{
+}
+
+static void destroy_VarEntry(lily_introspect_VarEntry *v)
+{
+}
+
+static void destroy_VariantEntry(lily_introspect_VariantEntry *v)
+{
+}
+
+static void destroy_TypeEntry(lily_introspect_TypeEntry *t)
+{
+}
 
 static int allow_all(void *any)
 {
@@ -362,22 +397,6 @@ static char **get_doc_text(lily_state *s, uint16_t doc_id)
     return text;
 }
 
-/**
-foreign class TypeEntry {
-    layout {
-        lily_type *entry;
-    }
-}
-
-This is a foreign class that wraps over a type.
-*/
-
-/**
-define TypeEntry.as_string: String
-
-Return a string that describes the type provided. This uses the same type
-printing that the interpreter's error messages use.
-*/
 void lily_introspect_TypeEntry_as_string(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
@@ -388,35 +407,18 @@ void lily_introspect_TypeEntry_as_string(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define TypeEntry.class_name: String
-
-Return the name of the class that this type wraps over.
-*/
 void lily_introspect_TypeEntry_class_name(lily_state *s)
 {
     FETCH_FIELD(TypeEntry, lily_type, const char *, cls->name,
             lily_push_string);
 }
 
-/**
-define TypeEntry.class_id: Integer
-
-Return the id of the class that this type wraps over.
-*/
 void lily_introspect_TypeEntry_class_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
     lily_return_integer(s, entry->cls->id);
 }
 
-/**
-define TypeEntry.inner_types: List[TypeEntry]
-
-Returns the type(s) that this type has inside, or `[]` if there are none. Types
-are listed from left to right. The only exception is `Function`, which always
-has the result first, followed by inner types from left to right.
-*/
 void lily_introspect_TypeEntry_inner_types(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
@@ -437,12 +439,6 @@ void lily_introspect_TypeEntry_inner_types(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define TypeEntry.is_vararg_function: Boolean
-
-Returns `true` if this type is a `Function` that allows for variable arguments,
-false otherwise.
-*/
 void lily_introspect_TypeEntry_is_vararg_function(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
@@ -450,15 +446,6 @@ void lily_introspect_TypeEntry_is_vararg_function(lily_state *s)
     lily_return_boolean(s, !!(entry->flags & TYPE_IS_VARARGS));
 }
 
-/**
-native class ParameterEntry(name: String, key: String, t: TypeEntry) {
-    var @name: String,
-    var @keyword: String,
-    var @type: TypeEntry
-}
-
-This is a native class representing a definition parameter.
-*/
 void lily_introspect_ParameterEntry_new(lily_state *s)
 {
     lily_container_val *con = lily_push_super(s, ID_ParameterEntry(s), 3);
@@ -472,33 +459,12 @@ void lily_introspect_ParameterEntry_new(lily_state *s)
     lily_return_super(s);
 }
 
-/**
-foreign class VarEntry {
-    layout {
-        lily_var *entry;
-    }
-}
-
-This is a foreign class that wraps over a var.
-*/
-
-/**
-define VarEntry.doc: String
-
-Return the docblock of this var, or an empty string. Docblocks are only saved
-when a var is parsed in manifest mode.
-*/
 void lily_introspect_VarEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(VarEntry, lily_var *);
     return_doc(s, entry->doc_id);
 }
 
-/**
-define VarEntry.line_number: Integer
-
-Return the line number this var was declared on.
-*/
 void lily_introspect_VarEntry_line_number(lily_state *s)
 {
     lily_introspect_VarEntry *introspect_entry = ARG_VarEntry(s, 0);
@@ -506,118 +472,50 @@ void lily_introspect_VarEntry_line_number(lily_state *s)
     lily_return_integer(s, entry->line_num);
 }
 
-/**
-define VarEntry.name: String
-
-Return the name of the var provided.
-*/
 void lily_introspect_VarEntry_name(lily_state *s)
 {
     FETCH_FIELD(VarEntry, lily_var, const char *, name, lily_push_string);
 }
 
-/**
-define VarEntry.type: TypeEntry
-
-Return the type of the var provided.
-*/
 void lily_introspect_VarEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
 }
 
-/**
-foreign class PropertyEntry {
-    layout {
-        lily_prop_entry *entry;
-        lily_class *parent;
-    }
-}
-
-This is a foreign class that wraps over a class property.
-*/
-
-/**
-define PropertyEntry.doc: String
-
-Return the docblock of this property, or an empty string. Docblocks are only
-saved when a property is parsed in manifest mode.
-*/
 void lily_introspect_PropertyEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     return_doc(s, entry->doc_id);
 }
 
-/**
-define PropertyEntry.is_private: Boolean
-
-Return `true` if the property is private, `false` otherwise.
-*/
 void lily_introspect_PropertyEntry_is_private(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PRIVATE));
 }
 
-/**
-define PropertyEntry.is_protected: Boolean
-
-Return `true` if the property is protected, `false` otherwise.
-*/
 void lily_introspect_PropertyEntry_is_protected(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PROTECTED));
 }
 
-/**
-define PropertyEntry.is_public: Boolean
-
-Return `true` if the property is public, `false` otherwise.
-*/
 void lily_introspect_PropertyEntry_is_public(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PUBLIC));
 }
 
-/**
-define PropertyEntry.name: String
-
-Return the name of the property.
-*/
 void lily_introspect_PropertyEntry_name(lily_state *s)
 {
     FETCH_FIELD(PropertyEntry, lily_prop_entry, const char *, name, lily_push_string);
 }
 
-/**
-define PropertyEntry.type: TypeEntry
-
-Return the type of the property.
-*/
 void lily_introspect_PropertyEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
 }
 
-/**
-foreign class FunctionEntry {
-    layout {
-        lily_var *entry;
-    }
-}
-
-This is a foreign class that wraps over a toplevel function of a package.
-*/
-
-/**
-define FunctionEntry.doc: String
-
-Return the docblock of this function, or an empty string. Docblocks are only
-saved when a function is parsed in manifest mode.
-*/
 void lily_introspect_FunctionEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
@@ -654,12 +552,6 @@ static void return_generics(lily_state *s, char *generic_str)
     lily_return_top(s);
 }
 
-/**
-define FunctionEntry.generics: List[TypeEntry]
-
-Return the generic types available to this function. Functions defined outside
-of manifest mode will always return `[]`.
-*/
 void lily_introspect_FunctionEntry_generics(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
@@ -673,21 +565,11 @@ void lily_introspect_FunctionEntry_generics(lily_state *s)
     return_generics(s, get_var_generics(s, entry));
 }
 
-/**
-define FunctionEntry.name: String
-
-Return the name of the definition provided.
-*/
 void lily_introspect_FunctionEntry_name(lily_state *s)
 {
     FETCH_FIELD(FunctionEntry, lily_var, const char *, name, lily_push_string);
 }
 
-/**
-define FunctionEntry.line_number: Integer
-
-Return the line number that this function was declared on.
-*/
 void lily_introspect_FunctionEntry_line_number(lily_state *s)
 {
     lily_introspect_VarEntry_line_number(s);
@@ -733,12 +615,6 @@ static void push_parameters(lily_state *s, lily_type *type, char **doc,
     lily_return_top(s);
 }
 
-/**
-define FunctionEntry.parameters: List[ParameterEntry]
-
-Return the parameters of this function. Functions processed outside of manifest
-mode will have empty names.
-*/
 void lily_introspect_FunctionEntry_parameters(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
@@ -751,54 +627,22 @@ void lily_introspect_FunctionEntry_parameters(lily_state *s)
     push_parameters(s, type, doc, keywords);
 }
 
-/**
-define FunctionEntry.result_type: TypeEntry
-
-Return the type that this function returns when called.
-*/
 void lily_introspect_FunctionEntry_result_type(lily_state *s)
 {
     unpack_and_return_result_type(s);
 }
 
-/**
-define FunctionEntry.type: TypeEntry
-
-Return the type of the definition provided.
-*/
 void lily_introspect_FunctionEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
 }
 
-/**
-foreign class MethodEntry {
-    layout {
-        lily_var *entry;
-        lily_class *parent;
-    }
-}
-
-This is a foreign class that wraps over a class or enum method.
-*/
-
-/**
-define MethodEntry.doc: String
-
-Return the docblock of this method, or an empty string. Docblocks are only
-saved when a method is parsed in manifest mode.
-*/
 void lily_introspect_MethodEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
     return_doc(s, entry->doc_id);
 }
 
-/**
-define MethodEntry.function_name: String
-
-Return the unqualified name of the function given.
-*/
 void lily_introspect_MethodEntry_function_name(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
@@ -807,54 +651,28 @@ void lily_introspect_MethodEntry_function_name(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define MethodEntry.generics: List[TypeEntry]
-
-Return the generic types available to this method (including those from the
-class/enum). Methods defined outside of manifest mode will always return `[]`.
-*/
 void lily_introspect_MethodEntry_generics(lily_state *s)
 {
     lily_introspect_FunctionEntry_generics(s);
 }
 
-/**
-define MethodEntry.line_number: Integer
-
-Return the line number that this method was declared on.
-*/
 void lily_introspect_MethodEntry_line_number(lily_state *s)
 {
     lily_introspect_VarEntry_line_number(s);
 }
 
-/**
-define MethodEntry.is_private: Boolean
-
-Return `true` if the method is private, `false` otherwise.
-*/
 void lily_introspect_MethodEntry_is_private(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PRIVATE));
 }
 
-/**
-define MethodEntry.is_protected: Boolean
-
-Return `true` if the method is protected, `false` otherwise.
-*/
 void lily_introspect_MethodEntry_is_protected(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PROTECTED));
 }
 
-/**
-define MethodEntry.is_public: Boolean
-
-Return `true` if the method is public, `false` otherwise.
-*/
 void lily_introspect_MethodEntry_is_public(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
@@ -864,76 +682,33 @@ void lily_introspect_MethodEntry_is_public(lily_state *s)
     lily_return_boolean(s, flags == 0);
 }
 
-/**
-define MethodEntry.is_static: Boolean
-
-Return `true` if the method is static, `false` otherwise.
-*/
 void lily_introspect_MethodEntry_is_static(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, !!(entry->flags & VAR_IS_STATIC));
 }
 
-/**
-define MethodEntry.parameters: List[ParameterEntry]
-
-Return the parameters of this method. Methods processed outside of manifest mode
-will have empty names.
-*/
 void lily_introspect_MethodEntry_parameters(lily_state *s)
 {
     lily_introspect_FunctionEntry_parameters(s);
 }
 
-/**
-define MethodEntry.result_type: TypeEntry
-
-Return the type that this method returns when called.
-*/
 void lily_introspect_MethodEntry_result_type(lily_state *s)
 {
     unpack_and_return_result_type(s);
 }
 
-/**
-define MethodEntry.type: TypeEntry
-
-Return the type of the method provided.
-*/
 void lily_introspect_MethodEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
 }
 
-/**
-foreign class ClassEntry {
-    layout {
-        lily_class *entry;
-    }
-}
-
-This is a foreign class that wraps over a Lily class.
-*/
-
-/**
-define ClassEntry.doc: String
-
-Return the docblock of this class, or an empty string. Docblocks are only saved
-when a class is parsed in manifest mode.
-*/
 void lily_introspect_ClassEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(ClassEntry, lily_class *);
     return_doc(s, entry->doc_id);
 }
 
-/**
-define ClassEntry.generics: List[TypeEntry]
-
-Return the generic types available to this class. Classes defined outside of
-manifest mode will always return `[]`.
-*/
 void lily_introspect_ClassEntry_generics(lily_state *s)
 {
     UNPACK_FIRST_ARG(ClassEntry, lily_class *);
@@ -958,11 +733,6 @@ void lily_introspect_ClassEntry_generics(lily_state *s)
     return_generics(s, generic_str);
 }
 
-/**
-define ClassEntry.id: Integer
-
-Return the internal id of this class.
-*/
 void lily_introspect_ClassEntry_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(ClassEntry, lily_class *);
@@ -970,11 +740,6 @@ void lily_introspect_ClassEntry_id(lily_state *s)
     lily_return_integer(s, entry->id);
 }
 
-/**
-define ClassEntry.is_foreign: Boolean
-
-This is the opposite of `ClassEntry.is_native`.
-*/
 void lily_introspect_ClassEntry_is_foreign(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -984,13 +749,6 @@ void lily_introspect_ClassEntry_is_foreign(lily_state *s)
     lily_return_boolean(s, is_foreign);
 }
 
-/**
-define ClassEntry.is_native: Boolean
-
-Returns 'true' if this class has properties and/or can be inherited. Most native
-classes are found within native Lily modules. However, foreign libraries are
-able to create native classes (ex: `Exception`).
-*/
 void lily_introspect_ClassEntry_is_native(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -1000,12 +758,6 @@ void lily_introspect_ClassEntry_is_native(lily_state *s)
     lily_return_boolean(s, is_native);
 }
 
-/**
-define ClassEntry.methods: List[MethodEntry]
-
-Return the methods that were declared in this class. There is no guarantee as to
-the order. The constructor's name is <new> to prevent it from being named.
-*/
 void lily_introspect_ClassEntry_methods(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -1016,22 +768,11 @@ void lily_introspect_ClassEntry_methods(lily_state *s)
     BUILD_LIST_FROM_2(allow_methods, make_method);
 }
 
-/**
-define ClassEntry.name: String
-
-Return the name of the class provided.
-*/
 void lily_introspect_ClassEntry_name(lily_state *s)
 {
     FETCH_FIELD(ClassEntry, lily_class, const char *, name, lily_push_string);
 }
 
-/**
-define ClassEntry.parent: Option[ClassEntry]
-
-If this class inherits from another, this returns that class in a 'Some'.
-Otherwise, this returns 'None'.
-*/
 void lily_introspect_ClassEntry_parent(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -1051,13 +792,6 @@ void lily_introspect_ClassEntry_parent(lily_state *s)
         lily_return_none(s);
 }
 
-/**
-define ClassEntry.properties: List[PropertyEntry]
-
-Return the properties that were declared on the class provided. If a class has
-been loaded, the properties inside are always loaded. This is in contrast to
-methods which may not be loaded.
-*/
 void lily_introspect_ClassEntry_properties(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -1068,22 +802,6 @@ void lily_introspect_ClassEntry_properties(lily_state *s)
     BUILD_LIST_FROM_2(allow_properties, make_property);
 }
 
-/**
-foreign class VariantEntry {
-    layout {
-        lily_variant_class *entry;
-        lily_class *parent;
-    }
-}
-
-This is a foreign class that wraps over an enum variant.
-*/
-
-/**
-define VariantEntry.enum_id: Integer
-
-Return the id of the enum parent of this variant.
-*/
 void lily_introspect_VariantEntry_enum_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -1091,11 +809,6 @@ void lily_introspect_VariantEntry_enum_id(lily_state *s)
     lily_return_integer(s, entry->parent->id);
 }
 
-/**
-define VariantEntry.enum_name: String
-
-Return the name of the enum parent of this variant.
-*/
 void lily_introspect_VariantEntry_enum_name(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -1104,12 +817,6 @@ void lily_introspect_VariantEntry_enum_name(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define VariantEntry.is_empty: Boolean
-
-Returns true if the variant is empty, false otherwise. Empty variants are
-variants that do not receive any values.
-*/
 void lily_introspect_VariantEntry_is_empty(lily_state *s)
 {
     lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
@@ -1118,14 +825,6 @@ void lily_introspect_VariantEntry_is_empty(lily_state *s)
     lily_return_boolean(s, entry->item_kind == ITEM_VARIANT_EMPTY);
 }
 
-/**
-define VariantEntry.is_scoped: Boolean
-
-Returns true if the variant is scoped, false otherwise. A variant is scoped if
-the enum was prefixed with 'scoped' during declarations. Scoped variants must be
-qualified with their names to be used, whereas flat variants are directly
-available.
-*/
 void lily_introspect_VariantEntry_is_scoped(lily_state *s)
 {
     lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
@@ -1134,24 +833,12 @@ void lily_introspect_VariantEntry_is_scoped(lily_state *s)
     lily_return_boolean(s, parent->item_kind == ITEM_ENUM_SCOPED);
 }
 
-/**
-define VariantEntry.name: String
-
-Return the name of the variant provided.
-*/
 void lily_introspect_VariantEntry_name(lily_state *s)
 {
     FETCH_FIELD(VariantEntry, lily_variant_class, const char *, name,
             lily_push_string);
 }
 
-/**
-define VariantEntry.parameters: List[ParameterEntry]
-
-Return the parameters of this variant, or `[]` if this variant does not take
-parameters. Since variants do not accept parameter names, the name is always
-`""`.
-*/
 void lily_introspect_VariantEntry_parameters(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -1177,86 +864,38 @@ void lily_introspect_VariantEntry_parameters(lily_state *s)
     push_parameters(s, type, doc, keywords);
 }
 
-/**
-define VariantEntry.type: TypeEntry
-
-Return the type of the method provided.
-*/
 void lily_introspect_VariantEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
 }
 
-/**
-foreign class EnumEntry {
-    layout {
-        lily_class *entry;
-    }
-}
-
-This is a foreign class that wraps over an enum.
-*/
-
-/**
-define EnumEntry.doc: String
-
-Return the docblock of this enum, or an empty string. Docblocks are only saved
-when an enum is parsed in manifest mode.
-*/
 void lily_introspect_EnumEntry_doc(lily_state *s)
 {
     lily_introspect_ClassEntry_doc(s);
 }
 
-/**
-define EnumEntry.generics: List[TypeEntry]
-
-Return the generic types available to this enum. Enums defined outside of
-manifest mode will always return `[]`.
-*/
 void lily_introspect_EnumEntry_generics(lily_state *s)
 {
     lily_introspect_ClassEntry_generics(s);
 }
 
-/**
-define EnumEntry.id: Integer
-
-Return the internal id of this enum.
-*/
 void lily_introspect_EnumEntry_id(lily_state *s)
 {
     lily_introspect_ClassEntry_id(s);
 }
 
-/**
-define EnumEntry.is_flat: Boolean
-
-Returns true if the enum's variants are visible at toplevel, false otherwise.
-*/
 void lily_introspect_EnumEntry_is_flat(lily_state *s)
 {
     UNPACK_FIRST_ARG(EnumEntry, lily_class *);
     lily_return_boolean(s, entry->item_kind == ITEM_ENUM_FLAT);
 }
 
-/**
-define EnumEntry.is_scoped: Boolean
-
-Returns true if the enum's variants are namespaced, false otherwise.
-*/
 void lily_introspect_EnumEntry_is_scoped(lily_state *s)
 {
     UNPACK_FIRST_ARG(EnumEntry, lily_class *);
     lily_return_boolean(s, entry->item_kind == ITEM_ENUM_SCOPED);
 }
 
-/**
-define EnumEntry.methods: List[MethodEntry]
-
-Return the methods that were declared in this class. There is no guarantee as to
-the order.
-*/
 void lily_introspect_EnumEntry_methods(lily_state *s)
 {
     lily_introspect_EnumEntry *introspect_entry = ARG_EnumEntry(s, 0);
@@ -1267,12 +906,6 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
     BUILD_LIST_FROM_2(allow_methods, make_method);
 }
 
-/**
-define EnumEntry.variants: List[VariantEntry]
-
-Return the variants that were declared within this enum. No ordering is
-guaranteed.
-*/
 void lily_introspect_EnumEntry_variants(lily_state *s)
 {
     /* Variants come in two flavors:
@@ -1299,32 +932,11 @@ void lily_introspect_EnumEntry_variants(lily_state *s)
     }
 }
 
-/**
-define EnumEntry.name: String
-
-Return the name of the class provided.
-*/
 void lily_introspect_EnumEntry_name(lily_state *s)
 {
     lily_introspect_ClassEntry_name(s);
 }
 
-/**
-foreign class ModuleEntry {
-    layout {
-        lily_module_entry *entry;
-    }
-}
-
-This is a foreign class that wraps over a module.
-*/
-
-/**
-define ModuleEntry.boxed_classes: List[ClassEntry]
-
-Return all classes that were directly imported into this module
-(`import (someclass) somefile`).
-*/
 void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1335,12 +947,6 @@ void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_classes, boxed_make_class)
 }
 
-/**
-define ModuleEntry.boxed_enums: List[EnumEntry]
-
-Return all enums that were directly imported into this module
-(`import (someenum) somefile`).
-*/
 void lily_introspect_ModuleEntry_boxed_enums(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1351,12 +957,6 @@ void lily_introspect_ModuleEntry_boxed_enums(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_enums, boxed_make_enum)
 }
 
-/**
-define ModuleEntry.boxed_functions: List[FunctionEntry]
-
-Return all functions that were directly imported into this module
-(`import (somevariant) somefile`).
-*/
 void lily_introspect_ModuleEntry_boxed_functions(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1367,12 +967,6 @@ void lily_introspect_ModuleEntry_boxed_functions(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_functions, boxed_make_function)
 }
 
-/**
-define ModuleEntry.boxed_variants: List[VariantEntry]
-
-Return all variants that were directly imported into this module
-(`import (somevariant) somefile`).
-*/
 void lily_introspect_ModuleEntry_boxed_variants(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1383,12 +977,6 @@ void lily_introspect_ModuleEntry_boxed_variants(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_variants, boxed_make_variant)
 }
 
-/**
-define ModuleEntry.boxed_vars: List[VarEntry]
-
-Return all vars that were directly imported into this module
-(`import (somevar) somefile`).
-*/
 void lily_introspect_ModuleEntry_boxed_vars(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1399,11 +987,6 @@ void lily_introspect_ModuleEntry_boxed_vars(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_vars, boxed_make_var)
 }
 
-/**
-define ModuleEntry.classes: List[ClassEntry]
-
-Return the classes declared within this module.
-*/
 void lily_introspect_ModuleEntry_classes(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
@@ -1415,34 +998,18 @@ void lily_introspect_ModuleEntry_classes(lily_state *s)
     BUILD_LIST_FROM(allow_classes, make_class)
 }
 
-/**
-define ModuleEntry.dirname: String
-
-Return the directory of this module relative to [main].
-*/
 void lily_introspect_ModuleEntry_dirname(lily_state *s)
 {
     FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, dirname,
            lily_push_string, "");
 }
 
-/**
-define ModuleEntry.doc: String
-
-Return the docblock of this module, or an empty string. Docblocks are only saved
-when a module is parsed in manifest mode.
-*/
 void lily_introspect_ModuleEntry_doc(lily_state *s)
 {
     UNPACK_FIRST_ARG(ModuleEntry, lily_module_entry *);
     return_doc(s, entry->doc_id);
 }
 
-/**
-define ModuleEntry.enums: List[EnumEntry]
-
-Return the enums declared within this module.
-*/
 void lily_introspect_ModuleEntry_enums(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
@@ -1454,11 +1021,6 @@ void lily_introspect_ModuleEntry_enums(lily_state *s)
     BUILD_LIST_FROM(allow_enums, make_enum)
 }
 
-/**
-define ModuleEntry.functions: List[FunctionEntry]
-
-Return the functions that were declared inside of this module.
-*/
 void lily_introspect_ModuleEntry_functions(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
@@ -1470,11 +1032,6 @@ void lily_introspect_ModuleEntry_functions(lily_state *s)
     BUILD_LIST_FROM(allow_functions, make_function)
 }
 
-/**
-define ModuleEntry.modules_used: List[ModuleEntry]
-
-Return the modules that were used inside of this module.
-*/
 void lily_introspect_ModuleEntry_modules_used(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1485,37 +1042,18 @@ void lily_introspect_ModuleEntry_modules_used(lily_state *s)
     BUILD_LIST_FROM(allow_all, make_module_from_link);
 }
 
-/**
-define ModuleEntry.name: String
-
-Return the name of the module. A module's name is the default identifier used
-when a module is imported by other modules.
-
-Note: The origin module always has the name '[main]'.
-*/
 void lily_introspect_ModuleEntry_name(lily_state *s)
 {
     FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, loadname,
             lily_push_string, "[main]");
 }
 
-/**
-define ModuleEntry.path: String
-
-Returns the path used to load the module. Registered modules and modules in the
-prelude will have their name enclosed in brackets (ex: '[sys]').
-*/
 void lily_introspect_ModuleEntry_path(lily_state *s)
 {
     FETCH_FIELD(ModuleEntry, lily_module_entry, const char *, path,
             lily_push_string);
 }
 
-/**
-define ModuleEntry.vars: List[VarEntry]
-
-Return the vars declared within this module.
-*/
 void lily_introspect_ModuleEntry_vars(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
@@ -1527,11 +1065,6 @@ void lily_introspect_ModuleEntry_vars(lily_state *s)
     BUILD_LIST_FROM(allow_vars, make_var)
 }
 
-/**
-define main_module: ModuleEntry
-
-Returns the first module loaded.
-*/
 void lily_introspect__main_module(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
@@ -1541,13 +1074,6 @@ void lily_introspect__main_module(lily_state *s)
     lily_return_top(s);
 }
 
-/**
-define module_list: List[ModuleEntry]
-
-Return all modules inside of the interpreter. This includes registered modules
-and modules in the interpreter's prelude. In most cases, `main_module` should be
-used instead.
-*/
 void lily_introspect__module_list(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
