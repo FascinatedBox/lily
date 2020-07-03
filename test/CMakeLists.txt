@@ -1,9 +1,13 @@
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
+set(backbone_SOURCES
+    t/lily_backbone.c
+    t/lily_covlib.c)
+
 if(NOT WIN32)
-    add_library(backbone SHARED t/lily_backbone.c t/lily_covlib.c)
+    add_library(backbone SHARED ${backbone_SOURCES})
 else()
-    add_library(backbone SHARED t/lily_backbone.c t/lily_covlib.c $<TARGET_OBJECTS:liblily_obj>)
+    add_library(backbone SHARED ${backbone_SOURCES} $<TARGET_OBJECTS:liblily_obj>)
 endif()
 
 set_target_properties(backbone PROPERTIES
