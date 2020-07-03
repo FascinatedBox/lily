@@ -5410,6 +5410,16 @@ static void manifest_enum(lily_parse_state *parser)
     parser->current_class->doc_id = build_doc_data(parser, 1);
 }
 
+static void manifest_scoped(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+    keyword_scoped(parser);
+
+    parser->current_class->doc_id = build_doc_data(parser, 1);
+}
+
 static void manifest_var(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5616,6 +5626,8 @@ enter_manifest_import:;
                 manifest_import(parser, have_docblock);
                 goto enter_manifest_import;
             }
+            else if (key_id == KEY_SCOPED)
+                manifest_scoped(parser);
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
