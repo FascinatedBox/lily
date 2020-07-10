@@ -1,3 +1,15 @@
+Version 1.13 (2020-7-10)
+========================
+
+The interpreter now supports a hidden manifest mode. In manifest mode, symbols
+definitions are scanned, but no statements are allowed. This mode has allowed
+the creation of a new bindgen and docgen. The new docgen is able to generate
+documentation for both foreign and native libraries, the latter of which was
+impossible under the old parsekit-based docgen.
+
+This is a small release because most of the work involved the new bindgen and
+docgen.
+
 Version 1.12 (2020-4-10)
 ========================
 
