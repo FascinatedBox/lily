@@ -4,10 +4,16 @@
 # ifdef _WIN32
 #  define LILY_PATH_CHAR '\\'
 #  define LILY_PATH_SLASH "\\"
-#  define LILY_LIB_SUFFIX "dll"
 # else
 #  define LILY_PATH_CHAR '/'
 #  define LILY_PATH_SLASH "/"
-#  define LILY_LIB_SUFFIX "so"
+# endif
+
+# ifdef _WIN32
+#  define LILY_LIB_SUFFIXES {"dll", NULL}
+# elif __APPLE__
+#  define LILY_LIB_SUFFIXES {"dylib", "so", NULL}
+# else
+#  define LILY_LIB_SUFFIXES {"so", NULL}
 # endif
 #endif

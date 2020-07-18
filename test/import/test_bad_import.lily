@@ -41,6 +41,45 @@ class TestBadImport < TestCase
             :redirect "test\/t\/backbone"
         )
 
+    private define verify_import_error(expect_text: String, given_text: String)
+    {
+        var expect_lines = expect_text.split("\n")
+        var given_lines = given_text.split("\n")
+        var expect_i = 0
+        var given_i = 0
+        var expect_end = expect_lines.size() - 1
+        var ok = true
+
+        while expect_i <= expect_end: {
+            var expect = expect_lines[expect_i]
+            var given = given_lines[given_i]
+
+            if expect == given: {
+                expect_i += 1
+                given_i += 1
+                continue
+            elif expect.ends_with("{lib}'"):
+                # -6 to remove {lib}, the single quote, and the newline.
+                expect = expect.slice(0, -6)
+
+                if given.starts_with(expect) && given.ends_with("'"): {
+                    given_i += 1
+                else:
+                    expect_i += 1
+                }
+
+                continue
+            else:
+                ok = false
+                break
+            }
+        }
+
+        if ok == false: {
+            assert_equal(expect_text, given_text)
+        }
+    }
+
     public define test_bad_direct_import
     {
         var t = Interpreter.with_targets(
@@ -263,31 +302,26 @@ class TestBadImport < TestCase
     {
         # The library exists, but the tables are missing.
 
-        var message = """\
+        var expect = """\
             SyntaxError: Cannot import 'bad_asdf':\n    \
                 no preloaded package 'bad_asdf'\n    \
                 no file '.\/test\/t\/backbone.{lib}'\n    \
                 from [test]:1:\n\
         """
 
-        if '\/' == '/': {
-            message = message.replace("{lib}", "so")
-        else:
-            message = message.replace("{lib}", "dll")
-        }
-
         var t = Interpreter.with_targets(
             @t_bad_asdf
         )
 
-        assert_parse_fails(t, message, "import bad_asdf")
+        t.parse_string("[test]", "import bad_asdf")
+        verify_import_error(expect, t.error())
     }
 
     public define test_import_missing
     {
         # What does a failed import look like?
 
-        var message = """\
+        var expect = """\
             SyntaxError: Cannot import 'asdf':\n    \
                 no preloaded package 'asdf'\n    \
                 no file '.\/asdf.lily'\n    \
@@ -297,15 +331,10 @@ class TestBadImport < TestCase
                 from [test]:1:\n\
         """
 
-        if '\/' == '/': {
-            message = message.replace("{lib}", "so")
-        else:
-            message = message.replace("{lib}", "dll")
-        }
-
         var t = Interpreter()
 
-        assert_parse_fails(t, message, "import asdf")
+        t.parse_string("[test]", "import asdf")
+        verify_import_error(expect, t.error())
     }
 
     public define test_import_rules

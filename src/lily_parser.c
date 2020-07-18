@@ -748,6 +748,7 @@ static const char *build_import_path(lily_import_state *ims, const char *target,
     }
 
     lily_mb_add(path_msgbuf, target);
+    lily_mb_add_char(path_msgbuf, '.');
     lily_mb_add(path_msgbuf, suffix);
 
     return lily_mb_raw(path_msgbuf);
@@ -756,7 +757,7 @@ static const char *build_import_path(lily_import_state *ims, const char *target,
 int lily_import_file(lily_state *s, const char *name)
 {
     lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, name, ".lily");
+    const char *path = build_import_path(parser->ims, name, "lily");
 
     if (import_check(parser, path))
         return path != NULL;
@@ -779,7 +780,7 @@ int lily_import_file(lily_state *s, const char *name)
 int lily_import_string(lily_state *s, const char *name, const char *source)
 {
     lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, name, ".lily");
+    const char *path = build_import_path(parser->ims, name, "lily");
 
     if (import_check(parser, path))
         return path != NULL;
@@ -799,38 +800,53 @@ int lily_import_string(lily_state *s, const char *name, const char *source)
 int lily_import_library(lily_state *s, const char *name)
 {
     lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, name,
-            "." LILY_LIB_SUFFIX);
+    const char *suffix_table[] = LILY_LIB_SUFFIXES;
+    const char **suffix = suffix_table;
+    int result = 0;
 
-    if (import_check(parser, path))
-        return path != NULL;
+    while (*suffix != NULL) {
+        const char *path = build_import_path(parser->ims, name, *suffix);
 
-    void *handle = lily_library_load(path);
-    if (handle == NULL) {
-        add_data_string(parser, path);
-        return 0;
+        suffix++;
+
+        if (import_check(parser, path)) {
+            /* This exact path has been loaded already. This is the only case
+               that should immediately stop. */
+            result = (path != NULL);
+            break;
+        }
+
+        void *handle = lily_library_load(path);
+
+        if (handle == NULL) {
+            add_data_string(parser, path);
+            continue;
+        }
+
+        lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+        const char *loadname = parser->ims->pending_loadname;
+
+        const char **info_table = (const char **)lily_library_get(handle,
+                lily_mb_sprintf(msgbuf, "lily_%s_info_table", loadname));
+
+        lily_foreign_func *call_table = lily_library_get(handle,
+                lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
+
+        if (info_table == NULL || call_table == NULL) {
+            add_data_string(parser, path);
+            lily_library_free(handle);
+            continue;
+        }
+
+        lily_module_entry *module = new_module(parser);
+
+        add_path_to_module(module, parser->ims->pending_loadname, path);
+        add_data_to_module(module, handle, info_table, call_table);
+        result = 1;
+        break;
     }
 
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    const char *loadname = parser->ims->pending_loadname;
-
-    const char **info_table = (const char **)lily_library_get(handle,
-            lily_mb_sprintf(msgbuf, "lily_%s_info_table", loadname));
-
-    lily_foreign_func *call_table = lily_library_get(handle,
-            lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
-
-    if (info_table == NULL || call_table == NULL) {
-        add_data_string(parser, path);
-        lily_library_free(handle);
-        return 0;
-    }
-
-    lily_module_entry *module = new_module(parser);
-
-    add_path_to_module(module, parser->ims->pending_loadname, path);
-    add_data_to_module(module, handle, info_table, call_table);
-    return 1;
+    return result;
 }
 
 int lily_import_library_data(lily_state *s, const char *path,
