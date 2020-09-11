@@ -519,7 +519,7 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_token op)
 
 static void push_type(lily_expr_state *es, lily_type *type)
 {
-    AST_COMMON_INIT(a, tree_type)
+    AST_COMMON_INIT(a, tree_typecast_type)
     a->type = type;
 
     merge_value(es, a);

@@ -242,10 +242,10 @@ static void free_docs(lily_doc_stack *d)
     uint16_t i;
 
     for (i = 0;i < d->pos;i++) {
-        char **d = data[i];
+        char **c = data[i];
 
-        lily_free(d[0]);
-        lily_free(d);
+        lily_free(c[0]);
+        lily_free(c);
     }
 
     lily_free(d->data);
@@ -1075,7 +1075,7 @@ static char **build_strings_by_data(lily_parse_state *parser,
     uint16_t no_first_key = !!lily_u16_get(ds, key_start);
     uint16_t offset = lily_u16_get(ds, key_start + 1);
     uint16_t range = parser->data_string_pos - offset;
-    char **keywords = lily_malloc((arg_count + 1) * sizeof(*keywords));
+    char **keys = lily_malloc((arg_count + 1) * sizeof(*keys));
 
     /* There's no extra +1 because range includes the terminating zero. */
     char *block = lily_malloc((range + no_first_key) * sizeof(*block));
@@ -1092,10 +1092,10 @@ static char **build_strings_by_data(lily_parse_state *parser,
     uint16_t i;
 
     for (i = 1;i < arg_count;i++)
-        keywords[i] = empty;
+        keys[i] = empty;
 
-    keywords[0] = block;
-    keywords[arg_count] = NULL;
+    keys[0] = block;
+    keys[arg_count] = NULL;
 
     for (i = key_start;i < key_end;i += 2) {
         uint16_t arg_pos = lily_u16_get(ds, i);
@@ -1104,27 +1104,27 @@ static char **build_strings_by_data(lily_parse_state *parser,
         /* Translate data string position to block position. */
         uint16_t target_pos = string_pos - offset + no_first_key;
 
-        keywords[arg_pos] = block + target_pos;
+        keys[arg_pos] = block + target_pos;
     }
 
     parser->data_string_pos = lily_u16_get(ds, key_start + 1);
     lily_u16_set_pos(ds, key_start);
-    return keywords;
+    return keys;
 }
 
 static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
-        char **keywords)
+        char **keys)
 {
     if (target->item_kind == ITEM_VAR) {
         lily_var *var = (lily_var *)target;
         lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
 
-        p->keywords = keywords;
+        p->keywords = keys;
     }
     else {
         lily_variant_class *c = (lily_variant_class *)target;
 
-        c->keywords = keywords;
+        c->keywords = keys;
     }
 }
 
@@ -1863,9 +1863,9 @@ static void collect_call_args(lily_parse_state *parser, void *target,
                     "Forward declarations not allowed to have keyword arguments.");
         }
 
-        char **keywords = build_strings_by_data(parser, i, keyarg_start);
+        char **keys = build_strings_by_data(parser, i, keyarg_start);
 
-        put_keywords_in_target(parser, target, keywords);
+        put_keywords_in_target(parser, target, keys);
     }
 
     lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,

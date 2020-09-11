@@ -447,10 +447,10 @@ static void coroutine_marker(int pass, lily_value *v)
     int i;
 
     for (i = total;i >= 0;i--) {
-        lily_value *v = base[i];
+        lily_value *reg = base[i];
 
-        if (v->flags & VAL_HAS_SWEEP_FLAG)
-            gc_mark(pass, v);
+        if (reg->flags & VAL_HAS_SWEEP_FLAG)
+            gc_mark(pass, reg);
     }
 
     lily_function_val *base_function = co_val->base_function;
@@ -459,10 +459,10 @@ static void coroutine_marker(int pass, lily_value *v)
         /* If the base Function of the Coroutine has upvalues, they need to be
            walked through. Since the Function is never put into a register, the
            Coroutine's gc tag serves as its tag. */
-        lily_value v;
-        v.flags = V_FUNCTION_BASE;
-        v.value.function = base_function;
-        function_marker(pass, &v);
+        lily_value reg;
+        reg.flags = V_FUNCTION_BASE;
+        reg.value.function = base_function;
+        function_marker(pass, &reg);
     }
 
     lily_value *receiver = co_val->receiver;

@@ -1347,9 +1347,9 @@ static void perform_closure_transform(lily_emit_state *emit,
             lily_u16_write_1(emit->closure_aux_code, buffer[pos]);
 
         if (ci.outputs_4) {
-            int stop = output_start + ci.outputs_4;
+            int output_stop = output_start + ci.outputs_4;
 
-            for (i = output_start;i < stop;i++) {
+            for (i = output_start;i < output_stop;i++) {
                 MAYBE_TRANSFORM_INPUT(i, o_closure_set)
             }
         }
@@ -1762,16 +1762,16 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
     lily_named_sym *sym = (lily_named_sym *)ast->sym;
 
     if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
-        lily_class *block_class = emit->block->class_entry;
+        lily_class *block_cls = emit->block->class_entry;
 
         /* Vars and properties have this at the same offset. */
         lily_class *parent = sym->parent;
         int is_private = (sym->flags & SYM_SCOPE_PRIVATE);
         char *name = sym->name;
 
-        if ((is_private && block_class != parent) ||
+        if ((is_private && block_cls != parent) ||
             (is_private == 0 &&
-             (block_class == NULL || lily_class_greater_eq(parent, block_class) == 0))) {
+             (block_cls == NULL || lily_class_greater_eq(parent, block_cls) == 0))) {
             char *scope_name = is_private ? "private" : "protected";
             lily_raise_tree(emit->raiser, ast,
                        "%s.%s is marked %s, and not available here.",

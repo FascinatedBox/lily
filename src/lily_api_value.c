@@ -647,14 +647,14 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
             (*depth)++;
             int i;
             for (i = 0;i < left_hash->num_bins;i++) {
-                lily_hash_entry *left = left_hash->bins[i];
-                if (left) {
-                    lily_value *right = lily_hash_get(s, right_hash,
-                            left->boxed_key);
+                lily_hash_entry *left_bin = left_hash->bins[i];
+                if (left_bin) {
+                    lily_value *right_value = lily_hash_get(s, right_hash,
+                            left_bin->boxed_key);
 
-                    if (right == NULL ||
-                        lily_value_compare_raw(s, depth, left->record,
-                                right) == 0) {
+                    if (right_value == NULL ||
+                        lily_value_compare_raw(s, depth, left_bin->record,
+                                right_value) == 0) {
                         ok = 0;
                         break;
                     }
