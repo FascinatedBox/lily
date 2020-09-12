@@ -4,10 +4,10 @@ set(backbone_SOURCES
     t/src/lily_backbone.c
     t/src/lily_covlib.c)
 
-if(NOT WIN32)
-    add_library(backbone SHARED ${backbone_SOURCES})
-else()
+if(WIN32)
     add_library(backbone SHARED ${backbone_SOURCES} $<TARGET_OBJECTS:liblily_obj>)
+else()
+    add_library(backbone SHARED ${backbone_SOURCES})
 endif()
 
 set_target_properties(backbone PROPERTIES
