@@ -48,7 +48,7 @@ add_definitions(-DLILY_VERSION_DIR="${LILY_MAJOR}_${LILY_MINOR}")
 # Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
 STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
 
-if(IS_BSD OR MINGW OR MSVC)
+if(IS_BSD OR MINGW OR MSVC OR APPLE)
     set(LILY_NEED_DL 0)
 else()
     set(LILY_NEED_DL 1)

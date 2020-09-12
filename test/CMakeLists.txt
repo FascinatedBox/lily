@@ -4,7 +4,7 @@ set(backbone_SOURCES
     t/src/lily_backbone.c
     t/src/lily_covlib.c)
 
-if(WIN32)
+if(WIN32 OR APPLE)
     add_library(backbone SHARED ${backbone_SOURCES} $<TARGET_OBJECTS:liblily_obj>)
 else()
     add_library(backbone SHARED ${backbone_SOURCES})
