@@ -1928,14 +1928,13 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
 /* This is called when the tree given doesn't have enough arguments.
    ast:   The tree receiving the call.
    count: The real # of arguments that 'ast' was given.
-   min:   The minimum number allowed.
-   max:   The maximum allowed.
-          -1 is a special case for varargs, denoting infinity.
+   min:   The minimum number allowed (lower than max in case of optargs).
+   max:   The maximum allowed (UINT16_MAX in case of varargs).
 
    This is typically called automatically by argument handling if the count is
    wrong. */
 static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
-        int count, int min, int max)
+        uint16_t count, uint16_t min, uint16_t max)
 {
     /* This prints out the number sent, as well as the range of valid counts.
        There are four possibilities, with the last one being exclusively for
@@ -1957,7 +1956,7 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
 
     if (min == max)
         div_str = "";
-    else if (max == -1)
+    else if (max == UINT16_MAX)
         div_str = "+";
     else {
         div_str = "..";
@@ -3227,14 +3226,13 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
       function.
     **/
 
-static void get_func_min_max(lily_type *call_type, unsigned int *min,
-        unsigned int *max)
+static void get_func_min_max(lily_type *call_type, uint16_t *min, uint16_t *max)
 {
     *min = call_type->subtype_count - 1;
     *max = *min;
 
     if (call_type->flags & TYPE_HAS_OPTARGS) {
-        int i;
+        uint16_t i;
         for (i = 1;i < call_type->subtype_count;i++) {
             if (call_type->subtypes[i]->cls->id == LILY_ID_OPTARG)
                 break;
@@ -3243,7 +3241,7 @@ static void get_func_min_max(lily_type *call_type, unsigned int *min,
     }
 
     if (call_type->flags & TYPE_IS_VARARGS) {
-        *max = (unsigned int)-1;
+        *max = UINT16_MAX;
 
         if ((call_type->flags & TYPE_HAS_OPTARGS) == 0)
             *min = *min - 1;
@@ -3442,8 +3440,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, lily_type *expect)
 {
     lily_ast *arg = ast->arg_start;
-    int num_args = ast->args_collected;
-    unsigned int min, max;
+    uint16_t num_args = ast->args_collected;
+    uint16_t min, max;
 
     get_func_min_max(call_type, &min, &max);
 
@@ -3708,15 +3706,15 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     lily_ts_scope_restore(emit->ts, &p);
 }
 
-static int keyarg_to_pos(char **keywords, const char *to_find)
+static uint16_t keyarg_to_pos(char **keywords, const char *to_find)
 {
-    int i = 0;
+    uint16_t i = 0;
 
     while (1) {
         char *key = keywords[i];
 
         if (key == NULL) {
-            i = -1;
+            i = UINT16_MAX;
             break;
         }
 
@@ -3836,7 +3834,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
 
             pos = keyarg_to_pos(keywords, key_name);
 
-            if (pos == -1)
+            if (pos == UINT16_MAX)
                 error_keyarg_not_valid(emit, ast, arg);
 
             if (va_pos <= pos)
@@ -3856,7 +3854,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
         arg->keyword_arg_pos = pos;
     }
 
-    unsigned int min, max;
+    uint16_t min, max;
 
     get_func_min_max(call_type, &min, &max);
 
@@ -3868,7 +3866,7 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, lily_type *expect)
 {
     int num_args = ast->args_collected;
-    unsigned int min, max;
+    uint16_t min, max;
 
     get_func_min_max(call_type, &min, &max);
 
@@ -4029,7 +4027,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     lily_variant_class *variant = ast->variant;
     /* Did this need arguments? It was used incorrectly if so. */
     if (variant->item_kind == ITEM_VARIANT_FILLED) {
-        unsigned int min, max;
+        uint16_t min, max;
         get_func_min_max(variant->build_type, &min, &max);
         error_argument_count(emit, ast, 0, min, max);
     }
