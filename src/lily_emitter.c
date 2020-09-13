@@ -1933,19 +1933,10 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
           -1 is a special case for varargs, denoting infinity.
 
    This is typically called automatically by argument handling if the count is
-   wrong. If some other function is to call it, then that function must set
-   ast->keep_first_call_arg appropriately. */
+   wrong. */
 static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
         int count, int min, int max)
 {
-    /* Don't count the implicit self that these functions receive. */
-    if (ast->keep_first_call_arg) {
-        min--;
-        count--;
-        if (max != -1)
-            max--;
-    }
-
     /* This prints out the number sent, as well as the range of valid counts.
        There are four possibilities, with the last one being exclusively for
        a variant that requires arguments.
@@ -3541,16 +3532,16 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
     lily_sym *call_sym = NULL;
     uint16_t call_source_reg = (uint16_t)-1;
     uint16_t call_op = (uint8_t)-1;
+    int keep_first_arg = 0;
 
     ast->first_tree_type = first_arg->tree_type;
-    ast->keep_first_call_arg = 0;
 
     switch (first_tt) {
         case tree_method:
             ensure_valid_scope(emit, first_arg);
             call_sym = first_arg->sym;
 
-            ast->keep_first_call_arg = 1;
+            keep_first_arg = 1;
             first_arg->tree_type = tree_self;
             break;
         case tree_defined_func:
@@ -3576,7 +3567,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                 call_op = o_call_register;
             }
             else {
-                ast->keep_first_call_arg = 1;
+                keep_first_arg = 1;
                 call_sym = first_arg->sym;
                 /* Rewrite the tree so it isn't evaluated twice. */
                 first_arg->tree_type = tree_oo_cached;
@@ -3632,7 +3623,7 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                     call_sym->type);
     }
 
-    if (ast->keep_first_call_arg == 0) {
+    if (keep_first_arg == 0) {
         ast->arg_start = ast->arg_start->next_arg;
         ast->args_collected--;
     }
@@ -4040,7 +4031,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     if (variant->item_kind == ITEM_VARIANT_FILLED) {
         unsigned int min, max;
         get_func_min_max(variant->build_type, &min, &max);
-        ast->keep_first_call_arg = 0;
         error_argument_count(emit, ast, 0, min, max);
     }
 

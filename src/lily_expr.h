@@ -46,7 +46,6 @@ typedef struct lily_ast_ {
         int16_t backing_value;
         /* For other kinds of literals, this is their register spot. */
         uint16_t literal_reg_spot;
-        uint16_t keep_first_call_arg;
     };
 
     union {

@@ -84,7 +84,7 @@ class TestBadCall < TestCase
         # class calls (wrong count from method to ctor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (0 for 1).\n    \
+            SyntaxError: Wrong number of arguments to Test.method (1 for 2).\n    \
                 from [test]:4:\n\
         """,
         """\
@@ -98,7 +98,7 @@ class TestBadCall < TestCase
         # class calls (wrong count to class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (1 for 0).\n    \
+            SyntaxError: Wrong number of arguments to Test.method (2 for 1).\n    \
                 from [test]:7:\n\
         """,
         """\
@@ -149,6 +149,20 @@ class TestBadCall < TestCase
             }
 
             Example.g(10, "20")
+        """)
+
+        # class calls (wrong arg count to empty static method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Time.now (1 for 0).\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import (Time) time
+
+            var t = Time.now()
+
+            t.now()
         """)
 
         # class calls (wrong arg count to static call of static method)
@@ -412,7 +426,7 @@ class TestBadCall < TestCase
         # vararg calls (wrong count when using class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (0 for 1+).\n    \
+            SyntaxError: Wrong number of arguments to Test.method (1 for 2+).\n    \
                 from [test]:7:\n\
         """,
         """\
