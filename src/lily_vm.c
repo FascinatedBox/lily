@@ -258,29 +258,13 @@ void lily_free_vm(lily_vm_state *vm)
 static void gc_mark(int, lily_value *);
 
 /* This is Lily's garbage collector. It runs in multiple stages:
-   1: Go to each _in-use_ register that is not nil and use the appropriate
-      gc_marker call to mark all values inside that value which are visible.
-      Visible items are set to the vm's ->gc_pass.
-   2: Go through all the gc items now. Anything which doesn't have the current
-      pass as its last_pass is considered unreachable. This will deref values
-      that cannot be circular, or forcibly collect possibly-circular values.
-      Caveats:
-      * Some gc_entries may have their value set to 0/NULL. This happens when
-        a possibly-circular value has been deleted through typical ref/deref
-        means.
-      * lily_value_destroy will collect everything inside a non-circular value,
-        but not the value itself. It will set last_pass to -1 when it does that.
-        This is necessary because it's possible that a value may be visited
-        multiple times. If it's deleted during this step, then extra visits will
-        trigger invalid reads.
-   3: Stage 1 skipped registers that are not in-use, because Lily just hasn't
-      gotten around to clearing them yet. However, some of those registers may
-      contain a value that has a gc_entry that indicates that the value is to be
-      destroyed. It's -very- important that these registers be marked as nil so
-      that prep_registers will not try to deref a value that has been destroyed
-      by the gc.
-   4: Finally, destroy any values that stage 2 didn't clear.
-      Absolutely nothing is using these now, so it's safe to destroy them. */
+   1: Walk registers currently in use and call the mark function on any register
+      that's interesting to the gc (speculative or tagged).
+   2: Walk every gc item to determine which ones are unreachable. Unreachable
+      items need to be hollowed out unless a deref deleted them.
+   3: Walk registers not currently in use. If any have a value that is going to
+      be deleted, mark the register as cleared.
+   4: Delete unreachable values and relink gc items. */
 static void invoke_gc(lily_vm_state *vm)
 {
     /* Coroutine vm's can invoke the gc, but the gc is rooted from the vm and
@@ -300,17 +284,14 @@ static void invoke_gc(lily_vm_state *vm)
     lily_gc_entry *gc_iter;
     int total = vm->call_chain->register_end - vm->gs->regs_from_main;
 
-    /* Stage 1: Go through all registers and use the appropriate gc_marker call
-                that will mark every inner value that's visible. */
+    /* Stage 1: Mark interesting values in use. */
     for (i = 0;i < total;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_HAS_SWEEP_FLAG)
             gc_mark(pass, reg);
     }
 
-    /* Stage 2: Start destroying everything that wasn't marked as visible.
-                Don't forget to check ->value for NULL in case the value was
-                destroyed through normal ref/deref means. */
+    /* Stage 2: Delete the contents of every value that wasn't seen. */
     for (gc_iter = vm->gs->gc_live_entries;
          gc_iter;
          gc_iter = gc_iter->next) {
@@ -325,9 +306,8 @@ static void invoke_gc(lily_vm_state *vm)
 
     int current_top = vm->call_chain->top - vm->gs->regs_from_main;
 
-    /* Stage 3: Check registers not currently in use to see if they hold a
-                value that's going to be collected. If so, then mark the
-                register as nil so that the value will be cleared later. */
+    /* Stage 3: If any unused register holds a gc value that's going to be
+                deleted, flag it as clear. This prevents double frees. */
     for (i = total;i < current_top;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_IS_GC_TAGGED &&
@@ -336,9 +316,7 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    /* Stage 4: Delete the values that stage 2 didn't delete.
-                Nothing is using them anymore. Also, sort entries into those
-                that are living and those that are no longer used. */
+    /* Stage 4: Delete old values and relink gc items. */
     i = 0;
     lily_gc_entry *new_live_entries = NULL;
     lily_gc_entry *new_spare_entries = vm->gs->gc_spare_entries;
