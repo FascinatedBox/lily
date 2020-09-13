@@ -1929,7 +1929,6 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
    ast:   The tree receiving the call.
    count: The real # of arguments that 'ast' was given.
    min:   The minimum number allowed.
-          -1 is a special case that prints 'none' for empty variants.
    max:   The maximum allowed.
           -1 is a special case for varargs, denoting infinity.
 
@@ -1957,10 +1956,11 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
     const char *div_str = "";
     char arg_str[8], min_str[8] = "", max_str[8] = "";
 
-    if (count == -1)
-        strncpy(arg_str, "none", sizeof(arg_str));
-    else
+    if (count != 0 ||
+        ast->tree_type != tree_variant)
         snprintf(arg_str, sizeof(arg_str), "%d", count);
+    else
+        strncpy(arg_str, "none", sizeof(arg_str));
 
     snprintf(min_str, sizeof(min_str), "%d", min);
 
@@ -4041,7 +4041,7 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
         unsigned int min, max;
         get_func_min_max(variant->build_type, &min, &max);
         ast->keep_first_call_arg = 0;
-        error_argument_count(emit, ast, -1, min, max);
+        error_argument_count(emit, ast, 0, min, max);
     }
 
     /* An empty variant's build type is the enum self type with any generics
