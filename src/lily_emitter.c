@@ -3585,7 +3585,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
             if (variant->item_kind == ITEM_VARIANT_EMPTY)
-                lily_raise_syn(emit->raiser, "Variant %s should not get args.",
+                lily_raise_syn(emit->raiser,
+                        "%s is an empty variant that should not be called.",
                         variant->name);
 
             ast->variant = variant;

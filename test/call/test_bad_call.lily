@@ -189,7 +189,7 @@ class TestBadCall < TestCase
         # enum calls (empty flat variant with args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Variant Gamma should not get args.\n    \
+            SyntaxError: Gamma is an empty variant that should not be called.\n    \
                 from [test]:7:\n\
         """,
         """\
