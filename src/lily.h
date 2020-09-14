@@ -770,7 +770,7 @@ int lily_hash_take(lily_state *s, lily_hash_val *hash, lily_value *key);
 //     con   - A List value.
 //     index - Index position. Cannot be negative. 0 is the first element.
 //     value - A full value to push.
-void lily_list_insert(lily_container_val *con, int index, lily_value *value);
+void lily_list_insert(lily_container_val *con, uint32_t index, lily_value *value);
 
 // Function: lily_list_reserve
 // Reserve N elements in a List.
@@ -787,7 +787,7 @@ void lily_list_insert(lily_container_val *con, int index, lily_value *value);
 //     size - The total number of elements to have reserved. If this is less
 //            than the number of elements currently reserved, no action is
 //            taken. Must not be negative.
-void lily_list_reserve(lily_container_val *con, int size);
+void lily_list_reserve(lily_container_val *con, uint32_t size);
 
 // Function: lily_list_take
 // (Stack: +1) Take an element out of a List, pushing it onto the stack.
@@ -802,7 +802,7 @@ void lily_list_reserve(lily_container_val *con, int size);
 //     s     - The interpreter.
 //     con   - A List value.
 //     index - Target index. Cannot be negative. 0 is the first element.
-void lily_list_take(lily_state *s, lily_container_val *con, int index);
+void lily_list_take(lily_state *s, lily_container_val *con, uint32_t index);
 
 // Function: lily_list_push
 // Push a value onto the end of a List.

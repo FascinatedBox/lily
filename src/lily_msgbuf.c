@@ -38,7 +38,7 @@ lily_msgbuf *lily_new_msgbuf(uint32_t initial)
     return msgbuf;
 }
 
-static void resize_msgbuf(lily_msgbuf *msgbuf, int new_size)
+static void resize_msgbuf(lily_msgbuf *msgbuf, uint32_t new_size)
 {
     while (msgbuf->size < new_size)
         msgbuf->size *= 2;
@@ -300,8 +300,7 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
         va_list var_args)
 {
     char buffer[128];
-    int i, text_start;
-    size_t len;
+    uint32_t i, len, text_start;
 
     text_start = 0;
     len = strlen(fmt);

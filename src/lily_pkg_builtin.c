@@ -196,8 +196,8 @@ static const uint8_t follower_table[256] =
 void do_str_slice(lily_state *s, int is_bytestring)
 {
     lily_string_val *sv = lily_arg_string(s, 0);
-    int start = 0;
-    int stop = sv->size;
+    int64_t start = 0;
+    int64_t stop = sv->size;
 
     switch (lily_arg_count(s)) {
         case 3: stop = lily_arg_integer(s, 2);
@@ -429,7 +429,7 @@ void lily_builtin_File_read(lily_state *s)
     if (need < -1)
         need = -1;
 
-    size_t bufsize = 64;
+    int bufsize = 64;
     char *buffer = lily_malloc(bufsize * sizeof(*buffer));
     int pos = 0, nread;
     int nbuf = bufsize/2;
@@ -669,8 +669,9 @@ void lily_builtin_Hash_merge(lily_state *s)
 
     lily_hash_val *result_hash = lily_push_hash(s, hash_val->num_entries);
 
-    int i, j;
-
+    uint16_t i;
+    int j;
+  
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         while (entry) {
@@ -798,7 +799,7 @@ void lily_builtin_KeyError_new(lily_state *s)
 void lily_builtin_List_clear(lily_state *s)
 {
     lily_container_val *list_val = lily_arg_container(s, 0);
-    int i;
+    uint32_t i;
 
     for (i = 0;i < list_val->num_values;i++) {
         lily_deref(list_val->values[i]);
@@ -818,7 +819,7 @@ void lily_builtin_List_count(lily_state *s)
     lily_value *result = lily_call_result(s);
     int count = 0;
 
-    int i;
+    uint32_t i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_push_value(s, list_val->values[i]);
         lily_call(s, 1);
@@ -867,7 +868,7 @@ void lily_builtin_List_each(lily_state *s)
 {
     lily_container_val *list_val = lily_arg_container(s, 0);
     lily_call_prepare(s, lily_arg_function(s, 1));
-    int i;
+    uint32_t i;
 
     for (i = 0;i < list_val->num_values;i++) {
         lily_push_value(s, lily_con_get(list_val, i));
@@ -882,7 +883,7 @@ void lily_builtin_List_each_index(lily_state *s)
     lily_container_val *list_val = lily_arg_container(s, 0);
     lily_call_prepare(s, lily_arg_function(s, 1));
 
-    int i;
+    uint32_t i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_push_integer(s, i);
         lily_call(s, 1);
@@ -902,7 +903,7 @@ void lily_builtin_List_fold(lily_state *s)
         lily_call_prepare(s, lily_arg_function(s, 2));
         lily_value *result = lily_call_result(s);
         lily_push_value(s, start);
-        int i = 0;
+        uint32_t i = 0;
         while (1) {
             lily_push_value(s, lily_con_get(list_val, i));
             lily_call(s, 2);
@@ -1014,7 +1015,8 @@ void lily_builtin_List_map(lily_state *s)
     lily_container_val *con = lily_push_list(s, 0);
     lily_list_reserve(con, list_val->num_values);
 
-    int i;
+    uint32_t i;
+
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *e = list_val->values[i];
         lily_push_value(s, e);
@@ -1053,7 +1055,7 @@ static void list_select_reject_common(lily_state *s, int expect)
     lily_value *result = lily_call_result(s);
     lily_container_val *con = lily_push_list(s, 0);
 
-    int i;
+    uint32_t i;
     for (i = 0;i < list_val->num_values;i++) {
         lily_push_value(s, list_val->values[i]);
         lily_call(s, 1);
@@ -1563,14 +1565,15 @@ CTYPE_WRAP(is_space, isspace)
 void lily_builtin_String_lower(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-    int input_length = input_arg->value.string->size;
-    int i;
+    uint32_t input_length = input_arg->value.string->size;
+    uint32_t i;
 
     lily_push_string(s, lily_as_string_raw(input_arg));
+
     char *raw_out = lily_as_string_raw(lily_stack_get_top(s));
 
     for (i = 0;i < input_length;i++) {
-        char ch = raw_out[i];
+        int ch = raw_out[i];
         if (isupper(ch))
             raw_out[i] = tolower(ch);
     }
@@ -1662,11 +1665,12 @@ static int lstrip_utf8_start(lily_value *input_arg, lily_string_val *strip_sv)
 }
 
 /* This is a helper for lstrip wherein input_arg does not have utf-8. */
-static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
+static uint32_t lstrip_ascii_start(lily_value *input_arg,
+        lily_string_val *strip_sv)
 {
-    int i;
     char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
+    uint32_t i;
+    uint32_t input_length = input_arg->value.string->size;
 
     if (strip_sv->size == 1) {
         /* Strip a single byte really fast. The easiest case. */
@@ -1680,11 +1684,11 @@ static int lstrip_ascii_start(lily_value *input_arg, lily_string_val *strip_sv)
     else {
         /* Strip one of many ascii bytes. A bit tougher, but not much. */
         char *strip_str = strip_sv->string;
-        int strip_length = strip_sv->size;
+        uint32_t strip_length = strip_sv->size;
         for (i = 0;i < input_length;i++) {
             char ch = input_str[i];
             int found = 0;
-            int j;
+            uint32_t j;
             for (j = 0;j < strip_length;j++) {
                 if (ch == strip_str[j]) {
                     found = 1;
@@ -1706,9 +1710,9 @@ void lily_builtin_String_lstrip(lily_state *s)
 
     char *strip_str;
     unsigned char ch;
-    int copy_from, i, has_multibyte_char;
-    size_t strip_str_len;
+    uint32_t copy_from, i, strip_str_len;
     lily_string_val *strip_sv;
+    int has_multibyte_char = 0;
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
@@ -1719,7 +1723,7 @@ void lily_builtin_String_lstrip(lily_state *s)
 
     strip_sv = strip_arg->value.string;
     strip_str = strip_sv->string;
-    strip_str_len = strlen(strip_str);
+    strip_str_len = (uint32_t)strlen(strip_str);
     has_multibyte_char = 0;
 
     for (i = 0;i < strip_str_len;i++) {
@@ -1941,12 +1945,6 @@ void lily_builtin_String_rstrip(lily_state *s)
     lily_value *input_arg = lily_arg_value(s, 0);
     lily_value *strip_arg = lily_arg_value(s, 1);
 
-    char *strip_str;
-    unsigned char ch;
-    int copy_to, i, has_multibyte_char;
-    size_t strip_str_len;
-    lily_string_val *strip_sv;
-
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
     if (input_arg->value.string->size == 0 ||
         strip_arg->value.string->size == 0) {
@@ -1954,10 +1952,12 @@ void lily_builtin_String_rstrip(lily_state *s)
         return;
     }
 
-    strip_sv = strip_arg->value.string;
-    strip_str = strip_sv->string;
-    strip_str_len = strlen(strip_str);
-    has_multibyte_char = 0;
+    lily_string_val *strip_sv = strip_arg->value.string;
+    char *strip_str = strip_sv->string;
+    uint32_t strip_str_len = (uint32_t)strlen(strip_str);
+    int has_multibyte_char = 0;
+    unsigned char ch;
+    uint32_t copy_to, i;
 
     for (i = 0;i < strip_str_len;i++) {
         ch = (unsigned char)strip_str[i];
@@ -2112,14 +2112,17 @@ void lily_builtin_String_starts_with(lily_state *s)
 
     char *input_raw_str = input_arg->value.string->string;
     char *prefix_raw_str = prefix_arg->value.string->string;
-    int prefix_size = prefix_arg->value.string->size;
+    int ok = 1;
+    uint32_t prefix_size = prefix_arg->value.string->size;
+
+    uint32_t i;
 
     if (input_arg->value.string->size < prefix_size) {
         lily_return_boolean(s, 0);
         return;
     }
 
-    int i, ok = 1;
+
     for (i = 0;i < prefix_size;i++) {
         if (input_raw_str[i] != prefix_raw_str[i]) {
             ok = 0;
@@ -2145,9 +2148,9 @@ void lily_builtin_String_strip(lily_state *s)
     unsigned char ch;
     lily_string_val *strip_sv = strip_arg->value.string;
     char *strip_str = strip_sv->string;
-    size_t strip_str_len = strlen(strip_str);
     int has_multibyte_char = 0;
-    int copy_from, copy_to, i;
+    uint32_t strip_str_len = (uint32_t)strlen(strip_str);
+    uint32_t copy_from, copy_to, i;
 
     for (i = 0;i < strip_str_len;i++) {
         ch = (unsigned char)strip_str[i];
@@ -2174,6 +2177,7 @@ void lily_builtin_String_strip(lily_state *s)
         copy_to = copy_from;
 
     const char *raw = input_arg->value.string->string + copy_from;
+
     lily_push_string_sized(s, raw, copy_to - copy_from);
     lily_return_top(s);
 }
@@ -2183,6 +2187,7 @@ void lily_builtin_String_to_bytestring(lily_state *s)
     /* They currently have the same internal representation. This method is
        provided for the type system. */
     lily_string_val *sv = lily_arg_string(s, 0);
+
     lily_push_bytestring(s, lily_string_raw(sv), lily_string_length(sv));
     lily_return_top(s);
 }
@@ -2190,17 +2195,18 @@ void lily_builtin_String_to_bytestring(lily_state *s)
 void lily_builtin_String_trim(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-
     char fake_buffer[5] = " \t\r\n";
     lily_string_val fake_sv;
-    fake_sv.string = fake_buffer;
-    fake_sv.size = strlen(fake_buffer);
 
-    int copy_from = lstrip_ascii_start(input_arg, &fake_sv);
+    fake_sv.string = fake_buffer;
+    fake_sv.size = (uint32_t)strlen(fake_buffer);
+
+    uint32_t copy_from = lstrip_ascii_start(input_arg, &fake_sv);
 
     if (copy_from != input_arg->value.string->size) {
-        int copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
         const char *raw = input_arg->value.string->string;
+        uint32_t copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
+
         lily_push_string_sized(s, raw + copy_from, copy_to - copy_from);
     }
     else {

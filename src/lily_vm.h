@@ -128,7 +128,7 @@ void lily_free_vm(lily_vm_state *);
 
 void lily_vm_execute(lily_vm_state *);
 
-void lily_vm_ensure_class_table(lily_vm_state *, int);
+void lily_vm_ensure_class_table(lily_vm_state *, uint16_t);
 void lily_vm_add_class_unchecked(lily_vm_state *, lily_class *);
 
 #endif

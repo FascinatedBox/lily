@@ -240,7 +240,7 @@ void lily_stack_drop_top(lily_state *s)
 
 /* Simple per-type operations. */
 
-void lily_list_take(lily_state *s, lily_container_val *c, int index)
+void lily_list_take(lily_state *s, lily_container_val *c, uint32_t index)
 {
     lily_value *v = c->values[index];
     lily_push_value(s, v);
@@ -259,15 +259,15 @@ void lily_list_take(lily_state *s, lily_container_val *c, int index)
 static void grow_list(lily_container_val *lv)
 {
     /* There's probably room for improvement here, later on. */
-    int extra = (lv->num_values + 8) >> 2;
+    uint32_t extra = (lv->num_values + 8) >> 2;
     lv->values = lily_realloc(lv->values,
             (lv->num_values + extra) * sizeof(*lv->values));
     lv->extra_space = extra;
 }
 
-void lily_list_reserve(lily_container_val *c, int new_size)
+void lily_list_reserve(lily_container_val *c, uint32_t new_size)
 {
-    int size = c->num_values + c->extra_space;
+    uint32_t size = c->num_values + c->extra_space;
 
     if (size > new_size)
         return;
@@ -292,7 +292,7 @@ void lily_list_push(lily_container_val *c, lily_value *v)
     c->extra_space--;
 }
 
-void lily_list_insert(lily_container_val *c, int index, lily_value *v)
+void lily_list_insert(lily_container_val *c, uint32_t index, lily_value *v)
 {
     if (c->extra_space == 0)
         grow_list(c);
@@ -379,7 +379,7 @@ static void destroy_container(lily_value *v)
             iv->gc_entry->value.generic = NULL;
     }
 
-    int i;
+    uint32_t i;
     for (i = 0;i < iv->num_values;i++) {
         lily_deref(iv->values[i]);
         lily_free(iv->values[i]);
@@ -395,7 +395,7 @@ static void destroy_list(lily_value *v)
 {
     lily_container_val *lv = v->value.container;
 
-    int i;
+    uint32_t i;
     for (i = 0;i < lv->num_values;i++) {
         lily_deref(lv->values[i]);
         lily_free(lv->values[i]);
@@ -585,7 +585,7 @@ static int subvalue_eq(lily_state *s, int *depth, lily_value *left,
     int ok;
     if (left_list->num_values == right_list->num_values) {
         ok = 1;
-        int i;
+        uint32_t i;
         for (i = 0;i < left_list->num_values;i++) {
             lily_value *left_item = left_list->values[i];
             lily_value *right_item = right_list->values[i];
@@ -628,7 +628,7 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         lily_string_val *right_sv = right->value.string;
         char *left_s = left_sv->string;
         char *right_s = right_sv->string;
-        int left_size = left_sv->size;
+        uint32_t left_size = left_sv->size;
         return (left_size == right_sv->size &&
                 memcmp(left_s, right_s, left_size) == 0);
     }

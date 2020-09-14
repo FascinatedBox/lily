@@ -98,9 +98,9 @@ if (PTR_NOT_EQUAL(table, ptr, hash_val, key)) {\
         cmp_fn = cmp_str; \
     } \
 
-static int new_size(int size)
+static unsigned int new_size(unsigned int size)
 {
-    int i, newsize;
+    unsigned int i, newsize;
     /* Only returned if there are no more primes. You'll probably hit memory
        limits before that happens. */
     int out = -1;

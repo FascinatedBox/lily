@@ -418,8 +418,8 @@ static void clear_storages(lily_storage_stack *stack, uint16_t count)
 static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
 {
     lily_storage_stack *stack = emit->storages;
-    int expr_num = emit->expr_num;
-    int i;
+    uint32_t expr_num = emit->expr_num;
+    uint16_t i;
     lily_storage *s = NULL;
 
     for (i = stack->start;i < stack->size;i++) {
@@ -1049,7 +1049,7 @@ static void setup_for_transform(lily_emit_state *emit,
     lily_var *func_var = emit->scope_block->scope_var;
     uint16_t line_num = func_var->line_num;
     uint16_t local_count = func_var->type->subtype_count - 1;
-    int i, count = 0;
+    uint16_t i, count = 0;
 
     for (i = 0;
          i < lily_u16_pos(emit->closure_spots);
@@ -1357,7 +1357,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
     /* It's time to patch the unfixed jumps, if there are any. The area from
        patch_stop to the ending position contains jumps to be fixed. */
-    int j;
+    uint16_t j;
     for (j = patch_stop;j < lily_u16_pos(emit->patches);j += 2) {
         /* This is where, in the new code, that the jump is located. */
         int aux_pos = lily_u16_get(emit->patches, j);
@@ -1561,7 +1561,7 @@ static lily_proto_stack *new_proto_stack(int initial)
 
 static void free_proto_stack(lily_proto_stack *stack)
 {
-    int i;
+    uint16_t i;
     /* Stop at pos instead of size because there's no eager init here. */
     for (i = 0;i < stack->pos;i++) {
         lily_proto *p = stack->data[i];

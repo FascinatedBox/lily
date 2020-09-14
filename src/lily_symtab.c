@@ -275,7 +275,7 @@ static lily_value *new_value_of_unit(void)
 /* Literals take advantage of lily_value having extra padding in it. That extra
    padding will have the index of the next literal of that kind. The only
    trouble is finding the first one with the given flag to start with. */
-static lily_literal *first_lit_of(lily_value_stack *vs, int to_find)
+static lily_literal *first_lit_of(lily_value_stack *vs, uint32_t to_find)
 {
     int stop = lily_vs_pos(vs);
     int i;
@@ -344,7 +344,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 }
 
 lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
-        const char *want_string, int len)
+        const char *want_string, uint32_t len)
 {
     lily_literal *iter = first_lit_of(symtab->literals, V_BYTESTRING_BASE);
 

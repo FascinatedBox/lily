@@ -280,9 +280,9 @@ static void invoke_gc(lily_vm_state *vm)
 
     lily_value **regs_from_main = vm->gs->regs_from_main;
     int pass = vm->gs->gc_pass;
-    int i;
+    uint32_t i;
     lily_gc_entry *gc_iter;
-    int total = vm->call_chain->register_end - vm->gs->regs_from_main;
+    uint32_t total = vm->call_chain->register_end - vm->gs->regs_from_main;
 
     /* Stage 1: Mark interesting values in use. */
     for (i = 0;i < total;i++) {
@@ -304,7 +304,7 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    int current_top = vm->call_chain->top - vm->gs->regs_from_main;
+    uint32_t current_top = vm->call_chain->top - vm->gs->regs_from_main;
 
     /* Stage 3: If any unused register holds a gc value that's going to be
                 deleted, flag it as clear. This prevents double frees. */
@@ -363,7 +363,7 @@ static void list_marker(int pass, lily_value *v)
     }
 
     lily_container_val *list_val = v->value.container;
-    int i;
+    uint32_t i;
 
     for (i = 0;i < list_val->num_values;i++) {
         lily_value *elem = list_val->values[i];
@@ -2223,9 +2223,9 @@ void lily_error_callback_pop(lily_state *s)
     from class id to actual class. Usage examples include class initialization
     and printing classes. **/
 
-void lily_vm_ensure_class_table(lily_vm_state *vm, int size)
+void lily_vm_ensure_class_table(lily_vm_state *vm, uint16_t size)
 {
-    int old_count = vm->gs->class_count;
+    uint16_t old_count = vm->gs->class_count;
 
     if (size >= vm->gs->class_count) {
         if (vm->gs->class_count == 0)

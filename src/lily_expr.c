@@ -125,7 +125,7 @@ void lily_free_expr_state(lily_expr_state *es)
         save_iter = save_temp;
     }
 
-    int i;
+    uint32_t i;
     for (i = 0;i < es->checkpoint_size;i++)
         lily_free(es->checkpoints[i]);
 
@@ -159,7 +159,7 @@ static void grow_checkpoints(lily_expr_state *es)
     es->checkpoints = lily_realloc(es->checkpoints,
             es->checkpoint_size * sizeof(*es->checkpoints));
 
-    int i;
+    uint32_t  i;
     for (i = es->checkpoint_pos;i < es->checkpoint_size;i++) {
         lily_ast_checkpoint_entry *new_point = lily_malloc(sizeof(*new_point));
         es->checkpoints[i] = new_point;
