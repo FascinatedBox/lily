@@ -3,6 +3,88 @@ import (Interpreter,
 
 class TestBadLambda < TestCase
 {
+    public define test_bad_break
+    {
+        var t = Interpreter()
+
+        # bad break (for loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'break' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            for i in 0...10: {
+                var v = (|| break )
+            }
+        """)
+
+        # bad break (while loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'break' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            while 0: {
+                var v = (|| break )
+            }
+        """)
+
+        # bad break (do while loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'break' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            do: {
+                var v = (|| break )
+            } while 0
+        """)
+    }
+
+    public define test_bad_continue
+    {
+        var t = Interpreter()
+
+        # bad continue (for loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'continue' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            for i in 0...10: {
+                var v = (|| continue )
+            }
+        """)
+
+        # bad continue (while loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'continue' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            while 0: {
+                var v = (|| continue )
+            }
+        """)
+
+        # bad continue (do while loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'continue' used outside of a loop.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            do: {
+                var v = (|| continue )
+            } while 0
+        """)
+    }
+
     public define test_lambda_rules
     {
         var t = Interpreter()
