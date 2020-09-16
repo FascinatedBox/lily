@@ -283,6 +283,19 @@ class TestBadImport < TestCase
             import tag_at_end
         """)
 
+        # bad imported file (end tag from render origin)
+
+        t = Interpreter.with_targets(
+            @t_tag_at_end
+        )
+
+        assert_render_fails(t, """\
+            SyntaxError: Unexpected token '?>'.\n    \
+                from tag_at_end.lily:1:\n\
+        """,
+        """<?lily import tag_at_end
+        """)
+
         # bad imported file (invalid)
 
         t = Interpreter.with_targets(
