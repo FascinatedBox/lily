@@ -1757,6 +1757,22 @@ static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
             "Received: ^T", var->line_num, var->type, got);
 }
 
+static void check_duplicate_keyarg(lily_parse_state *parser, uint16_t pos)
+{
+    lily_buffer_u16 *ds = parser->data_stack;
+    uint16_t stop = lily_u16_pos(ds);
+    char *name = parser->lex->label;
+
+    for (;pos != stop;pos += 2) {
+        uint16_t key_pos = lily_u16_get(ds, pos + 1);
+        char *keyarg = lily_sp_get(parser->data_strings, key_pos);
+
+        if (strcmp(keyarg, name) == 0)
+            lily_raise_syn(parser->raiser,
+                    "A keyword named :%s has already been declared.", name);
+    }
+}
+
 static void collect_call_args(lily_parse_state *parser, void *target,
         int arg_flags)
 {
@@ -1799,6 +1815,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         while (1) {
             if (lex->token == tk_keyword_arg) {
+                check_duplicate_keyarg(parser, keyarg_start);
                 lily_u16_write_1(parser->data_stack, i);
                 add_data_string(parser, lex->label);
                 lily_next_token(lex);

@@ -31,6 +31,16 @@ class TestBadKeyarg < TestCase
         """\
             forward define f(:a Integer) { ... }
         """)
+
+        # keyarg rules (no duplicates)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A keyword named :a has already been declared.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(:a a: String, :a b: String) {}
+        """)
     }
 
     public define test_unsupported
