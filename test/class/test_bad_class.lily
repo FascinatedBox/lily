@@ -844,27 +844,6 @@ class TestBadClass < TestCase
         # class rules (lambda cannot send self back)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambdas cannot return the self type (not a class method).\n    \
-                from [test]:8:\n\
-        """,
-        """\
-            class Abc {
-                public define f: self {  }
-                public define g[A](a: Function(Abc => A), b: Function( => A)): Function( => A) {
-                    return b
-                }
-
-                public define h {
-                    g(f, (|| 10 ))()()
-                }
-            }
-
-            Abc().h()
-        """)
-
-        # class rules (lambda cannot send self back)
-
-        assert_parse_fails(t, """\
             SyntaxError: x is a property, and must be referenced as @x.\n    \
                 from [test]:5:\n\
         """,

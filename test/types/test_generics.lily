@@ -79,6 +79,29 @@ class TestGenerics < TestCase
         """)
     }
 
+    public define test_self
+    {
+        var t = Interpreter()
+
+        # self inferenece (block resolving a generic as self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Function (Example => ?)\n\
+            Received Type: Function (Example => self)\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            class Example {
+                public define f: self {  }
+            }
+
+            define f[A](g: Function(Example => A)) {}
+
+            f(Example.f)
+        """)
+    }
+
     public define test_too_many_generics
     {
         var t = Interpreter()

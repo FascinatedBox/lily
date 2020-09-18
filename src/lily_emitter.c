@@ -2660,14 +2660,8 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
-    if (expect) {
-        if (expect->cls->id != LILY_ID_FUNCTION)
-            expect = NULL;
-        else if (expect->subtypes[0]->cls == lily_self_class) {
-            lily_raise_tree(emit->raiser, ast,
-                    "Lambdas cannot return the self type (not a class method).");
-        }
-    }
+    if (expect && expect->cls->id != LILY_ID_FUNCTION)
+        expect = NULL;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect);
