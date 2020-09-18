@@ -130,6 +130,8 @@ void lily_builtin_ByteString_each_byte(lily_state *s)
         lily_push_byte(s, (uint8_t)input[i]);
         lily_call(s, 1);
     }
+
+    lily_return_unit(s);
 }
 
 void lily_builtin_ByteString_encode(lily_state *s)
@@ -590,6 +592,7 @@ void lily_builtin_Hash_each_pair(lily_state *s)
 
     lily_error_callback_pop(s);
     hash_val->iter_count--;
+    lily_return_unit(s);
 }
 
 void lily_builtin_Hash_get(lily_state *s)
