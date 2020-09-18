@@ -2331,6 +2331,11 @@ else if (lhs_reg->flags & V_STRING_FLAG) { \
 vm_regs[code[3]]->flags = V_BOOLEAN_BASE; \
 code += 5;
 
+/* This is where native code is executed. Simple opcodes are handled here, while
+   complex opcodes are handled in do_o_* functions.
+   Native functions work by pushing data onto the vm's stack and moving the
+   current frame. As a result, this function is only entered again when a
+   foreign function calls back into native code. */
 void lily_vm_execute(lily_vm_state *vm)
 {
     uint16_t *code;
@@ -2339,20 +2344,16 @@ void lily_vm_execute(lily_vm_state *vm)
     register int64_t for_temp;
     register lily_value *lhs_reg, *rhs_reg, *loop_reg, *step_reg;
     lily_function_val *fval;
-    lily_value **upvalues = NULL;
-
-    lily_call_frame *current_frame = vm->call_chain;
-    lily_call_frame *next_frame = NULL;
-
-    code = current_frame->code;
-
+    lily_value **upvalues;
+    lily_call_frame *current_frame, *next_frame;
     lily_jump_link *link = lily_jump_setup(vm->raiser);
-    if (setjmp(link->jump) != 0) {
-        /* This section happens when an exception is caught. */
-        current_frame = vm->call_chain;
-        code = current_frame->code;
-    }
 
+    /* If an exception is caught, the vm's state is fixed before sending control
+       back here. There's no need for a condition around this setjmp call. */
+    setjmp(link->jump);
+
+    current_frame = vm->call_chain;
+    code = current_frame->code;
     upvalues = current_frame->function->upvalues;
     vm_regs = vm->call_chain->start;
 
