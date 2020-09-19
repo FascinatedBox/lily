@@ -160,42 +160,53 @@ typedef struct {
 
 static void destroy_ClassEntry(lily_introspect_ClassEntry *c)
 {
+    (void)c;
 }
 
 static void destroy_EnumEntry(lily_introspect_EnumEntry *c)
 {
+    (void)c;
 }
 
 static void destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
 {
+    (void)f;
 }
 
 static void destroy_MethodEntry(lily_introspect_MethodEntry *m)
 {
+    (void)m;
 }
 
 static void destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
 {
+    (void)m;
 }
 
 static void destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
 {
+    (void)p;
 }
 
 static void destroy_VarEntry(lily_introspect_VarEntry *v)
 {
+    (void)v;
 }
 
 static void destroy_VariantEntry(lily_introspect_VariantEntry *v)
 {
+    (void)v;
 }
 
 static void destroy_TypeEntry(lily_introspect_TypeEntry *t)
 {
+    (void)t;
 }
 
 static int allow_all(void *any)
 {
+    (void)any;
+
     return 1;
 }
 

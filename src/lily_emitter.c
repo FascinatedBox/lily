@@ -57,7 +57,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->block = NULL;
 
     emit->function_depth = 0;
-
+    emit->symtab = symtab;
     emit->raiser = raiser;
     emit->expr_num = 1;
 
@@ -162,8 +162,7 @@ static lily_storage *get_storage(lily_emit_state *, lily_type *);
 static lily_block *find_deepest_loop(lily_emit_state *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
-void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
-        uint16_t line_num)
+void lily_emit_write_class_init(lily_emit_state *emit, uint16_t line_num)
 {
     lily_storage *self = emit->scope_block->self;
 
@@ -172,7 +171,7 @@ void lily_emit_write_class_init(lily_emit_state *emit, lily_class *cls,
 }
 
 void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
-        lily_var *var_iter, uint16_t line_num)
+        lily_var *var_iter)
 {
     lily_named_sym *prop_iter = cls->members;
     uint16_t self_reg_spot = emit->scope_block->self->reg_spot;
@@ -2743,8 +2742,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 }
 
 /* This runs a subscript, including validation of the indexes. */
-static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect)
+static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
 {
     lily_ast *var_ast = ast->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
@@ -3301,7 +3299,7 @@ static void write_call(lily_emit_state *emit, lily_ast *ast,
    intersect. This is different (and more difficult) because of potential unset
    values between arguments given. */
 static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type, int argument_count, lily_storage *vararg_s)
+        lily_type *call_type, lily_storage *vararg_s)
 {
     lily_storage *s = get_storage(emit, lily_unset_type);
 
@@ -3430,8 +3428,7 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
 /* This is the main body of argument handling. This begins after ts has had
    generics set aside for this function. This function verifies the argument
    count, sets the result up, and does the call to write values out. */
-static void run_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type, lily_type *expect)
+static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
 {
     lily_ast *arg = ast->arg_start;
     uint16_t num_args = ast->args_collected;
@@ -3517,7 +3514,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast,
    will be used to verify the call. Finally, it ensures that the type set to
    '*call_type' is a `Function` (raising a syntax error otherwise). */
 static void begin_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, lily_type **call_type)
+        lily_type **call_type)
 {
     lily_ast *first_arg = ast->arg_start;
     lily_tree_type first_tt = first_arg->tree_type;
@@ -3683,7 +3680,7 @@ static void setup_typing_for_call(lily_emit_state *emit, lily_ast *ast,
 static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     lily_type *call_type = NULL;
-    begin_call(emit, ast, expect, &call_type);
+    begin_call(emit, ast, &call_type);
 
     lily_ts_save_point p;
     /* Scope save MUST happen after the call is started, because evaluating the
@@ -3696,7 +3693,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     if (call_type->flags & TYPE_IS_UNRESOLVED)
         setup_typing_for_call(emit, ast, expect, call_type);
 
-    run_call(emit, ast, call_type, expect);
+    run_call(emit, ast, call_type);
     lily_ts_scope_restore(emit->ts, &p);
 }
 
@@ -3857,7 +3854,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
 }
 
 static void run_named_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type *call_type, lily_type *expect)
+        lily_type *call_type)
 {
     int num_args = ast->args_collected;
     uint16_t min, max;
@@ -3989,14 +3986,14 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
     if ((call_type->flags & TYPE_HAS_OPTARGS) == 0)
         write_call(emit, ast, base_count, vararg_s);
     else
-        write_call_keyopt(emit, ast, call_type, base_count, vararg_s);
+        write_call_keyopt(emit, ast, call_type, vararg_s);
 }
 
 static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     lily_type *call_type = NULL;
-    begin_call(emit, ast, expect, &call_type);
+    begin_call(emit, ast, &call_type);
 
     lily_ts_save_point p;
     /* Scope save MUST happen after the call is started, because evaluating the
@@ -4009,7 +4006,7 @@ static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
     if (call_type->flags & TYPE_IS_UNRESOLVED)
         setup_typing_for_call(emit, ast, expect, call_type);
 
-    run_named_call(emit, ast, call_type, expect);
+    run_named_call(emit, ast, call_type);
     lily_ts_scope_restore(emit->ts, &p);
 }
 
@@ -4176,7 +4173,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_tuple)
         eval_build_tuple(emit, ast, expect);
     else if (ast->tree_type == tree_subscript)
-        eval_subscript(emit, ast, expect);
+        eval_subscript(emit, ast);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
     else if (ast->tree_type == tree_oo_access)

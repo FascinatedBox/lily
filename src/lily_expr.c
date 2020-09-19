@@ -345,8 +345,7 @@ static void merge_value(lily_expr_state *es, lily_ast *new_tree)
  *
  */
 
-static void push_tree_arg(lily_expr_state *es, lily_ast *entered_tree,
-        lily_ast *arg)
+static void push_tree_arg(lily_ast *entered_tree, lily_ast *arg)
 {
     /* This happens when the parser sees () and calls to collect an argument
        just to be sure that anything in between is collected. It's fine, but
@@ -373,7 +372,7 @@ void lily_es_collect_arg(lily_expr_state *es)
 {
     lily_ast_save_entry *entry = es->save_chain;
 
-    push_tree_arg(es, entry->entered_tree, es->root);
+    push_tree_arg(entry->entered_tree, es->root);
 
     /* Keep all of the expressions independent. */
     es->root = NULL;
@@ -409,7 +408,7 @@ void lily_es_leave_tree(lily_expr_state *es)
 {
     lily_ast_save_entry *entry = es->save_chain;
 
-    push_tree_arg(es, entry->entered_tree, es->root);
+    push_tree_arg(entry->entered_tree, es->root);
 
     es->root = entry->root_tree;
     es->active = entry->active_tree;

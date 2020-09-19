@@ -1140,7 +1140,7 @@ LILY_ERROR(Runtime,        LILY_ID_RUNTIMEERROR)
 LILY_ERROR(Value,          LILY_ID_VALUEERROR)
 
 /* Raise KeyError with 'key' as the value of the message. */
-static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
+static void key_error(lily_vm_state *vm, lily_value *key)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
 
@@ -1154,8 +1154,7 @@ static void key_error(lily_vm_state *vm, lily_value *key, uint16_t line_num)
 }
 
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
-static void boundary_error(lily_vm_state *vm, int64_t bad_index,
-        uint16_t line_num)
+static void boundary_error(lily_vm_state *vm, int64_t bad_index)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
     lily_mb_add_fmt(msgbuf, "Subscript index %ld is out of range.",
@@ -1273,12 +1272,12 @@ static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
     if (index_int < 0) { \
         int64_t new_index = limit + index_int; \
         if (new_index < 0) \
-            boundary_error(vm, index_int, code[4]); \
+            boundary_error(vm, index_int); \
  \
         index_int = new_index; \
     } \
     else if (index_int >= limit) \
-        boundary_error(vm, index_int, code[4]);
+        boundary_error(vm, index_int);
 
 /* This handles subscript assignment. The index is a register, and needs to be
    validated. */
@@ -1345,7 +1344,7 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
 
         /* Give up if the key doesn't exist. */
         if (elem == NULL)
-            key_error(vm, index_reg, code[4]);
+            key_error(vm, index_reg);
 
         lily_value_assign(result_reg, elem);
     }

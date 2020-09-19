@@ -213,7 +213,6 @@ lily_state *lily_new_state(lily_config *config)
     parser->expr->lex_linenum = &parser->lex->line_num;
 
     parser->emit->lex_linenum = &parser->lex->line_num;
-    parser->emit->symtab = parser->symtab;
     parser->emit->parser = parser;
 
     parser->expr_strings = parser->emit->expr_strings;
@@ -2774,8 +2773,7 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
 /* This function takes a var and determines what kind of tree to put it into.
    The tree type is used by emitter to group vars into different types as a
    small optimization. */
-static void expr_word_as_var(lily_parse_state *parser, lily_var *var,
-        uint16_t *state)
+static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
         lily_raise_syn(parser->raiser,
@@ -2842,7 +2840,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
 
     if (sym) {
         if (sym->item_kind == ITEM_VAR)
-            expr_word_as_var(parser, (lily_var *)sym, state);
+            expr_word_as_var(parser, (lily_var *)sym);
         else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else
@@ -3083,6 +3081,7 @@ static void expr_integer(lily_parse_state *parser, uint16_t *state)
 
 static void expr_invalid(lily_parse_state *parser, uint16_t *state)
 {
+    (void)parser;
     *state = ST_BAD_TOKEN;
 }
 
@@ -4413,12 +4412,12 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     /* Don't make 'self' available until the class is fully constructed. */
     lily_emit_create_block_self(parser->emit, cls->self_type);
-    lily_emit_write_class_init(parser->emit, cls, lex->line_num);
+    lily_emit_write_class_init(parser->emit, lex->line_num);
     finish_define_init(parser, call_var);
 
     if (cls->members->item_kind == ITEM_PROPERTY)
         lily_emit_write_shorthand_ctor(parser->emit, cls,
-                parser->symtab->active_module->var_chain, lex->line_num);
+                parser->symtab->active_module->var_chain);
 
     if (cls->parent)
         super_expression(parser, cls);
@@ -4450,8 +4449,7 @@ static int get_gc_flags_for(lily_type *target)
 /* A user-defined class is about to close. This scans over 'target' to find out
    if any properties inside of the class may require gc information. If such
    information is needed, then the class will have the appropriate flags set. */
-static void determine_class_gc_flag(lily_parse_state *parser,
-        lily_class *target)
+static void determine_class_gc_flag(lily_class *target)
 {
     lily_class *parent_iter = target->parent;
     int mark = 0;
@@ -5155,7 +5153,7 @@ static void parse_block_exit(lily_parse_state *parser)
             if (block->forward_count)
                 error_forward_decl_pending(parser);
 
-            determine_class_gc_flag(parser, parser->current_class);
+            determine_class_gc_flag(parser->current_class);
             parser->current_class = NULL;
             lily_gp_restore(parser->generics, 0);
             lily_emit_leave_class_block(emit, lex->line_num);

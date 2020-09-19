@@ -305,6 +305,9 @@ void free_test_data(test_data *td)
 
 int main(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
+
     test_data td;
     test_group g;
     const char *target;

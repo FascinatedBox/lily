@@ -50,7 +50,7 @@ void lily_free_generic_pool(lily_generic_pool *gp)
 }
 
 static lily_class *find_in_cache(lily_generic_pool *gp, const char *name,
-        int generic_pos, int *next_pos)
+        int *next_pos)
 {
     int i = 0;
     lily_class *c = gp->cache_generics[i];
@@ -70,7 +70,7 @@ static lily_class *find_in_cache(lily_generic_pool *gp, const char *name,
 lily_type *lily_gp_push(lily_generic_pool *gp, const char *name, int pos)
 {
     int i;
-    lily_class *result = find_in_cache(gp, name, pos, &i);
+    lily_class *result = find_in_cache(gp, name, &i);
 
     if (result == NULL) {
         lily_class *new_generic = lily_new_raw_class(name, 0);

@@ -12,7 +12,11 @@ typedef struct lily_covlib_Foreign_ {
     LILY_FOREIGN_HEADER
 } lily_covlib_Foreign;
 
-void destroy_Foreign(lily_covlib_Foreign *f) {}
+void destroy_Foreign(lily_covlib_Foreign *f)
+{
+    (void)f;
+}
+
 void lily_covlib_Foreign_new(lily_state *s)
 {
     INIT_Foreign(s);
@@ -233,6 +237,7 @@ static void ignore_render(const char *to_render, void *data)
 
 static void misc_dup_import_hook(lily_state *s, const char *target)
 {
+    (void)target;
     lily_import_use_local_dir(s, "");
     lily_import_string(s, "asdf.lily", "var v = 10");
     lily_import_string(s, "asdf.lily", "var v = 10");
@@ -242,6 +247,7 @@ static void misc_dup_import_hook(lily_state *s, const char *target)
 
 static void misc_ldata_import_hook(lily_state *s, const char *target)
 {
+    (void)target;
     lily_import_use_local_dir(s, "");
     lily_import_library_data(s, "asdf.xyz", lily_covlib_info_table, lily_covlib_call_table);
 }
@@ -265,6 +271,8 @@ static void misc_no_global_import_hook(lily_state *s, const char *target)
 
 void lily_covlib__cover_misc_api(lily_state *s)
 {
+    (void)s;
+
     lily_config config;
     lily_config_init(&config);
     config.render_func = ignore_render;

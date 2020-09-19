@@ -11,6 +11,7 @@ typedef struct {
 
 void destroy_Time(lily_time_Time *t)
 {
+    (void)t;
 }
 
 void lily_time_Time_clock(lily_state *s)

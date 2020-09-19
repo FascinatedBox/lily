@@ -366,6 +366,8 @@ static int check_tuple(lily_type_system *ts, lily_type *left, lily_type *right,
 static int collect_scoop(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
+    (void)left;
+
     /* Not yet. Maybe later. */
     if (flags & T_UNIFY)
         return 0;
