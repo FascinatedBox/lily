@@ -456,7 +456,7 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_token op)
 
     /* Active is always non-NULL, because binary always comes after a value of
        some kind. */
-    if (active->tree_type < tree_binary) {
+    if (active->tree_type != tree_binary) {
         /* Only a value or call so far. The binary op takes over. */
         if (es->root == active)
             es->root = new_ast;
@@ -466,7 +466,7 @@ void lily_es_push_binary_op(lily_expr_state *es, lily_token op)
         new_ast->left = active;
         es->active = new_ast;
     }
-    else if (active->tree_type == tree_binary) {
+    else {
         /* Figure out how the two trees will fit together. */
         int new_prio, active_prio;
         new_prio = new_ast->priority;
