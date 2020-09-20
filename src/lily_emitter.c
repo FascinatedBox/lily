@@ -3531,7 +3531,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             call_sym = first_arg->sym;
 
             keep_first_arg = 1;
-            first_arg->tree_type = tree_self;
+            first_arg->result = (lily_sym *)emit->scope_block->self;
+            first_arg->tree_type = tree_cached;
             break;
         case tree_defined_func:
         case tree_inherited_new:
@@ -3558,8 +3559,8 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
             else {
                 keep_first_arg = 1;
                 call_sym = first_arg->sym;
-                /* Rewrite the tree so it isn't evaluated twice. */
-                first_arg->tree_type = tree_oo_cached;
+                first_arg->tree_type = tree_cached;
+                first_arg->result = first_arg->arg_start->result;
             }
             break;
         case tree_variant: {
@@ -4186,8 +4187,6 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_lambda(emit, ast, expect);
     else if (ast->tree_type == tree_self)
         eval_self(emit, ast);
-    else if (ast->tree_type == tree_oo_cached)
-        ast->result = ast->arg_start->result;
     else if (ast->tree_type == tree_named_call)
         eval_named_call(emit, ast, expect);
 }
