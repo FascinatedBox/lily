@@ -107,6 +107,13 @@ class TestLambdas < TestCase
               (|b| b.to_s())
               )
         """)
+
+        # inference (don't send Unit down for inference)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v: Function(Integer) = (|a| [a] |> List.shift )
+        """)
     }
 
     public define test_lexing

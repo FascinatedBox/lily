@@ -4309,8 +4309,14 @@ void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
         lily_type *full_type)
 {
     lily_type *wanted_type = NULL;
+
     if (full_type)
         wanted_type = full_type->subtypes[0];
+
+    /* Don't send `Unit` down, because it can cause syntax errors if it's used
+       as a solution for generics. */
+    if (wanted_type == lily_unit_type)
+        wanted_type = lily_question_type;
 
     eval_tree(emit, es->root, wanted_type);
 
