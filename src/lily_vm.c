@@ -938,6 +938,12 @@ void lily_push_unit(lily_state *s)
     SET_TARGET(V_UNIT_BASE, integer, 0);
 }
 
+void lily_push_unset(lily_state *s)
+{
+    PUSH_PREAMBLE
+    SET_TARGET(V_UNSET_BASE, integer, 0);
+}
+
 void lily_push_value(lily_state *s, lily_value *v)
 {
     PUSH_PREAMBLE

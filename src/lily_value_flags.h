@@ -53,6 +53,7 @@
 #define V_BYTESTRING_FLAG       0x1000000
 #define V_FUNCTION_FLAG	        0x2000000
 
+#define V_UNSET_BASE            0
 #define V_INTEGER_BASE          1
 #define V_DOUBLE_BASE           2
 #define V_STRING_BASE           3

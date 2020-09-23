@@ -36,6 +36,7 @@ define cover_optional_boolean(   a: *Boolean = true,
 define cover_optional_integer(   a: *Integer = 100,
       :b b: *Integer = 200,
       :c c: *Integer = 300): Integer
+define cover_optional_keyarg_call(f: Function(*Integer, *Integer, *Integer => Integer)): Integer
 define cover_optional_string(   a: *String = "",
      :b b: *String = "",
      :c c: *String = ""): String

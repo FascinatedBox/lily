@@ -145,6 +145,21 @@ class TestVerifyCoverage < TestCase
             check_table(i_values)
             check_table(s_values)
         """)
+
+        t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib as c
+
+            var v = c.cover_optional_integer
+                        |> c.cover_optional_keyarg_call
+
+            if v != 401: {
+                raise Exception("Keyopt failed.")
+            }
+        """)
     }
 
     public define test_foreign_enums

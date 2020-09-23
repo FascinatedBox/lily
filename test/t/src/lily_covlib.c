@@ -159,6 +159,19 @@ void lily_covlib__cover_optional_boolean(lily_state *s)
     lily_return_integer(s, total);
 }
 
+void lily_covlib__cover_optional_keyarg_call(lily_state *s)
+{
+    lily_call_prepare(s, lily_arg_function(s, 0));
+
+    lily_value *result = lily_call_result(s);
+
+    lily_push_unset(s);
+    lily_push_integer(s, 1);
+    lily_call(s, 2);
+
+    lily_return_value(s, result);
+}
+
 void lily_covlib__cover_optional_string(lily_state *s)
 {
     const char *arg_a = lily_optional_string_raw(s, 0, "");

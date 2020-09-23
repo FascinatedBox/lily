@@ -1107,6 +1107,16 @@ lily_container_val *lily_push_tuple        (lily_state *s, uint32_t size);
 // (Stack: +1) Push the unit value (of class Unit) onto the stack.
 void                lily_push_unit         (lily_state *s);
 
+// Function: lily_push_unset
+// (Stack: +1) Push an unset value onto the stack.
+//
+// This is solely for calling functions that have optional keyword arguments.
+//
+// Suppose there's a function that takes two optional keyed arguments. To pass
+// only the second argument, push an unset, then push the value for the second
+// argument.
+void                lily_push_unset        (lily_state *s);
+
 // Function: lily_push_value
 // (Stack: +1) Push a full value onto the stack.
 void                lily_push_value        (lily_state *s, lily_value *value);
