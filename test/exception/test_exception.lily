@@ -243,4 +243,40 @@ class TestExceptions < TestCase
             }
         """)
     }
+
+    public define test_keyerror_escape_quoting
+    {
+        var t = Interpreter()
+
+        # keyerror escape quoting (newline)
+
+        assert_parse_string(t, """
+            try: {
+                var h: Hash[String, String] = []
+
+                h["\\n"]
+            except KeyError as e:
+                # 34 is double quote, 92 is backslash.
+                if e.message != "\\034\\092n\\034": {
+                    0/0
+                }
+            }
+        """)
+
+        # keyerror escape quoting (double quote)
+
+        assert_parse_string(t, """
+            try: {
+                var h: Hash[String, String] = []
+
+                h["\\\""]
+            except KeyError as e:
+                # 34 is double quote, 92 is backslash.
+                if e.message != "\\034\\092\\034\\034": {
+                    0/0
+                }
+            }
+        """)
+
+    }
 }

@@ -84,33 +84,28 @@ static char get_escape(char ch)
 static void add_escaped_raw(lily_msgbuf *msgbuf, int is_bytestring,
         const char *str, int len)
 {
-    char escape_char = 0;
     int i, start;
 
     for (i = 0, start = 0;i < len;i++) {
         unsigned char ch = str[i];
-        int need_escape = 1;
 
-        if (isprint(ch) ||
-            (ch > 127 && is_bytestring == 0)) {
-            need_escape = 0;
-            escape_char = 0;
-        }
+        if (isprint(ch) && ch != '"')
+            continue;
+        else if (ch > 127 && is_bytestring == 0)
+            continue;
+
+        char escape_char = get_escape((char)ch);
+
+        if (i != start)
+            lily_mb_add_slice(msgbuf, str, start, i);
+
+        lily_mb_add_char(msgbuf, '\\');
+        if (escape_char)
+            lily_mb_add_char(msgbuf, escape_char);
         else
-            escape_char = get_escape((char)ch);
+            add_escaped_char(msgbuf, (char)ch);
 
-        if (need_escape) {
-            if (i != start)
-                lily_mb_add_slice(msgbuf, str, start, i);
-
-            lily_mb_add_char(msgbuf, '\\');
-            if (escape_char)
-                lily_mb_add_char(msgbuf, escape_char);
-            else
-                add_escaped_char(msgbuf, (char)ch);
-
-            start = i + 1;
-        }
+        start = i + 1;
     }
 
     if (i != start)
