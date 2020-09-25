@@ -1,12 +1,11 @@
 #include <string.h>
 
 #include "lily.h"
-
+#include "lily_alloc.h"
+#include "lily_value_flags.h"
+#include "lily_value_raw.h"
 #include "lily_value_structs.h"
 #include "lily_vm.h"
-#include "lily_value_flags.h"
-#include "lily_alloc.h"
-#include "lily_value_raw.h"
 
 #define DEFINE_GETTERS(name, action, ...) \
 int lily_##name##_boolean(__VA_ARGS__) \

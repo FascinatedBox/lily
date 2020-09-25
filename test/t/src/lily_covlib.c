@@ -1,9 +1,8 @@
 #include <string.h>
 
 #include "lily.h"
-#include "lily_int_code_iter.h"
-
 #include "lily_covlib_bindings.h"
+#include "lily_int_code_iter.h"
 
 LILY_COVLIB_EXPORT
 lily_call_entry_func lily_covlib_call_table[];

@@ -1,9 +1,8 @@
 #ifndef LILY_VALUE_RAW_H
 # define LILY_VALUE_RAW_H
 
-# include "lily_value_structs.h"
-
 # include "lily.h"
+# include "lily_value_structs.h"
 
 lily_container_val *lily_new_list_raw(int);
 lily_container_val *lily_new_tuple_raw(int);

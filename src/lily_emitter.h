@@ -1,12 +1,13 @@
 #ifndef LILY_EMITTER_H
 # define LILY_EMITTER_H
 
-# include "lily_raiser.h"
-# include "lily_symtab.h"
-# include "lily_type_system.h"
-# include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
+# include "lily_expr.h"
+# include "lily_raiser.h"
 # include "lily_string_pile.h"
+# include "lily_symtab.h"
+# include "lily_type_maker.h"
+# include "lily_type_system.h"
 
 # define SCOPE_CLASS  0x020
 # define SCOPE_DEFINE 0x040

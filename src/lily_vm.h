@@ -2,7 +2,6 @@
 # define LILY_VM_H
 
 # include "lily.h"
-
 # include "lily_raiser.h"
 # include "lily_symtab.h"
 

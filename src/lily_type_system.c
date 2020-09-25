@@ -4,9 +4,8 @@
 #include <string.h>
 
 #include "lily.h"
-
-#include "lily_type_system.h"
 #include "lily_alloc.h"
+#include "lily_type_system.h"
 
 extern lily_class *lily_self_class;
 extern lily_type *lily_scoop_type;

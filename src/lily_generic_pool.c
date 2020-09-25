@@ -1,8 +1,8 @@
+#include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_generic_pool.h"
 #include "lily_symtab.h"
 #include "lily_type_maker.h"
-#include "lily_alloc.h"
 
 lily_generic_pool *lily_new_generic_pool(void)
 {

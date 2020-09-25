@@ -2,17 +2,16 @@
 # define LILY_PARSER_H
 
 # include "lily.h"
-
-# include "lily_raiser.h"
-# include "lily_expr.h"
-# include "lily_lexer.h"
-# include "lily_emitter.h"
-# include "lily_symtab.h"
-# include "lily_vm.h"
-# include "lily_type_maker.h"
 # include "lily_buffer_u16.h"
-# include "lily_value_stack.h"
+# include "lily_emitter.h"
+# include "lily_expr.h"
 # include "lily_generic_pool.h"
+# include "lily_lexer.h"
+# include "lily_raiser.h"
+# include "lily_symtab.h"
+# include "lily_type_maker.h"
+# include "lily_value_stack.h"
+# include "lily_vm.h"
 
 /* This is used to prevent multiple content loads and to make sure content
    handling has content. */

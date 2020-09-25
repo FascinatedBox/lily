@@ -1,8 +1,8 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "lily_raiser.h"
 #include "lily_alloc.h"
+#include "lily_raiser.h"
 
 #define HANDLE_VARARGS \
 lily_mb_flush(raiser->msgbuf); \

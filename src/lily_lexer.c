@@ -1,15 +1,15 @@
 #include <ctype.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "lily_alloc.h"
 #include "lily_config.h"
 #include "lily_lexer.h"
 #include "lily_lexer_data.h"
 #include "lily_utf8.h"
-#include "lily_alloc.h"
 
 /** Lexer init and deletion **/
 lily_lex_state *lily_new_lex_state(lily_raiser *raiser)

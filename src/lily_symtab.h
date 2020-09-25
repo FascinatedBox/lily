@@ -2,8 +2,8 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
-# include "lily_value_structs.h"
 # include "lily_value_stack.h"
+# include "lily_value_structs.h"
 
 typedef struct lily_symtab_ {
     lily_value_stack *literals;

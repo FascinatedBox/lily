@@ -1,14 +1,12 @@
-#include <string.h>
-#include <stdint.h>
 #include <limits.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "lily_alloc.h"
-#include "lily_expr.h"
 #include "lily_emitter.h"
-#include "lily_parser.h"
-
-#include "lily_int_opcode.h"
 #include "lily_int_code_iter.h"
+#include "lily_int_opcode.h"
+#include "lily_parser.h"
 
 extern lily_type *lily_question_type;
 extern lily_type *lily_scoop_type;

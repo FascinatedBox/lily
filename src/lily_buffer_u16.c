@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "lily_buffer_u16.h"
 #include "lily_alloc.h"
+#include "lily_buffer_u16.h"
 
 lily_buffer_u16 *lily_new_buffer_u16(uint32_t start)
 {

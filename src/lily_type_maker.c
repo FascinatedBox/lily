@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "lily_type_maker.h"
 #include "lily_alloc.h"
+#include "lily_type_maker.h"
 
 /* These are the TYPE_* flags that bubble up through types (it's written onto a
    type if any subtypes have them). */

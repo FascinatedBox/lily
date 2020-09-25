@@ -2,12 +2,11 @@
 #include <string.h>
 
 #include "lily.h"
-
-#include "lily_symtab.h"
-#include "lily_vm.h"
-#include "lily_value_flags.h"
 #include "lily_alloc.h"
+#include "lily_symtab.h"
+#include "lily_value_flags.h"
 #include "lily_value_raw.h"
+#include "lily_vm.h"
 
 /* If a String/ByteString is longer than this, don't do duplicate lookups.
    It's probably unique and dup checking is a waste of time. */

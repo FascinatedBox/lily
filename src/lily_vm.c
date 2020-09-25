@@ -3,15 +3,13 @@
 #include <string.h>
 
 #include "lily.h"
-
 #include "lily_alloc.h"
-#include "lily_vm.h"
+#include "lily_int_opcode.h"
 #include "lily_parser.h"
-#include "lily_value_stack.h"
 #include "lily_value_flags.h"
 #include "lily_value_raw.h"
-
-#include "lily_int_opcode.h"
+#include "lily_value_stack.h"
+#include "lily_vm.h"
 
 extern lily_gc_entry *lily_gc_stopper;
 /* This isn't included in a header file because only vm should use this. */

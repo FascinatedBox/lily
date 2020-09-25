@@ -1,20 +1,18 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include "lily.h"
-
+#include "lily_alloc.h"
 #include "lily_config.h"
+#include "lily_int_opcode.h"
 #include "lily_library.h"
 #include "lily_parser.h"
 #include "lily_parser_data.h"
 #include "lily_string_pile.h"
 #include "lily_value_flags.h"
 #include "lily_value_raw.h"
-#include "lily_alloc.h"
-
-#include "lily_int_opcode.h"
 
 #define NEED_NEXT_TOK(expected) \
 lily_next_token(lex); \

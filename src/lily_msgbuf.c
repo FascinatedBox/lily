@@ -1,15 +1,14 @@
-#include <stdarg.h>
-#include <string.h>
-#include <stdio.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "lily.h"
-
+#include "lily_alloc.h"
 #include "lily_core_types.h"
 #include "lily_value_flags.h"
 #include "lily_vm.h"
-#include "lily_alloc.h"
 
 extern lily_type *lily_unit_type;
 
