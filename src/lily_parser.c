@@ -168,65 +168,86 @@ void lily_config_init(lily_config *conf)
 lily_state *lily_new_state(lily_config *config)
 {
     lily_parse_state *parser = lily_malloc(sizeof(*parser));
-    parser->module_top = NULL;
-    parser->module_start = NULL;
+
+    /* Start with the simple parts of parser. */
     parser->config = config;
-
-    lily_raiser *raiser = lily_new_raiser();
-
-    parser->data_string_pos = 0;
     parser->current_class = NULL;
-    parser->raiser = raiser;
-    parser->msgbuf = lily_new_msgbuf(64);
-    parser->expr = lily_new_expr_state();
-    parser->generics = lily_new_generic_pool();
-    parser->symtab = lily_new_symtab();
-    parser->vm = lily_new_vm_state(raiser);
-    parser->rs = lily_malloc(sizeof(*parser->rs));
-    parser->rs->pending = 0;
-    parser->ims = lily_malloc(sizeof(*parser->ims));
-    parser->ims->path_msgbuf = lily_new_msgbuf(64);
+    parser->data_string_pos = 0;
     parser->doc = NULL;
     parser->flags = 0;
     parser->modifiers = 0;
+    parser->module_start = NULL;
+    parser->module_top = NULL;
 
+    /* These two are used for handling keyword arguments and paths that have
+       been tried. The strings are stored next to each other in the pile, with
+       the stack storing starting indexes. */
+    parser->data_stack = lily_new_buffer_u16(4);
+    parser->data_strings = lily_new_string_pile();
+
+    /* Parser's msgbuf is used to build strings for import and errors. This is
+       not shared anywhere. */
+    parser->msgbuf = lily_new_msgbuf(64);
+
+    /* These two hold import data and rewind state. */
+    parser->ims = lily_malloc(sizeof(*parser->ims));
+    parser->ims->path_msgbuf = lily_new_msgbuf(64);
+    parser->rs = lily_malloc(sizeof(*parser->rs));
+    parser->rs->pending = 0;
+
+    /* These two are simple and don't depend on other parts. */
+    parser->expr = lily_new_expr_state();
+    parser->generics = lily_new_generic_pool();
+
+    /* The raiser is used by the remaining parts to launch errors. The parser
+       shares this raiser with the first vm. Coroutine vms will get their own
+       raiser which stops at their origin point. */
+    parser->raiser = lily_new_raiser();
+
+    /* The global state (gs) maps from any vm (origin or Coroutine) back to the
+       parser. It's for api functions. */
+    parser->vm = lily_new_vm_state(parser->raiser);
     parser->vm->gs->parser = parser;
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    /* This needs a name to build the [builtin] path from that later traceback
-       will use. Registered module search starts after builtin, so nothing
-       should see the name to load this module. */
+    /* Make the builtin module that holds predefined symbols. */
     lily_module_register(parser->vm, "builtin", lily_builtin_info_table,
             lily_builtin_call_table);
+
+    /* Make the symtab and load it. */
+    parser->symtab = lily_new_symtab();
     lily_set_builtin(parser->symtab, parser->module_top);
     lily_init_pkg_builtin(parser->symtab);
 
-    parser->emit = lily_new_emit_state(parser->symtab, raiser);
-    parser->lex = lily_new_lex_state(raiser);
-    parser->data_stack = lily_new_buffer_u16(4);
+    parser->lex = lily_new_lex_state(parser->raiser);
 
-    /* Here's the awful part where parser digs in and links everything that different
-       sections need. */
+    /* Emitter is launched last since it shares the most with parser. */
+    parser->emit = lily_new_emit_state(parser->symtab, parser->raiser);
     parser->tm = parser->emit->tm;
+    parser->expr_strings = parser->emit->expr_strings;
 
-    parser->expr->lex_linenum = &parser->lex->line_num;
-
-    parser->emit->lex_linenum = &parser->lex->line_num;
+    /* Emitter's parser is used for dynaloads and lambda parsing. */
     parser->emit->parser = parser;
 
-    parser->expr_strings = parser->emit->expr_strings;
-    parser->data_strings = lily_new_string_pile();
+    /* These need the line number frequently, so have them store it. */
+    parser->expr->lex_linenum = &parser->lex->line_num;
+    parser->emit->lex_linenum = &parser->lex->line_num;
 
+    /* Build the module that will hold `__main__`. */
     lily_module_entry *main_module = new_module(parser);
 
     parser->main_module = main_module;
     parser->symtab->active_module = parser->main_module;
 
-    /* This creates the var representing __main__ and registers it in areas that
-       need it. */
+    /* Create the `__main__` var and underlying function. */
     create_main_func(parser);
+
+    /* Make prelude modules available. */
     lily_prelude_register(parser->vm);
+
+    /* Mark prelude modules as being part of the prelude, so they're available
+       everywhere. */
     mark_builtin_modules(parser);
 
     return parser->vm;
@@ -268,26 +289,21 @@ void lily_free_state(lily_state *vm)
 {
     lily_parse_state *parser = vm->gs->parser;
 
-    /* The code for the toplevel function (really __main__) is a pointer to
-       emitter's code that gets refreshed before every vm entry. Set it to NULL
-       so that these teardown functions don't double free the code. */
+    /* This function's code is a pointer to emitter's code. NULL this to prevent
+       a double free. */
     parser->toplevel_func->proto->code = NULL;
 
-    lily_free_raiser(parser->raiser);
-
-    lily_free_expr_state(parser->expr);
-
-    lily_free_vm(parser->vm);
-
-    lily_free_lex_state(parser->lex);
-
-    lily_free_emit_state(parser->emit);
-
-    lily_free_buffer_u16(parser->data_stack);
-
-    /* The path for the first module is always a shallow copy of the loadname
-       that was sent. Make sure that doesn't get free'd. */
+    /* The first module's path is a shallow copy, so NULL it too. */
     parser->main_module->path = NULL;
+
+    /* Each of these deletes different parts, so order does not matter here. */
+    lily_free_emit_state(parser->emit);
+    lily_free_expr_state(parser->expr);
+    lily_free_generic_pool(parser->generics);
+    lily_free_lex_state(parser->lex);
+    lily_free_raiser(parser->raiser);
+    lily_free_symtab(parser->symtab);
+    lily_free_vm(parser->vm);
 
     lily_module_entry *module_iter = parser->module_start;
     lily_module_entry *module_next = NULL;
@@ -310,15 +326,13 @@ void lily_free_state(lily_state *vm)
         module_iter = module_next;
     }
 
-    lily_free_string_pile(parser->data_strings);
-    lily_free_symtab(parser->symtab);
-    lily_free_generic_pool(parser->generics);
-    lily_free_msgbuf(parser->msgbuf);
+    lily_free_buffer_u16(parser->data_stack);
     lily_free_msgbuf(parser->ims->path_msgbuf);
+    lily_free_msgbuf(parser->msgbuf);
     lily_free(parser->ims);
     lily_free(parser->rs);
+    lily_free_string_pile(parser->data_strings);
     free_docs(parser->doc);
-
     lily_free(parser);
 }
 
