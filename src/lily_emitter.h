@@ -171,10 +171,9 @@ typedef struct {
        get patched to the end of the block once the end is known. */
     lily_buffer_u16 *patches;
 
-    /* Match blocks allocate space in here, initially with 0. When a match case
-       is seen, it's set to 1. This is used to make sure a case isn't seen
-       twice or not seen at all. */
-    int *match_cases;
+    /* Match blocks will add the class id / variant id of the cases they come
+       across in here to prevent duplicates. */
+    lily_buffer_u16 *match_cases;
 
     /* All code is written initially to here. When a function is done, a block
        of the appropriate size is copied from here into the function value. */
@@ -188,12 +187,6 @@ typedef struct {
     uint16_t *transform_table;
 
     uint64_t transform_size;
-
-    uint16_t match_case_pos;
-
-    uint16_t match_case_size;
-
-    uint32_t pad;
 
     struct lily_storage_stack_ *storages;
 

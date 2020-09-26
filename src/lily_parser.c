@@ -4666,21 +4666,22 @@ static void error_incomplete_match(lily_parse_state *parser)
 
     lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
     lily_named_sym *sym_iter = match_class->members;
-    int match_case_start = block->match_case_start;
-    int *match_cases = parser->emit->match_cases + match_case_start;
-    int i;
+    lily_buffer_u16 *match_cases = parser->emit->match_cases;
+    uint16_t case_start = parser->emit->block->match_case_start;
+    uint16_t case_end = lily_u16_pos(parser->emit->match_cases);
+    uint16_t i;
 
     lily_mb_add(msgbuf,
             "Match pattern not exhaustive. The following case(s) are missing:");
 
     while (sym_iter) {
         if (sym_iter->item_kind & ITEM_IS_VARIANT) {
-            for (i = match_case_start;i < parser->emit->match_case_pos;i++) {
-                if (sym_iter->id == match_cases[i])
+            for (i = case_start;i < case_end;i++) {
+                if (sym_iter->id == lily_u16_get(match_cases, i))
                     break;
             }
 
-            if (i == parser->emit->match_case_pos)
+            if (i == case_end)
                 lily_mb_add_fmt(msgbuf, "\n* %s", sym_iter->name);
         }
 

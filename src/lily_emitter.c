@@ -34,7 +34,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     lily_emit_state *emit = lily_malloc(sizeof(*emit));
 
     emit->patches = lily_new_buffer_u16(4);
-    emit->match_cases = lily_malloc(sizeof(*emit->match_cases) * 4);
+    emit->match_cases = lily_new_buffer_u16(4);
     emit->tm = lily_new_type_maker();
     emit->ts = lily_new_type_system(emit->tm);
     emit->code = lily_new_buffer_u16(32);
@@ -49,8 +49,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->transform_size = 0;
 
     emit->expr_strings = lily_new_string_pile();
-    emit->match_case_pos = 0;
-    emit->match_case_size = 4;
 
     emit->block = NULL;
 
@@ -87,8 +85,7 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     lily_u16_set_pos(emit->patches, 0);
     lily_u16_set_pos(emit->code, 0);
     lily_u16_set_pos(emit->closure_spots, 0);
-
-    emit->match_case_pos = 0;
+    lily_u16_set_pos(emit->match_cases, 0);
 
     lily_block *block_iter = emit->scope_block;
     lily_block *main_block = block_iter;
@@ -138,10 +135,10 @@ void lily_free_emit_state(lily_emit_state *emit)
     lily_free_type_maker(emit->tm);
     lily_free(emit->transform_table);
     lily_free_type_system(emit->ts);
-    lily_free(emit->match_cases);
     if (emit->closure_aux_code)
         lily_free_buffer_u16(emit->closure_aux_code);
     lily_free_buffer_u16(emit->closure_spots);
+    lily_free_buffer_u16(emit->match_cases);
     lily_free_buffer_u16(emit->patches);
     lily_free_buffer_u16(emit->code);
     lily_free(emit);
@@ -606,7 +603,7 @@ void lily_emit_enter_match_block(lily_emit_state *emit)
 
     block->flags |= BLOCK_ALWAYS_EXITS;
     block->block_type = block_match;
-    block->match_case_start = emit->match_case_pos;
+    block->match_case_start = lily_u16_pos(emit->match_cases);
     emit->block = block;
 }
 
@@ -648,7 +645,7 @@ void lily_emit_leave_block(lily_emit_state *emit)
         lily_u16_write_2(emit->code, o_jump, (uint16_t)x);
     }
     else if (block_type == block_match)
-        emit->match_case_pos = emit->block->match_case_start;
+        lily_u16_set_pos(emit->match_cases, emit->block->match_case_start);
     else if (block_type == block_try)
         /* The vm expects that the last except block will have a 'next' of 0 to
            indicate the end of the 'except' chain. Remove the patch that the
@@ -1412,21 +1409,18 @@ static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
     * Variants and user classes have the same layout, so o_property_get is
       written to extract variant values that the user is interested in. **/
 
-static void grow_match_cases(lily_emit_state *emit)
-{
-    emit->match_case_size *= 2;
-    emit->match_cases = lily_realloc(emit->match_cases,
-        sizeof(*emit->match_cases) * emit->match_case_size);
-}
-
 static int is_duplicate_case(lily_emit_state *emit, lily_class *cls)
 {
-    uint16_t cls_id = cls->id;
     uint16_t i;
+    uint16_t stop = lily_u16_pos(emit->match_cases);
+    uint16_t cls_id = cls->id;
+    lily_buffer_u16 *cases = emit->match_cases;
     int result = 0;
 
-    for (i = emit->block->match_case_start;i < emit->match_case_pos;i++) {
-        if (emit->match_cases[i] == cls_id) {
+    for (i = emit->block->match_case_start;i < stop;i++) {
+        uint16_t match_case = lily_u16_get(cases, i);
+
+        if (match_case == cls_id) {
             result = 1;
             break;
         }
@@ -1463,9 +1457,6 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
 {
     lily_block *block = emit->block;
 
-    if (emit->match_case_pos >= emit->match_case_size)
-        grow_match_cases(emit);
-
     if (is_duplicate_case(emit, cls) ||
         block->flags & BLOCK_FINAL_BRANCH)
         return 0;
@@ -1473,15 +1464,15 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
     uint16_t match_reg = block->match_reg;
 
     lily_emit_branch_switch(emit);
-    emit->match_cases[emit->match_case_pos] = cls->id;
-    emit->match_case_pos++;
+    lily_u16_write_1(emit->match_cases, cls->id);
 
     /* If this isn't the class, jump to the next branch (or exit). */
     lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id, match_reg, 3);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 
     if (cls->item_kind & ITEM_IS_VARIANT) {
-        uint16_t count = emit->match_case_pos - block->match_case_start;
+        uint16_t total = lily_u16_pos(emit->match_cases);
+        uint16_t count = total - block->match_case_start;
 
         if (count == cls->parent->variant_size)
             block->flags |= BLOCK_FINAL_BRANCH;
@@ -1500,7 +1491,8 @@ int lily_emit_try_match_finalize(lily_emit_state *emit)
     lily_class *match_cls = block->match_type->cls;
 
     if (match_cls->item_kind & ITEM_IS_ENUM) {
-        uint16_t count = emit->match_case_pos - block->match_case_start;
+        uint16_t total = lily_u16_pos(emit->match_cases);
+        uint16_t count = total - block->match_case_start;
 
         if (count == match_cls->variant_size)
             return 0;
@@ -1524,7 +1516,7 @@ void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
         lily_raise_syn(emit->raiser,
                 "Match expression is not a user class or enum.");
 
-    block->match_case_start = emit->match_case_pos;
+    block->match_case_start = lily_u16_pos(emit->match_cases);
     block->last_exit = lily_u16_pos(emit->code);
     block->match_reg = ast->result->reg_spot;
     block->match_type = ast->result->type;
