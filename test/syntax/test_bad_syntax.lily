@@ -524,6 +524,16 @@ class TestBadSyntax < TestCase
             var v = "\\128"
         """)
 
+        # bad literal (escape over 255).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = B"\\256"
+        """)
+
         # bad literal (empty Tuple)
 
         assert_parse_fails(t, """\

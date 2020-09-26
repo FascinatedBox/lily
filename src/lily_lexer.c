@@ -284,19 +284,20 @@ static uint16_t scan_escape(char *ch, char *out)
     else if (*ch == '/')
         *out = LILY_PATH_CHAR;
     else if (*ch >= '0' && *ch <= '9') {
-        /* It's a numeric escape. Keep swallowing up numeric values until either
-           3 are caught in total OR there is a possible 'overflow'.
-           This...seems like the right thing to do, I guess. */
-        int i, value = 0, total = 0;
-        for (i = 0;i < 3;i++, ch++) {
+        /* This is a numeric escape. Scan up to three digits, including any
+           leading zeroes. This allows \0 as well as \000. */
+        int i, total;
+
+        for (i = 0, total = 0;i < 3;i++, ch++) {
             if (*ch < '0' || *ch > '9')
                 break;
 
-            value = *ch - '0';
-            if ((total * 10) + value > 255)
-                break;
+            total = (total * 10) + (*ch - '0');
 
-            total = (total * 10) + value;
+            if (total > 255) {
+                i = 0;
+                break;
+            }
         }
 
         result = i;
