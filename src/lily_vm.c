@@ -789,7 +789,7 @@ static void push_coroutine(lily_state *s, lily_coroutine_val *co)
 void lily_push_boolean(lily_state *s, int v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_BOOLEAN_BASE, integer, v);
+    SET_TARGET(V_BOOLEAN_BASE | V_BOOLEAN_FLAG, integer, v);
 }
 
 void lily_push_bytestring(lily_state *s, const char *source, int len)
@@ -965,7 +965,7 @@ if (target->flags & VAL_IS_DEREFABLE) \
 void lily_return_boolean(lily_state *s, int v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_BOOLEAN_BASE, integer, v);
+    SET_TARGET(V_BOOLEAN_BASE | V_BOOLEAN_FLAG, integer, v);
 }
 
 void lily_return_byte(lily_state *s, uint8_t v)
@@ -2294,13 +2294,13 @@ code += 5;
 #define EQUALITY_COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & V_DOUBLE_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-} \
-else if (lhs_reg->flags & V_INTEGER_FLAG) { \
+if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
     vm_regs[code[3]]->value.integer =  \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
+} \
+else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
     vm_regs[code[3]]->value.integer = \
@@ -2312,26 +2312,26 @@ else { \
     vm_regs[code[3]]->value.integer = \
     lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
 } \
-vm_regs[code[3]]->flags = V_BOOLEAN_BASE; \
+vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
 code += 5;
 
 #define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & V_DOUBLE_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-} \
-else if (lhs_reg->flags & (V_INTEGER_FLAG | V_BYTE_FLAG)) { \
+if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
+} \
+else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
     vm_regs[code[3]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) OP 0; \
 } \
-vm_regs[code[3]]->flags = V_BOOLEAN_BASE; \
+vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
 code += 5;
 
 /* This is where native code is executed. Simple opcodes are handled here, while
@@ -2397,7 +2397,7 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_load_boolean:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = code[1];
-                lhs_reg->flags = V_BOOLEAN_BASE;
+                lhs_reg->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG;
                 code += 4;
                 break;
             case o_load_byte:
@@ -2494,7 +2494,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     int base = FLAGS_TO_BASE(lhs_reg);
                     int result;
 
-                    if (base == V_INTEGER_BASE || base == V_BOOLEAN_BASE)
+                    if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_INTEGER_FLAG))
                         result = (lhs_reg->value.integer == 0);
                     else if (base == V_STRING_BASE)
                         result = (lhs_reg->value.string->size == 0);
