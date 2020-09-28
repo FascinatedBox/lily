@@ -207,6 +207,20 @@ class TestClass < TestCase
             }
         """)
 
+        # properties (generic property resolves to Function)
+
+        assert_parse_string(t, """
+            class Box[A](_v: A)
+            {
+                public var @v = _v
+            }
+            define box_func {}
+
+            var b = Box(|| box_func )
+
+            b.v()()
+        """)
+
         # properties (subscript assignment)
 
         t = Interpreter()

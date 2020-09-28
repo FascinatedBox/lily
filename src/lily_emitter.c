@@ -3496,62 +3496,32 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
     write_call(emit, ast, stop, vararg_s);
 }
 
-/* This is the first step to running a call. The 'ast' passed should be the
-   tree that is to be called. 'expect' is the type that 'ast' is expected to
-   output (used for inference).
-   This function adjusts the calling tree to hold the opcode and target that
-   call writing will use later on. It also sets '*call_type' to the type that
-   will be used to verify the call. Finally, it ensures that the type set to
-   '*call_type' is a `Function` (raising a syntax error otherwise). */
-static void begin_call(lily_emit_state *emit, lily_ast *ast,
-        lily_type **call_type)
+static void init_call_state(lily_emit_state *emit, lily_ast *ast)
 {
+    lily_item *call_item;
     lily_ast *first_arg = ast->arg_start;
-    lily_tree_type first_tt = first_arg->tree_type;
-    lily_sym *call_sym = NULL;
-    uint16_t call_source_reg = (uint16_t)-1;
-    uint16_t call_op = (uint8_t)-1;
-    int keep_first_arg = 0;
 
-    ast->first_tree_type = first_arg->tree_type;
-
-    switch (first_tt) {
+    switch (first_arg->tree_type) {
         case tree_method:
             ensure_valid_scope(emit, first_arg);
-            call_sym = first_arg->sym;
-
-            keep_first_arg = 1;
             first_arg->result = (lily_sym *)emit->scope_block->self;
             first_arg->tree_type = tree_cached;
-            break;
-        case tree_defined_func:
-        case tree_inherited_new:
-            call_sym = first_arg->sym;
-            if (call_sym->flags & VAR_NEEDS_CLOSURE) {
-                lily_storage *s = get_storage(emit, first_arg->sym->type);
-                emit_create_function(emit, first_arg->sym, s);
-                call_source_reg = s->reg_spot;
-                call_op = o_call_register;
-            }
+            call_item = first_arg->item;
             break;
         case tree_static_func:
             ensure_valid_scope(emit, first_arg);
-            call_sym = first_arg->sym;
+            call_item = first_arg->item;
             break;
         case tree_oo_access:
             eval_oo_access_for_item(emit, first_arg);
-            if (first_arg->item->item_kind == ITEM_PROPERTY) {
+            if (first_arg->item->item_kind == ITEM_PROPERTY)
                 oo_property_read(emit, first_arg);
-                call_sym = (lily_sym *)first_arg->sym;
-                call_source_reg = first_arg->result->reg_spot;
-                call_op = o_call_register;
-            }
             else {
-                keep_first_arg = 1;
-                call_sym = first_arg->sym;
-                first_arg->tree_type = tree_cached;
                 first_arg->result = first_arg->arg_start->result;
+                first_arg->tree_type = tree_cached;
             }
+
+            call_item = first_arg->item;
             break;
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
@@ -3560,56 +3530,101 @@ static void begin_call(lily_emit_state *emit, lily_ast *ast,
                         "%s is an empty variant that should not be called.",
                         variant->name);
 
-            ast->variant = variant;
-            *call_type = variant->build_type;
-            call_op = o_build_variant;
-            call_source_reg = variant->cls_id;
+            call_item = (lily_item *)variant;
             break;
         }
         case tree_global_var:
         case tree_upvalue:
             eval_tree(emit, first_arg, NULL);
-            call_sym = (lily_sym *)first_arg->sym;
-            call_source_reg = first_arg->result->reg_spot;
-            call_op = o_call_register;
+        case tree_local_var:
+        case tree_defined_func:
+        case tree_inherited_new:
+            call_item = first_arg->item;
             break;
         default:
             eval_tree(emit, first_arg, NULL);
-            call_sym = (lily_sym *)first_arg->result;
+            call_item = (lily_item *)first_arg->result;
             break;
     }
 
-    if (call_sym) {
-        if (call_source_reg == (uint16_t)-1)
-            call_source_reg = call_sym->reg_spot;
+    ast->item = call_item;
+}
 
-        if (call_op == (uint8_t)-1) {
-            if (call_sym->flags & VAR_IS_READONLY) {
-                if (call_sym->flags & VAR_IS_FOREIGN_FUNC)
-                    call_op = o_call_foreign;
-                else
-                    call_op = o_call_native;
+static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
+{
+    uint16_t call_source_reg;
+    lily_type *call_type;
+    uint16_t call_op = o_call_register;
+    lily_item *call_item = ast->item;
+    lily_ast *first_arg = ast->arg_start;
+
+    switch (call_item->item_kind) {
+        case ITEM_VAR: {
+            lily_var *v = (lily_var *)call_item;
+
+            if (v->flags & VAR_NEEDS_CLOSURE) {
+                lily_storage *s = get_storage(emit, v->type);
+
+                emit_create_function(emit, (lily_sym *)v, s);
+                call_source_reg = s->reg_spot;
+            }
+            else if (call_item->flags & VAR_IS_FOREIGN_FUNC) {
+                call_op = o_call_foreign;
+                call_source_reg = v->reg_spot;
+            }
+            else if (call_item->flags & VAR_IS_READONLY) {
+                call_op = o_call_native;
+                call_source_reg = v->reg_spot;
             }
             else
-                call_op = o_call_register;
+                call_source_reg = first_arg->result->reg_spot;
+
+            ast->sym = (lily_sym *)v;
+            call_type = v->type;
+            break;
         }
+        case ITEM_VARIANT_FILLED: {
+            lily_variant_class *variant = (lily_variant_class *)call_item;
 
-        ast->sym = call_sym;
-        *call_type = call_sym->type;
+            ast->variant = variant;
+            call_op = o_build_variant;
+            call_source_reg = variant->cls_id;
+            call_type = variant->build_type;
+            break;
+        }
+        case ITEM_PROPERTY:
+            ast->sym = first_arg->sym;
+            call_source_reg = first_arg->result->reg_spot;
+            call_type = first_arg->result->type;
+            break;
+        case ITEM_STORAGE:
+        default: {
+            lily_storage *s = (lily_storage *)call_item;
 
-        if (call_sym->type->cls->id != LILY_ID_FUNCTION)
-            lily_raise_tree(emit->raiser, ast,
-                    "Cannot anonymously call resulting type '^T'.",
-                    call_sym->type);
+            ast->sym = (lily_sym *)first_arg->result;
+            call_source_reg = first_arg->result->reg_spot;
+            call_type = s->type;
+            break;
+        }
     }
 
-    if (keep_first_arg == 0) {
-        ast->arg_start = ast->arg_start->next_arg;
-        ast->args_collected--;
+    if (call_type->cls->id != LILY_ID_FUNCTION &&
+        (call_item->flags & ITEM_IS_VARIANT) == 0) {
+        lily_raise_tree(emit->raiser, ast,
+                "Cannot anonymously call resulting type '^T'.",
+                call_type);
     }
 
     ast->call_source_reg = call_source_reg;
     ast->call_op = call_op;
+    ast->first_tree_type = first_arg->tree_type;
+
+    if (first_arg->tree_type != tree_cached) {
+        ast->arg_start = ast->arg_start->next_arg;
+        ast->args_collected--;
+    }
+
+    return call_type;
 }
 
 /* This is called when a call has a type that references generics in some way.
@@ -3670,10 +3685,12 @@ static void setup_typing_for_call(lily_emit_state *emit, lily_ast *ast,
    the 'ast' given will have a result set and code written. */
 static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
-    lily_type *call_type = NULL;
-    begin_call(emit, ast, &call_type);
-
     lily_ts_save_point p;
+
+    init_call_state(emit, ast);
+
+    lily_type *call_type = start_call(emit, ast);
+
     /* Scope save MUST happen after the call is started, because evaluating the
        call may trigger a dynaload. That dynaload may then cause the number of
        generics to be seen to increase. But since the scope was registered
@@ -3983,10 +4000,12 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
 static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    lily_type *call_type = NULL;
-    begin_call(emit, ast, &call_type);
-
     lily_ts_save_point p;
+
+    init_call_state(emit, ast);
+
+    lily_type *call_type = start_call(emit, ast);
+
     /* Scope save MUST happen after the call is started, because evaluating the
        call may trigger a dynaload. That dynaload may then cause the number of
        generics to be seen to increase. But since the scope was registered
