@@ -2017,55 +2017,39 @@ static void error_keyarg_before_posarg(lily_emit_state *emit, lily_ast *arg)
 static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type, char **keywords)
 {
+    uint16_t i;
+    uint16_t stop = call_type->subtype_count - 1;
+    lily_ast *arg_iter = ast->arg_start;
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-    lily_mb_flush(msgbuf);
+    lily_type **arg_types = call_type->subtypes;
 
+    lily_mb_flush(msgbuf);
     lily_mb_add(msgbuf, "Call to ");
     add_call_name_to_msgbuf(emit, msgbuf, ast);
     lily_mb_add(msgbuf, " is missing parameters:");
 
-    lily_ast *arg_iter = ast->arg_start;
-    lily_type **arg_types = call_type->subtypes;
-    int i = 0, stop = call_type->subtype_count - 1;
-
     if (call_type->flags & TYPE_IS_VARARGS)
         stop--;
 
-    for (arg_iter = ast->arg_start;
-         i != stop;
-         arg_iter = arg_iter->next_arg) {
-        if (arg_iter->keyword_arg_pos != i) {
-            int cycle_end = arg_iter->keyword_arg_pos;
-            int skip = stop + 1;
-
-            if (arg_iter->next_arg == NULL) {
-                cycle_end = stop;
-                skip = arg_iter->keyword_arg_pos;
-            }
-
-            while (i != cycle_end) {
-                if (i == skip) {
-                    i++;
-                    continue;
-                }
-
-                char *key = keywords[i];
-
-                i++;
-
-                lily_type *t = arg_types[i];
-
-                if (t->cls->id == LILY_ID_OPTARG)
-                    continue;
-
-                if (key[0] != '\0')
-                    lily_mb_add_fmt(msgbuf,
-                            "\n* Parameter #%d (:%s) of type ^T.", i, key, t);
-                else
-                    lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.", i,
-                            t);
-            }
+    for (i = 0;i != stop;i++) {
+        if (arg_iter &&
+            arg_iter->keyword_arg_pos == i) {
+            arg_iter = arg_iter->next_arg;
+            continue;
         }
+
+        lily_type *t = arg_types[i + 1];
+
+        if (t->cls->id == LILY_ID_OPTARG)
+            continue;
+
+        char *key = keywords[i];
+
+        if (key[0] != '\0')
+            lily_mb_add_fmt(msgbuf, "\n* Parameter #%d (:%s) of type ^T.",
+                    i + 1, key, t);
+        else
+            lily_mb_add_fmt(msgbuf, "\n* Parameter #%d of type ^T.", i + 1, t);
     }
 
     lily_raise_tree(emit->raiser, ast, lily_mb_raw(msgbuf));

@@ -347,6 +347,19 @@ class TestBadCall < TestCase
             define f(:a a: Integer) {}
             f(:a "")
         """)
+
+        # keyarg calls (valid first arg)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to f is missing parameters:\n\
+            * Parameter #2 (:b) of type String.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(:a a: Integer, :b b: String) {}
+
+            f(:a "1")
+        """)
     }
 
     public define test_mixarg_calls
