@@ -1822,26 +1822,14 @@ static void dispatch_exception(lily_vm_state *vm)
 
         while (raiser->all_jumps->prev != jump_stop)
             raiser->all_jumps = raiser->all_jumps->prev;
-    }
-    else {
-        while (raiser->all_jumps->prev != NULL)
-            raiser->all_jumps = raiser->all_jumps->prev;
 
-        lily_raise_class(vm->raiser, vm->exception_cls,
-                         lily_mb_raw(vm->vm_buffer));
-        /* Since nothing in vm can capture the error, go to the first jump. The
-           first jump is always parser's jump. */
-        jump_stop = NULL;
-        /* Throw the message into the raiser's msgbuf so the parser's traceback
-           has a consistent place for getting the message. */
-        const char *message = lily_mb_raw(vm->vm_buffer);
-
-        lily_mb_flush(vm->raiser->msgbuf);
-        lily_mb_add(vm->raiser->msgbuf, message);
+        longjmp(raiser->all_jumps->jump, 1);
     }
 
+    while (raiser->all_jumps->prev != NULL)
+        raiser->all_jumps = raiser->all_jumps->prev;
 
-    longjmp(raiser->all_jumps->jump, 1);
+    lily_raise_class(vm->raiser, vm->exception_cls, lily_mb_raw(vm->vm_buffer));
 }
 
 /***
@@ -2766,7 +2754,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 SAVE_LINE(+3);
                 lhs_reg = vm_regs[code[1]];
                 do_o_exception_raise(vm, lhs_reg);
-                code += 3;
                 break;
             case o_instance_new:
             {
