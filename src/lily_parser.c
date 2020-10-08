@@ -5105,14 +5105,12 @@ static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
     lily_config *config = parser->config;
     int has_more = 0;
 
-    while (1) {
+    do {
         char *buffer = lily_read_template_content(lex, &has_more);
 
-        if (has_more == 0)
-            break;
-
-        config->render_func(buffer, config->data);
-    }
+        if (*buffer)
+            config->render_func(buffer, config->data);
+    } while (has_more);
 }
 
 static void main_func_setup(lily_parse_state *parser)

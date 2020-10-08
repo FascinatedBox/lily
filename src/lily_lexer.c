@@ -1522,6 +1522,7 @@ char *lily_read_template_content(lily_lex_state *lex, int *has_more)
         if (read_line(lex)) {
             ch = lex->read_cursor;
             buffer = lex->label;
+            buffer_stop = buffer + lex->label_size - 1;
         }
         else {
             lex->token = tk_eof;
@@ -1548,6 +1549,7 @@ char *lily_read_template_content(lily_lex_state *lex, int *has_more)
             if (read_line(lex)) {
                 ch = lex->read_cursor - 1;
                 buffer = lex->label + offset;
+                buffer_stop = buffer + lex->label_size - offset - 1;
             }
             else {
                 lex->token = tk_eof;
