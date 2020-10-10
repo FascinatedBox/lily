@@ -1,3 +1,55 @@
+Version 1.14 (2020-10-10)
+=========================
+
+This a small release focused on housekeeping and closing several small bugs.
+
+Changes:
+
+* On Linux, the interpreter now builds with `-Wall -Wextra -Wimplicit-fallthrough=0 -Wsign-compare -Wshadow`. Prior releases used only `-Wall`. All warnings from the new flags have been fixed.
+
+Fixes:
+
+* Add `lily_push_unset` for calling keyopt functions (#356).
+
+* Duplicate keyargs are now blocked (#446).
+
+* Add `lily_return_unit` to builtin functions missing it (#461).
+
+* Fix argument reporting for empty static calls (#462).
+
+* Numeric escapes past 255 are now an error (#463).
+
+* The `self` class can no longer be used to solve generics (#464).
+
+* `Unit` is no longer used for lambda inference (#465). This allows the following to type check:
+
+```
+var v: Function(Integer) = (|a| [a] |> List.shift )
+```
+
+* When raising `KeyError` for a missing `Hash` key, double quote characters are now escaped (#467).
+
+* Fixed being unable to call a generic property that resolved to a `Function` (#468).
+
+```
+class Box[A](public var @v: A) {}
+define f {}
+
+var b = Box(|| f )
+
+b.v()()
+```
+
+* Fix crash when the first arg of a bad keyarg call is given (#469).
+
+```
+define f(:a a: Integer, :b b: String) {}
+
+f(:a "1")
+```
+
+* Fix templates not rendering and/or crashing (#480).
+
 Version 1.13 (2020-7-10)
 ========================
 
