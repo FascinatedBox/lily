@@ -2200,16 +2200,15 @@ static void dyna_restore(lily_parse_state *parser, lily_dyna_state *ds)
 
 static void dynaload_foreign(lily_parse_state *parser, lily_dyna_state *ds)
 {
-    lily_module_entry *save_active = parser->symtab->active_module;
-
-    parser->symtab->active_module = ds->m;
+    dyna_save(parser, ds);
 
     lily_class *cls = lily_new_class(parser->symtab, dyna_get_name(ds), 0);
 
     cls->item_kind = ITEM_CLASS_FOREIGN;
     cls->dyna_start = ds->index;
+    collect_generics_for(parser, cls);
+    dyna_restore(parser, ds);
     ds->result = (lily_item *)cls;
-    parser->symtab->active_module = save_active;
 }
 
 static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)

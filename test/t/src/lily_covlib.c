@@ -11,6 +11,10 @@ typedef struct lily_covlib_Foreign_ {
     LILY_FOREIGN_HEADER
 } lily_covlib_Foreign;
 
+typedef struct lily_covlib_ForeignGeneric_ {
+    LILY_FOREIGN_HEADER
+} lily_covlib_ForeignGeneric;
+
 void destroy_Foreign(lily_covlib_Foreign *f)
 {
     (void)f;

@@ -3,6 +3,7 @@ import manifest
 library covlib
 
 foreign class Foreign {}
+foreign static class ForeignGeneric[A, B] {}
 
 class Container(value: String)
 {

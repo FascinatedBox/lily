@@ -162,6 +162,19 @@ class TestVerifyCoverage < TestCase
         """)
     }
 
+    public define test_foreign_generic
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            define f(a: covlib.ForeignGeneric[Integer, String]) {}
+        """)
+    }
+
     public define test_foreign_enums
     {
         var t = Interpreter.with_targets(

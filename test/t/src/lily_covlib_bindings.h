@@ -28,27 +28,36 @@ lily_cid_at(s_, 1)
 #define INIT_Foreign(s_) \
 (lily_covlib_Foreign *)lily_push_foreign(s_, ID_Foreign(s_), (lily_destroy_func)destroy_Foreign, sizeof(lily_covlib_Foreign))
 
-#define PUSH_FlatOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
-#define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
-#define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
-#define ID_FlatEnum(s_) \
+#define ARG_ForeignGeneric(s_, i_) \
+(lily_covlib_ForeignGeneric *)lily_arg_generic(s_, i_)
+#define AS_ForeignGeneric(v_) \
+(lily_covlib_ForeignGeneric *)lily_as_generic(v_)
+#define ID_ForeignGeneric(s_) \
 lily_cid_at(s_, 2)
+#define INIT_ForeignGeneric(s_) \
+(lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
+
+#define PUSH_FlatOne(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+#define PUSH_FlatThree(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+#define PUSH_FlatTwo(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+#define ID_FlatEnum(s_) \
+lily_cid_at(s_, 3)
 
 #define PUSH_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
 #define PUSH_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
 #define PUSH_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
 #define ID_ScopedEnum(s_) \
-lily_cid_at(s_, 3)
+lily_cid_at(s_, 4)
 
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
-    "\04Container\0Foreign\0FlatEnum\0ScopedEnum\0"
+    "\05Container\0Foreign\0ForeignGeneric\0FlatEnum\0ScopedEnum\0"
     ,"N\04Container\0"
     ,"m\0<new>\0(String): Container"
     ,"m\0fetch\0(Container): String"
@@ -56,6 +65,7 @@ const char *lily_covlib_info_table[] = {
     ,"1\0value\0String"
     ,"C\01Foreign\0"
     ,"m\0<new>\0: Foreign"
+    ,"C\0ForeignGeneric\0[A,B]"
     ,"E\0FlatEnum\0"
     ,"V\0FlatOne\0"
     ,"V\0FlatThree\0"
@@ -92,6 +102,7 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     NULL, \
     NULL, \
     lily_covlib_Foreign_new, \
+    NULL, \
     NULL, \
     NULL, \
     NULL, \
