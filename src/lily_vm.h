@@ -125,6 +125,11 @@ lily_vm_state *lily_new_vm_state(lily_raiser *);
 void lily_rewind_vm(lily_vm_state *);
 void lily_free_vm(lily_vm_state *);
 
+lily_vm_state *lily_vm_coroutine_build(lily_vm_state *, uint16_t);
+void lily_vm_coroutine_call_prep(lily_vm_state *, uint16_t);
+void lily_vm_coroutine_resume(lily_vm_state *, lily_coroutine_val *,
+        lily_value *);
+
 void lily_vm_execute(lily_vm_state *);
 
 void lily_vm_ensure_class_table(lily_vm_state *, uint16_t);

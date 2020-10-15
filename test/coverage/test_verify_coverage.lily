@@ -32,30 +32,19 @@ class TestVerifyCoverage < TestCase
             }
             covlib.cover_list_sfs()
 
-            define f(co: Coroutine[Integer, Integer]): Integer {
-                return 1
-            }
-
             class Example < Exception("") {
 
             }
 
-            var co = Coroutine.build(f)
-
-            if covlib.cover_id_checks(co, unit, covlib.Container(""), "abc") == false: {
+            if covlib.cover_id_checks(unit, covlib.Container(""), "abc") == false: {
                 raise Exception("cover_id_checks failed.")
             }
 
-            define co_base(local_co: Coroutine[Integer, Integer]): Integer { return 0 }
             define f2(a: Integer) {}
-
-            # Avoid creating another Coroutine by using the same one twice.
-            var saved_co = Coroutine.build(co_base)
 
             covlib.cover_value_as('a',
                                   B"123",
                                   Exception("test"),
-                                  saved_co,
                                   1.0,
                                   stdout,
                                   f2,
@@ -66,7 +55,6 @@ class TestVerifyCoverage < TestCase
             if covlib.cover_value_group(true,
                                         '1',
                                         B"1",
-                                        saved_co,
                                         1.0,
                                         None,
                                         stdout,

@@ -2310,10 +2310,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
     symtab->hash_class       = build_class(symtab, "Hash",        2, Hash_OFFSET);
     symtab->tuple_class      = build_class(symtab, "Tuple",      -1, Tuple_OFFSET);
                                build_class(symtab, "File",        0, File_OFFSET);
-    lily_class *co_class     = build_class(symtab, "Coroutine",   2, Coroutine_OFFSET);
-
-    /* Coroutine needs an id fix because it comes after Unit. */
-    co_class->id = LILY_ID_COROUTINE;
 
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG, 0);
     lily_class *unit_cls   = build_special(symtab, "Unit", 0, LILY_ID_UNIT, 1);
@@ -2330,12 +2326,6 @@ void lily_init_pkg_builtin(lily_symtab *symtab)
 }
 
 /* The call table expects to find these here, but they're in the vm. */
-void lily_builtin_Coroutine_build(lily_state *);
-void lily_builtin_Coroutine_build_with_value(lily_state *);
-void lily_builtin_Coroutine_receive(lily_state *);
-void lily_builtin_Coroutine_resume(lily_state *);
-void lily_builtin_Coroutine_resume_with(lily_state *);
-void lily_builtin_Coroutine_yield(lily_state *);
 void lily_builtin__print(lily_state *);
 void lily_builtin__calltrace(lily_state *);
 

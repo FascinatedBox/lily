@@ -21,17 +21,6 @@ const char *lily_builtin_info_table[] = {
     ,"m\0encode\0(ByteString,*String): Option[String]"
     ,"m\0size\0(ByteString): Integer"
     ,"m\0slice\0(ByteString,*Integer,*Integer): ByteString"
-    ,"C\012Coroutine\0[A,B]"
-    ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
-    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
-    ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
-    ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"
-    ,"m\0is_running\0[A,B](Coroutine[A,B]): Boolean"
-    ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
-    ,"m\0receive\0[A,B](Coroutine[A,B]): B"
-    ,"m\0resume\0[A,B](Coroutine[A,Unit]): Option[A]"
-    ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Option[A]"
-    ,"m\0yield\0[A,B](Coroutine[A,B],A)"
     ,"N\01DivisionByZeroError\0< Exception"
     ,"m\0<new>\0(String): DivisionByZeroError"
     ,"C\01Double\0"
@@ -153,23 +142,22 @@ const char *lily_builtin_info_table[] = {
 #define Boolean_OFFSET 1
 #define Byte_OFFSET 4
 #define ByteString_OFFSET 6
-#define Coroutine_OFFSET 11
-#define DivisionByZeroError_OFFSET 22
-#define Double_OFFSET 24
-#define Exception_OFFSET 26
-#define File_OFFSET 30
-#define Function_OFFSET 39
-#define Hash_OFFSET 40
-#define IOError_OFFSET 52
-#define IndexError_OFFSET 54
-#define Integer_OFFSET 56
-#define KeyError_OFFSET 61
-#define List_OFFSET 63
-#define RuntimeError_OFFSET 85
-#define String_OFFSET 87
-#define Tuple_OFFSET 109
-#define Unit_OFFSET 110
-#define ValueError_OFFSET 111
+#define DivisionByZeroError_OFFSET 11
+#define Double_OFFSET 13
+#define Exception_OFFSET 15
+#define File_OFFSET 19
+#define Function_OFFSET 28
+#define Hash_OFFSET 29
+#define IOError_OFFSET 41
+#define IndexError_OFFSET 43
+#define Integer_OFFSET 45
+#define KeyError_OFFSET 50
+#define List_OFFSET 52
+#define RuntimeError_OFFSET 74
+#define String_OFFSET 76
+#define Tuple_OFFSET 98
+#define Unit_OFFSET 99
+#define ValueError_OFFSET 100
 #define LILY_DECLARE_BUILTIN_CALL_TABLE \
 LILY_BUILTIN_EXPORT \
 lily_call_entry_func lily_builtin_call_table[] = { \
@@ -184,17 +172,6 @@ lily_call_entry_func lily_builtin_call_table[] = { \
     lily_builtin_ByteString_encode, \
     lily_builtin_ByteString_size, \
     lily_builtin_ByteString_slice, \
-    NULL, \
-    lily_builtin_Coroutine_build, \
-    lily_builtin_Coroutine_build_with_value, \
-    lily_builtin_Coroutine_is_done, \
-    lily_builtin_Coroutine_is_failed, \
-    lily_builtin_Coroutine_is_running, \
-    lily_builtin_Coroutine_is_waiting, \
-    lily_builtin_Coroutine_receive, \
-    lily_builtin_Coroutine_resume, \
-    lily_builtin_Coroutine_resume_with, \
-    lily_builtin_Coroutine_yield, \
     NULL, \
     lily_builtin_DivisionByZeroError_new, \
     NULL, \

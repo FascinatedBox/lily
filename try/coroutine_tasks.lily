@@ -1,3 +1,5 @@
+import (Coroutine) coroutine
+
 define factorial_co(co: Coroutine[Integer, Unit], num: Integer) {
     var f = 1
     for i in 2...num + 1: {

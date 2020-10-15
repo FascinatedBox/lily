@@ -28,6 +28,8 @@ class TestVerifyGc < TestCase
         # reference to themselves on their stack.
 
         assert_parse_string(t, """
+            import (Coroutine) coroutine
+
             define base_one(co: Coroutine[Integer, Integer]): Integer { return 0 }
 
             var other_co = Coroutine.build(base_one)
@@ -85,6 +87,8 @@ class TestVerifyGc < TestCase
 
         t = Interpreter()
         assert_parse_string(t, """
+            import (Coroutine) coroutine
+
             define f(co: Coroutine[Integer, List[Function(Integer)]]): Integer {
                 co.yield(1)
                 return 1

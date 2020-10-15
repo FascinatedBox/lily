@@ -610,12 +610,8 @@ const char *lily_import_current_root_dir(lily_state *s);
 // Identity of the Unit class.
 #define LILY_ID_UNIT         25
 
-// Macro: LILY_ID_COROUTINE
-// Identity of the Coroutine class.
-#define LILY_ID_COROUTINE    26
-
 /* Internal use only: Where class ids start at. */
-#define START_CLASS_ID       27
+#define START_CLASS_ID       26
 
 ////////////////////////////////
 // Section: Raw value operations

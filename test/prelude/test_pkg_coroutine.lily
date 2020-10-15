@@ -1,7 +1,7 @@
 import (Interpreter,
         TestCase) "../t/testing"
 
-class TestVerifyCoroutine < TestCase
+class TestPkgCoroutine < TestCase
 {
     public define test_basic
     {
@@ -74,7 +74,7 @@ class TestVerifyCoroutine < TestCase
                 co.yield(calltrace())
             }
 
-            var expect = ["[test]:5: in fn"]
+            var expect = ["[test]:3: in fn"]
 
             if Coroutine.build(fn).resume().unwrap() != expect: {
                 raise Exception("Failed.")

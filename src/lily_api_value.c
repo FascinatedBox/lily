@@ -87,12 +87,10 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
     uint16_t result_id;
 
     if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
-        base == V_FOREIGN_BASE)
+        base == V_FOREIGN_BASE || base == V_COROUTINE_BASE)
         result_id = (uint16_t)value->value.container->class_id;
     else if (base == V_EMPTY_VARIANT_BASE)
         result_id = (uint16_t)value->value.integer;
-    else if (base == V_COROUTINE_BASE)
-        result_id = LILY_ID_COROUTINE;
     else if (base == V_UNIT_BASE)
         result_id = LILY_ID_UNIT;
     else

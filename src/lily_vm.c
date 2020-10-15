@@ -1867,7 +1867,7 @@ static void dispatch_exception(lily_vm_state *vm)
     Tuple for the callee to unpack, or use a closure to store arguments. **/
 
 static lily_coroutine_val *new_coroutine(lily_vm_state *base_vm,
-        lily_function_val *base_function)
+        lily_function_val *base_function, uint16_t id)
 {
     lily_coroutine_val *result = lily_malloc(sizeof(*result));
     lily_value *receiver = lily_malloc(sizeof(*receiver));
@@ -1877,7 +1877,7 @@ static lily_coroutine_val *new_coroutine(lily_vm_state *base_vm,
     receiver->flags = V_UNIT_BASE;
 
     result->refcount = 1;
-    result->class_id = LILY_ID_COROUTINE;
+    result->class_id = id;
     result->status = co_waiting;
     result->vm = base_vm;
     result->base_function = base_function;
@@ -1890,7 +1890,7 @@ static lily_coroutine_val *new_coroutine(lily_vm_state *base_vm,
    that were just passed. It's effectively lily_call, except that there's no
    registers to zero (they were just made), and no growth check (vm creation
    already make sure of that). */
-static void coroutine_call_prep(lily_vm_state *vm, int count)
+void lily_vm_coroutine_call_prep(lily_vm_state *vm, uint16_t count)
 {
     lily_call_frame *source_frame = vm->call_chain;
     lily_call_frame *target_frame = vm->call_chain->next;
@@ -1906,12 +1906,12 @@ static void coroutine_call_prep(lily_vm_state *vm, int count)
     vm->call_chain = target_frame;
 }
 
-static lily_state *coroutine_build(lily_state *s)
+lily_vm_state *lily_vm_coroutine_build(lily_vm_state *vm, uint16_t id)
 {
-    lily_function_val *to_copy = lily_arg_function(s, 0);
+    lily_function_val *to_copy = lily_arg_function(vm, 0);
 
     if (to_copy->foreign_func != NULL)
-        lily_RuntimeError(s, "Only native functions can be coroutines.");
+        lily_RuntimeError(vm, "Only native functions can be coroutines.");
 
     lily_function_val *base_func = new_function_copy(to_copy);
 
@@ -1924,8 +1924,8 @@ static lily_state *coroutine_build(lily_state *s)
             INITIAL_REGISTER_COUNT + to_copy->reg_count);
     lily_call_frame *toplevel_frame = base_vm->call_chain;
 
-    base_vm->gs = s->gs;
-    base_vm->depth_max = s->depth_max;
+    base_vm->gs = vm->gs;
+    base_vm->depth_max = vm->depth_max;
     /* Bail out of the vm loop if the Coroutine's base Function completes. */
     toplevel_frame->code = foreign_code;
     /* Don't crash when returning to the toplevel frame. */
@@ -1934,52 +1934,22 @@ static lily_state *coroutine_build(lily_state *s)
     /* Make the Coroutine and hand it arguments. The first is the Coroutine
        itself (for control), then whatever arguments this builder was given. */
 
-    lily_coroutine_val *co_val = new_coroutine(base_vm, base_func);
+    lily_coroutine_val *co_val = new_coroutine(base_vm, base_func, id);
 
-    push_coroutine(s, co_val);
+    push_coroutine(vm, co_val);
     /* Tag before pushing so that both sides have the gc tag flag. */
-    lily_value_tag(s, lily_stack_get_top(s));
+    lily_value_tag(vm, lily_stack_get_top(vm));
 
     /* This has the side-effect of pushing a Unit register at the very bottom as
        register zero. This is later used by yield since the base function cannot
        touch it. */
     lily_call_prepare(base_vm, base_func);
-    lily_push_value(base_vm, lily_stack_get_top(s));
+    lily_push_value(base_vm, lily_stack_get_top(vm));
 
     return base_vm;
 }
 
-void lily_builtin_Coroutine_build(lily_state *s)
-{
-    lily_state *base_vm = coroutine_build(s);
-
-    coroutine_call_prep(base_vm, 1);
-    lily_return_top(s);
-}
-
-void lily_builtin_Coroutine_build_with_value(lily_state *s)
-{
-    lily_state *base_vm = coroutine_build(s);
-
-    lily_push_value(base_vm, lily_arg_value(s, 1));
-
-    coroutine_call_prep(base_vm, 2);
-    lily_return_top(s);
-}
-
-void lily_builtin_Coroutine_receive(lily_state *s)
-{
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
-
-    if (co_val->vm != s)
-        lily_RuntimeError(s,
-                "Attempt to receive a value from another coroutine.");
-
-    lily_push_value(s, co_val->receiver);
-    lily_return_top(s);
-}
-
-static void coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
+void lily_vm_coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
         lily_value *to_send)
 {
     /* Don't resume Coroutines that are already running, done, or broken. */
@@ -2033,55 +2003,6 @@ static void coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
     }
     else
         lily_push_none(origin);
-}
-
-void lily_builtin_Coroutine_resume(lily_state *s)
-{
-    coroutine_resume(s, lily_arg_coroutine(s, 0), NULL);
-    lily_return_top(s);
-}
-
-void lily_builtin_Coroutine_resume_with(lily_state *s)
-{
-    coroutine_resume(s, lily_arg_coroutine(s, 0), lily_arg_value(s, 1));
-    lily_return_top(s);
-}
-
-void lily_builtin_Coroutine_yield(lily_state *s)
-{
-    lily_coroutine_val *co_target = lily_arg_coroutine(s, 0);
-    lily_value *to_yield = lily_arg_value(s, 1);
-
-    lily_vm_state *co_vm = co_target->vm;
-
-    if (co_vm != s)
-        lily_RuntimeError(s, "Cannot yield from another coroutine.");
-
-    lily_raiser *co_raiser = co_vm->raiser;
-
-    /* A vm always has at least two jumps currently active:
-     * 1: Parser, or the coroutine base.
-     * 2: vm main loop.
-       If there are any more jumps, the vm is in a foreign call. A Coroutine in
-       a foreign call cannot be restored, because restoration happens by calling
-       the vm main loop again. */
-    if (co_raiser->all_jumps->prev->prev != NULL)
-        lily_RuntimeError(s, "Cannot yield while in a foreign call.");
-
-    /* The yield will not come back, so the return must come first. */
-    lily_return_unit(s);
-
-    /* Push the value to be yielded so that the caller has an obvious place to
-       find it (top of the stack). The value must be popped before the
-       Coroutine is resumed. */
-    lily_push_value(co_vm, to_yield);
-
-    /* Since yield is jumping back into the base jump, the main loop is never
-       properly exited. The main loop's jump needs to be popped so that it can
-       be properly restored when the main loop is entered again. */
-    lily_release_jump(co_raiser);
-
-    longjmp(co_raiser->all_jumps->jump, 1);
 }
 
 /***

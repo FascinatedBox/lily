@@ -109,20 +109,17 @@ void lily_covlib__cover_id_checks(lily_state *s)
 {
     int ok = 1;
 
-    if (lily_arg_isa(s, 0, LILY_ID_COROUTINE) == 0)
+    if (lily_arg_isa(s, 0, LILY_ID_UNIT) == 0)
         ok = 0;
 
-    if (lily_arg_isa(s, 1, LILY_ID_UNIT) == 0)
+    if (lily_arg_isa(s, 1, ID_Container(s)) == 0)
         ok = 0;
 
-    if (lily_arg_isa(s, 2, ID_Container(s)) == 0)
-        ok = 0;
-
-    if (lily_arg_isa(s, 3, LILY_ID_STRING) == 0)
+    if (lily_arg_isa(s, 2, LILY_ID_STRING) == 0)
         ok = 0;
 
     /* This needs to be covered too. Might as well do it here. */
-    (void)lily_arg_generic(s, 3);
+    (void)lily_arg_generic(s, 2);
 
     lily_return_boolean(s, ok);
 }
@@ -132,13 +129,12 @@ void lily_covlib__cover_value_as(lily_state *s)
     (void)lily_as_byte      (lily_arg_value(s, 0));
     (void)lily_as_bytestring(lily_arg_value(s, 1));
     (void)lily_as_container (lily_arg_value(s, 2));
-    (void)lily_as_coroutine (lily_arg_value(s, 3));
-    (void)lily_as_double    (lily_arg_value(s, 4));
-    (void)lily_as_function  (lily_arg_value(s, 5));
-    (void)lily_as_generic   (lily_arg_value(s, 6));
-    (void)lily_as_hash      (lily_arg_value(s, 7));
-    (void)lily_as_integer   (lily_arg_value(s, 8));
-    (void)lily_as_string    (lily_arg_value(s, 9));
+    (void)lily_as_double    (lily_arg_value(s, 3));
+    (void)lily_as_function  (lily_arg_value(s, 4));
+    (void)lily_as_generic   (lily_arg_value(s, 5));
+    (void)lily_as_hash      (lily_arg_value(s, 6));
+    (void)lily_as_integer   (lily_arg_value(s, 7));
+    (void)lily_as_string    (lily_arg_value(s, 8));
     lily_return_unit(s);
 }
 
@@ -193,7 +189,6 @@ void lily_covlib__cover_value_group(lily_state *s)
         lily_isa_boolean,
         lily_isa_byte,
         lily_isa_bytestring,
-        lily_isa_coroutine,
         lily_isa_double,
         lily_isa_empty_variant,
         lily_isa_file,

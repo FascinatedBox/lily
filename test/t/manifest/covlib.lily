@@ -27,7 +27,7 @@ scoped enum ScopedEnum {
 define isa_integer[A](value: A): Boolean
 define cover_ci_from_native(fn: Function(Integer))
 define cover_func_check(native: Function(Integer), foreign: Function(Integer => String)): Boolean
-define cover_id_checks[A](co: Coroutine[Integer, Integer], u: Unit, c: A, d: String): Boolean
+define cover_id_checks[A](u: Unit, c: A, d: String): Boolean
 define cover_list_reserve
 define cover_list_sfs
 define cover_misc_api
@@ -44,30 +44,28 @@ define cover_optional_string(   a: *String = "",
 define cover_value_as(a: Byte,
       b: ByteString,
       c: Exception,
-      d: Coroutine[Integer, Integer],
-      e: Double,
-      f: File,
-      g: Function(Integer),
-      h: Hash[Integer, Integer],
-      i: Integer,
-      j: String)
+      d: Double,
+      e: File,
+      f: Function(Integer),
+      g: Hash[Integer, Integer],
+      h: Integer,
+      i: String)
 
 define cover_value_group(a: Boolean,
      b: Byte,
      c: ByteString,
-     d: Coroutine[Integer, Integer],
-     e: Double,
-     f: Option[Integer],
-     g: File,
-     h: Function(Integer),
-     i: Hash[Integer, Integer],
-     j: Foreign,
-     k: Exception,
-     l: Integer,
-     m: List[Integer],
-     n: String,
-     o: Tuple[Integer],
-     p: Unit,
-     q: Option[Integer]): Boolean
+     d: Double,
+     e: Option[Integer],
+     f: File,
+     g: Function(Integer),
+     h: Hash[Integer, Integer],
+     i: Foreign,
+     j: Exception,
+     k: Integer,
+     l: List[Integer],
+     m: String,
+     n: Tuple[Integer],
+     o: Unit,
+     p: Option[Integer]): Boolean
 define scoop_narrow(f: Function($1))
 define scoop_narrow_with_args(f: Function(Integer, String, $1 => Boolean))
