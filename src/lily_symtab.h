@@ -8,7 +8,7 @@
 typedef struct lily_symtab_ {
     lily_value_stack *literals;
 
-    lily_module_entry *builtin_module;
+    lily_module_entry *prelude_module;
     lily_module_entry *active_module;
 
     /* Defined functions that go out of scope are stuffed in here, unless
@@ -42,7 +42,7 @@ typedef struct lily_symtab_ {
 } lily_symtab;
 
 lily_symtab *lily_new_symtab(void);
-void lily_set_builtin(lily_symtab *, lily_module_entry *);
+void lily_set_prelude(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_free_properties(lily_class *);

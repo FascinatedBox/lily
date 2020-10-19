@@ -1,13 +1,13 @@
 import manifest
 
-### The builtin package provides the classes, vars, and functions that form the
+### The prelude module provides the classes, vars, and functions that form the
 ### foundation of Lily.
-library builtin
+library prelude
 
 #[
-    The builtin module defines fundamental symbols that are available to every
+    The prelude module defines fundamental symbols that are available to every
     module. The contents of this manifest file are loaded directly into the
-    interpreter's builtin module. This approach ensures that there won't be two
+    interpreter's prelude module. This approach ensures that there won't be two
     classes with the id of a fundamental class.
 
     There's still the issue of circularity. Almost every predefined class has a

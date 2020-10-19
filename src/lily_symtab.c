@@ -34,10 +34,10 @@ lily_symtab *lily_new_symtab(void)
     return symtab;
 }
 
-void lily_set_builtin(lily_symtab *symtab, lily_module_entry *builtin)
+void lily_set_prelude(lily_symtab *symtab, lily_module_entry *prelude)
 {
-    symtab->builtin_module = builtin;
-    symtab->active_module = builtin;
+    symtab->prelude_module = prelude;
+    symtab->active_module = prelude;
 }
 
 static void free_boxed_syms_since(lily_boxed_sym *sym, lily_boxed_sym *stop)
@@ -683,9 +683,9 @@ lily_module_entry *lily_find_module(lily_module_entry *module, const char *name)
 lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
         const char *path)
 {
-    /* Modules are linked starting after builtin. Skip that, it's not what's
+    /* Modules are linked starting after prelude. Skip that, it's not what's
        being looked for. */
-    lily_module_entry *module_iter = symtab->builtin_module->next;
+    lily_module_entry *module_iter = symtab->prelude_module->next;
     size_t len = strlen(path);
 
     while (module_iter) {
@@ -703,9 +703,9 @@ lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
 lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
         const char *name)
 {
-    /* Start after the builtin module because nothing actually wants the builtin
+    /* Start after the prelude module because nothing actually wants the prelude
        module. */
-    lily_module_entry *module_iter = symtab->builtin_module->next;
+    lily_module_entry *module_iter = symtab->prelude_module->next;
 
     while (module_iter) {
         if (module_iter->flags & MODULE_IS_REGISTERED &&
@@ -896,7 +896,7 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
 {
     lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
 
-    lily_module_entry *module_iter = symtab->builtin_module;
+    lily_module_entry *module_iter = symtab->prelude_module;
     while (module_iter) {
         lily_class *class_iter = module_iter->class_chain;
         while (class_iter) {

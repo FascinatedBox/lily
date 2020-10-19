@@ -53,9 +53,9 @@ extern void lily_prelude_register(lily_vm_state *);
     different phases:
 
     * Create raiser (it won't be used here).
-    * Create symtab to receive builtin classes/methods/etc.
-    * Create the builtin module, to give to symtab.
-    * Load the builtin module.
+    * Create symtab to receive prelude classes/methods/etc.
+    * Create the prelude module, to give to symtab.
+    * Load the prelude module.
     * Initialize other parts of the interpreter.
     * Link different parts of the interpreter up (sorry).
     * Create the first module (parsed files/strings will become the root).
@@ -70,7 +70,7 @@ extern void lily_prelude_register(lily_vm_state *);
     API functions can be found at the bottom of this file. **/
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
-static void mark_builtin_modules(lily_parse_state *);
+static void mark_prelude_modules(lily_parse_state *);
 void lily_module_register(lily_state *, const char *, const char **,
         lily_call_entry_func *);
 void lily_default_import_func(lily_state *, const char *);
@@ -137,10 +137,10 @@ typedef struct lily_import_state_ {
     uint32_t pad;
 } lily_import_state;
 
-extern const char *lily_builtin_info_table[];
-extern lily_call_entry_func lily_builtin_call_table[];
+extern const char *lily_prelude_info_table[];
+extern lily_call_entry_func lily_prelude_call_table[];
 
-void lily_init_pkg_builtin(lily_symtab *);
+void lily_init_pkg_prelude(lily_symtab *);
 
 void lily_config_init(lily_config *conf)
 {
@@ -209,14 +209,14 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    /* Make the builtin module that holds predefined symbols. */
-    lily_module_register(parser->vm, "builtin", lily_builtin_info_table,
-            lily_builtin_call_table);
+    /* Make the prelude module that holds predefined symbols. */
+    lily_module_register(parser->vm, "prelude", lily_prelude_info_table,
+            lily_prelude_call_table);
 
     /* Make the symtab and load it. */
     parser->symtab = lily_new_symtab();
-    lily_set_builtin(parser->symtab, parser->module_top);
-    lily_init_pkg_builtin(parser->symtab);
+    lily_set_prelude(parser->symtab, parser->module_top);
+    lily_init_pkg_prelude(parser->symtab);
 
     parser->lex = lily_new_lex_state(parser->raiser);
 
@@ -246,7 +246,7 @@ lily_state *lily_new_state(lily_config *config)
 
     /* Mark prelude modules as being part of the prelude, so they're available
        everywhere. */
-    mark_builtin_modules(parser);
+    mark_prelude_modules(parser);
 
     return parser->vm;
 }
@@ -393,7 +393,7 @@ static void initialize_rewind(lily_parse_state *parser)
     rs->line_num = parser->lex->line_num;
 }
 
-static void mark_builtin_modules(lily_parse_state *parser)
+static void mark_prelude_modules(lily_parse_state *parser)
 {
     lily_module_entry *module_iter = parser->module_start;
     while (module_iter) {
@@ -443,15 +443,15 @@ lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
     lily_class *result = NULL;
 
     if (m == symtab->active_module) {
-        lily_module_entry *builtin = symtab->builtin_module;
+        lily_module_entry *prelude = symtab->prelude_module;
 
-        result = lily_find_class(builtin, name);
+        result = lily_find_class(prelude, name);
 
         if (result == NULL && name[1] == '\0')
             result = lily_gp_find(parser->generics, name);
 
         if (result == NULL)
-            result = find_run_class_dynaload(parser, builtin, name);
+            result = find_run_class_dynaload(parser, prelude, name);
     }
 
     if (result == NULL)
@@ -493,7 +493,7 @@ lily_sym *find_existing_sym(lily_module_entry *m, const char *name)
     symbol source (like sys), a dynamically-loaded library, a string source, or
     a file.
 
-    The builtin module is the foundation of Lily, and the only module that is
+    The prelude module is the foundation of Lily, and the only module that is
     implicitly loaded. All other modules must be explicitly loaded through the
     import keyword. This is intentional. An important part of Lily is being able
     to know where symbols come from. The same reasoning is why `import *` is not
@@ -1953,7 +1953,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     implement scoping: Flat enums point to their variants while scoped enums
     point past them. The info table is always terminated with a "Z" record.
 
-    When a module is first loaded (except for builtin), no symbols are loaded.
+    When a module is first loaded (except for prelude), no symbols are loaded.
     Instead, the interpreter waits until a symbol is explicitly specified. When
     that happens, a lookup is done and this mechanism is used as a fallback.
 
@@ -1962,7 +1962,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     requested.
 
     This mechanism was written with predefined modules in mind, notably the
-    builtin module. At well over 100 records, this makes a considerable
+    prelude module. At well over 100 records, this makes a considerable
     difference in startup memory cost. */
 
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
@@ -1985,11 +1985,11 @@ static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
     int counter = 0;
     int stop = cid_entry[-1];
     uint16_t *cid_table = m->cid_table;
-    lily_module_entry *builtin = parser->module_start;
+    lily_module_entry *prelude = parser->module_start;
 
     while (counter < stop) {
         if (cid_table[counter] == 0) {
-            lily_class *cls = lily_find_class(builtin, cid_entry);
+            lily_class *cls = lily_find_class(prelude, cid_entry);
 
             if (cls == NULL)
                 cls = lily_find_class(m, cid_entry);
@@ -2833,15 +2833,14 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
              expr_word_try_use_self(parser))
         return;
     else {
-        /* Since no module was explicitly provided, look through the builtins.
-           This intentionally sets 'm' so that the dynaload check targets the
-           builtin module. */
-        m = symtab->builtin_module;
+        /* Since no module was explicitly provided, look through predefined
+           symbols. */
+        m = symtab->prelude_module;
         sym = find_existing_sym(m, name);
     }
 
     /* As a last resort, try running a dynaload. This will check either the
-       module explicitly provided, or the builtin module.
+       module explicitly provided, or the prelude module.
        In most other situations, the active module should be checked as well
        since it could be a foreign module. Since expressions are limited to
        native modules, it is impossible for the active module to have a dynaload
@@ -4293,7 +4292,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
         else if (item->item_kind & ITEM_IS_VARIANT)
             cls = ((lily_variant_class *)item)->parent;
 
-        if (cls->module == parser->symtab->builtin_module) {
+        if (cls->module == parser->symtab->prelude_module) {
             prefix = "A built-in";
             suffix = "already exists.";
         }
@@ -5081,12 +5080,12 @@ static void keyword_protected(lily_parse_state *parser)
 static void maybe_fix_print(lily_parse_state *parser)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *builtin = symtab->builtin_module;
-    lily_var *stdout_var = lily_find_var(builtin, "stdout");
+    lily_module_entry *prelude = symtab->prelude_module;
+    lily_var *stdout_var = lily_find_var(prelude, "stdout");
     lily_vm_state *vm = parser->vm;
 
     if (stdout_var) {
-        lily_var *print_var = lily_find_var(builtin, "print");
+        lily_var *print_var = lily_find_var(prelude, "print");
         if (print_var) {
             /* Swap out the default implementation of print for one that will
                check if stdin is closed first. */
@@ -5554,16 +5553,16 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     parser->modifiers = 0;
 }
 
-static void manifest_override_builtin(lily_parse_state *parser)
+static void manifest_override_prelude(lily_parse_state *parser)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *builtin = symtab->builtin_module;
+    lily_module_entry *prelude = symtab->prelude_module;
     lily_block *scope_block = parser->emit->scope_block;
 
-    parser->symtab->active_module = builtin;
-    scope_block->scope_var->module = builtin;
+    parser->symtab->active_module = prelude;
+    scope_block->scope_var->module = prelude;
 
-    lily_var *var_iter = builtin->var_chain;
+    lily_var *var_iter = prelude->var_chain;
     uint16_t count = 0;
 
     while (var_iter) {
@@ -5600,9 +5599,9 @@ static void manifest_library(lily_parse_state *parser)
        right name for tooling. */
     NEED_NEXT_TOK(tk_word)
 
-    if (strcmp(lex->label, "builtin") == 0) {
-        manifest_override_builtin(parser);
-        m = parser->symtab->builtin_module;
+    if (strcmp(lex->label, "prelude") == 0) {
+        manifest_override_prelude(parser);
+        m = parser->symtab->prelude_module;
     }
 
     m->doc_id = build_doc_data(parser, 1);
@@ -5648,19 +5647,19 @@ static void manifest_predefined(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *builtin = symtab->builtin_module;
+    lily_module_entry *prelude = symtab->prelude_module;
 
-    /* This keyword is strictly for the builtin manifest. It allows the builtin
-       module to redefine builtin classes/enums.
+    /* This keyword is strictly for the prelude manifest. It allows the prelude
+       module to redefine prelude classes/enums.
        Unlike other keywords, this one performs limited error checking because
-       it assumes the builtin manifest is correct. */
-    if (symtab->active_module != builtin)
+       it assumes the prelude manifest is correct. */
+    if (symtab->active_module != prelude)
         lily_raise_syn(parser->raiser,
-                "'predefined' only available to the builtin module.");
+                "'predefined' only available to the prelude module.");
 
     NEED_NEXT_TOK(tk_word)
 
-    lily_class *cls = find_or_dl_class(parser, builtin, lex->label);
+    lily_class *cls = find_or_dl_class(parser, prelude, lex->label);
 
     /* Drop everything in this target. The methods have been loaded into vm
        tables already, so this won't break existing declarations. This will,

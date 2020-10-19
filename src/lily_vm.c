@@ -1179,7 +1179,7 @@ static void boundary_error(lily_vm_state *vm, int64_t bad_index)
 
 static lily_container_val *build_traceback_raw(lily_vm_state *);
 
-void lily_builtin__calltrace(lily_vm_state *vm)
+void lily_prelude__calltrace(lily_vm_state *vm)
 {
     /* Omit calltrace from the call stack since it's useless info. */
     vm->call_depth--;
@@ -1207,12 +1207,12 @@ static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
     lily_return_unit(vm);
 }
 
-void lily_builtin__print(lily_vm_state *vm)
+void lily_prelude__print(lily_vm_state *vm)
 {
     do_print(vm, stdout, lily_arg_value(vm, 0));
 }
 
-/* Initially, print is implemented through lily_builtin__print. However, when
+/* Initially, print is implemented through lily_prelude__print. However, when
    stdout is dynaloaded, that doesn't work. When stdout is found, print needs to
    use the register holding Lily's stdout, not the plain C stdout. */
 void lily_stdout_print(lily_vm_state *vm)
@@ -1702,10 +1702,8 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
     return lv;
 }
 
-/* This is called when a builtin exception has been thrown. All builtin
-   exceptions are subclasses of Exception with only a traceback and message
-   field being set. This builds a new value of the given type with the message
-   and newly-made traceback. */
+/* This is called to catch an exception raised by vm_error. This builds a new
+   value to store the error message and newly-made traceback. */
 static void make_proper_exception_val(lily_vm_state *vm,
         lily_class *raised_cls, lily_value *result)
 {

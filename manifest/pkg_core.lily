@@ -16,7 +16,7 @@ import manifest
 ### the contents of `builtin` are instead available without a namespace.
 library core
 
-import pkg_builtin
+import pkg_prelude
 import pkg_coroutine
 import pkg_introspect
 import pkg_math
