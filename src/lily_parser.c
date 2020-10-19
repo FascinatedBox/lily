@@ -5368,6 +5368,7 @@ static void set_manifest_define_doc(lily_parse_state *parser)
     for (i = count;i > offset;i--) {
         lily_u16_write_1(parser->data_stack, i);
         add_data_string(parser, var_iter->name);
+        var_iter = var_iter->next;
     }
 
     if (offset) {
