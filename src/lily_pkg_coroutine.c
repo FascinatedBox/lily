@@ -5,6 +5,8 @@
 #define LILY_NO_EXPORT
 #include "lily_pkg_coroutine_bindings.h"
 
+typedef lily_coroutine_val lily_coroutine_Coroutine;
+
 void lily_coroutine_Coroutine_build(lily_state *s)
 {
     lily_vm_state *base_vm = lily_vm_coroutine_build(s, ID_Coroutine(s));
@@ -24,31 +26,31 @@ void lily_coroutine_Coroutine_build_with_value(lily_state *s)
 
 void lily_coroutine_Coroutine_is_failed(lily_state *s)
 {
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
     lily_return_boolean(s, co_val->status == co_failed);
 }
 
 void lily_coroutine_Coroutine_is_done(lily_state *s)
 {
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
     lily_return_boolean(s, co_val->status == co_done);
 }
 
 void lily_coroutine_Coroutine_is_running(lily_state *s)
 {
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
     lily_return_boolean(s, co_val->status == co_running);
 }
 
 void lily_coroutine_Coroutine_is_waiting(lily_state *s)
 {
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
     lily_return_boolean(s, co_val->status == co_waiting);
 }
 
 void lily_coroutine_Coroutine_receive(lily_state *s)
 {
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
 
     if (co_val->vm != s)
         lily_RuntimeError(s,
@@ -60,19 +62,19 @@ void lily_coroutine_Coroutine_receive(lily_state *s)
 
 void lily_coroutine_Coroutine_resume(lily_state *s)
 {
-    lily_vm_coroutine_resume(s, lily_arg_coroutine(s, 0), NULL);
+    lily_vm_coroutine_resume(s, ARG_Coroutine(s, 0), NULL);
     lily_return_top(s);
 }
 
 void lily_coroutine_Coroutine_resume_with(lily_state *s)
 {
-    lily_vm_coroutine_resume(s, lily_arg_coroutine(s, 0), lily_arg_value(s, 1));
+    lily_vm_coroutine_resume(s, ARG_Coroutine(s, 0), lily_arg_value(s, 1));
     lily_return_top(s);
 }
 
 void lily_coroutine_Coroutine_yield(lily_state *s)
 {
-    lily_coroutine_val *co_target = lily_arg_coroutine(s, 0);
+    lily_coroutine_val *co_target = ARG_Coroutine(s, 0);
     lily_value *to_yield = lily_arg_value(s, 1);
 
     lily_vm_state *co_vm = co_target->vm;

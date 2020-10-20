@@ -21,10 +21,6 @@ typedef struct lily_bytestring_val_ lily_bytestring_val;
 // Holds a variant, user-defined class, List, or Tuple.
 typedef struct lily_container_val_  lily_container_val;
 
-// Typedef: lily_coroutine_val
-// Holds a Coroutine value.
-typedef struct lily_coroutine_val_  lily_coroutine_val;
-
 // Typedef: lily_file_val
 // Holds a File value.
 typedef struct lily_file_val_       lily_file_val;
@@ -866,10 +862,6 @@ lily_bytestring_val *lily_arg_bytestring(lily_state *s, int index);
 // will almost certainly cause a crash.
 lily_container_val * lily_arg_container (lily_state *s, int index);
 
-// Function: lily_arg_coroutine
-// Fetch a Coroutine from the stack.
-lily_coroutine_val * lily_arg_coroutine (lily_state *s, int index);
-
 // Function: lily_arg_double
 // Fetch a Double from the stack.
 double               lily_arg_double    (lily_state *s, int index);
@@ -1202,7 +1194,6 @@ void lily_return_value  (lily_state *s, lily_value *value);
 // lily_isa_boolean       - The value is a 'Boolean'.
 // lily_isa_byte          - The value is a 'Byte'.
 // lily_isa_bytestring    - The value is a 'ByteString'.
-// lily_isa_coroutine     - The value is a 'Coroutine'.
 // lily_isa_double        - The value is a 'Double'.
 // lily_isa_empty_variant - This is a variant that does not have any values
 //                          inside of it. Do not attempt to use this as a
@@ -1229,7 +1220,6 @@ typedef enum {
     lily_isa_boolean,
     lily_isa_byte,
     lily_isa_bytestring,
-    lily_isa_coroutine,
     lily_isa_double,
     lily_isa_empty_variant,
     lily_isa_file,
@@ -1265,10 +1255,6 @@ lily_bytestring_val *lily_as_bytestring(lily_value *value);
 // Function: lily_as_container
 // Extract a container (user-defined class, non-empty variant, List, or Tuple).
 lily_container_val * lily_as_container (lily_value *value);
-
-// Function: lily_as_coroutine
-// Extract a Coroutine.
-lily_coroutine_val * lily_as_coroutine (lily_value *value);
 
 // Function: lily_as_double
 // Extract a Double.

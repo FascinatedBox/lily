@@ -16,8 +16,6 @@ lily_bytestring_val *lily_##name##_bytestring(__VA_ARGS__) \
 { return (lily_bytestring_val *)source  action->value.string; } \
 lily_container_val *lily_##name##_container(__VA_ARGS__) \
 { return source  action->value.container; } \
-lily_coroutine_val *lily_##name##_coroutine(__VA_ARGS__) \
-{ return source  action->value.coroutine; } \
 double lily_##name##_double(__VA_ARGS__) \
 { return source  action->value.doubleval; } \
 lily_file_val *lily_##name##_file(__VA_ARGS__) \
@@ -183,8 +181,6 @@ lily_value_group lily_value_get_group(lily_value *value)
             result = lily_isa_file;
             break;
         case V_COROUTINE_BASE:
-            result = lily_isa_coroutine;
-            break;
         case V_FOREIGN_BASE:
             result = lily_isa_foreign_class;
             break;

@@ -250,28 +250,6 @@ void lily_prelude_DivisionByZeroError_new(lily_state *s)
     return_exception(s, LILY_ID_DBZERROR);
 }
 
-/* Coroutines are mostly implemented in the vm because much of what they do
-   involves using internal vm magic. */
-
-
-#define CORO_IS(name, to_check) \
-void lily_prelude_Coroutine_is_##name(lily_state *s) \
-{ \
-    lily_coroutine_val *co_val = lily_arg_coroutine(s, 0); \
-    lily_return_boolean(s, co_val->status == to_check); \
-} \
-
-CORO_IS(done, co_done)
-
-CORO_IS(failed, co_failed)
-
-CORO_IS(waiting, co_waiting)
-
-CORO_IS(running, co_running)
-
-
-
-
 void lily_prelude_Double_to_i(lily_state *s)
 {
     int64_t integer_val = (int64_t)lily_arg_double(s, 0);
