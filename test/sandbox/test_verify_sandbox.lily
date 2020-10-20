@@ -145,4 +145,97 @@ class TestVerifySandbox < TestCase
             }
         """)
     }
+
+    public define test_tasks
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            var content: List[String] = []
+
+            import (Coroutine) coroutine
+
+            define factorial_co(co: Coroutine[Integer, Unit], num: Integer) {
+                var f = 1
+                for i in 2...num + 1: {
+                    co.yield(f)
+                    f *= i
+                }
+            }
+
+            define create_tasks(source: List[Integer]): List[Coroutine[Integer, Unit]]
+            {
+                content.push("Creating {0} tasks:".format(source.size()))
+
+                for i in 0...source.size() - 1: {
+                    var s = source[i]
+
+                    content.push("Task {0} will last {1} rounds.".format(i, s))
+                }
+
+                var result = source.map(|m| Coroutine.build_with_value(factorial_co, m))
+
+                return result
+            }
+
+            var task_list = [
+                2,
+                4,
+                1,
+                3,
+            ] |> create_tasks
+            var total = task_list.size()
+            var round = 1
+
+            while 1: {
+                var results = task_list.map(Coroutine.resume)
+                var remaining = task_list.select(Coroutine.is_waiting)
+                                         .size()
+
+                if remaining == 0: {
+                    break
+                }
+
+                content.push("\\nRound {0} with {1} tasks.".format(round, remaining))
+
+                for i in 0...results.size() - 1: {
+                    var r = results[i]
+
+                    match r: {
+                        case Some(s):
+                            content.push("Task {0}: factorial({1}) = {2}".format(i, round, s))
+                        case None:
+                    }
+                }
+
+                round += 1
+            }
+
+            var expect = [
+                "Creating 4 tasks:",
+                "Task 0 will last 2 rounds.",
+                "Task 1 will last 4 rounds.",
+                "Task 2 will last 1 rounds.",
+                "Task 3 will last 3 rounds.",
+                "\\nRound 1 with 4 tasks.",
+                "Task 0: factorial(1) = 1",
+                "Task 1: factorial(1) = 1",
+                "Task 2: factorial(1) = 1",
+                "Task 3: factorial(1) = 1",
+                "\\nRound 2 with 3 tasks.",
+                "Task 0: factorial(2) = 2",
+                "Task 1: factorial(2) = 2",
+                "Task 3: factorial(2) = 2",
+                "\\nRound 3 with 2 tasks.",
+                "Task 1: factorial(3) = 6",
+                "Task 3: factorial(3) = 6",
+                "\\nRound 4 with 1 tasks.",
+                "Task 1: factorial(4) = 24",
+            ]
+
+            if content != expect: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
 }
