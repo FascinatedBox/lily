@@ -2189,25 +2189,14 @@ lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
 vm_regs[code[3]]->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE; \
 code += 5;
 
-/* EQUALITY_COMPARE_OP is used for == and !=, instead of a normal COMPARE_OP.
-   The difference is that this will allow op on any type, so long as the lhs
-   and rhs agree on the full type. This allows comparing functions, hashes
-   lists, and more.
-
-   Arguments are:
-   * op:       The operation to perform relative to the values given. This will
-               be substituted like: lhs->value OP rhs->value
-               Do it for string too, but against 0. */
-#define EQUALITY_COMPARE_OP(OP) \
+/* EQUALITY_OP is for `!=` and `==`. This has fast paths for the usual suspects,
+   and the heavy `lily_value_compare` for more interesting types. */
+#define EQUALITY_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
     vm_regs[code[3]]->value.integer =  \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
-} \
-else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
     vm_regs[code[3]]->value.integer = \
@@ -2222,21 +2211,23 @@ else { \
 vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
 code += 5;
 
+/* COMPARE_OP is for `>` and `>=`. Only `Byte`, `Integer`, `String`, and
+   `Double` pass through here. */
 #define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
+if (lhs_reg->flags & (V_BYTE_FLAG | V_INTEGER_FLAG)) { \
     vm_regs[code[3]]->value.integer = \
     (lhs_reg->value.integer OP rhs_reg->value.integer); \
-} \
-else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
     vm_regs[code[3]]->value.integer = \
     strcmp(lhs_reg->value.string->string, \
            rhs_reg->value.string->string) OP 0; \
+} \
+else { \
+    vm_regs[code[3]]->value.integer = \
+    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
 } \
 vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
 code += 5;
@@ -2326,7 +2317,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 DOUBLE_OP(-)
                 break;
             case o_compare_eq:
-                EQUALITY_COMPARE_OP(==)
+                EQUALITY_OP(==)
                 break;
             case o_compare_greater:
                 COMPARE_OP(>)
@@ -2335,7 +2326,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 COMPARE_OP(>=)
                 break;
             case o_compare_not_eq:
-                EQUALITY_COMPARE_OP(!=)
+                EQUALITY_OP(!=)
                 break;
             case o_jump:
                 code += (int16_t)code[1];
