@@ -1783,15 +1783,22 @@ static int can_optimize_out_assignment(lily_ast *ast)
     if (right_tree->tree_type == tree_local_var)
         /* Can't skip basic assignments. */
         ;
-    else if (right_tree->tree_type == tree_binary &&
-             (right_tree->op == tk_logical_and ||
-              right_tree->op == tk_logical_or))
-        /* These operations do two different writes. */
-        ;
-    else if (right_tree->tree_type == tree_binary &&
-             IS_ASSIGN_TOKEN(right_tree->op))
-        /* Compound ops (+= and the like) can't be skipped. */
-        ;
+    else if (right_tree->tree_type == tree_binary) {
+        uint8_t op = ast->op;
+
+        if (IS_ASSIGN_TOKEN(op))
+            ;
+        else if (op == tk_logical_and ||
+                 op == tk_logical_or ||
+                 op == tk_eq_eq ||
+                 op == tk_not_eq ||
+                 IS_COMPARE_TOKEN(op))
+            /* These finish by writing a jump table and two writes. They can't
+               be optimized because the optimize only covers one write. */
+            ;
+        else
+            can_optimize = 1;
+    }
     else
         can_optimize = 1;
 
@@ -2173,123 +2180,198 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
  */
 
 /** Here are most of the functions related to evaluating trees. **/
+static void eval_assign(lily_emit_state *, lily_ast *);
+static void eval_func_pipe(lily_emit_state *, lily_ast *, lily_type *);
+static void eval_logical_op(lily_emit_state *, lily_ast *);
+static void eval_plus_plus(lily_emit_state *, lily_ast *);
 
-/* This handles simple binary ops (no assign, &&/||, |>, or compounds. This
-   assumes that both sides have already been evaluated. */
-static void emit_binary_op(lily_emit_state *emit, lily_ast *ast)
+static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
 {
-    lily_sym *lhs_sym = ast->left->result;
-    lily_sym *rhs_sym = ast->right->result;
-    lily_class *lhs_class = lhs_sym->type->cls;
-    lily_class *rhs_class = rhs_sym->type->cls;
-    int opcode = -1;
-    lily_storage *s;
+    if (ast->left->tree_type != tree_local_var)
+        eval_tree(emit, ast->left, NULL);
 
-    if (lhs_sym->type == rhs_sym->type) {
-        int lhs_id = lhs_class->id;
-        int op = ast->op;
+    if (ast->right->tree_type != tree_local_var)
+        eval_tree(emit, ast->right, ast->left->result->type);
 
-        if (lhs_id == LILY_ID_INTEGER) {
-            if (op == tk_plus)
-                opcode = o_int_add;
-            else if (op == tk_minus)
-                opcode = o_int_minus;
-            else if (op == tk_multiply)
-                opcode = o_int_multiply;
-            else if (op == tk_divide)
-                opcode = o_int_divide;
-            else if (op == tk_modulo)
-                opcode = o_int_modulo;
-            else if (op == tk_left_shift)
-                opcode = o_int_left_shift;
-            else if (op == tk_right_shift)
-                opcode = o_int_right_shift;
-            else if (op == tk_bitwise_and)
-                opcode = o_int_bitwise_and;
-            else if (op == tk_bitwise_or)
-                opcode = o_int_bitwise_or;
-            else if (op == tk_bitwise_xor)
-                opcode = o_int_bitwise_xor;
+    lily_sym *left = ast->left->result;
+    lily_sym *right = ast->right->result;
+    uint16_t left_id = left->type->cls->id;
+    uint16_t op = ast->op;
+    uint16_t opcode = UINT16_MAX;
+
+    if (op == tk_eq_eq)
+        opcode = o_compare_eq;
+    else if (op == tk_not_eq)
+        opcode = o_compare_not_eq;
+    else if (left_id == LILY_ID_BYTE ||
+             left_id == LILY_ID_DOUBLE ||
+             left_id == LILY_ID_INTEGER ||
+             left_id == LILY_ID_STRING) {
+        if (op == tk_lt_eq) {
+            lily_sym *temp = right;
+            right = left;
+            left = temp;
+            opcode = o_compare_greater_eq;
         }
-        else if (lhs_id == LILY_ID_DOUBLE) {
-            if (op == tk_plus)
-                opcode = o_number_add;
-            else if (op == tk_minus)
-                opcode = o_number_minus;
-            else if (op == tk_multiply)
-                opcode = o_number_multiply;
-            else if (op == tk_divide)
-                opcode = o_number_divide;
+        else if (op == tk_lt) {
+            lily_sym *temp = right;
+            right = left;
+            left = temp;
+            opcode = o_compare_greater;
         }
-
-        if (lhs_id == LILY_ID_INTEGER ||
-            lhs_id == LILY_ID_BYTE ||
-            lhs_id == LILY_ID_DOUBLE ||
-            lhs_id == LILY_ID_STRING) {
-            if (op == tk_lt_eq) {
-                lily_sym *temp = rhs_sym;
-                rhs_sym = lhs_sym;
-                lhs_sym = temp;
-                opcode = o_compare_greater_eq;
-            }
-            else if (op == tk_lt) {
-                lily_sym *temp = rhs_sym;
-                rhs_sym = lhs_sym;
-                lhs_sym = temp;
-                opcode = o_compare_greater;
-            }
-            else if (op == tk_gt_eq)
-                opcode = o_compare_greater_eq;
-            else if (op == tk_gt)
-                opcode = o_compare_greater;
-        }
-
-        if (op == tk_eq_eq)
-            opcode = o_compare_eq;
-        else if (op == tk_not_eq)
-            opcode = o_compare_not_eq;
+        else if (op == tk_gt_eq)
+            opcode = o_compare_greater_eq;
+        else if (op == tk_gt)
+            opcode = o_compare_greater;
     }
 
-    if (opcode == -1)
-        lily_raise_tree(emit->raiser, ast,
-                   "Invalid operation: ^T %s ^T.", ast->left->result->type,
-                   tokname(ast->op), ast->right->result->type);
+    if (opcode == UINT16_MAX || left->type != right->type)
+        lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
+                left->type, tokname(op), right->type);
 
-    lily_class *storage_class;
-    switch (ast->op) {
+    /* Comparison ops include a jump to take if they fail. In many cases,
+       comparisons are done as part of a conditional test. Putting a jump in the
+       compare allows omitting a separate o_jump_if_false op. */
+    lily_u16_write_5(emit->code, opcode, left->reg_spot, right->reg_spot, 3,
+            ast->line_num);
+
+    if (fold) {
+        /* This tree is the root of a comparison. Add the falsey jump to patches
+           to get patched so the comparison doesn't have to write a jump. */
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+        return;
+    }
+
+    uint16_t patch = lily_u16_pos(emit->code) - 2;
+    lily_storage *s = get_storage(emit, emit->symtab->boolean_class->self_type);
+
+    /* On success, load 'true' and jump over the false section. */
+    lily_u16_write_4(emit->code, o_load_boolean, 1, s->reg_spot, ast->line_num);
+    lily_u16_write_2(emit->code, o_jump, 1);
+
+    /* The false path starts here. +3 because the jump is 3 away from the op. */
+    lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 3);
+
+    patch = lily_u16_pos(emit->code) - 1;
+    lily_u16_write_4(emit->code, o_load_boolean, 0, s->reg_spot, ast->line_num);
+
+    /* Patch the success path to jump here, after the false path. */
+    lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 1);
+
+    ast->result = (lily_sym *)s;
+}
+
+static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *left = ast->left->result;
+    lily_sym *right = ast->right->result;
+    uint16_t left_id = left->type->cls->id;
+    uint16_t op = ast->op;
+    uint16_t opcode = UINT16_MAX;
+    lily_storage *s;
+
+    if (left->type != right->type)
+        op = UINT16_MAX;
+
+    if (left_id == LILY_ID_INTEGER) {
+        if (op == tk_plus)
+            opcode = o_int_add;
+        else if (op == tk_minus)
+            opcode = o_int_minus;
+        else if (op == tk_multiply)
+            opcode = o_int_multiply;
+        else if (op == tk_divide)
+            opcode = o_int_divide;
+        else if (op == tk_modulo)
+            opcode = o_int_modulo;
+        else if (op == tk_left_shift)
+            opcode = o_int_left_shift;
+        else if (op == tk_right_shift)
+            opcode = o_int_right_shift;
+        else if (op == tk_bitwise_and)
+            opcode = o_int_bitwise_and;
+        else if (op == tk_bitwise_or)
+            opcode = o_int_bitwise_or;
+        else if (op == tk_bitwise_xor)
+            opcode = o_int_bitwise_xor;
+    }
+    else if (left_id == LILY_ID_DOUBLE) {
+        if (op == tk_plus)
+            opcode = o_number_add;
+        else if (op == tk_minus)
+            opcode = o_number_minus;
+        else if (op == tk_multiply)
+            opcode = o_number_multiply;
+        else if (op == tk_divide)
+            opcode = o_number_divide;
+    }
+
+    if (opcode == UINT16_MAX)
+        lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
+                left->type, tokname(op), right->type);
+
+    lily_type *storage_type;
+
+    switch (op) {
         case tk_plus:
         case tk_minus:
         case tk_multiply:
         case tk_divide:
-            storage_class = lhs_sym->type->cls;
-            break;
-        case tk_eq_eq:
-        case tk_lt:
-        case tk_lt_eq:
-        case tk_gt:
-        case tk_gt_eq:
-        case tk_not_eq:
-            storage_class = emit->symtab->boolean_class;
+            storage_type = left->type;
             break;
         default:
-            storage_class = emit->symtab->integer_class;
+            storage_type = emit->symtab->integer_class->self_type;
     }
 
-    /* Can we reuse a storage instead of making a new one? It's a simple check,
-       but every register the vm doesn't need to make helps. */
-    if (lhs_sym->item_kind == ITEM_STORAGE &&
-        lhs_class == storage_class)
-        s = (lily_storage *)lhs_sym;
-    else if (rhs_sym->item_kind == ITEM_STORAGE &&
-             rhs_class == storage_class)
-        s = (lily_storage *)rhs_sym;
+    /* Try to use an existing storage again before getting a new one. */
+    if (left->item_kind == ITEM_STORAGE &&
+        left->type == storage_type)
+        s = (lily_storage *)left;
+    else if (right->item_kind == ITEM_STORAGE &&
+             right->type == storage_type)
+        s = (lily_storage *)right;
     else
-        s = get_storage(emit, storage_class->self_type);
+        s = get_storage(emit, storage_type);
 
-    lily_u16_write_5(emit->code, opcode, lhs_sym->reg_spot, rhs_sym->reg_spot,
+    lily_u16_write_5(emit->code, opcode, left->reg_spot, right->reg_spot,
             s->reg_spot, ast->line_num);
-
     ast->result = (lily_sym *)s;
+}
+
+static void eval_binary_op(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    uint8_t prio = lily_priority_for_token(ast->op);
+
+    /* See `scripts/token.lily` for priority groups. */
+
+    switch (prio) {
+        case 1:
+            eval_assign(emit, ast);
+            break;
+        case 2:
+        case 3:
+            eval_logical_op(emit, ast);
+            break;
+        case 4:
+            eval_compare_op(emit, ast, 0);
+            break;
+        case 5:
+            eval_plus_plus(emit, ast);
+            break;
+        case 6:
+            eval_func_pipe(emit, ast, expect);
+            break;
+        default:
+            if (ast->left->tree_type != tree_local_var)
+                eval_tree(emit, ast->left, NULL);
+
+            if (ast->right->tree_type != tree_local_var)
+                eval_tree(emit, ast->right, ast->left->result->type);
+
+            eval_arith_op(emit, ast);
+            break;
+    }
 }
 
 /* This takes a tree and will change the op from an 'X Y= Z' to 'X Y Z'. The
@@ -2377,7 +2459,7 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
     lily_token save_op = ast->op;
 
     set_compound_spoof_op(emit, ast);
-    emit_binary_op(emit, ast);
+    eval_arith_op(emit, ast);
     ast->op = save_op;
 }
 
@@ -4133,25 +4215,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         emit_boolean(emit, ast);
     else if (ast->tree_type == tree_call)
         eval_call(emit, ast, expect);
-    else if (ast->tree_type == tree_binary) {
-        if (IS_ASSIGN_TOKEN(ast->op))
-            eval_assign(emit, ast);
-        else if (ast->op == tk_logical_or || ast->op == tk_logical_and)
-            eval_logical_op(emit, ast);
-        else if (ast->op == tk_func_pipe)
-            eval_func_pipe(emit, ast, expect);
-        else if (ast->op == tk_plus_plus)
-            eval_plus_plus(emit, ast);
-        else {
-            if (ast->left->tree_type != tree_local_var)
-                eval_tree(emit, ast->left, NULL);
-
-            if (ast->right->tree_type != tree_local_var)
-                eval_tree(emit, ast->right, ast->left->result->type);
-
-            emit_binary_op(emit, ast);
-        }
-    }
+    else if (ast->tree_type == tree_binary)
+        eval_binary_op(emit, ast, expect);
     else if (ast->tree_type == tree_parenth) {
         lily_ast *start = ast->arg_start;
 
@@ -4255,6 +4320,17 @@ static int is_false_tree(lily_ast *ast)
     return result;
 }
 
+static int is_compare_tree(lily_ast *ast)
+{
+    int result = 0;
+
+    if (ast->tree_type == tree_binary &&
+        IS_COMPARE_TOKEN(ast->op))
+        result = 1;
+
+    return result;
+}
+
 /* Evaluate an expression that falls through if truthy, or jumps to the next
    branch if falsey. */
 void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
@@ -4264,6 +4340,13 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
     if (is_false_tree(ast)) {
         /* Write a fake jump for block transition to skip over. */
         lily_u16_write_1(emit->patches, 0);
+        return;
+    }
+
+    if (is_compare_tree(ast)) {
+        /* Run the compare op with 1 so that it finishes by writing a falsey
+           jump to be patched. */
+        eval_compare_op(emit, ast, 1);
         return;
     }
 

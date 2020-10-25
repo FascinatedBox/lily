@@ -69,6 +69,7 @@ typedef enum {
 } lily_token;
 
 # define IS_ASSIGN_TOKEN(t) (lily_priority_for_token(t) == 1)
+# define IS_COMPARE_TOKEN(t) (lily_priority_for_token(t) == 4)
 
 int lily_priority_for_token(lily_token);
 const char *tokname(lily_token);

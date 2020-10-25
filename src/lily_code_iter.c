@@ -54,6 +54,12 @@ int lily_ci_next(lily_code_iter *iter)
         case o_compare_greater:
         case o_compare_greater_eq:
         case o_compare_not_eq:
+            iter->inputs_3 = 2;
+            iter->jumps_5 = 1;
+            iter->line_6 = 1;
+
+            iter->round_total = 5;
+            break;
         case o_int_add:
         case o_int_bitwise_and:
         case o_int_bitwise_or:

@@ -2195,42 +2195,40 @@ code += 5;
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
-    vm_regs[code[3]]->value.integer =  \
-    (lhs_reg->value.integer OP rhs_reg->value.integer); \
+    i = lhs_reg->value.integer OP rhs_reg->value.integer; \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) OP 0; \
+    i = strcmp(lhs_reg->value.string->string, \
+               rhs_reg->value.string->string) OP 0; \
 } \
 else { \
     SAVE_LINE(+5); \
-    vm_regs[code[3]]->value.integer = \
-    lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
+    i = lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
 } \
-vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
-code += 5;
+ \
+if (i) \
+    code += 5; \
+else \
+    code += code[3];
 
 /* COMPARE_OP is for `>` and `>=`. Only `Byte`, `Integer`, `String`, and
    `Double` pass through here. */
 #define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & (V_BYTE_FLAG | V_INTEGER_FLAG)) { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.integer OP rhs_reg->value.integer); \
-} \
+if (lhs_reg->flags & (V_INTEGER_FLAG | V_BYTE_FLAG)) \
+    i = lhs_reg->value.integer OP rhs_reg->value.integer; \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
-    vm_regs[code[3]]->value.integer = \
-    strcmp(lhs_reg->value.string->string, \
-           rhs_reg->value.string->string) OP 0; \
+    i = strcmp(lhs_reg->value.string->string, \
+               rhs_reg->value.string->string) OP 0; \
 } \
-else { \
-    vm_regs[code[3]]->value.integer = \
-    (lhs_reg->value.doubleval OP rhs_reg->value.doubleval); \
-} \
-vm_regs[code[3]]->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG; \
-code += 5;
+else \
+    i = lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
+ \
+if (i) \
+    code += 5; \
+else \
+    code += code[3];
 
 /* This is where native code is executed. Simple opcodes are handled here, while
    complex opcodes are handled in do_o_* functions.
