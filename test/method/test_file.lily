@@ -171,6 +171,8 @@ class TestFileMethods < TestCase
         var lines = expect.split("\n")
 
         f.print(12345)
+        f.close()
+        f = File.open("test\/file_for_io.txt", "a")
 
         for i in 0...lines.size() - 1: {
             f.print(lines[i])

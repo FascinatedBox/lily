@@ -832,7 +832,7 @@ void lily_push_file(lily_state *s, FILE *inner_file, const char *mode)
     filev->refcount = 1;
     filev->inner_file = inner_file;
     filev->read_ok = (*mode == 'r' || plus);
-    filev->write_ok = (*mode == 'w' || plus);
+    filev->write_ok = (*mode == 'w' || *mode == 'a' || plus);
     filev->is_builtin = 0;
 
     SET_TARGET(V_FILE_BASE | VAL_IS_DEREFABLE, file, filev);
