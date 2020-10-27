@@ -2516,7 +2516,7 @@ static int keyword_by_name(const char *name)
             break;
     }
 
-    return -1;
+    return KEY_BAD_ID;
 }
 
 /***
@@ -2575,7 +2575,7 @@ static int constant_by_name(const char *name)
             break;
     }
 
-    return -1;
+    return CONST_BAD_ID;
 }
 
 static void error_self_usage(lily_parse_state *parser)
@@ -2651,30 +2651,30 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 static int expr_word_try_constant(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int key_id = constant_by_name(lex->label);
+    int const_id = constant_by_name(lex->label);
 
-    if (key_id == -1)
+    if (const_id == CONST_BAD_ID)
         return 0;
 
     /* These literal fetching routines are guaranteed to return a literal with
        the given value. */
-    if (key_id == CONST___LINE__)
+    if (const_id == CONST___LINE__)
         push_integer(parser, (int64_t)lex->line_num);
-    else if (key_id == CONST___FILE__)
+    else if (const_id == CONST___FILE__)
         push_string(parser, parser->symtab->active_module->path);
-    else if (key_id == CONST___FUNCTION__)
+    else if (const_id == CONST___FUNCTION__)
         push_string(parser, parser->emit->scope_block->scope_var->name);
-    else if (key_id == CONST_TRUE)
+    else if (const_id == CONST_TRUE)
         lily_es_push_boolean(parser->expr, 1);
-    else if (key_id == CONST_FALSE)
+    else if (const_id == CONST_FALSE)
         lily_es_push_boolean(parser->expr, 0);
-    else if (key_id == CONST_SELF) {
+    else if (const_id == CONST_SELF) {
         if (lily_emit_can_use_self_keyword(parser->emit) == 0)
             error_self_usage(parser);
 
         lily_es_push_self(parser->expr);
     }
-    else if (key_id == CONST_UNIT)
+    else if (const_id == CONST_UNIT)
         push_unit(parser);
 
     return 1;
@@ -3323,12 +3323,12 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
                 tokname(tk_end_lambda));
 
     while (1) {
-        int key_id = -1;
+        int key_id = KEY_BAD_ID;
 
         if (lex->token == tk_word)
             key_id = keyword_by_name(lex->label);
 
-        if (key_id != -1) {
+        if (key_id != KEY_BAD_ID) {
             lily_next_token(lex);
             handlers[key_id](parser);
         }
@@ -5205,10 +5205,11 @@ static void process_docblock(lily_parse_state *parser)
     lily_next_token(lex);
 
     int key_id;
+
     if (lex->token == tk_word)
         key_id = keyword_by_name(lex->label);
     else
-        key_id = -1;
+        key_id = KEY_BAD_ID;
 
     if (key_id == KEY_PRIVATE ||
         key_id == KEY_PROTECTED ||
@@ -5231,7 +5232,7 @@ static void process_docblock(lily_parse_state *parser)
 static void parser_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int key_id = -1;
+    int key_id = KEY_BAD_ID;
 
     lily_next_token(lex);
 
@@ -5239,7 +5240,7 @@ static void parser_loop(lily_parse_state *parser)
         if (lex->token == tk_word) {
             /* Is this a keyword or an expression? */
             key_id = keyword_by_name(lex->label);
-            if (key_id != -1) {
+            if (key_id != KEY_BAD_ID) {
                 /* Pull the next token and dispatch the keyword. */
                 lily_next_token(lex);
                 handlers[key_id](parser);
@@ -5696,7 +5697,8 @@ static void manifest_predefined(lily_parse_state *parser)
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int have_docblock = 0, key_id = -1;
+    int have_docblock = 0;
+    int key_id = KEY_BAD_ID;
 
     parser->flags |= PARSER_IN_MANIFEST;
 
