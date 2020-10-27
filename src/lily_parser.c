@@ -567,7 +567,7 @@ static lily_module_entry *new_module(lily_parse_state *parser)
     module->loadname = NULL;
     module->dirname = NULL;
     module->path = NULL;
-    module->doc_id = (uint16_t)-1;
+    module->doc_id = UINT16_MAX;
     module->cmp_len = 0;
     module->info_table = NULL;
     module->cid_table = NULL;
@@ -1198,8 +1198,8 @@ static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
     strcpy(var->name, name);
     var->line_num = line_num;
     var->shorthash = shorthash_for_name(name);
-    var->closure_spot = (uint16_t)-1;
-    var->doc_id = (uint16_t)-1;
+    var->closure_spot = UINT16_MAX;
+    var->doc_id = UINT16_MAX;
     var->type = type;
     var->next = NULL;
     var->parent = NULL;
@@ -5587,7 +5587,7 @@ static void manifest_library(lily_parse_state *parser)
 
     lily_var *scope_var = scope_block->scope_var;
 
-    if (scope_var->doc_id != (uint16_t)-1)
+    if (scope_var->doc_id != UINT16_MAX)
         lily_raise_syn(parser->raiser,
                 "Library keyword has already been used.");
 

@@ -477,7 +477,10 @@ static lily_block *next_block(lily_emit_state *emit)
     new_block->class_entry = emit->block->class_entry;
     new_block->self = NULL;
     new_block->patch_start = lily_u16_pos(emit->patches);
-    new_block->last_exit = -1;
+
+    /* This can't be 0, or `define f: Integer {}` passes if no code has been
+       written before it. */
+    new_block->last_exit = UINT16_MAX;
     new_block->flags = 0;
     new_block->var_count = 0;
     new_block->code_start = lily_u16_pos(emit->code);
@@ -869,7 +872,7 @@ void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
     self->flags |= STORAGE_IS_LOCKED;
     /* This isn't cleared by default because it's the only storage that can be
        closed over. */
-    self->closure_spot = (uint16_t)-1;
+    self->closure_spot = UINT16_MAX;
     emit->scope_block->self = self;
 }
 
@@ -915,7 +918,7 @@ static int can_use_self(lily_emit_state *emit, uint16_t flag)
     /* Make sure self is going to be in the closure. */
     lily_storage *origin_self = origin->self;
 
-    if (origin_self->closure_spot == (uint16_t)-1) {
+    if (origin_self->closure_spot == UINT16_MAX) {
         /* The resulting depth for the backing closure is always the same:
            __main__ is 1, class is 2, backing define is 3. */
         uint16_t depth = 3;
@@ -1037,7 +1040,7 @@ static void setup_for_transform(lily_emit_state *emit,
         emit->transform_size = emit->scope_block->next_reg_spot;
     }
 
-    memset(emit->transform_table, (uint16_t)-1,
+    memset(emit->transform_table, UINT16_MAX,
             next_reg_spot * sizeof(*emit->transform_table));
 
     lily_var *func_var = emit->scope_block->scope_var;
@@ -1060,7 +1063,7 @@ static void setup_for_transform(lily_emit_state *emit,
             count++;
             /* This prevents other closures at this level from thinking this
                local belongs to them. */
-            lily_u16_set_at(emit->closure_spots, i + 1, (uint16_t)-1);
+            lily_u16_set_at(emit->closure_spots, i + 1, UINT16_MAX);
         }
     }
     /* If there are locals in one of the inner functions, write them down. This
@@ -1073,7 +1076,7 @@ static void setup_for_transform(lily_emit_state *emit,
 
         int pos = 1;
         for (i = 0;i < next_reg_spot;i++) {
-            if (emit->transform_table[i] != (uint16_t) -1) {
+            if (emit->transform_table[i] != UINT16_MAX) {
                 locals[pos] = i;
                 pos++;
             }
@@ -1129,7 +1132,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     int count = 0;
 
     if (op == o_call_register &&
-        transform_table[buffer[pos]] != (uint16_t)-1)
+        transform_table[buffer[pos]] != UINT16_MAX)
         count++;
 
     pos += ci.special_1 + ci.counter_2;
@@ -1137,7 +1140,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     if (ci.inputs_3) {
         int i;
         for (i = 0;i < ci.inputs_3;i++) {
-            if (transform_table[buffer[pos + i]] != (uint16_t)-1)
+            if (transform_table[buffer[pos + i]] != UINT16_MAX)
                 count++;
         }
     }
@@ -1189,7 +1192,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 
         lily_storage *self = scope_block->self;
 
-        if (self && self->closure_spot != (uint16_t)-1) {
+        if (self && self->closure_spot != UINT16_MAX) {
             /* Class constructors can't be closures and enums don't have a
                constructor. So if the backing closure has self inside, then it
                has to come from a class/enum method. Those methods will always
@@ -1223,7 +1226,7 @@ static void perform_closure_transform(lily_emit_state *emit,
 #define MAYBE_TRANSFORM_INPUT(x, z) \
 { \
     uint16_t id = transform_table[buffer[x]]; \
-    if (id != (uint16_t)-1) { \
+    if (id != UINT16_MAX) { \
         lily_u16_write_4(emit->closure_aux_code, z, id, \
                 buffer[x], first_line); \
         jump_adjust += 4; \
@@ -2512,7 +2515,7 @@ static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
     lily_var *left_var = (lily_var *)ast->left->sym;
     uint16_t spot = left_var->closure_spot;
 
-    if (spot == (uint16_t)-1)
+    if (spot == UINT16_MAX)
         spot = checked_close_over_var(emit, left_var);
 }
 
@@ -2740,7 +2743,7 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *result;
-    int andor_start;
+    uint16_t andor_start;
     int jump_on = (ast->op == tk_logical_or);
 
     /* The top-most and/or will start writing patches, and then later write down
@@ -2750,7 +2753,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         (ast->parent->tree_type != tree_binary || ast->parent->op != ast->op))
         andor_start = lily_u16_pos(emit->patches);
     else
-        andor_start = -1;
+        andor_start = UINT16_MAX;
 
     if (ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left, NULL);
@@ -2766,7 +2769,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 
     emit_jump_if(emit, ast->right, jump_on);
 
-    if (andor_start != -1) {
+    if (andor_start != UINT16_MAX) {
         int save_pos;
         lily_symtab *symtab = emit->symtab;
 
@@ -2957,7 +2960,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
             lily_var *v = (lily_var *)sym;
 
             spot = v->closure_spot;
-            if (spot == (uint16_t)-1)
+            if (spot == UINT16_MAX)
                 spot = checked_close_over_var(emit, v);
 
             emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
@@ -3377,7 +3380,7 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
     else
-        va_pos = (uint16_t)-1;
+        va_pos = UINT16_MAX;
 
     while (1) {
         if (pos != args_written) {
@@ -3402,7 +3405,7 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
 
             if (arg)
                 pos = arg->keyword_arg_pos;
-            else if (va_pos != (uint16_t)-1 && vararg_s != NULL)
+            else if (va_pos != UINT16_MAX && vararg_s != NULL)
                 /* vararg_s may be NULL if the function is varargs but no
                    varargs were actually passed. */
                 pos = va_pos;

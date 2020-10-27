@@ -37,7 +37,7 @@ static const lily_class name = \
     search_name, \
     shorthash, \
     0, \
-    (uint16_t)-1, \
+    UINT16_MAX, \
     0, \
     NULL, \
     NULL, \
