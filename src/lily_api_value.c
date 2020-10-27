@@ -43,17 +43,18 @@ lily_value *lily_arg_value(lily_state *s, int index)
     return s->call_chain->start[index];
 }
 
-lily_value *lily_con_get(lily_container_val *c, int index)
+lily_value *lily_con_get(lily_container_val *c, uint32_t index)
 {
     return c->values[index];
 }
 
-void lily_con_set(lily_container_val *c, int index, lily_value *v)
+void lily_con_set(lily_container_val *c, uint32_t index, lily_value *v)
 {
     lily_value_assign(c->values[index], v);
 }
 
-void lily_con_set_from_stack(lily_state *s, lily_container_val *c, int index)
+void lily_con_set_from_stack(lily_state *s, lily_container_val *c,
+        uint32_t index)
 {
     lily_value *target = c->values[index];
 
@@ -304,7 +305,7 @@ char *lily_bytestring_raw(lily_bytestring_val *sv)
     return sv->string;
 }
 
-int lily_bytestring_length(lily_bytestring_val *sv)
+uint32_t lily_bytestring_length(lily_bytestring_val *sv)
 {
     return sv->size;
 }
@@ -346,7 +347,7 @@ char *lily_string_raw(lily_string_val *sv)
     return sv->string;
 }
 
-int lily_string_length(lily_string_val *sv)
+uint32_t lily_string_length(lily_string_val *sv)
 {
     return sv->size;
 }

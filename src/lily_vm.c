@@ -2045,7 +2045,7 @@ lily_value *lily_call_result(lily_vm_state *vm)
     return vm->call_chain->next->return_target;
 }
 
-void lily_call(lily_vm_state *vm, int count)
+void lily_call(lily_vm_state *vm, uint16_t count)
 {
     lily_call_frame *source_frame = vm->call_chain;
     lily_call_frame *target_frame = vm->call_chain->next;

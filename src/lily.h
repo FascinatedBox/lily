@@ -620,7 +620,7 @@ char *lily_bytestring_raw(lily_bytestring_val *byte_val);
 
 // Function: lily_bytestring_length
 // Get the size (in bytes) of a ByteString.
-int lily_bytestring_length(lily_bytestring_val *byte_val);
+uint32_t lily_bytestring_length(lily_bytestring_val *byte_val);
 
 // Function: lily_con_get
 // Fetch an element from a container.
@@ -635,8 +635,8 @@ int lily_bytestring_length(lily_bytestring_val *byte_val);
 // Parameters:
 //     con   - The container (user-defined class, non-empty variant, List, or
 //             Tuple).
-//     index - Target index. Cannot be negative. 0 is the first element.
-lily_value *lily_con_get(lily_container_val *con, int index);
+//     index - Target index. 0 is the first element.
+lily_value *lily_con_get(lily_container_val *con, uint32_t index);
 
 // Function: lily_con_set
 // Set an element into a container.
@@ -650,8 +650,8 @@ lily_value *lily_con_get(lily_container_val *con, int index);
 // Parameters:
 //     con   - The container (user-defined class, non-empty variant, List, or
 //             Tuple).
-//     index - Target index. Cannot be negative. 0 is the first element.
-void lily_con_set(lily_container_val *con, int index, lily_value *value);
+//     index - Target index. 0 is the first element.
+void lily_con_set(lily_container_val *con, uint32_t index, lily_value *value);
 
 // Function: lily_con_set_from_stack
 // (Stack: -1) Set an element into a container from the stack.
@@ -664,8 +664,9 @@ void lily_con_set(lily_container_val *con, int index, lily_value *value);
 // Parameters:
 //     con   - The container (user-defined class, non-empty variant, List, or
 //             Tuple).
-//     index - Target index. Cannot be negative. 0 is the first element.
-void lily_con_set_from_stack(lily_state *s, lily_container_val *con, int index);
+//     index - Target index. 0 is the first element.
+void lily_con_set_from_stack(lily_state *s, lily_container_val *con,
+                             uint32_t index);
 
 // Function: lily_con_size
 // Return the number of occupied values in a container.
@@ -811,7 +812,7 @@ char *lily_string_raw(lily_string_val *string_val);
 
 // Function: lily_string_length
 // Returns the size (in bytes) of a String buffer.
-int lily_string_length(lily_string_val *string_val);
+uint32_t lily_string_length(lily_string_val *string_val);
 
 /////////////////////////////
 // Section: Argument handling
@@ -1061,7 +1062,8 @@ void                lily_push_string       (lily_state *s, const char *source);
 // The source should not include a zero terminator. This function will add one
 // at the very end. Callers should instead make sure that there are no zero
 // terminators in 'source' (at least for as much as 'size').
-void                lily_push_string_sized (lily_state *s, const char *source, int size);
+void                lily_push_string_sized (lily_state *s, const char *source,
+                                            int size);
 
 // Function: lily_push_super
 // (Stack: +1) Push a superclass onto the stack.
@@ -1313,7 +1315,7 @@ char *               lily_as_string_raw(lily_value *value);
 // that was returned by the last call to 'lily_call_prepare'. If a caller wants
 // to save the result of a function call, it can use lily_push_value to push
 // the result onto the stack.
-void lily_call(lily_state *s, int count);
+void lily_call(lily_state *s, uint16_t count);
 
 // Function: lily_call_prepare
 // (Stack: +1) Reserve a result register and prepare 'func'.
