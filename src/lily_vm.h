@@ -76,14 +76,12 @@ typedef struct lily_global_state_ {
     uint32_t gc_live_entry_count;
     /* How many entries to allow in ->gc_live_entries before doing a sweep. */
     uint32_t gc_threshold;
-    /* An always-increasing value indicating the current pass, used to determine
-       if an entry has been seen. An entry is visible if
-       'entry->last_pass == gc_pass' */
-    uint32_t gc_pass;
 
     /* If the current gc sweep does not free anything, this is how much that
        the threshold is multiplied by to increase it. */
     uint32_t gc_multiplier;
+
+    uint32_t pad;
 
     struct lily_vm_state_ *first_vm;
 

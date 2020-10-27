@@ -113,7 +113,6 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     gs->gc_live_entries = NULL;
     gs->gc_spare_entries = NULL;
     gs->gc_live_entry_count = 0;
-    gs->gc_pass = 0;
     gs->first_vm = vm;
 
     vm->gs = gs;
@@ -182,7 +181,7 @@ static void destroy_gc_entries(lily_vm_state *vm)
             if (gc_iter->value.generic != NULL) {
                 /* This tells value destroy to hollow the value since other
                    circular values may use it. */
-                gc_iter->last_pass = -1;
+                gc_iter->status = GC_SWEEP;
                 lily_value_destroy((lily_value *)gc_iter);
             }
         }
@@ -253,7 +252,7 @@ void lily_free_vm(lily_vm_state *vm)
  *
  */
 
-static void gc_mark(int, lily_value *);
+static void gc_mark(lily_value *);
 
 /* This is Lily's garbage collector. It runs in multiple stages:
    1: Walk registers currently in use and call the mark function on any register
@@ -274,10 +273,8 @@ static void invoke_gc(lily_vm_state *vm)
        a certain number of allocations have been done. Take note that values
        can be destroyed by deref. However, those values will have the gc_entry's
        value set to NULL as an indicator. */
-    vm->gs->gc_pass++;
 
     lily_value **regs_from_main = vm->gs->regs_from_main;
-    int pass = vm->gs->gc_pass;
     uint32_t i;
     lily_gc_entry *gc_iter;
     uint32_t total = vm->call_chain->register_end - vm->gs->regs_from_main;
@@ -286,18 +283,18 @@ static void invoke_gc(lily_vm_state *vm)
     for (i = 0;i < total;i++) {
         lily_value *reg = regs_from_main[i];
         if (reg->flags & VAL_HAS_SWEEP_FLAG)
-            gc_mark(pass, reg);
+            gc_mark(reg);
     }
 
     /* Stage 2: Delete the contents of every value that wasn't seen. */
     for (gc_iter = vm->gs->gc_live_entries;
          gc_iter;
          gc_iter = gc_iter->next) {
-        if (gc_iter->last_pass != pass &&
+        if (gc_iter->status == GC_NOT_SEEN &&
             gc_iter->value.generic != NULL) {
             /* This tells value destroy to just hollow the value since it may be
                visited multiple times. */
-            gc_iter->last_pass = -1;
+            gc_iter->status = GC_SWEEP;
             lily_value_destroy((lily_value *)gc_iter);
         }
     }
@@ -324,7 +321,7 @@ static void invoke_gc(lily_vm_state *vm)
     while (gc_iter) {
         iter_next = gc_iter->next;
 
-        if (gc_iter->last_pass == -1) {
+        if (gc_iter->status == GC_SWEEP) {
             lily_free(gc_iter->value.generic);
 
             gc_iter->next = new_spare_entries;
@@ -333,6 +330,7 @@ static void invoke_gc(lily_vm_state *vm)
         else {
             i++;
             gc_iter->next = new_live_entries;
+            gc_iter->status = GC_NOT_SEEN;
             new_live_entries = gc_iter;
         }
 
@@ -349,15 +347,15 @@ static void invoke_gc(lily_vm_state *vm)
     vm->gs->gc_spare_entries = new_spare_entries;
 }
 
-static void list_marker(int pass, lily_value *v)
+static void list_marker(lily_value *v)
 {
     if (v->flags & VAL_IS_GC_TAGGED) {
         /* Only instances/enums that pass through here are tagged. */
         lily_gc_entry *e = v->value.container->gc_entry;
-        if (e->last_pass == pass)
+        if (e->status == GC_VISITED)
             return;
 
-        e->last_pass = pass;
+        e->status = GC_VISITED;
     }
 
     lily_container_val *list_val = v->value.container;
@@ -367,11 +365,11 @@ static void list_marker(int pass, lily_value *v)
         lily_value *elem = list_val->values[i];
 
         if (elem->flags & VAL_HAS_SWEEP_FLAG)
-            gc_mark(pass, elem);
+            gc_mark(elem);
     }
 }
 
-static void hash_marker(int pass, lily_value *v)
+static void hash_marker(lily_value *v)
 {
     lily_hash_val *hv = v->value.hash;
     int i;
@@ -379,18 +377,18 @@ static void hash_marker(int pass, lily_value *v)
     for (i = 0;i < hv->num_bins;i++) {
         lily_hash_entry *entry = hv->bins[i];
         if (entry)
-            gc_mark(pass, entry->record);
+            gc_mark(entry->record);
     }
 }
 
-static void function_marker(int pass, lily_value *v)
+static void function_marker(lily_value *v)
 {
     if (v->flags & VAL_IS_GC_TAGGED) {
         lily_gc_entry *e = v->value.function->gc_entry;
-        if (e->last_pass == pass)
+        if (e->status == GC_VISITED)
             return;
 
-        e->last_pass = pass;
+        e->status = GC_VISITED;
     }
 
     lily_function_val *function_val = v->value.function;
@@ -402,18 +400,18 @@ static void function_marker(int pass, lily_value *v)
     for (i = 0;i < count;i++) {
         lily_value *up = upvalues[i];
         if (up && (up->flags & VAL_HAS_SWEEP_FLAG))
-            gc_mark(pass, up);
+            gc_mark(up);
     }
 }
 
-static void coroutine_marker(int pass, lily_value *v)
+static void coroutine_marker(lily_value *v)
 {
     if (v->flags & VAL_IS_GC_TAGGED) {
         lily_gc_entry *e = v->value.function->gc_entry;
-        if (e->last_pass == pass)
+        if (e->status == GC_VISITED)
             return;
 
-        e->last_pass = pass;
+        e->status = GC_VISITED;
     }
 
     lily_coroutine_val *co_val = v->value.coroutine;
@@ -426,7 +424,7 @@ static void coroutine_marker(int pass, lily_value *v)
         lily_value *reg = base[i];
 
         if (reg->flags & VAL_HAS_SWEEP_FLAG)
-            gc_mark(pass, reg);
+            gc_mark(reg);
     }
 
     lily_function_val *base_function = co_val->base_function;
@@ -438,29 +436,29 @@ static void coroutine_marker(int pass, lily_value *v)
         lily_value reg;
         reg.flags = V_FUNCTION_BASE;
         reg.value.function = base_function;
-        function_marker(pass, &reg);
+        function_marker(&reg);
     }
 
     lily_value *receiver = co_val->receiver;
 
     if (receiver->flags & VAL_HAS_SWEEP_FLAG)
-        gc_mark(pass, receiver);
+        gc_mark(receiver);
 }
 
-static void gc_mark(int pass, lily_value *v)
+static void gc_mark(lily_value *v)
 {
     if (v->flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
         int base = FLAGS_TO_BASE(v);
 
         if (base == V_LIST_BASE     || base == V_TUPLE_BASE ||
             base == V_INSTANCE_BASE || base == V_VARIANT_BASE)
-            list_marker(pass, v);
+            list_marker(v);
         else if (base == V_HASH_BASE)
-            hash_marker(pass, v);
+            hash_marker(v);
         else if (base == V_FUNCTION_BASE)
-            function_marker(pass, v);
+            function_marker(v);
         else if (base == V_COROUTINE_BASE)
-            coroutine_marker(pass, v);
+            coroutine_marker(v);
     }
 }
 
@@ -489,7 +487,7 @@ void lily_value_tag(lily_vm_state *vm, lily_value *v)
         new_entry = lily_malloc(sizeof(*new_entry));
 
     new_entry->value.gc_generic = v->value.gc_generic;
-    new_entry->last_pass = 0;
+    new_entry->status = GC_NOT_SEEN;
     new_entry->flags = v->flags;
 
     new_entry->next = gs->gc_live_entries;

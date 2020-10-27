@@ -364,7 +364,7 @@ static void destroy_container(lily_value *v)
 
     int full_destroy = 1;
     if (iv->gc_entry) {
-        if (iv->gc_entry->last_pass == -1) {
+        if (iv->gc_entry->status == GC_SWEEP) {
             full_destroy = 0;
             iv->gc_entry = lily_gc_stopper;
         }
@@ -415,7 +415,7 @@ static void destroy_function(lily_value *v)
     int full_destroy = 1;
 
     if (fv->gc_entry) {
-        if (fv->gc_entry->last_pass == -1) {
+        if (fv->gc_entry->status == GC_SWEEP) {
             full_destroy = 0;
             fv->gc_entry = lily_gc_stopper;
         }
@@ -467,7 +467,7 @@ static void destroy_coroutine(lily_value *v)
     /* There's no need to check for a gc entry like with other values.
        Coroutines always have a gc tag. */
 
-    if (co_val->gc_entry->last_pass == -1) {
+    if (co_val->gc_entry->status == GC_SWEEP) {
         full_destroy = 0;
         co_val->gc_entry = lily_gc_stopper;
     }

@@ -56,10 +56,8 @@ typedef struct lily_literal_ {
 typedef struct lily_gc_entry_ {
     /* The flags from the value. Used to determine what's inside the value. */
     uint32_t flags;
-    /* Each gc pass has a different number that always goes up. If an entry's
-       last_pass is not the current number, then the contained value is
-       destroyed. */
-    int32_t last_pass;
+    /* This is one of the GC_* values defined below. */
+    uint32_t status;
     /* If this is destroyed outside of the gc, then value.generic should be set
        to NULL to keep the gc from looking at an invalid data. */
     lily_raw_value value;
@@ -216,5 +214,14 @@ typedef struct lily_generic_gc_val_ {
     void *pad3;
     struct lily_gc_entry_ *gc_entry;
 } lily_generic_gc_val;
+
+/* This value has not been marked, or the vm is not doing a mark phase. */
+#define GC_NOT_SEEN 0
+
+/* This value has been seen in the current mark phase. */
+#define GC_VISITED  1
+
+/* This value is being deleted by the vm's gc sweep. */
+#define GC_SWEEP    2
 
 #endif
