@@ -669,7 +669,7 @@ static void finish_block_code(lily_emit_state *emit)
 {
     lily_block *block = emit->scope_block;
     lily_var *var = block->scope_var;
-    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
+    lily_value *v = lily_literal_at(emit->symtab, var->reg_spot);
     lily_function_val *f = v->value.function;
 
     uint16_t code_start, code_size;
@@ -1626,7 +1626,7 @@ lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
 
 lily_proto *lily_emit_proto_for_var(lily_emit_state *emit, lily_var *var)
 {
-    lily_value *v = lily_vs_nth(emit->symtab->literals, var->reg_spot);
+    lily_value *v = lily_literal_at(emit->symtab, var->reg_spot);
     return v->value.function->proto;
 }
 
@@ -1869,7 +1869,7 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
         lily_var *v = (lily_var *)item;
 
         if (v->flags & VAR_IS_READONLY) {
-            lily_value *val = lily_vs_nth(emit->symtab->literals, v->reg_spot);
+            lily_value *val = lily_literal_at(emit->symtab, v->reg_spot);
             lily_proto *p = val->value.function->proto;
             lily_mb_add(msgbuf, p->name);
         }

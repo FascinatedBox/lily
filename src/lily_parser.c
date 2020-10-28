@@ -1066,7 +1066,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     v->flags = V_FUNCTION_FLAG | V_FUNCTION_BASE;
     v->value.function = f;
 
-    lily_vs_push(parser->symtab->literals, v);
+    lily_new_function_literal(parser->symtab, var, v);
 }
 
 /* This takes pairs from parser's data stack and builds a string array. Unlike a
@@ -1258,7 +1258,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
     lily_var *var = new_var(NULL, name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
-    var->reg_spot = lily_vs_pos(parser->symtab->literals);
+    /* Symtab sets reg_spot when the function is made. */
     var->function_depth = 1;
     var->flags = VAR_IS_READONLY;
     var->next = m->var_chain;
@@ -1277,7 +1277,7 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
 {
     lily_var *var = new_var(NULL, name, line_num);
 
-    var->reg_spot = lily_vs_pos(parser->symtab->literals);
+    /* Symtab sets reg_spot when the function is made. */
     var->function_depth = 1;
     var->flags = VAR_IS_READONLY | modifiers;
     var->parent = parent;
@@ -1337,7 +1337,7 @@ static void create_main_func(lily_parse_state *parser)
     lex->line_num = 1;
 
     lily_var *main_var = new_define_var(parser, "__main__", lex->line_num);
-    lily_value *v = lily_vs_nth(parser->symtab->literals, 0);
+    lily_value *v = lily_literal_at(parser->symtab, 0);
     lily_function_val *f = v->value.function;
 
     lex->line_num = save_line;
@@ -2412,7 +2412,7 @@ static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
     lily_tm_add(parser->tm, lily_unit_type);
     collect_call_args(parser, var, F_COLLECT_DYNALOAD);
 
-    lily_value *v = lily_vs_nth(parser->symtab->literals, var->reg_spot);
+    lily_value *v = lily_literal_at(parser->symtab, var->reg_spot);
     lily_function_val *f = v->value.function;
 
     f->foreign_func = m->call_table[ds->index];
