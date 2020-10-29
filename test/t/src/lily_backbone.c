@@ -3,8 +3,7 @@
 #include "lily.h"
 #include "lily_alloc.h"
 #include "lily_backbone_bindings.h"
-#include "lily_value_flags.h"
-#include "lily_value_structs.h"
+#include "lily_value.h"
 #include "lily_vm.h"
 
 typedef struct lily_backbone_RawInterpreter_ {

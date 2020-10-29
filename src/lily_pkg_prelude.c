@@ -8,9 +8,7 @@
 #include "lily_parser.h"
 #include "lily_symtab.h"
 #include "lily_utf8.h"
-#include "lily_value_flags.h"
-#include "lily_value_raw.h"
-#include "lily_value_structs.h"
+#include "lily_value.h"
 #define LILY_NO_EXPORT
 #include "lily_pkg_prelude_bindings.h"
 

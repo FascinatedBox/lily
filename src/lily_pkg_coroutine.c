@@ -1,6 +1,5 @@
 #include "lily.h"
-#include "lily_value_raw.h"
-#include "lily_value_structs.h"
+#include "lily_value.h"
 #include "lily_vm.h"
 #define LILY_NO_EXPORT
 #include "lily_pkg_coroutine_bindings.h"

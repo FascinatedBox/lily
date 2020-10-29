@@ -1,5 +1,5 @@
-#ifndef LILY_VALUE_STRUCTS_H
-# define LILY_VALUE_STRUCTS_H
+#ifndef LILY_VALUE_H
+# define LILY_VALUE_H
 
 # include <stdint.h>
 # include <stdio.h>
@@ -65,7 +65,7 @@ typedef struct lily_gc_entry_ {
 } lily_gc_entry;
 
 /* A proper Lily value. The flags portion is used for gc flags as well as
-   identity markers. Those are stored in lily_value_flags.h. */
+   identity markers. */
 typedef struct lily_value_ {
     uint32_t flags;
     /* This is only used by closure cells. When a closure cell has a
@@ -215,6 +215,8 @@ typedef struct lily_generic_gc_val_ {
     struct lily_gc_entry_ *gc_entry;
 } lily_generic_gc_val;
 
+/* Values for the status of a gc entry. */
+
 /* This value has not been marked, or the vm is not doing a mark phase. */
 #define GC_NOT_SEEN 0
 
@@ -223,5 +225,62 @@ typedef struct lily_generic_gc_val_ {
 
 /* This value is being deleted by the vm's gc sweep. */
 #define GC_SWEEP    2
+
+/* Markers for lily_value's flags. */
+
+#define VAL_IS_GC_TAGGED        0x0010000
+#define VAL_IS_GC_SPECULATIVE   0x0020000
+#define VAL_IS_DEREFABLE        0x0040000
+
+/* Class markers for lily_value and lily_literal. If a class has a flag and a
+   base, both must always be set together. The flags are used to test several
+   different classes together. The bases are used when testing a specific kind
+   of class. */
+
+#define V_INTEGER_FLAG          0x0100000
+#define V_DOUBLE_FLAG           0x0200000
+#define V_STRING_FLAG           0x0400000
+#define V_BYTE_FLAG             0x0800000
+#define V_BYTESTRING_FLAG       0x1000000
+#define V_FUNCTION_FLAG         0x2000000
+#define V_BOOLEAN_FLAG          0x4000000
+#define V_UNSET_BASE            0
+#define V_INTEGER_BASE          1
+#define V_DOUBLE_BASE           2
+#define V_STRING_BASE           3
+#define V_BYTE_BASE             4
+#define V_BYTESTRING_BASE       5
+#define V_BOOLEAN_BASE          6
+#define V_FUNCTION_BASE         7
+#define V_LIST_BASE             8
+#define V_HASH_BASE             9
+#define V_TUPLE_BASE            10
+#define V_FILE_BASE             11
+#define V_COROUTINE_BASE        12
+#define V_FOREIGN_BASE          13
+#define V_INSTANCE_BASE         14
+#define V_UNIT_BASE             15
+#define V_VARIANT_BASE          16
+#define V_EMPTY_VARIANT_BASE    17
+
+/* How much do the CLS flags from lily_class need to be shifted to become vm
+   VAL gc flags? */
+#define VAL_FROM_CLS_GC_SHIFT   10
+#define VAL_HAS_SWEEP_FLAG      (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
+#define FLAGS_TO_BASE(x)        (x->flags & 31)
+
+/* Miscellaneous internal value-related functions. */
+
+lily_bytestring_val *lily_new_bytestring_raw(const char *, int);
+lily_container_val *lily_new_container_raw(uint16_t, uint32_t);
+lily_hash_val *lily_new_hash_raw(int);
+lily_string_val *lily_new_string_raw(const char *);
+
+void lily_deref(lily_value *);
+void lily_stack_push_and_destroy(struct lily_vm_state_ *, lily_value *);
+lily_value *lily_stack_take(struct lily_vm_state_ *);
+void lily_value_assign(lily_value *, lily_value *);
+int lily_value_compare(struct lily_vm_state_ *, lily_value *, lily_value *);
+lily_value *lily_value_copy(lily_value *);
 
 #endif

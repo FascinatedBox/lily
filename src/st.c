@@ -7,9 +7,7 @@
 #include "lily.h"
 #include "lily_alloc.h"
 #include "lily_core_types.h"
-#include "lily_value_flags.h"
-#include "lily_value_raw.h"
-#include "lily_value_structs.h"
+#include "lily_value.h"
 
 extern uint64_t siphash24(const void *, unsigned long, const char [16]);
 

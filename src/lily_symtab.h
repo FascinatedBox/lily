@@ -2,7 +2,7 @@
 # define LILY_SYMTAB_H
 
 # include "lily_core_types.h"
-# include "lily_value_structs.h"
+# include "lily_value.h"
 
 typedef struct lily_value_stack_ {
     lily_value **data;
