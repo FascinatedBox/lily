@@ -2481,35 +2481,32 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += code[1] + 4;
                 break;
             case o_unary_not:
-                lhs_reg = vm_regs[code[1]];
-
-                rhs_reg = vm_regs[code[2]];
-                rhs_reg->flags = lhs_reg->flags;
-                rhs_reg->value.integer = !(lhs_reg->value.integer);
+                rhs_reg = vm_regs[code[1]];
+                lhs_reg = vm_regs[code[2]];
+                lhs_reg->flags = rhs_reg->flags;
+                lhs_reg->value.integer = !(rhs_reg->value.integer);
                 code += 4;
                 break;
             case o_unary_minus:
-                lhs_reg = vm_regs[code[1]];
+                rhs_reg = vm_regs[code[1]];
+                lhs_reg = vm_regs[code[2]];
 
-                rhs_reg = vm_regs[code[2]];
-
-                if (lhs_reg->flags & V_INTEGER_FLAG) {
-                    rhs_reg->value.integer = -(lhs_reg->value.integer);
-                    rhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+                if (rhs_reg->flags & V_INTEGER_FLAG) {
+                    lhs_reg->value.integer = -(rhs_reg->value.integer);
+                    lhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
                 }
                 else {
-                    rhs_reg->value.doubleval = -(lhs_reg->value.doubleval);
-                    rhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+                    lhs_reg->value.doubleval = -(rhs_reg->value.doubleval);
+                    lhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
                 }
 
                 code += 4;
                 break;
             case o_unary_bitwise_not:
-                lhs_reg = vm_regs[code[1]];
-
-                rhs_reg = vm_regs[code[2]];
-                rhs_reg->flags = lhs_reg->flags;
-                rhs_reg->value.integer = ~(lhs_reg->value.integer);
+                rhs_reg = vm_regs[code[1]];
+                lhs_reg = vm_regs[code[2]];
+                lhs_reg->flags = rhs_reg->flags;
+                lhs_reg->value.integer = ~(rhs_reg->value.integer);
                 code += 4;
                 break;
             case o_return_unit:
