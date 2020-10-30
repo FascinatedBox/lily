@@ -906,7 +906,7 @@ lily_value *         lily_arg_value     (lily_state *s, int index);
 // How many arguments the function being called was given.
 //
 // Note: Variable argument functions place their extra arguments into a List.
-int lily_arg_count(lily_state *s);
+uint16_t lily_arg_count(lily_state *s);
 
 // Function: lily_arg_isa
 // Check if an argument has an exact class id.

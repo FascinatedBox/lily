@@ -277,10 +277,12 @@ lily_hash_val *lily_new_hash_raw(int);
 lily_string_val *lily_new_string_raw(const char *);
 
 void lily_deref(lily_value *);
+void lily_push_coroutine(struct lily_vm_state_ *, lily_coroutine_val *);
 void lily_stack_push_and_destroy(struct lily_vm_state_ *, lily_value *);
 lily_value *lily_stack_take(struct lily_vm_state_ *);
 void lily_value_assign(lily_value *, lily_value *);
 int lily_value_compare(struct lily_vm_state_ *, lily_value *, lily_value *);
 lily_value *lily_value_copy(lily_value *);
+void lily_value_destroy(lily_value *);
 
 #endif
