@@ -226,6 +226,12 @@ class TestLambdas < TestCase
         """\
             var a = (|| v#[]#a#[]#r w = 10 )
         """)
+
+        # lexing (escaped backslash before quote)
+
+        assert_parse_string(t, """
+            var a = (|| "asdf\\\\" )
+        """)
     }
 
     public define test_verify_restore

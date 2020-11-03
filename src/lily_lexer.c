@@ -904,6 +904,13 @@ static void scan_string_for_lambda(lily_lex_state *lex, char **source_ch,
             if (*ch == '"' ||
                 (is_multiline == 0 && *ch == '\n'))
                 backslash_before = 1;
+            else if (*ch == '\\') {
+                /* This is an escaped backslash. Scoop it up so the second slash
+                   can't be seen as an escape for a double quote. */
+                label[i] = *ch;
+                i++;
+                ch++;
+            }
         }
         else {
             label[i] = *ch;
