@@ -182,6 +182,8 @@ class TestCase < backbone.TestCaseBase
                          given: `{1}`\
                 """.format(expect, e_header)
                 raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
             }
         }
     }
