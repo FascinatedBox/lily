@@ -153,6 +153,16 @@ void lily_mb_escape_add_str(lily_msgbuf *msgbuf, const char *str)
     lily_mb_add_char(msgbuf, '"');
 }
 
+void lily_mb_add_sized(lily_msgbuf *msgbuf, const char *text, int count)
+{
+    if ((msgbuf->pos + count + 1) > msgbuf->size)
+        resize_msgbuf(msgbuf, msgbuf->pos + count + 1);
+
+    memcpy(msgbuf->message + msgbuf->pos, text, count);
+    msgbuf->pos += count;
+    msgbuf->message[msgbuf->pos] = '\0';
+}
+
 /* Add a slice of text (start to stop) to the msgbuf. The slice does not need to
    be \0 terminated. However, the result will be \0 terminated. */
 void lily_mb_add_slice(lily_msgbuf *msgbuf, const char *text,

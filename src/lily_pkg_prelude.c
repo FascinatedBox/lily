@@ -287,7 +287,7 @@ static int read_file_line(lily_msgbuf *msgbuf, FILE *source)
             break;
 
         if (pos == sizeof(read_buffer)) {
-            lily_mb_add_slice(msgbuf, read_buffer, 0, sizeof(read_buffer));
+            lily_mb_add_sized(msgbuf, read_buffer, sizeof(read_buffer));
             total_pos += pos;
             pos = 0;
         }
@@ -302,7 +302,7 @@ static int read_file_line(lily_msgbuf *msgbuf, FILE *source)
     }
 
     if (pos != 0) {
-        lily_mb_add_slice(msgbuf, read_buffer, 0, pos);
+        lily_mb_add_sized(msgbuf, read_buffer, pos);
         total_pos += pos;
     }
 

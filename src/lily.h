@@ -1484,6 +1484,10 @@ void lily_mb_add_fmt(lily_msgbuf *msgbuf, const char *format, ...);
 // lily_mb_add_fmt, but using a va_list.
 void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *format, va_list);
 
+// Function: lily_mb_add_sized
+// Add 'count' characters of 'source' to the msgbuf.
+void lily_mb_add_sized(lily_msgbuf *msgbuf, const char *source, int count);
+
 // Function: lily_mb_add_slice
 // Add 'source' to the msgbuf, from 'start' to 'end'.
 void lily_mb_add_slice(lily_msgbuf *msgbuf, const char *source, int start, int end);
