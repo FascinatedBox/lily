@@ -11,7 +11,7 @@ class TestStringMethods < TestCase
         "ÀÈÌaÒÜ".ends_with("aÒÜ")   |> assert_true
     }
 
-    public define test_find_with
+    public define test_find
     {
          "12"    .find("1")    .is_some() |> assert_true
          "ÀÈaÌÒÜ".find("ÈaÌ")  .is_some() |> assert_true
@@ -43,6 +43,9 @@ class TestStringMethods < TestCase
 
         assert_raises("IndexError: Format specifier is too large.",
                (|| "{5}".format(0) ))
+
+        assert_raises("ValueError: Format specifier is not closed.",
+               (|| "{0".format(0) ))
     }
 
     public define test_html_encode
@@ -136,6 +139,7 @@ class TestStringMethods < TestCase
         assert_equal("aaaaa"   .rstrip("a"),   "")
         assert_equal("ÀÈaÌÒÜ"  .rstrip("ÌÒÜ"), "ÀÈa")
         assert_equal("¡"       .rstrip("á"),   "¡")
+        assert_equal("á"       .rstrip("á"),   "")
         assert_equal("À¡aa¡À"  .rstrip("À¢"),  "À¡aa¡")
     }
 
@@ -154,6 +158,7 @@ class TestStringMethods < TestCase
         assert_equal("abc"  .slice(1, 5),   "")
         assert_equal("À"    .slice(0, 1),   "")
         assert_equal("abcde".slice(-4, -2), "bc")
+        assert_equal("abc"  .slice(-4, 2),  "")
     }
 
     public define test_split
@@ -202,6 +207,8 @@ class TestStringMethods < TestCase
     public define test_trim
     {
         assert_equal("abc"              .trim(), "abc")
+        assert_equal("abcdef \n\n\n   " .trim(), "abcdef")
+        assert_equal(" \n\n\n   abcdef" .trim(), "abcdef")
         assert_equal(" \t\r\nabc\t\r\n ".trim(), "abc")
         assert_equal("    "             .trim(), "")
     }

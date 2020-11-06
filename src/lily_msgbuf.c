@@ -546,39 +546,33 @@ void lily_mb_add_value(lily_msgbuf *msgbuf, lily_vm_state *vm,
 const char *lily_mb_html_escape(lily_msgbuf *msgbuf, const char *input_str)
 {
     lily_mb_flush(msgbuf);
-    int start = 0, stop = 0;
-    const char *ch = &input_str[0];
 
-    while (1) {
-        if (*ch == '&') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(msgbuf, input_str, start, stop);
+    const char *input_iter = input_str;
+    const char *find_str = "<&>";
+    const char *search_iter = strpbrk(input_iter, find_str);
+
+    if (search_iter == NULL)
+        return input_str;
+
+    const char *last_iter = input_iter;
+
+    do {
+        int offset = (int)(search_iter - last_iter);
+
+        if (offset)
+            lily_mb_add_sized(msgbuf, last_iter, offset);
+
+        if (*search_iter == '&')
             lily_mb_add(msgbuf, "&amp;");
-            start = stop + 1;
-        }
-        else if (*ch == '<') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(msgbuf, input_str, start, stop);
+        else if (*search_iter == '<')
             lily_mb_add(msgbuf, "&lt;");
-            start = stop + 1;
-        }
-        else if (*ch == '>') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(msgbuf, input_str, start, stop);
+        else if (*search_iter == '>')
             lily_mb_add(msgbuf, "&gt;");
-            start = stop + 1;
-        }
-        else if (*ch == '\0')
-            break;
 
-        ch++;
-    }
+        last_iter = search_iter + 1;
+        search_iter = strpbrk(last_iter, find_str);
+    } while (search_iter);
 
-    if (start != 0) {
-        stop = (ch - input_str);
-        lily_mb_add_slice(msgbuf, input_str, start, stop);
-        input_str = msgbuf->message;
-    }
-
-    return input_str;
+    lily_mb_add(msgbuf, last_iter);
+    return msgbuf->message;
 }

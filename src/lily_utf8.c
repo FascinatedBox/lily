@@ -52,7 +52,7 @@ int lily_is_valid_utf8(const char *input)
 }
 
 /* Check if 'input' is valid utf-8 and \0 terminated. */
-int lily_is_valid_sized_utf8(const char *input, int size)
+int lily_is_valid_sized_utf8(const char *input, uint32_t size)
 {
     uint8_t *s = (uint8_t *)input;
     uint8_t *end = s + size;

@@ -36,5 +36,7 @@ class TestByteStringMethods < TestCase
         assert_equal(B"abc".slice(1, 2),  B"b")
         assert_equal(B"abc".slice(2, 1),  B"")
         assert_equal(B"abc".slice(1, 5),  B"")
+        assert_equal(B"abc".slice(0, 3),  B"abc")
+        assert_equal(B"abc".slice(-4, 2), B"")
     }
 }

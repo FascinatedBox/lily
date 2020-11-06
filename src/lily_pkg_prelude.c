@@ -76,15 +76,11 @@ const lily_type *lily_scoop_type = (lily_type *)&raw_scoop;
 lily_type *lily_unit_type = (lily_type *)&raw_unit;
 const lily_type *lily_unset_type = (lily_type *)&raw_unset;
 
-
-
-
 static void return_exception(lily_state *s, uint16_t id)
 {
     lily_container_val *result = lily_push_super(s, id, 2);
 
     lily_con_set(result, 0, lily_arg_value(s, 0));
-
     lily_push_list(s, 0);
     lily_con_set_from_stack(s, result, 1);
     lily_return_super(s);
@@ -118,8 +114,8 @@ void lily_prelude_ByteString_each_byte(lily_state *s)
 {
     lily_bytestring_val *sv = lily_arg_bytestring(s, 0);
     const char *input = lily_bytestring_raw(sv);
-    int len = lily_bytestring_length(sv);
-    int i;
+    uint32_t len = lily_bytestring_length(sv);
+    uint32_t i;
 
     lily_call_prepare(s, lily_arg_function(s, 1));
 
@@ -133,48 +129,46 @@ void lily_prelude_ByteString_each_byte(lily_state *s)
 
 void lily_prelude_ByteString_encode(lily_state *s)
 {
-    lily_bytestring_val *input_bytestring = lily_arg_bytestring(s, 0);
-    const char *encode_method;
+    lily_bytestring_val *input_bv = lily_arg_bytestring(s, 0);
+    const char *encode_method = "error";
 
     if (lily_arg_count(s) == 2)
         encode_method = lily_arg_string_raw(s, 1);
-    else
-        encode_method = "error";
 
-    char *byte_buffer = NULL;
-
-    if (strcmp(encode_method, "error") == 0) {
-        byte_buffer = lily_bytestring_raw(input_bytestring);
-        int byte_buffer_size = lily_bytestring_length(input_bytestring);
-
-        if (lily_is_valid_sized_utf8(byte_buffer, byte_buffer_size) == 0) {
-            lily_return_none(s);
-            return;
-        }
+    if (strcmp(encode_method, "error") != 0) {
+        lily_return_none(s);
+        return;
     }
-    else {
+
+    char *input_bytes = lily_bytestring_raw(input_bv);
+    uint32_t input_size = lily_bytestring_length(input_bv);
+
+    if (lily_is_valid_sized_utf8(input_bytes, input_size) == 0) {
         lily_return_none(s);
         return;
     }
 
     lily_container_val *variant = lily_push_some(s);
-    lily_push_string(s, byte_buffer);
+
+    lily_push_string(s, input_bytes);
     lily_con_set_from_stack(s, variant, 0);
     lily_return_top(s);
 }
 
 void lily_prelude_ByteString_size(lily_state *s)
 {
-    lily_return_integer(s, lily_arg_bytestring(s, 0)->size);
+    lily_bytestring_val *input_bv = lily_arg_bytestring(s, 0);
+    uint32_t input_size = lily_bytestring_length(input_bv);
+
+    lily_return_integer(s, input_size);
 }
 
 /* This table indicates how many more bytes need to be successfully read after
-   that particular byte for proper utf-8. 0 = invalid.
-   Table copied from lily_lexer.c */
+   that particular byte for proper utf-8. 0 = invalid. */
 static const uint8_t follower_table[256] =
 {
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-/* 0 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+/* 0 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 /* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -192,55 +186,87 @@ static const uint8_t follower_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-void do_str_slice(lily_state *s, int is_bytestring)
+int get_slice_range(lily_state *s, uint32_t max, uint32_t *start,
+        uint32_t *stop)
 {
-    lily_string_val *sv = lily_arg_string(s, 0);
-    int64_t start = 0;
-    int64_t stop = sv->size;
+    uint16_t count = lily_arg_count(s);
+    int64_t raw_start, raw_stop;
 
-    switch (lily_arg_count(s)) {
-        case 3: stop = lily_arg_integer(s, 2);
-        case 2: start = lily_arg_integer(s, 1);
+    if (count == 1) {
+        *start = 0;
+        *stop = max;
+        return 1;
     }
 
-    if (stop < 0)
-        stop = sv->size + stop;
-    if (start < 0)
-        start = sv->size + start;
+    if (count == 3) {
+        raw_stop = lily_arg_integer(s, 2);
 
-    if (stop > sv->size ||
-        start > sv->size ||
-        start > stop) {
+        if (raw_stop < 0)
+            raw_stop += max;
+    }
+    else
+        raw_stop = max;
+
+    raw_start = lily_arg_integer(s, 1);
+
+    if (raw_start < 0)
+        raw_start += max;
+
+    int ok = 1;
+
+    if (raw_start >= 0 &&
+        raw_start < raw_stop &&
+        raw_stop <= max) {
+        *start = (uint32_t)raw_start;
+        *stop = (uint32_t)raw_stop;
+    }
+    else
+        ok = 0;
+
+    return ok;
+}
+
+void do_str_slice(lily_state *s, int is_bytestring)
+{
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    char *input_str = lily_string_raw(input_sv);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t start, stop;
+    int ok = get_slice_range(s, input_size, &start, &stop);
+
+    if (ok == 0) {
         if (is_bytestring == 0)
             lily_push_string(s, "");
         else
             lily_push_bytestring(s, "", 0);
 
-        lily_return_top(s);
         return;
     }
 
-    char *raw = lily_string_raw(sv);
     if (is_bytestring == 0) {
-        if (follower_table[(unsigned char)raw[start]] == 0 ||
-            follower_table[(unsigned char)raw[stop]] == 0) {
+        if (start != 0 &&
+            follower_table[(unsigned char)input_str[start]] == 0)
+            ok = 0;
+        else if (stop != input_size &&
+            follower_table[(unsigned char)input_str[stop]] == 0)
+            ok = 0;
+
+        if (ok == 0) {
             lily_push_string(s, "");
-            lily_return_top(s);
             return;
         }
     }
 
     if (is_bytestring == 0)
-        lily_push_string_sized(s, raw + start, stop - start);
+        lily_push_string_sized(s, input_str + start, stop - start);
     else
-        lily_push_bytestring(s, raw + start, stop - start);
-
-    lily_return_top(s);
+        lily_push_bytestring(s, input_str + start, stop - start);
 }
 
 void lily_prelude_ByteString_slice(lily_state *s)
 {
     do_str_slice(s, 1);
+    lily_return_top(s);
 }
 
 void lily_prelude_DivisionByZeroError_new(lily_state *s)
@@ -276,12 +302,13 @@ void lily_prelude_File_close(lily_state *s)
 static int read_file_line(lily_msgbuf *msgbuf, FILE *source)
 {
     char read_buffer[128];
-    int ch = 0, pos = 0, total_pos = 0;
+    int pos = 0;
+    int total_pos = 0;
 
     /* This uses fgetc in a loop because fgets may read in \0's, but doesn't
        tell how much was written. */
     while (1) {
-        ch = fgetc(source);
+        int ch = fgetc(source);
 
         if (ch == EOF)
             break;
@@ -312,8 +339,8 @@ static int read_file_line(lily_msgbuf *msgbuf, FILE *source)
 void lily_prelude_File_each_line(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
-    lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
     FILE *f = lily_file_for_read(s, filev);
+    lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
 
@@ -324,6 +351,7 @@ void lily_prelude_File_each_line(lily_state *s)
             break;
 
         const char *text = lily_mb_raw(vm_buffer);
+
         lily_push_bytestring(s, text, total_bytes);
         lily_call(s, 1);
         lily_mb_flush(vm_buffer);
@@ -338,7 +366,6 @@ void lily_prelude_File_flush(lily_state *s)
     FILE *f = lily_file_for_write(s, filev);
 
     fflush(f);
-
     lily_return_unit(s);
 }
 
@@ -346,14 +373,14 @@ void lily_prelude_File_open(lily_state *s)
 {
     char *path = lily_arg_string_raw(s, 0);
     char *mode = lily_arg_string_raw(s, 1);
-
-    errno = 0;
     int ok;
 
     {
         char *mode_ch = mode;
+
         if (*mode_ch == 'r' || *mode_ch == 'w' || *mode_ch == 'a') {
             mode_ch++;
+
             if (*mode_ch == 'b')
                 mode_ch++;
 
@@ -369,7 +396,10 @@ void lily_prelude_File_open(lily_state *s)
     if (ok == 0)
         lily_IOError(s, "Invalid mode '%s' given.", mode);
 
+    errno = 0;
+
     FILE *f = fopen(path, mode);
+
     if (f == NULL) {
         /* Assume that the message is of a reasonable sort of size. */
         char buffer[128];
@@ -399,17 +429,20 @@ void lily_prelude_File_read(lily_state *s)
     lily_file_val *filev = lily_arg_file(s,0);
     FILE *raw_file = lily_file_for_read(s, filev);
     int need = -1;
-    if (lily_arg_count(s) == 2)
+
+    if (lily_arg_count(s) == 2) {
         need = lily_arg_integer(s, 1);
 
-    /* For simplicity, reduce all negative arguments to -1. */
-    if (need < -1)
-        need = -1;
+        /* For simplicity, reduce all negative arguments to -1. */
+        if (need < -1)
+            need = -1;
+    }
 
     int bufsize = 64;
     char *buffer = lily_malloc(bufsize * sizeof(*buffer));
-    int pos = 0, nread;
+    int pos = 0;
     int nbuf = bufsize/2;
+    int nread;
 
     while (1) {
         int to_read;
@@ -458,20 +491,19 @@ void lily_prelude_File_write(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
     lily_value *to_write = lily_arg_value(s, 1);
-
     FILE *inner_file = lily_file_for_write(s, filev);
 
     if (to_write->flags & V_STRING_FLAG)
         fputs(to_write->value.string->string, inner_file);
     else {
         lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+
         lily_mb_add_value(msgbuf, s, to_write);
         fputs(lily_mb_raw(msgbuf), inner_file);
     }
 
     lily_return_unit(s);
 }
-
 
 static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
 {
@@ -482,13 +514,14 @@ static inline void remove_key_check(lily_state *s, lily_hash_val *hash_val)
 static void destroy_hash_elems(lily_hash_val *hash_val)
 {
     int i;
+
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
         lily_hash_entry *next_entry;
+
         while (entry) {
             lily_deref(entry->boxed_key);
             lily_free(entry->boxed_key);
-
             lily_deref(entry->record);
             lily_free(entry->record);
 
@@ -506,7 +539,6 @@ void lily_destroy_hash(lily_value *v)
     lily_hash_val *hv = v->value.hash;
 
     destroy_hash_elems(hv);
-
     lily_free(hv->bins);
     lily_free(hv);
 }
@@ -517,19 +549,16 @@ void lily_prelude_Hash_clear(lily_state *s)
 
     remove_key_check(s, hash_val);
     destroy_hash_elems(hash_val);
-
     hash_val->num_entries = 0;
-
     lily_return_unit(s);
 }
 
 void lily_prelude_Hash_delete(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    lily_value *key = lily_arg_value(s, 1);
 
     remove_key_check(s, hash_val);
-
-    lily_value *key = lily_arg_value(s, 1);
 
     if (lily_hash_take(s, hash_val, key)) {
         lily_stack_drop_top(s);
@@ -542,25 +571,26 @@ void lily_prelude_Hash_delete(lily_state *s)
 static void hash_iter_callback(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
+
     hash_val->iter_count--;
 }
 
 void lily_prelude_Hash_each_pair(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
+    int i;
 
     lily_error_callback_push(s, hash_iter_callback);
     lily_call_prepare(s, lily_arg_function(s, 1));
     hash_val->iter_count++;
 
-    int i;
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
+
         while (entry) {
             lily_push_value(s, entry->boxed_key);
             lily_push_value(s, entry->record);
             lily_call(s, 2);
-
             entry = entry->next;
         }
     }
@@ -589,7 +619,6 @@ void lily_prelude_Hash_has_key(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
     lily_value *key = lily_arg_value(s, 1);
-
     lily_value *entry = lily_hash_get(s, hash_val, key);
 
     lily_return_boolean(s, entry != NULL);
@@ -598,11 +627,14 @@ void lily_prelude_Hash_has_key(lily_state *s)
 void lily_prelude_Hash_keys(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-    lily_container_val *result_lv = lily_push_list(s, hash_val->num_entries);
-    int i, list_i;
+    uint32_t size = (uint32_t)hash_val->num_entries;
+    lily_container_val *result_lv = lily_push_list(s, size);
+    int i;
+    uint32_t list_i;
 
     for (i = 0, list_i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
+
         while (entry) {
             lily_con_set(result_lv, list_i, entry->boxed_key);
             list_i++;
@@ -618,19 +650,19 @@ void lily_prelude_Hash_map_values(lily_state *s)
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
+
     lily_value *result = lily_call_result(s);
+    lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
+    int i;
 
     lily_error_callback_push(s, hash_iter_callback);
 
-    lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
-
-    int i;
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
+
         while (entry) {
             lily_push_value(s, entry->record);
             lily_call(s, 1);
-
             lily_hash_set(s, h, entry->boxed_key, result);
             entry = entry->next;
         }
@@ -644,29 +676,31 @@ void lily_prelude_Hash_map_values(lily_state *s)
 void lily_prelude_Hash_merge(lily_state *s)
 {
     lily_hash_val *hash_val = lily_arg_hash(s, 0);
-
-    lily_hash_val *result_hash = lily_push_hash(s, hash_val->num_entries);
-
-    uint16_t i;
-    int j;
+    lily_container_val *to_merge = lily_arg_container(s, 1);
+    uint32_t hash_size = (uint32_t)hash_val->num_entries;
+    uint32_t merge_count = lily_con_size(to_merge);
+    lily_hash_val *result_hash = lily_push_hash(s, hash_size);
+    int bin_i;
+    uint32_t merge_i;
   
-    for (i = 0;i < hash_val->num_bins;i++) {
-        lily_hash_entry *entry = hash_val->bins[i];
+    for (bin_i = 0;bin_i < hash_val->num_bins;bin_i++) {
+        lily_hash_entry *entry = hash_val->bins[bin_i];
+
         while (entry) {
-            lily_hash_set(s, result_hash, entry->boxed_key,
-                    entry->record);
+            lily_hash_set(s, result_hash, entry->boxed_key, entry->record);
             entry = entry->next;
         }
     }
 
-    lily_container_val *to_merge = lily_arg_container(s, 1);
-    for (i = 0;i < to_merge->num_values;i++) {
-        lily_hash_val *merging_hash = to_merge->values[i]->value.hash;
-        for (j = 0;j < merging_hash->num_bins;j++) {
-            lily_hash_entry *entry = merging_hash->bins[j];
+    for (merge_i = 0;merge_i < merge_count;merge_i++) {
+        lily_value *v = lily_con_get(to_merge, merge_i);
+        lily_hash_val *merging_hash = lily_as_hash(v);
+
+        for (bin_i = 0;bin_i < merging_hash->num_bins;bin_i++) {
+            lily_hash_entry *entry = merging_hash->bins[bin_i];
+
             while (entry) {
-                lily_hash_set(s, result_hash, entry->boxed_key,
-                        entry->record);
+                lily_hash_set(s, result_hash, entry->boxed_key, entry->record);
                 entry = entry->next;
             }
         }
@@ -681,22 +715,21 @@ static void hash_select_reject_common(lily_state *s, int expect)
     lily_call_prepare(s, lily_arg_function(s, 1));
     lily_value *result = lily_call_result(s);
     lily_hash_val *h = lily_push_hash(s, hash_val->num_entries);
+    int i;
 
     lily_error_callback_push(s, hash_iter_callback);
-
     hash_val->iter_count++;
 
-    int i;
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
+
         while (entry) {
             lily_push_value(s, entry->boxed_key);
             lily_push_value(s, entry->record);
-
             lily_push_value(s, entry->boxed_key);
             lily_push_value(s, entry->record);
-
             lily_call(s, 2);
+
             if (lily_as_boolean(result) != expect) {
                 lily_stack_drop_top(s);
                 lily_stack_drop_top(s);
@@ -710,17 +743,18 @@ static void hash_select_reject_common(lily_state *s, int expect)
 
     hash_val->iter_count--;
     lily_error_callback_pop(s);
-    lily_return_top(s);
 }
 
 void lily_prelude_Hash_reject(lily_state *s)
 {
     hash_select_reject_common(s, 0);
+    lily_return_top(s);
 }
 
 void lily_prelude_Hash_select(lily_state *s)
 {
     hash_select_reject_common(s, 1);
+    lily_return_top(s);
 }
 
 void lily_prelude_Hash_size(lily_state *s)
@@ -776,80 +810,92 @@ void lily_prelude_KeyError_new(lily_state *s)
 
 void lily_prelude_List_clear(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t input_size = lily_con_size(input_list);
     uint32_t i;
 
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_deref(list_val->values[i]);
-        lily_free(list_val->values[i]);
+    for (i = 0;i < input_size;i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_deref(v);
+        lily_free(v);
     }
 
-    list_val->extra_space += list_val->num_values;
-    list_val->num_values = 0;
-
+    input_list->extra_space += input_list->num_values;
+    input_list->num_values = 0;
     lily_return_unit(s);
 }
 
 void lily_prelude_List_count(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
-    lily_call_prepare(s, lily_arg_function(s, 1));
-    lily_value *result = lily_call_result(s);
-    int count = 0;
+    lily_container_val *input_list = lily_arg_container(s, 0);
 
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    lily_value *result = lily_call_result(s);
+    uint32_t total = 0;
     uint32_t i;
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(s, list_val->values[i]);
+
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, v);
         lily_call(s, 1);
 
         if (lily_as_boolean(result) == 1)
-            count++;
+            total++;
     }
 
-    lily_return_integer(s, count);
+    lily_return_integer(s, (int64_t)total);
 }
 
-static int64_t get_relative_index(lily_state *s, lily_container_val *list_val,
+static uint32_t get_relative_index(lily_state *s, lily_container_val *list_val,
         int64_t pos)
 {
+    uint32_t list_size = lily_con_size(list_val);
+
     if (pos < 0) {
-        uint64_t unsigned_pos = -(int64_t)pos;
-        if (unsigned_pos > list_val->num_values)
-            lily_IndexError(s, "Index %ld is too small for list (minimum: %ld)",
-                    pos, -(int64_t)list_val->num_values);
+        int64_t old_pos = pos;
 
-        pos = list_val->num_values - unsigned_pos;
+        pos += list_size;
+
+        if (pos < 0 ||
+            pos > list_size)
+            lily_IndexError(s,
+                    "Index %ld is too small for list (minimum: -%ld)", old_pos,
+                    list_size);
     }
-    else if (pos > list_val->num_values) {
+    else if (pos > list_size)
         lily_IndexError(s, "Index %ld is too large for list (maximum: %ld)",
-                pos, (uint64_t)list_val->num_values);
-    }
+                pos, list_size);
 
-    return pos;
+    return (uint32_t)pos;
 }
 
 void lily_prelude_List_delete_at(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t input_size = lily_con_size(input_list);
     int64_t pos = lily_arg_integer(s, 1);
 
-    if (list_val->num_values == 0)
+    if (input_size == 0)
         lily_IndexError(s, "Cannot delete from an empty list.");
 
-    pos = get_relative_index(s, list_val, pos);
+    uint32_t fixed_pos = get_relative_index(s, input_list, pos);
 
-    lily_list_take(s, list_val, pos);
+    lily_list_take(s, input_list, fixed_pos);
     lily_return_top(s);
 }
 
 void lily_prelude_List_each(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
-    lily_call_prepare(s, lily_arg_function(s, 1));
+    lily_container_val *input_list = lily_arg_container(s, 0);
     uint32_t i;
 
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(s, lily_con_get(list_val, i));
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_push_value(s, lily_con_get(input_list, i));
         lily_call(s, 1);
     }
 
@@ -858,11 +904,12 @@ void lily_prelude_List_each(lily_state *s)
 
 void lily_prelude_List_each_index(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t i;
+
     lily_call_prepare(s, lily_arg_function(s, 1));
 
-    uint32_t i;
-    for (i = 0;i < list_val->num_values;i++) {
+    for (i = 0;i < lily_con_size(input_list);i++) {
         lily_push_integer(s, i);
         lily_call(s, 1);
     }
@@ -870,48 +917,23 @@ void lily_prelude_List_each_index(lily_state *s)
     lily_return_value(s, lily_arg_value(s, 0));
 }
 
-void lily_prelude_List_fold(lily_state *s)
-{
-    lily_container_val *list_val = lily_arg_container(s, 0);
-    lily_value *start = lily_arg_value(s, 1);
-
-    if (list_val->num_values == 0)
-        lily_return_value(s, start);
-    else {
-        lily_call_prepare(s, lily_arg_function(s, 2));
-        lily_value *result = lily_call_result(s);
-        lily_push_value(s, start);
-        uint32_t i = 0;
-        while (1) {
-            lily_push_value(s, lily_con_get(list_val, i));
-            lily_call(s, 2);
-
-            if (i == list_val->num_values - 1)
-                break;
-
-            lily_push_value(s, result);
-
-            i++;
-        }
-
-        lily_return_value(s, result);
-    }
-}
-
 void lily_prelude_List_fill(lily_state *s)
 {
-    int64_t stop = lily_arg_integer(s, 0);
+    int64_t raw_stop = lily_arg_integer(s, 0);
 
-    if (stop <= 0) {
+    if (raw_stop <= 0 ||
+        raw_stop >= (int64_t)UINT32_MAX) {
         lily_push_list(s, 0);
         lily_return_top(s);
         return;
     }
 
     lily_call_prepare(s, lily_arg_function(s, 1));
+
+    uint32_t stop = (uint32_t)raw_stop;
     lily_container_val *con = lily_push_list(s, stop);
     lily_value *result = lily_call_result(s);
-    int64_t i;
+    uint32_t i;
 
     for (i = 0;i < stop;i++) {
         lily_push_integer(s, i);
@@ -922,27 +944,55 @@ void lily_prelude_List_fill(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_prelude_List_fold(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    lily_value *start = lily_arg_value(s, 1);
+
+    if (lily_con_size(input_list) == 0) {
+        lily_return_value(s, start);
+        return;
+    }
+
+    lily_call_prepare(s, lily_arg_function(s, 2));
+
+    lily_value *result = lily_call_result(s);
+    uint32_t i = 0;
+
+    lily_push_value(s, start);
+
+    while (1) {
+        lily_push_value(s, lily_con_get(input_list, i));
+        lily_call(s, 2);
+        i++;
+
+        if (i >= lily_con_size(input_list))
+            break;
+
+        lily_push_value(s, result);
+    }
+
+    lily_return_value(s, result);
+}
+
+
 void lily_prelude_List_get(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
-    int64_t pos = lily_arg_integer(s, 1);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    int64_t raw_pos = lily_arg_integer(s, 1);
+    uint32_t input_size = lily_con_size(input_list);
 
     /* This does what get_relative_index does, except the error case doesn't
        raise an error. */
-    if (pos < 0) {
-        uint64_t unsigned_pos = -(int64_t)pos;
-        if (unsigned_pos > list_val->num_values)
-            pos = -1;
-        else
-            pos = list_val->num_values - unsigned_pos;
-    }
+    if (raw_pos < 0)
+        raw_pos += input_size;
 
-    if (pos >= list_val->num_values)
-        pos = -1;
-
-    if (pos != -1) {
+    if (raw_pos >= 0 &&
+        raw_pos < input_size) {
+        uint32_t fixed_pos = (uint32_t)raw_pos;
         lily_container_val *variant = lily_push_some(s);
-        lily_con_set(variant, 0, lily_con_get(list_val, pos));
+
+        lily_con_set(variant, 0, lily_con_get(input_list, fixed_pos));
         lily_return_top(s);
     }
     else
@@ -951,55 +1001,63 @@ void lily_prelude_List_get(lily_state *s)
 
 void lily_prelude_List_insert(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
     int64_t insert_pos = lily_arg_integer(s, 1);
     lily_value *insert_value = lily_arg_value(s, 2);
+    uint32_t fixed_pos = get_relative_index(s, input_list, insert_pos);
 
-    insert_pos = get_relative_index(s, list_val, insert_pos);
-
-    lily_list_insert(list_val, insert_pos, insert_value);
+    lily_list_insert(input_list, fixed_pos, insert_value);
     lily_return_unit(s);
 }
 
 void lily_prelude_List_join(lily_state *s)
 {
-    lily_container_val *lv = lily_arg_container(s, 0);
-    const char *delim = "";
-    if (lily_arg_count(s) == 2)
-        delim = lily_arg_string_raw(s, 1);
-
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    const char *delim = lily_optional_string_raw(s, 1, "");
+    uint32_t input_size = lily_con_size(input_list);
     lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
 
-    if (lv->num_values) {
-        int i, stop = lv->num_values - 1;
-        lily_value **values = lv->values;
-        for (i = 0;i < stop;i++) {
-            lily_mb_add_value(vm_buffer, s, values[i]);
-            lily_mb_add(vm_buffer, delim);
-        }
-        if (stop != -1)
-            lily_mb_add_value(vm_buffer, s, values[i]);
+    if (input_size == 0) {
+        lily_push_string(s, "");
+        lily_return_top(s);
+        return;
     }
 
+    input_size--;
+
+    lily_value *v;
+    uint32_t i;
+
+    for (i = 0;i < input_size;i++) {
+        v = lily_con_get(input_list, i);
+
+        lily_mb_add_value(vm_buffer, s, v);
+        lily_mb_add(vm_buffer, delim);
+    }
+
+    v = lily_con_get(input_list, i);
+    lily_mb_add_value(vm_buffer, s, v);
     lily_push_string(s, lily_mb_raw(vm_buffer));
     lily_return_top(s);
 }
 
 void lily_prelude_List_map(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
 
     lily_call_prepare(s, lily_arg_function(s, 1));
-    lily_container_val *con = lily_push_list(s, 0);
-    lily_list_reserve(con, list_val->num_values);
+
+    lily_container_val *result = lily_push_list(s, 0);
+    lily_list_reserve(result, lily_con_size(input_list));
 
     uint32_t i;
 
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_value *e = list_val->values[i];
-        lily_push_value(s, e);
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, v);
         lily_call(s, 1);
-        lily_list_push(con, lily_call_result(s));
+        lily_list_push(result, lily_call_result(s));
     }
 
     lily_return_top(s);
@@ -1007,64 +1065,86 @@ void lily_prelude_List_map(lily_state *s)
 
 void lily_prelude_List_pop(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t input_size = lily_con_size(input_list);
 
-    if (list_val->num_values == 0)
+    if (input_size == 0)
         lily_IndexError(s, "Pop from an empty list.");
 
-    lily_list_take(s, list_val, lily_con_size(list_val) - 1);
+    input_size--;
+
+    lily_list_take(s, input_list, input_size);
     lily_return_top(s);
 }
 
 void lily_prelude_List_push(lily_state *s)
 {
-    lily_value *list_arg = lily_arg_value(s, 0);
-    lily_container_val *list_val = lily_as_container(list_arg);
+    lily_value *input_arg = lily_arg_value(s, 0);
     lily_value *insert_value = lily_arg_value(s, 1);
+    lily_container_val *input_list = lily_as_container(input_arg);
 
-    lily_list_insert(list_val, lily_con_size(list_val), insert_value);
-    lily_return_value(s, list_arg);
+    lily_list_insert(input_list, lily_con_size(input_list), insert_value);
+    lily_return_value(s, input_arg);
 }
 
 static void list_select_reject_common(lily_state *s, int expect)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
+
     lily_call_prepare(s, lily_arg_function(s, 1));
+
     lily_value *result = lily_call_result(s);
     lily_container_val *con = lily_push_list(s, 0);
+    uint32_t i = 0;
 
-    uint32_t i;
-    for (i = 0;i < list_val->num_values;i++) {
-        lily_push_value(s, list_val->values[i]);
+    if (lily_con_size(input_list) == 0)
+        return;
+
+    while (1) {
+        if (i >= lily_con_size(input_list))
+            break;
+
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, v);
         lily_call(s, 1);
+        i++;
 
-        int ok = lily_as_boolean(result) == expect;
+        if (i > lily_con_size(input_list))
+            break;
 
-        if (ok)
-            lily_list_push(con, list_val->values[i]);
+        if (lily_as_boolean(result) == expect)
+            lily_list_push(con, v);
     }
-
-    lily_return_top(s);
 }
 
 void lily_prelude_List_reject(lily_state *s)
 {
     list_select_reject_common(s, 0);
+    lily_return_top(s);
 }
 
 void lily_prelude_List_repeat(lily_state *s)
 {
-    int n = lily_arg_integer(s, 0);
-    if (n < 0)
+    int64_t raw_count = lily_arg_integer(s, 0);
+
+    if (raw_count < 0)
         lily_ValueError(s, "Repeat count must be >= 0 (%ld given).",
-                (int64_t)n);
+                (int64_t)raw_count);
+
+    /* This ceiling isn't mentioned in the above message since it shouldn't be
+       an issue. */
+    if (raw_count > (int64_t)UINT32_MAX)
+        lily_ValueError(s, "Repeat count is far too large (%ld given).",
+                (int64_t)raw_count);
 
     lily_value *to_repeat = lily_arg_value(s, 1);
-    lily_container_val *lv = lily_push_list(s, n);
+    uint32_t count = (uint32_t)raw_count;
+    lily_container_val *result = lily_push_list(s, count);
+    uint32_t i;
 
-    int i;
-    for (i = 0;i < n;i++)
-        lily_con_set(lv, i, to_repeat);
+    for (i = 0;i < count;i++)
+        lily_con_set(result, i, to_repeat);
 
     lily_return_top(s);
 }
@@ -1072,58 +1152,50 @@ void lily_prelude_List_repeat(lily_state *s)
 void lily_prelude_List_select(lily_state *s)
 {
     list_select_reject_common(s, 1);
+    lily_return_top(s);
 }
 
 void lily_prelude_List_size(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
 
-    lily_return_integer(s, list_val->num_values);
+    lily_return_integer(s, lily_con_size(input_list));
 }
 
 void lily_prelude_List_shift(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
 
-    if (lily_con_size(list_val) == 0)
+    if (lily_con_size(input_list) == 0)
         lily_IndexError(s, "Shift on an empty list.");
 
-    lily_list_take(s, list_val, 0);
+    lily_list_take(s, input_list, 0);
     lily_return_top(s);
-    return;
 }
 
 void lily_prelude_List_slice(lily_state *s)
 {
-    lily_container_val *lv = lily_arg_container(s, 0);
-    int start = 0;
-    int size = lily_con_size(lv);
-    int stop = size;
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t input_size = lily_con_size(input_list);
+    uint32_t source_i, stop;
+    int ok = get_slice_range(s, input_size, &source_i, &stop);
 
-    switch (lily_arg_count(s)) {
-        case 3: stop = lily_arg_integer(s, 2);
-        case 2: start = lily_arg_integer(s, 1);
-    }
-
-    if (stop < 0)
-        stop = size + stop;
-    if (start < 0)
-        start = size + start;
-
-    if (stop > size ||
-        start > size ||
-        start > stop) {
+    if (ok == 0) {
         lily_push_list(s, 0);
         lily_return_top(s);
         return;
     }
 
-    int new_size = (stop - start);
-    lily_container_val *new_lv = lily_push_list(s, new_size);
-    int i, j;
+    uint32_t new_size = stop - source_i;
+    lily_container_val *result = lily_push_list(s, new_size);
+    uint32_t result_i;
 
-    for (i = 0, j = start;i < new_size;i++, j++) {
-        lily_con_set(new_lv, i, lily_con_get(lv, j));
+    for (result_i = 0;
+         result_i < new_size;
+         source_i++, result_i++) {
+        lily_value *v = lily_con_get(input_list, source_i);
+
+        lily_con_set(result, result_i, v);
     }
 
     lily_return_top(s);
@@ -1131,47 +1203,47 @@ void lily_prelude_List_slice(lily_state *s)
 
 void lily_prelude_List_unshift(lily_state *s)
 {
-    lily_value *list_arg = lily_arg_value(s, 0);
-    lily_value *input_arg = lily_arg_value(s, 1);
-    lily_container_val *list_val = lily_as_container(list_arg);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_value *unshift_arg = lily_arg_value(s, 1);
+    lily_container_val *input_list = lily_as_container(input_arg);
 
-    lily_list_insert(list_val, 0, input_arg);
-    lily_return_value(s, list_arg);
+    lily_list_insert(input_list, 0, unshift_arg);
+    lily_return_value(s, input_arg);
 }
 
 void lily_prelude_List_zip(lily_state *s)
 {
-    lily_container_val *list_val = lily_arg_container(s, 0);
+    lily_container_val *input_list = lily_arg_container(s, 0);
     lily_container_val *all_others = lily_arg_container(s, 1);
-    int other_list_count = lily_con_size(all_others);
-    int result_size = lily_con_size(list_val);
-    int row_i, column_i;
+    uint32_t other_list_size = lily_con_size(all_others);
+    uint32_t result_size = lily_con_size(input_list);
+    uint32_t row_i, column_i;
 
     /* Since Lily can't have unset values, clamp the result List to the size of
        the smallest List. */
-    for (row_i = 0;row_i < other_list_count;row_i++) {
+    for (row_i = 0;row_i < other_list_size;row_i++) {
         lily_value *other_value = lily_con_get(all_others, row_i);
         lily_container_val *other_elem = lily_as_container(other_value);
-        int elem_size = lily_con_size(other_elem);
+        uint32_t elem_size = lily_con_size(other_elem);
 
         if (result_size > elem_size)
             result_size = elem_size;
     }
 
     lily_container_val *result_list = lily_push_list(s, result_size);
-    int result_width = other_list_count + 1;
+    uint32_t result_width = other_list_size + 1;
 
     for (row_i = 0;row_i < result_size;row_i++) {
         /* For each row, create a Tuple and fill in the columns. */
         lily_container_val *tup = lily_push_tuple(s, result_width);
 
-        lily_con_set(tup, 0, lily_con_get(list_val, row_i));
+        lily_con_set(tup, 0, lily_con_get(input_list, row_i));
 
-        for (column_i = 0;column_i < other_list_count;column_i++) {
-            /* Take the [column] element from the List at [row]. To avoid having
-               a cache the size of 'others', this re-extracts containers. */
+        for (column_i = 0;column_i < other_list_size;column_i++) {
+            /* Take the [column] element from the List at [row]. */
             lily_value *other_value = lily_con_get(all_others, column_i);
             lily_container_val *other_elem = lily_as_container(other_value);
+
             lily_con_set(tup, column_i + 1, lily_con_get(other_elem, row_i));
         }
 
@@ -1193,6 +1265,7 @@ void lily_prelude_Option_and_then(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
         lily_container_val *con = lily_arg_container(s, 0);
+
         lily_call_prepare(s, lily_arg_function(s, 1));
         lily_push_value(s, lily_con_get(con, 0));
         lily_call(s, 1);
@@ -1216,11 +1289,13 @@ void lily_prelude_Option_map(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
         lily_container_val *con = lily_arg_container(s, 0);
+
         lily_call_prepare(s, lily_arg_function(s, 1));
         lily_push_value(s, lily_con_get(con, 0));
         lily_call(s, 1);
 
         lily_container_val *variant = lily_push_some(s);
+
         lily_con_set(variant, 0, lily_call_result(s));
         lily_return_top(s);
     }
@@ -1243,7 +1318,6 @@ void lily_prelude_Option_or_else(lily_state *s)
     else {
         lily_call_prepare(s, lily_arg_function(s, 1));
         lily_call(s, 0);
-
         lily_return_value(s, lily_call_result(s));
     }
 }
@@ -1252,6 +1326,7 @@ void lily_prelude_Option_unwrap(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
         lily_container_val *con = lily_arg_container(s, 0);
+
         lily_return_value(s, lily_con_get(con, 0));
     }
     else
@@ -1264,6 +1339,7 @@ void lily_prelude_Option_unwrap_or(lily_state *s)
 
     if (lily_arg_is_some(s, 0)) {
         lily_container_val *con = lily_arg_container(s, 0);
+
         source = lily_con_get(con, 0);
     }
     else
@@ -1276,6 +1352,7 @@ void lily_prelude_Option_unwrap_or_else(lily_state *s)
 {
     if (lily_arg_is_some(s, 0)) {
         lily_container_val *con = lily_arg_container(s, 0);
+
         lily_return_value(s, lily_con_get(con, 0));
     }
     else {
@@ -1290,38 +1367,34 @@ static void result_optionize(lily_state *s, int expect)
 {
     if (lily_arg_is_success(s, 0) == expect) {
         lily_container_val *con = lily_arg_container(s, 0);
-
         lily_container_val *variant = lily_push_some(s);
+
         lily_con_set(variant, 0, lily_con_get(con, 0));
-        lily_return_top(s);
     }
     else
-        lily_return_none(s);
+        lily_push_none(s);
 }
 
 void lily_prelude_Result_failure(lily_state *s)
 {
     result_optionize(s, 0);
-}
-
-static void result_is_success_or_failure(lily_state *s, int expect)
-{
-    lily_return_boolean(s, lily_arg_is_success(s, 0) == expect);
+    lily_return_top(s);
 }
 
 void lily_prelude_Result_is_failure(lily_state *s)
 {
-    result_is_success_or_failure(s, 0);
+    lily_return_boolean(s, lily_arg_is_failure(s, 0));
 }
 
 void lily_prelude_Result_is_success(lily_state *s)
 {
-    result_is_success_or_failure(s, 1);
+    lily_return_boolean(s, lily_arg_is_success(s, 0));
 }
 
 void lily_prelude_Result_success(lily_state *s)
 {
     result_optionize(s, 1);
+    lily_return_top(s);
 }
 
 void lily_prelude_RuntimeError_new(lily_state *s)
@@ -1329,71 +1402,61 @@ void lily_prelude_RuntimeError_new(lily_state *s)
     return_exception(s, LILY_ID_RUNTIMEERROR);
 }
 
-static int char_index(const char *s, int idx, char ch)
-{
-    const char *P = strchr(s + idx,ch);
-    if (P == NULL)
-        return -1;
-    else
-        return (int)((uintptr_t)P - (uintptr_t)s);
-}
-
 void lily_prelude_String_format(lily_state *s)
 {
     const char *fmt = lily_arg_string_raw(s, 0);
-    lily_container_val *lv = lily_arg_container(s, 1);
-
-    int lsize = lily_con_size(lv);
+    lily_container_val *args = lily_arg_container(s, 1);
+    uint32_t args_size = lily_con_size(args);
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
-
-    int idx, last_idx = 0;
+    const char *last_fmt = fmt;
 
     while (1) {
-        idx = char_index(fmt, last_idx, '{');
-        if (idx > -1) {
-            if (idx > last_idx)
-                lily_mb_add_slice(msgbuf, fmt, last_idx, idx);
+        fmt = strchr(fmt, '{');
 
-            char ch;
-            int i, total = 0;
-            int start = idx + 1;
-
-            /* Ignore any leading zeroes, but cap at 2 digits. */
-            do {
-                idx++;
-                ch = fmt[idx];
-            } while (ch == '0');
-
-            for (i = 0;i < 2;i++) {
-                if (isdigit(ch) == 0)
-                    break;
-
-                total = (total * 10) + (ch - '0');
-                idx++;
-                ch = fmt[idx];
-            }
-
-            if (isdigit(ch))
-                lily_ValueError(s, "Format must be between 0...99.");
-            else if (start == idx) {
-                if (ch == '}' || ch == '\0')
-                    lily_ValueError(s, "Format specifier is empty.");
-                else
-                    lily_ValueError(s, "Format specifier is not numeric.");
-            }
-            else if (total >= lsize)
-                lily_IndexError(s, "Format specifier is too large.");
-
-            idx++;
-            last_idx = idx;
-
-            lily_value *v = lily_con_get(lv, total);
-            lily_mb_add_value(msgbuf, s, v);
-        }
-        else {
-            lily_mb_add_slice(msgbuf, fmt, last_idx, strlen(fmt));
+        if (fmt == NULL) {
+            lily_mb_add(msgbuf, last_fmt);
             break;
         }
+
+        int offset = (int)(fmt - last_fmt);
+
+        if (offset)
+            lily_mb_add_sized(msgbuf, last_fmt, offset);
+
+        fmt++;
+        last_fmt = fmt;
+
+        uint32_t total = 0;
+        char ch;
+
+        while (1) {
+            ch = *fmt;
+
+            if (isdigit(ch) == 0 || total > 99)
+                break;
+
+            total = (total * 10) + (ch - '0');
+            fmt++;
+        }
+
+        if (fmt == last_fmt) {
+            if (ch == '}' || ch == '\0')
+                lily_ValueError(s, "Format specifier is empty.");
+            else
+                lily_ValueError(s, "Format specifier is not numeric.");
+        }
+        else if (total > 99)
+            lily_ValueError(s, "Format must be between 0...99.");
+        else if (total >= args_size)
+            lily_IndexError(s, "Format specifier is too large.");
+        else if (*fmt != '}')
+            lily_ValueError(s, "Format specifier is not closed.");
+
+        lily_value *v = lily_con_get(args, total);
+
+        lily_mb_add_value(msgbuf, s, v);
+        fmt++;
+        last_fmt = fmt;
     }
 
     lily_push_string(s, lily_mb_raw(msgbuf));
@@ -1402,91 +1465,71 @@ void lily_prelude_String_format(lily_state *s)
 
 void lily_prelude_String_ends_with(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *suffix_arg = lily_arg_value(s, 1);
-
-    char *input_raw_str = input_arg->value.string->string;
-    char *suffix_raw_str = suffix_arg->value.string->string;
-    int input_size = input_arg->value.string->size;
-    int suffix_size = suffix_arg->value.string->size;
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *suffix_sv = lily_arg_string(s, 1);
+    char *input_raw = lily_string_raw(input_sv);
+    char *suffix_raw = lily_string_raw(suffix_sv);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t suffix_size = lily_string_length(suffix_sv);
 
     if (suffix_size > input_size) {
         lily_return_boolean(s, 0);
         return;
     }
 
-    int input_i, suffix_i, ok = 1;
-    for (input_i = input_size - 1, suffix_i = suffix_size - 1;
-         suffix_i >= 0;
-         input_i--, suffix_i--) {
-        if (input_raw_str[input_i] != suffix_raw_str[suffix_i]) {
-            ok = 0;
-            break;
-        }
-    }
+    char *adjusted_input = input_raw + input_size - suffix_size;
+    int ok = strcmp(adjusted_input, suffix_raw) == 0;
 
     lily_return_boolean(s, ok);
 }
 
 void lily_prelude_String_find(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *find_arg = lily_arg_value(s, 1);
-    int start = 0;
-    if (lily_arg_count(s) == 3)
-        start = lily_arg_integer(s, 2);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *find_sv = lily_arg_string(s, 1);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t find_size = lily_string_length(find_sv);
+    int64_t raw_start = 0;
+    uint32_t start;
 
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
+    if (lily_arg_count(s) == 2)
+        start = 0;
+    else {
+        raw_start = lily_arg_integer(s, 2);
 
-    char *find_str = find_arg->value.string->string;
-    int find_length = find_arg->value.string->size;
+        if (raw_start < 0)
+            raw_start += input_size;
 
-    if (find_length > input_length ||
-        find_length == 0 ||
-        start > input_length ||
-        follower_table[(unsigned char)input_str[start]] == 0) {
+        if (raw_start >= input_size) {
+            lily_return_none(s);
+            return;
+        }
+
+        start = (uint32_t)raw_start;
+    }
+
+    if (find_size == 0 ||
+        find_size > input_size)
+    {
         lily_return_none(s);
         return;
     }
 
-    char find_ch;
-    int i, j, k, length_diff, match;
+    const char *input_str = lily_string_raw(input_sv) + start;
+    const char *find_str = lily_string_raw(find_sv);
+    char *result = strstr(input_str, find_str);
 
-    length_diff = input_length - find_length;
-    find_ch = find_str[0];
-    match = 0;
-
-    /* This stops at length_diff for two reasons:
-       * The inner loop won't have to do a boundary check.
-       * Search will stop if there isn't enough length left for a match
-         (ex: "abcdef".find("defg")) */
-    for (i = start;i <= length_diff;i++) {
-        if (input_str[i] == find_ch) {
-            match = 1;
-            /* j starts at i + 1 to skip the first match.
-               k starts at 1 for the same reason. */
-            for (j = i + 1, k = 1;k < find_length;j++, k++) {
-                if (input_str[j] != find_str[k]) {
-                    match = 0;
-                    break;
-                }
-            }
-            if (match == 1)
-                break;
-        }
-    }
-
-    if (match) {
-        lily_container_val *variant = lily_push_some(s);
-
-        lily_push_integer(s, i);
-        lily_con_set_from_stack(s, variant, 0);
-
-        lily_return_top(s);
-    }
-    else
+    if (result == NULL) {
         lily_return_none(s);
+        return;
+    }
+
+    lily_container_val *variant = lily_push_some(s);
+
+    lily_push_integer(s, (int64_t)(result - input_str));
+    lily_con_set_from_stack(s, variant, 0);
+
+    lily_return_top(s);
 }
 
 void lily_prelude_String_html_encode(lily_state *s)
@@ -1509,24 +1552,26 @@ void lily_prelude_String_html_encode(lily_state *s)
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
 void lily_prelude_String_##WRAP_NAME(lily_state *s) \
 { \
-    lily_string_val *input = lily_arg_string(s, 0); \
-    int length = lily_string_length(input); \
+    lily_string_val *input_sv = lily_arg_string(s, 0); \
+    uint32_t input_size = lily_string_length(input_sv); \
 \
-    if (length == 0) { \
+    if (input_size == 0) { \
         lily_return_boolean(s, 0); \
         return; \
     } \
 \
-    const char *loop_str = lily_string_raw(input); \
-    int i = 0; \
+    const char *input_str = lily_string_raw(input_sv); \
     int ok = 1; \
 \
-    for (i = 0;i < length;i++) { \
-        unsigned char ch = (unsigned char)loop_str[i]; \
+    while (*input_str) { \
+        unsigned char ch = (unsigned char)*input_str; \
+\
         if (WRAPPED_CALL(ch) == 0) { \
             ok = 0; \
             break; \
         } \
+\
+        input_str++; \
     } \
 \
     lily_return_boolean(s, ok); \
@@ -1542,16 +1587,17 @@ CTYPE_WRAP(is_space, isspace)
 
 void lily_prelude_String_lower(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    uint32_t input_length = input_arg->value.string->size;
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    uint32_t input_size = lily_string_length(input_sv);
     uint32_t i;
 
-    lily_push_string(s, lily_as_string_raw(input_arg));
+    lily_push_string(s, lily_string_raw(input_sv));
 
     char *raw_out = lily_as_string_raw(lily_stack_get_top(s));
 
-    for (i = 0;i < input_length;i++) {
+    for (i = 0;i < input_size;i++) {
         int ch = raw_out[i];
+
         if (isupper(ch))
             raw_out[i] = tolower(ch);
     }
@@ -1559,178 +1605,95 @@ void lily_prelude_String_lower(lily_state *s)
     lily_return_top(s);
 }
 
-/* This is a helper for lstrip wherein input_arg has some utf-8 bits inside. */
-static int lstrip_utf8_start(lily_value *input_arg, lily_string_val *strip_sv)
+static int lstrip_utf8_start(lily_string_val *input_sv, const char *strip_str)
 {
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
+    const char *input_str = lily_string_raw(input_sv);
+    const char *input_end = input_str + lily_string_length(input_sv);
+    const char *input_iter = input_str;
+    const char *strip_iter = strip_str;
 
-    char *strip_str = strip_sv->string;
-    int strip_length = strip_sv->size;
-    int i = 0, j = 0, match = 1;
+    while (*strip_iter) {
+        uint8_t follow_count = follower_table[(unsigned char)*strip_str];
+        uint8_t i;
 
-    char ch = strip_str[0];
-    if (follower_table[(unsigned char)ch] == strip_length) {
-        /* Only a single utf-8 char. This is a bit simpler. */
-        char strip_start_ch = ch;
-        int char_width = follower_table[(unsigned char)ch];
-        while (i < input_length) {
-            if (input_str[i] == strip_start_ch) {
-                /* j starts at 1 because the first byte was already checked.
-                   This compares the inner part of the strip string and the
-                   input string to make sure the whole utf-8 chunk matches. */
-                for (j = 1;j < char_width;j++) {
-                    if (input_str[i + j] != strip_str[j]) {
-                        match = 0;
-                        break;
-                    }
-                }
-                if (match == 0)
-                    break;
+        if ((input_iter + follow_count) > input_end) {
+            strip_iter += follow_count;
+            continue;
+        }
 
-                i += char_width;
-            }
-            else
+        const char *input_next = input_iter;
+
+        for (i = 0;
+             i < follow_count;
+             i++, input_next++, strip_iter++) {
+            if (*input_next != *strip_iter)
                 break;
         }
-    }
-    else {
-        /* There's at least one utf-8 chunk. There may be ascii bytes to strip
-           as well, or more utf-8 chunks. This is the most complicated case. */
-        char input_ch;
-        int char_width, k;
-        while (1) {
-            input_ch = input_str[i];
-            if (input_ch == strip_str[j]) {
-                char_width = follower_table[(unsigned char)strip_str[j]];
-                match = 1;
-                /* This has to use k, unlike the above loop, because j is being
-                   used to hold the current position in strip_str. */
-                for (k = 1;k < char_width;k++) {
-                    if (input_str[i + k] != strip_str[j + k]) {
-                        match = 0;
-                        break;
-                    }
-                }
-                if (match == 1) {
-                    /* Found a match, so eat the valid utf-8 chunk and start
-                       from the beginning of the strip string again. This makes
-                       sure that each chunk of the input string is matched to
-                       each chunk of the strip string. */
-                    i += char_width;
-                    if (i >= input_length)
-                        break;
-                    else {
-                        j = 0;
-                        continue;
-                    }
-                }
-            }
 
-            /* This assumes that strip_str is valid utf-8. */
-            j += follower_table[(unsigned char)strip_str[j]];
-
-            /* If all chunks in the strip str have been checked, then
-               everything that can be removed has been removed. */
-            if (j == strip_length) {
-                match = 0;
-                break;
-            }
+        if (i != follow_count)
+            strip_iter = strip_iter - i + follow_count;
+        else {
+            strip_iter = strip_str;
+            input_iter = input_next;
         }
     }
 
-    return i;
+    int result = (int)(input_iter - input_str);
+
+    return result;
 }
 
-/* This is a helper for lstrip wherein input_arg does not have utf-8. */
-static uint32_t lstrip_ascii_start(lily_value *input_arg,
-        lily_string_val *strip_sv)
+static int is_utf8(const char *str)
 {
-    char *input_str = input_arg->value.string->string;
-    uint32_t i;
-    uint32_t input_length = input_arg->value.string->size;
+    int result = 0;
 
-    if (strip_sv->size == 1) {
-        /* Strip a single byte really fast. The easiest case. */
-        char strip_ch;
-        strip_ch = strip_sv->string[0];
-        for (i = 0;i < input_length;i++) {
-            if (input_str[i] != strip_ch)
-                break;
+    while (*str) {
+        unsigned char ch = (unsigned char)*str;
+
+        if (ch > 127) {
+            result = 1;
+            break;
         }
-    }
-    else {
-        /* Strip one of many ascii bytes. A bit tougher, but not much. */
-        char *strip_str = strip_sv->string;
-        uint32_t strip_length = strip_sv->size;
-        for (i = 0;i < input_length;i++) {
-            char ch = input_str[i];
-            int found = 0;
-            uint32_t j;
-            for (j = 0;j < strip_length;j++) {
-                if (ch == strip_str[j]) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (found == 0)
-                break;
-        }
+
+        str++;
     }
 
-    return i;
+    return result;
 }
 
 void lily_prelude_String_lstrip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *strip_arg = lily_arg_value(s, 1);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *strip_sv = lily_arg_string(s, 1);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t strip_size = lily_string_length(strip_sv);
 
-    char *strip_str;
-    unsigned char ch;
-    uint32_t copy_from, i, strip_str_len;
-    lily_string_val *strip_sv;
-    int has_multibyte_char = 0;
-
-    /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.string->size == 0 ||
-        strip_arg->value.string->size == 0) {
-        lily_return_value(s, input_arg);
+    if (input_size == 0 ||
+        strip_size == 0) {
+        lily_return_value(s, lily_arg_value(s, 0));
         return;
     }
 
-    strip_sv = strip_arg->value.string;
-    strip_str = strip_sv->string;
-    strip_str_len = (uint32_t)strlen(strip_str);
-    has_multibyte_char = 0;
+    const char *input_str = lily_string_raw(input_sv);
+    const char *strip_str = lily_string_raw(strip_sv);
+    int have_utf8 = is_utf8(strip_str);
 
-    for (i = 0;i < strip_str_len;i++) {
-        ch = (unsigned char)strip_str[i];
-        if (ch > 127) {
-            has_multibyte_char = 1;
-            break;
-        }
-    }
-
-    if (has_multibyte_char == 0)
-        copy_from = lstrip_ascii_start(input_arg, strip_sv);
+    if (have_utf8 == 0)
+        input_str += strspn(input_str, strip_str);
     else
-        copy_from = lstrip_utf8_start(input_arg, strip_sv);
+        input_str += lstrip_utf8_start(input_sv, strip_str);
 
-    const char *raw = input_arg->value.string->string + copy_from;
-    int size = input_arg->value.string->size;
-
-    lily_push_string_sized(s, raw, size - copy_from);
+    lily_push_string(s, input_str);
     lily_return_top(s);
 }
 
 void lily_prelude_String_parse_i(lily_state *s)
 {
     char *input = lily_arg_string_raw(s, 0);
-    uint64_t value = 0;
     int is_negative = 0;
-    unsigned int rounds = 0;
     int leading_zeroes = 0;
+    unsigned int rounds = 0;
+    uint64_t value = 0;
 
     if (*input == '-') {
         is_negative = 1;
@@ -1773,293 +1736,202 @@ void lily_prelude_String_parse_i(lily_state *s)
 
         lily_push_integer(s, signed_value);
         lily_con_set_from_stack(s, variant, 0);
-
         lily_return_top(s);
     }
 }
 
 void lily_prelude_String_replace(lily_state *s)
 {
-    lily_string_val *source_sv = lily_arg_string(s, 0);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
     lily_string_val *needle_sv = lily_arg_string(s, 1);
-    int source_len = lily_string_length(source_sv);
-    int needle_len = lily_string_length(needle_sv);
+    const char *replace_with = lily_arg_string_raw(s, 2);
+    uint32_t source_len = lily_string_length(input_sv);
+    uint32_t needle_len = lily_string_length(needle_sv);
 
-    if (needle_len > source_len) {
+    if (needle_len > source_len ||
+        needle_len == 0) {
         lily_return_value(s, lily_arg_value(s, 0));
         return;
     }
 
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
-    char *source = lily_string_raw(source_sv);
-    char *needle = lily_string_raw(needle_sv);
-    char *replace_with = lily_arg_string_raw(s, 2);
-    char needle_first = *needle;
-    char ch;
-    int start = 0;
-    int i;
+    const char *source_raw = lily_string_raw(input_sv);
+    const char *needle_raw = lily_string_raw(needle_sv);
+    const char *input_iter = strstr(source_raw, needle_raw);
 
-    for (i = 0;i < source_len;i++) {
-        ch = source[i];
-        if (ch == needle_first &&
-            (i + needle_len) <= source_len) {
-            int match = 1;
-            int j;
-            for (j = 1;j < needle_len;j++) {
-                if (needle[j] != source[i + j])
-                    match = 0;
-            }
-
-            if (match) {
-                if (i != start)
-                    lily_mb_add_slice(msgbuf, source, start, i);
-
-                lily_mb_add(msgbuf, replace_with);
-                i += needle_len - 1;
-                start = i + 1;
-            }
-        }
+    if (input_iter == NULL) {
+        lily_return_value(s, lily_arg_value(s, 0));
+        return;
     }
 
-    if (i != start)
-        lily_mb_add_slice(msgbuf, source, start, i);
+    const char *last_iter = source_raw;
 
+    do {
+        int offset = (int)(input_iter - last_iter);
+
+        if (offset)
+            lily_mb_add_sized(msgbuf, last_iter, offset);
+
+        lily_mb_add(msgbuf, replace_with);
+        last_iter = input_iter + needle_len;
+        input_iter = strstr(last_iter, needle_raw);
+    } while (input_iter);
+
+    lily_mb_add(msgbuf, last_iter);
     lily_push_string(s, lily_mb_raw(msgbuf));
     lily_return_top(s);
 }
 
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
-static int rstrip_ascii_stop(lily_value *input_arg, lily_string_val *strip_sv)
+static int rstrip_ascii_stop(lily_string_val *input_sv, const char *strip_str)
 {
-    int i;
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
+    const char *input_str = lily_string_raw(input_sv);
+    const char *input_begin = input_str - 1;
+    const char *input_end = input_str + lily_string_length(input_sv) - 1;
+    const char *input_iter = input_end;
+    const char *strip_iter = strip_str;
 
-    if (strip_sv->size == 1) {
-        char strip_ch = strip_sv->string[0];
-        for (i = input_length - 1;i >= 0;i--) {
-            if (input_str[i] != strip_ch)
+    while (*strip_iter) {
+        if (*strip_iter == *input_iter) {
+            input_iter--;
+
+            if (input_iter == input_begin)
                 break;
+
+            strip_iter = strip_str;
         }
-    }
-    else {
-        char *strip_str = strip_sv->string;
-        int strip_length = strip_sv->size;
-        for (i = input_length - 1;i >= 0;i--) {
-            char ch = input_str[i];
-            int found = 0;
-            int j;
-            for (j = 0;j < strip_length;j++) {
-                if (ch == strip_str[j]) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (found == 0)
-                break;
-        }
+        else
+            strip_iter++;
     }
 
-    return i + 1;
+    int result = (int)(input_iter - input_begin);
+
+    return result;
 }
 
 /* Helper for rstrip, for when there is some utf-8. */
-static int rstrip_utf8_stop(lily_value *input_arg, lily_string_val *strip_sv)
+static int rstrip_utf8_stop(lily_string_val *input_sv, const char *strip_str)
 {
-    char *input_str = input_arg->value.string->string;
-    int input_length = input_arg->value.string->size;
+    const char *input_str = lily_string_raw(input_sv);
+    const char *input_begin = input_str - 1;
+    const char *input_end = input_str + lily_string_length(input_sv) - 1;
+    const char *input_iter = input_end;
+    const char *strip_iter = strip_str;
 
-    char *strip_str = strip_sv->string;
-    int strip_length = strip_sv->size;
-    int i, j;
+    while (*strip_iter) {
+        uint8_t follow_count = follower_table[(unsigned char)*strip_str];
+        const char *input_next = input_iter - follow_count + 1;
+        uint8_t i;
 
-    i = input_length - 1;
-    j = 0;
-    while (i >= 0) {
-        /* First find out how many bytes are in the current chunk. */
-        int follow_count = follower_table[(unsigned char)strip_str[j]];
-        /* Now get the last byte of this chunk. Since the follower table
-           includes the total, offset by -1. */
-        char last_strip_byte = strip_str[j + (follow_count - 1)];
-        /* Input is going from right to left. See if input matches the last
-           byte of the current utf-8 chunk. But also check that there are
-           enough chars left to protect against underflow. */
-        if (input_str[i] == last_strip_byte &&
-            i + 1 >= follow_count) {
-            int match = 1;
-            int input_i, strip_i, k;
-            /* input_i starts at i - 1 to skip the last byte.
-               strip_i starts at follow_count so it can stop things. */
-            for (input_i = i - 1, strip_i = j + (follow_count - 2), k = 1;
-                 k < follow_count;
-                 input_i--, strip_i--, k++) {
-                if (input_str[input_i] != strip_str[strip_i]) {
-                    match = 0;
-                    break;
-                }
-            }
-
-            if (match == 1) {
-                i -= follow_count;
-                j = 0;
-                continue;
-            }
+        if ((input_iter - follow_count) < input_begin) {
+            strip_iter += follow_count;
+            continue;
         }
 
-        /* Either the first byte or one of the inner bytes didn't match.
-           Go to the next chunk and try again. */
-        j += follow_count;
-        if (j == strip_length)
-            break;
+        for (i = 0;
+             i < follow_count;
+             i++, input_next++, strip_iter++) {
+            if (*input_next != *strip_iter)
+                break;
+        }
 
-        continue;
+        if (i != follow_count)
+            strip_iter = strip_iter - i + follow_count;
+        else {
+            strip_iter = strip_str;
+            input_iter -= follow_count;
+        }
     }
 
-    return i + 1;
+    int result = (int)(input_iter - input_begin);
+
+    return result;
 }
+
 
 void lily_prelude_String_rstrip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *strip_arg = lily_arg_value(s, 1);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *strip_sv = lily_arg_string(s, 1);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t strip_size = lily_string_length(strip_sv);
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.string->size == 0 ||
-        strip_arg->value.string->size == 0) {
-        lily_return_value(s, input_arg);
+    if (input_size == 0 ||
+        strip_size == 0) {
+        lily_return_value(s, lily_arg_value(s, 0));
         return;
     }
 
-    lily_string_val *strip_sv = strip_arg->value.string;
-    char *strip_str = strip_sv->string;
-    uint32_t strip_str_len = (uint32_t)strlen(strip_str);
-    int has_multibyte_char = 0;
-    unsigned char ch;
-    uint32_t copy_to, i;
+    const char *strip_str = lily_string_raw(strip_sv);
+    int have_utf8 = is_utf8(strip_str);
+    int copy_to;
 
-    for (i = 0;i < strip_str_len;i++) {
-        ch = (unsigned char)strip_str[i];
-        if (ch > 127) {
-            has_multibyte_char = 1;
-            break;
-        }
-    }
-
-    if (has_multibyte_char == 0)
-        copy_to = rstrip_ascii_stop(input_arg, strip_sv);
+    if (have_utf8 == 0)
+        copy_to = rstrip_ascii_stop(input_sv, strip_str);
     else
-        copy_to = rstrip_utf8_stop(input_arg, strip_sv);
+        copy_to = rstrip_utf8_stop(input_sv, strip_str);
 
-    const char *raw = input_arg->value.string->string;
+    const char *input_str = lily_string_raw(input_sv);
 
-    lily_push_string_sized(s, raw, copy_to);
+    lily_push_string_sized(s, input_str, copy_to);
     lily_return_top(s);
 }
 
-static const char move_table[256] =
+static uint32_t count_split_elements(const char *input_str,
+        const char *split_str)
 {
-     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-/* 0 */ 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 1 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 2 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 3 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 4 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 5 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 6 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 7 */ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-/* 8 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 9 */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* A */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* B */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* C */ 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* D */ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-/* E */ 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-/* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+    uint32_t result = 0;
+
+    while (1) {
+        input_str = strstr(input_str, split_str);
+        result++;
+
+        if (input_str == NULL)
+            break;
+
+        input_str++;
+    }
+
+    return result;
+}
 
 static void string_split_by_val(lily_state *s, char *input, char *splitby)
 {
-    char *input_ch = &input[0];
-    char *splitby_ch = &splitby[0];
-    int values_needed = 0;
-
-    while (move_table[(unsigned char)*input_ch] != 0) {
-        if (*input_ch == *splitby_ch) {
-            char *restore_ch = input_ch;
-            int is_match = 1;
-            while (*input_ch == *splitby_ch) {
-                splitby_ch++;
-                input_ch++;
-                if (*splitby_ch == '\0')
-                    break;
-
-                if (*input_ch != *splitby_ch) {
-                    is_match = 0;
-                    input_ch = restore_ch + 1;
-                    break;
-                }
-            }
-
-            splitby_ch = &splitby[0];
-            values_needed += is_match;
-        }
-        else
-            input_ch += move_table[(unsigned char)*input_ch];
-    }
-
-    values_needed++;
-    input_ch = &input[0];
+    uint32_t values_needed = count_split_elements(input, splitby);
     lily_container_val *list_val = lily_push_list(s, values_needed);
-    int i = 0;
-    char *last_start = input_ch;
+    int needle_len = strlen(splitby);
+    uint32_t i = 0;
 
     while (1) {
-        char *match_start = input_ch;
-        int is_match = 0;
-        if (*input_ch == *splitby_ch) {
-            is_match = 1;
-            while (*input_ch == *splitby_ch) {
-                splitby_ch++;
-                if (*splitby_ch == '\0')
-                    break;
+        char *input_next = strstr(input, splitby);
 
-                input_ch++;
-                if (*input_ch != *splitby_ch) {
-                    is_match = 0;
-                    input_ch = match_start;
-                    break;
-                }
-            }
-            splitby_ch = &splitby[0];
-        }
+        if (input_next == NULL)
+            break;
 
-        /* The second check is so that if the last bit of the input string
-           matches the split string, an empty string will be made.
-           Ex: "1 2 3 ".split(" ") # ["1", "2", "3", ""] */
-        if (is_match || *input_ch == '\0') {
-            int size = match_start - last_start;
-            lily_push_string_sized(s, last_start, size);
-            lily_con_set_from_stack(s, list_val, i);
+        int offset = (int)(input_next - input);
 
-            i++;
-            if (*input_ch == '\0')
-                break;
-
-            last_start = input_ch + 1;
-        }
-
-        input_ch++;
+        lily_push_string_sized(s, input, offset);
+        lily_con_set_from_stack(s, list_val, i);
+        i++;
+        input = input_next + needle_len;
     }
+
+    lily_push_string(s, input);
+    lily_con_set_from_stack(s, list_val, i);
 }
 
 void lily_prelude_String_size(lily_state *s)
 {
-    lily_return_integer(s, lily_arg_string(s, 0)->size);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+
+    lily_return_integer(s, (int64_t)lily_string_length(input_sv));
 }
 
 void lily_prelude_String_slice(lily_state *s)
 {
     do_str_slice(s, 0);
+    lily_return_top(s);
 }
 
 void lily_prelude_String_split(lily_state *s)
@@ -2070,7 +1942,7 @@ void lily_prelude_String_split(lily_state *s)
 
     if (lily_arg_count(s) == 2) {
         split_strval = lily_arg_string(s, 1);
-        if (split_strval->size == 0)
+        if (lily_string_length(split_strval) == 0)
             lily_ValueError(s, "Cannot split by empty string.");
     }
     else {
@@ -2085,78 +1957,59 @@ void lily_prelude_String_split(lily_state *s)
 
 void lily_prelude_String_starts_with(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *prefix_arg = lily_arg_value(s, 1);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *prefix_sv = lily_arg_string(s, 1);
+    char *input_raw = lily_string_raw(input_sv);
+    char *prefix_raw = lily_string_raw(prefix_sv);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t prefix_size = lily_string_length(prefix_sv);
 
-    char *input_raw_str = input_arg->value.string->string;
-    char *prefix_raw_str = prefix_arg->value.string->string;
-    int ok = 1;
-    uint32_t prefix_size = prefix_arg->value.string->size;
-
-    uint32_t i;
-
-    if (input_arg->value.string->size < prefix_size) {
+    if (input_size < prefix_size ||
+        *input_raw != *prefix_raw) {
         lily_return_boolean(s, 0);
         return;
     }
 
-
-    for (i = 0;i < prefix_size;i++) {
-        if (input_raw_str[i] != prefix_raw_str[i]) {
-            ok = 0;
-            break;
-        }
-    }
+    int ok = strncmp(input_raw, prefix_raw, prefix_size) == 0;
 
     lily_return_boolean(s, ok);
 }
 
 void lily_prelude_String_strip(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    lily_value *strip_arg = lily_arg_value(s, 1);
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    lily_string_val *strip_sv = lily_arg_string(s, 1);
+    uint32_t input_size = lily_string_length(input_sv);
+    uint32_t strip_size = lily_string_length(strip_sv);
 
     /* Either there is nothing to strip (1st), or stripping nothing (2nd). */
-    if (input_arg->value.string->size == 0 ||
-        strip_arg->value.string->size == 0) {
-        lily_return_value(s, input_arg);
+    if (input_size == 0 || strip_size == 0) {
+        lily_return_value(s, lily_arg_value(s, 0));
         return;
     }
 
-    unsigned char ch;
-    lily_string_val *strip_sv = strip_arg->value.string;
-    char *strip_str = strip_sv->string;
-    int has_multibyte_char = 0;
-    uint32_t strip_str_len = (uint32_t)strlen(strip_str);
-    uint32_t copy_from, copy_to, i;
+    const char *input_str = lily_string_raw(input_sv);
+    const char *strip_str = lily_string_raw(strip_sv);
+    int have_utf8 = is_utf8(strip_str);
+    int copy_from, copy_to;
 
-    for (i = 0;i < strip_str_len;i++) {
-        ch = (unsigned char)strip_str[i];
-        if (ch > 127) {
-            has_multibyte_char = 1;
-            break;
-        }
+    if (have_utf8 == 0)
+        copy_from = (int)strspn(input_str, strip_str);
+    else
+        copy_from = lstrip_utf8_start(input_sv, strip_str);
+
+    if (*(input_str + copy_from) == '\0') {
+        lily_push_string(s, "");
+        lily_return_top(s);
+        return;
     }
 
-    if (has_multibyte_char == 0)
-        copy_from = lstrip_ascii_start(input_arg, strip_sv);
+    if (have_utf8 == 0)
+        copy_to = rstrip_ascii_stop(input_sv, strip_str);
     else
-        copy_from = lstrip_utf8_start(input_arg, strip_sv);
+        copy_to = rstrip_utf8_stop(input_sv, strip_str);
 
-    if (copy_from != input_arg->value.string->size) {
-        if (has_multibyte_char)
-            copy_to = rstrip_ascii_stop(input_arg, strip_sv);
-        else
-            copy_to = rstrip_utf8_stop(input_arg, strip_sv);
-    }
-    else
-        /* The whole string consists of stuff in strip_str. Do this so the
-           result is an empty string. */
-        copy_to = copy_from;
-
-    const char *raw = input_arg->value.string->string + copy_from;
-
-    lily_push_string_sized(s, raw, copy_to - copy_from);
+    lily_push_string_sized(s, input_str + copy_from, copy_to - copy_from);
     lily_return_top(s);
 }
 
@@ -2172,42 +2025,40 @@ void lily_prelude_String_to_bytestring(lily_state *s)
 
 void lily_prelude_String_trim(lily_state *s)
 {
-    lily_value *input_arg = lily_arg_value(s, 0);
-    char fake_buffer[5] = " \t\r\n";
-    lily_string_val fake_sv;
+    lily_string_val *input_sv = lily_arg_string(s, 0);
+    const char *input_str = lily_string_raw(input_sv);
+    const char *to_skip = " \t\r\n";
+    size_t span = strspn(input_str, to_skip);
 
-    fake_sv.string = fake_buffer;
-    fake_sv.size = (uint32_t)strlen(fake_buffer);
+    input_str += span;
 
-    uint32_t copy_from = lstrip_ascii_start(input_arg, &fake_sv);
-
-    if (copy_from != input_arg->value.string->size) {
-        const char *raw = input_arg->value.string->string;
-        uint32_t copy_to = rstrip_ascii_stop(input_arg, &fake_sv);
-
-        lily_push_string_sized(s, raw + copy_from, copy_to - copy_from);
-    }
-    else {
-        /* It's all space, so make a new empty string. */
+    if (*input_str == '\0') {
         lily_push_string(s, "");
+        lily_return_top(s);
+        return;
     }
 
+    int end = rstrip_ascii_stop(input_sv, to_skip) - (int)span;
+
+    lily_push_string_sized(s, input_str, end);
     lily_return_top(s);
 }
 
 void lily_prelude_String_upper(lily_state *s)
 {
     lily_value *input_arg = lily_arg_value(s, 0);
-    int input_length = input_arg->value.string->size;
-    int i;
 
     lily_push_string(s, lily_as_string_raw(input_arg));
+
     char *raw_out = lily_as_string_raw(lily_stack_get_top(s));
 
-    for (i = 0;i < input_length;i++) {
-        char ch = raw_out[i];
+    while (*raw_out) {
+        char ch = *raw_out;
+
         if (islower(ch))
-            raw_out[i] = toupper(ch);
+            *raw_out = toupper(ch);
+
+        raw_out++;
     }
 
     lily_return_top(s);
