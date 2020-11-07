@@ -83,8 +83,9 @@ typedef struct {
     lily_class *cls;
     lily_item *result;
     lily_module_entry *saved_active;
-    int index;
-    int saved_generics;
+    uint16_t saved_generics;
+    uint16_t index;
+    uint32_t pad;
 } lily_dyna_state;
 
 typedef struct lily_rewind_state_
@@ -631,7 +632,7 @@ static void add_path_to_module(lily_module_entry *module,
 
     path = simplified_path(path);
 
-    module->cmp_len = strlen(path);
+    module->cmp_len = (uint16_t)strlen(path);
     module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
     strcpy(module->path, path);
 }
@@ -646,7 +647,7 @@ static char *dir_from_path(const char *path)
         out[0] = '\0';
     }
     else {
-        int bare_len = slash - path;
+        size_t bare_len = slash - path;
         out = lily_malloc((bare_len + 1) * sizeof(*out));
 
         strncpy(out, path, bare_len);
@@ -718,7 +719,7 @@ static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
     /* Platforms which already use '/' can simply add the string. */
     lily_mb_add(msgbuf, input_str);
 #endif
-    int len = strlen(input_str);
+    size_t len = strlen(input_str);
 
     if (input_str[len] != LILY_PATH_CHAR)
         lily_mb_add_char(msgbuf, LILY_PATH_CHAR);
@@ -1523,7 +1524,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
     lily_lex_state *lex = parser->lex;
     lily_prop_entry *prop = NULL;
     lily_var *var;
-    int modifiers = 0;
+    uint16_t modifiers = 0;
 
     NEED_CURRENT_TOK(tk_word)
 
@@ -1661,8 +1662,9 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
         NEED_CURRENT_TOK(tk_right_parenth)
 
-        result = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT, cls,
-                i + 1);
+        uint16_t call_flags = (uint16_t)(arg_flags & F_NO_COLLECT);
+
+        result = lily_tm_make_call(parser->tm, call_flags, cls, i + 1);
     }
 
     lily_next_token(lex);
@@ -1686,7 +1688,7 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
         return;
 
     lily_type_maker *tm = parser->tm;
-    char ch = 'A' + lily_gp_num_in_scope(parser->generics);
+    char ch = 'A' + (char)lily_gp_num_in_scope(parser->generics);
     char name[] = {ch, '\0'};
 
     while (1) {
@@ -1788,8 +1790,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 {
     lily_lex_state *lex = parser->lex;
     /* -1 because Unit is injected at the front beforehand. */
-    int result_pos = parser->tm->pos - 1;
-    int i = 0;
+    uint16_t result_pos = parser->tm->pos - 1;
+    uint16_t i = 0;
     uint16_t keyarg_start = lily_u16_pos(parser->data_stack);
     collect_fn arg_collect = NULL;
 
@@ -2347,6 +2349,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
     lily_class *cls = lily_new_class(parser->symtab, dyna_get_name(ds), 0);
     uint16_t source_mods[] = {SYM_SCOPE_PRIVATE, SYM_SCOPE_PROTECTED,
             SYM_SCOPE_PUBLIC};
+
 
     cls->dyna_start = ds->index;
     collect_generics_for(parser, cls);
@@ -3414,18 +3417,18 @@ static int collect_lambda_args(lily_parse_state *parser,
    tree eval. As such, the current state has to be saved and a lambda has to be
    made too. When this is done, it has to build the resulting type of the lambda
    as well. */
-lily_var *lily_parser_lambda_eval(lily_parse_state *parser,
-        int lambda_start_line, const char *lambda_body, lily_type *expect_type)
+lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
+        const char *lambda_body, lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
 
     lily_lexer_load(lex, et_lambda, lambda_body);
-    lex->line_num = lambda_start_line;
+    lex->line_num = start_line;
 
     lily_var *lambda_var = new_define_var(parser, "(lambda)",
-            lambda_start_line);
+            start_line);
 
     lily_emit_enter_lambda_block(parser->emit, lambda_var);
 
@@ -4329,7 +4332,7 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
         lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
                 lex->label);
 
-    int adjust = super_class->prop_count;
+    uint16_t adjust = super_class->prop_count;
 
     /* Lineage must be fixed before running the inherited constructor, as the
        constructor may use 'self'. */
@@ -4868,7 +4871,7 @@ static void verify_resolve_define_var(lily_parse_state *parser,
 #undef ALL_MODIFIERS
 
 static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
-        int modifiers)
+        uint16_t modifiers)
 {
     lily_lex_state *lex = parser->lex;
     const char *name = lex->label;
@@ -4967,7 +4970,7 @@ static void verify_static_modifier(lily_parse_state *parser)
 static void parse_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
-    int modifiers = 0;
+    uint16_t modifiers = 0;
 
     if (key == KEY_FORWARD) {
         lily_block_type block_type = parser->emit->block->block_type;
@@ -5811,7 +5814,7 @@ static void update_main_name(lily_parse_state *parser,
 
     module->path = path;
     module->dirname = dir_from_path(path);
-    module->cmp_len = strlen(path);
+    module->cmp_len = (uint16_t)strlen(path);
     module->root_dirname = module->dirname;
     /* The loadname isn't set because the first module isn't importable. */
 

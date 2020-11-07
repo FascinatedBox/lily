@@ -102,7 +102,7 @@ void lily_math__is_nan(lily_state *s)
 void lily_math__ldexp(lily_state *s)
 {
     double x = lily_arg_double(s, 0);
-    double y = lily_arg_integer(s, 1);
+    int y = (int)lily_arg_integer(s, 1);
 
     lily_return_double(s, ldexp(x, y));
 }

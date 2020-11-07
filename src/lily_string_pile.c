@@ -9,7 +9,6 @@ lily_string_pile *lily_new_string_pile(void)
 
     sp->buffer = lily_malloc(64 * sizeof(*sp->buffer));
     sp->size = 63;
-
     return sp;
 }
 
@@ -21,7 +20,8 @@ void lily_free_string_pile(lily_string_pile *sp)
 
 void lily_sp_insert(lily_string_pile *sp, const char *new_str, uint16_t *pos)
 {
-    size_t want_size = *pos + 1 + strlen(new_str);
+    uint16_t want_size = *pos + 1 + (uint16_t)strlen(new_str);
+
     if (sp->size < want_size) {
         while (sp->size < want_size)
             sp->size *= 2;
@@ -38,7 +38,7 @@ void lily_sp_insert(lily_string_pile *sp, const char *new_str, uint16_t *pos)
 void lily_sp_insert_bytes(lily_string_pile *sp, const char *new_str,
         uint16_t *pos, uint16_t new_str_size)
 {
-    size_t want_size = *pos + 1 + new_str_size;
+    uint16_t want_size = *pos + 1 + new_str_size;
 
     if (sp->size < want_size) {
         while (sp->size < want_size)
@@ -53,7 +53,7 @@ void lily_sp_insert_bytes(lily_string_pile *sp, const char *new_str,
     *pos = want_size;
 }
 
-char *lily_sp_get(lily_string_pile *sp, int pos)
+char *lily_sp_get(lily_string_pile *sp, uint16_t pos)
 {
     return sp->buffer + pos;
 }

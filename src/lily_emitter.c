@@ -23,9 +23,9 @@ extern lily_type *lily_unset_type;
  *                          |_|
  */
 
-static lily_proto_stack *new_proto_stack(int);
+static lily_proto_stack *new_proto_stack(uint16_t);
 static void free_proto_stack(lily_proto_stack *);
-static lily_storage_stack *new_storage_stack(int);
+static lily_storage_stack *new_storage_stack(uint16_t);
 static void free_storage_stack(lily_storage_stack *);
 static void clear_storages(lily_storage_stack *, uint16_t);
 
@@ -297,7 +297,7 @@ int lily_emit_try_write_continue(lily_emit_state *emit)
 
 /* Write a conditional jump. 0 means jump if false, 1 means jump if true. The
    ast is the thing to test. */
-static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, int jump_on)
+static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, uint16_t jump_on)
 {
     lily_u16_write_4(emit->code, o_jump_if, jump_on, ast->result->reg_spot, 3);
 
@@ -322,7 +322,8 @@ static void write_patches_since(lily_emit_state *emit, int to)
            This problem is worked around by having jumps write down their offset
            to the opcode, and including that in the jump. */
         if (patch != 0) {
-            int adjust = lily_u16_get(emit->code, patch);
+            uint16_t adjust = lily_u16_get(emit->code, patch);
+
             lily_u16_set_at(emit->code, patch, pos + adjust - patch);
         }
     }
@@ -352,11 +353,13 @@ static lily_storage *new_storage(void)
 /** Storages are used to hold intermediate values. The emitter is responsible
     for handing them out, controlling their position, and making new ones.
     Most of that is done in get_storage. **/
-static lily_storage_stack *new_storage_stack(int initial)
+static lily_storage_stack *new_storage_stack(uint16_t initial)
 {
     lily_storage_stack *result = lily_malloc(sizeof(*result));
+    uint16_t i;
+
     result->data = lily_malloc(initial * sizeof(*result->data));
-    int i;
+
     for (i = 0;i < initial;i++) {
         lily_storage *s = new_storage();
 
@@ -365,16 +368,15 @@ static lily_storage_stack *new_storage_stack(int initial)
 
     result->start = 0;
     result->size = initial;
-
     return result;
 }
 
 static void free_storage_stack(lily_storage_stack *stack)
 {
-    int i;
-    for (i = 0;i < stack->size;i++) {
+    uint16_t i;
+
+    for (i = 0;i < stack->size;i++)
         lily_free(stack->data[i]);
-    }
 
     lily_free(stack->data);
     lily_free(stack);
@@ -382,10 +384,10 @@ static void free_storage_stack(lily_storage_stack *stack)
 
 static void grow_storages(lily_storage_stack *stack)
 {
-    int i;
-    int new_size = stack->size * 2;
+    uint16_t new_size = stack->size * 2;
     lily_storage **new_data = lily_realloc(stack->data,
-            sizeof(*new_data) * stack->size * 2);
+            sizeof(*new_data) * new_size);
+    uint16_t i;
 
     /* Storages are taken pretty often, so eagerly initialize them for a little
        bit more speed. */
@@ -1176,7 +1178,7 @@ static void perform_closure_transform(lily_emit_state *emit,
     else
         lily_u16_set_pos(emit->closure_aux_code, 0);
 
-    int iter_start = emit->block->code_start;
+    uint16_t iter_start = emit->block->code_start;
     int is_backing = (scope_block->flags & BLOCK_CLOSURE_ORIGIN);
     uint16_t first_line = iter_for_first_line(emit, iter_start);
 
@@ -1217,7 +1219,7 @@ static void perform_closure_transform(lily_emit_state *emit,
     lily_code_iter ci;
     lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
     uint16_t *transform_table = emit->transform_table;
-    int jump_adjust = 0;
+    uint16_t jump_adjust = 0;
 
 /* If the input at the position given by 'x' is within the closure, then write
    an instruction to fetch it from the closure first. This makes sure that if
@@ -1540,14 +1542,13 @@ void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
 /** These are various helping functions collected together. There's no real
     organization other than that. **/
 
-static lily_proto_stack *new_proto_stack(int initial)
+static lily_proto_stack *new_proto_stack(uint16_t initial)
 {
     lily_proto_stack *result = lily_malloc(sizeof(*result));
 
     result->data = lily_malloc(initial * sizeof(*result->data));
     result->pos = 0;
     result->size = initial;
-
     return result;
 }
 
@@ -1725,13 +1726,13 @@ static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
    function does not create a storage. Instead, the caller is expected to
    provide a storage of the appropriate type. Said storage should have a spot
    that is 'reg_spot'. */
-static void write_build_op(lily_emit_state *emit, int opcode,
-        lily_ast *first_arg, int line_num, int num_values, lily_storage *s)
+static void write_build_op(lily_emit_state *emit, uint16_t opcode,
+        lily_ast *first_arg, uint16_t line_num, uint16_t num_values,
+        lily_storage *s)
 {
-    int i;
     lily_ast *arg;
-    lily_u16_write_prep(emit->code, 5 + num_values);
 
+    lily_u16_write_prep(emit->code, 5 + num_values);
     lily_u16_write_1(emit->code, opcode);
 
     if (opcode == o_build_hash)
@@ -1740,7 +1741,7 @@ static void write_build_op(lily_emit_state *emit, int opcode,
 
     lily_u16_write_1(emit->code, num_values);
 
-    for (i = 0, arg = first_arg; arg != NULL; arg = arg->next_arg, i++)
+    for (arg = first_arg; arg != NULL; arg = arg->next_arg)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
 
     lily_u16_write_2(emit->code, s->reg_spot, line_num);
@@ -2742,9 +2743,9 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
 /* This takes care of binary || and &&. */
 static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 {
+    uint16_t jump_on = (ast->op == tk_logical_or);
     lily_storage *result;
     uint16_t andor_start;
-    int jump_on = (ast->op == tk_logical_or);
 
     /* The top-most and/or will start writing patches, and then later write down
        all of those patches. This is okay to do, because the current block
@@ -2770,13 +2771,11 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     emit_jump_if(emit, ast->right, jump_on);
 
     if (andor_start != UINT16_MAX) {
-        int save_pos;
         lily_symtab *symtab = emit->symtab;
+        uint16_t truthy = (ast->op == tk_logical_and);
+        uint16_t save_pos;
 
         result = get_storage(emit, symtab->boolean_class->self_type);
-
-        int truthy = (ast->op == tk_logical_and);
-
         lily_u16_write_4(emit->code, o_load_boolean, truthy, result->reg_spot,
                 ast->line_num);
 
@@ -3335,10 +3334,10 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
 /* The call's subtrees have been evaluated now. Write the instruction to do the
    call and make a storage to put the result in (if needed). */
 static void write_call(lily_emit_state *emit, lily_ast *ast,
-        int argument_count, lily_storage *vararg_s)
+        uint16_t argument_count, lily_storage *vararg_s)
 {
     lily_ast *arg = ast->arg_start;
-    int i = 0;
+    uint16_t i = 0;
 
     lily_u16_write_3(emit->code, ast->call_op, ast->call_source_reg,
             argument_count + (vararg_s != NULL));
@@ -3499,15 +3498,14 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
         error_argument_count(emit, ast, num_args, min, max);
 
     lily_type **arg_types = call_type->subtypes;
+    uint16_t i, stop;
 
-    int stop;
     if ((call_type->flags & TYPE_IS_VARARGS) == 0 ||
         call_type->subtype_count - 1 > num_args)
         stop = num_args;
     else
         stop = call_type->subtype_count - 2;
 
-    int i;
     for (i = 0; i < stop; i++, arg = arg->next_arg) {
         if (eval_call_arg(emit, arg, arg_types[i + 1]) == 0)
             error_bad_arg(emit, ast, call_type, i, arg->result->type);
@@ -3880,7 +3878,9 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type)
 {
     lily_ast *arg = ast->arg_start;
-    int num_args = ast->args_collected, have_keyargs = 0, va_pos = INT_MAX;
+    uint16_t num_args = ast->args_collected;
+    uint16_t va_pos = UINT16_MAX;
+    int have_keyargs = 0;
     int i;
 
     if (call_type->flags & TYPE_IS_VARARGS)
@@ -3933,7 +3933,7 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
 static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type)
 {
-    int num_args = ast->args_collected;
+    uint16_t num_args = ast->args_collected;
     uint16_t min, max;
 
     get_func_min_max(call_type, &min, &max);
@@ -4464,7 +4464,7 @@ void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 /* This prepares __main__ to be called and sets up the next pass. */
 void lily_prepare_main(lily_emit_state *emit, lily_function_val *main_func)
 {
-    int register_count = emit->block->next_reg_spot;
+    uint16_t register_count = emit->block->next_reg_spot;
 
     lily_u16_write_1(emit->code, o_vm_exit);
 

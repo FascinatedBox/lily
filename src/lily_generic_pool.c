@@ -67,7 +67,7 @@ static lily_class *find_in_cache(lily_generic_pool *gp, const char *name,
     return NULL;
 }
 
-lily_type *lily_gp_push(lily_generic_pool *gp, const char *name, int pos)
+lily_type *lily_gp_push(lily_generic_pool *gp, const char *name, uint16_t pos)
 {
     int i;
     lily_class *result = find_in_cache(gp, name, &i);

@@ -10,8 +10,9 @@
 
 typedef struct  {
     char *buffer;
-    uint32_t size;
-    uint32_t pad;
+    uint16_t size;
+    uint16_t pad;
+    uint32_t pad2;
 } lily_string_pile;
 
 lily_string_pile *lily_new_string_pile(void);
@@ -30,6 +31,6 @@ void lily_sp_insert_bytes(lily_string_pile *, const char *, uint16_t *,
 /* Fetch a string from the pile that starts from the given index. The string is
    a shallow copy of the buffer, and is thus invalidated if the underlying
    buffer happens to grow. */
-char *lily_sp_get(lily_string_pile *, int);
+char *lily_sp_get(lily_string_pile *, uint16_t);
 
 #endif

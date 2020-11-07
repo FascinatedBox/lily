@@ -26,7 +26,7 @@ struct lily_class_ *lily_gp_find(lily_generic_pool *, const char *);
 /* Add a generic to the current scope. If a generic that matches the name and
    the generic position is given, then that generic is used. Otherwise, a new
    generic is created. The generic is returned. */
-lily_type *lily_gp_push(lily_generic_pool *, const char *, int);
+lily_type *lily_gp_push(lily_generic_pool *, const char *, uint16_t);
 
 /* How many generics are in the current scope? */
 int lily_gp_num_in_scope(lily_generic_pool *);

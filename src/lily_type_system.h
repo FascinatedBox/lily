@@ -80,7 +80,7 @@ void lily_ts_scope_restore(lily_type_system *, lily_ts_save_point *);
 
 /* The parser calls this each time that generics are collected. This reports
    how many were collected. max_seen may or may not be updated. */
-void lily_ts_generics_seen(lily_type_system *, int);
+void lily_ts_generics_seen(lily_type_system *, uint16_t);
 
 /* Determine if the first class passed is either a base class or the same class
    as the second one. This doesn't take the ts because the information needed

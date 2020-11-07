@@ -331,7 +331,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
         if (iter->value.integer == int_val)
             return iter;
 
-        int next = iter->next_index;
+        uint16_t next = iter->next_index;
 
         if (next == 0)
             break;
@@ -358,7 +358,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
         if (iter->value.doubleval == dbl_val)
             return iter;
 
-        int next = iter->next_index;
+        uint16_t next = iter->next_index;
 
         if (next == 0)
             break;
@@ -388,7 +388,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
                 memcmp(iter->value.string->string, want_string, len) == 0)
                 return iter;
 
-            int next = iter->next_index;
+            uint16_t next = iter->next_index;
 
             if (next == 0)
                 break;
@@ -398,7 +398,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     }
     else {
         while (iter) {
-            int next = iter->next_index;
+            uint16_t next = iter->next_index;
 
             if (next == 0)
                 break;
@@ -434,7 +434,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
                 strcmp(iter->value.string->string, want_string) == 0)
                 return iter;
 
-            int next = iter->next_index;
+            uint16_t next = iter->next_index;
 
             if (next == 0)
                 break;
@@ -444,7 +444,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab,
     }
     else {
         while (iter) {
-            int next = iter->next_index;
+            uint16_t next = iter->next_index;
 
             if (next == 0)
                 break;

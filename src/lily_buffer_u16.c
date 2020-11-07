@@ -3,12 +3,13 @@
 #include "lily_alloc.h"
 #include "lily_buffer_u16.h"
 
-lily_buffer_u16 *lily_new_buffer_u16(uint32_t start)
+lily_buffer_u16 *lily_new_buffer_u16(uint16_t initial)
 {
     lily_buffer_u16 *b = lily_malloc(sizeof(*b));
-    b->data = lily_malloc(start * sizeof(*b->data));
+
+    b->data = lily_malloc(initial * sizeof(*b->data));
     b->pos = 0;
-    b->size = start;
+    b->size = initial;
     return b;
 }
 
@@ -97,7 +98,7 @@ void lily_u16_write_6(lily_buffer_u16 *b, uint16_t one, uint16_t two,
     b->pos += 6;
 }
 
-void lily_u16_write_prep(lily_buffer_u16 *b, uint32_t needed)
+void lily_u16_write_prep(lily_buffer_u16 *b, uint16_t needed)
 {
     if (b->pos + needed > b->size) {
         while ((b->pos + needed) > b->size)

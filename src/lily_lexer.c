@@ -178,7 +178,7 @@ static int read_file_line(lily_lex_state *lex)
         READER_GROW_CHECK
         READER_EOF_CHECK(ch, EOF)
 
-        source[i] = ch;
+        source[i] = (char)ch;
 
         if (ch == '\r' || ch == '\n') {
             lex->line_num++;
@@ -286,7 +286,8 @@ static uint16_t scan_escape(char *ch, char *out)
     else if (*ch >= '0' && *ch <= '9') {
         /* This is a numeric escape. Scan up to three digits, including any
            leading zeroes. This allows \0 as well as \000. */
-        int i, total;
+        int total;
+        uint16_t i;
 
         for (i = 0, total = 0;i < 3;i++, ch++) {
             if (*ch < '0' || *ch > '9')
@@ -684,10 +685,10 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
    for without having to send any flags. */
 static void scan_string(lily_lex_state *lex, char **source_ch)
 {
-    int label_pos = 0;
     int is_multiline = 0;
     int is_bytestring = 0;
     int backslash_before_newline = 0;
+    uint32_t label_pos = 0;
     char *label = lex->label;
     char *ch = *source_ch;
 
@@ -948,12 +949,13 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
         }
         else if (*ch == '#' &&
                  *(ch + 1) == '[') {
-            int saved_line_num = lex->line_num;
+            uint16_t saved_line_num = lex->line_num;
+
             scan_multiline_comment(lex, &ch);
             /* For each line that the multi-line comment hit, add a newline to
                the lambda so that error lines are right. */
             if (saved_line_num != lex->line_num) {
-                int increase = lex->line_num - saved_line_num;
+                uint16_t increase = lex->line_num - saved_line_num;
                 /* Write \n for each line seen so that the lines match up.
                    Make sure that lex->label can handle the increases AND the
                    now-current line (plus 3 for that termination). */
@@ -1551,7 +1553,7 @@ char *lily_read_template_content(lily_lex_state *lex, int *has_more)
             }
         }
         else if (*ch == '\n') {
-            int offset = buffer - lex->label;
+            ptrdiff_t offset = buffer - lex->label;
 
             if (read_line(lex)) {
                 ch = lex->read_cursor - 1;
@@ -1587,7 +1589,7 @@ const char *tokname(lily_token t)
     return token_name_table[t];
 }
 
-int lily_priority_for_token(lily_token t)
+uint8_t lily_priority_for_token(lily_token t)
 {
     return priority_table[t];
 }

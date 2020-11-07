@@ -135,7 +135,7 @@ void lily_destroy_vm(lily_vm_state *vm)
         }
     }
 
-    int total = vm->call_chain->register_end - register_root - 1;
+    int total = (int)(vm->call_chain->register_end - register_root - 1);
 
     for (i = total;i >= 0;i--) {
         reg = register_root[i];
@@ -272,9 +272,9 @@ static void invoke_gc(lily_vm_state *vm)
        value set to NULL as an indicator. */
 
     lily_value **regs_from_main = vm->gs->regs_from_main;
-    uint32_t i;
-    lily_gc_entry *gc_iter;
     uint32_t total = vm->call_chain->register_end - vm->gs->regs_from_main;
+    lily_gc_entry *gc_iter;
+    uint32_t i;
 
     /* Stage 1: Mark interesting values in use. */
     for (i = 0;i < total;i++) {
@@ -296,7 +296,8 @@ static void invoke_gc(lily_vm_state *vm)
         }
     }
 
-    uint32_t current_top = vm->call_chain->top - vm->gs->regs_from_main;
+    uint32_t current_top =
+            (uint32_t)(vm->call_chain->top - vm->gs->regs_from_main);
 
     /* Stage 3: If any unused register holds a gc value that's going to be
                 deleted, flag it as clear. This prevents double frees. */
@@ -517,11 +518,11 @@ static void vm_error(lily_vm_state *, uint8_t, const char *);
    that there are 'size' more empty spots available. This grows by powers of 2
    so that grows are not frequent.
    This will also fix the locals and top of all frames currently entered. */
-void lily_vm_grow_registers(lily_vm_state *vm, int need)
+void lily_vm_grow_registers(lily_vm_state *vm, uint16_t need)
 {
     lily_value **old_start = vm->register_root;
-    int size = vm->call_chain->register_end - old_start;
-    int i = size;
+    uint16_t size = (uint16_t)(vm->call_chain->register_end - old_start);
+    uint16_t i = size;
 
     need += size;
 
@@ -538,8 +539,8 @@ void lily_vm_grow_registers(lily_vm_state *vm, int need)
        whenever they are needed. */
     for (;i < size;i++) {
         lily_value *v = lily_malloc(sizeof(*v));
-        v->flags = 0;
 
+        v->flags = 0;
         new_regs[i] = v;
     }
 
@@ -915,13 +916,9 @@ void lily_stdout_print(lily_vm_state *vm)
 static void do_o_property_set(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    lily_value *rhs_reg;
-    int index;
-    lily_container_val *ival;
-
-    index = code[1];
-    ival = vm_regs[code[2]]->value.container;
-    rhs_reg = vm_regs[code[3]];
+    uint16_t index = code[1];
+    lily_container_val *ival = vm_regs[code[2]]->value.container;
+    lily_value *rhs_reg = vm_regs[code[3]];
 
     lily_value_assign(ival->values[index], rhs_reg);
 }
@@ -929,13 +926,9 @@ static void do_o_property_set(lily_vm_state *vm, uint16_t *code)
 static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    lily_value *result_reg;
-    int index;
-    lily_container_val *ival;
-
-    index = code[1];
-    ival = vm_regs[code[2]]->value.container;
-    result_reg = vm_regs[code[3]];
+    uint16_t index = code[1];
+    lily_container_val *ival = vm_regs[code[2]]->value.container;
+    lily_value *result_reg = vm_regs[code[3]];
 
     lily_value_assign(result_reg, ival->values[index]);
 }
@@ -1027,16 +1020,14 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
 static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    int i, num_values;
-    lily_value *result, *key_reg, *value_reg;
-
-    num_values = code[2];
-    result = vm_regs[code[3 + num_values]];
-
-    lily_hash_val *hash_val = lily_new_hash_raw(num_values / 2);
+    uint16_t count = code[2];
+    lily_value *result = vm_regs[code[3 + count]];
+    lily_hash_val *hash_val = lily_new_hash_raw(count / 2);
+    lily_value *key_reg, *value_reg;
+    uint16_t i;
 
     for (i = 0;
-         i < num_values;
+         i < count;
          i += 2) {
         key_reg = vm_regs[code[3 + i]];
         value_reg = vm_regs[code[3 + i + 1]];
@@ -1053,19 +1044,19 @@ static void do_o_build_hash(lily_vm_state *vm, uint16_t *code)
 static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    int num_elems = code[1];
-    lily_value *result = vm_regs[code[2+num_elems]];
+    uint16_t count = code[1];
+    lily_value *result = vm_regs[code[2+count]];
     lily_container_val *lv;
 
     if (code[0] == o_build_list)
-        lv = lily_new_container_raw(LILY_ID_LIST, num_elems);
+        lv = lily_new_container_raw(LILY_ID_LIST, count);
     else
-        lv = lily_new_container_raw(LILY_ID_TUPLE, num_elems);
+        lv = lily_new_container_raw(LILY_ID_TUPLE, count);
 
     lily_value **elems = lv->values;
+    uint16_t i;
 
-    int i;
-    for (i = 0;i < num_elems;i++) {
+    for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[2+i]];
         lily_value_assign(elems[i], rhs_reg);
     }
@@ -1073,20 +1064,19 @@ static void do_o_build_list_tuple(lily_vm_state *vm, uint16_t *code)
     if (code[0] == o_build_list)
         move_list_f(VAL_IS_GC_SPECULATIVE, result, lv);
     else
-        move_tuple_f(VAL_IS_GC_SPECULATIVE, result, (lily_container_val *)lv);
+        move_tuple_f(VAL_IS_GC_SPECULATIVE, result, lv);
 }
 
 static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
 {
     lily_value **vm_regs = vm->call_chain->start;
-    int variant_id = code[1];
-    int count = code[2];
-    lily_value *result = vm_regs[code[code[2] + 3]];
-
+    uint16_t variant_id = code[1];
+    uint16_t count = code[2];
+    lily_value *result = vm_regs[code[count + 3]];
     lily_container_val *ival = lily_new_container_raw(variant_id, count);
     lily_value **slots = ival->values;
+    uint16_t i;
 
-    int i;
     for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
         lily_value_assign(slots[i], rhs_reg);
@@ -1141,7 +1131,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
     }
 
     lily_class *instance_class = vm->gs->class_table[cls_id];
-    int total_entries = instance_class->prop_count;
+    uint16_t total_entries = instance_class->prop_count;
     lily_container_val *iv = lily_new_container_raw(cls_id, total_entries);
 
     iv->instance_ctor_need = instance_class->inherit_depth;
@@ -1230,18 +1220,15 @@ static lily_function_val *new_function_copy(lily_function_val *to_copy)
    creating the original closure. */
 static lily_value **do_o_closure_new(lily_vm_state *vm, uint16_t *code)
 {
-    int count = code[1];
+    uint16_t count = code[1];
     lily_value *result = vm->call_chain->start[code[2]];
-
     lily_function_val *last_call = vm->call_chain->function;
-
     lily_function_val *closure_func = new_function_copy(last_call);
-
     lily_value **upvalues = lily_malloc(sizeof(*upvalues) * count);
+    uint16_t i;
 
     /* Cells are initially NULL so that o_closure_set knows to copy a new value
        into a cell. */
-    int i;
     for (i = 0;i < count;i++)
         upvalues[i] = NULL;
 
@@ -1266,14 +1253,15 @@ static lily_value **do_o_closure_new(lily_vm_state *vm, uint16_t *code)
 static void copy_upvalues(lily_function_val *target, lily_function_val *source)
 {
     lily_value **source_upvalues = source->upvalues;
-    int count = source->num_upvalues;
+    uint16_t count = source->num_upvalues;
 
     lily_value **new_upvalues = lily_malloc(sizeof(*new_upvalues) * count);
     lily_value *up;
-    int i;
+    uint16_t i;
 
     for (i = 0;i < count;i++) {
         up = source_upvalues[i];
+
         if (up)
             up->cell_refcount++;
 
@@ -1300,12 +1288,16 @@ static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
     copy_upvalues(new_closure, input_closure);
 
     uint16_t *locals = new_closure->proto->locals;
+
     if (locals) {
         lily_value **upvalues = new_closure->upvalues;
-        int i, end = locals[0];
+        uint16_t end = locals[0];
+        uint16_t i;
+
         for (i = 1;i < end;i++) {
-            int pos = locals[i];
+            uint16_t pos = locals[i];
             lily_value *up = upvalues[pos];
+
             if (up) {
                 up->cell_refcount--;
                 upvalues[pos] = NULL;
@@ -1404,8 +1396,8 @@ static void dispatch_exception(lily_vm_state *vm)
     lily_class *raised_cls = vm->exception_cls;
     lily_vm_catch_entry *catch_iter = vm->catch_chain->prev;
     int match = 0;
-    int jump_location;
-    uint16_t *code;
+    uint16_t jump_location = 0;
+    uint16_t *code = NULL;
 
     vm->exception_cls = raised_cls;
 
@@ -1801,7 +1793,7 @@ void lily_error_callback_pop(lily_state *s)
 
 void lily_vm_ensure_class_table(lily_vm_state *vm, uint16_t size)
 {
-    uint16_t old_count = vm->gs->class_count;
+    uint32_t old_count = vm->gs->class_count;
 
     if (size >= vm->gs->class_count) {
         if (vm->gs->class_count == 0)
@@ -2308,7 +2300,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_vm_catch_entry *catch_entry = vm->catch_chain;
                 catch_entry->call_frame = current_frame;
                 catch_entry->call_frame_depth = vm->call_depth;
-                catch_entry->code_pos = 1 + (code - current_frame->function->code);
+                catch_entry->code_pos = 1 +
+                        (uint16_t)(code - current_frame->function->code);
                 catch_entry->jump_entry = vm->raiser->all_jumps;
                 catch_entry->catch_kind = catch_native;
 

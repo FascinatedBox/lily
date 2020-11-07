@@ -34,7 +34,7 @@ lily_type *lily_new_raw_type(lily_class *cls)
     return new_type;
 }
 
-void lily_tm_reserve(lily_type_maker *tm, int amount)
+void lily_tm_reserve(lily_type_maker *tm, uint16_t amount)
 {
     if (tm->pos + amount > tm->size) {
         while (tm->pos + amount > tm->size)
@@ -61,7 +61,7 @@ void lily_tm_add(lily_type_maker *tm, lily_type *type)
     tm->pos++;
 }
 
-void lily_tm_insert(lily_type_maker *tm, int pos, lily_type *type)
+void lily_tm_insert(lily_type_maker *tm, uint16_t pos, lily_type *type)
 {
     tm->types[pos] = type;
 }
@@ -85,7 +85,9 @@ static lily_type *lookup_type(lily_type *input_type)
             /* All other type-based flags are irrelevant to equality. */
             (iter_type->flags & TYPE_IS_VARARGS) ==
                 (input_type->flags & TYPE_IS_VARARGS)) {
-            int i, match = 1;
+            int match = 1;
+            uint16_t i;
+
             for (i = 0;i < iter_type->subtype_count;i++) {
                 if (iter_type->subtypes[i] != input_type->subtypes[i]) {
                     match = 0;
@@ -114,8 +116,9 @@ static lily_type *build_real_type_for(lily_type *fake_type)
 
     memcpy(new_type, fake_type, sizeof(lily_type));
 
-    int count = fake_type->subtype_count;
+    uint16_t count = fake_type->subtype_count;
     lily_type **new_subtypes = lily_malloc(count * sizeof(*new_subtypes));
+
     memcpy(new_subtypes, fake_type->subtypes, count * sizeof(*new_subtypes));
     new_type->subtypes = new_subtypes;
     new_type->subtype_count = count;
@@ -125,9 +128,11 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     /* Any other flags bubble up from the subtypes. */
     new_type->flags &= TYPE_IS_VARARGS;
 
-    int i;
+    uint16_t i;
+
     for (i = 0;i < new_type->subtype_count;i++) {
         lily_type *subtype = new_type->subtypes[i];
+
         if (subtype)
             new_type->flags |= subtype->flags & BUBBLE_FLAGS;
     }
@@ -135,7 +140,8 @@ static lily_type *build_real_type_for(lily_type *fake_type)
     return new_type;
 }
 
-lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls, int num_entries)
+lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls,
+        uint16_t num_entries)
 {
     lily_type fake_type;
 
@@ -147,6 +153,7 @@ lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls, int num_entries)
     fake_type.next = NULL;
 
     lily_type *result_type = lookup_type(&fake_type);
+
     if (result_type == NULL) {
         fake_type.item_kind = ITEM_TYPE;
         result_type = build_real_type_for(&fake_type);
@@ -156,8 +163,8 @@ lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls, int num_entries)
     return result_type;
 }
 
-lily_type *lily_tm_make_call(lily_type_maker *tm, int flags, lily_class *cls,
-        int num_entries)
+lily_type *lily_tm_make_call(lily_type_maker *tm, uint16_t flags,
+        lily_class *cls, uint16_t num_entries)
 {
     lily_type fake_type;
 
@@ -169,6 +176,7 @@ lily_type *lily_tm_make_call(lily_type_maker *tm, int flags, lily_class *cls,
     fake_type.next = NULL;
 
     lily_type *result_type = lookup_type(&fake_type);
+
     if (result_type == NULL) {
         fake_type.item_kind = ITEM_TYPE;
         result_type = build_real_type_for(&fake_type);
@@ -178,12 +186,12 @@ lily_type *lily_tm_make_call(lily_type_maker *tm, int flags, lily_class *cls,
     return result_type;
 }
 
-int lily_tm_pos(lily_type_maker *tm)
+uint16_t lily_tm_pos(lily_type_maker *tm)
 {
     return tm->pos;
 }
 
-void lily_tm_restore(lily_type_maker *tm, int pos)
+void lily_tm_restore(lily_type_maker *tm, uint16_t pos)
 {
     tm->pos = pos;
 }

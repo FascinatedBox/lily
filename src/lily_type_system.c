@@ -485,7 +485,7 @@ void lily_ts_scope_restore(lily_type_system *ts, lily_ts_save_point *p)
     ts->base -= ts->num_used;
 }
 
-void lily_ts_generics_seen(lily_type_system *ts, int amount)
+void lily_ts_generics_seen(lily_type_system *ts, uint16_t amount)
 {
     if (amount > ts->max_seen)
         ts->max_seen = amount;

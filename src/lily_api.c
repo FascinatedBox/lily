@@ -17,7 +17,7 @@ extern lily_gc_entry *lily_gc_stopper;
 
 void lily_destroy_hash(lily_value *);
 void lily_destroy_vm(lily_vm_state *);
-void lily_vm_grow_registers(lily_vm_state *, int);
+void lily_vm_grow_registers(lily_vm_state *, uint16_t);
 
 
 /* Raw value creation. */
@@ -49,7 +49,7 @@ lily_string_val *lily_new_string_raw(const char *source)
 
     strcpy(buffer, source);
 
-    return new_sv(buffer, len);
+    return new_sv(buffer, (int)len);
 }
 
 lily_container_val *lily_new_container_raw(uint16_t class_id,
@@ -576,12 +576,12 @@ uint32_t lily_string_length(lily_string_val *sv)
 
 int lily_arg_boolean(lily_state *s, int index)
 {
-    return s->call_chain->start[index]->value.integer;
+    return (int)s->call_chain->start[index]->value.integer;
 }
 
 uint8_t lily_arg_byte(lily_state *s, int index)
 {
-    return s->call_chain->start[index]->value.integer;
+    return (uint8_t)s->call_chain->start[index]->value.integer;
 }
 
 lily_bytestring_val *lily_arg_bytestring(lily_state *s, int index)
@@ -674,16 +674,15 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
 /* Attempt to safely get the raw value of the argument at 'index' as long as it
    has the marker 'base'. If the argument is missing, unset, or has the wrong
    base, then the fallback value is returned. */
-static lily_raw_value get_arg_or(lily_state *s, int index, uint32_t base,
-        lily_raw_value fallback)
+static lily_value *maybe_get_value(lily_state *s, int index, uint32_t base)
 {
-    lily_raw_value result = fallback;
+    lily_value *result = NULL;
 
     if (lily_arg_count(s) > index) {
         lily_value *v = s->call_chain->start[index];
 
         if (FLAGS_TO_BASE(v) == base)
-            result = v->value;
+            result = v;
     }
 
     return result;
@@ -691,28 +690,36 @@ static lily_raw_value get_arg_or(lily_state *s, int index, uint32_t base,
 
 int lily_optional_boolean(lily_state *s, int index, int fallback)
 {
-    lily_raw_value fake = {.integer = fallback};
-    lily_raw_value raw = get_arg_or(s, index, V_BOOLEAN_BASE, fake);
+    int result = fallback;
+    lily_value *v = maybe_get_value(s, index, V_BOOLEAN_BASE);
 
-    return (int)raw.integer;
+    if (v)
+        result = (int)v->value.integer;
+
+    return result;
 }
 
 int64_t lily_optional_integer(lily_state *s, int index, int64_t fallback)
 {
-    lily_raw_value fake = {.integer = fallback};
-    lily_raw_value raw = get_arg_or(s, index, V_INTEGER_BASE, fake);
+    int64_t result = fallback;
+    lily_value *v = maybe_get_value(s, index, V_INTEGER_BASE);
 
-    return raw.integer;
+    if (v)
+        result = v->value.integer;
+
+    return result;
 }
 
 const char *lily_optional_string_raw(lily_state *s, int index,
         const char *fallback)
 {
-    lily_string_val sv = {.string = (char *)fallback, .size = 0};
-    lily_raw_value fake = {.string = &sv};
-    lily_raw_value raw = get_arg_or(s, index, V_STRING_BASE, fake);
+    const char *result = fallback;
+    lily_value *v = maybe_get_value(s, index, V_STRING_BASE);
 
-    return raw.string->string;
+    if (v)
+        result = v->value.string->string;
+
+    return result;
 }
 
 
@@ -876,7 +883,7 @@ void lily_push_string(lily_state *s, const char *source)
 
     strcpy(buffer, source);
 
-    lily_string_val *sv = new_sv(buffer, len);
+    lily_string_val *sv = new_sv(buffer, (int)len);
 
     SET_TARGET(V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE, string, sv);
 }
@@ -1072,12 +1079,12 @@ lily_value_group lily_value_get_group(lily_value *value)
 
 int lily_as_boolean(lily_value *v)
 {
-    return v->value.integer;
+    return (int)v->value.integer;
 }
 
 uint8_t lily_as_byte(lily_value *v)
 {
-    return v->value.integer;
+    return (uint8_t)v->value.integer;
 }
 
 lily_bytestring_val *lily_as_bytestring(lily_value *v)
