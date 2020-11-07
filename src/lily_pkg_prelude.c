@@ -862,11 +862,11 @@ static uint32_t get_relative_index(lily_state *s, lily_container_val *list_val,
         if (pos < 0 ||
             pos > list_size)
             lily_IndexError(s,
-                    "Index %ld is too small for list (minimum: -%ld)", old_pos,
+                    "Index %ld is too small for list (minimum: -%d)", old_pos,
                     list_size);
     }
     else if (pos > list_size)
-        lily_IndexError(s, "Index %ld is too large for list (maximum: %ld)",
+        lily_IndexError(s, "Index %ld is too large for list (maximum: %d)",
                 pos, list_size);
 
     return (uint32_t)pos;
