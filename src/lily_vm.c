@@ -1082,7 +1082,17 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
         lily_value_assign(slots[i], rhs_reg);
     }
 
-    move_variant_f(VAL_IS_GC_SPECULATIVE, result, ival);
+    lily_class *variant_cls = vm->gs->class_table[variant_id];
+    uint32_t flags =
+        (variant_cls->flags & CLS_GC_FLAGS) << VAL_FROM_CLS_GC_SHIFT;
+
+    if (flags == VAL_IS_GC_SPECULATIVE)
+        move_variant_f(VAL_IS_GC_SPECULATIVE, result, ival);
+    else {
+        move_variant_f(0, result, ival);
+        if (flags == VAL_IS_GC_TAGGED)
+            lily_value_tag(vm, result);
+    }
 }
 
 /* This raises a user-defined exception. The emitter has verified that the thing

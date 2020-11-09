@@ -4439,9 +4439,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
 /* This is a helper function that scans 'target' to determine if it will require
    any gc information to hold. */
-static int get_gc_flags_for(lily_type *target)
+static uint16_t get_gc_flags_for(lily_type *target)
 {
-    int result_flag = 0;
+    uint16_t result_flag = 0;
 
     if (target->cls->flags & (CLS_GC_TAGGED | CLS_VISITED))
         result_flag = CLS_GC_TAGGED;
@@ -4449,7 +4449,7 @@ static int get_gc_flags_for(lily_type *target)
         result_flag = target->cls->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
 
         if (target->subtype_count) {
-            int i;
+            uint16_t i;
             for (i = 0;i < target->subtype_count;i++)
                 result_flag |= get_gc_flags_for(target->subtypes[i]);
         }
@@ -4464,7 +4464,7 @@ static int get_gc_flags_for(lily_type *target)
 static void determine_class_gc_flag(lily_class *target)
 {
     lily_class *parent_iter = target->parent;
-    int mark = 0;
+    uint16_t mark = 0;
 
     if (parent_iter) {
         /* Start with this, just in case the child has no properties. */
@@ -4607,6 +4607,50 @@ static void enum_method_check(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Expected '}' or 'define', not '%s'.",
                 tokname(lex->token));
+}
+
+static void determine_enum_gc_flag(lily_class *enum_cls)
+{
+    lily_named_sym *member_iter = enum_cls->members;
+    lily_type *self_type = enum_cls->self_type;
+
+    while ((member_iter->item_kind & ITEM_IS_VARIANT) == 0)
+        member_iter = member_iter->next;
+
+    enum_cls->flags |= CLS_VISITED;
+
+    uint16_t enum_flag = 0;
+
+    while (member_iter) {
+        if (member_iter->item_kind == ITEM_VARIANT_FILLED) {
+            lily_variant_class *variant = (lily_variant_class *)member_iter;
+            lily_type *build_type = variant->build_type;
+            lily_type **types = build_type->subtypes;
+            uint16_t count = build_type->subtype_count;
+            uint16_t variant_flag = 0;
+            uint16_t i;
+
+            for (i = 0;i < count;i++) {
+                lily_type *t = types[i];
+
+                if (t == self_type)
+                    continue;
+
+                variant_flag = get_gc_flags_for(t);
+                variant->flags |= variant_flag;
+                enum_flag |= variant_flag;
+            }
+        }
+
+        member_iter = member_iter->next;
+    }
+
+    /* For simplicity, make sure there's only one of these set. */
+    if (enum_flag & CLS_GC_TAGGED)
+        enum_flag &= ~CLS_GC_SPECULATIVE;
+
+    enum_cls->flags |= enum_flag;
+    enum_cls->flags &= ~CLS_VISITED;
 }
 
 static void keyword_enum(lily_parse_state *parser)
@@ -5171,6 +5215,7 @@ static void parse_block_exit(lily_parse_state *parser)
             lily_next_token(lex);
             break;
         case block_enum:
+            determine_enum_gc_flag(parser->current_class);
             parser->current_class = NULL;
             lily_gp_restore(parser->generics, 0);
             lily_emit_leave_scope_block(emit);

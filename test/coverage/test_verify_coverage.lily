@@ -150,6 +150,25 @@ class TestVerifyCoverage < TestCase
         """)
     }
 
+    public define test_gc_marking_enums
+    {
+        var t = Interpreter()
+
+        # This leaks if Branch is not tagged by the gc.
+        assert_parse_string(t, """
+            enum Tree {
+                Leaf,
+                Branch(List[Tree])
+            }
+
+            var a = Leaf
+            var b = [a]
+            var c = Branch(b)
+
+            b[0] = c
+        """)
+    }
+
     public define test_foreign_generic
     {
         var t = Interpreter.with_targets(
