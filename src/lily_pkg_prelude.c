@@ -15,7 +15,8 @@
 /* When destroying a value with a gc tag, set the tag to this to prevent destroy
    from reentering it. The values are useless, but cannot be 0 or this will be
    optimized as a NULL pointer. */
-const lily_gc_entry lily_gc_stopper =
+const lily_gc_entry *lily_gc_stopper =
+&(lily_gc_entry)
 {
     1,
     1,
