@@ -222,7 +222,7 @@ static int allow_boxed_enums(lily_boxed_sym *sym)
 
 static int allow_boxed_functions(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->flags & VAR_IS_READONLY;
+    return sym->inner_sym->item_kind == ITEM_DEFINE;
 }
 
 static int allow_boxed_variants(lily_boxed_sym *sym)
@@ -253,12 +253,12 @@ static int allow_flat_variants(lily_named_sym *sym, lily_class *parent)
 
 static int allow_functions(lily_var *var)
 {
-    return var->flags & VAR_IS_READONLY;
+    return var->item_kind == ITEM_DEFINE;
 }
 
 static int allow_methods(lily_named_sym *sym)
 {
-    return sym->item_kind == ITEM_VAR;
+    return sym->item_kind == ITEM_DEFINE;
 }
 
 static int allow_properties(lily_named_sym *sym)
@@ -273,7 +273,7 @@ static int allow_scoped_variants(lily_named_sym *sym)
 
 static int allow_vars(lily_var *var)
 {
-    return (var->flags & VAR_IS_READONLY) == 0;
+    return var->item_kind == ITEM_VAR;
 }
 
 static void make_class(lily_state *s, lily_class *source)

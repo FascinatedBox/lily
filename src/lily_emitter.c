@@ -1866,24 +1866,27 @@ static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
 {
     lily_item *item = ast->item;
 
-    if (item->item_kind == ITEM_VAR) {
+    if (item->item_kind == ITEM_DEFINE) {
+        lily_var *v = (lily_var *)item;
+        lily_value *val = lily_literal_at(emit->symtab, v->reg_spot);
+        lily_proto *p = val->value.function->proto;
+
+        lily_mb_add(msgbuf, p->name);
+    }
+    else if (item->item_kind == ITEM_VAR) {
         lily_var *v = (lily_var *)item;
 
-        if (v->flags & VAR_IS_READONLY) {
-            lily_value *val = lily_literal_at(emit->symtab, v->reg_spot);
-            lily_proto *p = val->value.function->proto;
-            lily_mb_add(msgbuf, p->name);
-        }
-        else
-            lily_mb_add(msgbuf, v->name);
+        lily_mb_add(msgbuf, v->name);
     }
     else if (item->item_kind == ITEM_PROPERTY) {
         lily_prop_entry *p = (lily_prop_entry *)ast->item;
+
         lily_mb_add_fmt(msgbuf, "%s.%s", p->parent->name, p->name);
     }
     else if (item->item_kind & ITEM_IS_VARIANT) {
         lily_variant_class *v = (lily_variant_class *)ast->item;
-        lily_mb_add_fmt(msgbuf, "%s", v->name);
+
+        lily_mb_add(msgbuf, v->name);
     }
     else
         lily_mb_add(msgbuf, "(anonymous)");
@@ -1981,8 +1984,7 @@ static void error_keyarg_not_supported(lily_emit_state *emit, lily_ast *ast)
 
     add_call_name_to_msgbuf(emit, msgbuf, ast);
 
-    if (ast->sym->item_kind == ITEM_VAR &&
-        ast->sym->flags & VAR_IS_READONLY)
+    if (ast->sym->item_kind == ITEM_DEFINE)
         lily_mb_add(msgbuf,
                 " does not specify any keyword arguments.");
     else
@@ -3626,6 +3628,7 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
     lily_ast *first_arg = ast->arg_start;
 
     switch (call_item->item_kind) {
+        case ITEM_DEFINE:
         case ITEM_VAR: {
             lily_var *v = (lily_var *)call_item;
 
@@ -3844,14 +3847,11 @@ static char **get_keyarg_names(lily_emit_state *emit, lily_ast *ast)
 {
     char **names = NULL;
 
-    if (ast->sym->item_kind == ITEM_VAR) {
+    if (ast->sym->item_kind == ITEM_DEFINE) {
         lily_var *var = (lily_var *)ast->sym;
+        lily_proto *p = lily_emit_proto_for_var(emit, var);
 
-        if (var->flags & VAR_IS_READONLY) {
-            lily_proto *p = lily_emit_proto_for_var(emit, var);
-
-            names = p->keywords;
-        }
+        names = p->keywords;
     }
     else if (ast->sym->item_kind & ITEM_IS_VARIANT)
         names = ast->variant->keywords;

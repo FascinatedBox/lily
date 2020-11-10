@@ -1126,7 +1126,7 @@ static char **build_strings_by_data(lily_parse_state *parser,
 static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
         char **keys)
 {
-    if (target->item_kind == ITEM_VAR) {
+    if (target->item_kind == ITEM_DEFINE) {
         lily_var *var = (lily_var *)target;
         lily_proto *p = lily_emit_proto_for_var(parser->emit, var);
 
@@ -1259,6 +1259,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
     lily_module_entry *m = parser->symtab->active_module;
 
     /* Symtab sets reg_spot when the function is made. */
+    var->item_kind = ITEM_DEFINE;
     var->function_depth = 1;
     var->flags = VAR_IS_READONLY;
     var->next = m->var_chain;
@@ -1278,6 +1279,7 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
     lily_var *var = new_var(NULL, name, line_num);
 
     /* Symtab sets reg_spot when the function is made. */
+    var->item_kind = ITEM_DEFINE;
     var->function_depth = 1;
     var->flags = VAR_IS_READONLY | modifiers;
     var->parent = parent;
@@ -2478,7 +2480,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
 
-    if (result && result->item_kind == ITEM_VAR)
+    if (result && result->item_kind & ITEM_IS_VARLIKE)
         result = NULL;
 
     return (lily_class *)result;
@@ -2693,7 +2695,7 @@ static int expr_word_try_use_self(lily_parse_state *parser)
         item = lily_find_or_dl_member(parser, self_cls, name);
 
         if (item) {
-            if (item->item_kind == ITEM_VAR) {
+            if (item->item_kind & ITEM_IS_VARLIKE) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
                 if ((item->flags & VAR_IS_STATIC) == 0) {
@@ -2774,7 +2776,7 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
                 lex->label);
     }
 
-    if (item->item_kind == ITEM_VAR)
+    if (item->item_kind == ITEM_DEFINE)
         lily_es_push_static_func(parser->expr, (lily_var *)item);
     else if (item->item_kind & ITEM_IS_VARIANT)
         lily_es_push_variant(parser->expr, (lily_variant_class *)item);
@@ -2793,15 +2795,16 @@ static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
                 "Attempt to use uninitialized value '%s'.",
                 var->name);
 
-    /* Defined functions have a depth of one, so they have to be first. */
-    else if (var->flags & VAR_IS_READONLY)
+    if (var->item_kind == ITEM_VAR) {
+        if (var->flags & VAR_IS_GLOBAL)
+            lily_es_push_global_var(parser->expr, var);
+        else if (var->function_depth == parser->emit->function_depth)
+            lily_es_push_local_var(parser->expr, var);
+        else
+            lily_es_push_upvalue(parser->expr, var);
+    }
+    else if (var->item_kind == ITEM_DEFINE)
         lily_es_push_defined_func(parser->expr, var);
-    else if (var->flags & VAR_IS_GLOBAL)
-        lily_es_push_global_var(parser->expr, var);
-    else if (var->function_depth == parser->emit->function_depth)
-        lily_es_push_local_var(parser->expr, var);
-    else
-        lily_es_push_upvalue(parser->expr, var);
 }
 
 /* This is called by expression when there is a word. This is complicated,
@@ -2851,7 +2854,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
         sym = (lily_sym *)try_toplevel_dynaload(parser, m, name);
 
     if (sym) {
-        if (sym->item_kind == ITEM_VAR)
+        if (sym->item_kind & ITEM_IS_VARLIKE)
             expr_word_as_var(parser, (lily_var *)sym);
         else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
@@ -3212,7 +3215,7 @@ static void expr_prop_word(lily_parse_state *parser, uint16_t *state)
         lily_raise_syn(parser->raiser, "Property %s is not in class %s.%s",
                 name, current_class->name, extra);
     }
-    else if (sym->item_kind == ITEM_VAR) {
+    else if (sym->item_kind == ITEM_DEFINE) {
         lily_raise_syn(parser->raiser,
                 "Cannot access a method as a property (use %s instead of @%s).",
                 name, name);
@@ -3481,7 +3484,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
 static void error_member_redeclaration(lily_parse_state *parser,
         lily_class *cls, lily_named_sym *sym)
 {
-    if (sym->item_kind == ITEM_VAR)
+    if (sym->item_kind == ITEM_DEFINE)
         lily_raise_syn(parser->raiser,
                 "A method in class '%s' already has the name '%s'.",
                 cls->name, sym->name);
@@ -4281,7 +4284,7 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
     lily_module_entry *m = parser->symtab->active_module;
     lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
 
-    if (item && item->item_kind != ITEM_VAR) {
+    if (item && (item->item_kind & ITEM_IS_VARLIKE) == 0) {
         const char *prefix;
         const char *suffix;
         const char *what = "";

@@ -604,7 +604,7 @@ lily_var *lily_find_var(lily_module_entry *m, const char *name)
     if (result == NULL && m->boxed_chain) {
         lily_sym *sym = find_boxed_sym(m, name, shorthash);
 
-        if (sym && sym->item_kind == ITEM_VAR)
+        if (sym && sym->item_kind & ITEM_IS_VARLIKE)
             result = (lily_var *)sym;
     }
 

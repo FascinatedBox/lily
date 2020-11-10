@@ -359,18 +359,20 @@ typedef struct lily_proto_ {
 
 #define ITEM_CLASS_FOREIGN  0x001
 #define ITEM_CLASS_NATIVE   0x002
-#define ITEM_ENUM_FLAT      0x004
-#define ITEM_ENUM_SCOPED    0x008
+#define ITEM_DEFINE         0x004
+#define ITEM_ENUM_FLAT      0x008
+#define ITEM_ENUM_SCOPED    0x010
 #define ITEM_IS_CLASS       (ITEM_CLASS_FOREIGN | ITEM_CLASS_NATIVE)
 #define ITEM_IS_ENUM        (ITEM_ENUM_FLAT | ITEM_ENUM_SCOPED)
 #define ITEM_IS_VARIANT     (ITEM_VARIANT_EMPTY | ITEM_VARIANT_FILLED)
-#define ITEM_MODULE         0x010
-#define ITEM_PROPERTY       0x020
-#define ITEM_STORAGE        0x040
-#define ITEM_TYPE           0x080
-#define ITEM_VAR            0x100
-#define ITEM_VARIANT_EMPTY  0x200
-#define ITEM_VARIANT_FILLED 0x400
+#define ITEM_IS_VARLIKE     (ITEM_DEFINE | ITEM_VAR)
+#define ITEM_MODULE         0x020
+#define ITEM_PROPERTY       0x040
+#define ITEM_STORAGE        0x080
+#define ITEM_TYPE           0x100
+#define ITEM_VAR            0x200
+#define ITEM_VARIANT_EMPTY  0x400
+#define ITEM_VARIANT_FILLED 0x800
 
 
 /* These are important ids in the interpreter. */
