@@ -1,4 +1,7 @@
-#define _USE_MATH_DEFINES //I think this is needed?
+/* Make sure this is defined so math.h defines M_* constants. */
+#ifndef _USE_MATH_DEFINES
+# define _USE_MATH_DEFINES
+#endif
 
 #include <math.h>
 #include <stdlib.h>
