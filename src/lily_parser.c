@@ -2695,7 +2695,7 @@ static int expr_word_try_use_self(lily_parse_state *parser)
         item = lily_find_or_dl_member(parser, self_cls, name);
 
         if (item) {
-            if (item->item_kind & ITEM_IS_VARLIKE) {
+            if (item->item_kind == ITEM_DEFINE) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
                 if ((item->flags & VAR_IS_STATIC) == 0) {
@@ -2785,9 +2785,15 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
                 "Cannot use a class property without a class instance.");
 }
 
-/* This function takes a var and determines what kind of tree to put it into.
-   The tree type is used by emitter to group vars into different types as a
-   small optimization. */
+static void expr_word_as_define(lily_parse_state *parser, lily_var *var)
+{
+    if (var->flags & SYM_NOT_INITIALIZED)
+        lily_raise_syn(parser->raiser,
+                "Attempt to use uninitialized value '%s'.",
+                var->name);
+
+    lily_es_push_defined_func(parser->expr, var);
+}
 static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
@@ -2795,16 +2801,12 @@ static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
                 "Attempt to use uninitialized value '%s'.",
                 var->name);
 
-    if (var->item_kind == ITEM_VAR) {
-        if (var->flags & VAR_IS_GLOBAL)
-            lily_es_push_global_var(parser->expr, var);
-        else if (var->function_depth == parser->emit->function_depth)
-            lily_es_push_local_var(parser->expr, var);
-        else
-            lily_es_push_upvalue(parser->expr, var);
-    }
-    else if (var->item_kind == ITEM_DEFINE)
-        lily_es_push_defined_func(parser->expr, var);
+    if (var->flags & VAR_IS_GLOBAL)
+        lily_es_push_global_var(parser->expr, var);
+    else if (var->function_depth == parser->emit->function_depth)
+        lily_es_push_local_var(parser->expr, var);
+    else
+        lily_es_push_upvalue(parser->expr, var);
 }
 
 /* This is called by expression when there is a word. This is complicated,
@@ -2854,8 +2856,10 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
         sym = (lily_sym *)try_toplevel_dynaload(parser, m, name);
 
     if (sym) {
-        if (sym->item_kind & ITEM_IS_VARLIKE)
+        if (sym->item_kind == ITEM_VAR)
             expr_word_as_var(parser, (lily_var *)sym);
+        else if (sym->item_kind == ITEM_DEFINE)
+            expr_word_as_define(parser, (lily_var *)sym);
         else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else
@@ -4284,42 +4288,43 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
     lily_module_entry *m = parser->symtab->active_module;
     lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
 
-    if (item && (item->item_kind & ITEM_IS_VARLIKE) == 0) {
-        const char *prefix;
-        const char *suffix;
-        const char *what = "";
-        lily_class *cls = NULL;
+    if (item == NULL)
+        return;
 
-        /* Only classes, enums, and variants will reach here. Find out which one
-           and report accordingly. */
-        if (item->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM))
-            cls = (lily_class *)item;
-        else if (item->item_kind & ITEM_IS_VARIANT)
-            cls = ((lily_variant_class *)item)->parent;
+    const char *prefix;
+    const char *suffix;
+    const char *what = "";
+    lily_class *cls = NULL;
 
-        if (cls->module == parser->symtab->prelude_module) {
-            prefix = "A built-in";
-            suffix = "already exists.";
-        }
-        else {
-            prefix = "A";
-            suffix = "has already been declared.";
-        }
+    /* Only classes, enums, and variants will reach here. Find out which one
+       and report accordingly. */
+    if (item->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM))
+        cls = (lily_class *)item;
+    else if (item->item_kind & ITEM_IS_VARIANT)
+        cls = ((lily_variant_class *)item)->parent;
 
-        if (item->item_kind & ITEM_IS_CLASS)
-            what = " class";
-        else if (item->item_kind & ITEM_IS_ENUM) {
-            if (cls->line_num == 0)
-                what = " enum";
-            else
-                what = "n enum";
-        }
-        else if (item->item_kind & ITEM_IS_VARIANT)
-            what = " variant";
-
-        lily_raise_syn(parser->raiser, "%s%s named '%s' %s", prefix, what, name,
-                suffix);
+    if (cls->module == parser->symtab->prelude_module) {
+        prefix = "A built-in";
+        suffix = "already exists.";
     }
+    else {
+        prefix = "A";
+        suffix = "has already been declared.";
+    }
+
+    if (item->item_kind & ITEM_IS_CLASS)
+        what = " class";
+    else if (item->item_kind & ITEM_IS_ENUM) {
+        if (cls->line_num == 0)
+            what = " enum";
+        else
+            what = "n enum";
+    }
+    else if (item->item_kind & ITEM_IS_VARIANT)
+        what = " variant";
+
+    lily_raise_syn(parser->raiser, "%s%s named '%s' %s", prefix, what, name,
+            suffix);
 }
 
 static void parse_super(lily_parse_state *parser, lily_class *cls)
