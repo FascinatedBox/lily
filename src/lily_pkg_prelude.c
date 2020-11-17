@@ -291,10 +291,9 @@ void lily_prelude_File_close(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
 
-    if (filev->inner_file != NULL) {
-        if (filev->is_builtin == 0)
-            fclose(filev->inner_file);
-        filev->inner_file = NULL;
+    if (filev->close_func) {
+        filev->close_func(filev->inner_file);
+        filev->close_func = NULL;
     }
 
     lily_return_unit(s);
@@ -370,6 +369,12 @@ void lily_prelude_File_flush(lily_state *s)
     lily_return_unit(s);
 }
 
+/* This wraps around fclose because fclose returns int. */
+static void file_close(FILE *f)
+{
+    fclose(f);
+}
+
 void lily_prelude_File_open(lily_state *s)
 {
     char *path = lily_arg_string_raw(s, 0);
@@ -412,7 +417,7 @@ void lily_prelude_File_open(lily_state *s)
         lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
     }
 
-    lily_push_file(s, f, mode);
+    lily_push_file(s, f, mode, file_close);
     lily_return_top(s);
 }
 
@@ -2070,11 +2075,14 @@ void lily_prelude_ValueError_new(lily_state *s)
     return_exception(s, LILY_ID_VALUEERROR);
 }
 
+static void file_builtin_close(FILE *f)
+{
+    (void)f;
+}
+
 static void new_builtin_file(lily_state *s, FILE *source, const char *mode)
 {
-    lily_push_file(s, source, mode);
-    lily_file_val *file_val = lily_as_file(lily_stack_get_top(s));
-    file_val->is_builtin = 1;
+    lily_push_file(s, source, mode, file_builtin_close);
 }
 
 void lily_prelude_var_stdin(lily_state *s)

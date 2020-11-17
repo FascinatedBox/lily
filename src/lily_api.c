@@ -339,8 +339,8 @@ static void destroy_file(lily_value *v)
 {
     lily_file_val *filev = v->value.file;
 
-    if (filev->inner_file && filev->is_builtin == 0)
-        fclose(filev->inner_file);
+    if (filev->close_func)
+        filev->close_func(filev->inner_file);
 
     lily_free(filev);
 }
@@ -464,7 +464,7 @@ uint32_t lily_con_size(lily_container_val *c)
 
 FILE *lily_file_for_write(lily_state *s, lily_file_val *filev)
 {
-    if (filev->inner_file == NULL)
+    if (filev->close_func == NULL)
         lily_IOError(s, "IO operation on closed file.");
 
     if (filev->write_ok == 0)
@@ -475,7 +475,7 @@ FILE *lily_file_for_write(lily_state *s, lily_file_val *filev)
 
 FILE *lily_file_for_read(lily_state *s, lily_file_val *filev)
 {
-    if (filev->inner_file == NULL)
+    if (filev->close_func == NULL)
         lily_IOError(s, "IO operation on closed file.");
 
     if (filev->read_ok == 0)
@@ -797,7 +797,8 @@ void lily_push_empty_variant(lily_state *s, uint16_t id)
     SET_TARGET(V_EMPTY_VARIANT_BASE, integer, id);
 }
 
-void lily_push_file(lily_state *s, FILE *inner_file, const char *mode)
+void lily_push_file(lily_state *s, FILE *inner_file, const char *mode,
+        lily_file_close_func close_func)
 {
     PUSH_PREAMBLE
     lily_file_val *filev = lily_malloc(sizeof(*filev));
@@ -807,7 +808,7 @@ void lily_push_file(lily_state *s, FILE *inner_file, const char *mode)
     filev->inner_file = inner_file;
     filev->read_ok = (*mode == 'r' || plus);
     filev->write_ok = (*mode == 'w' || *mode == 'a' || plus);
-    filev->is_builtin = 0;
+    filev->close_func = close_func;
     SET_TARGET(V_FILE_BASE | VAL_IS_DEREFABLE, file, filev);
 }
 

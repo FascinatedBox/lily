@@ -494,7 +494,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add(msgbuf, "unit");
     else if (base == V_FILE_BASE) {
         lily_file_val *fv = v->value.file;
-        const char *state = fv->inner_file ? "open" : "closed";
+        const char *state = fv->close_func ? "open" : "closed";
         lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
     else if (base == V_VARIANT_BASE) {

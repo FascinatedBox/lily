@@ -892,7 +892,7 @@ void lily_stdout_print(lily_vm_state *vm)
        The other trick is to use regs_from_main to grab the globals. */
     uint16_t spot = *vm->call_chain->function->cid_table;
     lily_file_val *stdout_val = vm->gs->regs_from_main[spot]->value.file;
-    if (stdout_val->inner_file == NULL)
+    if (stdout_val->close_func == NULL)
         vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
     do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));

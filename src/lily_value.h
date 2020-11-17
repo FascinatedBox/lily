@@ -7,7 +7,7 @@
 struct lily_vm_state_;
 struct lily_value_;
 
-/* Lily's foreign functions look like this. */
+typedef void (*lily_file_close_func)(FILE *);
 typedef void (*lily_foreign_func)(struct lily_vm_state_ *);
 
 /* This is what can be placed inside of a value. This is not commonly used
@@ -121,12 +121,11 @@ typedef struct lily_hash_val_ {
 
 typedef struct lily_file_val_ {
     uint32_t refcount;
-    uint8_t read_ok;
-    uint8_t write_ok;
-    uint8_t is_builtin;
-    uint8_t pad1;
-    uint32_t pad2;
+    uint16_t read_ok;
+    uint16_t write_ok;
     FILE *inner_file;
+    /* The function to close the inner file, or NULL if closed already. */
+    lily_file_close_func close_func;
 } lily_file_val;
 
 /* Finally, functions. Functions come in two flavors: Native and foreign.
@@ -278,7 +277,8 @@ lily_string_val *lily_new_string_raw(const char *);
 
 void lily_deref(lily_value *);
 void lily_push_coroutine(struct lily_vm_state_ *, lily_coroutine_val *);
-void lily_push_file(struct lily_vm_state_ *, FILE *, const char *);
+void lily_push_file(struct lily_vm_state_ *, FILE *, const char *,
+        lily_file_close_func);
 void lily_stack_push_and_destroy(struct lily_vm_state_ *, lily_value *);
 lily_value *lily_stack_take(struct lily_vm_state_ *);
 void lily_value_assign(lily_value *, lily_value *);
