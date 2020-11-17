@@ -999,17 +999,6 @@ void                lily_push_double       (lily_state *s, double value);
 // (Stack: +1) Push an empty variant (such as None) onto the stack.
 void                lily_push_empty_variant(lily_state *s, uint16_t class_id);
 
-// Function: lily_push_file
-// (Stack: +1) Push a file onto the stack (interpreter takes it over).
-//
-// This uses the mode provided to determine what mode that the file was opened
-// with.
-//
-// Once the File goes out of scope, the interpreter's destroy function for File
-// will automatically close the file.
-void                lily_push_file         (lily_state *s, FILE *f,
-                                            const char *mode);
-
 // Function: lily_push_foreign
 // (Stack: +1) Push a foreign class value onto the stack.
 //
