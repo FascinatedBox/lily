@@ -29,6 +29,7 @@ var keywords = [
     "break",
     "case",
     "class",
+    "constant",
     "continue",
     "define",
     "do",

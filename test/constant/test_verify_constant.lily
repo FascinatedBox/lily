@@ -1,0 +1,142 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVerifyConstant < TestCase
+{
+    public define test_basics
+    {
+        var t = Interpreter()
+
+        # basics (verify assignment)
+
+        assert_parse_string(t, """
+            constant integer_a = 10
+
+            if integer_a != 10: {
+                0/0
+            }
+        """)
+
+        # basics (multiple constants)
+
+        assert_parse_string(t, """
+            constant integer_b = 20,
+                     integer_c = 30
+
+            if integer_b != 20 &&
+               integer_c != 30: {
+                0/0
+            }
+        """)
+
+        # basics (all other constant types)
+
+        assert_parse_string(t, """
+            constant double_a = 1.0,
+                     string_a = "2"
+
+            if double_a != 1.0 ||
+               string_a != "2": {
+                0/0
+            }
+        """)
+
+        # basics (truthy constant fold)
+
+        assert_parse_string(t, """
+            constant truthy = 1
+
+            if truthy: {
+            else:
+                0 / 0
+            }
+        """)
+
+        # basics (falsey constant fold)
+
+        assert_parse_string(t, """
+            constant falsey = 0
+
+            if falsey: {
+                0 / 0
+            }
+        """)
+
+        # basics (tuple subscript by constant)
+
+        assert_parse_string(t, """
+            var t = <[1, "2", 3.0]>
+            constant index = 2
+
+            if t[index] != 3.0: {
+                0 / 0
+            }
+        """)
+
+        # basics (constant with open forward)
+
+        assert_parse_string(t, """
+            forward define f { ... }
+            constant x = 1
+            define f {}
+        """)
+    }
+
+    public define test_failure
+    {
+        var t = Interpreter()
+
+        # failure (specify a type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Constants cannot explicitly specify a type.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            constant a: Integer = 1
+        """)
+
+        # failure (no initialization)
+
+        assert_parse_fails(t, """\
+            SyntaxError: An initialization expression is required here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            constant a
+        """)
+
+        # failure (init by another constant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a Double, Integer, or String literal, not 'a label'.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            constant a = 10
+            constant b = a
+        """)
+
+        # failure (bad value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a Double, Integer, or String literal, not 'a lambda'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            constant a = (|b: Integer| b + b )
+        """)
+
+        # failure (bad location)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot declare a constant here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            if 1: {
+                constant a: Integer = 1
+            }
+        """)
+    }
+}

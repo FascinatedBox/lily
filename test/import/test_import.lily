@@ -210,6 +210,14 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_constant =
+        StringTarget(
+            :path "ref_constant",
+            :data """
+                constant x = 10
+            """
+        )
+
     public define test_import_as
     {
         var t = Interpreter.with_targets(
@@ -372,6 +380,20 @@ class TestImport < TestCase
 
         assert_parse_string(t, """
             import ref_diamond
+        """)
+
+        # import refs (ref a constant)
+
+        t = Interpreter.with_targets(
+            @t_constant
+        )
+
+        assert_parse_string(t, """
+            import (x) ref_constant
+
+            if x != 10: {
+                0 / 0
+            }
         """)
     }
 

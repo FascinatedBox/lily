@@ -52,6 +52,11 @@ const char *closure_targets[] = {
     NULL,
 };
 
+const char *constant_targets[] = {
+    "test_verify_constant.lily",
+    NULL,
+};
+
 const char *coroutine_targets[] = {
     "test_verify_coroutine.lily",
     NULL,
@@ -162,6 +167,7 @@ test_group all_groups[] = {
     {"call",      call_targets},
     {"class",     class_targets},
     {"closure",   closure_targets},
+    {"constant",  constant_targets},
     {"coroutine", coroutine_targets},
     {"coverage",  coverage_targets},
     {"enum",      enum_targets},

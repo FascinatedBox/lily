@@ -1207,6 +1207,23 @@ static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
     return var;
 }
 
+static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
+        uint16_t line_num)
+{
+    lily_var *var = new_var(NULL, name, line_num);
+    lily_module_entry *m = parser->symtab->active_module;
+
+    /* Constants get their id from the literal they're assigned to. */
+    var->item_kind = ITEM_CONSTANT;
+    var->function_depth = parser->emit->function_depth;
+    var->reg_spot = 0;
+    var->flags = VAR_IS_READONLY;
+    var->next = m->var_chain;
+    m->var_chain = var;
+
+    return var;
+}
+
 /* Create a new var that must be local. Use this in cases where the target is
    going to have some data extracted into it. In situations such as the except
    clause of try, the target register has to be local. */
@@ -1288,6 +1305,19 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
 
     make_new_function(parser, parent->name, var, NULL);
 
+    return var;
+}
+
+static lily_var *declare_constant(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_var *var = find_active_var(parser, lex->label);
+
+    if (var)
+        error_var_redeclaration(parser, var);
+
+    var = new_constant_var(parser, lex->label, lex->line_num);
+    lily_next_token(lex);
     return var;
 }
 
@@ -2785,6 +2815,22 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
                 "Cannot use a class property without a class instance.");
 }
 
+static void expr_word_as_constant(lily_parse_state *parser, lily_var *var)
+{
+    /* A constant's reg_spot is the id of the backing literal. There's no init
+       check since constants are not initialized with an expression. */
+    lily_type *t = var->type;
+    uint16_t cls_id = t->cls->id;
+
+    if (cls_id == LILY_ID_INTEGER) {
+        lily_value *v = lily_literal_at(parser->symtab, var->reg_spot);
+
+        push_integer(parser, v->value.integer);
+    }
+    else
+        lily_es_push_literal(parser->expr, t, var->reg_spot);
+}
+
 static void expr_word_as_define(lily_parse_state *parser, lily_var *var)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
@@ -2794,6 +2840,7 @@ static void expr_word_as_define(lily_parse_state *parser, lily_var *var)
 
     lily_es_push_defined_func(parser->expr, var);
 }
+
 static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
 {
     if (var->flags & SYM_NOT_INITIALIZED)
@@ -2862,6 +2909,8 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
             expr_word_as_define(parser, (lily_var *)sym);
         else if (sym->item_kind & ITEM_IS_VARIANT)
 	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
+        else if (sym->item_kind == ITEM_CONSTANT)
+            expr_word_as_constant(parser, (lily_var *)sym);
         else
             expr_word_as_class(parser, (lily_class *)sym, state);
     }
@@ -3849,6 +3898,67 @@ static void keyword_while(lily_parse_state *parser)
     lily_eval_entry_condition(parser->emit, parser->expr);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
+}
+
+static void parse_one_constant(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_symtab *symtab = parser->symtab;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    lily_var *var = declare_constant(parser);
+
+    if (lex->token == tk_colon)
+        lily_raise_syn(parser->raiser,
+                "Constants cannot explicitly specify a type.");
+    else if (lex->token != tk_equal)
+        lily_raise_syn(parser->raiser,
+                "An initialization expression is required here.");
+
+    lily_literal *lit;
+
+    lily_next_token(lex);
+
+    if (lex->token == tk_integer) {
+        lit = lily_get_integer_literal(symtab, lex->n.integer_val);
+        var->reg_spot = lit->reg_spot;
+        var->type = symtab->integer_class->self_type;
+    }
+    else if (lex->token == tk_double) {
+        lit = lily_get_double_literal(symtab, lex->n.double_val);
+        var->reg_spot = lit->reg_spot;
+        var->type = symtab->double_class->self_type;
+    }
+    else if (lex->token == tk_double_quote) {
+        lit = lily_get_string_literal(symtab, lex->label);
+        var->reg_spot = lit->reg_spot;
+        var->type = symtab->string_class->self_type;
+    }
+    else
+        lily_raise_syn(parser->raiser,
+                "Expected a Double, Integer, or String literal, not '%s'.",
+                tokname(lex->token));
+
+    lily_next_token(lex);
+}
+
+static void keyword_constant(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_block *block = parser->emit->block;
+
+    if (block->block_type != block_file)
+        lily_raise_syn(parser->raiser, "Cannot declare a constant here.");
+
+    while (1) {
+        parse_one_constant(parser);
+
+        if (lex->token != tk_comma)
+            break;
+
+        lily_next_token(lex);
+    }
 }
 
 static void keyword_continue(lily_parse_state *parser)

@@ -84,6 +84,19 @@ foreign static class PropertyEntry
     public define type: TypeEntry
 }
 
+### This is a foreign class that wraps over a constant value.
+foreign static class ConstantEntry
+{
+    ### Return the line number that this constant was declared on.
+    public define line_number: Integer
+
+    ### Return the name of the constant provided.
+    public define name: String
+
+    ### Return the type of the constant provided.
+    public define type: TypeEntry
+}
+
 ### This is a foreign class that wraps over a toplevel function of a package.
 foreign static class FunctionEntry
 {
@@ -264,6 +277,10 @@ foreign static class ModuleEntry
     ### (someclass) somefile`).
     public define boxed_classes: List[ClassEntry]
 
+    ### Return all constants that were directly imported into this module
+    ### (`import (someconstant) somefile`).
+    public define boxed_constants: List[ConstantEntry]
+
     ### Return all enums that were directly imported into this module (`import
     ### (someenum) somefile`).
     public define boxed_enums: List[EnumEntry]
@@ -282,6 +299,9 @@ foreign static class ModuleEntry
 
     ### Return the classes declared within this module.
     public define classes: List[ClassEntry]
+
+    ### Return the constants declared within this module.
+    public define constants: List[ConstantEntry]
 
     ### Return the directory of this module relative to [main].
     public define dirname: String

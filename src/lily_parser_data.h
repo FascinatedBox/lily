@@ -58,6 +58,7 @@ keyword_entry keywords[] =
     {"private", 28556934595048048},
     {"protected", 7310577382525465200},
     {"continue", 7310870969309884259},
+    {"constant", 8389750308618530659},
 };
 
 # define KEY_IF 0
@@ -85,7 +86,8 @@ keyword_entry keywords[] =
 # define KEY_PRIVATE 22
 # define KEY_PROTECTED 23
 # define KEY_CONTINUE 24
-# define KEY_BAD_ID 25
+# define KEY_CONSTANT 25
+# define KEY_BAD_ID 26
 
 static void expr_arrow(lily_parse_state *, uint16_t *);
 static void expr_binary(lily_parse_state *, uint16_t *);
@@ -199,6 +201,7 @@ static void keyword_forward(lily_parse_state *);
 static void keyword_private(lily_parse_state *);
 static void keyword_protected(lily_parse_state *);
 static void keyword_continue(lily_parse_state *);
+static void keyword_constant(lily_parse_state *);
 
 static keyword_handler *handlers[] =
 {
@@ -227,6 +230,7 @@ static keyword_handler *handlers[] =
     keyword_private,
     keyword_protected,
     keyword_continue,
+    keyword_constant,
 };
 
 #endif

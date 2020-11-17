@@ -25,6 +25,7 @@ class TestPkgIntrospect < TestCase
         StringTarget(
             :path "symbols",
             :data """
+                constant ct = 1
                 var v = 10
                 enum FlatOption[A] {
                     FlatSome(A),
@@ -98,6 +99,61 @@ class TestPkgIntrospect < TestCase
                   :foreign "false",
                   :native "true",
                   :parent "One")
+        """)
+    }
+
+    public define test_constant
+    {
+        var t = Interpreter.with_targets(
+            @t_symbols
+        )
+
+        # constant entry (setup)
+
+        assert_parse_string(t, """
+            import introspect
+            import (ct) symbols
+
+            define check(      c_: introspect.ConstantEntry,
+                         :line line: String,
+                         :name name: String,
+                         :type type: String)
+            {
+                var input = [c_.line_number().to_s(),
+                             c_.name(),
+                             c_.type().as_string()]
+                var expect = [line, name, type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var main_m = introspect.main_module()
+            var constants = main_m.constants()
+            var ct_c = main_m.boxed_constants()[0]
+            var local_c_line = __line__ + 1
+            constant local_c = "a"
+            var self_c = constants[0]
+        """)
+
+        # constant entry (check ct_c)
+
+        assert_parse_string(t, """
+            check(ct_c,
+                  :line "2",
+                  :name "ct",
+                  :type "Integer")
+        """)
+
+        # constant entry (check self_c)
+
+        assert_parse_string(t, """
+            check(self_c,
+                  :line local_c_line.to_s(),
+                  :name "local_c",
+                  :type "String")
         """)
     }
 
@@ -530,7 +586,7 @@ class TestPkgIntrospect < TestCase
 
         assert_parse_string(t, """
             check(v_v,
-                  :line "2",
+                  :line "3",
                   :name "v",
                   :type "Integer")
         """)

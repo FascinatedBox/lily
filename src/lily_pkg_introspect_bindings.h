@@ -17,12 +17,21 @@ lily_cid_at(s_, 0)
 #define INIT_ClassEntry(s_) \
 (lily_introspect_ClassEntry *)lily_push_foreign(s_, ID_ClassEntry(s_), (lily_destroy_func)destroy_ClassEntry, sizeof(lily_introspect_ClassEntry))
 
+#define ARG_ConstantEntry(s_, i_) \
+(lily_introspect_ConstantEntry *)lily_arg_generic(s_, i_)
+#define AS_ConstantEntry(v_) \
+(lily_introspect_ConstantEntry *)lily_as_generic(v_)
+#define ID_ConstantEntry(s_) \
+lily_cid_at(s_, 1)
+#define INIT_ConstantEntry(s_) \
+(lily_introspect_ConstantEntry *)lily_push_foreign(s_, ID_ConstantEntry(s_), (lily_destroy_func)destroy_ConstantEntry, sizeof(lily_introspect_ConstantEntry))
+
 #define ARG_EnumEntry(s_, i_) \
 (lily_introspect_EnumEntry *)lily_arg_generic(s_, i_)
 #define AS_EnumEntry(v_) \
 (lily_introspect_EnumEntry *)lily_as_generic(v_)
 #define ID_EnumEntry(s_) \
-lily_cid_at(s_, 1)
+lily_cid_at(s_, 2)
 #define INIT_EnumEntry(s_) \
 (lily_introspect_EnumEntry *)lily_push_foreign(s_, ID_EnumEntry(s_), (lily_destroy_func)destroy_EnumEntry, sizeof(lily_introspect_EnumEntry))
 
@@ -31,7 +40,7 @@ lily_cid_at(s_, 1)
 #define AS_FunctionEntry(v_) \
 (lily_introspect_FunctionEntry *)lily_as_generic(v_)
 #define ID_FunctionEntry(s_) \
-lily_cid_at(s_, 2)
+lily_cid_at(s_, 3)
 #define INIT_FunctionEntry(s_) \
 (lily_introspect_FunctionEntry *)lily_push_foreign(s_, ID_FunctionEntry(s_), (lily_destroy_func)destroy_FunctionEntry, sizeof(lily_introspect_FunctionEntry))
 
@@ -40,7 +49,7 @@ lily_cid_at(s_, 2)
 #define AS_MethodEntry(v_) \
 (lily_introspect_MethodEntry *)lily_as_generic(v_)
 #define ID_MethodEntry(s_) \
-lily_cid_at(s_, 3)
+lily_cid_at(s_, 4)
 #define INIT_MethodEntry(s_) \
 (lily_introspect_MethodEntry *)lily_push_foreign(s_, ID_MethodEntry(s_), (lily_destroy_func)destroy_MethodEntry, sizeof(lily_introspect_MethodEntry))
 
@@ -49,7 +58,7 @@ lily_cid_at(s_, 3)
 #define AS_ModuleEntry(v_) \
 (lily_introspect_ModuleEntry *)lily_as_generic(v_)
 #define ID_ModuleEntry(s_) \
-lily_cid_at(s_, 4)
+lily_cid_at(s_, 5)
 #define INIT_ModuleEntry(s_) \
 (lily_introspect_ModuleEntry *)lily_push_foreign(s_, ID_ModuleEntry(s_), (lily_destroy_func)destroy_ModuleEntry, sizeof(lily_introspect_ModuleEntry))
 
@@ -72,7 +81,7 @@ lily_con_set(c_, 2, v_)
 #define SETFS_ParameterEntry__type(state, c_) \
 lily_con_set_from_stack(state, c_, 2)
 #define ID_ParameterEntry(s_) \
-lily_cid_at(s_, 5)
+lily_cid_at(s_, 6)
 #define SUPER_ParameterEntry(s_) \
 lily_push_super(s_, ID_ParameterEntry(s_), 3)
 
@@ -81,7 +90,7 @@ lily_push_super(s_, ID_ParameterEntry(s_), 3)
 #define AS_PropertyEntry(v_) \
 (lily_introspect_PropertyEntry *)lily_as_generic(v_)
 #define ID_PropertyEntry(s_) \
-lily_cid_at(s_, 6)
+lily_cid_at(s_, 7)
 #define INIT_PropertyEntry(s_) \
 (lily_introspect_PropertyEntry *)lily_push_foreign(s_, ID_PropertyEntry(s_), (lily_destroy_func)destroy_PropertyEntry, sizeof(lily_introspect_PropertyEntry))
 
@@ -90,7 +99,7 @@ lily_cid_at(s_, 6)
 #define AS_TypeEntry(v_) \
 (lily_introspect_TypeEntry *)lily_as_generic(v_)
 #define ID_TypeEntry(s_) \
-lily_cid_at(s_, 7)
+lily_cid_at(s_, 8)
 #define INIT_TypeEntry(s_) \
 (lily_introspect_TypeEntry *)lily_push_foreign(s_, ID_TypeEntry(s_), (lily_destroy_func)destroy_TypeEntry, sizeof(lily_introspect_TypeEntry))
 
@@ -99,7 +108,7 @@ lily_cid_at(s_, 7)
 #define AS_VarEntry(v_) \
 (lily_introspect_VarEntry *)lily_as_generic(v_)
 #define ID_VarEntry(s_) \
-lily_cid_at(s_, 8)
+lily_cid_at(s_, 9)
 #define INIT_VarEntry(s_) \
 (lily_introspect_VarEntry *)lily_push_foreign(s_, ID_VarEntry(s_), (lily_destroy_func)destroy_VarEntry, sizeof(lily_introspect_VarEntry))
 
@@ -108,13 +117,13 @@ lily_cid_at(s_, 8)
 #define AS_VariantEntry(v_) \
 (lily_introspect_VariantEntry *)lily_as_generic(v_)
 #define ID_VariantEntry(s_) \
-lily_cid_at(s_, 9)
+lily_cid_at(s_, 10)
 #define INIT_VariantEntry(s_) \
 (lily_introspect_VariantEntry *)lily_push_foreign(s_, ID_VariantEntry(s_), (lily_destroy_func)destroy_VariantEntry, sizeof(lily_introspect_VariantEntry))
 
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
-    "\012ClassEntry\0EnumEntry\0FunctionEntry\0MethodEntry\0ModuleEntry\0ParameterEntry\0PropertyEntry\0TypeEntry\0VarEntry\0VariantEntry\0"
+    "\013ClassEntry\0ConstantEntry\0EnumEntry\0FunctionEntry\0MethodEntry\0ModuleEntry\0ParameterEntry\0PropertyEntry\0TypeEntry\0VarEntry\0VariantEntry\0"
     ,"C\011ClassEntry\0"
     ,"m\0doc\0(ClassEntry): String"
     ,"m\0generics\0(ClassEntry): List[TypeEntry]"
@@ -125,6 +134,10 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(ClassEntry): String"
     ,"m\0parent\0(ClassEntry): Option[ClassEntry]"
     ,"m\0properties\0(ClassEntry): List[PropertyEntry]"
+    ,"C\03ConstantEntry\0"
+    ,"m\0line_number\0(ConstantEntry): Integer"
+    ,"m\0name\0(ConstantEntry): String"
+    ,"m\0type\0(ConstantEntry): TypeEntry"
     ,"C\010EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
     ,"m\0generics\0(EnumEntry): List[TypeEntry]"
@@ -154,13 +167,15 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\016ModuleEntry\0"
+    ,"C\020ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
+    ,"m\0boxed_constants\0(ModuleEntry): List[ConstantEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0boxed_functions\0(ModuleEntry): List[FunctionEntry]"
     ,"m\0boxed_variants\0(ModuleEntry): List[VariantEntry]"
     ,"m\0boxed_vars\0(ModuleEntry): List[VarEntry]"
     ,"m\0classes\0(ModuleEntry): List[ClassEntry]"
+    ,"m\0constants\0(ModuleEntry): List[ConstantEntry]"
     ,"m\0dirname\0(ModuleEntry): String"
     ,"m\0doc\0(ModuleEntry): String"
     ,"m\0enums\0(ModuleEntry): List[EnumEntry]"
@@ -219,6 +234,10 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ClassEntry_parent, \
     lily_introspect_ClassEntry_properties, \
     NULL, \
+    lily_introspect_ConstantEntry_line_number, \
+    lily_introspect_ConstantEntry_name, \
+    lily_introspect_ConstantEntry_type, \
+    NULL, \
     lily_introspect_EnumEntry_doc, \
     lily_introspect_EnumEntry_generics, \
     lily_introspect_EnumEntry_id, \
@@ -249,11 +268,13 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_type, \
     NULL, \
     lily_introspect_ModuleEntry_boxed_classes, \
+    lily_introspect_ModuleEntry_boxed_constants, \
     lily_introspect_ModuleEntry_boxed_enums, \
     lily_introspect_ModuleEntry_boxed_functions, \
     lily_introspect_ModuleEntry_boxed_variants, \
     lily_introspect_ModuleEntry_boxed_vars, \
     lily_introspect_ModuleEntry_classes, \
+    lily_introspect_ModuleEntry_constants, \
     lily_introspect_ModuleEntry_dirname, \
     lily_introspect_ModuleEntry_doc, \
     lily_introspect_ModuleEntry_enums, \

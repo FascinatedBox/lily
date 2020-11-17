@@ -117,6 +117,11 @@ typedef struct {
 
 typedef struct {
     LILY_FOREIGN_HEADER
+    lily_var *entry;
+} lily_introspect_ConstantEntry;
+
+typedef struct {
+    LILY_FOREIGN_HEADER
     lily_class *entry;
 } lily_introspect_EnumEntry;
 
@@ -159,6 +164,11 @@ typedef struct {
 } lily_introspect_PropertyEntry;
 
 static void destroy_ClassEntry(lily_introspect_ClassEntry *c)
+{
+    (void)c;
+}
+
+static void destroy_ConstantEntry(lily_introspect_ConstantEntry *c)
 {
     (void)c;
 }
@@ -215,6 +225,11 @@ static int allow_boxed_classes(lily_boxed_sym *sym)
     return sym->inner_sym->item_kind & ITEM_IS_CLASS;
 }
 
+static int allow_boxed_constants(lily_boxed_sym *sym)
+{
+    return sym->inner_sym->item_kind & ITEM_CONSTANT;
+}
+
 static int allow_boxed_enums(lily_boxed_sym *sym)
 {
     return sym->inner_sym->item_kind & ITEM_IS_ENUM;
@@ -238,6 +253,11 @@ static int allow_boxed_vars(lily_boxed_sym *sym)
 static int allow_classes(lily_class *cls)
 {
     return cls->item_kind & ITEM_IS_CLASS;
+}
+
+static int allow_constants(lily_var *var)
+{
+    return var->item_kind & ITEM_CONSTANT;
 }
 
 static int allow_enums(lily_class *cls)
@@ -279,6 +299,12 @@ static int allow_vars(lily_var *var)
 static void make_class(lily_state *s, lily_class *source)
 {
     lily_introspect_ClassEntry *new_entry = INIT_ClassEntry(s);
+    new_entry->entry = source;
+}
+
+static void make_constant(lily_state *s, lily_var *source)
+{
+    lily_introspect_ConstantEntry *new_entry = INIT_ConstantEntry(s);
     new_entry->entry = source;
 }
 
@@ -337,6 +363,11 @@ static void make_variant(lily_state *s, lily_class *entry,
 static void boxed_make_class(lily_state *s, lily_boxed_sym *source)
 {
     make_class(s, (lily_class *)source->inner_sym);
+}
+
+static void boxed_make_constant(lily_state *s, lily_boxed_sym *source)
+{
+    make_constant(s, (lily_var *)source->inner_sym);
 }
 
 static void boxed_make_enum(lily_state *s, lily_boxed_sym *source)
@@ -491,6 +522,21 @@ void lily_introspect_VarEntry_name(lily_state *s)
 void lily_introspect_VarEntry_type(lily_state *s)
 {
     unpack_and_return_type(s);
+}
+
+void lily_introspect_ConstantEntry_name(lily_state *s)
+{
+    FETCH_FIELD(ConstantEntry, lily_var, const char *, name, lily_push_string);
+}
+
+void lily_introspect_ConstantEntry_type(lily_state *s)
+{
+    unpack_and_return_type(s);
+}
+
+void lily_introspect_ConstantEntry_line_number(lily_state *s)
+{
+    lily_introspect_VarEntry_line_number(s);
 }
 
 void lily_introspect_PropertyEntry_doc(lily_state *s)
@@ -958,6 +1004,16 @@ void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
     BUILD_LIST_FROM(allow_boxed_classes, boxed_make_class)
 }
 
+void lily_introspect_ModuleEntry_boxed_constants(lily_state *s)
+{
+    lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
+    lily_module_entry *entry = introspect_entry->entry;
+    lily_boxed_sym *source = entry->boxed_chain;
+    lily_boxed_sym *source_iter = source;
+
+    BUILD_LIST_FROM(allow_boxed_constants, boxed_make_constant)
+}
+
 void lily_introspect_ModuleEntry_boxed_enums(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
@@ -1007,6 +1063,17 @@ void lily_introspect_ModuleEntry_classes(lily_state *s)
     lily_class *source_iter = source;
 
     BUILD_LIST_FROM(allow_classes, make_class)
+}
+
+void lily_introspect_ModuleEntry_constants(lily_state *s)
+{
+    /* Do not use boxed elements too. Those are another module's elements. */
+    lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
+    lily_module_entry *entry = introspect_entry->entry;
+    lily_var *source = entry->var_chain;
+    lily_var *source_iter = source;
+
+    BUILD_LIST_FROM(allow_constants, make_constant)
 }
 
 void lily_introspect_ModuleEntry_dirname(lily_state *s)
