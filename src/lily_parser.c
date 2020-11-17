@@ -1412,9 +1412,12 @@ static int keyword_by_name(const char *);
 /* Collect the assignment for an optional argument. */
 static void collect_optarg_for(lily_parse_state *parser, lily_sym *sym)
 {
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_equal)
     lily_es_optarg_save(parser->expr);
     lily_es_push_assign_to(parser->expr, sym);
-    lily_next_token(parser->lex);
+    lily_next_token(lex);
     simple_expression(parser);
 }
 

@@ -108,5 +108,15 @@ class TestBadOptargs < TestCase
         """\
             define f(a: *Integer=10, b: Integer) {  }
         """)
+
+        # optarg rules (wrong token before value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '=', not ','.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f(a: *Integer,1) { }
+        """)
     }
 }
