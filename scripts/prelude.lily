@@ -69,7 +69,7 @@ define generate_call_tables: String
 
 define generate_bootstrap: String
 {
-    var bootstrap_targets = targets.reject(|s| s == "builtin" )
+    var bootstrap_targets = targets.reject(|s| s == "prelude" )
 
     var data = bootstrap_targets.map(|t|
         var info = "lily_" ++ t ++ "_info_table"
@@ -126,13 +126,13 @@ import manifest
 ### This is a fake module created to link together all of the modules that are
 ### automatically loaded in the interpreter.
 ###
-### Except for the `builtin` module, all modules listed here can be imported
+### Except for the `prelude` module, all modules listed here can be imported
 ### from any file inside of the interpreter. This is unlike other modules, which
 ### are loaded using relative paths.
 ###
-### The `builtin` module is unique because the classes, enums, and functions are
+### The `prelude` module is unique because the classes, enums, and functions are
 ### the foundation of the interpreter. Instead of requiring it to be imported,
-### the contents of `builtin` are instead available without a namespace.
+### the contents of `prelude` are instead available without a namespace.
 library core\
 """
 

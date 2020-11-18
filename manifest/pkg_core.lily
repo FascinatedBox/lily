@@ -7,13 +7,13 @@ import manifest
 ### This is a fake module created to link together all of the modules that are
 ### automatically loaded in the interpreter.
 ###
-### Except for the `builtin` module, all modules listed here can be imported
+### Except for the `prelude` module, all modules listed here can be imported
 ### from any file inside of the interpreter. This is unlike other modules, which
 ### are loaded using relative paths.
 ###
-### The `builtin` module is unique because the classes, enums, and functions are
+### The `prelude` module is unique because the classes, enums, and functions are
 ### the foundation of the interpreter. Instead of requiring it to be imported,
-### the contents of `builtin` are instead available without a namespace.
+### the contents of `prelude` are instead available without a namespace.
 library core
 
 import pkg_prelude
