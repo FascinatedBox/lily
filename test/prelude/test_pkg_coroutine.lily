@@ -74,7 +74,7 @@ class TestPkgCoroutine < TestCase
                 co.yield(calltrace())
             }
 
-            var expect = ["[test]:3: in fn"]
+            var expect = ["[test]:5: in fn"]
 
             if Coroutine.build(fn).resume().unwrap() != expect: {
                 raise Exception("Failed.")
