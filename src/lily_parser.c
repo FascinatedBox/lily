@@ -346,8 +346,7 @@ static void rewind_parser(lily_parse_state *parser)
 
     while (module_iter) {
         /* Hide broken modules from being loaded in the next pass as though
-           they weren't broken.
-           todo: Dump module contents once rewind is tested out more. */
+           they weren't broken. */
         if (module_iter->flags & MODULE_IN_EXECUTION) {
             module_iter->cmp_len = 0;
             module_iter->flags &= ~MODULE_IN_EXECUTION;
@@ -1158,7 +1157,6 @@ static void hide_block_vars(lily_parse_state *parser)
             count--;
         }
         else {
-            /* todo: Store vars that are out of scope instead of destroying them. */
             lily_free(var_iter->name);
             lily_free(var_iter);
             count--;
@@ -5280,7 +5278,6 @@ static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
 
 static void main_func_setup(lily_parse_state *parser)
 {
-    /* todo: Find a way to do some of this as-needed, instead of always. */
     lily_register_classes(parser->symtab, parser->vm);
     lily_prepare_main(parser->emit, parser->toplevel_func);
 
@@ -6333,9 +6330,6 @@ int lily_parse_expr(lily_state *s, const char **text)
 
 lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
 {
-    /* todo: Handle scope access, class methods, and so forth. Ideally, it can
-       be done without loading any fake files (like dynaloading does), as this
-       may be the base of a preloader. */
     lily_var *v = find_active_var(vm->gs->parser, name);
     lily_function_val *result;
 
