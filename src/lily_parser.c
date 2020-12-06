@@ -5425,7 +5425,7 @@ static void parser_loop(lily_parse_state *parser)
             lily_block *b = parser->emit->block;
 
             if (b->block_type != block_file ||
-                parser->flags & PARSER_IS_RENDERING)
+                (parser->flags & PARSER_IS_RENDERING && b->prev == NULL))
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(tk_eof));
             else if (b->forward_count)

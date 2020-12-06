@@ -218,6 +218,14 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_template_check =
+        StringTarget(
+            :path "template_check",
+            :data """\
+                <?lily 0 / 0 ?>
+            """
+        )
+
     public define test_import_as
     {
         var t = Interpreter.with_targets(
@@ -456,6 +464,32 @@ class TestImport < TestCase
 
         assert_parse_string(t, """
             import deep_access
+        """)
+    }
+
+    public define test_verify_template_import
+    {
+        var t = Interpreter.with_targets(
+            @t_var_exporter
+        )
+
+        assert_render_string(t, """\
+            <?lily ?>
+
+            <?lily import var_exporter ?>
+        """)
+
+        t = Interpreter.with_targets(
+            @t_template_check
+        )
+        assert_render_fails(t, """\
+            SyntaxError: Unexpected token '<'.\n    \
+                from template_check.lily:1:\n\
+        """,
+        """\
+            <?lily ?>
+
+            <?lily import template_check ?>
         """)
     }
 
