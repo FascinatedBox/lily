@@ -69,8 +69,7 @@ class TestOptionMethods < TestCase
     {
         assert_raises(
                 "ValueError: unwrap called on None.",
-                (|| None.@(Option[Integer]).unwrap()
-                    unit ))
+                (|| None.@(Option[Integer]).unwrap() ))
 
         var v = Some(1).unwrap()
         assert_equal(v, 1)

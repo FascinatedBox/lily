@@ -17,8 +17,7 @@ class TestHashMethods < TestCase
         assert_raises(
                 "RuntimeError: Cannot remove key from hash during iteration.",
                 (|| var v3 = [1 => 1]
-                    v3.each_pair(|k_, v_| v3.clear() )
-                    unit ))
+                    v3.each_pair(|k_, v_| v3.clear()) ))
     }
 
     public define test_delete

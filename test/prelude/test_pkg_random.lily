@@ -44,16 +44,12 @@ class TestPkgRandom < TestCase
     public define test_Random_between
     {
         assert_raises("ValueError: Interval range is empty.",
-            (|| random.Random().between(0, 0)
-                unit ))
+            (|| random.Random().between(0, 0) ))
 
         assert_raises("ValueError: Interval exceeds 32 bits in size.",
-            (|| random.Random().between(-999999999999999, 0)
-                unit ))
-
+            (|| random.Random().between(-999999999999999, 0) ))
 
         assert_raises("ValueError: Interval exceeds 32 bits in size.",
-            (|| random.Random().between(0, 999999999999999)
-                unit ))
+            (|| random.Random().between(0, 999999999999999) ))
     }
 }

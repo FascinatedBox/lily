@@ -222,8 +222,7 @@ class TestListMethods < TestCase
         assert_raises(
                 "IndexError: Pop from an empty list.",
                 (|| var w: List[Integer] = []
-                    w.pop()
-                    unit ))
+                    w.pop() ))
     }
 
     public define test_reject
@@ -294,8 +293,7 @@ class TestListMethods < TestCase
         assert_raises(
                 "IndexError: Shift on an empty list.",
                 (|| var w: List[Integer] = []
-                    w.shift()
-                    unit ))
+                    w.shift() ))
     }
 
     public define test_slice
