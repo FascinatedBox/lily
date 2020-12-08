@@ -1,0 +1,20 @@
+import manifest
+
+### This package provides subprocess creation.
+library subprocess
+
+### Launch `command` as a subprocess in `mode`. The result of this function is
+### a `File` that can be read from or written to like any other `File`.
+###
+### The mode provided must be one of the following:
+###
+### * `"r"` Read mode. This allows reading from the stdout of the subprocess.
+###
+### * `"w"` Write mode. This allows writing to the stdin of the subprocess.
+###
+### # Errors
+###
+### * `ValueError` if mode is not one of the modes listed above.
+###
+### * `RuntimeError` if unable to start the subprocess.
+define popen(command: String, mode: *String="r"): File

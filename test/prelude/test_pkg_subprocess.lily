@@ -1,0 +1,20 @@
+import (Interpreter,
+        TestCase) "../t/testing", subprocess
+
+class TestPkgSubprocess < TestCase
+{
+    public define test_popen
+    {
+        assert_raises("ValueError: Invalid mode 'z' given.",
+            (|| subprocess.popen("test", "z") ))
+
+        var a = subprocess.popen("test")
+        a.close()
+
+        a = subprocess.popen("test", "r")
+        a.close()
+
+        a = subprocess.popen("test", "w")
+        a.close()
+    }
+}
