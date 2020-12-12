@@ -82,6 +82,34 @@ class TestBadEnum < TestCase
                 Five
             }
         """)
+
+        # bad decl (flat enum name too short)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'A' is not a valid class name (too short).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            enum A {
+                One,
+                Two,
+                Three
+            }
+        """)
+
+        # bad decl (scoped enum name too short)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'A' is not a valid class name (too short).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            scoped enum A {
+                One,
+                Two,
+                Three
+            }
+        """)
     }
 
     public define test_bad_decompose
