@@ -213,6 +213,17 @@ class TestListMethods < TestCase
         assert_equal([1, 2, 3].map(Integer.to_s), ["1", "2", "3"])
     }
 
+    public define test_merge
+    {
+        var v: List[Integer] = []
+
+        assert_equal(v.merge(),               [])
+        assert_equal(v.merge([1, 2], [3, 4]), [1, 2, 3, 4])
+        assert_equal(v,                       [])
+        v = [1]
+        assert_equal(v.merge([2], [3]),       [1, 2, 3])
+    }
+
     public define test_pop
     {
         var v = [1]

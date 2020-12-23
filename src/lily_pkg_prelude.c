@@ -1064,6 +1064,40 @@ void lily_prelude_List_map(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_prelude_List_merge(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    lily_container_val *arg_list = lily_arg_container(s, 1);
+    uint32_t input_size = lily_con_size(input_list);
+    uint32_t arg_list_size = lily_con_size(arg_list);
+    uint32_t result_size = input_size;
+    uint32_t i;
+
+    for (i = 0;i < arg_list_size;i++) {
+        lily_container_val *arg = lily_as_container(lily_con_get(arg_list, i));
+        uint32_t arg_size = lily_con_size(arg);
+
+        result_size += arg_size;
+    }
+
+    lily_container_val *result = lily_push_list(s, result_size);
+    uint32_t result_i = input_size;
+
+    for (i = 0;i < input_size;i++)
+        lily_con_set(result, i, lily_con_get(input_list, i));
+
+    for (i = 0;i < arg_list_size;i++) {
+        lily_container_val *arg = lily_as_container(lily_con_get(arg_list, i));
+        uint32_t arg_size = lily_con_size(arg);
+        uint32_t j;
+
+        for (j = 0;j < arg_size;result_i++, j++)
+            lily_con_set(result, result_i, lily_con_get(arg, j));
+    }
+
+    lily_return_top(s);
+}
+
 void lily_prelude_List_pop(lily_state *s)
 {
     lily_container_val *input_list = lily_arg_container(s, 0);
