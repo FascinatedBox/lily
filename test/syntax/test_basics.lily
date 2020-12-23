@@ -1381,6 +1381,21 @@ class TestBasics < TestCase
                 0 / 0
             }
         """)
+
+        # verify misc (anonymous block scoping)
+
+        assert_parse_string(t, """
+            {
+                var a1 = 10
+                {
+                }
+            }
+            {
+                var a1 = "20"
+            }
+            var a1 = [1]
+            var a2 = (|| { var a3 = 10 } var a3 = "11" a3 )
+        """)
     }
 
     public define test_while

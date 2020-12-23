@@ -3391,6 +3391,10 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             lily_next_token(lex);
             handlers[key_id](parser);
         }
+        else if (lex->token == tk_left_curly) {
+            lily_emit_enter_anon_block(parser->emit);
+            lily_next_token(lex);
+        }
         else if (lex->token == tk_right_curly)
             parse_block_exit(parser);
         else if (lex->token != tk_end_lambda) {
@@ -5529,6 +5533,10 @@ static void parser_loop(lily_parse_state *parser)
                 expression(parser);
                 lily_eval_expr(parser->emit, parser->expr);
             }
+        }
+        else if (lex->token == tk_left_curly) {
+            lily_emit_enter_anon_block(parser->emit);
+            lily_next_token(lex);
         }
         else if (lex->token == tk_right_curly)
             parse_block_exit(parser);

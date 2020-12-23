@@ -506,6 +506,14 @@ static void setup_scope_block(lily_emit_state *emit, lily_block *new_block)
     emit->block = new_block;
 }
 
+void lily_emit_enter_anon_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_anon;
+    emit->block = block;
+}
+
 void lily_emit_enter_class_block(lily_emit_state *emit, lily_var *var)
 {
     lily_block *block = next_block(emit);

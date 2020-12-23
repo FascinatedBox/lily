@@ -16,17 +16,18 @@
 # define SCOPE_LAMBDA 0x200
 
 typedef enum {
-    block_class          = 0 | SCOPE_CLASS,
-    block_define         = 1 | SCOPE_DEFINE,
-    block_do_while       = 2,
-    block_enum           = 3 | SCOPE_ENUM,
-    block_file           = 4 | SCOPE_FILE,
-    block_for_in         = 5,
-    block_if             = 6,
-    block_lambda         = 7 | SCOPE_LAMBDA,
-    block_match          = 8,
-    block_try            = 9,
-    block_while          = 10,
+    block_anon           = 0,
+    block_class          = 1 | SCOPE_CLASS,
+    block_define         = 2 | SCOPE_DEFINE,
+    block_do_while       = 3,
+    block_enum           = 4 | SCOPE_ENUM,
+    block_file           = 5 | SCOPE_FILE,
+    block_for_in         = 6,
+    block_if             = 7,
+    block_lambda         = 8 | SCOPE_LAMBDA,
+    block_match          = 9,
+    block_try            = 10,
+    block_while          = 11,
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */
@@ -261,6 +262,7 @@ void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *,
 int lily_emit_try_match_switch(lily_emit_state *, lily_class *);
 int lily_emit_try_match_finalize(lily_emit_state *);
 
+void lily_emit_enter_anon_block(lily_emit_state *);
 void lily_emit_enter_class_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_define_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_do_while_block(lily_emit_state *);
