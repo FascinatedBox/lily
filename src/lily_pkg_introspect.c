@@ -837,13 +837,10 @@ void lily_introspect_ClassEntry_parent(lily_state *s)
     lily_class *parent = entry->parent;
 
     if (parent) {
-        lily_container_val *variant = lily_push_some(s);
-
         lily_introspect_ClassEntry *new_entry = INIT_ClassEntry(s);
         new_entry->entry = parent;
 
-        lily_con_set_from_stack(s, variant, 0);
-        lily_return_top(s);
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);

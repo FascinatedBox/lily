@@ -149,11 +149,8 @@ void lily_prelude_ByteString_encode(lily_state *s)
         return;
     }
 
-    lily_container_val *variant = lily_push_some(s);
-
     lily_push_string(s, input_bytes);
-    lily_con_set_from_stack(s, variant, 0);
-    lily_return_top(s);
+    lily_return_some_of_top(s);
 }
 
 void lily_prelude_ByteString_size(lily_state *s)
@@ -613,9 +610,8 @@ void lily_prelude_Hash_get(lily_state *s)
     lily_value *record = lily_hash_get(s, hash_val, key);
 
     if (record) {
-        lily_container_val *variant = lily_push_some(s);
-        lily_con_set(variant, 0, record);
-        lily_return_top(s);
+        lily_push_value(s, record);
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);
@@ -996,10 +992,9 @@ void lily_prelude_List_get(lily_state *s)
     if (raw_pos >= 0 &&
         raw_pos < input_size) {
         uint32_t fixed_pos = (uint32_t)raw_pos;
-        lily_container_val *variant = lily_push_some(s);
 
-        lily_con_set(variant, 0, lily_con_get(input_list, fixed_pos));
-        lily_return_top(s);
+        lily_push_value(s, lily_con_get(input_list, fixed_pos));
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);
@@ -1299,11 +1294,8 @@ void lily_prelude_Option_map(lily_state *s)
         lily_call_prepare(s, lily_arg_function(s, 1));
         lily_push_value(s, lily_con_get(con, 0));
         lily_call(s, 1);
-
-        lily_container_val *variant = lily_push_some(s);
-
-        lily_con_set(variant, 0, lily_call_result(s));
-        lily_return_top(s);
+        lily_push_value(s, lily_call_result(s));
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);
@@ -1530,12 +1522,8 @@ void lily_prelude_String_find(lily_state *s)
         return;
     }
 
-    lily_container_val *variant = lily_push_some(s);
-
     lily_push_integer(s, (int64_t)(result - input_str));
-    lily_con_set_from_stack(s, variant, 0);
-
-    lily_return_top(s);
+    lily_return_some_of_top(s);
 }
 
 void lily_prelude_String_html_encode(lily_state *s)
@@ -1738,11 +1726,8 @@ void lily_prelude_String_parse_i(lily_state *s)
         else
             signed_value = -(int64_t)value;
 
-        lily_container_val *variant = lily_push_some(s);
-
         lily_push_integer(s, signed_value);
-        lily_con_set_from_stack(s, variant, 0);
-        lily_return_top(s);
+        lily_return_some_of_top(s);
     }
 }
 

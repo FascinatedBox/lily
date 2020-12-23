@@ -26,10 +26,8 @@ void lily_sys__getenv(lily_state *s)
     char *env = getenv(lily_arg_string_raw(s, 0));
 
     if (env) {
-        lily_container_val *variant = lily_push_some(s);
         lily_push_string(s, env);
-        lily_con_set_from_stack(s, variant, 0);
-        lily_return_top(s);
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);

@@ -972,6 +972,26 @@ void lily_return_none(lily_state *s)
     SET_TARGET(V_EMPTY_VARIANT_BASE, integer, LILY_ID_NONE);
 }
 
+void lily_return_some_of_top(lily_state *s)
+{
+    lily_value *target = s->call_chain->return_target;
+
+    if (target->flags & VAL_IS_DEREFABLE)
+        lily_deref(target);
+
+    lily_container_val *variant = lily_new_container_raw(LILY_ID_SOME, 1);
+    lily_value *entry = variant->values[0];
+    lily_value *top = *(s->call_chain->top - 1);
+
+    /* Transfer top into the floating variant. */
+    *entry = *top;
+    top->flags = 0;
+
+    /* Floating variant slides into the return. */
+    SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | V_VARIANT_BASE,
+               container, variant);
+}
+
 void lily_return_super(lily_state *s)
 {
     lily_value *target = s->call_chain->return_target;

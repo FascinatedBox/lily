@@ -1156,6 +1156,10 @@ void lily_return_integer(lily_state *s, int64_t value);
 // Set a None return value.
 void lily_return_none   (lily_state *s);
 
+// Function: lily_return_some_of_top
+// Set a Some holding the top of the stack as the return value.
+void lily_return_some_of_top(lily_state *s);
+
 // Function: lily_return_super
 // Use this if lily_push_super was used.
 void lily_return_super  (lily_state *s);
