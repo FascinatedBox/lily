@@ -480,12 +480,9 @@ typedef struct lily_proto_ {
 /* Static methods don't receive an implicit self. */
 #define VAR_IS_STATIC         0x20
 
-/* This is a forward definition that hasn't been resolved yet. */
-#define VAR_IS_FORWARD        0x40
-
 /* Class constructor parameters are not allowed in closures to make closures
    easier to implement. */
-#define VAR_CANNOT_BE_UPVALUE 0x80
+#define VAR_CANNOT_BE_UPVALUE 0x40
 
 
 /* lily_variant_class does not have any flags. */
@@ -511,6 +508,9 @@ typedef struct lily_proto_ {
 
 /* This var or property is public. */
 #define SYM_SCOPE_PUBLIC    0x1000
+
+/* This class or definition is forward (to be resolved later). */
+#define SYM_IS_FORWARD      0x2000
 
 #define ANY_SCOPE (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED | SYM_SCOPE_PUBLIC)
 

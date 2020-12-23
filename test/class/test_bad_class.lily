@@ -889,4 +889,37 @@ class TestBadClass < TestCase
             }
         """)
     }
+
+    public define test_modifiers
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'public' is not allowed here.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            public class Test {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a class here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {
+                public class Example {
+
+                }
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'static' must follow a scope (public, protected, or private).\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            static class Test {}
+        """)
+    }
 }

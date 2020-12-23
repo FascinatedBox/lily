@@ -80,4 +80,58 @@ class TestForward < TestCase
             }
         """)
     }
+
+    public define test_forward_class_var
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            forward class Test { ... }
+
+            var v: List[Test] = []
+
+            class Test {}
+        """)
+    }
+
+    public define test_forward_class_vars
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            forward class Test { ... }
+
+            var v: List[Test] = []
+
+            class Test {
+                public define f: Integer { return 10 }
+            }
+
+            var result = v.push(Test())[0].f()
+
+            if result != 10: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        t = Interpreter()
+
+        assert_parse_string(t, """
+            forward class TestGeneric[A] { ... }
+
+            var v: List[TestGeneric[Integer]] = []
+
+            class TestGeneric[A](a: A) {
+                public var @a = a
+            }
+
+            v.push(TestGeneric(10))
+
+            var result = v[0].a
+
+            if result != 10: {
+                raise Exception("Failed.")
+            }
+        """)
+    }
 }

@@ -711,7 +711,7 @@ class TestBadToken < TestCase
         # bad keyword (forward with nested define)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'forward' qualifier is only for toplevel functions and methods.\n    \
+            SyntaxError: 'forward' qualifier not allowed in this scope.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -736,7 +736,7 @@ class TestBadToken < TestCase
         # bad keyword (forward with unknown identifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'define', but got 'xyz'.\n    \
+            SyntaxError: Expected 'class' or 'define', but got 'xyz'.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -805,7 +805,7 @@ class TestBadToken < TestCase
         # bad keyword (wrong keyword after scope qualifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either 'var' or 'define', but got 'asdf'.\n    \
+            SyntaxError: Expected 'class', 'var', or 'define', but got 'asdf'.\n    \
                 from [test]:2:\n\
         """,
         """\

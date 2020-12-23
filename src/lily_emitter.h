@@ -119,8 +119,15 @@ typedef struct lily_block_ {
     uint16_t patch_start;
     /* Match blocks: Where this block starts in emitter's match cases. */
     uint16_t match_case_start;
-    /* Match blocks: This is the register that the match source is in. */
-    uint16_t match_reg;
+
+    union {
+        /* Match blocks: This is the register that the match source is in. */
+        uint16_t match_reg;
+
+        /* File blocks: How many pending class definitions exist. */
+        uint16_t forward_class_count;
+    };
+
     /* Define block: Where to restore generics when this block closes. */
     uint16_t generic_start;
 

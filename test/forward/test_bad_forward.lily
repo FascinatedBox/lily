@@ -71,6 +71,34 @@ class TestBadForward < TestCase
                 public define f(a: String) {}
             }
         """)
+
+        # bad resolution (forward class as flat enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class named 'Test' has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward class Test { ... }
+            enum Test {
+                One,
+                Two
+            }
+        """)
+
+        # bad resolution (forward class as scoped enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class named 'Test' has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward class Test { ... }
+            scoped enum Test {
+                One,
+                Two
+            }
+        """)
     }
 
     public define test_duplicate
@@ -212,6 +240,98 @@ class TestBadForward < TestCase
         """,
         """\
             <?lily forward define f(String): String { ... } ?>
+        """)
+
+        # unresolved at end (forward class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward class(es):\n\
+            * Three at line 3\n\
+            * Two at line 2\n\
+            * One at line 1\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            forward class One { ... }
+            forward class Two { ... }
+            forward class Three { ... }
+        """)
+    }
+
+    public define test_forward_collision
+    {
+        var t = Interpreter()
+
+        # forward collision (against a flat enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: An enum named 'Test' has already been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            enum Test {
+                One,
+                Two
+            }
+
+            forward class Test { ... }
+        """)
+
+        # forward collision (against a scoped enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: An enum named 'Test' has already been declared.\n    \
+                from [test]:6:\n\
+        """,
+        """\
+            scoped enum Test {
+                One,
+                Two
+            }
+
+            forward class Test { ... }
+        """)
+
+        # forward collision (against a predefined class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A built-in class named 'Exception' already exists.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            forward class Exception { ... }
+        """)
+
+        # forward collision (against a predefined flat enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A built-in enum named 'Option' already exists.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            forward class Option { ... }
+        """)
+
+        # forward collision (against a forward)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class named 'Test' has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            forward class Test { ... }
+            forward class Test { ... }
+        """)
+
+        # forward collision (against an existing class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A class named 'Test' has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Test {}
+            forward class Test { ... }
         """)
     }
 }

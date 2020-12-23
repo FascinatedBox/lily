@@ -1839,7 +1839,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         if (parser->flags & PARSER_IN_MANIFEST)
             arg_flags |= F_SCOOP_OK;
 
-        if ((var->flags & VAR_IS_FORWARD) == 0)
+        if ((var->flags & SYM_IS_FORWARD) == 0)
             arg_collect = get_define_arg;
         else
             arg_collect = get_nameless_arg;
@@ -1920,7 +1920,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         /* Allowing this would mean checking that the argument strings are the
            same. That's difficult, and forward declarations are really about
            allowing mutually recursive functions. */
-        if (sym->flags & VAR_IS_FORWARD) {
+        if (sym->flags & SYM_IS_FORWARD) {
             lily_raise_syn(parser->raiser,
                     "Forward declarations not allowed to have keyword arguments.");
         }
@@ -3605,7 +3605,7 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         var_iter = (lily_var *)m->class_chain->members;
 
     while (var_iter) {
-        if (var_iter->flags & VAR_IS_FORWARD) {
+        if (var_iter->flags & SYM_IS_FORWARD) {
             lily_proto *p = lily_emit_proto_for_var(parser->emit, var_iter);
 
             lily_mb_add_fmt(msgbuf, "\n* %s at line %d", p->name,
@@ -4390,29 +4390,27 @@ static void keyword_raise(lily_parse_state *parser)
                 "Statement(s) after 'raise' will not execute.");
 }
 
-static void ensure_valid_class(lily_parse_state *parser, const char *name)
+static void error_class_redeclaration(lily_parse_state *parser,
+        lily_item *item)
 {
-    if (name[1] == '\0')
-        lily_raise_syn(parser->raiser,
-                "'%s' is not a valid class name (too short).", name);
-
-    lily_module_entry *m = parser->symtab->active_module;
-    lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
-
-    if (item == NULL)
-        return;
-
     const char *prefix;
     const char *suffix;
+    const char *name;
     const char *what = "";
     lily_class *cls = NULL;
 
     /* Only classes, enums, and variants will reach here. Find out which one
        and report accordingly. */
-    if (item->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM))
+    if (item->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM)) {
         cls = (lily_class *)item;
-    else if (item->item_kind & ITEM_IS_VARIANT)
-        cls = ((lily_variant_class *)item)->parent;
+        name = cls->name;
+    }
+    else if (item->item_kind & ITEM_IS_VARIANT) {
+        lily_variant_class *variant = (lily_variant_class *)item;
+
+        name = variant->name;
+        cls = variant->parent;
+    }
 
     if (cls->module == parser->symtab->prelude_module) {
         prefix = "A built-in";
@@ -4436,6 +4434,19 @@ static void ensure_valid_class(lily_parse_state *parser, const char *name)
 
     lily_raise_syn(parser->raiser, "%s%s named '%s' %s", prefix, what, name,
             suffix);
+}
+
+static lily_item *search_for_valid_classlike(lily_parse_state *parser,
+        const char *name)
+{
+    if (name[1] == '\0')
+        lily_raise_syn(parser->raiser,
+                "'%s' is not a valid class name (too short).", name);
+
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
+
+    return item;
 }
 
 static void parse_super(lily_parse_state *parser, lily_class *cls)
@@ -4534,7 +4545,6 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     lily_emit_enter_class_block(parser->emit, call_var);
     parser->current_class = cls;
-    collect_generics_for(parser, cls);
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
@@ -4625,6 +4635,44 @@ static void determine_class_gc_flag(lily_class *target)
     target->flags |= mark;
 }
 
+static void collect_and_verify_generics_for(lily_parse_state *parser,
+        lily_class *cls)
+{
+    int16_t generic_count = cls->generic_count;
+    lily_type *self_type = cls->self_type;
+
+    collect_generics_for(parser, cls);
+
+    if (cls->generic_count == generic_count)
+        return;
+
+    int16_t new_count = cls->generic_count;
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    /* This is the only case wherein the generics of a type can be wrong. */
+    lily_mb_add_fmt(msgbuf, "Wrong generics in resolution of %s:\n", cls->name);
+    cls->generic_count = generic_count;
+    lily_mb_add_fmt(msgbuf, "Expected: ^T\n", self_type);
+    cls->generic_count = new_count;
+    lily_mb_add_fmt(msgbuf, "Received: ^T", cls->self_type);
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+}
+
+static void parse_forward_class_body(lily_parse_state *parser, lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+
+    NEED_CURRENT_TOK(tk_left_curly)
+    NEED_NEXT_TOK(tk_three_dots)
+    NEED_NEXT_TOK(tk_right_curly)
+    lily_next_token(lex);
+
+    /* Forward classes don't enter a block since that's complicated. Since
+       there's no block to exit, nudge this counter here. */
+    parser->emit->scope_block->forward_class_count++;
+    cls->flags |= SYM_IS_FORWARD;
+}
+
 static void keyword_class(lily_parse_state *parser)
 {
     lily_block *block = parser->emit->block;
@@ -4632,12 +4680,36 @@ static void keyword_class(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "Cannot define a class here.");
 
     lily_lex_state *lex = parser->lex;
+
     NEED_CURRENT_TOK(tk_word);
-    ensure_valid_class(parser, lex->label);
 
-    lily_class *cls = lily_new_class(parser->symtab, lex->label, lex->line_num);
+    lily_class *search_cls = (lily_class *)search_for_valid_classlike(parser,
+                lex->label);
+    lily_class *new_cls = NULL;
 
-    parse_class_header(parser, cls);
+    if (search_cls &&
+        ((parser->modifiers & SYM_IS_FORWARD) ||
+         (search_cls->flags & SYM_IS_FORWARD) == 0))
+        error_class_redeclaration(parser, (lily_item *)search_cls);
+
+    if (search_cls == NULL) {
+        new_cls = lily_new_class(parser->symtab, lex->label, lex->line_num);
+        collect_generics_for(parser, new_cls);
+
+        if ((parser->modifiers & SYM_IS_FORWARD)) {
+            parse_forward_class_body(parser, new_cls);
+            return;
+        }
+    }
+    else {
+        parser->emit->scope_block->forward_class_count--;
+        new_cls = search_cls;
+
+        collect_and_verify_generics_for(parser, new_cls);
+        new_cls->flags &= ~SYM_IS_FORWARD;
+    }
+
+    parse_class_header(parser, new_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
@@ -4781,7 +4853,11 @@ static void keyword_enum(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
     NEED_CURRENT_TOK(tk_word)
-    ensure_valid_class(parser, lex->label);
+
+    lily_item *search_item = search_for_valid_classlike(parser, lex->label);
+
+    if (search_item)
+        error_class_redeclaration(parser, search_item);
 
     lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
             lex->line_num);
@@ -4803,7 +4879,11 @@ static void keyword_scoped(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_word)
     expect_word(parser, "enum");
     NEED_NEXT_TOK(tk_word)
-    ensure_valid_class(parser, lex->label);
+
+    lily_item *search_item = search_for_valid_classlike(parser, lex->label);
+
+    if (search_item)
+        error_class_redeclaration(parser, search_item);
 
     lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
             lex->line_num);
@@ -5016,9 +5096,9 @@ static void keyword_match(lily_parse_state *parser)
 static void verify_resolve_define_var(lily_parse_state *parser,
         lily_var *define_var, int modifiers)
 {
-    if ((define_var->flags & VAR_IS_FORWARD) == 0)
+    if ((define_var->flags & SYM_IS_FORWARD) == 0)
         error_var_redeclaration(parser, define_var);
-    else if (modifiers & VAR_IS_FORWARD)
+    else if (modifiers & SYM_IS_FORWARD)
         lily_raise_syn(parser->raiser,
                 "A forward declaration for %s already exists.",
                 define_var->name);
@@ -5027,7 +5107,7 @@ static void verify_resolve_define_var(lily_parse_state *parser,
         error_forward_decl_modifiers(parser, define_var);
 
     /* This forward definition is no longer forward. */
-    define_var->flags &= ~VAR_IS_FORWARD;
+    define_var->flags &= ~SYM_IS_FORWARD;
     parser->emit->block->forward_count--;
 }
 
@@ -5045,7 +5125,7 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
 
         if (named_sym == NULL)
             ;
-        else if (named_sym->flags & VAR_IS_FORWARD)
+        else if (named_sym->flags & SYM_IS_FORWARD)
             define_var = (lily_var *)named_sym;
         else if (sym_visible_from(parent, named_sym))
             error_member_redeclaration(parser, parent, named_sym);
@@ -5110,7 +5190,7 @@ static void keyword_define(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
 
-    if (modifiers & VAR_IS_FORWARD) {
+    if (modifiers & SYM_IS_FORWARD) {
         NEED_CURRENT_TOK(tk_three_dots)
         NEED_NEXT_TOK(tk_right_curly)
     }
@@ -5139,9 +5219,9 @@ static void parse_modifier(lily_parse_state *parser, int key)
         lily_block_type block_type = parser->emit->block->block_type;
         if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
             lily_raise_syn(parser->raiser,
-                    "'forward' qualifier is only for toplevel functions and methods.");
+                    "'forward' qualifier not allowed in this scope.");
 
-        modifiers |= VAR_IS_FORWARD;
+        modifiers |= SYM_IS_FORWARD;
         NEED_CURRENT_TOK(tk_word)
         key = keyword_by_name(lex->label);
     }
@@ -5160,13 +5240,13 @@ static void parse_modifier(lily_parse_state *parser, int key)
             lily_raise_syn(parser->raiser, "'%s' is not allowed here.",
                     scope_to_str(modifiers));
 
-        if (modifiers & VAR_IS_FORWARD)
+        if (modifiers & SYM_IS_FORWARD)
             lily_next_token(lex);
 
         NEED_CURRENT_TOK(tk_word)
         key = keyword_by_name(lex->label);
     }
-    else if (modifiers & VAR_IS_FORWARD &&
+    else if (modifiers & SYM_IS_FORWARD &&
              parser->emit->block->block_type == block_class) {
         lily_raise_syn(parser->raiser,
                 "'forward' must be followed by a class scope here.");
@@ -5181,7 +5261,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
     parser->modifiers = modifiers;
 
     if (key == KEY_VAR) {
-        if (modifiers & VAR_IS_FORWARD)
+        if (modifiers & SYM_IS_FORWARD)
             lily_raise_syn(parser->raiser, "Cannot use 'forward' with 'var'.");
 
         lily_next_token(lex);
@@ -5191,11 +5271,15 @@ static void parse_modifier(lily_parse_state *parser, int key)
         lily_next_token(lex);
         keyword_define(parser);
     }
+    else if (key == KEY_CLASS) {
+        lily_next_token(lex);
+        keyword_class(parser);
+    }
     else {
-        const char *what = "either 'var' or 'define'";
+        const char *what = "'class', 'var', or 'define'";
 
-        if (modifiers & VAR_IS_FORWARD)
-            what = "'define'";
+        if (modifiers & SYM_IS_FORWARD)
+            what = "'class' or 'define'";
 
         lily_raise_syn(parser->raiser, "Expected %s, but got '%s'.", what,
                 lex->label);
@@ -5219,17 +5303,19 @@ static void keyword_forward(lily_parse_state *parser)
 {
     parse_modifier(parser, KEY_FORWARD);
 
-    /* Forward always leads to a definition that's left open. Close the
-       definition and advance the token. */
-
     lily_lex_state *lex = parser->lex;
     lily_emit_state *emit = parser->emit;
     lily_block *block = emit->block;
 
-    hide_block_vars(parser);
     lily_gp_restore(parser->generics, block->generic_start);
-    lily_emit_leave_define_block(emit, lex->line_num);
-    lily_next_token(lex);
+
+    /* Forward definitions leave a block open to be closed. Forward classes, on
+       the other hand, don't enter the block since that's complicated. */
+    if (block->block_type == block_define) {
+        hide_block_vars(parser);
+        lily_emit_leave_define_block(emit, lex->line_num);
+        lily_next_token(lex);
+    }
 }
 
 static void keyword_private(lily_parse_state *parser)
@@ -5389,6 +5475,34 @@ static void process_docblock(lily_parse_state *parser)
                 "Docblock must be followed by a function or class definition.");
 }
 
+static void error_forward_classes_pending(lily_parse_state *parser)
+{
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    lily_mb_add(msgbuf,
+            "Reached end of module with unresolved forward class(es):");
+
+    uint16_t count = parser->emit->scope_block->forward_class_count;
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_class *class_iter = m->class_chain;
+
+    while (class_iter) {
+        if (class_iter->flags & SYM_IS_FORWARD) {
+            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", class_iter->name,
+                    class_iter->line_num);
+
+            if (count == 1)
+                break;
+            else
+                count--;
+        }
+
+        class_iter = class_iter->next;
+    }
+
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+}
+
 /* This is the entry point into parsing regardless of the starting mode. This
    should only be called by the content handling functions that do the proper
    initialization beforehand.
@@ -5427,6 +5541,8 @@ static void parser_loop(lily_parse_state *parser)
                         tokname(tk_eof));
             else if (b->forward_count)
                 error_forward_decl_pending(parser);
+            else if (b->forward_class_count)
+                error_forward_classes_pending(parser);
 
             if (b->prev != NULL)
                 finish_import(parser);
@@ -5842,6 +5958,7 @@ static void manifest_predefined(lily_parse_state *parser)
         parser->current_class->doc_id = build_doc_data(parser, 1);
     }
     else {
+        collect_generics_for(parser, cls);
         parse_class_header(parser, cls);
         set_manifest_define_doc(parser);
         cls->doc_id = parser->emit->scope_block->scope_var->doc_id;

@@ -69,6 +69,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->storage_count = 0;
     main_block->var_count = 0;
     main_block->forward_count = 0;
+    main_block->forward_class_count = 0;
+    main_block->generic_start = 0;
 
     /* This prevents checking for 'self' from going too far. */
     main_block->flags = BLOCK_SELF_ORIGIN;
@@ -109,6 +111,7 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     clear_storages(stack, total - stack->start);
     stack->start = 0;
 
+    emit->block->forward_class_count = 0;
     emit->block->forward_count = 0;
     emit->block = main_block;
     emit->scope_block = main_block;
@@ -563,6 +566,7 @@ void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
 {
     lily_block *block = next_block(emit);
 
+    block->forward_class_count = 0;
     block->block_type = block_file;
     block->scope_var = var;
     setup_scope_block(emit, block);
@@ -737,7 +741,7 @@ void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
 {
     lily_block *block = emit->block;
 
-    if ((block->scope_var->flags & VAR_IS_FORWARD) == 0) {
+    if ((block->scope_var->flags & SYM_IS_FORWARD) == 0) {
         if (try_write_define_exit(emit, line_num) == 0)
             lily_raise_syn(emit->raiser,
                     "Missing return statement at end of function.");
