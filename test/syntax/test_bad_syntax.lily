@@ -1176,5 +1176,15 @@ class TestBadSyntax < TestCase
         """\
             var v: Tuple[String] = <[1]>
         """)
+
+        # verify misc (invalid binary op)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid operation: Integer * Double.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (1 * 1.1)
+        """)
     }
 }

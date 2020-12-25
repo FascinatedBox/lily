@@ -2288,9 +2288,6 @@ static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
     uint16_t opcode = UINT16_MAX;
     lily_storage *s;
 
-    if (left->type != right->type)
-        op = UINT16_MAX;
-
     if (left_id == LILY_ID_INTEGER) {
         if (op == tk_plus)
             opcode = o_int_add;
@@ -2324,7 +2321,7 @@ static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
             opcode = o_number_divide;
     }
 
-    if (opcode == UINT16_MAX)
+    if (opcode == UINT16_MAX || left->type != right->type)
         lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
                 left->type, tokname(op), right->type);
 
