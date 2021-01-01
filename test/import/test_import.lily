@@ -369,13 +369,13 @@ class TestImport < TestCase
         )
 
         assert_parse_string(t, """
-		    import (v) ref_import
+            import (v) ref_import
 
-		    var ref_import = 10
+            var ref_import = 10
 
-		    if v != 10: {
-		    	0 / 0
-		    }
+            if v != 10: {
+                0 / 0
+            }
         """)
 
         # import refs (nested direct import)

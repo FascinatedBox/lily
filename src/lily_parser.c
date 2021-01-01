@@ -2909,7 +2909,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
         else if (sym->item_kind == ITEM_DEFINE)
             expr_word_as_define(parser, (lily_var *)sym);
         else if (sym->item_kind & ITEM_IS_VARIANT)
-	        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
+            lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else if (sym->item_kind == ITEM_CONSTANT)
             expr_word_as_constant(parser, (lily_var *)sym);
         else

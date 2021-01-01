@@ -27,9 +27,9 @@ if(LILY_NEED_M)
 endif()
 
 install(TARGETS liblily
-	ARCHIVE DESTINATION lib
-	LIBRARY DESTINATION lib
-	COMPONENT library)
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        COMPONENT library)
 
 install(FILES lily.h
               lily_int_code_iter.h

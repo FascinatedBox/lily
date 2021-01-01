@@ -387,7 +387,7 @@ static void boxed_make_var(lily_state *s, lily_boxed_sym *source)
 
 static void boxed_make_variant(lily_state *s, lily_boxed_sym *source)
 {
-	lily_variant_class *v = (lily_variant_class *)source->inner_sym;
+    lily_variant_class *v = (lily_variant_class *)source->inner_sym;
 
     make_variant(s, v->parent, (lily_named_sym *)v);
 }

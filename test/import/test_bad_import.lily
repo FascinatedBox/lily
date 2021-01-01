@@ -181,7 +181,7 @@ class TestBadImport < TestCase
 
     public define test_bad_import_path
     {
-    	var t = Interpreter()
+        var t = Interpreter()
 
         # bad import path (invalid token)
 

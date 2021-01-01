@@ -464,7 +464,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
  */
 
 static void perform_closure_transform(lily_emit_state *, lily_block *,
-		lily_function_val *);
+        lily_function_val *);
 
 static lily_block *next_block(lily_emit_state *emit)
 {
