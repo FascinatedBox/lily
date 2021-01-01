@@ -1,4 +1,4 @@
-Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=master)](https://travis-ci.org/FascinatedBox/lily)
+Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=main)](https://travis-ci.org/FascinatedBox/lily)
 
 Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
 
@@ -110,4 +110,4 @@ packages.
 
 ## License
 
-[MIT](https://gitlab.com/FascinatedBox/lily/blob/master/license.txt)
+[MIT](https://gitlab.com/FascinatedBox/lily/blob/main/license.txt)

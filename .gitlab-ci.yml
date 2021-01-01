@@ -8,4 +8,4 @@ testing:
     - make
     - ./pre-commit-tests
   only:
-    - master
+    - main
