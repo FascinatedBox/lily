@@ -1,10 +1,16 @@
 include_directories("${PROJECT_SOURCE_DIR}/src/")
 
 function(set_output_dirs TARGET_NAME PATH)
+    # Extra dirs are set for multi-config generators (like MSBuild) to make
+    # sure they build to the right directory.
     set_target_properties("${TARGET_NAME}" PROPERTIES
                           PREFIX ""
-                          LIBRARY_OUTPUT_DIRECTORY "${PATH}"
-                          RUNTIME_OUTPUT_DIRECTORY "${PATH}")
+                          LIBRARY_OUTPUT_DIRECTORY         "${PATH}"
+                          LIBRARY_OUTPUT_DIRECTORY_DEBUG   "${PATH}"
+                          LIBRARY_OUTPUT_DIRECTORY_RELEASE "${PATH}"
+                          RUNTIME_OUTPUT_DIRECTORY         "${PATH}"
+                          RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${PATH}"
+                          RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PATH}")
 endfunction(set_output_dirs)
 
 set(backbone_SOURCES

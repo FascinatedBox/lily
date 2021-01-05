@@ -3,24 +3,7 @@ image: Visual Studio 2017
 platform:
   - x64
 
-install:
-  # AppVeyor doesn't have ninja so tell it where and how to get ninja.
-  # These are run as independent commands, so pushd/popd don't work.
-  - mkdir C:\projects\deps
-  - cd C:\projects\deps
-  - set NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-win.zip"
-  - appveyor DownloadFile %NINJA_URL% -FileName ninja.zip
-  - 7z x ninja.zip -oC:\projects\deps\ninja > nul
-  - set PATH=C:\projects\deps\ninja;%PATH%
-  - ninja --version
-  # Finish off by going back to where we started.
-  - cd %APPVEYOR_BUILD_FOLDER%
-
-before_build:
-  # Required by -GNinja
-  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
-
 build_script:
-  - cmd: cmake -GNinja .
-  - cmd: ninja
+  - cmd: cmake .
+  - cmd: cmake --build .
   - cmd: pre-commit-tests.exe

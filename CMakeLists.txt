@@ -2,16 +2,6 @@ cmake_minimum_required(VERSION 3.0.2)
 project("Lily" C)
 
 if(MSVC)
-    # MSBuild adds the configuration kind (Release/Debug/etc.) as a suffix
-    # directory to libraries and executables. This causes the testing suite to
-    # fail because the libraries aren't where it expects them to be.
-    # GENERATOR_IS_MULTI_CONFIG might be usable here instead, but that requires
-    # a much more recent version of cmake.
-    if(NOT "${CMAKE_VS_MSBUILD_COMMAND}" STREQUAL "")
-        message(FATAL_ERROR
-                "Cannot build Lily using MSBuild (try -GNinja or another generator instead).")
-    endif()
-
     add_definitions(/W4)
     add_definitions(/wd4201)
     add_definitions(/wd4204)
