@@ -1,11 +1,35 @@
-before_script:
-  - apt-get update && apt-get -y install cmake
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .public/
 
-testing:
+test:
   stage: test
+  before_script:
+    - apt-get update && apt-get -y install cmake lcov
   script:
-    - cmake .
+    - cmake -DWITH_COVERAGE=on .
     - make
     - ./pre-commit-tests
+    - lcov --directory . --capture --output-file coverage.info
+    - >-
+      lcov --remove coverage.info "/usr/*" \
+                                  "${PWD}/run/*" \
+                                  "${PWD}/test/*" \
+                                  "${PWD}/src/csiphash.c" \
+                                  "${PWD}/src/lily_alloc.c" \
+           --output-file coverage.info
+    - genhtml -o .public coverage.info
+    - lcov --list coverage.info
   only:
     - main
+
+pages:
+  stage: deploy
+  script:
+  - mv .public public
+  artifacts:
+    paths:
+    - public
+  only:
+  - main

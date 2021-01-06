@@ -1,4 +1,4 @@
-[![Pipeline Status](https://gitlab.com/FascinatedBox/lily/badges/main/pipeline.svg)](https://gitlab.com/FascinatedBox/lily/-/commits/main) [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
+[![Pipeline Status](https://gitlab.com/FascinatedBox/lily/badges/main/pipeline.svg)](https://gitlab.com/FascinatedBox/lily/-/commits/main) [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily) [![Coverage Report](https://gitlab.com/FascinatedBox/lily/badges/main/coverage.svg)](https://FascinatedBox.gitlab.io/lily/src/index.html)
 
 ## Lily
 
