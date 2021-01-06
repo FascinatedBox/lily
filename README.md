@@ -1,8 +1,4 @@
-Linux: [![Linux Build](https://travis-ci.org/FascinatedBox/lily.svg?branch=main)](https://travis-ci.org/FascinatedBox/lily)
-
-Windows: [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
-
-Test Coverage: [![codecov](https://codecov.io/gh/FascinatedBox/lily/branch/master/graph/badge.svg)](https://codecov.io/gh/FascinatedBox/lily)
+[![Pipeline Status](https://gitlab.com/FascinatedBox/lily/badges/main/pipeline.svg)](https://gitlab.com/FascinatedBox/lily/-/commits/main) [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily)
 
 ## Lily
 
