@@ -647,14 +647,8 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
 
 void lily_emit_leave_block(lily_emit_state *emit)
 {
-    lily_block *block;
-    int block_type;
-
-    if (emit->block->prev == NULL)
-        lily_raise_syn(emit->raiser, "'}' outside of a block.");
-
-    block = emit->block;
-    block_type = block->block_type;
+    lily_block *block = emit->block;
+    int block_type = block->block_type;
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == block_while || block_type == block_for_in) {
