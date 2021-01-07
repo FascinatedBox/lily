@@ -149,14 +149,11 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         lily_value *right)
 {
     int left_base = FLAGS_TO_BASE(left);
-    int right_base = FLAGS_TO_BASE(right);
 
     if (*depth == 100)
         lily_RuntimeError(s, "Infinite loop in comparison.");
 
-    if (left_base != right_base)
-        return 0;
-    else if (left_base == V_INTEGER_BASE || left_base == V_BOOLEAN_BASE)
+    if (left_base == V_INTEGER_BASE || left_base == V_BOOLEAN_BASE)
         return left->value.integer == right->value.integer;
     else if (left_base == V_DOUBLE_BASE)
         return left->value.doubleval == right->value.doubleval;
