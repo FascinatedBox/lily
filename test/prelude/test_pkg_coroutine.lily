@@ -197,6 +197,20 @@ class TestPkgCoroutine < TestCase
     {
         var t = Interpreter()
 
+        # incorrect (close over a foreign function)
+
+        assert_parse_fails(t, """\
+            RuntimeError: Only native functions can be coroutines.\n\
+            Traceback:\n    \
+                from [coroutine]: in Coroutine.build\n    \
+                from [test]:3: in __main__\n\
+        """,
+        """\
+            import (Coroutine) coroutine
+
+            Coroutine.build(Coroutine.receive)
+        """)
+
         # incorrect (resume broken coroutine)
 
         assert_parse_string(t, """
