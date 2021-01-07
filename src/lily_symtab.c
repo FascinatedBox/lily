@@ -668,17 +668,6 @@ lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
     return result;
 }
 
-/* Search for a property within the current class, then upward through parent
-   classes if there are any. */
-lily_prop_entry *lily_find_property(lily_class *cls, const char *name)
-{
-    lily_named_sym *sym = lily_find_member(cls, name);
-    if (sym && sym->item_kind != ITEM_PROPERTY)
-        sym = NULL;
-
-    return (lily_prop_entry *)sym;
-}
-
 /* Scoped variants are stored within the enum they're part of. This will try to
    find a variant stored within 'enum_cls'. */
 lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)

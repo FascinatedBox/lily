@@ -69,7 +69,6 @@ lily_class *lily_find_class(lily_module_entry *, const char *);
 lily_var *lily_find_var(lily_module_entry *, const char *);
 lily_named_sym *lily_find_member(lily_class *, const char *);
 lily_named_sym *lily_find_member_in_class(lily_class *, const char *);
-lily_prop_entry *lily_find_property(lily_class *, const char *);
 lily_variant_class *lily_find_variant(lily_class *, const char *);
 lily_module_entry *lily_find_module(lily_module_entry *, const char *);
 lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
