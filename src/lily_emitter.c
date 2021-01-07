@@ -1494,20 +1494,8 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
 
 int lily_emit_try_match_finalize(lily_emit_state *emit)
 {
-    lily_block *block = emit->block;
-
     if (emit->block->flags & BLOCK_FINAL_BRANCH)
         return 0;
-
-    lily_class *match_cls = block->match_type->cls;
-
-    if (match_cls->item_kind & ITEM_IS_ENUM) {
-        uint16_t total = lily_u16_pos(emit->match_cases);
-        uint16_t count = total - block->match_case_start;
-
-        if (count == match_cls->variant_size)
-            return 0;
-    }
 
     lily_emit_branch_finalize(emit);
     return 1;
