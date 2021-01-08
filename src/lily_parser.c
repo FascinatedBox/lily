@@ -3431,8 +3431,10 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
 static int collect_lambda_args(lily_parse_state *parser,
         lily_type *expect_type)
 {
+    /* num_args starts at 1 and is adjusted by -1 at the end because the return
+       is at 0 in subtypes. */
     int infer_count = (expect_type) ? expect_type->subtype_count : -1;
-    int num_args = 0;
+    int num_args = 1;
     lily_lex_state *lex = parser->lex;
 
     while (1) {
@@ -3448,7 +3450,7 @@ static int collect_lambda_args(lily_parse_state *parser,
         else {
             arg_type = NULL;
             if (num_args < infer_count)
-                arg_type = expect_type->subtypes[num_args + 1];
+                arg_type = expect_type->subtypes[num_args];
 
             if (arg_type == NULL || arg_type->flags & TYPE_TO_BLOCK)
                 lily_raise_syn(parser->raiser, "Cannot infer type of '%s'.",
@@ -3470,7 +3472,7 @@ static int collect_lambda_args(lily_parse_state *parser,
                     tokname(lex->token));
     }
 
-    return num_args;
+    return num_args - 1;
 }
 
 /* This is the main workhorse of lambda handling. It takes the lambda body and

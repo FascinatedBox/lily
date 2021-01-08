@@ -163,4 +163,21 @@ class TestBadLambda < TestCase
             #
         """)
     }
+
+    public define test_missing_inference
+    {
+        var t = Interpreter()
+
+        # missing inference (because of too many args)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot infer type of 'b_'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A, B](a: Hash[A, B], fn: Function(B)) {}
+
+            f([1 => 2], (|a_, b_|))
+        """)
+    }
 }
