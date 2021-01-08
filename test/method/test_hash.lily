@@ -40,6 +40,21 @@ class TestHashMethods < TestCase
 
     private define each_pair_order
     {
+        var v = [100 => 0, 25 => 1, 50 => 2]
+        var entries = [0, 0, 0]
+
+        v.each_value(|v_| entries[v_] = 1 )
+        assert_equal(entries, [1, 1, 1])
+    }
+
+    private define each_value_empty
+    {
+        var v: Hash[Integer, Integer] = []
+        v.each_value(|v_| 0 / 0)
+    }
+
+    private define each_value_order
+    {
         var v = [0 => 0, 1 => -1, 2 => -2]
         var entries = [0, 0, 0]
 
@@ -51,6 +66,12 @@ class TestHashMethods < TestCase
     {
         each_pair_empty()
         each_pair_order()
+    }
+
+    public define test_each_value
+    {
+        each_value_empty()
+        each_value_order()
     }
 
     public define test_get

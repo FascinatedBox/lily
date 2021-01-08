@@ -202,6 +202,9 @@ predefined Hash[A, B] {
     ### pairs, call `fn` with the key and value of each pair.
     public define each_pair(fn: Function(A, B))
 
+    ### Similar to `Hash.each_pair`, except for values only.
+    public define each_value(fn: Function(B))
+
     ### Attempt to find `key` within `self`.
     ###
     ### If `key` is present, then a `Some` containing the associated value is

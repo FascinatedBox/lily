@@ -578,14 +578,26 @@ static void hash_iter_callback(lily_state *s)
     hash_val->iter_count--;
 }
 
-void lily_prelude_Hash_each_pair(lily_state *s)
+typedef void (*hash_each_fn)(lily_state *, lily_hash_val *);
+
+static void each_value(lily_state *s, lily_hash_val *hash_val)
 {
-    lily_hash_val *hash_val = lily_arg_hash(s, 0);
     int i;
 
-    lily_error_callback_push(s, hash_iter_callback);
-    lily_call_prepare(s, lily_arg_function(s, 1));
-    hash_val->iter_count++;
+    for (i = 0;i < hash_val->num_bins;i++) {
+        lily_hash_entry *entry = hash_val->bins[i];
+
+        while (entry) {
+            lily_push_value(s, entry->record);
+            lily_call(s, 1);
+            entry = entry->next;
+        }
+    }
+}
+
+static void each_pair(lily_state *s, lily_hash_val *hash_val)
+{
+    int i;
 
     for (i = 0;i < hash_val->num_bins;i++) {
         lily_hash_entry *entry = hash_val->bins[i];
@@ -597,9 +609,29 @@ void lily_prelude_Hash_each_pair(lily_state *s)
             entry = entry->next;
         }
     }
+}
 
+static void hash_each(lily_state *s, hash_each_fn fn)
+{
+    lily_hash_val *hash_val = lily_arg_hash(s, 0);
+
+    lily_error_callback_push(s, hash_iter_callback);
+    lily_call_prepare(s, lily_arg_function(s, 1));
+    hash_val->iter_count++;
+    fn(s, hash_val);
     lily_error_callback_pop(s);
     hash_val->iter_count--;
+}
+
+void lily_prelude_Hash_each_value(lily_state *s)
+{
+    hash_each(s, each_value);
+    lily_return_unit(s);
+}
+
+void lily_prelude_Hash_each_pair(lily_state *s)
+{
+    hash_each(s, each_pair);
     lily_return_unit(s);
 }
 

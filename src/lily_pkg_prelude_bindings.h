@@ -39,10 +39,11 @@ const char *lily_prelude_info_table[] = {
     ,"m\0read_line\0(File): ByteString"
     ,"m\0write\0[A](File,A)"
     ,"C\0Function\0"
-    ,"C\013Hash\0[A,B]"
+    ,"C\014Hash\0[A,B]"
     ,"m\0clear\0[A,B](Hash[A,B])"
     ,"m\0delete\0[A,B](Hash[A,B],A)"
     ,"m\0each_pair\0[A,B](Hash[A,B],Function(A,B))"
+    ,"m\0each_value\0[A,B](Hash[A,B],Function(B))"
     ,"m\0get\0[A,B](Hash[A,B],A): Option[B]"
     ,"m\0has_key\0[A,B](Hash[A,B],A): Boolean"
     ,"m\0keys\0[A,B](Hash[A,B]): List[A]"
@@ -149,16 +150,16 @@ const char *lily_prelude_info_table[] = {
 #define File_OFFSET 19
 #define Function_OFFSET 28
 #define Hash_OFFSET 29
-#define IOError_OFFSET 41
-#define IndexError_OFFSET 43
-#define Integer_OFFSET 45
-#define KeyError_OFFSET 50
-#define List_OFFSET 52
-#define RuntimeError_OFFSET 75
-#define String_OFFSET 77
-#define Tuple_OFFSET 99
-#define Unit_OFFSET 100
-#define ValueError_OFFSET 101
+#define IOError_OFFSET 42
+#define IndexError_OFFSET 44
+#define Integer_OFFSET 46
+#define KeyError_OFFSET 51
+#define List_OFFSET 53
+#define RuntimeError_OFFSET 76
+#define String_OFFSET 78
+#define Tuple_OFFSET 100
+#define Unit_OFFSET 101
+#define ValueError_OFFSET 102
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -195,6 +196,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_Hash_clear, \
     lily_prelude_Hash_delete, \
     lily_prelude_Hash_each_pair, \
+    lily_prelude_Hash_each_value, \
     lily_prelude_Hash_get, \
     lily_prelude_Hash_has_key, \
     lily_prelude_Hash_keys, \
