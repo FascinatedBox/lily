@@ -1,3 +1,55 @@
+Version 1.15 (2021-1-10)
+========================
+
+This release fixes several long-standing issues in the tracker, most of which
+were feature requests. Additionally, this release adds coverage builds, which
+will be used more in the next release.
+
+Changes:
+
+* The `gitlab-ci.yml` file has been updated to build an lcov coverage report to
+  the repository's pages. A link is in `README.md` (#477).
+
+* Lily can now be built with msbuild on Windows (#443).
+
+* Coroutines have been moved into a `coroutine` module (#437).
+
+* The builtin module is now called `prelude` (#474).
+
+* Equality operations now involve a jump (#406). This is a breaking change done
+  for extra speed. Conditions such as `if x == y` used to write the equal to a
+  storage, then do a jump based on the storage. Jumping equality operations
+  allow folding that into a single operation. This was inspired by Lua.
+
+* Add basic (native code only) constant support (#436). Constants can be
+  `Double`, `Integer`, or `String`. Dynaload support will be added in a future
+  release.
+
+* Add `subprocess` to predefined modules (#438).
+
+* Introduce forward classes (#440).
+
+* Introduce anonymous blocks (#471).
+
+* Add Hash.each_value (#478) and List.merge (#479) to prelude.
+
+* The development branch is now called `main` (#482).
+
+Fixes:
+
+* Foreign functions can now have generics (#483).
+
+* Rewrote many `String` and `List` methods in prelude (#485). This was done to
+  clear out msvc warnings and fix potential bugs.
+
+* Fix handling of eof in template mode (#487).
+
+* Enums and their variants are now gc tagged where appropriate (#408).
+
+* Fix escaped backslash handling in lambda strings (#486).
+
+* Files opened in append mode can now be written to (#484).
+
 Version 1.14 (2020-10-10)
 =========================
 
