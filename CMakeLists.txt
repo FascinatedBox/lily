@@ -56,14 +56,6 @@ add_subdirectory(src)
 add_subdirectory(run)
 add_subdirectory(test)
 
-if(WITH_SANDBOX)
-    if("$ENV{EMSCRIPTEN}" STREQUAL "")
-        message(FATAL_ERROR
-        "The sandbox can't be built without Emscripten. Did you forget to source emsdk_env?")
-    endif()
-    add_subdirectory(sandbox)
-endif(WITH_SANDBOX)
-
 set(TEST_COMMAND cd .. && ./pre-commit-tests)
 add_custom_target(check ${CMAKE_CTEST_COMMAND}
   COMMAND ${TEST_COMMAND}
