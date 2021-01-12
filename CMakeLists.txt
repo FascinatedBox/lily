@@ -14,11 +14,7 @@ else()
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -g3")
     endif(DEBUG)
 
-    if(NOT QUICK_BUILD)
-        set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -O2")
-    endif(NOT QUICK_BUILD)
-
-    set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-implicit-fallthrough -Wsign-compare -Wshadow")
+    set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -O2 -Wall -Wextra -Wno-implicit-fallthrough -Wsign-compare -Wshadow")
 
     if(WITH_COVERAGE)
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -O0 -fprofile-arcs -ftest-coverage")
