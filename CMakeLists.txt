@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project("Lily" C)
 
 if(MSVC)
-    add_definitions(/W4)
+    string(REPLACE "/W3" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     add_definitions(/wd4201)
     add_definitions(/wd4204)
     add_definitions(/wd4214)
