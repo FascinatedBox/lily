@@ -182,6 +182,18 @@ class TestBasics < TestCase
                 0 / 0
             }
         """)
+
+        # comparisons (empty versus non-empty variants)
+
+        assert_parse_string(t, """
+            var a2                  = Some(1)
+            var b2: Option[Integer] = None
+
+            if a2 == b2: { 0 / 0 }
+            if b2 == a2: { 0 / 0 }
+            if a2 != b2: { else: 0 / 0 }
+            if b2 != a2: { else: 0 / 0 }
+        """)
     }
 
     public define test_compound_ops

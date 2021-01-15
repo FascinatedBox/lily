@@ -202,7 +202,8 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
     }
     else if (left_base == V_VARIANT_BASE) {
         int ok;
-        if (left->value.container->class_id ==
+        if (FLAGS_TO_BASE(right) == V_VARIANT_BASE &&
+            left->value.container->class_id ==
             right->value.container->class_id)
             ok = subvalue_eq(s, depth, left, right);
         else
