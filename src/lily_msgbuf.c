@@ -426,6 +426,8 @@ static void add_list_like(lily_vm_state *vm, lily_msgbuf *msgbuf, tag *t,
 static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         tag *t, lily_value *v)
 {
+    tag new_tag;
+
     if (v->flags & VAL_IS_GC_TAGGED) {
         tag *tag_iter = t;
         while (tag_iter) {
@@ -439,7 +441,8 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             tag_iter = tag_iter->prev;
         }
 
-        tag new_tag = {.prev = t, .raw = v->value};
+        new_tag.prev = t;
+        new_tag.raw = v->value;
         t = &new_tag;
     }
 

@@ -226,5 +226,21 @@ class TestVerifyFormat < TestCase
                 0 / 0
             }
         """)
+
+        # native (cycle tagged value)
+
+        assert_parse_string(t, """
+            enum Tree {
+                Leaf,
+                Map(Hash[Integer, Tree])
+            }
+
+            var t1 = Map([1 => Map([2 => Leaf])])
+            var t2 = t1 ++ t1
+
+            if t2 != "Map([1 => Map([2 => Leaf])])Map([1 => Map([2 => Leaf])])": {
+                0 / 0
+            }
+        """)
     }
 }
