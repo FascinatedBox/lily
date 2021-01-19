@@ -3385,7 +3385,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
         lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
-    lily_type *result_type = NULL;
+    lily_type *result_type = lily_question_type;
 
     lily_next_token(parser->lex);
 
@@ -3460,11 +3460,12 @@ static int collect_lambda_args(lily_parse_state *parser,
             arg_var->type = arg_type;
         }
         else {
-            arg_type = NULL;
+            arg_type = lily_question_type;
+
             if (num_args < infer_count)
                 arg_type = expect_type->subtypes[num_args];
 
-            if (arg_type == NULL || arg_type->flags & TYPE_TO_BLOCK)
+            if (arg_type->flags & TYPE_TO_BLOCK)
                 lily_raise_syn(parser->raiser, "Cannot infer type of '%s'.",
                         lex->label);
 
@@ -3525,7 +3526,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
         lily_tm_insert(parser->tm, tm_return, root_result);
 
     int flags = 0;
-    if (expect_type && expect_type->cls->id == LILY_ID_FUNCTION &&
+    if (expect_type->cls->id == LILY_ID_FUNCTION &&
         expect_type->flags & TYPE_IS_VARARGS)
         flags = TYPE_IS_VARARGS;
 
@@ -3880,7 +3881,6 @@ static int code_is_after_exit(lily_parse_state *parser)
 static void keyword_return(lily_parse_state *parser)
 {
     lily_block *block = parser->emit->scope_block;
-    lily_type *return_type = NULL;
 
     if (block->block_type == block_class)
         lily_raise_syn(parser->raiser,
@@ -3889,8 +3889,8 @@ static void keyword_return(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "'return' not allowed in a lambda.");
     else if (block->block_type == block_file)
         lily_raise_syn(parser->raiser, "'return' used outside of a function.");
-    else
-        return_type = block->scope_var->type->subtypes[0];
+
+    lily_type *return_type = block->scope_var->type->subtypes[0];
 
     if (return_type != lily_unit_type)
         expression(parser);

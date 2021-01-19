@@ -1507,7 +1507,8 @@ void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
     lily_ast *ast = es->root;
     lily_block *block = emit->block;
 
-    eval_enforce_value(emit, ast, NULL, "Match expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type,
+            "Match expression has no value.");
 
     lily_class *match_class = ast->result->type->cls;
 
@@ -2094,7 +2095,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
 static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->arg_start->tree_type != tree_local_var)
-        eval_tree(emit, ast->arg_start, NULL);
+        eval_tree(emit, ast->arg_start, lily_question_type);
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
     char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
@@ -2188,7 +2189,7 @@ static void eval_plus_plus(lily_emit_state *, lily_ast *);
 static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
 {
     if (ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left, NULL);
+        eval_tree(emit, ast->left, lily_question_type);
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, ast->left->result->type);
@@ -2361,7 +2362,7 @@ static void eval_binary_op(lily_emit_state *emit, lily_ast *ast,
             break;
         default:
             if (ast->left->tree_type != tree_local_var)
-                eval_tree(emit, ast->left, NULL);
+                eval_tree(emit, ast->left, lily_question_type);
 
             if (ast->right->tree_type != tree_local_var)
                 eval_tree(emit, ast->right, ast->left->result->type);
@@ -2417,10 +2418,10 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
     if (left_tt == tree_global_var ||
         left_tt == tree_local_var) {
         if (left_tt == tree_global_var)
-            eval_tree(emit, ast->left, NULL);
+            eval_tree(emit, ast->left, lily_question_type);
     }
     else if (left_tt == tree_property) {
-        eval_tree(emit, ast->left, NULL);
+        eval_tree(emit, ast->left, lily_question_type);
     }
     else if (left_tt == tree_oo_access) {
         oo_property_read(emit, ast->left);
@@ -2504,7 +2505,7 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 /* This handles assignments to things that are marked as upvalues. */
 static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_tree(emit, ast->right, NULL);
+    eval_tree(emit, ast->right, lily_question_type);
 
     lily_var *left_var = (lily_var *)ast->left->sym;
     uint16_t spot = left_var->closure_spot;
@@ -2521,7 +2522,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     lily_ast *index_ast = var_ast->next_arg;
 
     if (var_ast->tree_type != tree_local_var) {
-        eval_tree(emit, var_ast, NULL);
+        eval_tree(emit, var_ast, lily_question_type);
         if (var_ast->result->flags & SYM_NOT_ASSIGNABLE) {
             lily_raise_tree(emit->raiser, ast,
                     "Left side of %s is not assignable.", tokname(ast->op));
@@ -2532,7 +2533,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
        inference. Since fetching inference would be a little annoying and
        unlikely to be useful, don't bother sending any. */
     if (index_ast->tree_type != tree_local_var)
-        eval_tree(emit, index_ast, NULL);
+        eval_tree(emit, index_ast, lily_question_type);
 
     check_valid_subscript(emit, var_ast, index_ast);
 
@@ -2712,8 +2713,8 @@ static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
-    if (expect && expect->cls->id != LILY_ID_FUNCTION)
-        expect = NULL;
+    if (expect->cls->id != LILY_ID_FUNCTION)
+        expect = lily_question_type;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect);
@@ -2750,7 +2751,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         andor_start = UINT16_MAX;
 
     if (ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left, NULL);
+        eval_tree(emit, ast->left, lily_question_type);
 
     /* If the left is the same as this tree, then it's already checked itself
        and doesn't need a retest. However, and/or are opposites, so they have
@@ -2759,7 +2760,7 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
         emit_jump_if(emit, ast->left, jump_on);
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, NULL);
+        eval_tree(emit, ast->right, lily_question_type);
 
     emit_jump_if(emit, ast->right, jump_on);
 
@@ -2798,10 +2799,10 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
     lily_ast *var_ast = ast->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
     if (var_ast->tree_type != tree_local_var)
-        eval_tree(emit, var_ast, NULL);
+        eval_tree(emit, var_ast, lily_question_type);
 
     if (index_ast->tree_type != tree_local_var)
-        eval_tree(emit, index_ast, NULL);
+        eval_tree(emit, index_ast, lily_question_type);
 
     check_valid_subscript(emit, var_ast, index_ast);
 
@@ -2841,7 +2842,7 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 {
     /* Inference shouldn't be necessary for something so simple. */
     if (ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left, NULL);
+        eval_tree(emit, ast->left, lily_question_type);
 
     lily_class *lhs_class = ast->left->result->type->cls;
     uint16_t opcode = 0, lhs_id = lhs_class->id;
@@ -2887,10 +2888,9 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     if (ast->args_collected == 0)
         lily_raise_syn(emit->raiser, "Cannot create an empty Tuple.");
 
-    if (expect != NULL &&
-        (expect->cls->id != LILY_ID_TUPLE ||
-         ast->args_collected > expect->subtype_count))
-        expect = NULL;
+    if (expect->cls->id != LILY_ID_TUPLE ||
+        ast->args_collected > expect->subtype_count)
+        expect = lily_question_type;
 
     int i;
     lily_ast *arg;
@@ -2898,11 +2898,11 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     for (i = 0, arg = ast->arg_start;
          arg != NULL;
          i++, arg = arg->next_arg) {
-        lily_type *elem_type = NULL;
+        lily_type *elem_type = lily_question_type;
 
         /* It's important to do this for each pass because it allows the inner
            trees to infer types that this tree's parent may want. */
-        if (expect)
+        if (expect != lily_question_type)
             elem_type = expect->subtypes[i];
 
         eval_tree(emit, arg, elem_type);
@@ -3037,16 +3037,10 @@ static lily_type *bidirectional_unify(lily_type_system *ts,
     return result;
 }
 
-/* Make sure that 'key_type' is a valid key. It may be NULL or ? depending on
-   inference. If 'key_type' is not suitable to be a hash key, then raise a
-   syntax error. */
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
-    uint16_t key_id = lily_self_class->id;
-
-    if (key_type)
-        key_id = key_type->cls->id;
+    uint16_t key_id = key_type->cls->id;
 
     if (key_id != LILY_ID_INTEGER &&
         key_id != LILY_ID_STRING)
@@ -3064,13 +3058,10 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     lily_class *cls;
     int num, op;
 
-    if (expect && expect->cls->id == LILY_ID_HASH) {
+    if (expect->cls->id == LILY_ID_HASH) {
         lily_type *key_type = expect->subtypes[0];
         lily_type *value_type = expect->subtypes[1];
         ensure_valid_key_type(emit, ast, key_type);
-
-        if (value_type == NULL)
-            value_type = lily_question_type;
 
         lily_tm_add(emit->tm, key_type);
         lily_tm_add(emit->tm, value_type);
@@ -3082,7 +3073,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     else {
         lily_type *elem_type = lily_question_type;
 
-        if (expect && expect->cls->id == LILY_ID_LIST) {
+        if (expect->cls->id == LILY_ID_LIST) {
             elem_type = expect->subtypes[0];
 
             /* This is a rare case that's possible with `List.zip` since that
@@ -3112,14 +3103,9 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *key_type, *value_type;
 
-    if (expect && expect->cls->id == LILY_ID_HASH) {
+    if (expect->cls->id == LILY_ID_HASH) {
         key_type = expect->subtypes[0];
         value_type = expect->subtypes[1];
-        if (key_type == NULL)
-            key_type = lily_question_type;
-
-        if (value_type == NULL)
-            value_type = lily_question_type;
     }
     else {
         key_type = lily_question_type;
@@ -3186,13 +3172,13 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
         return;
     }
 
-    lily_type *elem_type = NULL;
+    lily_type *elem_type = lily_question_type;
     lily_ast *arg;
 
-    if (expect && expect->cls->id == LILY_ID_LIST)
+    if (expect->cls->id == LILY_ID_LIST)
         elem_type = expect->subtypes[0];
 
-    if (elem_type == NULL || elem_type == lily_scoop_type)
+    if (elem_type == lily_scoop_type)
         elem_type = lily_question_type;
 
     for (arg = ast->arg_start;arg != NULL;arg = arg->next_arg) {
@@ -3595,14 +3581,14 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast)
         }
         case tree_global_var:
         case tree_upvalue:
-            eval_tree(emit, first_arg, NULL);
+            eval_tree(emit, first_arg, lily_question_type);
         case tree_local_var:
         case tree_defined_func:
         case tree_inherited_new:
             call_item = first_arg->item;
             break;
         default:
-            eval_tree(emit, first_arg, NULL);
+            eval_tree(emit, first_arg, lily_question_type);
             call_item = (lily_item *)first_arg->result;
             break;
     }
@@ -3732,7 +3718,7 @@ static void setup_typing_for_call(lily_emit_state *emit, lily_ast *ast,
            nailing A to A, the A of a base class is always A no matter how far
            the inheritance stretches. */
         lily_ts_check(emit->ts, call_type, call_type);
-    else if (expect)
+    else
         /* This function is guarded by a check for the call type having
            generics. It's a safe assumption that there will be generics in the
            result calculation. So if there's a type being sent to infer
@@ -4098,7 +4084,6 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     lily_type *storage_type = variant->build_type;
 
     if (storage_type->flags & TYPE_IS_INCOMPLETE &&
-        expect &&
         expect->cls == variant->parent)
         storage_type = expect;
 
@@ -4133,10 +4118,10 @@ static void eval_func_pipe(lily_emit_state *emit, lily_ast *ast,
 static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->left->tree_type != tree_local_var)
-        eval_tree(emit, ast->left, NULL);
+        eval_tree(emit, ast->left, lily_question_type);
 
     if (ast->right->tree_type != tree_local_var)
-        eval_tree(emit, ast->right, NULL);
+        eval_tree(emit, ast->right, lily_question_type);
 
     if (ast->parent == NULL ||
         (ast->parent->tree_type != tree_binary ||
@@ -4188,8 +4173,8 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
     them) that don't seem to fit anywhere else. Most of these deal with running
     an expression. **/
 
-/* Evaluate 'ast' using 'expect' for inference. If unsure (or have no opinion of
-   what 'ast' should be), 'expect' can be NULL. */
+/* Evaluate 'ast' with 'expect' for inference. If caller has no inference to
+   give, then 'expect' should be 'lily_question_type'. */
 static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     if (ast->tree_type == tree_global_var ||
@@ -4259,7 +4244,7 @@ static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
    pool for the next expression. */
 void lily_eval_expr(lily_emit_state *emit, lily_expr_state *es)
 {
-    eval_tree(emit, es->root, NULL);
+    eval_tree(emit, es->root, lily_question_type);
     emit->expr_num++;
 }
 
@@ -4275,7 +4260,7 @@ void lily_eval_optarg(lily_emit_state *emit, lily_ast *ast)
        the offset is added as + 2 below. */
     lily_u16_write_3(emit->code, o_jump_if_set, target_reg, 2);
 
-    eval_tree(emit, ast, NULL);
+    eval_tree(emit, ast, lily_question_type);
     emit->expr_num++;
 
     /* If this optional argument was initialized, jump to now. */
@@ -4287,7 +4272,7 @@ void lily_eval_to_loop_var(lily_emit_state *emit, lily_expr_state *es,
 {
     lily_ast *ast = es->root;
 
-    eval_tree(emit, ast, NULL);
+    eval_tree(emit, ast, lily_question_type);
     emit->expr_num++;
 
     if (ast->result->type != var->type) {
@@ -4344,7 +4329,8 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
         return;
     }
 
-    eval_enforce_value(emit, ast, NULL, "Conditional expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type,
+            "Conditional expression has no value.");
     ensure_valid_condition_type(emit, ast->result->type);
 
     /* Jump if false (0) to the next branch. The branch will be patched when the
@@ -4363,7 +4349,8 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
         return;
     }
 
-    eval_enforce_value(emit, ast, NULL, "Conditional expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type,
+            "Conditional expression has no value.");
     ensure_valid_condition_type(emit, ast->result->type);
 
     uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
@@ -4373,14 +4360,15 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
 
 /* This is called from parser to evaluate the last expression that is within a
    lambda. 'full_type' is either a type describing what the lambda wants, or
-   NULL if the lambda has no opinion. The latter can happen with a lambda is on
-   the right side of a newly-declared var with no inference information. */
+   'lily_question_type' if the lambda has no opinion. The latter can happen with
+   a lambda is on the right side of a newly-declared var with no inference
+   information. */
 void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
         lily_type *full_type)
 {
-    lily_type *wanted_type = NULL;
+    lily_type *wanted_type = lily_question_type;
 
-    if (full_type)
+    if (full_type != lily_question_type)
         wanted_type = full_type->subtypes[0];
 
     /* Don't send `Unit` down, because it can cause syntax errors if it's used
@@ -4439,7 +4427,8 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
 void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    eval_enforce_value(emit, ast, NULL, "'raise' expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type,
+            "'raise' expression has no value.");
 
     lily_class *result_cls = ast->result->type->cls;
     if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, result_cls) == 0) {
