@@ -1198,7 +1198,7 @@ static lily_var *new_var(const char *name, uint16_t line_num)
     var->shorthash = shorthash_for_name(name);
     var->closure_spot = UINT16_MAX;
     var->doc_id = UINT16_MAX;
-    var->type = NULL;
+    var->type = lily_question_type;
     var->next = NULL;
     var->parent = NULL;
 
@@ -1944,7 +1944,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
     if ((arg_flags & F_COLLECT_VARIANT) == 0) {
         lily_var *var = (lily_var *)target;
-        if (var->type && var->type != t)
+        if (var->type != t &&
+            var->type != lily_question_type)
             error_forward_decl_type(parser, var, t);
 
         var->type = t;
@@ -3588,7 +3589,7 @@ static lily_prop_entry *declare_property(lily_parse_state *parser,
     if (sym && sym_visible_from(cls, sym))
         error_member_redeclaration(parser, cls, sym);
 
-    lily_prop_entry *prop = lily_add_class_property(cls, NULL, name,
+    lily_prop_entry *prop = lily_add_class_property(cls, lily_question_type, name,
             parser->lex->line_num, flags);
 
     lily_next_token(parser->lex);

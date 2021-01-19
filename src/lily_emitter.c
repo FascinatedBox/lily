@@ -2566,7 +2566,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         left_sym->flags &= ~SYM_NOT_INITIALIZED;
         right_sym = ast->right->result;
 
-        if (left_sym->type == NULL)
+        if (left_sym->type == lily_question_type)
             left_sym->type = right_sym->type;
     }
     else if (left_tt == tree_property) {
@@ -2576,7 +2576,7 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         left_sym->flags &= ~SYM_NOT_INITIALIZED;
         right_sym = ast->right->result;
 
-        if (left_sym->type == NULL)
+        if (left_sym->type == lily_question_type)
             left_sym->type = right_sym->type;
     }
     else if (left_tt == tree_oo_access) {
