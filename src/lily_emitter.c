@@ -1782,7 +1782,7 @@ static int can_optimize_out_assignment(lily_ast *ast)
         /* Can't skip basic assignments. */
         ;
     else if (right_tree->tree_type == tree_binary) {
-        uint8_t op = ast->op;
+        uint8_t op = right_tree->op;
 
         if (IS_ASSIGN_TOKEN(op))
             ;
