@@ -1187,7 +1187,7 @@ static uint64_t shorthash_for_name(const char *name)
 
 /* This handles the common parts of var initialization. Flags aren't set here
    because var builders have different hardcoded flags that they want. */
-static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
+static lily_var *new_var(const char *name, uint16_t line_num)
 {
     lily_var *var = lily_malloc(sizeof(*var));
 
@@ -1198,7 +1198,7 @@ static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
     var->shorthash = shorthash_for_name(name);
     var->closure_spot = UINT16_MAX;
     var->doc_id = UINT16_MAX;
-    var->type = type;
+    var->type = NULL;
     var->next = NULL;
     var->parent = NULL;
 
@@ -1208,7 +1208,7 @@ static lily_var *new_var(lily_type *type, const char *name, uint16_t line_num)
 static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(NULL, name, line_num);
+    lily_var *var = new_var(name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     /* Constants get their id from the literal they're assigned to. */
@@ -1225,10 +1225,10 @@ static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
 /* Create a new var that must be local. Use this in cases where the target is
    going to have some data extracted into it. In situations such as the except
    clause of try, the target register has to be local. */
-static lily_var *new_local_var(lily_parse_state *parser, lily_type *type,
-        const char *name, uint16_t line_num)
+static lily_var *new_local_var(lily_parse_state *parser, const char *name,
+        uint16_t line_num)
 {
-    lily_var *var = new_var(type, name, line_num);
+    lily_var *var = new_var(name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     var->function_depth = parser->emit->function_depth;
@@ -1242,10 +1242,19 @@ static lily_var *new_local_var(lily_parse_state *parser, lily_type *type,
     return var;
 }
 
-static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
-        const char *name, uint16_t line_num)
+static inline lily_var *new_typed_local_var(lily_parse_state *parser,
+        lily_type *type, const char *name, uint16_t line_num)
 {
-    lily_var *var = new_var(type, name, line_num);
+    lily_var *var = new_local_var(parser, name, line_num);
+
+    var->type = type;
+    return var;
+}
+
+static lily_var *new_global_var(lily_parse_state *parser, const char *name,
+        uint16_t line_num)
+{
+    lily_var *var = new_var(name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     var->function_depth = 1;
@@ -1259,7 +1268,7 @@ static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
        foreign function to write their value on the vm. To make sure native
        globals have the right spot, they need a placeholder. Native globals
        won't know their type yet, so use that for the check. */
-    if (type == NULL) {
+    if (line_num != 0) {
         lily_push_unit(parser->vm);
         parser->emit->block->var_count++;
     }
@@ -1270,7 +1279,7 @@ static lily_var *new_global_var(lily_parse_state *parser, lily_type *type,
 static lily_var *new_define_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(NULL, name, line_num);
+    lily_var *var = new_var(name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     /* Symtab sets reg_spot when the function is made. */
@@ -1291,7 +1300,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
 static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
         const char *name, uint16_t modifiers, uint16_t line_num)
 {
-    lily_var *var = new_var(NULL, name, line_num);
+    lily_var *var = new_var(name, line_num);
 
     /* Symtab sets reg_spot when the function is made. */
     var->item_kind = ITEM_DEFINE;
@@ -1328,7 +1337,7 @@ static lily_var *declare_local_var(lily_parse_state *parser, lily_type *type)
     if (var)
         error_var_redeclaration(parser, var);
 
-    var = new_local_var(parser, type, lex->label, lex->line_num);
+    var = new_typed_local_var(parser, type, lex->label, lex->line_num);
     lily_next_token(lex);
     return var;
 }
@@ -1343,9 +1352,9 @@ static lily_var *declare_scoped_var(lily_parse_state *parser)
         error_var_redeclaration(parser, var);
 
     if (parser->emit->function_depth != 1)
-        var = new_local_var(parser, NULL, lex->label, lex->line_num);
+        var = new_local_var(parser, lex->label, lex->line_num);
     else
-        var = new_global_var(parser, NULL, lex->label, lex->line_num);
+        var = new_global_var(parser, lex->label, lex->line_num);
 
     lily_next_token(lex);
     return var;
@@ -1589,7 +1598,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
 
         /* Properties aren't assigned until all optargs are done. */
         prop->flags |= SYM_NOT_INITIALIZED;
-        var = new_local_var(parser, NULL, "", 0);
+        var = new_local_var(parser, "", 0);
     }
     else {
         var = declare_local_var(parser, NULL);
@@ -2252,12 +2261,14 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
 
     lily_module_entry *m = ds->m;
     lily_type *type = get_type_raw(parser, 0);
-    lily_var *var = new_global_var(parser, type, dyna_get_name(ds), 0);
+    lily_var *var = new_global_var(parser, dyna_get_name(ds), 0);
 
     /* The initial vm has a function above main for storing globals that's never
        truly exited. Var loaders work by pushing a new value in toplevel space.
        Make sure the identity table is up-to-date before running the loader in
        case the loader needs it. */
+
+    var->type = type;
 
     /* These two allow var loaders to use ID_ macros. */
     update_cid_table(parser, m);
@@ -4046,7 +4057,7 @@ static void keyword_for(lily_parse_state *parser)
 
     if (loop_var == NULL) {
         lily_class *cls = parser->symtab->integer_class;
-        loop_var = new_local_var(parser, cls->self_type, lex->label,
+        loop_var = new_typed_local_var(parser, cls->self_type, lex->label,
                 lex->line_num);
     }
     else if (loop_var->type->cls->id != LILY_ID_INTEGER) {
@@ -4055,9 +4066,9 @@ static void keyword_for(lily_parse_state *parser)
                    loop_var->type);
     }
 
-    lily_var *for_start = new_local_var(parser, integer_type, "", 0);
-    lily_var *for_end = new_local_var(parser, integer_type, "", 0);
-    lily_var *for_step = new_local_var(parser, integer_type, "", 0);
+    lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
+    lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
+    lily_var *for_step = new_typed_local_var(parser, integer_type, "", 0);
 
     lily_next_token(lex);
     expect_word(parser, "in");
