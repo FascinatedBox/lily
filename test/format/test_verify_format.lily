@@ -242,5 +242,20 @@ class TestVerifyFormat < TestCase
                 0 / 0
             }
         """)
+
+        # native (circular value)
+
+        assert_parse_string(t, """
+            var l3 = [1 => Leaf]
+            var t3 = Map(l3)
+
+            l3[1] = t3
+
+            var s3 = t3 ++ t3
+
+            if s3 != "Map([1 => [...]])Map([1 => [...]])": {
+                0 / 0
+            }
+        """)
     }
 }
