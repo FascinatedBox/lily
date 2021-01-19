@@ -141,6 +141,20 @@ class TestBadSyntax < TestCase
             for i asdf 0...10: {}
         """)
 
+        # bad blocks (bad for step)
+
+        assert_parse_fails(t, """\
+            ValueError: for loop step cannot be 0.\n\
+            Traceback:\n    \
+                from [test]:2: in __main__\n\
+        """,
+        """\
+
+            for i in 0...0 by 0: {
+                0 / 0
+            }
+        """)
+
         # bad blocks (assign in range expression)
 
         assert_parse_fails(t, """\

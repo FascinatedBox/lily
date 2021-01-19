@@ -2373,9 +2373,11 @@ void lily_vm_execute(lily_vm_state *vm)
                 step_reg = vm_regs[code[3]];
                 loop_reg = vm_regs[code[4]];
 
-                if (step_reg->value.integer == 0)
+                if (step_reg->value.integer == 0) {
+                    SAVE_LINE(+6);
                     vm_error(vm, LILY_ID_VALUEERROR,
                                "for loop step cannot be 0.");
+                }
 
                 /* Do a negative step to offset falling into o_for_loop. */
                 loop_reg->value.integer =
