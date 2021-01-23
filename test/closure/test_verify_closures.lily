@@ -285,6 +285,23 @@ class TestVerifyClosures < TestCase
         """)
     }
 
+    public define test_map_closure
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define f(a: Integer): List[Integer]
+            {
+                var b = "1,2,3".split(",")
+                               .map(|m| a + m.parse_i().unwrap() )
+
+                return b
+            }
+
+            [1, 2, 3].map(f)
+        """)
+    }
+
     public define test_self
     {
         var t = Interpreter()

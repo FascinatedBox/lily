@@ -1763,8 +1763,12 @@ void lily_call(lily_vm_state *vm, uint16_t count)
 
         lily_vm_execute(vm);
 
-        /* Native execute drops the frame and lowers the depth. Nothing more to
-           do for it. */
+        /* Native execute drops the frame and lowers the depth. In most cases,
+           nothing more needs to be done. However, if the called function uses
+           upvalues, the frame function will be ejected in favor of the closure
+           copy. That copy could be deleted on the next pass when the registers
+           are cleared, so make sure the function is what it originally was. */
+        target_frame->function = target_fn;
     }
 }
 
