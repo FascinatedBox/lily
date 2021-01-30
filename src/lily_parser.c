@@ -5361,8 +5361,8 @@ static void maybe_fix_print(lily_parse_state *parser)
             lily_value *print_value = vm->gs->readonly_table[print_var->reg_spot];
             lily_function_val *print_func = print_value->value.function;
 
+            vm->gs->stdout_reg_spot = stdout_var->reg_spot;
             print_func->foreign_func = lily_stdout_print;
-            print_func->cid_table = &stdout_var->reg_spot;
         }
     }
 }

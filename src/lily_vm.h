@@ -81,7 +81,11 @@ typedef struct lily_global_state_ {
        the threshold is multiplied by to increase it. */
     uint32_t gc_multiplier;
 
-    uint32_t pad;
+    /* The id of the global register that stdout is in, or UINT16_MAX if stdout
+       is not in a register. */
+    uint16_t stdout_reg_spot;
+
+    uint16_t pad;
 
     struct lily_vm_state_ *first_vm;
 

@@ -110,6 +110,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     gs->gc_live_entries = NULL;
     gs->gc_spare_entries = NULL;
     gs->gc_live_entry_count = 0;
+    gs->stdout_reg_spot = UINT16_MAX;
     gs->first_vm = vm;
 
     vm->gs = gs;
@@ -886,12 +887,9 @@ void lily_prelude__print(lily_vm_state *vm)
    use the register holding Lily's stdout, not the plain C stdout. */
 void lily_stdout_print(lily_vm_state *vm)
 {
-    /* This uses a couple of tricks not available to proper api functions.
-       First, it sets the cid table to point to the id of the var holding
-       stdin.
-       The other trick is to use regs_from_main to grab the globals. */
-    uint16_t spot = *vm->call_chain->function->cid_table;
+    uint16_t spot = vm->gs->stdout_reg_spot;
     lily_file_val *stdout_val = vm->gs->regs_from_main[spot]->value.file;
+
     if (stdout_val->close_func == NULL)
         vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
