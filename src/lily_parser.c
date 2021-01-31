@@ -5346,25 +5346,41 @@ static void keyword_protected(lily_parse_state *parser)
     parse_modifier(parser, KEY_PROTECTED);
 }
 
-static void maybe_fix_print(lily_parse_state *parser)
+static void maybe_capture_stdout(lily_parse_state *parser)
 {
+    lily_global_state *gs = parser->vm->gs;
+
+    if (gs->stdout_reg_spot != UINT16_MAX)
+        return;
+
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *prelude = symtab->prelude_module;
     lily_var *stdout_var = lily_find_var(prelude, "stdout");
-    lily_vm_state *vm = parser->vm;
 
-    if (stdout_var) {
-        lily_var *print_var = lily_find_var(prelude, "print");
-        if (print_var) {
-            /* Swap out the default implementation of print for one that will
-               check if stdin is closed first. */
-            lily_value *print_value = vm->gs->readonly_table[print_var->reg_spot];
-            lily_function_val *print_func = print_value->value.function;
+    if (stdout_var)
+        gs->stdout_reg_spot = stdout_var->reg_spot;
+}
 
-            vm->gs->stdout_reg_spot = stdout_var->reg_spot;
-            print_func->foreign_func = lily_stdout_print;
-        }
-    }
+static void maybe_fix_print(lily_parse_state *parser)
+{
+    lily_global_state *gs = parser->vm->gs;
+
+    if (gs->stdout_reg_spot == UINT16_MAX)
+        return;
+
+    lily_symtab *symtab = parser->symtab;
+    lily_module_entry *prelude = symtab->prelude_module;
+    lily_var *print_var = lily_find_var(prelude, "print");
+
+    if (print_var == NULL)
+        return;
+
+    /* Swap out the default implementation of print for one that will check if
+       stdin is closed first. */
+    lily_value *print_value = gs->readonly_table[print_var->reg_spot];
+    lily_function_val *print_func = print_value->value.function;
+
+    print_func->foreign_func = lily_stdout_print;
 }
 
 static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
@@ -5387,6 +5403,7 @@ static void main_func_setup(lily_parse_state *parser)
 
     parser->vm->gs->readonly_table = parser->symtab->literals->data;
 
+    maybe_capture_stdout(parser);
     maybe_fix_print(parser);
     update_all_cid_tables(parser);
 
