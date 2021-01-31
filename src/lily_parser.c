@@ -5383,8 +5383,31 @@ static void maybe_fix_print(lily_parse_state *parser)
     print_func->foreign_func = lily_stdout_print;
 }
 
+static void verify_template_target_open(lily_parse_state *parser)
+{
+    lily_vm_state *vm = parser->vm;
+    lily_global_state *gs = vm->gs;
+
+    if (gs->stdout_reg_spot == UINT16_MAX)
+        return;
+
+    if (parser->config->data != stdout)
+        return;
+
+    lily_value *stdout_value = vm->gs->regs_from_main[gs->stdout_reg_spot];
+    lily_file_val *fv = lily_as_file(stdout_value);
+
+    if (fv->close_func == NULL ||
+        fv->read_ok == 0) {
+        lily_raise_syn(parser->raiser,
+                "Cannot write template output to stdout.");
+    }
+}
+
 static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
 {
+    verify_template_target_open(parser);
+
     lily_config *config = parser->config;
     int has_more = 0;
 

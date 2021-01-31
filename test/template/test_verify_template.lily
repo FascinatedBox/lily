@@ -47,7 +47,7 @@ class TestVerifyTemplate < TestCase
         t = Interpreter()
 
         assert_render_string(t, """\
-            <?lily ?>
+            <?lily var v = stdin ?>
             Lorem Ipsum is simply dummy text of the printing and typesetting
             industry. Lorem Ipsum has been the industry's standard dummy text
             ever since the 1500s, when an unknown printer took a galley of type
@@ -126,6 +126,30 @@ class TestVerifyTemplate < TestCase
         """,
         """\
             <?lily define f { ?>
+        """)
+
+        # failure (render when stdout is closed)
+
+        t = Interpreter()
+        assert_render_fails(t, """\
+            SyntaxError: Cannot write template output to stdout.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            <?lily stdout.close()
+            ?>
+        """)
+
+        # failure (render when stdout is not readable)
+
+        t = Interpreter()
+        assert_render_fails(t, """\
+            SyntaxError: Cannot write template output to stdout.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            <?lily stdout = stderr
+            ?>
         """)
     }
 }
