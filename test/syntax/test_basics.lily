@@ -1073,7 +1073,7 @@ class TestBasics < TestCase
 
         t = Interpreter()
         t.parse_string("[test]", """
-            if __dir__ != ".\/": {
+            if __dir__ != ".\\/": {
                 0 / 0
             }
         """)
@@ -1083,7 +1083,7 @@ class TestBasics < TestCase
 
         t = Interpreter()
         t.parse_string("a\/b\/c\/[test]", """
-            if __dir__ != "a\/b\/c\/": {
+            if __dir__ != "a\\/b\\/c\\/": {
                 0 / 0
             }
         """)
