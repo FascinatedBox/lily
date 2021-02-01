@@ -2692,6 +2692,21 @@ static int maybe_digit_fixup(lily_parse_state *parser)
     return result;
 }
 
+static void push_dir_constant(lily_parse_state *parser)
+{
+    char *module_dir = parser->symtab->active_module->dirname;
+
+    if (strcmp(module_dir, "") != 0) {
+        lily_msgbuf *msgbuf = parser->msgbuf;
+        const char *dirname = lily_mb_sprintf(msgbuf, "%s" LILY_PATH_SLASH,
+                module_dir);
+
+        push_string(parser, dirname);
+    }
+    else
+        push_string(parser, "." LILY_PATH_SLASH);
+}
+
 /* This takes an id that corresponds to some id in the table of magic constants.
    From that, it determines that value of the magic constant, and then adds that
    value to the current ast pool. */
@@ -2711,6 +2726,8 @@ static int expr_word_try_constant(lily_parse_state *parser)
         push_string(parser, parser->symtab->active_module->path);
     else if (const_id == CONST___FUNCTION__)
         push_string(parser, parser->emit->scope_block->scope_var->name);
+    else if (const_id == CONST___DIR__)
+        push_dir_constant(parser);
     else if (const_id == CONST_TRUE)
         lily_es_push_boolean(parser->expr, 1);
     else if (const_id == CONST_FALSE)

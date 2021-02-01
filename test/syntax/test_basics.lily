@@ -1067,6 +1067,27 @@ class TestBasics < TestCase
                 0 / 0
             }
         """)
+
+
+        # magic words (__dir__ from local start)
+
+        t = Interpreter()
+        t.parse_string("[test]", """
+            if __dir__ != ".\/": {
+                0 / 0
+            }
+        """)
+        assert_equal(t.error(), "")
+
+        # magic words (__dir__ from nested start)
+
+        t = Interpreter()
+        t.parse_string("a\/b\/c\/[test]", """
+            if __dir__ != "a\/b\/c\/": {
+                0 / 0
+            }
+        """)
+        assert_equal(t.error(), "")
     }
 
     public define test_starting_expressions

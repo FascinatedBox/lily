@@ -17,6 +17,7 @@ keyword_entry constants[] =
     {"self", 1718379891},
     {"unit", 1953066613},
     {"false", 435728179558},
+    {"__dir__", 26845067786608479},
     {"__file__", 6872323072689856351},
     {"__line__", 6872323081280184159},
     {"__function__", 7598807797348065119},
@@ -26,10 +27,11 @@ keyword_entry constants[] =
 # define CONST_SELF 1
 # define CONST_UNIT 2
 # define CONST_FALSE 3
-# define CONST___FILE__ 4
-# define CONST___LINE__ 5
-# define CONST___FUNCTION__ 6
-# define CONST_BAD_ID 7
+# define CONST___DIR__ 4
+# define CONST___FILE__ 5
+# define CONST___LINE__ 6
+# define CONST___FUNCTION__ 7
+# define CONST_BAD_ID 8
 
 keyword_entry keywords[] =
 {

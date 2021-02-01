@@ -17,6 +17,7 @@ import (finish_file,
 script_name = "scripts/parser_data.lily"
 
 var constants = [
+    "__dir__",
     "__file__",
     "__function__",
     "__line__",
