@@ -1151,6 +1151,9 @@ class TestBasics < TestCase
         assert_equal("\aabc\adef", """\aabc\adef""")
         assert_equal("\aabcdef\a", """\aabcdef\a""")
         assert_equal("abc\adef\a", """abc\adef\a""")
+        assert_equal("abc\x0adef", """abc\ndef""")
+        assert_equal(B"\xAA",      B"""\xaa""")
+        assert_equal("\x0a",       """\n""")
         assert_equal("á",          """á""")
         assert_equal("\'\b",       """\'\b""")
     }

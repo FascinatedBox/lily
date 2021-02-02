@@ -548,6 +548,46 @@ class TestBadSyntax < TestCase
             var v = B"\\256"
         """)
 
+        # bad literal (invalid hex escape for String).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            "\\xFF"
+        """)
+
+        # bad literal (short hex escape).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            "\\x"
+        """)
+
+        # bad literal (empty hex escape).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            "\\xF"
+        """)
+
+        # bad literal (invalid hex value).
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            "\\xF?"
+        """)
+
         # bad literal (empty Tuple)
 
         assert_parse_fails(t, """\

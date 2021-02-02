@@ -304,6 +304,32 @@ static uint16_t scan_escape(char *ch, char *out)
         result = i;
         *out = (char)total;
     }
+    else if (*ch == 'x') {
+        int total;
+        uint16_t i;
+
+        ch++;
+
+        for (i = 1, total = 0;i < 3;i++) {
+            char mod;
+            if (*ch >= '0' && *ch <= '9')
+                mod = '0';
+            else if (*ch >= 'a' && *ch <= 'f')
+                mod = 'a' - 10;
+            else if (*ch >= 'A' && *ch <= 'F')
+                mod = 'A' - 10;
+            else {
+                i = 0;
+                break;
+            }
+
+            total = (total * 16) + *ch - mod;
+            ch++;
+        }
+
+        result = i;
+        *out = (char)total;
+    }
     else
         result = 0;
 
