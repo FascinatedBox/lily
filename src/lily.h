@@ -1160,6 +1160,10 @@ void lily_return_none   (lily_state *s);
 // Set a Some holding the top of the stack as the return value.
 void lily_return_some_of_top(lily_state *s);
 
+// Function: lily_return_string
+// Set a String return value.
+void lily_return_string (lily_state *s, const char *value);
+
 // Function: lily_return_super
 // Use this if lily_push_super was used.
 void lily_return_super  (lily_state *s);

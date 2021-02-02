@@ -102,8 +102,7 @@ void lily_prelude_Boolean_to_s(lily_state *s)
     else
         to_copy = "true";
 
-    lily_push_string(s, to_copy);
-    lily_return_top(s);
+    lily_return_string(s, to_copy);
 }
 
 void lily_prelude_Byte_to_i(lily_state *s)
@@ -824,12 +823,10 @@ void lily_prelude_Integer_to_d(lily_state *s)
 void lily_prelude_Integer_to_s(lily_state *s)
 {
     int64_t integer_val = lily_arg_integer(s, 0);
-
     char buffer[32];
-    snprintf(buffer, 32, "%"PRId64, integer_val);
 
-    lily_push_string(s, buffer);
-    lily_return_top(s);
+    snprintf(buffer, 32, "%"PRId64, integer_val);
+    lily_return_string(s, buffer);
 }
 
 void lily_prelude_IOError_new(lily_state *s)
@@ -1051,8 +1048,7 @@ void lily_prelude_List_join(lily_state *s)
     lily_msgbuf *vm_buffer = lily_msgbuf_get(s);
 
     if (input_size == 0) {
-        lily_push_string(s, "");
-        lily_return_top(s);
+        lily_return_string(s, "");
         return;
     }
 
@@ -1070,8 +1066,7 @@ void lily_prelude_List_join(lily_state *s)
 
     v = lily_con_get(input_list, i);
     lily_mb_add_value(vm_buffer, s, v);
-    lily_push_string(s, lily_mb_raw(vm_buffer));
-    lily_return_top(s);
+    lily_return_string(s, lily_mb_raw(vm_buffer));
 }
 
 void lily_prelude_List_map(lily_state *s)
@@ -1523,8 +1518,7 @@ void lily_prelude_String_format(lily_state *s)
         last_fmt = fmt;
     }
 
-    lily_push_string(s, lily_mb_raw(msgbuf));
-    lily_return_top(s);
+    lily_return_string(s, lily_mb_raw(msgbuf));
 }
 
 void lily_prelude_String_ends_with(lily_state *s)
@@ -1603,10 +1597,8 @@ void lily_prelude_String_html_encode(lily_state *s)
         /* The `String` given may be a cached literal, so return the input arg
            instead of making a new `String`. */
         lily_return_value(s, input_arg);
-    else {
-        lily_push_string(s, lily_mb_raw(msgbuf));
-        lily_return_top(s);
-    }
+    else
+        lily_return_string(s, lily_mb_raw(msgbuf));
 }
 
 #define CTYPE_WRAP(WRAP_NAME, WRAPPED_CALL) \
@@ -1743,8 +1735,7 @@ void lily_prelude_String_lstrip(lily_state *s)
     else
         input_str += lstrip_utf8_start(input_sv, strip_str);
 
-    lily_push_string(s, input_str);
-    lily_return_top(s);
+    lily_return_string(s, input_str);
 }
 
 void lily_prelude_String_parse_i(lily_state *s)
@@ -1835,8 +1826,7 @@ void lily_prelude_String_replace(lily_state *s)
     } while (input_iter);
 
     lily_mb_add(msgbuf, last_iter);
-    lily_push_string(s, lily_mb_raw(msgbuf));
-    lily_return_top(s);
+    lily_return_string(s, lily_mb_raw(msgbuf));
 }
 
 /* This is a helper for rstrip when there's no utf-8 in input_arg. */
@@ -2056,8 +2046,7 @@ void lily_prelude_String_strip(lily_state *s)
         copy_from = lstrip_utf8_start(input_sv, strip_str);
 
     if (*(input_str + copy_from) == '\0') {
-        lily_push_string(s, "");
-        lily_return_top(s);
+        lily_return_string(s, "");
         return;
     }
 
@@ -2090,8 +2079,7 @@ void lily_prelude_String_trim(lily_state *s)
     input_str += span;
 
     if (*input_str == '\0') {
-        lily_push_string(s, "");
-        lily_return_top(s);
+        lily_return_string(s, "");
         return;
     }
 

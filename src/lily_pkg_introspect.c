@@ -425,8 +425,7 @@ static void return_doc(lily_state *s, uint16_t doc_id)
     if (doc_id != UINT16_MAX)
         str = s->gs->parser->doc->data[doc_id][0];
 
-    lily_push_string(s, str);
-    lily_return_top(s);
+    lily_return_string(s, str);
 }
 
 static char **get_doc_text(lily_state *s, uint16_t doc_id)
@@ -445,8 +444,7 @@ void lily_introspect_TypeEntry_as_string(lily_state *s)
     lily_msgbuf *msgbuf = lily_mb_flush(lily_msgbuf_get(s));
 
     lily_mb_add_fmt(msgbuf, "^T", entry);
-    lily_push_string(s, lily_mb_raw(msgbuf));
-    lily_return_top(s);
+    lily_return_string(s, lily_mb_raw(msgbuf));
 }
 
 void lily_introspect_TypeEntry_class_name(lily_state *s)
@@ -703,9 +701,7 @@ void lily_introspect_MethodEntry_doc(lily_state *s)
 void lily_introspect_MethodEntry_function_name(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
-
-    lily_push_string(s, entry->name);
-    lily_return_top(s);
+    lily_return_string(s, entry->name);
 }
 
 void lily_introspect_MethodEntry_generics(lily_state *s)
@@ -866,9 +862,7 @@ void lily_introspect_VariantEntry_enum_id(lily_state *s)
 void lily_introspect_VariantEntry_enum_name(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
-
-    lily_push_string(s, entry->parent->name);
-    lily_return_top(s);
+    lily_return_string(s, entry->parent->name);
 }
 
 void lily_introspect_VariantEntry_is_empty(lily_state *s)

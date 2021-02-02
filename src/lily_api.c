@@ -990,6 +990,19 @@ void lily_return_some_of_top(lily_state *s)
                container, variant);
 }
 
+void lily_return_string(lily_state *s, const char *value)
+{
+    RETURN_PREAMBLE
+    size_t len = strlen(value);
+    char *buffer = lily_malloc((len + 1) * sizeof(*buffer));
+
+    strcpy(buffer, value);
+
+    lily_string_val *sv = new_sv(buffer, (int)len);
+
+    SET_TARGET(V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE, string, sv);
+}
+
 void lily_return_super(lily_state *s)
 {
     lily_value *target = s->call_chain->return_target;

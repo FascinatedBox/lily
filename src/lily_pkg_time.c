@@ -39,9 +39,7 @@ void lily_time_Time_to_s(lily_state *s)
     char buf[64];
 
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %z", &t->local);
-
-    lily_push_string(s, buf);
-    lily_return_top(s);
+    lily_return_string(s, buf);
 }
 
 void lily_time_Time_since_epoch(lily_state *s)

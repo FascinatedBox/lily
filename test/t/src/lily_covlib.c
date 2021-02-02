@@ -179,8 +179,7 @@ void lily_covlib__cover_optional_string(lily_state *s)
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
 
     lily_mb_add_fmt(msgbuf, "%s%s%s", arg_a, arg_b, arg_c);
-    lily_push_string(s, lily_mb_raw(msgbuf));
-    lily_return_top(s);
+    lily_return_string(s, lily_mb_raw(msgbuf));
 }
 
 void lily_covlib__cover_value_group(lily_state *s)
