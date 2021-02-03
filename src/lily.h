@@ -111,6 +111,11 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //     sipkey        - (Default: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 //                     The sipkey is an array of 16 char values that helps to
 //                     prevent collisions in Lily's Hash class.
+//
+//     extra_info    - (Default: 0)
+//                     By default, the interpreter does not save parameter names
+//                     or docblocks for introspection. If this is 1 when
+//                     starting a parse, the information is saved and evailable.
 typedef struct lily_config_ {
     int argc;
     char **argv;
@@ -120,6 +125,7 @@ typedef struct lily_config_ {
     lily_import_func import_func;
     char sipkey[16];
     void *data;
+    int extra_info;
 } lily_config;
 
 // Function: lily_config_init

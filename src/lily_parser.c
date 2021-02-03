@@ -158,6 +158,7 @@ void lily_config_init(lily_config *conf)
     conf->import_func = lily_default_import_func;
     conf->render_func = (lily_render_func)fputs;
     conf->data = stdout;
+    conf->extra_info = 0;
 }
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
@@ -405,6 +406,179 @@ static void add_data_string(lily_parse_state *parser, const char *to_add)
 {
     lily_u16_write_1(parser->data_stack, parser->data_string_pos);
     lily_sp_insert(parser->data_strings, to_add, &parser->data_string_pos);
+}
+
+/***
+ *      ____
+ *     |  _ \  ___   ___ ___
+ *     | | | |/ _ \ / __/ __|
+ *     | |_| | (_) | (__\__ \
+ *     |____/ \___/ \___|___/
+ *
+ */
+
+static void grow_docs(lily_doc_stack *d)
+{
+    uint16_t new_size = d->size * 2;
+    char ***new_data = lily_realloc(d->data,
+            sizeof(*new_data) * d->size * 2);
+
+    d->data = new_data;
+    d->size = new_size;
+}
+
+static void init_doc(lily_parse_state *parser)
+{
+    parser->flags |= PARSER_EXTRA_INFO;
+
+    if (parser->doc)
+        return;
+
+    lily_doc_stack *d = lily_malloc(sizeof(*d));
+
+    d->data = lily_malloc(4 * sizeof(*d->data));
+    d->pos = 0;
+    d->size = 4;
+    parser->doc = d;
+}
+
+/* This takes pairs from parser's data stack and builds a string array. Unlike a
+   typical string array where each element is a small string, this function
+   builds a single backing string. This is done to make deletion easier (element
+   zero is always the backing string), and to reduce the number of allocation
+   calls.
+   The array built is terminated by NULL at the end to allow safe looping.
+   Parser's data stack and strings are fixed by this call at the end. */
+static char **build_strings_by_data(lily_parse_state *parser,
+        uint16_t arg_count, uint16_t key_start)
+{
+    lily_buffer_u16 *ds = parser->data_stack;
+
+    /* If the first argument doesn't have a keyword, insert a zero at the start
+       and push the string by 1. */
+    uint16_t no_first_key = !!lily_u16_get(ds, key_start);
+    uint16_t offset = lily_u16_get(ds, key_start + 1);
+    uint16_t range = parser->data_string_pos - offset;
+    char **keys = lily_malloc((arg_count + 1) * sizeof(*keys));
+
+    /* There's no extra +1 because range includes the terminating zero. */
+    char *block = lily_malloc((range + no_first_key) * sizeof(*block));
+    char *source = parser->data_strings->buffer;
+
+    /* Deletion is easier if [0] is always the backing string. If the first
+       argument doesn't have a keyword, then the block starts with "\0". */
+    block[0] = '\0';
+    memcpy(block + no_first_key, source + offset, range * sizeof(*block));
+
+    /* Use the "\0" at the end of the block for empty keys. */
+    char *empty = block + range + no_first_key - 1;
+    uint16_t key_end = lily_u16_pos(parser->data_stack);
+    uint16_t i;
+
+    for (i = 1;i < arg_count;i++)
+        keys[i] = empty;
+
+    keys[0] = block;
+    keys[arg_count] = NULL;
+
+    for (i = key_start;i < key_end;i += 2) {
+        uint16_t arg_pos = lily_u16_get(ds, i);
+        uint16_t string_pos = lily_u16_get(ds, i + 1);
+
+        /* Translate data string position to block position. */
+        uint16_t target_pos = string_pos - offset + no_first_key;
+
+        keys[arg_pos] = block + target_pos;
+    }
+
+    parser->data_string_pos = lily_u16_get(ds, key_start + 1);
+    lily_u16_set_pos(ds, key_start);
+    return keys;
+}
+
+static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
+{
+    lily_doc_stack *d = parser->doc;
+
+    if (d->pos == d->size)
+        grow_docs(d);
+
+    uint16_t start = lily_u16_pos(parser->data_stack) - (arg_count * 2);
+    char **text = build_strings_by_data(parser, arg_count, start);
+    uint16_t result = d->pos;
+
+    d->data[d->pos] = text;
+    d->pos++;
+
+    return result;
+}
+
+static uint16_t store_docblock(lily_parse_state *parser)
+{
+    parser->flags &= ~PARSER_HAS_DOCBLOCK;
+    return build_doc_data(parser, 1);
+}
+
+static void write_generics(lily_parse_state *parser, uint16_t where)
+{
+    lily_generic_pool *gp = parser->generics;
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    /* Since generics are required to be in letter order, introspect only needs
+       the total available. It can walk the generic pool later on. */
+    char range = (char)(gp->scope_end - gp->scope_start);
+
+    lily_mb_add_char(msgbuf, range);
+    lily_u16_write_1(parser->data_stack, where);
+    add_data_string(parser, lily_mb_raw(msgbuf));
+}
+
+static void set_definition_doc(lily_parse_state *parser)
+{
+    lily_var *define_var = parser->emit->scope_block->scope_var;
+    lily_var *var_iter = parser->symtab->active_module->var_chain;
+    uint16_t count = parser->emit->scope_block->var_count;
+    uint16_t offset = 0;
+    int is_ctor = 0;
+    uint16_t i;
+
+    if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
+        lily_u16_write_1(parser->data_stack, 0);
+        add_data_string(parser, "");
+    }
+    else
+        parser->flags &= ~PARSER_HAS_DOCBLOCK;
+
+    if (define_var->parent &&
+        (define_var->flags & VAR_IS_STATIC) == 0) {
+        if (define_var->name[0] != '<') {
+            /* This is a non-static class method. The self of class methods is
+               held in a storage instead of a var, but is in the type. An extra
+               space is added later so that parameters and types line up. */
+            offset = 1;
+            count++;
+        }
+        else
+            is_ctor = 1;
+    }
+
+    for (i = count;i > offset;i--) {
+        lily_u16_write_1(parser->data_stack, i);
+        add_data_string(parser, var_iter->name);
+        var_iter = var_iter->next;
+    }
+
+    if (offset) {
+        lily_u16_write_1(parser->data_stack, i);
+        add_data_string(parser, "");
+    }
+
+    write_generics(parser, count + 1);
+    define_var->doc_id = build_doc_data(parser, count + 2);
+
+    if (is_ctor)
+        /* Give the info to the class too since it has the docblock. */
+        define_var->parent->doc_id = define_var->doc_id;
 }
 
 /***
@@ -1066,60 +1240,6 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     v->value.function = f;
 
     lily_new_function_literal(parser->symtab, var, v);
-}
-
-/* This takes pairs from parser's data stack and builds a string array. Unlike a
-   typical string array where each element is a small string, this function
-   builds a single backing string. This is done to make deletion easier (element
-   zero is always the backing string), and to reduce the number of allocation
-   calls.
-   The array built is terminated by NULL at the end to allow safe looping.
-   Parser's data stack and strings are fixed by this call at the end. */
-static char **build_strings_by_data(lily_parse_state *parser,
-        uint16_t arg_count, uint16_t key_start)
-{
-    lily_buffer_u16 *ds = parser->data_stack;
-
-    /* If the first argument doesn't have a keyword, insert a zero at the start
-       and push the string by 1. */
-    uint16_t no_first_key = !!lily_u16_get(ds, key_start);
-    uint16_t offset = lily_u16_get(ds, key_start + 1);
-    uint16_t range = parser->data_string_pos - offset;
-    char **keys = lily_malloc((arg_count + 1) * sizeof(*keys));
-
-    /* There's no extra +1 because range includes the terminating zero. */
-    char *block = lily_malloc((range + no_first_key) * sizeof(*block));
-    char *source = parser->data_strings->buffer;
-
-    /* Deletion is easier if [0] is always the backing string. If the first
-       argument doesn't have a keyword, then the block starts with "\0". */
-    block[0] = '\0';
-    memcpy(block + no_first_key, source + offset, range * sizeof(*block));
-
-    /* Use the "\0" at the end of the block for empty keys. */
-    char *empty = block + range + no_first_key - 1;
-    uint16_t key_end = lily_u16_pos(parser->data_stack);
-    uint16_t i;
-
-    for (i = 1;i < arg_count;i++)
-        keys[i] = empty;
-
-    keys[0] = block;
-    keys[arg_count] = NULL;
-
-    for (i = key_start;i < key_end;i += 2) {
-        uint16_t arg_pos = lily_u16_get(ds, i);
-        uint16_t string_pos = lily_u16_get(ds, i + 1);
-
-        /* Translate data string position to block position. */
-        uint16_t target_pos = string_pos - offset + no_first_key;
-
-        keys[arg_pos] = block + target_pos;
-    }
-
-    parser->data_string_pos = lily_u16_get(ds, key_start + 1);
-    lily_u16_set_pos(ds, key_start);
-    return keys;
 }
 
 static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
@@ -4599,6 +4719,9 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
         super_expression(parser, cls);
 
     lily_emit_activate_block_self(parser->emit);
+
+    if (parser->flags & PARSER_EXTRA_INFO)
+        set_definition_doc(parser);
 }
 
 /* This is a helper function that scans 'target' to determine if it will require
@@ -4816,6 +4939,9 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     }
 
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
+
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        enum_cls->doc_id = store_docblock(parser);
 }
 
 static void enum_method_check(lily_parse_state *parser)
@@ -5219,6 +5345,9 @@ static void keyword_define(lily_parse_state *parser)
     collect_call_args(parser, define_var, F_COLLECT_DEFINE);
     finish_define_init(parser, define_var);
 
+    if (parser->flags & PARSER_EXTRA_INFO)
+        set_definition_doc(parser);
+
     if (parser->flags & PARSER_IN_MANIFEST)
         return;
 
@@ -5528,6 +5657,13 @@ static void parse_block_exit(lily_parse_state *parser)
 static void process_docblock(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
+
+    if (parser->flags & PARSER_EXTRA_INFO) {
+        lily_u16_write_1(parser->data_stack, 0);
+        add_data_string(parser, lex->label);
+        parser->flags |= PARSER_HAS_DOCBLOCK;
+    }
+
     lily_next_token(lex);
 
     int key_id;
@@ -5590,6 +5726,9 @@ static void parser_loop(lily_parse_state *parser)
 
     lily_next_token(lex);
 
+    if (parser->config->extra_info == 1)
+        init_doc(parser);
+
     while (1) {
         if (lex->token == tk_word) {
             /* Is this a keyword or an expression? */
@@ -5650,97 +5789,6 @@ static void parser_loop(lily_parse_state *parser)
     }
 }
 
-static void grow_docs(lily_doc_stack *d)
-{
-    uint16_t new_size = d->size * 2;
-    char ***new_data = lily_realloc(d->data,
-            sizeof(*new_data) * d->size * 2);
-
-    d->data = new_data;
-    d->size = new_size;
-}
-
-static void init_doc(lily_parse_state *parser)
-{
-    if (parser->doc)
-        return;
-
-    lily_doc_stack *d = lily_malloc(sizeof(*d));
-
-    d->data = lily_malloc(4 * sizeof(*d->data));
-    d->pos = 0;
-    d->size = 4;
-    parser->doc = d;
-}
-
-static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
-{
-    lily_doc_stack *d = parser->doc;
-
-    if (d->pos == d->size)
-        grow_docs(d);
-
-    uint16_t start = lily_u16_pos(parser->data_stack) - (arg_count * 2);
-    char **text = build_strings_by_data(parser, arg_count, start);
-    uint16_t result = d->pos;
-
-    d->data[d->pos] = text;
-    d->pos++;
-
-    /* Text building rewinds the data stack's position to the start. Bump the
-       position to restore the hanging zero that manifest loop pushed. */
-    parser->data_stack->pos++;
-
-    return result;
-}
-
-static void write_generics(lily_parse_state *parser, uint16_t where)
-{
-    lily_generic_pool *gp = parser->generics;
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-
-    /* Since generics are required to be in letter order, introspect only needs
-       the total available. It can walk the generic pool later on. */
-    char range = (char)(gp->scope_end - gp->scope_start);
-
-    lily_mb_add_char(msgbuf, range);
-    lily_u16_write_1(parser->data_stack, where);
-    add_data_string(parser, lily_mb_raw(msgbuf));
-}
-
-static void set_manifest_define_doc(lily_parse_state *parser)
-{
-    lily_var *define_var = parser->emit->scope_block->scope_var;
-    lily_var *var_iter = parser->symtab->active_module->var_chain;
-    uint16_t count = parser->emit->scope_block->var_count;
-    uint16_t offset = 0;
-    uint16_t i;
-
-    if (define_var->parent &&
-        (define_var->flags & VAR_IS_STATIC) == 0 &&
-        define_var->name[0] != '<') {
-        /* This is a non-static class method. The self of class methods is held
-           in a storage instead of a var, but is in the type. An extra space is
-           added later so that parameters and types line up. */
-        offset = 1;
-        count++;
-    }
-
-    for (i = count;i > offset;i--) {
-        lily_u16_write_1(parser->data_stack, i);
-        add_data_string(parser, var_iter->name);
-        var_iter = var_iter->next;
-    }
-
-    if (offset) {
-        lily_u16_write_1(parser->data_stack, i);
-        add_data_string(parser, "");
-    }
-
-    write_generics(parser, count + 1);
-    define_var->doc_id = build_doc_data(parser, count + 2);
-}
-
 static void manifest_define(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5748,7 +5796,6 @@ static void manifest_define(lily_parse_state *parser)
 
     lily_next_token(lex);
     keyword_define(parser);
-    set_manifest_define_doc(parser);
 
     /* Close the definition to prevent storing code. */
     hide_block_vars(parser);
@@ -5756,22 +5803,6 @@ static void manifest_define(lily_parse_state *parser)
 
     /* This exits the definition without doing a return check. */
     lily_emit_leave_scope_block(emit);
-}
-
-static void manifest_class(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_next_token(lex);
-    keyword_class(parser);
-
-    /* This sets the docblock and arg information on the constructor. */
-    set_manifest_define_doc(parser);
-
-    lily_var *define_var = parser->emit->scope_block->scope_var;
-
-    /* Give the info to the class too since it has the docblock. */
-    parser->current_class->doc_id = define_var->doc_id;
 }
 
 static void manifest_foreign(lily_parse_state *parser)
@@ -5787,7 +5818,8 @@ static void manifest_foreign(lily_parse_state *parser)
     }
 
     expect_word(parser, "class");
-    manifest_class(parser);
+    lily_next_token(lex);
+    keyword_class(parser);
     parser->current_class->item_kind = ITEM_CLASS_FOREIGN;
 
     lily_named_sym *sym = parser->current_class->members;
@@ -5804,28 +5836,6 @@ static void manifest_foreign(lily_parse_state *parser)
         parser->symtab->hidden_function_chain = ctor;
         parser->current_class->members = NULL;
     }
-}
-
-static void manifest_enum(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_next_token(lex);
-    keyword_enum(parser);
-
-    /* Enums only need the docblock. Generics aren't written because the enum
-       has enough information for introspect to rebuild generics. */
-    parser->current_class->doc_id = build_doc_data(parser, 1);
-}
-
-static void manifest_scoped(lily_parse_state *parser)
-{
-    lily_lex_state *lex = parser->lex;
-
-    lily_next_token(lex);
-    keyword_scoped(parser);
-
-    parser->current_class->doc_id = build_doc_data(parser, 1);
 }
 
 static void manifest_var(lily_parse_state *parser)
@@ -5874,8 +5884,9 @@ static void manifest_var(lily_parse_state *parser)
     lily_next_token(lex);
     sym->type = get_type(parser);
 
-    /* Similar to enums, vars and properties only store the docblock. */
-    sym->doc_id = build_doc_data(parser, 1);
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        /* Similar to enums, vars and properties only store the docblock. */
+        sym->doc_id = store_docblock(parser);
 }
 
 static void manifest_modifier(lily_parse_state *parser, int key)
@@ -5966,7 +5977,9 @@ static void manifest_library(lily_parse_state *parser)
         m = parser->symtab->prelude_module;
     }
 
-    m->doc_id = build_doc_data(parser, 1);
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        m->doc_id = store_docblock(parser);
+
     lily_free(m->loadname);
     m->loadname = lily_malloc((strlen(lex->label) + 1) * sizeof(*m->loadname));
     strcpy(m->loadname, lex->label);
@@ -5982,9 +5995,6 @@ static void manifest_import(lily_parse_state *parser, int have_docblock)
         lily_raise_syn(parser->raiser,
                 "Import keyword should not have a docblock.");
 
-    /* Drop the empty string that manifest_loop pushed. This will make the stack
-       line up again when this import closes. */
-    lily_u16_pop(parser->data_stack);
     lily_next_token(lex);
     import_loop(parser);
 }
@@ -6032,15 +6042,11 @@ static void manifest_predefined(lily_parse_state *parser)
     lily_free_properties(cls);
     cls->members = NULL;
 
-    if (cls->item_kind & ITEM_IS_ENUM) {
+    if (cls->item_kind & ITEM_IS_ENUM)
         parse_enum_header(parser, cls);
-        parser->current_class->doc_id = build_doc_data(parser, 1);
-    }
     else {
         collect_generics_for(parser, cls);
         parse_class_header(parser, cls);
-        set_manifest_define_doc(parser);
-        cls->doc_id = parser->emit->scope_block->scope_var->doc_id;
         lily_next_token(lex);
 
         /* Parsing a class header creates a constructor that only native
@@ -6062,6 +6068,7 @@ static void manifest_loop(lily_parse_state *parser)
     int key_id = KEY_BAD_ID;
 
     parser->flags |= PARSER_IN_MANIFEST;
+    init_doc(parser);
 
 enter_manifest_import:;
     /* This is a trick inspired by "use strict". Code files passed to manifest
@@ -6073,17 +6080,14 @@ enter_manifest_import:;
 
     lily_next_token(lex);
 
-    /* Docblocks are built by reading the data stack for pairs of id and string
-       position. Each level of manifest file entry pushes a hanging zero for the
-       initial docblock position to attach to.  */
-    lily_u16_write_1(parser->data_stack, 0);
-
     while (1) {
         if (lex->token == tk_docblock) {
             /* Store documentation for the keyword to pull. */
+            lily_u16_write_1(parser->data_stack, 0);
             add_data_string(parser, lex->label);
             lily_next_token(lex);
             have_docblock = 1;
+            parser->flags |= PARSER_HAS_DOCBLOCK;
 
             if (lex->token != tk_word)
                 lily_raise_syn(parser->raiser,
@@ -6093,31 +6097,26 @@ enter_manifest_import:;
 
         if (lex->token == tk_word) {
             key_id = keyword_by_name(lex->label);
-
-            if (have_docblock == 0)
-                /* No docblock, so save an empty string to get pulled. */
-                add_data_string(parser, "");
-
             have_docblock = 0;
 
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
-            else if (key_id == KEY_CLASS)
-                manifest_class(parser);
+            else if (key_id == KEY_CLASS ||
+                     key_id == KEY_ENUM ||
+                     key_id == KEY_SCOPED) {
+                lily_next_token(lex);
+                handlers[key_id](parser);
+            }
             else if (key_id == KEY_PUBLIC ||
                      key_id == KEY_PROTECTED ||
                      key_id == KEY_PRIVATE)
                 manifest_modifier(parser, key_id);
-            else if (key_id == KEY_ENUM)
-                manifest_enum(parser);
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
             else if (key_id == KEY_IMPORT) {
                 manifest_import(parser, have_docblock);
                 goto enter_manifest_import;
             }
-            else if (key_id == KEY_SCOPED)
-                manifest_scoped(parser);
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
@@ -6139,9 +6138,6 @@ enter_manifest_import:;
             if (b->block_type != block_file)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(tk_eof));
-
-            /* Drop the hanging 0 pushed above. */
-            lily_u16_pop(parser->data_stack);
 
             if (b->prev != NULL)
                 finish_import(parser);
@@ -6355,7 +6351,6 @@ int lily_parse_manifest(lily_state *s)
     parser->flags = 0;
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        init_doc(parser);
         manifest_loop(parser);
 
         lily_pop_lex_entry(parser->lex);
