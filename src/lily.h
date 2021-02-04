@@ -115,7 +115,7 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //     extra_info    - (Default: 0)
 //                     By default, the interpreter does not save parameter names
 //                     or docblocks for introspection. If this is 1 when
-//                     starting a parse, the information is saved and evailable.
+//                     starting a parse, the information is saved and available.
 typedef struct lily_config_ {
     int argc;
     char **argv;
