@@ -6,9 +6,9 @@
 #include <string.h>
 
 #include "lily_alloc.h"
-#include "lily_config.h"
 #include "lily_lexer.h"
 #include "lily_lexer_data.h"
+#include "lily_platform.h"
 #include "lily_utf8.h"
 
 /** Lexer init and deletion **/

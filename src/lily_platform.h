@@ -1,5 +1,5 @@
-#ifndef LILY_CONFIG_H
-# define LILY_CONFIG_H
+#ifndef LILY_PLATFORM_H
+# define LILY_PLATFORM_H
 
 # ifdef _WIN32
 #  define LILY_PATH_CHAR '\\'
