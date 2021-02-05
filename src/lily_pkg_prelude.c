@@ -1573,9 +1573,9 @@ void lily_prelude_String_find(lily_state *s)
         return;
     }
 
-    const char *input_str = lily_string_raw(input_sv) + start;
+    const char *input_str = lily_string_raw(input_sv);
     const char *find_str = lily_string_raw(find_sv);
-    char *result = strstr(input_str, find_str);
+    char *result = strstr(input_str + start, find_str);
 
     if (result == NULL) {
         lily_return_none(s);

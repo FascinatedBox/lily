@@ -20,6 +20,7 @@ class TestStringMethods < TestCase
          "1234"  .find("5")    .is_some() |> assert_false
          "1234"  .find("1", 9) .is_some() |> assert_false
          "1234"  .find("3", 2) .is_some() |> assert_true
+         assert_equal("abc,def,ghi".find(",", 5), Some(7))
     }
 
     public define test_format
