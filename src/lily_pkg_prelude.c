@@ -6,6 +6,7 @@
 #include "lily.h"
 #include "lily_alloc.h"
 #include "lily_parser.h"
+#include "lily_platform.h"
 #include "lily_symtab.h"
 #include "lily_utf8.h"
 #include "lily_value.h"
@@ -403,13 +404,9 @@ void lily_prelude_File_open(lily_state *s)
     FILE *f = fopen(path, mode);
 
     if (f == NULL) {
-        /* Assume that the message is of a reasonable sort of size. */
-        char buffer[128];
-#ifdef _WIN32
-        strerror_s(buffer, sizeof(buffer), errno);
-#else
-        strerror_r(errno, buffer, sizeof(buffer));
-#endif
+        char buffer[LILY_STRERROR_BUFFER_SIZE];
+
+        lily_strerror(buffer);
         lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
     }
 

@@ -6268,13 +6268,9 @@ static FILE *load_file_to_parse(lily_parse_state *parser, const char *path)
 {
     FILE *load_file = fopen(path, "r");
     if (load_file == NULL) {
-        /* Assume that the message is of a reasonable sort of size. */
-        char buffer[128];
-#ifdef _WIN32
-        strerror_s(buffer, sizeof(buffer), errno);
-#else
-        strerror_r(errno, buffer, sizeof(buffer));
-#endif
+        char buffer[LILY_STRERROR_BUFFER_SIZE];
+
+        lily_strerror(buffer);
         lily_raise_raw(parser->raiser, "Failed to open %s: (%s).", path,
                 buffer);
     }
