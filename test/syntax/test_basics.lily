@@ -138,6 +138,26 @@ class TestBasics < TestCase
         """)
     }
 
+    public define test_coercion
+    {
+        var t = Interpreter()
+
+        # coercion (Integer to Byte)
+
+        assert_parse_string(t, """
+            var a: Byte = 0
+
+            define f(b: Byte) {}
+
+            f(127)
+            a = 255
+
+            if a != 255: {
+                0 / 0
+            }
+        """)
+    }
+
     public define test_comparisons
     {
         var t = Interpreter()

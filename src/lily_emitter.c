@@ -2978,8 +2978,26 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)ret;
 }
 
-static void emit_integer(lily_emit_state *emit, lily_ast *ast)
+static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 {
+    lily_storage *s = get_storage(emit, emit->symtab->byte_class->self_type);
+
+    lily_u16_write_4(emit->code, o_load_byte, ast->backing_value, s->reg_spot,
+            ast->line_num);
+
+    ast->result = (lily_sym *)s;
+}
+
+static void emit_integer(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    if (expect->cls->id == LILY_ID_BYTE &&
+        ast->backing_value >= 0 &&
+        ast->backing_value <= UINT8_MAX) {
+        emit_byte(emit, ast);
+        return;
+    }
+
     lily_storage *s = get_storage(emit, emit->symtab->integer_class->self_type);
 
     lily_u16_write_4(emit->code, o_load_integer, ast->backing_value,
@@ -2993,16 +3011,6 @@ static void emit_boolean(lily_emit_state *emit, lily_ast *ast)
     lily_storage *s = get_storage(emit, emit->symtab->boolean_class->self_type);
 
     lily_u16_write_4(emit->code, o_load_boolean, ast->backing_value, s->reg_spot,
-            ast->line_num);
-
-    ast->result = (lily_sym *)s;
-}
-
-static void emit_byte(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_storage *s = get_storage(emit, emit->symtab->byte_class->self_type);
-
-    lily_u16_write_4(emit->code, o_load_byte, ast->backing_value, s->reg_spot,
             ast->line_num);
 
     ast->result = (lily_sym *)s;
@@ -4187,7 +4195,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_literal)
         emit_literal(emit, ast);
     else if (ast->tree_type == tree_integer)
-        emit_integer(emit, ast);
+        emit_integer(emit, ast, expect);
     else if (ast->tree_type == tree_byte)
         emit_byte(emit, ast);
     else if (ast->tree_type == tree_boolean)

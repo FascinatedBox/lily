@@ -224,6 +224,31 @@ class TestBadSyntax < TestCase
         """)
     }
 
+    public define test_bad_coercion
+    {
+        var t = Interpreter()
+
+        # bad coercion (Negative Integer for Byte)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a: Byte = -1
+        """)
+
+        # bad coercion (Out of range Integer for Byte)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var a: Byte = 256
+        """)
+    }
+
     public define test_bad_cast
     {
         var t = Interpreter()
