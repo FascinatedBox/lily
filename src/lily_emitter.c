@@ -4405,12 +4405,16 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
         eval_enforce_value(emit, ast, return_type,
                 "'return' expression has no value.");
 
-        if (ast->result->type != return_type &&
-            type_matchup(emit, return_type, ast) == 0) {
+        if (ast->result->type == return_type ||
+            type_matchup(emit, return_type, ast))
+            ;
+        else if (return_type->cls == lily_self_class &&
+                 ast->tree_type == tree_self)
+            ;
+        else
             lily_raise_tree(emit->raiser, ast,
                     "return expected type '^T' but got type '^T'.", return_type,
                     ast->result->type);
-        }
 
         write_pop_try_blocks_up_to(emit, emit->scope_block);
         lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,

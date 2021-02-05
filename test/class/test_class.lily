@@ -363,6 +363,47 @@ class TestClass < TestCase
 
             Second().doit().amethod()
         """)
+
+        # self (allow early exit)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            class Adder
+            {
+                private var @error = false
+                private var @values: List[Integer] = []
+
+                public define push(v: String): self
+                {
+                    if @error: {
+                        return self
+                    }
+
+                    match v.parse_i(): {
+                        case Some(s):
+                            @values.push(s)
+                        case None:
+                            @error = true
+                    }
+                }
+
+                public define sum: Integer
+                {
+                    return @values.fold(0, (|a, b| a + b ))
+                }
+            }
+
+            var v = Adder()
+                        .push("1")
+                        .push("3")
+                        .push("a")
+                        .push("5")
+                        .sum()
+
+            if v != 4: {
+                0 / 0
+            }
+        """)
     }
 
     public define test_shorthand_ctor
