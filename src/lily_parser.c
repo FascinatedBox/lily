@@ -36,7 +36,6 @@ extern lily_type *lily_question_type;
 extern lily_class *lily_scoop_class;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
-extern void lily_prelude_register(lily_vm_state *);
 
 /***
  *      ____       _
