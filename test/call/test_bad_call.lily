@@ -281,6 +281,20 @@ class TestBadCall < TestCase
         """\
             (10)()
         """)
+
+        # invalid call (call against property holding Integer)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot anonymously call resulting type 'Integer'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            class Example {
+                public var @a = 10
+            }
+
+            Example().a()
+        """)
     }
 
     public define test_keyarg_calls

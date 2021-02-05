@@ -3656,7 +3656,7 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
     }
 
     if (call_type->cls->id != LILY_ID_FUNCTION &&
-        (call_item->flags & ITEM_IS_VARIANT) == 0) {
+        (call_item->item_kind & ITEM_IS_VARIANT) == 0) {
         lily_raise_tree(emit->raiser, ast,
                 "Cannot anonymously call resulting type '^T'.",
                 call_type);
