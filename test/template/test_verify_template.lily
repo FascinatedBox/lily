@@ -68,6 +68,15 @@ class TestVerifyTemplate < TestCase
             versions of Lorem Ipsum.
             <?lily ?>
         """)
+
+        # basics (render when stdout is reassigned)
+
+        t = Interpreter()
+        assert_render_string(t, """\
+            <?lily stdout = stderr ?>
+            asdf
+            <?lily stdout.write("1234\\r") ?>\
+        """)
     }
 
     public define test_failure
@@ -140,16 +149,16 @@ class TestVerifyTemplate < TestCase
             ?>
         """)
 
-        # failure (render when stdout is not readable)
+        # failure (render content when stdin cannot be written to)
 
         t = Interpreter()
         assert_render_fails(t, """\
             SyntaxError: Cannot write template output to stdout.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
-            <?lily stdout = stderr
-            ?>
+            <?lily stdout = stdin ?>
+            asdf
         """)
     }
 }

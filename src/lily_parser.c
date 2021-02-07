@@ -5546,7 +5546,7 @@ static void verify_template_target_open(lily_parse_state *parser)
     lily_file_val *fv = lily_as_file(stdout_value);
 
     if (fv->close_func == NULL ||
-        fv->read_ok == 0) {
+        fv->write_ok == 0) {
         lily_raise_syn(parser->raiser,
                 "Cannot write template output to stdout.");
     }
