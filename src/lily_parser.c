@@ -6341,6 +6341,8 @@ void lily_parser_exit(lily_state *s, uint8_t status)
     while (jump_iter->prev != NULL)
         jump_iter = jump_iter->prev;
 
+    /* Fix this so raiser deletes all the jumps. */
+    parser->raiser->all_jumps = jump_iter;
     longjmp(jump_iter->jump, 1);
 }
 
