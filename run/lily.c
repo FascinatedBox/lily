@@ -105,10 +105,8 @@ int main(int argc, char **argv)
     if (result == 0)
         fputs(lily_error_message(state), stderr);
 
-    lily_free_state(state);
+    int exit_code = lily_exit_code(state);
 
-    if (result == 0)
-        exit(EXIT_FAILURE);
-    else
-        exit(EXIT_SUCCESS);
+    lily_free_state(state);
+    exit(exit_code);
 }

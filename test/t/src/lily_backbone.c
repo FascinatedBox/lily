@@ -245,6 +245,15 @@ void lily_backbone_Interpreter_error_message(lily_state *s)
     lily_return_string(s, lily_error_message_no_trace(raw->subi));
 }
 
+void lily_backbone_Interpreter_exit_code(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_state *subi = raw->subi;
+    uint8_t status = lily_exit_code(subi);
+
+    lily_return_byte(s, status);
+}
+
 void lily_backbone_Interpreter_import_use_local_dir(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);

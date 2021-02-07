@@ -60,10 +60,11 @@ lily_push_super(s_, ID_TestCaseBase(s_), 3)
 LILY_BACKBONE_EXPORT
 const char *lily_backbone_info_table[] = {
     "\03Interpreter\0RawInterpreter\0TestCaseBase\0"
-    ,"N\022Interpreter\0"
+    ,"N\023Interpreter\0"
     ,"m\0<new>\0: Interpreter"
     ,"m\0error\0(Interpreter): String"
     ,"m\0error_message\0(Interpreter): String"
+    ,"m\0exit_code\0(Interpreter): Byte"
     ,"m\0import_current_root_dir\0(Interpreter): String"
     ,"m\0import_file\0(Interpreter,String): Boolean"
     ,"m\0import_library\0(Interpreter,String): Boolean"
@@ -97,6 +98,7 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     lily_backbone_Interpreter_new, \
     lily_backbone_Interpreter_error, \
     lily_backbone_Interpreter_error_message, \
+    lily_backbone_Interpreter_exit_code, \
     lily_backbone_Interpreter_import_current_root_dir, \
     lily_backbone_Interpreter_import_file, \
     lily_backbone_Interpreter_import_library, \

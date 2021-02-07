@@ -95,8 +95,10 @@ typedef struct lily_rewind_state_
     lily_module_link *main_last_module_link;
     lily_module_entry *main_last_module;
     uint16_t line_num;
+    uint16_t pending;
+    uint8_t exit_status;
+    uint8_t has_exited;
     uint16_t pad;
-    uint32_t pending;
 } lily_rewind_state;
 
 /* The import state (ims) holds data relevant to the interpreter's import hook.
@@ -192,6 +194,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->ims->path_msgbuf = lily_new_msgbuf(64);
     parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
+    parser->rs->has_exited = 0;
 
     /* These two are simple and don't depend on other parts. */
     parser->expr = lily_new_expr_state();
@@ -6283,7 +6286,8 @@ static int open_first_content(lily_state *s, const char *filename,
 {
     lily_parse_state *parser = s->gs->parser;
 
-    if (parser->flags & PARSER_HAS_CONTENT)
+    if (parser->flags & PARSER_HAS_CONTENT ||
+        parser->rs->has_exited)
         return 0;
 
     /* Loading initial content should only be done outside of execution, so
@@ -6323,6 +6327,37 @@ static int open_first_content(lily_state *s, const char *filename,
     }
 
     return 0;
+}
+
+void lily_parser_exit(lily_state *s, uint8_t status)
+{
+    lily_parse_state *parser = s->gs->parser;
+    lily_rewind_state *rs = parser->rs;
+    lily_jump_link *jump_iter = parser->raiser->all_jumps;
+
+    rs->exit_status = status;
+    rs->has_exited = 1;
+
+    while (jump_iter->prev != NULL)
+        jump_iter = jump_iter->prev;
+
+    longjmp(jump_iter->jump, 1);
+}
+
+int lily_exit_code(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+    lily_rewind_state *rs = parser->rs;
+    int result;
+
+    if (rs->has_exited)
+        result = rs->exit_status;
+    else if (parser->raiser->source == err_from_none)
+        result = EXIT_SUCCESS;
+    else
+        result = EXIT_FAILURE;
+
+    return result;
 }
 
 int lily_load_file(lily_state *s, const char *filename)

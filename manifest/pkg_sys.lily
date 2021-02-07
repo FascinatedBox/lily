@@ -1,7 +1,28 @@
 import manifest
 
-### The sys package provides access to the arguments given to Lily.
+### Interpreter and system environment access.
 library sys
+
+### Exit the interpreter with `status` exit code.
+###
+### This function will always exit the interpreter, because it does NOT raise an
+### exception to exit.
+###
+### Following an exit, the interpreter will yield control to the embedder. The
+### interpreter will block subsequent attempts to load content to prevent
+### further usage. Regardless of exit code, the interpreter will return to the
+### embedder successfully (no error is recorded).
+###
+### The interpreter does not exit on behalf of the embedder. Instead, the
+### interpreter provides functionality through the api to retrieve a suitable
+### exit code.
+define exit(status: Byte)
+
+### Convenience function for calling `sys.exit` with EXIT_FAILURE.
+define exit_failure
+
+### Convenience function for calling `sys.exit` with EXIT_SUCCESS.
+define exit_success
 
 ### Search the environment for `name`, returning either a `Some` with the
 ### contents, or `None`. Internally, this is a wrapper over C's getenv.

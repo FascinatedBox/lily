@@ -11,6 +11,9 @@
 LILY_SYS_EXPORT
 const char *lily_sys_info_table[] = {
     "\0\0"
+    ,"F\0exit\0(Byte)"
+    ,"F\0exit_failure\0"
+    ,"F\0exit_success\0"
     ,"F\0getenv\0(String): Option[String]"
     ,"F\0recursion_limit\0: Integer"
     ,"F\0set_recursion_limit\0(Integer)"
@@ -21,6 +24,9 @@ const char *lily_sys_info_table[] = {
 LILY_SYS_EXPORT \
 lily_call_entry_func lily_sys_call_table[] = { \
     NULL, \
+    lily_sys__exit, \
+    lily_sys__exit_failure, \
+    lily_sys__exit_success, \
     lily_sys__getenv, \
     lily_sys__recursion_limit, \
     lily_sys__set_recursion_limit, \

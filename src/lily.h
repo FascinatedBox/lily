@@ -144,6 +144,14 @@ lily_config *lily_config_get(lily_state *s);
 // Section: State Management
 ////////////////////////////
 
+// Function: lily_exit_code
+// Return a suitable exit code based on the status of the interpreter.
+//
+// If `sys.exit` has been called, this will return the exit code given to it.
+// Otherwise, this returns EXIT_SUCCESS if the last content handling function
+// succeeded, or EXIT_FAILURE if it did not.
+int lily_exit_code(lily_state *s);
+
 // Function: lily_new_state
 // Create a new interpreter.
 lily_state *lily_new_state(lily_config *config);

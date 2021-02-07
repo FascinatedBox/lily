@@ -21,6 +21,7 @@ class Interpreter
     private var @import_hook: Function(Interpreter, String)
     public define error: String
     public define error_message: String
+    public define exit_code: Byte
     public define import_current_root_dir: String
     public define import_file(path: String): Boolean
     public define import_library(path: String): Boolean

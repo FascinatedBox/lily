@@ -3,6 +3,47 @@ import (Interpreter,
 
 class TestPkgSys < TestCase
 {
+    public define test_exit
+    {
+        var t = Interpreter()
+
+        t.parse_string("[ctx]", """
+            import sys
+
+            sys.exit(69)
+        """)
+
+        assert_equal(t.exit_code(), 69)
+    }
+
+    public define test_exit_failure_success
+    {
+        var failure_t = Interpreter()
+        var success_t = Interpreter()
+
+        success_t.parse_string("[ctx]", "var v = 1")
+        failure_t.parse_string("[ctx]", "0 / 0")
+
+        var success_exit = success_t.exit_code()
+        var failure_exit = failure_t.exit_code()
+
+        assert_not_equal(success_exit, failure_exit)
+
+        success_t.parse_string("[ctx]", """
+            import sys
+
+            sys.exit_failure()
+        """)
+        failure_t.parse_string("[ctx]", """
+            import sys
+
+            sys.exit_success()
+        """)
+
+        assert_equal(success_exit, failure_t.exit_code())
+        assert_equal(failure_exit, success_t.exit_code())
+    }
+
     public define test_getenv
     {
         var home = sys.getenv("HOME")
