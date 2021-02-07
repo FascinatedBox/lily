@@ -579,3 +579,13 @@ const char *lily_mb_html_escape(lily_msgbuf *msgbuf, const char *input_str)
     lily_mb_add(msgbuf, last_iter);
     return msgbuf->message;
 }
+
+void lily_mb_reserve(lily_msgbuf *msgbuf, uint32_t size)
+{
+    resize_msgbuf(msgbuf, size);
+}
+
+uint32_t lily_mb_size(lily_msgbuf *msgbuf)
+{
+    return msgbuf->size;
+}

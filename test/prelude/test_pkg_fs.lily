@@ -1,0 +1,72 @@
+import (Interpreter,
+        TestCase) "../t/testing", fs
+
+class TestPkgFs < TestCase
+{
+    public define test_all
+    {
+        # These methods are tested together to make sure the filesystem is put
+        # back the way it started. Also, less actions are made this way.
+        var long_name = List.repeat(15, "qwertyuiop").join("")
+        var original_dir = fs.current_dir()
+
+        # Start with the basics.
+        assert_not_equal(fs.current_dir(), "")
+
+        var long_dir = original_dir ++ "\/" ++ long_name
+        var t = Interpreter()
+
+        # Create a long directory to check fs.current_dir too.
+        fs.create_dir(long_name, 0c777)
+
+        # Switch to a long directory.
+        fs.change_dir(long_dir)
+        assert_equal(fs.current_dir(), long_dir)
+
+        # Get the current directory through a subinterpreter.
+        # A subinterpreter is used to make sure fs.current_dir handles growing
+        # the vm's buffer for long paths correctly.
+        assert_parse_string(t, """
+            import fs
+
+            if fs.current_dir() != "%1": {
+                0 / 0
+            }
+        """.replace("%1", long_dir)
+           .replace("\\", "\\\\"))
+
+        # Switch back out of it.
+        fs.change_dir(original_dir)
+        assert_equal(fs.current_dir(), original_dir)
+
+        # Delete it.
+        try: {
+            fs.remove_dir(long_dir)
+        except IOError:
+            assert_true(false)
+        }
+
+        var message = ""
+
+        # Make sure it's gone.
+        try: {
+            fs.change_dir(long_dir)
+        except IOError as e:
+            message = e.message
+        }
+
+        message.starts_with("Errno ") |> assert_true
+
+        var dir_tail = original_dir.split("\/")[-1]
+        var same_dir = original_dir ++ "\/..\/" ++ dir_tail
+
+        # Try to create the current directory.
+        try: {
+            fs.create_dir(same_dir)
+        except IOError as e:
+            message = e.message
+        }
+
+        message.starts_with("Errno ") |> assert_true
+    }
+}

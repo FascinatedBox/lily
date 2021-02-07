@@ -28,6 +28,7 @@
 var targets = [
     "prelude",
     "coroutine",
+    "fs",
     "introspect",
     "math",
     "random",

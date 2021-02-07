@@ -1,0 +1,32 @@
+import manifest
+
+### Functions for interacting with the underlying filesystem.
+library fs
+
+### Change the current working directory to `dirname`.
+###
+### # Errors
+###
+### * `IOError` if `dirname` is not valid, or does not exist.
+define change_dir(dirname: String)
+
+### Create directory `dirname` with `mode` permissions.
+###
+### Note: On Windows, `mode` is ignored.
+###
+### # Errors
+###
+### * `IOError` if `dirname` cannot be created.
+define create_dir(dirname: String, mode: *Integer=0c777)
+
+### Return the current directory.
+define current_dir: String
+
+### Remove directory `dirname`.
+###
+### Note: The directory must be empty.
+###
+### # Errors
+###
+### * `IOError` if `dirname` cannot be removed.
+define remove_dir(dirname: String)

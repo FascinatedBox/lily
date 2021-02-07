@@ -18,6 +18,7 @@ library core
 
 import pkg_prelude
 import pkg_coroutine
+import pkg_fs
 import pkg_introspect
 import pkg_math
 import pkg_random
