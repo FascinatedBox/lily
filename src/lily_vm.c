@@ -4,7 +4,7 @@
 
 #include "lily.h"
 #include "lily_alloc.h"
-#include "lily_int_opcode.h"
+#include "lily_opcode.h"
 #include "lily_parser.h"
 #include "lily_value.h"
 #include "lily_vm.h"

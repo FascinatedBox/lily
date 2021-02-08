@@ -5,8 +5,8 @@
 
 #include "lily.h"
 #include "lily_alloc.h"
-#include "lily_int_opcode.h"
 #include "lily_library.h"
+#include "lily_opcode.h"
 #include "lily_parser.h"
 #include "lily_parser_data.h"
 #include "lily_platform.h"

@@ -32,6 +32,4 @@ install(TARGETS liblily
         COMPONENT library)
 
 install(FILES lily.h
-              lily_int_code_iter.h
-              lily_int_opcode.h
         DESTINATION "include/lily")

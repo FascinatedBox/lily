@@ -1,10 +1,8 @@
 #include <stddef.h>
-#include <stdio.h>
 #include <string.h>
 
-#include "lily_int_code_iter.h"
-#include "lily_int_opcode.h"
-#include "lily_value.h"
+#include "lily_code_iter.h"
+#include "lily_opcode.h"
 
 void lily_ci_init(lily_code_iter *iter, uint16_t *buffer, uint16_t start,
         uint16_t stop)
@@ -12,14 +10,6 @@ void lily_ci_init(lily_code_iter *iter, uint16_t *buffer, uint16_t start,
     iter->buffer = buffer;
     iter->stop = stop;
     iter->offset = start;
-    iter->round_total = 0;
-}
-
-void lily_ci_from_native(lily_code_iter *iter, lily_function_val *fv)
-{
-    iter->buffer = fv->code;
-    iter->stop = fv->code_len;
-    iter->offset = 0;
     iter->round_total = 0;
 }
 

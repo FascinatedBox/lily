@@ -3,9 +3,9 @@
 #include <string.h>
 
 #include "lily_alloc.h"
+#include "lily_code_iter.h"
 #include "lily_emitter.h"
-#include "lily_int_code_iter.h"
-#include "lily_int_opcode.h"
+#include "lily_opcode.h"
 #include "lily_parser.h"
 
 extern lily_type *lily_question_type;

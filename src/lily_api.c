@@ -482,6 +482,22 @@ FILE *lily_file_for_read(lily_state *s, lily_file_val *filev)
     return filev->inner_file;
 }
 
+uint16_t *lily_function_bytecode(lily_function_val *fv, uint16_t *len)
+{
+    uint16_t *result;
+
+    if (fv->code) {
+        *len = fv->code_len;
+        result = fv->code;
+    }
+    else {
+        *len = 0;
+        result = NULL;
+    }
+
+    return result;
+}
+
 int lily_function_is_foreign(lily_function_val *fv)
 {
     return fv->code == NULL;

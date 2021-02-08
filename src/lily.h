@@ -696,6 +696,15 @@ FILE *lily_file_for_read(lily_state *s, lily_file_val *file);
 // Return the underlying FILE * of a File (if in write mode), or raise IOError.
 FILE *lily_file_for_write(lily_state *s, lily_file_val *file);
 
+// Function: lily_function_bytecode
+// Return the bytecode of a Function.
+//
+// Native Function values: This returns the bytecode, and sets len to the length
+// of the bytecode. The length is never zero.
+//
+// Foreign Function values: This returns NULL, and sets len to zero.
+uint16_t *lily_function_bytecode(lily_function_val *func, uint16_t *length);
+
 // Function: lily_function_is_foreign
 // Return 1 if the Function has a foreign implementation, 0 otherwise.
 int lily_function_is_foreign(lily_function_val *func);

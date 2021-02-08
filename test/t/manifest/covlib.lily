@@ -25,8 +25,8 @@ scoped enum ScopedEnum {
 }
 
 define isa_integer[A](value: A): Boolean
-define cover_ci_from_native(fn: Function(Integer))
 define cover_func_check(native: Function(Integer), foreign: Function(Integer => String)): Boolean
+define cover_function_bytecode(foreign: Function(String), native: Function(Integer)): Boolean
 define cover_id_checks[A](u: Unit, c: A, d: String): Boolean
 define cover_list_reserve
 define cover_list_sfs

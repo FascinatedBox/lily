@@ -74,8 +74,8 @@ const char *lily_covlib_info_table[] = {
     ,"V\0ScopedOne\0"
     ,"V\0ScopedThree\0"
     ,"V\0ScopedTwo\0"
-    ,"F\0cover_ci_from_native\0(Function(Integer))"
     ,"F\0cover_func_check\0(Function(Integer),Function(Integer=>String)): Boolean"
+    ,"F\0cover_function_bytecode\0(Function(String),Function(Integer)): Boolean"
     ,"F\0cover_id_checks\0[A](Unit,A,String): Boolean"
     ,"F\0cover_list_reserve\0"
     ,"F\0cover_list_sfs\0"
@@ -111,8 +111,8 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
-    lily_covlib__cover_ci_from_native, \
     lily_covlib__cover_func_check, \
+    lily_covlib__cover_function_bytecode, \
     lily_covlib__cover_id_checks, \
     lily_covlib__cover_list_reserve, \
     lily_covlib__cover_list_sfs, \

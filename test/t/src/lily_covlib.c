@@ -1,8 +1,8 @@
 #include <string.h>
 
 #include "lily.h"
+#include "lily_code_iter.h"
 #include "lily_covlib_bindings.h"
-#include "lily_int_code_iter.h"
 
 LILY_COVLIB_EXPORT
 lily_call_entry_func lily_covlib_call_table[];
@@ -220,13 +220,23 @@ void lily_covlib__cover_value_group(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-void lily_covlib__cover_ci_from_native(lily_state *s)
+void lily_covlib__cover_function_bytecode(lily_state *s)
 {
-    lily_function_val *func_val = lily_arg_function(s, 0);
-    lily_code_iter ci;
+    lily_function_val *foreign_func = lily_arg_function(s, 0);
+    lily_function_val *native_func = lily_arg_function(s, 1);
+    uint16_t foreign_len, native_len;
+    int result = 1;
 
-    lily_ci_from_native(&ci, func_val);
-    lily_return_unit(s);
+    uint16_t *foreign_code = lily_function_bytecode(foreign_func, &foreign_len);
+    uint16_t *native_code = lily_function_bytecode(native_func, &native_len);
+
+    if (foreign_code != NULL ||
+        foreign_len != 0 ||
+        native_code == NULL ||
+        native_len == 0)
+        result = 0;
+
+    lily_return_boolean(s, result);
 }
 
 void lily_covlib__scoop_narrow(lily_state *s)

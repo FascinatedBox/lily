@@ -71,7 +71,10 @@ class TestVerifyCoverage < TestCase
                 raise Exception("cover_value_group failed.")
             }
 
-            covlib.cover_ci_from_native(f2)
+            if covlib.cover_function_bytecode(String.size, f2) == false: {
+                0 / 0
+            }
+
             covlib.cover_misc_api()
         """)
     }

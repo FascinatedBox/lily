@@ -1,5 +1,5 @@
-#ifndef LILY_INT_OPCODE_H
-# define LILY_INT_OPCODE_H
+#ifndef LILY_OPCODE_H
+# define LILY_OPCODE_H
 
 /* Here are the interpreter's opcodes. There are comments here explaining what
    these opcodes do.
@@ -169,7 +169,7 @@ typedef enum {
        foreign frame, it sees this. That causes execution to return to the
        foreign function.
        This is also written at the end of __main__ for the same effect. */
-    o_vm_exit
+    o_vm_exit,
 } lily_opcode;
 
 #endif
