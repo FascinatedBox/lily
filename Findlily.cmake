@@ -16,16 +16,15 @@
 #     This function is intended for projects that export a single extension
 #     library for the interpreter to load.
 
-set(_LILY_BASE_PATH "${CMAKE_INSTALL_PREFIX}")
-
 if(WIN32)
-    set(_LILY_BASE_PATH "${_LILY_BASE_PATH}/../lily")
-
     find_library(_LILY_STATIC_LIBRARY
                  NAMES
-                     "liblily.lib"
-                 PATHS
-                     "${_LILY_BASE_PATH}/lib")
+                     Lily/lib/liblily.lib)
+
+    get_filename_component(_LILY_BASE_PATH ${_LILY_STATIC_LIBRARY} DIRECTORY)
+    set(_LILY_BASE_PATH ${_LILY_BASE_PATH}/..)
+else()
+    set(_LILY_BASE_PATH ${CMAKE_INSTALL_PREFIX})
 endif()
 
 find_path(LILY_INCLUDE_DIRS
@@ -48,22 +47,28 @@ if(NOT LILY_FOUND)
     message(FATAL_ERROR "Could not find Lily.")
 endif()
 
-function(lily_add_library _LIBRARY_NAME TARGETS)
+function(lily_add_library _LIBRARY_NAME)
     set(_LIBRARY_SOURCES ${ARGV})
-    list(REMOVE_AT _LIBRARY_SOURCES 0)
+    set(_OUT_DIR         ${PROJECT_BINARY_DIR}/src)
 
-    add_library("${_LIBRARY_NAME}" SHARED "${_LIBRARY_SOURCES}")
+    list(REMOVE_AT _LIBRARY_SOURCES 0)
+    add_library(${_LIBRARY_NAME} SHARED ${_LIBRARY_SOURCES})
 
     if(WIN32)
-        target_link_libraries("${_LIBRARY_NAME}" "${_LILY_STATIC_LIBRARY}")
+        target_link_libraries(${_LIBRARY_NAME} ${_LILY_STATIC_LIBRARY})
     endif()
 
-    target_include_directories("${_LIBRARY_NAME}" PUBLIC "${LILY_INCLUDE_DIRS}")
+    target_include_directories(${_LIBRARY_NAME} PUBLIC ${LILY_INCLUDE_DIRS})
 
-    set_target_properties("${_LIBRARY_NAME}" PROPERTIES
-            PREFIX
-                ""
-            LIBRARY_OUTPUT_DIRECTORY
-                "${PROJECT_BINARY_DIR}/src"
+    set_target_properties(
+        ${_LIBRARY_NAME}
+        PROPERTIES
+            PREFIX ""
+            LIBRARY_OUTPUT_DIRECTORY         ${_OUT_DIR}
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${_OUT_DIR}
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE ${_OUT_DIR}
+            RUNTIME_OUTPUT_DIRECTORY         ${_OUT_DIR}
+            RUNTIME_OUTPUT_DIRECTORY_DEBUG   ${_OUT_DIR}
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE ${_OUT_DIR}
     )
 endfunction(lily_add_library)
