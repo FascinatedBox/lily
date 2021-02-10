@@ -184,7 +184,8 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
             int i;
             for (i = 0;i < left_hash->num_bins;i++) {
                 lily_hash_entry *left_bin = left_hash->bins[i];
-                if (left_bin) {
+
+                while (left_bin) {
                     lily_value *right_value = lily_hash_get(s, right_hash,
                             left_bin->boxed_key);
 
@@ -194,6 +195,8 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
                         ok = 0;
                         break;
                     }
+
+                    left_bin = left_bin->next;
                 }
             }
             (*depth)--;

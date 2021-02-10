@@ -214,6 +214,29 @@ class TestBasics < TestCase
             if a2 != b2: { else: 0 / 0 }
             if b2 != a2: { else: 0 / 0 }
         """)
+
+        # comparions (hash equality)
+
+        assert_parse_string(t, """
+            var elements = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+            var h0: Hash[Integer, Integer] = []
+            var h1: Hash[Integer, Integer] = []
+
+            elements.each(|e|
+                h0[e] = e
+                h1[e] = e
+            )
+
+            elements.each(|e|
+                h1[e] = 100
+
+                if h0 == h1: {
+                    0 / 0
+                }
+
+                h1[e] = e
+            )
+        """)
     }
 
     public define test_compound_ops
