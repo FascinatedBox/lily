@@ -375,8 +375,11 @@ static void hash_marker(lily_value *v)
 
     for (i = 0;i < hv->num_bins;i++) {
         lily_hash_entry *entry = hv->bins[i];
-        if (entry)
+
+        while (entry) {
             gc_mark(entry->record);
+            entry = entry->next;
+        }
     }
 }
 
