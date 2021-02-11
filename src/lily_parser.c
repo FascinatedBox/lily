@@ -2816,17 +2816,18 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 
 static void push_dir_constant(lily_parse_state *parser)
 {
-    char *module_dir = parser->symtab->active_module->dirname;
+    lily_module_entry *module = parser->symtab->active_module;
+    char *dir = dir_from_path(module->path);
+    const char *push_dir = "." LILY_PATH_SLASH;
 
-    if (strcmp(module_dir, "") != 0) {
+    if (dir[0] != '\0') {
         lily_msgbuf *msgbuf = parser->msgbuf;
-        const char *dirname = lily_mb_sprintf(msgbuf, "%s" LILY_PATH_SLASH,
-                module_dir);
 
-        push_string(parser, dirname);
+        push_dir = lily_mb_sprintf(msgbuf, "%s" LILY_PATH_SLASH, dir);
     }
-    else
-        push_string(parser, "." LILY_PATH_SLASH);
+
+    lily_free(dir);
+    push_string(parser, push_dir);
 }
 
 /* This takes an id that corresponds to some id in the table of magic constants.

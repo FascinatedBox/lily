@@ -218,6 +218,14 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_dir =
+        StringTarget(
+            :path "ref_dir",
+            :data """
+                var v = __dir__
+            """
+        )
+
     private var @t_template_check =
         StringTarget(
             :path "template_check",
@@ -255,6 +263,21 @@ class TestImport < TestCase
 
         assert_parse_string(t, """
             import diamond
+        """)
+    }
+
+    public define test_import_dir
+    {
+        var t = Interpreter.with_targets(
+            @t_dir
+        )
+
+        assert_parse_string(t, """
+            import ref_dir
+
+            if ref_dir.v != ".\\/": {
+                0 / 0
+            }
         """)
     }
 
