@@ -171,10 +171,14 @@ class TestCase < backbone.TestCaseBase
     }
 
     public define assert_raises(expect: String, fn: Function()) {
+        var no_error = false
+
         try: {
             fn()
+            no_error = true
         except Exception as ex:
             var e_header = error_header(ex)
+
             if e_header != expect: {
                 var message = """\
                     Assertion (raises) failed.\n    \
@@ -182,9 +186,17 @@ class TestCase < backbone.TestCaseBase
                          given: `{1}`\
                 """.format(expect, e_header)
                 raise TestAssertionFailed(message)
-            else:
-                @pass_count += 1
             }
+        }
+
+        if no_error: {
+            var message = """\
+                Assertion (raises) failed.\n    \
+                  expected: `{0}`\n       \
+                     given: (no error raised)\
+            """.format(expect)
+
+            raise TestAssertionFailed(message)
         }
     }
 
