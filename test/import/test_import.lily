@@ -234,6 +234,14 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_numeric_start =
+        StringTarget(
+            :path "0asdf",
+            :data """\
+                var v = 10
+            """
+        )
+
     public define test_import_as
     {
         var t = Interpreter.with_targets(
@@ -445,6 +453,21 @@ class TestImport < TestCase
                two.v != 100 ||
                three.v != 1000 ||
                four.v != 10000: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_quoted_digit_lead
+    {
+        var t = Interpreter.with_targets(
+            @t_numeric_start
+        )
+
+        assert_parse_string(t, """
+            import "0asdf" as asdf
+
+            if asdf.v != 10: {
                 0 / 0
             }
         """)

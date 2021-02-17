@@ -1075,6 +1075,10 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
                 *reverse_label = LILY_PATH_CHAR;
         }
 
+        if (len == 1 &&
+            ch_table[(unsigned char)label_ch] == CC_DIGIT)
+            necessary = 1;
+
         reverse_iter--;
         reverse_label--;
         len--;
