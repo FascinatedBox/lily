@@ -44,6 +44,24 @@ class TestClass < TestCase
             if t.a != 11: { 0 / 0 }
             if t.b != "asdf": { 0 / 0 }
         """)
+
+        # basics (inherit from a resolved forward class)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            forward class One { ... }
+            class Two {}
+            class One {
+                public var @a = 10
+            }
+            class Three < One {}
+
+            var t = Three()
+
+            if t.a != 10: {
+                0 / 0
+            }
+        """)
     }
 
     public define test_match

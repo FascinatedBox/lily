@@ -312,6 +312,18 @@ class TestBadClass < TestCase
 
             class Second[A, B](v1: A, v2: B) < First(v2) {  }
         """)
+
+        # bad inheritance (from a forward class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot inherit from an incomplete class.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            forward class One { ... }
+
+            class Two < One {}
+        """)
     }
 
     public define test_bad_match

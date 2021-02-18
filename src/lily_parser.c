@@ -4619,6 +4619,9 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
     else if (super_class->item_kind != ITEM_CLASS_NATIVE)
         lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
                 lex->label);
+    else if (super_class->flags & SYM_IS_FORWARD)
+        lily_raise_syn(parser->raiser,
+                "Cannot inherit from an incomplete class.");
 
     uint16_t adjust = super_class->prop_count;
 
