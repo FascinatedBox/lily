@@ -3525,7 +3525,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
         lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
-    lily_type *result_type = lily_question_type;
+    lily_type *result_type = lily_unit_type;
 
     lily_next_token(parser->lex);
 

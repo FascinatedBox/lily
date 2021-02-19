@@ -181,6 +181,12 @@ class TestInference < TestCase
             and_then(f, f)(10)
             piped_and_then(f, and_then(f, f))(20)
         """)
+
+        assert_parse_string(t, """
+            var f2 = (|a: Integer|
+                if a == 1: {}
+            )
+        """)
     }
 
     public define test_solve_generic_varargs
