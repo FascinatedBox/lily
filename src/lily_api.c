@@ -114,6 +114,25 @@ void lily_value_assign(lily_value *left, lily_value *right)
     left->flags = right->flags;
 }
 
+uint16_t lily_value_class_id(lily_value *value)
+{
+    int base = FLAGS_TO_BASE(value);
+    uint16_t result_id;
+
+    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
+        base == V_FOREIGN_BASE || base == V_COROUTINE_BASE)
+        result_id = (uint16_t)value->value.container->class_id;
+    else if (base == V_EMPTY_VARIANT_BASE)
+        result_id = (uint16_t)value->value.integer;
+    else if (base == V_UNIT_BASE)
+        result_id = LILY_ID_UNIT;
+    else
+        /* The other bases map directly to class ids. */
+        result_id = (uint16_t)base;
+
+    return result_id;
+}
+
 static int lily_value_compare_raw(lily_vm_state *, int *, lily_value *,
         lily_value *);
 
@@ -663,20 +682,8 @@ uint16_t lily_arg_count(lily_state *s)
 
 int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
 {
-    lily_value *value = s->call_chain->start[index];
-    int base = FLAGS_TO_BASE(value);
-    uint16_t result_id;
-
-    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
-        base == V_FOREIGN_BASE || base == V_COROUTINE_BASE)
-        result_id = (uint16_t)value->value.container->class_id;
-    else if (base == V_EMPTY_VARIANT_BASE)
-        result_id = (uint16_t)value->value.integer;
-    else if (base == V_UNIT_BASE)
-        result_id = LILY_ID_UNIT;
-    else
-        /* The other bases map directly to class ids. */
-        result_id = (uint16_t)base;
+    lily_value *v = s->call_chain->start[index];
+    uint16_t result_id = lily_value_class_id(v);
 
     return result_id == class_id;
 }

@@ -282,6 +282,7 @@ void lily_push_file(struct lily_vm_state_ *, FILE *, const char *,
 void lily_stack_push_and_destroy(struct lily_vm_state_ *, lily_value *);
 lily_value *lily_stack_take(struct lily_vm_state_ *);
 void lily_value_assign(lily_value *, lily_value *);
+uint16_t lily_value_class_id(lily_value *);
 int lily_value_compare(struct lily_vm_state_ *, lily_value *, lily_value *);
 lily_value *lily_value_copy(lily_value *);
 void lily_value_destroy(lily_value *);
