@@ -215,6 +215,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(VariantEntry): String"
     ,"m\0parameters\0(VariantEntry): List[ParameterEntry]"
     ,"m\0type\0(VariantEntry): TypeEntry"
+    ,"F\0class_name\0[A](A): String"
     ,"F\0main_module\0: ModuleEntry"
     ,"F\0module_list\0: List[ModuleEntry]"
     ,"Z"
@@ -314,6 +315,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_name, \
     lily_introspect_VariantEntry_parameters, \
     lily_introspect_VariantEntry_type, \
+    lily_introspect__class_name, \
     lily_introspect__main_module, \
     lily_introspect__module_list, \
 };

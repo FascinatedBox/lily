@@ -1134,6 +1134,15 @@ void lily_introspect_ModuleEntry_vars(lily_state *s)
     BUILD_LIST_FROM(allow_vars, make_var)
 }
 
+void lily_introspect__class_name(lily_state *s)
+{
+    lily_value *value = lily_arg_value(s, 0);
+    uint16_t class_id = lily_value_class_id(value);
+    lily_class *cls = s->gs->class_table[class_id];
+
+    lily_return_string(s, cls->name);
+}
+
 void lily_introspect__main_module(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;

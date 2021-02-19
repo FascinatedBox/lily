@@ -545,6 +545,65 @@ class TestPkgIntrospect < TestCase
         """)
     }
 
+    public define test_toplevel
+    {
+        var t = Interpreter()
+
+        # toplevel (introspect.class_name)
+
+        assert_parse_string(t, """
+            import (Random) random
+            import (Coroutine) coroutine
+            import (class_name) introspect
+
+            define f(co: Coroutine[Integer, Unit]): Integer {
+                return 0
+            }
+
+            var result = [
+                1                  |> class_name,
+                1.0                |> class_name,
+                "1"                |> class_name,
+                '1'                |> class_name,
+                B"1"               |> class_name,
+                true               |> class_name,
+                [1]                |> class_name,
+                [1 => 1]           |> class_name,
+                <[1]>              |> class_name,
+                unit               |> class_name,
+                stdout             |> class_name,
+                Exception("")      |> class_name,
+                ValueError("")     |> class_name,
+                Coroutine.build(f) |> class_name,
+                Some(1)            |> class_name,
+                Random()           |> class_name,
+            ]
+
+            var expect = [
+                "Integer",
+                "Double",
+                "String",
+                "Byte",
+                "ByteString",
+                "Boolean",
+                "List",
+                "Hash",
+                "Tuple",
+                "Unit",
+                "File",
+                "Exception",
+                "ValueError",
+                "Coroutine",
+                "Some",
+                "Random",
+            ]
+
+            if result != expect: {
+                0 / 0
+            }
+        """)
+    }
+
     public define test_var
     {
         var t = Interpreter.with_targets(
