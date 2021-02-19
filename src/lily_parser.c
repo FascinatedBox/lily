@@ -5133,10 +5133,6 @@ static lily_class *parse_match_class(lily_parse_state *parser)
                 match_cls->name);
     }
 
-    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
-        lily_raise_syn(parser->raiser, "Already have a case for class %s.",
-                lex->label);
-
     /* Forbid non-monomorphic types to avoid the question of what to do
        if the match class has more generics. */
     if (cls->generic_count != 0) {
@@ -5172,10 +5168,6 @@ static lily_class *parse_match_variant(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
                 lex->label, match_cls->name);
 
-    if (lily_emit_try_match_switch(parser->emit, (lily_class *)variant) == 0)
-        lily_raise_syn(parser->raiser, "Already have a case for variant %s.",
-                lex->label);
-
     return (lily_class *)variant;
 }
 
@@ -5197,6 +5189,10 @@ static void keyword_case(lily_parse_state *parser)
         cls = parse_match_variant(parser);
     else
         cls = parse_match_class(parser);
+
+    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
+        lily_raise_syn(parser->raiser, "Already have a case for %s.",
+                lex->label);
 
     hide_block_vars(parser);
 

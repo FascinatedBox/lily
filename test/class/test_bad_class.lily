@@ -379,6 +379,25 @@ class TestBadClass < TestCase
                 case One(o):
             }
         """)
+
+        # bad match (duplicate case)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for Two.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v = One()
+
+            match v: {
+                case Two(t):
+                case Two(t):
+                else:
+            }
+        """)
     }
 
     public define test_bad_misc

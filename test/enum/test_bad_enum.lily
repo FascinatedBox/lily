@@ -297,7 +297,7 @@ class TestBadEnum < TestCase
         # bad match logic (duplicate case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Already have a case for class One.\n    \
+            SyntaxError: Already have a case for One.\n    \
                 from [test]:8:\n\
         """,
         """\
