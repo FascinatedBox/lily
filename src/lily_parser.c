@@ -5112,7 +5112,7 @@ static lily_var *parse_match_target(lily_parse_state *parser, lily_type *type)
     return result;
 }
 
-static lily_class *parse_match_class(lily_parse_state *parser)
+static void parse_match_class(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_class *match_cls = parser->emit->block->match_type->cls;
@@ -5135,10 +5135,21 @@ static lily_class *parse_match_class(lily_parse_state *parser)
                 cls->name);
     }
 
-    return cls;
+    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
+        lily_raise_syn(parser->raiser, "Already have a case for %s.",
+                lex->label);
+
+    NEED_NEXT_TOK(tk_left_parenth)
+
+    lily_var *var = parse_match_target(parser, cls->self_type);
+
+    if (var)
+        lily_emit_write_class_case(parser->emit, var);
+
+    NEED_CURRENT_TOK(tk_right_parenth)
 }
 
-static lily_class *parse_match_variant(lily_parse_state *parser)
+static void parse_match_variant(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
@@ -5162,38 +5173,13 @@ static lily_class *parse_match_variant(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
                 lex->label, match_cls->name);
 
-    return (lily_class *)variant;
-}
-
-static void keyword_case(lily_parse_state *parser)
-{
-    lily_block *block = parser->emit->block;
-
-    if (block->block_type != block_match)
-        lily_raise_syn(parser->raiser, "case outside of match.");
-
-    if (block->flags & BLOCK_FINAL_BRANCH)
-        lily_raise_syn(parser->raiser, "case in exhaustive match.");
-
-    lily_lex_state *lex = parser->lex;
-    lily_class *match_cls = block->match_type->cls;
-    lily_class *cls;
-
-    if (match_cls->item_kind & ITEM_IS_ENUM)
-        cls = parse_match_variant(parser);
-    else
-        cls = parse_match_class(parser);
-
-    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
+    if (lily_emit_try_match_switch(parser->emit, (lily_class *)variant) == 0)
         lily_raise_syn(parser->raiser, "Already have a case for %s.",
                 lex->label);
 
-    hide_block_vars(parser);
-
-    if (cls->item_kind == ITEM_VARIANT_FILLED) {
+    if (variant->item_kind == ITEM_VARIANT_FILLED) {
         NEED_NEXT_TOK(tk_left_parenth)
 
-        lily_variant_class *variant = (lily_variant_class *)cls;
         lily_type *t = lily_emit_type_for_variant(parser->emit, variant);
 
         /* Skip [0] since it's the return and not one of the arguments. */
@@ -5215,16 +5201,27 @@ static void keyword_case(lily_parse_state *parser)
 
         NEED_CURRENT_TOK(tk_right_parenth)
     }
-    else if (cls->item_kind & ITEM_IS_CLASS) {
-        NEED_NEXT_TOK(tk_left_parenth)
+}
 
-        lily_var *var = parse_match_target(parser, cls->self_type);
+static void keyword_case(lily_parse_state *parser)
+{
+    lily_block *block = parser->emit->block;
 
-        if (var)
-            lily_emit_write_class_case(parser->emit, var);
+    if (block->block_type != block_match)
+        lily_raise_syn(parser->raiser, "case outside of match.");
 
-        NEED_CURRENT_TOK(tk_right_parenth)
-    }
+    if (block->flags & BLOCK_FINAL_BRANCH)
+        lily_raise_syn(parser->raiser, "case in exhaustive match.");
+
+    lily_lex_state *lex = parser->lex;
+    lily_class *match_cls = block->match_type->cls;
+
+    hide_block_vars(parser);
+
+    if (match_cls->item_kind & ITEM_IS_ENUM)
+        parse_match_variant(parser);
+    else
+        parse_match_class(parser);
 
     lily_next_token(lex);
     NEED_COLON_AND_NEXT;
