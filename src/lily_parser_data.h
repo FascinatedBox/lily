@@ -43,6 +43,7 @@ keyword_entry keywords[] =
     {"case", 1702060387},
     {"else", 1702063205},
     {"elif", 1718185061},
+    {"with", 1752459639},
     {"enum", 1836412517},
     {"while", 435610544247},
     {"raise", 435727982962},
@@ -71,25 +72,26 @@ keyword_entry keywords[] =
 # define KEY_CASE 5
 # define KEY_ELSE 6
 # define KEY_ELIF 7
-# define KEY_ENUM 8
-# define KEY_WHILE 9
-# define KEY_RAISE 10
-# define KEY_MATCH 11
-# define KEY_BREAK 12
-# define KEY_CLASS 13
-# define KEY_PUBLIC 14
-# define KEY_STATIC 15
-# define KEY_SCOPED 16
-# define KEY_DEFINE 17
-# define KEY_RETURN 18
-# define KEY_EXCEPT 19
-# define KEY_IMPORT 20
-# define KEY_FORWARD 21
-# define KEY_PRIVATE 22
-# define KEY_PROTECTED 23
-# define KEY_CONTINUE 24
-# define KEY_CONSTANT 25
-# define KEY_BAD_ID 26
+# define KEY_WITH 8
+# define KEY_ENUM 9
+# define KEY_WHILE 10
+# define KEY_RAISE 11
+# define KEY_MATCH 12
+# define KEY_BREAK 13
+# define KEY_CLASS 14
+# define KEY_PUBLIC 15
+# define KEY_STATIC 16
+# define KEY_SCOPED 17
+# define KEY_DEFINE 18
+# define KEY_RETURN 19
+# define KEY_EXCEPT 20
+# define KEY_IMPORT 21
+# define KEY_FORWARD 22
+# define KEY_PRIVATE 23
+# define KEY_PROTECTED 24
+# define KEY_CONTINUE 25
+# define KEY_CONSTANT 26
+# define KEY_BAD_ID 27
 
 static void expr_arrow(lily_parse_state *, uint16_t *);
 static void expr_binary(lily_parse_state *, uint16_t *);
@@ -186,6 +188,7 @@ static void keyword_try(lily_parse_state *);
 static void keyword_case(lily_parse_state *);
 static void keyword_else(lily_parse_state *);
 static void keyword_elif(lily_parse_state *);
+static void keyword_with(lily_parse_state *);
 static void keyword_enum(lily_parse_state *);
 static void keyword_while(lily_parse_state *);
 static void keyword_raise(lily_parse_state *);
@@ -215,6 +218,7 @@ static keyword_handler *handlers[] =
     keyword_case,
     keyword_else,
     keyword_elif,
+    keyword_with,
     keyword_enum,
     keyword_while,
     keyword_raise,

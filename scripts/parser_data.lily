@@ -53,6 +53,7 @@ var keywords = [
     "try",
     "var",
     "while",
+    "with",
 ]
 var expression_group_data = [
     "expr_binary" => [

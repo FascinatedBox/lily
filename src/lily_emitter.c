@@ -645,6 +645,15 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
     emit->block = block;
 }
 
+void lily_emit_enter_with_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_with;
+    block->match_case_start = lily_u16_pos(emit->match_cases);
+    emit->block = block;
+}
+
 void lily_emit_leave_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
@@ -1537,8 +1546,7 @@ void lily_emit_multi_match_end_group(lily_emit_state *emit, uint16_t count)
     lily_u16_write_1(emit->patches, stash_patch);
 }
 
-/* Evaluate an expression for 'match'. */
-void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
+void lily_eval_match_with(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
 

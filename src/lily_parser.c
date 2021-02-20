@@ -5261,7 +5261,7 @@ static void keyword_match(lily_parse_state *parser)
 
     lily_emit_enter_match_block(parser->emit);
     expression(parser);
-    lily_eval_match(parser->emit, parser->expr);
+    lily_eval_match_with(parser->emit, parser->expr);
     NEED_COLON_AND_BRACE;
     NEED_NEXT_TOK(tk_word)
 
@@ -5271,6 +5271,28 @@ static void keyword_match(lily_parse_state *parser)
     /* The main loop pulls up the next token, so this has to do that too. */
     lily_next_token(lex);
     keyword_case(parser);
+}
+
+static void keyword_with(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_emit_enter_with_block(parser->emit);
+    expression(parser);
+    lily_eval_match_with(parser->emit, parser->expr);
+    expect_word(parser, "as");
+    lily_next_token(lex);
+
+    lily_class *match_cls = parser->emit->block->match_type->cls;
+
+    if (match_cls->item_kind & ITEM_IS_ENUM)
+        parse_match_variant(parser, 0);
+    else
+        parse_match_class(parser);
+
+    lily_next_token(lex);
+    NEED_COLON_AND_BRACE;
+    lily_next_token(lex);
 }
 
 #define ALL_MODIFIERS (ANY_SCOPE | VAR_IS_STATIC)
