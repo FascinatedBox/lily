@@ -60,6 +60,10 @@ typedef enum {
 /* This block shouldn't have any more branches. */
 # define BLOCK_FINAL_BRANCH   0x200
 
+/* The next case is part of a multi match. These need to jump to the same code
+   section, which is tricky. */
+# define BLOCK_MULTI_MATCH    0x400
+
 /* Storages are used to hold values not held by vars. In most cases, storages
    hold intermediate values for an expression. The emitter attempts to reuse
    storages where it can unless the storage is locked.
@@ -261,6 +265,8 @@ void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
 int lily_emit_try_match_switch(lily_emit_state *, lily_class *);
 int lily_emit_try_match_finalize(lily_emit_state *);
+void lily_emit_multi_match_end_group(lily_emit_state *, uint16_t);
+void lily_emit_multi_match_mark(lily_emit_state *);
 
 void lily_emit_enter_anon_block(lily_emit_state *);
 void lily_emit_enter_class_block(lily_emit_state *, lily_var *);

@@ -5149,7 +5149,7 @@ static void parse_match_class(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_right_parenth)
 }
 
-static void parse_match_variant(lily_parse_state *parser)
+static void parse_match_variant(lily_parse_state *parser, uint16_t count)
 {
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
@@ -5168,6 +5168,11 @@ static void parse_match_variant(lily_parse_state *parser)
     }
 
     lily_variant_class *variant = lily_find_variant(match_cls, lex->label);
+
+    if (count &&
+        variant->item_kind == ITEM_VARIANT_FILLED)
+        lily_raise_syn(parser->raiser,
+                "Multi case match is only available to empty variants.");
 
     if (variant == NULL)
         lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
@@ -5205,25 +5210,48 @@ static void parse_match_variant(lily_parse_state *parser)
 
 static void keyword_case(lily_parse_state *parser)
 {
-    lily_block *block = parser->emit->block;
+    lily_emit_state *emit = parser->emit;
+    lily_block *block = emit->block;
 
     if (block->block_type != block_match)
         lily_raise_syn(parser->raiser, "case outside of match.");
 
-    if (block->flags & BLOCK_FINAL_BRANCH)
-        lily_raise_syn(parser->raiser, "case in exhaustive match.");
-
     lily_lex_state *lex = parser->lex;
     lily_class *match_cls = block->match_type->cls;
+    uint16_t count = 0;
 
-    hide_block_vars(parser);
+    while (1) {
+        if (block->flags & BLOCK_FINAL_BRANCH)
+            lily_raise_syn(parser->raiser, "case in exhaustive match.");
 
-    if (match_cls->item_kind & ITEM_IS_ENUM)
-        parse_match_variant(parser);
-    else
-        parse_match_class(parser);
+        hide_block_vars(parser);
 
-    lily_next_token(lex);
+        if (match_cls->item_kind & ITEM_IS_ENUM)
+            parse_match_variant(parser, count);
+        else
+            parse_match_class(parser);
+
+        lily_token token = lex->token;
+
+        lily_next_token(lex);
+
+        if (lex->token == tk_comma) {
+            if (token != tk_word)
+                lily_raise_syn(parser->raiser,
+                        "Multi case match is only available to empty variants.");
+
+            count++;
+            lily_emit_multi_match_mark(emit);
+            lily_next_token(lex);
+            continue;
+        }
+
+        break;
+    }
+
+    if (count)
+        lily_emit_multi_match_end_group(emit, count);
+
     NEED_COLON_AND_NEXT;
 }
 

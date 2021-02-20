@@ -1474,7 +1474,26 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
 
     uint16_t match_reg = block->match_reg;
 
-    lily_emit_branch_switch(emit);
+    if ((block->flags & BLOCK_MULTI_MATCH) == 0)
+        lily_emit_branch_switch(emit);
+    else {
+        block->flags &= ~BLOCK_MULTI_MATCH;
+
+        /* This is the jump of the last o_jump_if_not_class. */
+        uint16_t patch = lily_u16_pop(emit->patches);
+        uint16_t adjust = lily_u16_get(emit->code, patch);
+
+        /* If this branch succeds, it needs to jump to the code section. Write
+           a jump to be patched later. */
+        lily_u16_write_2(emit->code, o_jump, 1);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+
+        /* Fix the last o_jump_if_not_class to go here where the new one is. */
+        if (patch != 0)
+            lily_u16_set_at(emit->code, patch,
+                    lily_u16_pos(emit->code) + adjust - patch);
+    }
+
     lily_u16_write_1(emit->match_cases, cls->id);
 
     /* If this isn't the class, jump to the next branch (or exit). */
@@ -1499,6 +1518,24 @@ int lily_emit_try_match_finalize(lily_emit_state *emit)
 
     lily_emit_branch_finalize(emit);
     return 1;
+}
+
+void lily_emit_multi_match_mark(lily_emit_state *emit)
+{
+    emit->block->flags |= BLOCK_MULTI_MATCH;
+}
+
+void lily_emit_multi_match_end_group(lily_emit_state *emit, uint16_t count)
+{
+    /* All cases of a multi match case have been found, so code is coming next.
+       The last patch is the o_jump_if_not_class of the last case, and it needs
+       to be patched to the next match case (or the exit). Behind it are 'count'
+       o_jump patches that need to be patched to the code block (here). */
+    uint16_t stash_patch = lily_u16_pop(emit->patches);
+    uint16_t start = lily_u16_pos(emit->patches) - count;
+
+    write_patches_since(emit, start);
+    lily_u16_write_1(emit->patches, stash_patch);
 }
 
 /* Evaluate an expression for 'match'. */

@@ -253,6 +253,46 @@ class TestBadEnum < TestCase
                 case DoesNotExist:
             }
         """)
+
+        # bad match (multi match starting with filled variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Multi case match is only available to empty variants.\n    \
+                from [test]:10:\n\
+        """,
+        """\
+            enum Example {
+                One(Integer),
+                Two(Integer),
+                Three(Integer)
+            }
+
+            var v = Three(1)
+
+            match v: {
+                case One(s), Two(s):
+                else:
+            }
+        """)
+
+        # bad match (multi match including filled variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Multi case match is only available to empty variants.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            enum Example {
+                One(Integer),
+                Two
+            }
+
+            var v = Two
+
+            match v: {
+                case Two, One(s):
+            }
+        """)
     }
 
     public define test_bad_match_logic

@@ -149,6 +149,43 @@ class TestEnum < TestCase
                 raise Exception("Failed.")
             }
         """)
+
+        # match (multi match)
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Example {
+                One,
+                Two,
+                Three(Integer),
+                Four,
+                Five
+            }
+
+            define f(v: Example): Integer
+            {
+                match v: {
+                    case One, Four:
+                        return 1
+                    case Three(s):
+                        return s
+                    case Five, Two:
+                        return 2
+                }
+            }
+
+            var v = [
+                Five      |> f,
+                One       |> f,
+                Four      |> f,
+                Three(10) |> f,
+                Two       |> f,
+            ]
+
+            if v != [2, 1, 1, 10, 2]: {
+                0 / 0
+            }
+        """)
     }
 
     public define test_methods
