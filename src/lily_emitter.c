@@ -1541,20 +1541,24 @@ void lily_emit_multi_match_end_group(lily_emit_state *emit, uint16_t count)
 void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    lily_block *block = emit->block;
 
     eval_enforce_value(emit, ast, lily_question_type);
 
-    lily_class *match_class = ast->result->type->cls;
+    lily_type *match_type = ast->result->type;
+    lily_class *match_class = match_type->cls;
 
     if ((match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
         lily_raise_syn(emit->raiser,
-                "Match expression is not a user class or enum.");
+                "Invalid expression to match.\n"
+                "Expected: A user class or enum.\n"
+                "Received: ^T", match_type);
+
+    lily_block *block = emit->block;
 
     block->match_case_start = lily_u16_pos(emit->match_cases);
     block->last_exit = lily_u16_pos(emit->code);
     block->match_reg = ast->result->reg_spot;
-    block->match_type = ast->result->type;
+    block->match_type = match_type;
 
     /* Branch switching expects a patch, so write a fake one to skip over. */
     lily_u16_write_1(emit->patches, 0);
