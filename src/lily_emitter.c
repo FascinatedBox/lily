@@ -1549,7 +1549,7 @@ void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
 
     if ((match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
         lily_raise_syn(emit->raiser,
-                "Invalid expression to match.\n"
+                "Invalid expression given.\n"
                 "Expected: A user class or enum.\n"
                 "Received: ^T", match_type);
 

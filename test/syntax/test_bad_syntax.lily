@@ -55,7 +55,7 @@ class TestBadSyntax < TestCase
         # bad blocks (bad match expression case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid expression to match.\n\
+            SyntaxError: Invalid expression given.\n\
             Expected: A user class or enum.\n\
             Received: Tuple[Integer, String, Double]\n    \
                 from [test]:1:\n\
