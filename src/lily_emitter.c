@@ -1404,8 +1404,7 @@ static void perform_closure_transform(lily_emit_state *emit,
  *
  */
 
-static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *,
-        const char *);
+static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *);
 
 /** Match blocks are given a symbol that each case checks for being of a certain
     class. For enums, this pattern matching can include extraction of the
@@ -1544,8 +1543,7 @@ void lily_eval_match(lily_emit_state *emit, lily_expr_state *es)
     lily_ast *ast = es->root;
     lily_block *block = emit->block;
 
-    eval_enforce_value(emit, ast, lily_question_type,
-            "Match expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type);
 
     lily_class *match_class = ast->result->type->cls;
 
@@ -4273,16 +4271,15 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_named_call(emit, ast, expect);
 }
 
-/* Evaluate a tree with 'expect' sent for inference. If the tree does not return
-   a value, then SyntaxError is raised with 'message'. */
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,
-        lily_type *expect, const char *message)
+        lily_type *expect)
 {
     eval_tree(emit, ast, expect);
     emit->expr_num++;
 
     if (ast->result == NULL)
-        lily_raise_syn(emit->raiser, message);
+        lily_raise_syn(emit->raiser,
+                "Expected a value, but got an assignment instead.");
 }
 
 /* This evaluates an expression at the root of the given pool, then resets the
@@ -4374,8 +4371,7 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
         return;
     }
 
-    eval_enforce_value(emit, ast, lily_question_type,
-            "Conditional expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type);
     ensure_valid_condition_type(emit, ast->result->type);
 
     /* Jump if false (0) to the next branch. The branch will be patched when the
@@ -4394,8 +4390,7 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
         return;
     }
 
-    eval_enforce_value(emit, ast, lily_question_type,
-            "Conditional expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type);
     ensure_valid_condition_type(emit, ast->result->type);
 
     uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
@@ -4447,8 +4442,7 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
     if (return_type != lily_unit_type) {
         lily_ast *ast = es->root;
 
-        eval_enforce_value(emit, ast, return_type,
-                "'return' expression has no value.");
+        eval_enforce_value(emit, ast, return_type);
 
         if (ast->result->type == return_type ||
             type_matchup(emit, return_type, ast))
@@ -4476,8 +4470,7 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
 void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
-    eval_enforce_value(emit, ast, lily_question_type,
-            "'raise' expression has no value.");
+    eval_enforce_value(emit, ast, lily_question_type);
 
     lily_class *result_cls = ast->result->type->cls;
     if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, result_cls) == 0) {

@@ -99,7 +99,7 @@ class TestBadSyntax < TestCase
         # bad blocks (condition using assign)
 
         assert_parse_fails(t, """\
-            SyntaxError: Conditional expression has no value.\n    \
+            SyntaxError: Expected a value, but got an assignment instead.\n    \
                 from [test]:2:\n\
         """,
         """\
