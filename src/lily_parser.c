@@ -46,26 +46,20 @@ extern lily_type *lily_unit_type;
  *                          |_|
  */
 
-/** Parser init and teardown is ugly right now, for how it reaches into
-    different structures more than it should. It's currently broken down into
-    different phases:
+/** This is the entry point to starting the interpreter and rewinding it. The
+    following are done here.
 
     * Create raiser (it won't be used here).
-    * Create symtab to receive prelude classes/methods/etc.
+    * Create symtab to receive prelude symbols.
     * Create the prelude module, to give to symtab.
     * Load the prelude module.
     * Initialize other parts of the interpreter.
-    * Link different parts of the interpreter up (sorry).
     * Create the first module (parsed files/strings will become the root).
     * Create __main__ to receive toplevel code from the first module.
 
-    What's perhaps more interesting is that different functions within the
-    parser will either take or return the vm. The reason for this is that it
-    allows embedders to use a single lily_state throughout (with the vm state
-    being a typedef for that). That's easier than a parse state here, and a vm
-    state over there.
-
-    API functions can be found at the bottom of this file. **/
+    All api functions use the initial vm so that the api does not need to know
+    about the parser.
+ **/
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
 static void mark_prelude_modules(lily_parse_state *);
