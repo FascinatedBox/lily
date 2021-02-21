@@ -1922,19 +1922,19 @@ void lily_prelude_String_rstrip(lily_state *s)
     lily_return_top(s);
 }
 
-static uint32_t count_split_elements(const char *input_str,
-        const char *split_str)
+static uint32_t count_split_elements(const char *input, const char *splitby,
+        int split_len)
 {
     uint32_t result = 0;
 
     while (1) {
-        input_str = strstr(input_str, split_str);
+        input = strstr(input, splitby);
         result++;
 
-        if (input_str == NULL)
+        if (input == NULL)
             break;
 
-        input_str++;
+        input = input + split_len;
     }
 
     return result;
@@ -1942,9 +1942,9 @@ static uint32_t count_split_elements(const char *input_str,
 
 static void string_split_by_val(lily_state *s, char *input, char *splitby)
 {
-    uint32_t values_needed = count_split_elements(input, splitby);
+    int split_len = strlen(splitby);
+    uint32_t values_needed = count_split_elements(input, splitby, split_len);
     lily_container_val *list_val = lily_push_list(s, values_needed);
-    int needle_len = strlen(splitby);
     uint32_t i = 0;
 
     while (1) {
@@ -1958,7 +1958,7 @@ static void string_split_by_val(lily_state *s, char *input, char *splitby)
         lily_push_string_sized(s, input, offset);
         lily_con_set_from_stack(s, list_val, i);
         i++;
-        input = input_next + needle_len;
+        input = input_next + split_len;
     }
 
     lily_push_string(s, input);
