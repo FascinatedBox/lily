@@ -476,14 +476,14 @@ class TestImport < TestCase
     public define test_run_enum_export
     {
         Interpreter()
-            .parse_file("test\/import\/test_enum_export_main.lily")
+            .parse_file("test\/import\/enum_export_main.lily")
             |> assert_true
     }
 
     public define test_run_rooted_base
     {
         Interpreter()
-            .parse_file("test\/import\/test_rooted_base.lily")
+            .parse_file("test\/import\/rooted_base.lily")
             |> assert_true
     }
 
