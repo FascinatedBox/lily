@@ -20,175 +20,69 @@ typedef struct {
     int skip_count;
 } test_data;
 
-typedef struct {
-    const char *dir;
-    const char **targets;
-} test_group;
+#define TEST(dir, target) \
+"test" SLASH dir SLASH target ".lily"
 
-const char *benchmark_targets[] = {
-    "test_benchmark.lily",
+const char *all_test_paths[] =
+{
+    TEST("call",        "test_bad_call"),
+    TEST("call",        "test_bad_keyargs"),
+    TEST("call",        "test_bad_optargs"),
+    TEST("call",        "test_call_pipe"),
+    TEST("call",        "test_keyargs"),
+    TEST("call",        "test_optargs"),
+    TEST("call",        "test_varargs"),
+    TEST("class",       "test_bad_class"),
+    TEST("class",       "test_class"),
+    TEST("closure",     "test_verify_closures"),
+    TEST("constant",    "test_verify_constant"),
+    TEST("coroutine",   "test_verify_coroutine"),
+    TEST("coverage",    "test_dynaload"),
+    TEST("coverage",    "test_verify_coverage"),
+    TEST("enum",        "test_bad_enum"),
+    TEST("enum",        "test_enum"),
+    TEST("exception",   "test_bad_exception"),
+    TEST("exception",   "test_exception"),
+    TEST("format",      "test_verify_format"),
+    TEST("forward",     "test_bad_forward"),
+    TEST("forward",     "test_forward"),
+    TEST("gc",          "test_verify_gc"),
+    TEST("import",      "test_bad_import"),
+    TEST("import",      "test_import"),
+    TEST("lambda",      "test_bad_lambda"),
+    TEST("lambda",      "test_lambda"),
+    TEST("method",      "test_boolean"),
+    TEST("method",      "test_byte"),
+    TEST("method",      "test_bytestring"),
+    TEST("method",      "test_file"),
+    TEST("method",      "test_hash"),
+    TEST("method",      "test_integer"),
+    TEST("method",      "test_list"),
+    TEST("method",      "test_option"),
+    TEST("method",      "test_result"),
+    TEST("method",      "test_string"),
+    TEST("prelude",     "test_pkg_coroutine"),
+    TEST("prelude",     "test_pkg_fs"),
+    TEST("prelude",     "test_pkg_introspect"),
+    TEST("prelude",     "test_pkg_math"),
+    TEST("prelude",     "test_pkg_random"),
+    TEST("prelude",     "test_pkg_subprocess"),
+    TEST("prelude",     "test_pkg_sys"),
+    TEST("prelude",     "test_pkg_time"),
+    TEST("rewind",      "test_verify_rewind"),
+    TEST("sandbox",     "test_verify_sandbox"),
+    TEST("syntax",      "test_bad_syntax"),
+    TEST("syntax",      "test_bad_token"),
+    TEST("syntax",      "test_basics"),
+    TEST("template",    "test_verify_template"),
+    TEST("types",       "test_generics"),
+    TEST("types",       "test_inference"),
+    TEST("types",       "test_narrowing"),
+    TEST("types",       "test_quantification"),
+    TEST("types",       "test_scoop"),
+    TEST("types",       "test_variance"),
+    TEST("benchmark",   "test_benchmark"),
     NULL,
-};
-
-const char *call_targets[] = {
-    "test_bad_call.lily",
-    "test_bad_keyargs.lily",
-    "test_bad_optargs.lily",
-    "test_call_pipe.lily",
-    "test_keyargs.lily",
-    "test_optargs.lily",
-    "test_varargs.lily",
-    NULL,
-};
-
-const char *class_targets[] = {
-    "test_bad_class.lily",
-    "test_class.lily",
-    NULL,
-};
-
-const char *closure_targets[] = {
-    "test_verify_closures.lily",
-    NULL,
-};
-
-const char *constant_targets[] = {
-    "test_verify_constant.lily",
-    NULL,
-};
-
-const char *coroutine_targets[] = {
-    "test_verify_coroutine.lily",
-    NULL,
-};
-
-const char *coverage_targets[] = {
-    "test_dynaload.lily",
-    "test_verify_coverage.lily",
-    NULL,
-};
-
-const char *enum_targets[] = {
-    "test_bad_enum.lily",
-    "test_enum.lily",
-    NULL,
-};
-
-const char *exception_targets[] = {
-    "test_bad_exception.lily",
-    "test_exception.lily",
-    NULL,
-};
-
-const char *format_targets[] = {
-    "test_verify_format.lily",
-    NULL,
-};
-
-const char *forward_targets[] = {
-    "test_bad_forward.lily",
-    "test_forward.lily",
-    NULL,
-};
-
-const char *gc_targets[] = {
-    "test_verify_gc.lily",
-    NULL,
-};
-
-const char *import_targets[] = {
-    "test_bad_import.lily",
-    "test_import.lily",
-    NULL,
-};
-
-const char *lambda_targets[] = {
-    "test_bad_lambda.lily",
-    "test_lambda.lily",
-    NULL,
-};
-
-const char *method_targets[] = {
-    "test_boolean.lily",
-    "test_byte.lily",
-    "test_bytestring.lily",
-    "test_file.lily",
-    "test_hash.lily",
-    "test_integer.lily",
-    "test_list.lily",
-    "test_option.lily",
-    "test_result.lily",
-    "test_string.lily",
-    NULL,
-};
-
-const char *prelude_targets[] = {
-    "test_pkg_coroutine.lily",
-    "test_pkg_fs.lily",
-    "test_pkg_introspect.lily",
-    "test_pkg_math.lily",
-    "test_pkg_random.lily",
-    "test_pkg_subprocess.lily",
-    "test_pkg_sys.lily",
-    "test_pkg_time.lily",
-    NULL,
-};
-
-const char *rewind_targets[] = {
-    "test_verify_rewind.lily",
-    NULL,
-};
-
-const char *sandbox_targets[] = {
-    "test_verify_sandbox.lily",
-    NULL,
-};
-
-const char *syntax_targets[] = {
-    "test_bad_syntax.lily",
-    "test_bad_token.lily",
-    "test_basics.lily",
-    NULL,
-};
-
-const char *template_targets[] = {
-    "test_verify_template.lily",
-    NULL,
-};
-
-const char *types_targets[] = {
-    "test_generics.lily",
-    "test_inference.lily",
-    "test_narrowing.lily",
-    "test_quantification.lily",
-    "test_scoop.lily",
-    "test_variance.lily",
-    NULL,
-};
-
-test_group all_groups[] = {
-    {"call",      call_targets},
-    {"class",     class_targets},
-    {"closure",   closure_targets},
-    {"constant",  constant_targets},
-    {"coroutine", coroutine_targets},
-    {"coverage",  coverage_targets},
-    {"enum",      enum_targets},
-    {"exception", exception_targets},
-    {"format",    format_targets},
-    {"forward",   forward_targets},
-    {"gc",        gc_targets},
-    {"import",    import_targets},
-    {"lambda",    lambda_targets},
-    {"method",    method_targets},
-    {"prelude",   prelude_targets},
-    {"rewind",    rewind_targets},
-    {"sandbox",   sandbox_targets},
-    {"syntax",    syntax_targets},
-    {"template",  template_targets},
-    {"types",     types_targets},
-    {"benchmark", benchmark_targets},
-    {NULL,        NULL},
 };
 
 static void clear_line(void)
@@ -317,31 +211,18 @@ int main(int argc, char **argv)
     (void)argc;
     (void)argv;
 
+    int i;
     test_data td;
-    test_group g;
-    const char *target;
-    lily_msgbuf *dir_msgbuf = lily_new_msgbuf(128);
 
     init_test_data(&td);
 
-    int i, j;
-
-    for (i = 0, g = all_groups[i];
-         g.dir != NULL;
-         i++, g = all_groups[i]) {
-
-        for (j = 0, target = g.targets[j];
-             target != NULL;
-             j++, target = g.targets[j]) {
-            td.path = lily_mb_sprintf(dir_msgbuf, "test%s%s%s%s", SLASH, g.dir,
-                                      SLASH, target);
-            run_test(&td);
-        }
+    for (i = 0;all_test_paths[i] != NULL;i++) {
+        td.path = all_test_paths[i];
+        run_test(&td);
     }
 
     log_test_total(&td);
     free_test_data(&td);
-    lily_free_msgbuf(dir_msgbuf);
 
     int exit_code = EXIT_SUCCESS;
 
