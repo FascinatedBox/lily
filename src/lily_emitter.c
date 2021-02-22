@@ -518,7 +518,7 @@ void lily_emit_enter_class_block(lily_emit_state *emit, lily_var *var)
 {
     lily_block *block = next_block(emit);
 
-    block->flags |= BLOCK_SELF_ORIGIN;
+    block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
     block->block_type = block_class;
     block->scope_var = var;
     block->class_entry = var->parent;
@@ -604,7 +604,7 @@ void lily_emit_enter_lambda_block(lily_emit_state *emit, lily_var *var)
     lily_block_type scope_block_type = emit->scope_block->block_type;
 
     if (scope_block_type == block_class)
-        block->flags |= BLOCK_CLOSURE_ORIGIN | BLOCK_SELF_ORIGIN;
+        block->flags |= BLOCK_SELF_ORIGIN;
     else if (scope_block_type == block_file)
         block->flags |= BLOCK_CLOSURE_ORIGIN;
 
@@ -1210,10 +1210,10 @@ static void perform_closure_transform(lily_emit_state *emit,
         lily_storage *self = scope_block->self;
 
         if (self && self->closure_spot != UINT16_MAX) {
-            /* Class constructors can't be closures and enums don't have a
-               constructor. So if the backing closure has self inside, then it
-               has to come from a class/enum method. Those methods will always
-               have self as the first spot, hence the zero. */
+            /* Class constructors don't allow closing over their self and enums
+               don't have a constructor. If the backing closure has self inside,
+               then it has to come from a class/enum method. Those methods will
+               always have self as the first spot, hence the zero. */
             lily_u16_write_4(emit->closure_aux_code, o_closure_set,
                     self->closure_spot, 0, first_line);
         }
