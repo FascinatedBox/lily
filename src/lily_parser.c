@@ -4190,16 +4190,13 @@ static void keyword_for(lily_parse_state *parser)
 
     lily_var *loop_var = find_active_var(parser, lex->label);
 
-    if (loop_var == NULL) {
-        lily_class *cls = parser->symtab->integer_class;
-        loop_var = new_typed_local_var(parser, cls->self_type, lex->label,
+    if (loop_var == NULL)
+        loop_var = new_typed_local_var(parser, integer_type, lex->label,
                 lex->line_num);
-    }
-    else if (loop_var->type->cls->id != LILY_ID_INTEGER) {
+    else if (loop_var->type != integer_type)
         lily_raise_syn(parser->raiser,
                    "Loop var must be type Integer, not type '^T'.",
                    loop_var->type);
-    }
 
     lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
