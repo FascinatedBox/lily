@@ -3995,7 +3995,8 @@ static int code_is_after_exit(lily_parse_state *parser)
     /* It's not dead if this block is being exited. */
     if (token == tk_right_curly ||
         token == tk_eof ||
-        token == tk_end_tag)
+        token == tk_end_tag ||
+        token == tk_end_lambda)
         return 0;
 
     if (token == tk_word) {
@@ -4528,9 +4529,6 @@ static void keyword_except(lily_parse_state *parser)
 
 static void keyword_raise(lily_parse_state *parser)
 {
-    if (parser->emit->scope_block->block_type == block_lambda)
-        lily_raise_syn(parser->raiser, "'raise' not allowed in a lambda.");
-
     expression(parser);
     lily_eval_raise(parser->emit, parser->expr);
 

@@ -113,16 +113,6 @@ class TestBadLambda < TestCase
             var v = (|| )
         """)
 
-        # lambda rules (raise not allowed)
-
-        assert_parse_fails(t, """\
-            SyntaxError: 'raise' not allowed in a lambda.\n    \
-                from [test]:1:\n\
-        """,
-        """\
-            var v = (|| raise ValueError("") )
-        """)
-
         # lambda rules (return not allowed)
 
         assert_parse_fails(t, """\

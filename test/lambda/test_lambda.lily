@@ -234,6 +234,23 @@ class TestLambdas < TestCase
         """)
     }
 
+    public define test_raise
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            var v = (||
+                raise ValueError("")
+            )
+
+            try: {
+                v()
+                0 / 0
+            except ValueError:
+            }
+        """)
+    }
+
     public define test_verify_restore
     {
         var t = Interpreter()
