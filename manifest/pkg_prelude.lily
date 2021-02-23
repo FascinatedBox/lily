@@ -125,7 +125,7 @@ predefined File {
     ### contents of `self` are read. This stops if either `size` bytes are read,
     ### or the end of `self` is reached.
     ###
-    ### # Errors:
+    ### # Errors
     ###
     ### * `IOError` if `self` is not open for reading, or is closed.
     public define read(size: *Integer=-1): ByteString
@@ -380,8 +380,8 @@ predefined List[A] {
     ### number of `List` values.
     ###
     ### If 'self' is `List[Integer]` and 'others' is `List[String]` and
-    ### `List[Double]`, then the resulting type is `List[Tuple[Integer, String,
-    ### Double]]`.
+    ### `List[Double]`, then the resulting type is
+    ### `List[Tuple[Integer, String, Double]]`.
     ###
     ### The size of the result `List` is the same as the smallest `List`
     ### provided.

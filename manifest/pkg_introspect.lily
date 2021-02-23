@@ -273,16 +273,16 @@ foreign static class EnumEntry
 ### This is a foreign class that wraps over a module.
 foreign static class ModuleEntry
 {
-    ### Return all classes that were directly imported into this module (`import
-    ### (someclass) somefile`).
+    ### Return all classes that were directly imported into this module
+    ### (`import (someclass) somefile`).
     public define boxed_classes: List[ClassEntry]
 
     ### Return all constants that were directly imported into this module
     ### (`import (someconstant) somefile`).
     public define boxed_constants: List[ConstantEntry]
 
-    ### Return all enums that were directly imported into this module (`import
-    ### (someenum) somefile`).
+    ### Return all enums that were directly imported into this module
+    ### (`import (someenum) somefile`).
     public define boxed_enums: List[EnumEntry]
 
     ### Return all functions that were directly imported into this module
@@ -293,8 +293,8 @@ foreign static class ModuleEntry
     ### (`import (somevariant) somefile`).
     public define boxed_variants: List[VariantEntry]
 
-    ### Return all vars that were directly imported into this module (`import
-    ### (somevar) somefile`).
+    ### Return all vars that were directly imported into this module
+    ### (`import (somevar) somefile`).
     public define boxed_vars: List[VarEntry]
 
     ### Return the classes declared within this module.

@@ -64,7 +64,7 @@ foreign static class Coroutine[A, B] {
     ### Yield 'value' from the `Coroutine` given. Control returns to whatever
     ### invoked 'self'.
     ###
-    ### # Errors:
+    ### # Errors
     ###
     ### * `RuntimeError` if `self` is the current `Coroutine`, or within a
     ### foreign call.
