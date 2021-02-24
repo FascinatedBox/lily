@@ -785,7 +785,7 @@ class TestBadToken < TestCase
         # bad keyword (else without if)
 
         assert_parse_fails(t, """\
-            SyntaxError: else outside of if or match.\n    \
+            SyntaxError: else outside of if, match, or with.\n    \
                 from [test]:2:\n\
         """,
         """\

@@ -3967,24 +3967,30 @@ static void keyword_else(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_block *block = parser->emit->block;
+    const char *what = NULL;
 
-    if (block->block_type == block_if) {
-        if (block->flags & BLOCK_FINAL_BRANCH)
-            lily_raise_syn(parser->raiser, "else in exhaustive if.");
-
-        hide_block_vars(parser);
-        lily_emit_branch_finalize(parser->emit);
+    switch (block->block_type) {
+        case block_if:
+            what = "if";
+            break;
+        case block_match:
+            what = "match";
+            break;
+        case block_with:
+            what = "with";
+            break;
+        default:
+            break;
     }
-    else if (block->block_type == block_match) {
-        if (block->flags & BLOCK_FINAL_BRANCH)
-            lily_raise_syn(parser->raiser, "else in exhaustive match.");
 
-        hide_block_vars(parser);
-        lily_emit_branch_finalize(parser->emit);
-    }
-    else
-        lily_raise_syn(parser->raiser, "else outside of if or match.");
+    if (what == NULL)
+        lily_raise_syn(parser->raiser, "else outside of if, match, or with.");
 
+    if (block->flags & BLOCK_FINAL_BRANCH)
+        lily_raise_syn(parser->raiser, "else in exhaustive %s.", what);
+
+    hide_block_vars(parser);
+    lily_emit_branch_finalize(parser->emit);
     NEED_COLON_AND_NEXT;
 }
 

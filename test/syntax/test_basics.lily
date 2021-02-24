@@ -1647,5 +1647,22 @@ class TestBasics < TestCase
                 0 / 0
             }
         """)
+
+        # with (using else)
+
+        assert_parse_string(t, """
+            var v = Some(1)
+            var ok = false
+
+            with v as None: {
+                0 / 0
+            else:
+                ok = true
+            }
+
+            if ok == false: {
+                0 / 0
+            }
+        """)
     }
 }
