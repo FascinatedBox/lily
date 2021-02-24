@@ -265,7 +265,6 @@ void lily_emit_branch_finalize(lily_emit_state *);
 void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *,
         uint16_t);
 int lily_emit_try_match_switch(lily_emit_state *, lily_class *);
-int lily_emit_try_match_finalize(lily_emit_state *);
 void lily_emit_multi_match_end_group(lily_emit_state *, uint16_t);
 void lily_emit_multi_match_mark(lily_emit_state *);
 

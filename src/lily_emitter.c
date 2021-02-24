@@ -1519,15 +1519,6 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
     return 1;
 }
 
-int lily_emit_try_match_finalize(lily_emit_state *emit)
-{
-    if (emit->block->flags & BLOCK_FINAL_BRANCH)
-        return 0;
-
-    lily_emit_branch_finalize(emit);
-    return 1;
-}
-
 void lily_emit_multi_match_mark(lily_emit_state *emit)
 {
     emit->block->flags |= BLOCK_MULTI_MATCH;

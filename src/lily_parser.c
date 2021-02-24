@@ -3976,11 +3976,11 @@ static void keyword_else(lily_parse_state *parser)
         lily_emit_branch_finalize(parser->emit);
     }
     else if (block->block_type == block_match) {
-        hide_block_vars(parser);
-
-        /* This checks the final flag and the match count. */
-        if (lily_emit_try_match_finalize(parser->emit) == 0)
+        if (block->flags & BLOCK_FINAL_BRANCH)
             lily_raise_syn(parser->raiser, "else in exhaustive match.");
+
+        hide_block_vars(parser);
+        lily_emit_branch_finalize(parser->emit);
     }
     else
         lily_raise_syn(parser->raiser, "else outside of if or match.");
