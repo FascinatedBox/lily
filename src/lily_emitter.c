@@ -649,6 +649,7 @@ void lily_emit_enter_with_block(lily_emit_state *emit)
 {
     lily_block *block = next_block(emit);
 
+    block->flags |= BLOCK_ALWAYS_EXITS;
     block->block_type = block_with;
     block->match_case_start = lily_u16_pos(emit->match_cases);
     emit->block = block;

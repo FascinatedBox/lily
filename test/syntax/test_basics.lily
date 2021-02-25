@@ -607,6 +607,19 @@ class TestBasics < TestCase
                 }
             }
         """)
+
+        # exit folding (using with)
+
+        assert_parse_string(t, """
+            define with_match(a: Option[Integer]) : Integer
+            {
+                with a as Some(s): {
+                    return 1
+                else:
+                    return 2
+                }
+            }
+        """)
     }
 
     public define test_expressions
