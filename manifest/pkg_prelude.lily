@@ -74,8 +74,9 @@ predefined ByteString {
     ###
     ### On error, this generates an empty `ByteString`. Error conditions are:
     ###
-    ### * Either `start` or `stop` is out of range. * The `start` is larger than
-    ### the `stop` (reversed).
+    ### * Either `start` or `stop` is out of range.
+    ###
+    ### * The `start` is larger than the `stop` (reversed).
     public define slice(start: *Integer=0, stop: *Integer=-1): ByteString
 }
 
@@ -150,9 +151,17 @@ predefined File {
     ### Attempt to open `path` using the `mode` given. `mode` may be one of the
     ### following:
     ###
-    ### * `"r"` (read only, must exist) * `"w"` (write only) * `"a"` (append,
-    ### create if not exist) * `"r+"` (read+write, must exist) * `"w+"`
-    ### (read+write, creates an empty file if needed) * `"a+"` (read+append)
+    ### * `"r"` (read only, must exist)
+    ###
+    ### * `"w"` (write only)
+    ###
+    ### * `"a"` (append, create if not exist)
+    ###
+    ### * `"r+"` (read+write, must exist)
+    ###
+    ### * `"w+"` (read+write, creates an empty file if needed)
+    ###
+    ### * `"a+"` (read+append)
     ###
     ### # Errors
     ###
@@ -365,8 +374,9 @@ predefined List[A] {
     ###
     ### On error, this generates an empty `List`. Error conditions are:
     ###
-    ### * Either `start` or `stop` is out of range. * The `start` is larger than
-    ### the `stop` (reversed).
+    ### * Either `start` or `stop` is out of range.
+    ###
+    ### * The `start` is larger than the `stop` (reversed).
     public define slice(start: *Integer=0, stop: *Integer=-1): List[A]
 
     ### Inserts value at the front of self, moving all other elements to the
@@ -505,8 +515,11 @@ predefined String {
     ###
     ### On error, this generates an empty `String`. Error conditions are:
     ###
-    ### * Either `start` or `stop` is out of range. * The resulting slice would
-    ### not be valid utf-8. * The `start` is larger than the `stop` (reversed).
+    ### * Either `start` or `stop` is out of range.
+    ###
+    ### * The resulting slice would not be valid utf-8.
+    ###
+    ### * The `start` is larger than the `stop` (reversed).
     public define slice(start: *Integer=0, stop: *Integer=-1): String
 
     ### This attempts to split `self` using `split_by`, with a default value of
