@@ -28,8 +28,6 @@ set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 set(LILY_MAJOR             "1")
 set(LILY_MINOR             "15")
 
-add_definitions(-DLILY_VERSION_DIR="${LILY_MAJOR}_${LILY_MINOR}")
-
 # BSD libc includes the dl* functions and there's no libdl on them.
 # Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
 STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
