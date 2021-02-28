@@ -67,5 +67,7 @@ define cover_value_group(a: Boolean,
      n: Tuple[Integer],
      o: Unit,
      p: Option[Integer]): Boolean
+define make_flat_n(n: Integer): FlatEnum
+define make_scoped_n(n: Integer): ScopedEnum
 define scoop_narrow(f: Function($1))
 define scoop_narrow_with_args(f: Function(Integer, String, $1 => Boolean))

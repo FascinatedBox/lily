@@ -257,7 +257,8 @@ class TestVerifyCoverage < TestCase
         # foreign enums (flat)
 
         assert_parse_string(t, """
-            import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
+            import (FlatEnum, FlatOne, FlatTwo, FlatThree,
+                    make_flat_n) covlib
 
             var v = "" ++ FlatTwo
             if v != "FlatTwo": {
@@ -285,6 +286,18 @@ class TestVerifyCoverage < TestCase
             var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
             if v2 != [1, 2, 3, 2, 1]: {
                 raise Exception("Failed to match and transform.")
+            }
+
+            var v3 = [
+                make_flat_n(1) ++ "",
+                make_flat_n(2) ++ "",
+                make_flat_n(3) ++ "",
+            ]
+
+            if v3 != ["FlatOne",
+                      "FlatTwo",
+                      "FlatThree"]: {
+                raise Exception("Failed to interpolate foreign made variants.")
             }
         """)
 
@@ -295,7 +308,8 @@ class TestVerifyCoverage < TestCase
         )
 
         assert_parse_string(t, """
-            import (FlatEnum, FlatOne, FlatTwo, FlatThree) covlib
+            import (FlatEnum, FlatOne, FlatTwo, FlatThree,
+                    make_scoped_n) covlib
 
             var v = "" ++ FlatTwo
             if v != "FlatTwo": {
@@ -324,6 +338,19 @@ class TestVerifyCoverage < TestCase
             if v2 != [1, 2, 3, 2, 1]: {
                 raise Exception("Failed to match and transform.")
             }
+
+            var v3 = [
+                make_scoped_n(1) ++ "",
+                make_scoped_n(2) ++ "",
+                make_scoped_n(3) ++ "",
+            ]
+
+            if v3 != ["ScopedEnum.ScopedOne",
+                      "ScopedEnum.ScopedTwo",
+                      "ScopedEnum.ScopedThree"]: {
+                raise Exception("Failed to interpolate foreign made variants.")
+            }
+
         """)
     }
 

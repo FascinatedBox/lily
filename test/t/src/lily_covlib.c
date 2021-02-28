@@ -239,6 +239,34 @@ void lily_covlib__cover_function_bytecode(lily_state *s)
     lily_return_boolean(s, result);
 }
 
+void lily_covlib__make_flat_n(lily_state *s)
+{
+    int64_t arg_n = lily_arg_integer(s, 0);
+
+    if (arg_n == 1)
+        PUSH_FlatOne(s);
+    else if (arg_n == 2)
+        PUSH_FlatTwo(s);
+    else
+        PUSH_FlatThree(s);
+
+    lily_return_top(s);
+}
+
+void lily_covlib__make_scoped_n(lily_state *s)
+{
+    int64_t arg_n = lily_arg_integer(s, 0);
+
+    if (arg_n == 1)
+        PUSH_ScopedOne(s);
+    else if (arg_n == 2)
+        PUSH_ScopedTwo(s);
+    else
+        PUSH_ScopedThree(s);
+
+    lily_return_top(s);
+}
+
 void lily_covlib__scoop_narrow(lily_state *s)
 {
     lily_return_unit(s);

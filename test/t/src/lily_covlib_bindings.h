@@ -37,23 +37,31 @@ lily_cid_at(s_, 2)
 #define INIT_ForeignGeneric(s_) \
 (lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
 
+#define ID_FlatOne(s_) \
+(lily_cid_at(s_, 3) + 1)
 #define PUSH_FlatOne(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+#define ID_FlatThree(s_) \
+(lily_cid_at(s_, 3) + 2)
 #define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 3) + 2)
+#define ID_FlatTwo(s_) \
+(lily_cid_at(s_, 3) + 3)
 #define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
-#define ID_FlatEnum(s_) \
-lily_cid_at(s_, 3)
+lily_push_empty_variant(state, lily_cid_at(state, 3) + 3)
 
+#define ID_ScopedOne(s_) \
+(lily_cid_at(s_, 4) + 1)
 #define PUSH_ScopedOne(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
+#define ID_ScopedThree(s_) \
+(lily_cid_at(s_, 4) + 2)
 #define PUSH_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
+#define ID_ScopedTwo(s_) \
+(lily_cid_at(s_, 4) + 3)
 #define PUSH_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
-#define ID_ScopedEnum(s_) \
-lily_cid_at(s_, 4)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
 
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
@@ -87,6 +95,8 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_value_as\0(Byte,ByteString,Exception,Double,File,Function(Integer),Hash[Integer,Integer],Integer,String)"
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
     ,"F\0isa_integer\0[A](A): Boolean"
+    ,"F\0make_flat_n\0(Integer): FlatEnum"
+    ,"F\0make_scoped_n\0(Integer): ScopedEnum"
     ,"F\0scoop_narrow\0(Function($1))"
     ,"F\0scoop_narrow_with_args\0(Function(Integer,String,$1=>Boolean))"
     ,"Z"
@@ -124,6 +134,8 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_value_as, \
     lily_covlib__cover_value_group, \
     lily_covlib__isa_integer, \
+    lily_covlib__make_flat_n, \
+    lily_covlib__make_scoped_n, \
     lily_covlib__scoop_narrow, \
     lily_covlib__scoop_narrow_with_args, \
 };
