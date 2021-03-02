@@ -12,7 +12,9 @@
 import (finish_file,
         open_file,
         script_name,
-        token_data) common
+        token_data,
+        write_table_header,
+        write_numeric_table) common
 
 script_name = "scripts/parser_data.lily"
 
@@ -54,6 +56,13 @@ var keywords = [
     "var",
     "while",
     "with",
+]
+var docblock_keywords = [
+    "class",
+    "define",
+    "private",
+    "protected",
+    "public",
 ]
 var expression_group_data = [
     "expr_binary" => [
@@ -293,6 +302,34 @@ define write_keyword_handlers(f: File)
     f.write("};\n\n")
 }
 
+define write_docblock_keywords(f: File)
+{
+    var table = keywords.map(|m| <[m, shorthash(m)]> )
+    var id_map: Hash[String, Integer] = []
+
+    sort(table, sort_entry)
+    table = table.map(|m| <[m[0], 0]> )
+
+    for i in 0...table.size() - 1: {
+        var t = table[i]
+
+        for j in 0...docblock_keywords.size() - 1: {
+            var dc = docblock_keywords[j]
+
+            if t[0] == dc: {
+                t[1] = 1
+            }
+        }
+    }
+
+    # The push covers the invalid keyword case.
+    var out_table = table.map(|m| m[1] )
+                         .push(0)
+
+    write_table_header(f, "int valid_docblock_table", out_table.size())
+    write_numeric_table(f, out_table)
+}
+
 define write_lily_parser_data
 {
     var path = "src/lily_parser_data.h"
@@ -317,6 +354,7 @@ define write_lily_parser_data
 
     write_expression_handlers(f)
     write_keyword_handlers(f)
+    write_docblock_keywords(f)
     finish_file(f, path)
 }
 

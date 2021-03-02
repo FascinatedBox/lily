@@ -5717,11 +5717,7 @@ static void process_docblock(lily_parse_state *parser)
     else
         key_id = KEY_BAD_ID;
 
-    if (key_id == KEY_PRIVATE ||
-        key_id == KEY_PROTECTED ||
-        key_id == KEY_PUBLIC ||
-        key_id == KEY_DEFINE ||
-        key_id == KEY_CLASS) {
+    if (valid_docblock_table[key_id]) {
         lily_next_token(lex);
         handlers[key_id](parser);
     }

@@ -19,7 +19,9 @@
 import (finish_file,
         open_file,
         script_name,
-        token_data) common
+        token_data,
+        write_table_header,
+        write_numeric_table) common
 
 script_name = "scripts/token.lily"
 
@@ -112,28 +114,6 @@ define write_ch_defines(f: File)
     }
 
     f.write("\n")
-}
-
-define write_table_header(f: File, info: String, size: Integer)
-{
-    f.write("static const " ++ info ++ "[" ++ size ++ "] = {\n")
-}
-
-define write_numeric_table[A](f: File, table: List[A])
-{
-    for i in 0...table.size() - 1 by 16: {
-        var slice = table.slice(i, i + 16)
-
-        if slice.size() == 0: {
-            slice = table.slice(i, table.size() - 1)
-        }
-
-        var slice_str = "    " ++ slice.join(", ") ++ ",\n"
-
-        f.write(slice_str)
-    }
-
-    f.write("};\n\n")
 }
 
 define write_string_table(f: File, table: List[String])
