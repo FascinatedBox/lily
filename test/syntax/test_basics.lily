@@ -488,28 +488,26 @@ class TestBasics < TestCase
     {
         var t = Interpreter()
 
-        # docstrings (for class)
-
         assert_parse_string(t, """
+            # This makes sure docblocks are allowed where they should be.
+
+            ### test
+            var v = 1
+
+            ### test
+            define f {}
+
             ### Documentation for
             ### example
             ### class
             class Example {
+                ### test
+                public var @v = 1
 
+                ### test
+                public define m {}
             }
-        """)
-
-        # docstrings (for a public method)
-
-        assert_parse_string(t, """
-            class Example2 {
-                ### Docstring for
-                ### public definition
-                public define a {
-
-                }
-            }
-        """)
+         """)
     }
 
     public define test_exit_folding

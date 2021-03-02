@@ -1472,6 +1472,9 @@ static lily_var *declare_scoped_var(lily_parse_state *parser)
     else
         var = new_global_var(parser, lex->label, lex->line_num);
 
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        var->doc_id = store_docblock(parser);
+
     lily_next_token(lex);
     return var;
 }
@@ -3727,6 +3730,9 @@ static lily_prop_entry *declare_property(lily_parse_state *parser,
     lily_prop_entry *prop = lily_add_class_property(cls, lily_question_type, name,
             parser->lex->line_num, flags);
 
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        prop->doc_id = store_docblock(parser);
+
     lily_next_token(parser->lex);
     return prop;
 }
@@ -5923,10 +5929,6 @@ static void manifest_var(lily_parse_state *parser)
     NEED_CURRENT_TOK(tk_colon)
     lily_next_token(lex);
     sym->type = get_type(parser);
-
-    if (parser->flags & PARSER_HAS_DOCBLOCK)
-        /* Similar to enums, vars and properties only store the docblock. */
-        sym->doc_id = store_docblock(parser);
 }
 
 static void manifest_modifier(lily_parse_state *parser, int key)

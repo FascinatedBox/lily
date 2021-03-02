@@ -63,6 +63,7 @@ var docblock_keywords = [
     "private",
     "protected",
     "public",
+    "var",
 ]
 var expression_group_data = [
     "expr_binary" => [
