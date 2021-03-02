@@ -110,7 +110,6 @@ var expression_group_data = [
         "tk_not",
     ],
 ]
-var space = "                                        "
 
 define shorthash(name: String): Integer
 {
