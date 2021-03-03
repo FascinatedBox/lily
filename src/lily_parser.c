@@ -515,6 +515,15 @@ static uint16_t store_docblock(lily_parse_state *parser)
     return build_doc_data(parser, 1);
 }
 
+static void save_docblock(lily_parse_state *parser)
+{
+    if (parser->flags & PARSER_EXTRA_INFO) {
+        lily_u16_write_1(parser->data_stack, 0);
+        add_data_string(parser, parser->lex->label);
+        parser->flags |= PARSER_HAS_DOCBLOCK;
+    }
+}
+
 static void write_generics(lily_parse_state *parser, uint16_t where)
 {
     lily_generic_pool *gp = parser->generics;
@@ -5708,12 +5717,7 @@ static void process_docblock(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    if (parser->flags & PARSER_EXTRA_INFO) {
-        lily_u16_write_1(parser->data_stack, 0);
-        add_data_string(parser, lex->label);
-        parser->flags |= PARSER_HAS_DOCBLOCK;
-    }
-
+    save_docblock(parser);
     lily_next_token(lex);
 
     int key_id;
@@ -6125,11 +6129,9 @@ enter_manifest_import:;
     while (1) {
         if (lex->token == tk_docblock) {
             /* Store documentation for the keyword to pull. */
-            lily_u16_write_1(parser->data_stack, 0);
-            add_data_string(parser, lex->label);
+            save_docblock(parser);
             lily_next_token(lex);
             have_docblock = 1;
-            parser->flags |= PARSER_HAS_DOCBLOCK;
 
             if (lex->token != tk_word)
                 lily_raise_syn(parser->raiser,
