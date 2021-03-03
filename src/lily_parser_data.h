@@ -240,8 +240,8 @@ static keyword_handler *handlers[] =
 };
 
 static const int valid_docblock_table[28] = {
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
-    0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1,
+    0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0,
 };
 
 #endif

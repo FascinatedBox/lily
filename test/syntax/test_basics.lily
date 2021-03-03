@@ -507,6 +507,18 @@ class TestBasics < TestCase
                 ### test
                 public define m {}
             }
+
+            ### test
+            enum FlatEnum {
+                FlatOne,
+                FlatTwo
+            }
+
+            ### test
+            scoped enum ScopedEnum {
+                ScopedOne,
+                ScopedTwo
+            }
          """)
     }
 

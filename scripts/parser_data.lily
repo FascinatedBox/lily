@@ -67,9 +67,11 @@ var keywords = [
 var docblock_keywords = [
     "class",
     "define",
+    "enum",
     "private",
     "protected",
     "public",
+    "scoped",
     "var",
 ]
 var expression_group_data = [
