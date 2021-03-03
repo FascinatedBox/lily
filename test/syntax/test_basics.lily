@@ -512,12 +512,24 @@ class TestBasics < TestCase
             enum FlatEnum {
                 FlatOne,
                 FlatTwo
+
+                ### test
+                define g {}
+
+                ### test
+                define h {}
             }
 
             ### test
             scoped enum ScopedEnum {
                 ScopedOne,
                 ScopedTwo
+
+                ### test
+                define g {}
+
+                ### test
+                define h {}
             }
          """)
     }

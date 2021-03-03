@@ -4965,16 +4965,23 @@ static void enum_method_check(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     if (lex->token == tk_right_curly)
-        ;
-    else if (lex->token == tk_word &&
-             strcmp(lex->label, "define") == 0) {
+        return;
+
+    if (lex->token == tk_docblock) {
+        save_docblock(parser);
+        lily_next_token(lex);
+    }
+
+    if (lex->token == tk_word &&
+        strcmp(lex->label, "define") == 0) {
         lily_next_token(lex);
         keyword_define(parser);
+        return;
     }
-    else
-        lily_raise_syn(parser->raiser,
-                "Expected '}' or 'define', not '%s'.",
-                tokname(lex->token));
+
+    lily_raise_syn(parser->raiser,
+            "Expected '}' or 'define', not '%s'.",
+            tokname(lex->token));
 }
 
 static void determine_enum_gc_flag(lily_class *enum_cls)
