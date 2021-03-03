@@ -311,13 +311,15 @@ class TestBadSyntax < TestCase
         # bad comment (docblock not followed by function or class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblock must be followed by a function or class definition.\n    \
-                from [test]:4:\n\
+            SyntaxError: A docblock is not allowed here.\n    \
+                from [test]:7:\n\
         """,
         """
-        ### Documentation for
-        ### example
-        ### class\
+        var v = 10
+
+        ### Example documentation block
+        ###
+        ### More details follow
         """)
 
         # bad comment (docblock preceded by non-whitespace).

@@ -5732,8 +5732,7 @@ static void process_docblock(lily_parse_state *parser)
         handlers[key_id](parser);
     }
     else
-        lily_raise_syn(parser->raiser,
-                "Docblock must be followed by a function or class definition.");
+        lily_raise_syn(parser->raiser, "A docblock is not allowed here.");
 }
 
 static void error_forward_classes_pending(lily_parse_state *parser)
