@@ -8,6 +8,13 @@
 # * keywords: The keyword table holds names that are important keywords, such as
 #             if, for, while, and so on.
 #
+# * expression dispatch: This table maps from a token to an expression handler.
+#
+# * keyword dispatch: This table maps from a key id to a keyword handler.
+#
+# * docblock verifier: This table is used to determine if a key id is allowed to
+#                      have a docblock.
+
 
 import (finish_file,
         open_file,
