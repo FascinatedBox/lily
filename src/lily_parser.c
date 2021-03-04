@@ -4205,10 +4205,11 @@ static int extra_if_word(lily_parse_state *parser, const char *what)
 static void keyword_for(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
+    lily_emit_state *emit = parser->emit;
     lily_type *integer_type = parser->symtab->integer_class->self_type;
 
     NEED_CURRENT_TOK(tk_word)
-    lily_emit_enter_for_in_block(parser->emit);
+    lily_emit_enter_for_in_block(emit);
 
     lily_var *loop_var = find_active_var(parser, lex->label);
 
@@ -4219,6 +4220,9 @@ static void keyword_for(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                    "Loop var must be type Integer, not type '^T'.",
                    loop_var->type);
+    else if (emit->function_depth != loop_var->function_depth &&
+             (loop_var->flags & VAR_IS_GLOBAL) == 0)
+            lily_raise_syn(parser->raiser, "Loop var cannot be an upvalue.");
 
     lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
@@ -4236,10 +4240,10 @@ static void keyword_for(lily_parse_state *parser)
         lily_es_flush(parser->expr);
         lily_es_push_assign_to(parser->expr, (lily_sym *)for_step);
         lily_es_push_integer(parser->expr, 1);
-        lily_eval_expr(parser->emit, parser->expr);
+        lily_eval_expr(emit, parser->expr);
     }
 
-    lily_emit_write_for_header(parser->emit, loop_var, for_start, for_end,
+    lily_emit_write_for_header(emit, loop_var, for_start, for_end,
                                for_step, lex->line_num);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);

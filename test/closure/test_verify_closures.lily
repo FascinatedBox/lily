@@ -3,6 +3,33 @@ import (Interpreter,
 
 class TestVerifyClosures < TestCase
 {
+    public define test_block_for_var_loop_capture
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Loop var cannot be an upvalue.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            define f
+            {
+                var i = 0
+
+                define g
+                {
+                    for i in 0...10: {
+                        print(i)
+                    }
+                }
+
+                g()
+            }
+
+            f()
+        """)
+    }
+
     public define test_capture
     {
         var t = Interpreter()
