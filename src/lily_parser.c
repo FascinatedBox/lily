@@ -6414,6 +6414,11 @@ int lily_exit_code(lily_state *s)
     return result;
 }
 
+int lily_has_exited(lily_state *s)
+{
+    return s->gs->parser->rs->has_exited;
+}
+
 int lily_load_file(lily_state *s, const char *filename)
 {
     return open_first_content(s, filename, NULL);

@@ -152,6 +152,10 @@ lily_config *lily_config_get(lily_state *s);
 // succeeded, or EXIT_FAILURE if it did not.
 int lily_exit_code(lily_state *s);
 
+// Function: lily_has_exited
+// Return 1 if an exit function has been called, 0 otherwise.
+int lily_has_exited(lily_state *s);
+
 // Function: lily_new_state
 // Create a new interpreter.
 lily_state *lily_new_state(lily_config *config);
