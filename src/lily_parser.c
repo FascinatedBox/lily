@@ -152,7 +152,8 @@ void lily_config_init(lily_config *conf)
 
     conf->import_func = lily_default_import_func;
     conf->render_func = (lily_render_func)fputs;
-    conf->data = stdout;
+    conf->render_data = stdout;
+    conf->data = NULL;
     conf->extra_info = 0;
 }
 
@@ -5607,7 +5608,7 @@ static void verify_template_target_open(lily_parse_state *parser)
     if (gs->stdout_reg_spot == UINT16_MAX)
         return;
 
-    if (parser->config->data != stdout)
+    if (parser->config->render_data != stdout)
         return;
 
     lily_value *stdout_value = vm->gs->regs_from_main[gs->stdout_reg_spot];
@@ -5631,7 +5632,7 @@ static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
         char *buffer = lily_read_template_content(lex, &has_more);
 
         if (*buffer)
-            config->render_func(buffer, config->data);
+            config->render_func(buffer, config->render_data);
     } while (has_more);
 }
 

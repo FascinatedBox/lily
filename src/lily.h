@@ -89,10 +89,6 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //     argv          - (Default: NULL)
 //                     The argument list (later used by Lily's sys.argv).
 //
-//     data          - (Default: stdin)
-//                     This will later be sent as the data part of the
-//                     import_func hook.
-//
 //     gc_multiplier - (Default: 4)
 //                     If a gc sweep fails, how much should the count of allowed
 //                     values be multiplied by?
@@ -112,6 +108,15 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //                     The sipkey is an array of 16 char values that helps to
 //                     prevent collisions in Lily's Hash class.
 //
+//     render_data   - (Default: stdin)
+//                     This will later be sent as the data part of the
+//                     import_func hook.
+//
+//     data          - (Default: NULL)
+//                     Space for the embedder to attach miscellaneous data to
+//                     interpreter. The interpreter will not alter or delete the
+//                     data stored within.
+//
 //     extra_info    - (Default: 0)
 //                     By default, the interpreter does not save parameter names
 //                     or docblocks for introspection. If this is 1 when
@@ -119,11 +124,12 @@ typedef void (*lily_call_entry_func)(lily_state *);
 typedef struct lily_config_ {
     int argc;
     char **argv;
-    int gc_start;
     int gc_multiplier;
-    lily_render_func render_func;
+    int gc_start;
     lily_import_func import_func;
+    lily_render_func render_func;
     char sipkey[16];
+    void *render_data;
     void *data;
     int extra_info;
 } lily_config;
