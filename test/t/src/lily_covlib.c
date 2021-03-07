@@ -398,6 +398,35 @@ void lily_covlib__cover_misc_api(lily_state *s)
         (void)output;
         lily_free_state(subinterp);
     }
+    {
+        lily_config config2;
+        lily_config_init(&config2);
+
+        lily_state *subinterp = lily_new_state(&config2);
+
+        lily_load_string(subinterp, "[test]", "<?lily stdout.close()\n?>\n");
+        lily_render_content(subinterp);
+
+        const char *message = lily_error_message_no_trace(subinterp);
+
+        if (strcmp(message, "Cannot write template output to stdout.") != 0)
+            lily_RuntimeError(s,
+                    "Template write when closed failed incorrectly (%s).",
+                    message);
+
+        lily_load_string(subinterp, "[test]",
+                "<?lily stdout = stdin \n?>\nasdf\n");
+        lily_render_content(subinterp);
+
+        message = lily_error_message_no_trace(subinterp);
+
+        if (strcmp(message, "Cannot write template output to stdout.") != 0)
+            lily_RuntimeError(s,
+                    "Template write when read failed incorrectly (%s).",
+                    message);
+
+        lily_free_state(subinterp);
+    }
 }
 
 void lily_covlib_Container_new(lily_state *s)

@@ -60,28 +60,34 @@ lily_push_super(s_, ID_TestCaseBase(s_), 3)
 LILY_BACKBONE_EXPORT
 const char *lily_backbone_info_table[] = {
     "\03Interpreter\0RawInterpreter\0TestCaseBase\0"
-    ,"N\023Interpreter\0"
+    ,"N\032Interpreter\0"
     ,"m\0<new>\0: Interpreter"
+    ,"m\0config_set_extra_info\0(Interpreter,Boolean): Interpreter"
     ,"m\0error\0(Interpreter): String"
     ,"m\0error_message\0(Interpreter): String"
     ,"m\0exit_code\0(Interpreter): Byte"
+    ,"m\0has_exited\0(Interpreter): Boolean"
     ,"m\0import_current_root_dir\0(Interpreter): String"
     ,"m\0import_file\0(Interpreter,String): Boolean"
+    ,"m\0import_hook_reset\0(Interpreter)"
+    ,"m\0import_hook_set\0(Interpreter,Function(Interpreter,String))"
     ,"m\0import_library\0(Interpreter,String): Boolean"
     ,"m\0import_string\0(Interpreter,String,String): Boolean"
     ,"m\0import_use_local_dir\0(Interpreter,String)"
     ,"m\0import_use_package_dir\0(Interpreter,String)"
     ,"m\0parse_expr\0(Interpreter,String,String): Option[String]"
     ,"m\0parse_file\0(Interpreter,String): Boolean"
+    ,"m\0parse_manifest_file\0(Interpreter,String): Boolean"
+    ,"m\0parse_manifest_string\0(Interpreter,String,String): Boolean"
     ,"m\0parse_string\0(Interpreter,String,String): Boolean"
-    ,"m\0render_string\0(Interpreter,String,String): Boolean"
-    ,"m\0set_hook\0(Interpreter,Function(Interpreter,String)): Boolean"
+    ,"m\0render_file\0(Interpreter,String): Option[String]"
+    ,"m\0render_string\0(Interpreter,String,String): Option[String]"
+    ,"m\0set_hook\0(Interpreter,Function(Interpreter,String))"
     ,"m\0validate_file\0(Interpreter,String): Boolean"
     ,"m\0validate_string\0(Interpreter,String,String): Boolean"
     ,"1\0import_hook\0Function(Interpreter,String)"
     ,"1\0raw\0RawInterpreter"
-    ,"C\01RawInterpreter\0"
-    ,"m\0<new>\0: RawInterpreter"
+    ,"C\0RawInterpreter\0"
     ,"N\05TestCaseBase\0"
     ,"m\0<new>\0: TestCaseBase"
     ,"m\0run_tests\0(TestCaseBase)"
@@ -96,18 +102,25 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     NULL, \
     NULL, \
     lily_backbone_Interpreter_new, \
+    lily_backbone_Interpreter_config_set_extra_info, \
     lily_backbone_Interpreter_error, \
     lily_backbone_Interpreter_error_message, \
     lily_backbone_Interpreter_exit_code, \
+    lily_backbone_Interpreter_has_exited, \
     lily_backbone_Interpreter_import_current_root_dir, \
     lily_backbone_Interpreter_import_file, \
+    lily_backbone_Interpreter_import_hook_reset, \
+    lily_backbone_Interpreter_import_hook_set, \
     lily_backbone_Interpreter_import_library, \
     lily_backbone_Interpreter_import_string, \
     lily_backbone_Interpreter_import_use_local_dir, \
     lily_backbone_Interpreter_import_use_package_dir, \
     lily_backbone_Interpreter_parse_expr, \
     lily_backbone_Interpreter_parse_file, \
+    lily_backbone_Interpreter_parse_manifest_file, \
+    lily_backbone_Interpreter_parse_manifest_string, \
     lily_backbone_Interpreter_parse_string, \
+    lily_backbone_Interpreter_render_file, \
     lily_backbone_Interpreter_render_string, \
     lily_backbone_Interpreter_set_hook, \
     lily_backbone_Interpreter_validate_file, \
@@ -115,7 +128,6 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
-    lily_backbone_RawInterpreter_new, \
     NULL, \
     lily_backbone_TestCaseBase_new, \
     lily_backbone_TestCaseBase_run_tests, \

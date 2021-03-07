@@ -11,28 +11,35 @@ class TestCaseBase
     public define run_tests
 }
 
-# These two were copied from spawni.
+# Begin spawni section.
 
-foreign class RawInterpreter {}
+foreign static class RawInterpreter {}
 
 class Interpreter
 {
     private var @raw: RawInterpreter
     private var @import_hook: Function(Interpreter, String)
+    public define config_set_extra_info(b: Boolean): Interpreter
     public define error: String
     public define error_message: String
     public define exit_code: Byte
+    public define has_exited: Boolean
     public define import_current_root_dir: String
     public define import_file(path: String): Boolean
+    public define import_hook_reset
+    public define import_hook_set(fn: Function(Interpreter, String))
     public define import_library(path: String): Boolean
     public define import_string(target: String, content: String): Boolean
     public define import_use_local_dir(dir: String)
     public define import_use_package_dir(dir: String)
     public define parse_expr(context: String, data: String): Option[String]
     public define parse_file(filename: String): Boolean
+    public define parse_manifest_file(filename: String): Boolean
+    public define parse_manifest_string(context: String, data: String): Boolean
     public define parse_string(context: String, data: String): Boolean
-    public define render_string(context: String, data: String): Boolean
-    public define set_hook(fn: Function(Interpreter, String)): Boolean
+    public define render_file(filename: String): Option[String]
+    public define render_string(context: String, data: String): Option[String]
+    public define set_hook(fn: Function(Interpreter, String))
     public define validate_file(filename: String): Boolean
     public define validate_string(context: String, data: String): Boolean
 }

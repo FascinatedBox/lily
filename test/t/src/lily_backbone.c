@@ -187,20 +187,11 @@ void lily_backbone_TestCaseBase_run_tests(lily_state *s)
     lily_return_unit(s);
 }
 
+/* Begin spawni section. */
+
 static void destroy_RawInterpreter(lily_backbone_RawInterpreter *raw)
 {
     lily_free_state(raw->subi);
-}
-
-void lily_backbone_RawInterpreter_new(lily_state *s)
-{
-    lily_RuntimeError(s, "Not allowed to construct RawInterpreter instances.");
-}
-
-void render_noop(const char *to_render, void *data)
-{
-    (void)data;
-    (void)to_render;
 }
 
 void lily_backbone_Interpreter_new(lily_state *s)
@@ -211,7 +202,6 @@ void lily_backbone_Interpreter_new(lily_state *s)
     lily_config_init(&raw->config);
     raw->subi = lily_new_state(&raw->config);
     raw->sourcei = s;
-    raw->config.render_func = render_noop;
 
     SETFS_Interpreter__raw(s, interp);
 
@@ -231,27 +221,141 @@ static lily_backbone_RawInterpreter *unpack_rawinterp(lily_state *s)
     return raw;
 }
 
+void lily_backbone_Interpreter_config_set_extra_info(lily_state *s)
+{
+    lily_value *interp = lily_arg_value(s, 0);
+    int value = (int)lily_arg_integer(s, 1);
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+
+    raw->config.extra_info = value;
+    lily_return_value(s, interp);
+}
+
 void lily_backbone_Interpreter_error(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
 
-    lily_return_string(s, lily_error_message(raw->subi));
+    lily_push_string(s, lily_error_message(raw->subi));
+    lily_return_top(s);
 }
 
 void lily_backbone_Interpreter_error_message(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
 
-    lily_return_string(s, lily_error_message_no_trace(raw->subi));
+    lily_push_string(s, lily_error_message_no_trace(raw->subi));
+    lily_return_top(s);
 }
 
 void lily_backbone_Interpreter_exit_code(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    lily_state *subi = raw->subi;
-    uint8_t status = lily_exit_code(subi);
 
-    lily_return_byte(s, status);
+    lily_return_byte(s, lily_exit_code(raw->subi));
+}
+
+void lily_backbone_Interpreter_has_exited(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+
+    lily_return_boolean(s, lily_has_exited(raw->subi));
+}
+
+void lily_backbone_Interpreter_import_current_root_dir(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_state *subi = raw->subi;
+
+    lily_push_string(s, lily_import_current_root_dir(subi));
+    lily_return_top(s);
+}
+
+void lily_backbone_Interpreter_import_file(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    const char *path = lily_arg_string_raw(s, 1);
+    lily_state *subi = raw->subi;
+
+    lily_return_boolean(s, lily_import_file(subi, path));
+}
+
+void lily_backbone_Interpreter_import_hook_reset(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_state *subinterp = raw->subi;
+    lily_config *config = lily_config_get(subinterp);
+
+    config->import_func = lily_default_import_func;
+    lily_return_unit(s);
+}
+
+static void backbone_import_hook(lily_state *s, const char *target)
+{
+    /* The state passed is the subinterp's state. Need to get the source
+       interpreter from the data stored. */
+    lily_config *config = lily_config_get(s);
+    lily_container_val *interp = (lily_container_val *)config->data;
+    lily_value *field_raw = GET_Interpreter__raw(interp);
+    lily_backbone_RawInterpreter *raw = AS_RawInterpreter(field_raw);
+
+    /* This is the calling interpreter to jump back into. */
+    lily_state *sourcei = raw->sourcei;
+
+    /* Here's the stored hook to call in it. */
+    lily_value *field_hook = GET_Interpreter__import_hook(interp);
+    lily_function_val *hook_fn = lily_as_function(field_hook);
+
+    /* This function is always launched from a subinterpreter processing
+       content. Content processing always happens in a context where the source
+       register is the first one passed. The calling interpreter will always be
+       in the content passing function, which has the calling interpreter as
+       register zero. Grab it before the prep, and send it back. */
+    lily_value *interp_reg = lily_arg_value(sourcei, 0);
+
+    lily_call_prepare(sourcei, hook_fn);
+    lily_push_value(sourcei, interp_reg);
+    lily_push_string(sourcei, target);
+    lily_call(sourcei, 2);
+
+    /* This is a raw C callback so no returning to either interp. */
+}
+
+void lily_backbone_Interpreter_import_hook_set(lily_state *s)
+{
+    lily_container_val *interp = lily_arg_container(s, 0);
+    lily_value *hook_arg = lily_arg_value(s, 1);
+
+    SET_Interpreter__import_hook(interp, hook_arg);
+
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_state *subinterp = raw->subi;
+    lily_config *config = lily_config_get(subinterp);
+
+    /* The import hook is a raw C function. Give the subinterp the calling
+       interp's state so it can be fetched back out in the hook. */
+    config->import_func = backbone_import_hook;
+    config->data = interp;
+
+    lily_return_unit(s);
+}
+
+void lily_backbone_Interpreter_import_library(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    const char *path = lily_arg_string_raw(s, 1);
+    lily_state *subi = raw->subi;
+
+    lily_return_boolean(s, lily_import_library(subi, path));
+}
+
+void lily_backbone_Interpreter_import_string(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    const char *target = lily_arg_string_raw(s, 1);
+    const char *content = lily_arg_string_raw(s, 2);
+    lily_state *subi = raw->subi;
+
+    lily_return_boolean(s, lily_import_string(subi, target, content));
 }
 
 void lily_backbone_Interpreter_import_use_local_dir(lily_state *s)
@@ -274,42 +378,6 @@ void lily_backbone_Interpreter_import_use_package_dir(lily_state *s)
     lily_return_unit(s);
 }
 
-void lily_backbone_Interpreter_import_file(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    const char *path = lily_arg_string_raw(s, 1);
-    lily_state *subi = raw->subi;
-
-    lily_return_boolean(s, lily_import_file(subi, path));
-}
-
-void lily_backbone_Interpreter_import_library(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    const char *path = lily_arg_string_raw(s, 1);
-    lily_state *subi = raw->subi;
-
-    lily_return_boolean(s, lily_import_library(subi, path));
-}
-
-void lily_backbone_Interpreter_import_string(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    const char *target = lily_arg_string_raw(s, 1);
-    const char *content = lily_arg_string_raw(s, 2);
-    lily_state *subi = raw->subi;
-
-    lily_return_boolean(s, lily_import_string(subi, target, content));
-}
-
-void lily_backbone_Interpreter_import_current_root_dir(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    lily_state *subi = raw->subi;
-
-    lily_return_string(s, lily_import_current_root_dir(subi));
-}
-
 void lily_backbone_Interpreter_parse_expr(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -325,10 +393,8 @@ void lily_backbone_Interpreter_parse_expr(lily_state *s)
         if (out_text == NULL)
             out_text = "";
 
-        lily_container_val *somev = lily_push_some(s);
         lily_push_string(s, out_text);
-        lily_con_set_from_stack(s, somev, 0);
-        lily_return_top(s);
+        lily_return_some_of_top(s);
     }
     else
         lily_return_none(s);
@@ -345,6 +411,83 @@ void lily_backbone_Interpreter_parse_file(lily_state *s)
     lily_return_boolean(s, result);
 }
 
+void render_func(const char *to_render, void *data)
+{
+    lily_mb_add((lily_msgbuf *)data, to_render);
+}
+
+void lily_backbone_Interpreter_render_file(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_msgbuf *msgbuf = lily_new_msgbuf(64);
+    lily_config *config = lily_config_get(raw->subi);
+
+    config->render_data = msgbuf;
+    config->render_func = render_func;
+
+    char *filename = lily_arg_string_raw(s, 1);
+    int result = lily_load_file(raw->subi, filename) &&
+                 lily_render_content(raw->subi);
+
+    if (result)
+        lily_push_string(s, lily_mb_raw(msgbuf));
+
+    lily_free_msgbuf(msgbuf);
+
+    if (result)
+        lily_return_some_of_top(s);
+    else
+        lily_return_none(s);
+}
+
+void lily_backbone_Interpreter_render_string(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_msgbuf *msgbuf = lily_new_msgbuf(64);
+    lily_config *config = lily_config_get(raw->subi);
+
+    config->render_data = msgbuf;
+    config->render_func = render_func;
+
+    char *context = lily_arg_string_raw(s, 1);
+    char *text = lily_arg_string_raw(s, 2);
+    int result = lily_load_string(raw->subi, context, text) &&
+                 lily_render_content(raw->subi);
+
+    if (result)
+        lily_push_string(s, lily_mb_raw(msgbuf));
+
+    lily_free_msgbuf(msgbuf);
+
+    if (result)
+        lily_return_some_of_top(s);
+    else
+        lily_return_none(s);
+}
+
+void lily_backbone_Interpreter_parse_manifest_file(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+
+    char *filename = lily_arg_string_raw(s, 1);
+    int result = lily_load_file(raw->subi, filename) &&
+                 lily_parse_manifest(raw->subi);
+
+    lily_return_boolean(s, result);
+}
+
+void lily_backbone_Interpreter_parse_manifest_string(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+
+    char *context = lily_arg_string_raw(s, 1);
+    char *text = lily_arg_string_raw(s, 2);
+    int result = lily_load_string(raw->subi, context, text) &&
+                 lily_parse_manifest(raw->subi);
+
+    lily_return_boolean(s, result);
+}
+
 void lily_backbone_Interpreter_parse_string(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
@@ -357,16 +500,9 @@ void lily_backbone_Interpreter_parse_string(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-void lily_backbone_Interpreter_render_string(lily_state *s)
+void lily_backbone_Interpreter_set_hook(lily_state *s)
 {
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-
-    char *context = lily_arg_string_raw(s, 1);
-    char *text = lily_arg_string_raw(s, 2);
-    int result = lily_load_string(raw->subi, context, text) &&
-                 lily_render_content(raw->subi);
-
-    lily_return_boolean(s, result);
+    lily_backbone_Interpreter_import_hook_set(s);
 }
 
 void lily_backbone_Interpreter_validate_file(lily_state *s)
@@ -390,56 +526,6 @@ void lily_backbone_Interpreter_validate_string(lily_state *s)
                  lily_validate_content(raw->subi);
 
     lily_return_boolean(s, result);
-}
-
-static void backbone_import_hook(lily_state *s, const char *target)
-{
-    /* The state passed is the subinterp's state. Need to get the source
-       interpreter from the data stored. */
-    lily_config *config = lily_config_get(s);
-    lily_container_val *interp = (lily_container_val *)config->data;
-    lily_value *field_raw = GET_Interpreter__raw(interp);
-    lily_backbone_RawInterpreter *raw = AS_RawInterpreter(field_raw);
-
-    /* This is the calling interpreter to jump back into. */
-    lily_state *sourcei = raw->sourcei;
-
-    /* Here's the stored hook to call in it. */
-    lily_value *field_hook = GET_Interpreter__import_hook(interp);
-    lily_function_val *hook_fn = lily_as_function(field_hook);
-
-    lily_call_prepare(sourcei, hook_fn);
-    lily_push_value(sourcei, &raw->interp_reg);
-    lily_push_string(sourcei, target);
-    lily_call(sourcei, 2);
-
-    /* This is a raw C callback so no returning to either interp. */
-}
-
-void lily_backbone_Interpreter_set_hook(lily_state *s)
-{
-    lily_value *interp_reg = lily_arg_value(s, 0);
-    lily_container_val *interp = lily_as_container(interp_reg);
-    lily_value *hook_arg = lily_arg_value(s, 1);
-
-    SET_Interpreter__import_hook(interp, hook_arg);
-
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    lily_state *subinterp = raw->subi;
-    lily_config *config = lily_config_get(subinterp);
-
-    /* Raw instances don't know all of their information (such as if they have a
-       gc tag), so the interpreter doesn't provide a push function for that use
-       case. In lieu of that, keep a value in the foreign instance that doesn't
-       have a refcount. It's a hack. */
-    memcpy(&raw->interp_reg, interp_reg, sizeof(raw->interp_reg));
-
-    /* The import hook is a raw C function. Give the subinterp the calling
-       interp's state so it can be fetched back out in the hook. */
-    config->import_func = backbone_import_hook;
-    config->data = interp;
-
-    lily_return_unit(s);
 }
 
 LILY_DECLARE_BACKBONE_CALL_TABLE

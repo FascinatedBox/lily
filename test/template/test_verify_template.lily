@@ -136,29 +136,5 @@ class TestVerifyTemplate < TestCase
         """\
             <?lily define f { ?>
         """)
-
-        # failure (render when stdout is closed)
-
-        t = Interpreter()
-        assert_render_fails(t, """\
-            SyntaxError: Cannot write template output to stdout.\n    \
-                from [test]:2:\n\
-        """,
-        """\
-            <?lily stdout.close()
-            ?>
-        """)
-
-        # failure (render content when stdin cannot be written to)
-
-        t = Interpreter()
-        assert_render_fails(t, """\
-            SyntaxError: Cannot write template output to stdout.\n    \
-                from [test]:1:\n\
-        """,
-        """\
-            <?lily stdout = stdin ?>
-            asdf
-        """)
     }
 }

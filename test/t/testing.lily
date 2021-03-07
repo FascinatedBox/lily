@@ -132,7 +132,7 @@ class TestCase < backbone.TestCaseBase
     {
         var result = interp.render_string("[test]", data)
 
-        if result == true: {
+        if result.is_some(): {
             var message = "Assertion (render fails) failed.\n"
             raise TestAssertionFailed(message)
         else:
@@ -154,7 +154,7 @@ class TestCase < backbone.TestCaseBase
     {
         var result = interp.render_string("[test]", data)
 
-        if result == false: {
+        if result.is_none(): {
             var message = "Assertion (render string) failed.\n" ++
                     interp.error()
             raise TestAssertionFailed(message)
