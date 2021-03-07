@@ -149,8 +149,9 @@ class TestCase < backbone.TestCaseBase
         }
     }
 
-    public define assert_render_string(interp: backbone.Interpreter,
-                                       data: String)
+    public define expect_render_string(interp: backbone.Interpreter,
+                                       data: String,
+                                       expect: String)
     {
         var result = interp.render_string("[test]", data)
 
@@ -159,7 +160,17 @@ class TestCase < backbone.TestCaseBase
                     interp.error()
             raise TestAssertionFailed(message)
         else:
-            @pass_count += 1
+            var given = result.unwrap()
+
+            if expect != given: {
+                var message = """\
+                    Assertion (render string) rendered incorrectly.\n\
+                    (expected)`{0}`\n\
+                    (received)`{1}`""".format(expect, given)
+                raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
+            }
         }
     }
 

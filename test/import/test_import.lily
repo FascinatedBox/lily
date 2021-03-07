@@ -519,11 +519,11 @@ class TestImport < TestCase
             @t_var_exporter
         )
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily ?>
 
             <?lily import var_exporter ?>
-        """)
+        """, "\n                    ")
 
         t = Interpreter.with_targets(
             @t_template_check

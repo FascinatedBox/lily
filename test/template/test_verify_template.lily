@@ -9,44 +9,44 @@ class TestVerifyTemplate < TestCase
 
         # basics (basic template usage)
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily    ?>\
-        """)
+        """, "")
 
         # basics (multiple valid template tag)
 
         t = Interpreter()
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily ?>\
             <?lily ?>\
             <?lily ?>\
-        """)
+        """, "")
 
         # basics (use globals from old scope)
 
         t = Interpreter()
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily var v = 10 ?>\
             <?lily v += 1 ?>\
             <?lily if v != 11: { raise ValueError("") } ?>\
-        """)
+        """, "")
 
         # basics (template with content after)
 
         t = Interpreter()
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily ?>
             test
-        """)
+        """, "            test\n        ")
 
         # basics (template that will need to render the body)
 
         t = Interpreter()
 
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily var v = stdin ?>
             Lorem Ipsum is simply dummy text of the printing and typesetting
             industry. Lorem Ipsum has been the industry's standard dummy text
@@ -67,16 +67,36 @@ class TestVerifyTemplate < TestCase
             with desktop publishing software like Aldus PageMaker including
             versions of Lorem Ipsum.
             <?lily ?>
+        """, """            \
+            Lorem Ipsum is simply dummy text of the printing and typesetting
+            industry. Lorem Ipsum has been the industry's standard dummy text
+            ever since the 1500s, when an unknown printer took a galley of type
+            and scrambled it to make a type specimen book. It has survived not
+            only five centuries, but also the leap into electronic typesetting,
+            remaining essentially unchanged. It was popularised in the 1960s
+            with the release of Letraset sheets containing Lorem Ipsum passages,
+            and more recently with desktop publishing software like Aldus
+            PageMaker including versions of Lorem Ipsum. Lorem Ipsum is simply
+            dummy text of the printing and typesetting industry. Lorem Ipsum has
+            been the industry's standard dummy text ever since the 1500s, when
+            an unknown printer took a galley of type and scrambled it to make a
+            type specimen book. It has survived not only five centuries, but
+            also the leap into electronic typesetting, remaining essentially
+            unchanged. It was popularised in the 1960s with the release of
+            Letraset sheets containing Lorem Ipsum passages, and more recently
+            with desktop publishing software like Aldus PageMaker including
+            versions of Lorem Ipsum.
+                    \
         """)
 
         # basics (render when stdout is reassigned)
 
         t = Interpreter()
-        assert_render_string(t, """\
+        expect_render_string(t, """\
             <?lily stdout = stderr ?>
             asdf
             <?lily stdout.write("1234\\r") ?>\
-        """)
+        """, "            asdf\n            ")
     }
 
     public define test_failure
