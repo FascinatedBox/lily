@@ -1733,7 +1733,8 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
         lily_ast *index_ast)
 {
-    lily_type *result;
+    lily_type *result = NULL;
+
     if (type->cls->id == LILY_ID_LIST)
         result = type->subtypes[0];
     else if (type->cls->id == LILY_ID_HASH)
@@ -1745,9 +1746,6 @@ static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
     }
     else if (type->cls->id == LILY_ID_BYTESTRING)
         result = emit->symtab->byte_class->self_type;
-    else
-        /* Won't happen, but keeps the compiler from complaining. */
-        result = NULL;
 
     return result;
 }
@@ -2417,7 +2415,7 @@ static void eval_binary_op(lily_emit_state *emit, lily_ast *ast,
 
    emit_binary_op assumes that the left and right have already been evaluated,
    so this won't double-eval. */
-static void set_compound_spoof_op(lily_emit_state *emit, lily_ast *ast)
+static void set_compound_spoof_op(lily_ast *ast)
 {
     lily_token spoof_op;
 
@@ -2439,13 +2437,8 @@ static void set_compound_spoof_op(lily_emit_state *emit, lily_ast *ast)
         spoof_op = tk_bitwise_and;
     else if (ast->op == tk_bitwise_or_eq)
         spoof_op = tk_bitwise_or;
-    else if (ast->op == tk_bitwise_xor_eq)
+    else
         spoof_op = tk_bitwise_xor;
-    else {
-        spoof_op = tk_equal;
-        lily_raise_syn(emit->raiser, "Invalid compound op: %s.",
-                tokname(ast->op));
-    }
 
     ast->op = spoof_op;
 }
@@ -2495,7 +2488,7 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
 
     lily_token save_op = ast->op;
 
-    set_compound_spoof_op(emit, ast);
+    set_compound_spoof_op(ast);
     eval_arith_op(emit, ast);
     ast->op = save_op;
 }

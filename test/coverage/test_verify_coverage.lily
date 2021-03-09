@@ -42,12 +42,17 @@ class TestVerifyCoverage < TestCase
 
             define f2(a: Integer) {}
 
+            if covlib.cover_push_boolean() != true: {
+                raise Exception("cover_push_boolean failed.")
+            }
+
             covlib.cover_value_as('a',
                                   B"123",
                                   Exception("test"),
                                   1.0,
                                   stdout,
                                   f2,
+                                  covlib.Foreign(),
                                   [1 => 1],
                                   1,
                                   "1")
@@ -75,7 +80,38 @@ class TestVerifyCoverage < TestCase
                 0 / 0
             }
 
-            covlib.cover_misc_api()
+            define fn(a: Function()) {
+                # This covers calling a foreign function from a register.
+                a()
+            }
+
+            fn(covlib.cover_misc_api)
+
+            # The api contains functions to raise common errors.
+            # These two are covered here, because the prelude does not use them.
+            var ok = false
+
+            try: {
+                covlib.raise_dbzerror()
+            except DivisionByZeroError:
+                ok = true
+            }
+
+            if ok == false: {
+                0 / 0
+            }
+
+            ok = false
+
+            try: {
+                covlib.raise_keyerror()
+            except KeyError:
+                ok = true
+            }
+
+            if ok == false: {
+                0 / 0
+            }
         """)
     }
 
@@ -434,6 +470,18 @@ class TestVerifyCoverage < TestCase
 
             f()
             f()
+        """)
+    }
+
+    public define test_long_bytestring
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            # This covers internal Bytestring caching.
+            var a = B"123"
+            var b = B"12345678901234567890123456789012345678901234567890"
+            var c = B"12345678901234567890123456789012345678901234567890"
         """)
     }
 

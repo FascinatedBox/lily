@@ -48,6 +48,16 @@ class TestDynaload < TestCase
         """)
     }
 
+    public define test_dynaload_save_bytestring
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            B"0".encode("")
+            B"0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+        """)
+    }
+
     public define test_dynaload_then_property
     {
         var t = Interpreter()

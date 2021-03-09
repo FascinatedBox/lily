@@ -152,6 +152,28 @@ class TestBadLambda < TestCase
                 =
             #
         """)
+
+        # unterminated (single-line string)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unterminated string (started at line 2).\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v =
+                    (|| "\
+        """)
+
+        # unterminated (newline in single-line string)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Newline in single-line string.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            var v = (|| "
+                    ")
+        """)
     }
 
     public define test_missing_inference

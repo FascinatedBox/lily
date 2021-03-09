@@ -29,6 +29,13 @@ class TestPkgMath < TestCase
         assert_near_equal(math.ceil(23.4), 24.0)
     }
 
+    public define test_constants
+    {
+        math.huge
+        math.infinity
+        math.nan
+    }
+
     public define test_cos
     {
         assert_near_equal(math.cos(math.pi), -1.0)

@@ -8,7 +8,7 @@ lily_string_pile *lily_new_string_pile(void)
     lily_string_pile *sp = lily_malloc(sizeof(*sp));
 
     sp->buffer = lily_malloc(64 * sizeof(*sp->buffer));
-    sp->size = 63;
+    sp->size = 64;
     return sp;
 }
 

@@ -161,14 +161,6 @@ static void free_literals(lily_value_stack *literals)
     lily_free(literals);
 }
 
-void lily_hide_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
-{
-    hide_classes(symtab, entry->class_chain, NULL);
-    free_vars(entry->var_chain);
-    if (entry->boxed_chain)
-        free_boxed_syms(entry->boxed_chain);
-}
-
 void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
 {
     (void) symtab;

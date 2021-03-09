@@ -367,7 +367,6 @@ static int collect_scoop(lily_type_system *ts, lily_type *left,
 {
     (void)left;
 
-    /* Not yet. Maybe later. */
     if (flags & T_UNIFY)
         return 0;
 

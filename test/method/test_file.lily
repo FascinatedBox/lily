@@ -247,7 +247,7 @@ class TestFileMethods < TestCase
 
         # Negative value to read all.
         var f = File.open("test\/file_for_io.txt", "r")
-        var content = f.read(-1)
+        var content = f.read(-5)
         f.close()
         assert_equal(content.encode().unwrap(), expect)
 

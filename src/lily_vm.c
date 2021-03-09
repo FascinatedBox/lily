@@ -2394,7 +2394,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 break;
             case o_vm_exit:
                 lily_release_jump(vm->raiser);
-                return;
             default:
                 return;
         }

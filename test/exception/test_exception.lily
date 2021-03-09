@@ -278,5 +278,16 @@ class TestExceptions < TestCase
             }
         """)
 
+        assert_parse_string(t, """
+            try: {
+                var h: Hash[String, String] = []
+
+                h["👍"]
+            except KeyError as e:
+                if e.message != "\\034👍\\034": {
+                    0/0
+                }
+            }
+        """)
     }
 }

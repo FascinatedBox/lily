@@ -46,6 +46,18 @@ class TestBadSyntax < TestCase
                 }
             }
         """)
+
+        # bad assign type (to subscript)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = [1, 2, 3]
+
+            v[0] = None
+        """)
     }
 
     public define test_bad_blocks
@@ -376,6 +388,17 @@ class TestBadSyntax < TestCase
             define f {}
         """)
 
+        # bad decl (declare constant twice)
+
+        assert_parse_fails(t, """\
+            SyntaxError: c has already been declared.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            constant c = 10
+            constant c = 10
+        """)
+
         # bad decl (generic class with not enough types)
 
         assert_parse_fails(t, """\
@@ -511,6 +534,16 @@ class TestBadSyntax < TestCase
         """,
         """\
             var v = ''
+        """)
+
+        # bad literal (invalid Byte escape)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid escape sequence.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = '\\?'
         """)
 
         # bad literal (invalid String escape)
@@ -1248,6 +1281,19 @@ class TestBadSyntax < TestCase
         """,
         """\
             ?>
+        """)
+
+        # verify misc (wrong type for return)
+
+        assert_parse_fails(t, """\
+            SyntaxError: return expected type 'Option[Integer]' but got type 'Integer'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f: Option[Integer]
+            {
+                return 1
+            }
         """)
 
         # verify misc (wrong type for static Tuple)

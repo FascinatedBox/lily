@@ -26,11 +26,6 @@ void lily_covlib_Foreign_new(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_covlib__isa_integer(lily_state *s)
-{
-    lily_return_boolean(s, lily_arg_isa(s, 0, LILY_ID_INTEGER));
-}
-
 void lily_covlib__cover_list_reserve(lily_state *s)
 {
     lily_container_val *l = lily_push_list(s, 0);
@@ -124,17 +119,24 @@ void lily_covlib__cover_id_checks(lily_state *s)
     lily_return_boolean(s, ok);
 }
 
+void lily_covlib__cover_push_boolean(lily_state *s)
+{
+    lily_push_boolean(s, 1);
+    lily_return_top(s);
+}
+
 void lily_covlib__cover_value_as(lily_state *s)
 {
     (void)lily_as_byte      (lily_arg_value(s, 0));
     (void)lily_as_bytestring(lily_arg_value(s, 1));
     (void)lily_as_container (lily_arg_value(s, 2));
     (void)lily_as_double    (lily_arg_value(s, 3));
-    (void)lily_as_function  (lily_arg_value(s, 4));
-    (void)lily_as_generic   (lily_arg_value(s, 5));
-    (void)lily_as_hash      (lily_arg_value(s, 6));
-    (void)lily_as_integer   (lily_arg_value(s, 7));
-    (void)lily_as_string    (lily_arg_value(s, 8));
+    (void)lily_as_file      (lily_arg_value(s, 4));
+    (void)lily_as_function  (lily_arg_value(s, 5));
+    (void)lily_as_generic   (lily_arg_value(s, 6));
+    (void)lily_as_hash      (lily_arg_value(s, 7));
+    (void)lily_as_integer   (lily_arg_value(s, 8));
+    (void)lily_as_string    (lily_arg_value(s, 9));
     lily_return_unit(s);
 }
 
@@ -378,8 +380,23 @@ void lily_covlib__cover_misc_api(lily_state *s)
     {
         /* Validate code without running it. */
         lily_state *subinterp = lily_new_state(&config);
-        lily_load_string(subinterp, "[test]", "print(\"Not validating code properly.\"");
+        const char *message;
+        lily_load_string(subinterp, "[test]",
+                "print(\"Not validating code properly.\")");
         lily_validate_content(subinterp);
+        message = lily_error_message_no_trace(subinterp);
+
+        if (message[0] != '\0')
+            lily_RuntimeError(s, "Subinterprer verify failed.");
+
+        lily_load_string(subinterp, "[test]", "asdf");
+        lily_validate_content(subinterp);
+        message = lily_error_message_no_trace(subinterp);
+
+        if (message[0] == '\0')
+            lily_RuntimeError(s,
+                    "Subinterpreter verify does not show an error.");
+
         lily_free_state(subinterp);
     }
     {
@@ -426,7 +443,62 @@ void lily_covlib__cover_misc_api(lily_state *s)
                     message);
 
         lily_free_state(subinterp);
+
+        if (lily_is_valid_utf8("\255\255\255"))
+            lily_RuntimeError(s, "utf8 check failed.");
     }
+    {
+        lily_config config2;
+        lily_config_init(&config2);
+
+        char *config_argv[] = {"a"};
+
+        config2.argc = 1;
+        config2.argv = config_argv;
+
+        lily_state *subinterp = lily_new_state(&config2);
+        lily_load_string(subinterp, "[test]", "import sys\nsys.argv");
+        lily_parse_content(subinterp);
+        lily_free_state(subinterp);
+    }
+    {
+        lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+
+        lily_mb_add_fmt(msgbuf, "%c", 'a');
+
+        if (strcmp(lily_mb_raw(msgbuf), "a") != 0)
+            lily_RuntimeError(s, "Msgbuf percent-c failed.");
+
+        lily_mb_flush(msgbuf);
+        lily_mb_add_fmt(msgbuf, "%%qwer%%ty%%");
+
+        if (strcmp(lily_mb_raw(msgbuf), "%qwer%ty%") != 0)
+            lily_RuntimeError(s, "Msgbuf percent-percent failed.");
+
+        lily_mb_flush(msgbuf);
+        lily_mb_add_fmt(msgbuf, "%");
+
+        if (strcmp(lily_mb_raw(msgbuf), "") != 0)
+            lily_RuntimeError(s, "Msgbuf percent at end failed.");
+
+        lily_mb_flush(msgbuf);
+        lily_mb_add_fmt(msgbuf, "asdf1234");
+
+        if (lily_mb_pos(msgbuf) != 8)
+            lily_RuntimeError(s, "Msgbuf pos failed.");
+    }
+
+    lily_return_unit(s);
+}
+
+void lily_covlib__raise_dbzerror(lily_state *s)
+{
+    lily_DivisionByZeroError(s, "test");
+}
+
+void lily_covlib__raise_keyerror(lily_state *s)
+{
+    lily_KeyError(s, "test");
 }
 
 void lily_covlib_Container_new(lily_state *s)

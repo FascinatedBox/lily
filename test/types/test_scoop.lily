@@ -22,6 +22,21 @@ class TestScoop < TestCase
         """)
     }
 
+    public define test_scoop_unify
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: List elements do not have a consistent type.\n\
+            Expected Type: Function (String, $1... => String)\n\
+            Received Type: Function (String, $1... => String)\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = [String.format, String.format]
+        """)
+    }
+
     public define test_scoop_from_zip
     {
         var t = Interpreter()

@@ -11,7 +11,7 @@ class TestBasics < TestCase
 
         assert_parse_string(t, """
             define f(a: Integer, b: Integer, c: Integer) {
-                a = b = c
+                a = b = (c)
 
                 if a == 3 && b == 3: { else: 0 / 0 }
             }
@@ -171,6 +171,15 @@ class TestBasics < TestCase
             if 12t <= 11t: { 0 / 0 }
         """)
 
+        # comparisons (for Integer)
+
+        assert_parse_string(t, """
+            if 10 > 11: { 0 / 0 }
+            if 10 >= 10: { else: 0 / 0 }
+            if 11 <= 11: { else: 0 / 0 }
+            if 12 <= 11: { 0 / 0 }
+        """)
+
         # comparisons (eq/not eq for Hash)
 
         assert_parse_string(t, """
@@ -185,6 +194,8 @@ class TestBasics < TestCase
         assert_parse_string(t, """
             if [1.5]     == [1.5]: { else: 0 / 0 }
             if [1, 2, 3] != [1, 2, 3, 4]: { else: 0 / 0 }
+            if [[1]] == [[1]]: { else: 0 / 0 }
+            if [[1]] != [[2]]: { else: 0 / 0 }
         """)
 
         # comparisons (different non-empty variants of the same enum)
@@ -304,6 +315,14 @@ class TestBasics < TestCase
                 if v == 3: { else: 0 / 0 }
             }
 
+            define subscript {
+                var v = [1, 2, 3]
+
+                v[1] *= 2
+
+                if v == [1, 4, 3]: { else: 0 / 0 }
+            }
+
             left_shift()
             right_shift()
             bitwise_and()
@@ -314,6 +333,7 @@ class TestBasics < TestCase
             multiply()
             divide()
             modulo()
+            subscript()
         """)
     }
 
@@ -484,7 +504,7 @@ class TestBasics < TestCase
         """)
     }
 
-    public define test_docstrings
+    public define test_docblocks
     {
         var t = Interpreter()
 
@@ -532,6 +552,14 @@ class TestBasics < TestCase
                 define h {}
             }
          """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A docblock is not allowed here.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            ### asdf\
+        """)
     }
 
     public define test_exit_folding
@@ -1432,6 +1460,7 @@ class TestBasics < TestCase
             if !true != false: { 0 / 0 }
             if !false != true: { 0 / 0 }
             if ![1][0] != 0: { 0 / 0 }
+            if !!5 != 1: { 0 / 0 }
         """)
     }
 

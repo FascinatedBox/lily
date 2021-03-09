@@ -92,11 +92,13 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_optional_integer\0(*Integer,:b *Integer,:c *Integer): Integer"
     ,"F\0cover_optional_keyarg_call\0(Function(*Integer,*Integer,*Integer=>Integer)): Integer"
     ,"F\0cover_optional_string\0(*String,:b *String,:c *String): String"
-    ,"F\0cover_value_as\0(Byte,ByteString,Exception,Double,File,Function(Integer),Hash[Integer,Integer],Integer,String)"
+    ,"F\0cover_push_boolean\0: Boolean"
+    ,"F\0cover_value_as\0(Byte,ByteString,Exception,Double,File,Function(Integer),Foreign,Hash[Integer,Integer],Integer,String)"
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
-    ,"F\0isa_integer\0[A](A): Boolean"
     ,"F\0make_flat_n\0(Integer): FlatEnum"
     ,"F\0make_scoped_n\0(Integer): ScopedEnum"
+    ,"F\0raise_dbzerror\0"
+    ,"F\0raise_keyerror\0"
     ,"F\0scoop_narrow\0(Function($1))"
     ,"F\0scoop_narrow_with_args\0(Function(Integer,String,$1=>Boolean))"
     ,"Z"
@@ -131,11 +133,13 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_optional_integer, \
     lily_covlib__cover_optional_keyarg_call, \
     lily_covlib__cover_optional_string, \
+    lily_covlib__cover_push_boolean, \
     lily_covlib__cover_value_as, \
     lily_covlib__cover_value_group, \
-    lily_covlib__isa_integer, \
     lily_covlib__make_flat_n, \
     lily_covlib__make_scoped_n, \
+    lily_covlib__raise_dbzerror, \
+    lily_covlib__raise_keyerror, \
     lily_covlib__scoop_narrow, \
     lily_covlib__scoop_narrow_with_args, \
 };

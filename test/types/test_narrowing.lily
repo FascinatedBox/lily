@@ -102,6 +102,20 @@ class TestVariance < TestCase
         """)
     }
 
+    public define test_equivalent_args
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            define f(a: Integer) {}
+            define g(a: *Integer=10) {}
+
+            var h = f
+
+            h = g
+        """)
+    }
+
     public define test_narrow_mismatched_returns
     {
         var t = Interpreter()

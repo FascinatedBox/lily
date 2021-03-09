@@ -241,5 +241,27 @@ class TestBadException < TestCase
 
             var w: List[Integer] = [always_fail()]
         """)
+
+        # raise check (double division by zero)
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            1.0 / 0.0
+        """)
+
+        # raise check (modulo by zero)
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.\n\
+            Traceback:\n    \
+                from [test]:1: in __main__\n\
+        """,
+        """\
+            1 % 0
+        """)
     }
 }
