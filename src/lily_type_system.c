@@ -307,25 +307,8 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
         ret = invariant_check(left, right, &num_subtypes);
 
     if (ret && num_subtypes) {
-        /* This is really important. The caller's variance extends up to this class, but
-           not into it. The caller may want contravariant matching, but the class may
-           have its generics listed as being invariant.
-           Proof:
-
-           ```
-           class Point() { ... }
-           class Point3D() > Point() { ... }
-           define f(in: list[Point3D]) { ... }
-           define g(in: list[Point]) {
-               in.append(Point())
-           }
-
-           # Type: list[Point3D]
-           var v = [Point3D()]
-           # After this, v[1] has type Point, but should be at least Point3D.
-           g(v)
-
-           ``` */
+        /* A caller's variance does not extend into the caller. Drop variance
+           flags so any further comparison is invariant. */
         flags &= T_DONT_SOLVE | T_UNIFY;
 
         ret = 1;

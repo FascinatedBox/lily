@@ -2720,8 +2720,7 @@ after_type_check:;
     }
 }
 
-/* This handles ```@<name>```. Properties, unlike member access, are validated
-   at parse-time. */
+/* This handles access to properties (@<name>). */
 static void eval_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast);
@@ -2912,8 +2911,6 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)storage;
 }
 
-/* This handles building tuples ```<[1, "2", 3.3]>```. Tuples are structures
-   that allow varying types, but with a fixed size. */
 static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -3721,29 +3718,10 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
    Inference. Try to pull inference information by matching the expected type
    against the call's result.
 
-   Quantification. Within a defined function, generics will have been solved
-   down to some concrete type. A local var promising to map from A to A is not
-   the same as a global function promising the same. The local var's A will be
-   nailed down to some concrete type, whereas the global is truly generic.
-   Here's an example:
-
-   ```
-   define identity[A](a: A): A { return a }
-   define morph_string(a: String): String { return a.lower() }
-
-   var v = 10
-
-   define transform[A](a: A, fn: Function(A => A)) {
-       # This is invalid:
-       # fn(v)
-   }
-
-   # fn(v) would be fine here
-   transform(10, identity)
-
-   # ...but not here.
-   transform("abc", morph_string)
-   ``` */
+   Quantification. Generics within a definition will be solved to some unknown
+   type when the definition is used. If, for example, a definition takes a
+   Function that maps from A to B, it is only guaranteed to work on the A given
+   during invocation. */
 static void setup_typing_for_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect, lily_type *call_type)
 {
