@@ -539,6 +539,19 @@ static void write_generics(lily_parse_state *parser, uint16_t where)
     add_data_string(parser, lily_mb_raw(msgbuf));
 }
 
+static uint16_t store_enum_docblock(lily_parse_state *parser)
+{
+    if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
+        lily_u16_write_1(parser->data_stack, 0);
+        add_data_string(parser, "");
+    }
+    else
+        parser->flags &= ~PARSER_HAS_DOCBLOCK;
+
+    write_generics(parser, 1);
+    return build_doc_data(parser, 2);
+}
+
 static void set_definition_doc(lily_parse_state *parser)
 {
     lily_var *define_var = parser->emit->scope_block->scope_var;
@@ -4961,8 +4974,8 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
 
-    if (parser->flags & PARSER_HAS_DOCBLOCK)
-        enum_cls->doc_id = store_docblock(parser);
+    if (parser->flags & PARSER_EXTRA_INFO)
+        enum_cls->doc_id = store_enum_docblock(parser);
 }
 
 static void enum_method_check(lily_parse_state *parser)
