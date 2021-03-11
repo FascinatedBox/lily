@@ -59,6 +59,7 @@ const char *all_test_paths[] =
     TEST("gc",          "test_verify_gc"),
     TEST("import",      "test_import"),
     TEST("lambda",      "test_lambda"),
+    TEST("manifest",    "test_manifest"),
     TEST("rewind",      "test_verify_rewind"),
     TEST("template",    "test_verify_template"),
     TEST("types",       "test_generics"),

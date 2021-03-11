@@ -1,0 +1,960 @@
+import (Interpreter,
+        StringTarget,
+        TestCase) "../t/testing"
+
+class TestManifest < TestCase
+{
+    private var @t_class_payload =
+        StringTarget(
+            :path "_class",
+            :data """\
+                import manifest
+
+                ### Test docblock
+                class Base
+                {
+                    ### Public method
+                    public define pub(a: Integer): String
+
+                    ### Public property
+                    public var @pub_prop: Integer
+
+                    ### Protected property
+                    protected var @pro_prop: String
+
+                    ### Private property
+                    private var @pri_prop: Double
+                }
+
+                class GenericClass[A, B](public var @test: String) < Base
+                {
+                    public define f[C](c: C)
+                }
+
+                ### ForeignBase docblock
+                foreign class ForeignBase
+                {
+                    ### Public method
+                    public define pub(a: Integer): String
+                }
+
+                foreign static class StaticBase
+                {
+                    public static define stat
+                }
+            """
+        )
+
+    private var @t_define_payload =
+        StringTarget(
+            :path "_define",
+            :data """\
+                import manifest
+
+                ### f docblock
+                define f
+
+                define g(a: Integer): String
+
+                define h(b: Double...)
+
+                define i(c: *String="")
+
+                define j(targets: $1...)
+            """
+        )
+
+    private var @t_enum_payload =
+        StringTarget(
+            :path "_enum",
+            :data """\
+                import manifest
+
+                ### FlatEnum docblock
+                enum FlatEnum
+                {
+                    FlatOne,
+                    FlatTwo(Integer),
+                    FlatThree(String...),
+                    FlatFour(:a Integer, :b String)
+
+                    ### f docblock
+                    define f(:key a: Integer): Integer
+
+                    define g
+
+                    ### h docblock
+                    define h
+                }
+
+                scoped enum ScopedEnum[A, B]
+                {
+                    ScopedOne(A),
+                    ScopedTwo(B),
+                    ScopedThree
+
+                    define f
+                }
+            """
+        )
+
+    private var @t_var_payload =
+        StringTarget(
+            :path "_var",
+            :data """\
+                import manifest
+
+                ### Var docblock
+                var one: Integer
+
+                var two: String
+            """
+        )
+
+    public define test_class
+    {
+        var t = Interpreter.with_targets(
+            @t_class_payload
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _class
+        """)
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define stringify_parameters(p: List[introspect.ParameterEntry])
+                : String
+            {
+                return p.map(|m| "({0},{1},{2})".format(
+                    m.name,
+                    m.type.as_string(),
+                    m.keyword
+                )).join()
+            }
+
+            define check_method(
+                           m:         introspect.MethodEntry,
+                :doc       doc:       String,
+                :name      name:      String,
+                :generics  generics:  String,
+                :is_static is_static: Boolean,
+                :params    params:    String,
+                :private   pri:       String,
+                :protected pro:       String,
+                :public    pub:       String,
+                :result    result:    String,
+                :type      type:      String
+            )
+            {
+                var input = [m.doc(),
+                             m.function_name(),
+                             m.generics().map(|m_| m_.as_string() ).join(", "),
+                             m.is_static().to_s(),
+                             stringify_parameters(m.parameters()),
+                             m.is_private().to_s(),
+                             m.is_protected().to_s(),
+                             m.is_public().to_s(),
+                             m.result_type().as_string(),
+                             m.type().as_string()]
+                var expect = [doc,
+                              name,
+                              generics,
+                              is_static.to_s(),
+                              params,
+                              pri,
+                              pro,
+                              pub,
+                              result,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_property(
+                           p:    introspect.PropertyEntry,
+                :doc       doc:  String,
+                :name      name: String,
+                :private   pri:  String,
+                :protected pro:  String,
+                :public    pub:  String,
+                :type      type: String
+            )
+            {
+                var input = [p.doc(),
+                             p.name(),
+                             p.is_private().to_s(),
+                             p.is_protected().to_s(),
+                             p.is_public().to_s(),
+                             p.type().as_string()]
+                var expect = [doc,
+                              name,
+                              pri,
+                              pro,
+                              pub,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_class(
+                          c:        introspect.ClassEntry,
+                :doc      doc:      String,
+                :foreign  foreign:  Boolean,
+                :generics generics: String,
+                :name     name:     String,
+                :native   native:   Boolean,
+                :parent   parent:   String
+            )
+            {
+                var input = [c.doc(),
+                             c.is_foreign().to_s(),
+                             c.generics().map(|m| m.as_string() ).join(", "),
+                             c.name(),
+                             c.is_native().to_s(),
+                             c.parent().map(|a| a.name() ).unwrap_or("")]
+                var expect = [doc,
+                              foreign.to_s(),
+                              generics,
+                              name,
+                              native.to_s(),
+                              parent]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var mm = introspect.main_module()
+            var class_m = mm.modules_used()[1]
+            var classes = class_m.classes()
+
+            {
+                var c = classes[-1]
+                var methods = c.methods()
+                var properties = c.properties()
+
+                check_class(
+                    c,
+                    :doc      "Test docblock\\n",
+                    :foreign  false,
+                    :generics "",
+                    :name     "Base",
+                    :native   true,
+                    :parent   ""
+                )
+
+                check_method(
+                    methods[-1],
+                    :doc       "Test docblock\\n",
+                    :generics  "",
+                    :is_static false,
+                    :name      "<new>",
+                    :params    "",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "Base",
+                    :type      "Function ( => Base)"
+                )
+
+                check_method(
+                    methods[-2],
+                    :doc       "Public method\\n",
+                    :generics  "",
+                    :is_static false,
+                    :name      "pub",
+                    :params    "(,Base,)(a,Integer,)",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "String",
+                    :type      "Function (Base, Integer => String)"
+                )
+
+                check_property(
+                    properties[-1],
+                    :doc       "Public property\\n",
+                    :name      "pub_prop",
+                    :public    "true",
+                    :protected "false",
+                    :private   "false",
+                    :type      "Integer"
+                )
+
+                check_property(
+                    properties[-2],
+                    :doc       "Protected property\\n",
+                    :name      "pro_prop",
+                    :public    "false",
+                    :protected "true",
+                    :private   "false",
+                    :type      "String"
+                )
+
+                check_property(
+                    properties[-3],
+                    :doc        "Private property\\n",
+                    :name       "pri_prop",
+                    :public     "false",
+                    :protected  "false",
+                    :private    "true",
+                    :type       "Double"
+                )
+
+                if methods.size() != 2 ||
+                   properties.size() != 3: {
+                    0 / 0
+                }
+            }
+            {
+                var c = classes[-2]
+                var methods = c.methods()
+                var properties = c.properties()
+
+                check_class(
+                    c,
+                    :doc      "",
+                    :foreign  false,
+                    :generics "A, B",
+                    :name     "GenericClass",
+                    :native   true,
+                    :parent   "Base"
+                )
+
+                check_method(
+                    methods[-1],
+                    :doc       "",
+                    :generics  "A, B",
+                    :is_static false,
+                    :name      "<new>",
+                    :params    "(,String,)",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "GenericClass[A, B]",
+                    :type      "Function (String => GenericClass[A, B])"
+                )
+
+                check_method(
+                    methods[-2],
+                    :doc       "",
+                    :generics  "A, B, C",
+                    :is_static false,
+                    :name      "f",
+                    :params    "(,GenericClass[A, B],)(c,C,)",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "Unit",
+                    :type      "Function (GenericClass[A, B], C)"
+                )
+
+                check_property(
+                    properties[-1],
+                    :doc        "",
+                    :name       "test",
+                    :public     "true",
+                    :protected  "false",
+                    :private    "false",
+                    :type       "String"
+                )
+
+                if methods.size() != 2 ||
+                   properties.size() != 1: {
+                    0 / 0
+                }
+            }
+            {
+                var c = classes[-3]
+                var methods = c.methods()
+                var properties = c.properties()
+
+                check_class(
+                    c,
+                    :doc      "ForeignBase docblock\\n",
+                    :foreign  true,
+                    :generics "",
+                    :name     "ForeignBase",
+                    :native   false,
+                    :parent   ""
+                )
+
+                check_method(
+                    methods[-1],
+                    :doc       "ForeignBase docblock\\n",
+                    :generics  "",
+                    :is_static false,
+                    :name      "<new>",
+                    :params    "",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "ForeignBase",
+                    :type      "Function ( => ForeignBase)"
+                )
+
+                check_method(
+                    methods[-2],
+                    :doc       "Public method\\n",
+                    :generics  "",
+                    :is_static false,
+                    :name      "pub",
+                    :params    "(,ForeignBase,)(a,Integer,)",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "String",
+                    :type      "Function (ForeignBase, Integer => String)"
+                )
+
+                if methods.size() != 2 ||
+                   properties.size() != 0: {
+                    0 / 0
+                }
+            }
+            {
+                var c = classes[-4]
+                var methods = c.methods()
+                var properties = c.properties()
+
+                check_class(
+                    c,
+                    :doc      "",
+                    :foreign  true,
+                    :generics "",
+                    :name     "StaticBase",
+                    :native   false,
+                    :parent   ""
+                )
+
+                check_method(
+                    methods[-1],
+                    :doc       "",
+                    :generics  "",
+                    :is_static true,
+                    :name      "stat",
+                    :params    "",
+                    :private   "false",
+                    :protected "false",
+                    :public    "true",
+                    :result    "Unit",
+                    :type      "Function ()"
+                )
+
+                if methods.size() != 1 ||
+                   properties.size() != 0: {
+                    0 / 0
+                }
+            }
+
+            if classes.size() != 4: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_enum
+    {
+        var t = Interpreter.with_targets(
+            @t_enum_payload
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _enum
+        """)
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define stringify_parameters(p: List[introspect.ParameterEntry])
+                : String
+            {
+                return p.map(|m| "({0},{1},{2})".format(
+                    m.name,
+                    m.type.as_string(),
+                    m.keyword
+                )).join()
+            }
+
+            define check_enum(
+                           e:         introspect.EnumEntry,
+                :doc       doc:       String,
+                :generics  generics:  String,
+                :is_flat   is_flat:   Boolean,
+                :is_scoped is_scoped: Boolean,
+                :name      name:      String
+            )
+            {
+                var input = [e.doc(),
+                             e.generics().map(|m| m.as_string() ).join(", "),
+                             e.is_flat().to_s(),
+                             e.is_scoped().to_s(),
+                             e.name()]
+                var expect = [doc,
+                              generics,
+                              is_flat.to_s(),
+                              is_scoped.to_s(),
+                              name]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_enum_method(
+                           m:      introspect.MethodEntry,
+                :doc       doc:    String,
+                :name      name:   String,
+                :params    params: String,
+                :private   pri:    String,
+                :protected pro:    String,
+                :public    pub:    String,
+                :result    result: String,
+                :type      type:   String
+            )
+            {
+                var input = [m.doc(),
+                             m.function_name(),
+                             stringify_parameters(m.parameters()),
+                             m.is_private().to_s(),
+                             m.is_protected().to_s(),
+                             m.is_public().to_s(),
+                             m.result_type().as_string(),
+                             m.type().as_string()]
+                var expect = [doc,
+                              name,
+                              params,
+                              pri,
+                              pro,
+                              pub,
+                              result,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_variant(
+                           v:     introspect.VariantEntry,
+                :enum_id   enum_id:   Integer,
+                :enum_name enum_name: String,
+                :is_empty  is_empty:  Boolean,
+                :is_scoped is_scoped: Boolean,
+                :params    params:    String,
+                :name      name:      String,
+                :type      type:      String
+            )
+            {
+                var input = [v.enum_id().to_s(),
+                             v.enum_name(),
+                             v.is_empty().to_s(),
+                             v.is_scoped().to_s(),
+                             stringify_parameters(v.parameters()),
+                             v.name(),
+                             v.type().as_string()]
+                var expect = [enum_id.to_s(),
+                              enum_name,
+                              is_empty.to_s(),
+                              is_scoped.to_s(),
+                              params,
+                              name,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var mm = introspect.main_module()
+            var enum_m = mm.modules_used()[1]
+            var enums = enum_m.enums()
+
+            {
+                var e = enums[-1]
+                var methods = e.methods()
+                var variants = e.variants()
+                var id = e.id()
+
+                check_enum(
+                    e,
+                    :doc      "FlatEnum docblock\\n",
+                    :generics "",
+                    :name     "FlatEnum",
+                    :is_flat   true,
+                    :is_scoped false
+                )
+
+                check_enum_method(
+                    methods[-1],
+                    :doc        "f docblock\\n",
+                    :name       "f",
+                    :params     "(,FlatEnum,)(a,Integer,key)",
+                    :private    "false",
+                    :protected  "false",
+                    :public     "true",
+                    :result     "Integer",
+                    :type       "Function (FlatEnum, Integer => Integer)"
+                )
+
+                check_enum_method(
+                    methods[-2],
+                    :doc        "",
+                    :name       "g",
+                    :params     "(,FlatEnum,)",
+                    :private    "false",
+                    :protected  "false",
+                    :public     "true",
+                    :result     "Unit",
+                    :type       "Function (FlatEnum)"
+                )
+
+                check_enum_method(
+                    methods[-3],
+                    :doc        "h docblock\\n",
+                    :name       "h",
+                    :params     "(,FlatEnum,)",
+                    :private    "false",
+                    :protected  "false",
+                    :public     "true",
+                    :result     "Unit",
+                    :type       "Function (FlatEnum)"
+                )
+
+                check_variant(
+                    variants[-1],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "FlatOne",
+                    :params    "",
+                    :type      "FlatEnum"
+                )
+
+                check_variant(
+                    variants[-2],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  false,
+                    :is_scoped false,
+                    :name      "FlatTwo",
+                    :params    "(,Integer,)",
+                    :type      "Function (Integer => FlatEnum)"
+                )
+
+                check_variant(
+                    variants[-3],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  false,
+                    :is_scoped false,
+                    :name      "FlatThree",
+                    :params    "(,List[String],)",
+                    :type      "Function (String... => FlatEnum)"
+                )
+
+                check_variant(
+                    variants[-4],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  false,
+                    :is_scoped false,
+                    :name      "FlatFour",
+                    :params    "(,Integer,a)(,String,b)",
+                    :type      "Function (Integer, String => FlatEnum)"
+                )
+
+                if methods.size() != 3 ||
+                   variants.size() != 4: {
+                    0 / 0
+                }
+            }
+            {
+                var e = enums[-2]
+                var methods = e.methods()
+                var variants = e.variants()
+                var id = e.id()
+
+                check_enum(
+                    e,
+                    :doc      "",
+                    :generics "A, B",
+                    :name     "ScopedEnum",
+                    :is_flat   false,
+                    :is_scoped true
+                )
+
+                check_enum_method(
+                    methods[-1],
+                    :doc        "",
+                    :name       "f",
+                    :params     "(,ScopedEnum[A, B],)",
+                    :private    "false",
+                    :protected  "false",
+                    :public     "true",
+                    :result     "Unit",
+                    :type       "Function (ScopedEnum[A, B])"
+                )
+
+                check_variant(
+                    variants[-1],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  false,
+                    :is_scoped true,
+                    :name      "ScopedOne",
+                    :params    "(,A,)",
+                    :type      "Function (A => ScopedEnum[A, B])"
+                )
+
+                check_variant(
+                    variants[-2],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  false,
+                    :is_scoped true,
+                    :name      "ScopedTwo",
+                    :params    "(,B,)",
+                    :type      "Function (B => ScopedEnum[A, B])"
+                )
+
+                check_variant(
+                    variants[-3],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped true,
+                    :name      "ScopedThree",
+                    :params    "",
+                    :type      "ScopedEnum[?, ?]"
+                )
+
+                if methods.size() != 1 ||
+                   variants.size() != 3: {
+                    0 / 0
+                }
+            }
+        """)
+    }
+
+    public define test_define
+    {
+        var t = Interpreter.with_targets(
+            @t_define_payload
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _define
+        """)
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define stringify_parameters(p: List[introspect.ParameterEntry])
+                : String
+            {
+                return p.map(|m| "({0},{1},{2})".format(
+                    m.name,
+                    m.type.as_string(),
+                    m.keyword
+                )).join()
+            }
+
+            define check_define(
+                           f:        introspect.FunctionEntry,
+                :doc       doc:      String,
+                :generics  generics: String,
+                :name      name:     String,
+                :params    params:   String,
+                :result    result:   String,
+                :type      type:     String
+            )
+            {
+                var input = [f.doc(),
+                             f.generics().map(|m| m.as_string() ).join(", "),
+                             f.name(),
+                             stringify_parameters(f.parameters()),
+                             f.result_type().as_string(),
+                             f.type().as_string()]
+                var expect = [doc,
+                              generics,
+                              name,
+                              params,
+                              result,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var mm = introspect.main_module()
+            var define_m = mm.modules_used()[1]
+            var defines = define_m.functions()
+
+            # Dump __module__ from the top.
+            defines.pop()
+
+            check_define(
+                defines[-1],
+                :doc        "f docblock\\n",
+                :generics   "",
+                :name       "f",
+                :params     "",
+                :result     "Unit",
+                :type       "Function ()"
+            )
+
+            check_define(
+                defines[-2],
+                :doc        "",
+                :generics   "",
+                :name       "g",
+                :params     "(a,Integer,)",
+                :result     "String",
+                :type       "Function (Integer => String)"
+            )
+
+            check_define(
+                defines[-3],
+                :doc        "",
+                :generics   "",
+                :name       "h",
+                :params     "(b,List[Double],)",
+                :result     "Unit",
+                :type       "Function (Double...)"
+            )
+
+            check_define(
+                defines[-4],
+                :doc        "",
+                :generics   "",
+                :name       "i",
+                :params     "(c,*String,)",
+                :result     "Unit",
+                :type       "Function (*String)"
+            )
+
+            check_define(
+                defines[-5],
+                :doc        "",
+                :generics   "",
+                :name       "j",
+                :params     "(targets,List[$1],)",
+                :result     "Unit",
+                :type       "Function ($1...)"
+            )
+
+            if defines.size() != 5: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_var
+    {
+        var t = Interpreter.with_targets(
+            @t_var_payload
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _var
+        """)
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define check_var(
+                           v:    introspect.VarEntry,
+                :doc       doc:  String,
+                :name      name: String,
+                :type      type: String
+            )
+            {
+                var input = [v.doc(),
+                             v.name(),
+                             v.type().as_string()]
+                var expect = [doc,
+                              name,
+                              type]
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var mm = introspect.main_module()
+            var var_m = mm.modules_used()[1]
+            var vars = var_m.vars()
+
+            check_var(
+                vars[-1],
+                :doc        "Var docblock\\n",
+                :name       "one",
+                :type       "Integer"
+            )
+
+            check_var(
+                vars[-2],
+                :doc        "",
+                :name       "two",
+                :type       "String"
+            )
+
+            if vars.size() != 2: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_prelude
+    {
+        var t = Interpreter()
+
+        # Load stdout so predefined manifest has to roll it back.
+        assert_parse_string(t, "stdout")
+
+        var result = t.parse_manifest_string("pkg_prelude",
+        """\
+            import manifest
+
+            ### Prelude docblock
+            library prelude
+
+            predefined String {
+
+            }
+
+            predefined Option[A] {
+                Some(A),
+                None
+            }
+
+            predefined Result[A, B] {
+                Failure(A),
+                Success(B)
+            }
+        """)
+
+        assert_equal(result, true)
+    }
+}

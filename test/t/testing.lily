@@ -126,6 +126,43 @@ class TestCase < backbone.TestCaseBase
         }
     }
 
+    public define assert_manifest_string(interp: backbone.Interpreter,
+                                         data: String)
+    {
+        var result = interp.parse_manifest_string("[test]", data)
+
+        if result == false: {
+            var message = "Assertion (manifest string) failed.\n" ++
+                    interp.error()
+            raise TestAssertionFailed(message)
+        else:
+            @pass_count += 1
+        }
+    }
+
+    public define assert_manifest_fails(interp: backbone.Interpreter,
+                                        expect: String,
+                                        data: String)
+    {
+        var result = interp.parse_manifest_string("[test]", data)
+
+        if result == true: {
+            var message = "Assertion (manifest fails) failed.\n"
+            raise TestAssertionFailed(message)
+        else:
+            var reason = interp.error()
+            if expect != reason: {
+                var message = """\
+                    Assertion (manifest fails) failed incorrectly.\n\
+                    (expected)`{0}`\n\
+                    (received)`{1}`""".format(expect, reason)
+                raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
+            }
+        }
+    }
+
     public define assert_render_fails(interp: backbone.Interpreter,
                                       expect: String,
                                       data: String)
