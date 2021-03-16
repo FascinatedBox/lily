@@ -6131,6 +6131,16 @@ static void manifest_predefined(lily_parse_state *parser)
         fix_predefined_class_id(parser, parser->current_class);
 }
 
+static void expect_manifest_header(lily_parse_state *parser)
+{
+    /* This is a trick inspired by "use strict". Code files passed to manifest
+       parsing will fail here. Manifest files passed to code parsing will fail
+       to load this module. */
+    if (lily_read_manifest_header(parser->lex) == 0)
+        lily_raise_syn(parser->raiser,
+                "Files in manifest mode must start with 'import manifest'.");
+}
+
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -6141,13 +6151,7 @@ static void manifest_loop(lily_parse_state *parser)
     init_doc(parser);
 
 enter_manifest_import:;
-    /* This is a trick inspired by "use strict". Code files passed to manifest
-       parsing will fail here. Manifest files passed to code parsing will fail
-       to load this module. */
-    if (lily_read_manifest_header(lex) == 0)
-        lily_raise_syn(parser->raiser,
-                "Files in manifest mode must start with 'import manifest'.");
-
+    expect_manifest_header(parser);
     lily_next_token(lex);
 
     while (1) {
@@ -6523,6 +6527,16 @@ int lily_validate_content(lily_state *s)
     return 0;
 }
 
+static void expect_template_header(lily_parse_state *parser)
+{
+    /* Templates have to start with `<?lily` to prevent "rendering" files that
+       are intended to be run in code mode. It has the nice bonus that execution
+       always starts in code mode. */
+    if (lily_read_template_header(parser->lex) == 0)
+        lily_raise_syn(parser->raiser,
+                "Files in template mode must start with '<?lily'.");
+}
+
 int lily_render_content(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
@@ -6534,13 +6548,8 @@ int lily_render_content(lily_state *s)
 
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
         lily_lex_state *lex = parser->lex;
-        /* Templates have to start with `<?lily` to prevent "rendering" files
-           that are intended to be run in code mode. It has the nice bonus that
-           execution always starts in code mode. */
-        if (lily_read_template_header(lex) == 0) {
-            lily_raise_syn(parser->raiser,
-                    "Files in template mode must start with '<?lily'.");
-        }
+
+        expect_template_header(parser);
 
         while (1) {
             /* Parse and execute the code block. */
