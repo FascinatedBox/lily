@@ -6057,6 +6057,16 @@ static void manifest_library(lily_parse_state *parser)
     lily_next_token(lex);
 }
 
+static void expect_manifest_header(lily_parse_state *parser)
+{
+    /* This is a trick inspired by "use strict". Code files passed to manifest
+       parsing will fail here. Manifest files passed to code parsing will fail
+       to load this module. */
+    if (lily_read_manifest_header(parser->lex) == 0)
+        lily_raise_syn(parser->raiser,
+                "Files in manifest mode must start with 'import manifest'.");
+}
+
 static void manifest_import(lily_parse_state *parser, int have_docblock)
 {
     lily_lex_state *lex = parser->lex;
@@ -6067,6 +6077,8 @@ static void manifest_import(lily_parse_state *parser, int have_docblock)
 
     lily_next_token(lex);
     import_loop(parser);
+    expect_manifest_header(parser);
+    lily_next_token(lex);
 }
 
 static void manifest_block_exit(lily_parse_state *parser)
@@ -6131,16 +6143,6 @@ static void manifest_predefined(lily_parse_state *parser)
         fix_predefined_class_id(parser, parser->current_class);
 }
 
-static void expect_manifest_header(lily_parse_state *parser)
-{
-    /* This is a trick inspired by "use strict". Code files passed to manifest
-       parsing will fail here. Manifest files passed to code parsing will fail
-       to load this module. */
-    if (lily_read_manifest_header(parser->lex) == 0)
-        lily_raise_syn(parser->raiser,
-                "Files in manifest mode must start with 'import manifest'.");
-}
-
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -6149,8 +6151,6 @@ static void manifest_loop(lily_parse_state *parser)
 
     parser->flags |= PARSER_IN_MANIFEST;
     init_doc(parser);
-
-enter_manifest_import:;
     expect_manifest_header(parser);
     lily_next_token(lex);
 
@@ -6185,10 +6185,8 @@ enter_manifest_import:;
                 manifest_modifier(parser, key_id);
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
-            else if (key_id == KEY_IMPORT) {
+            else if (key_id == KEY_IMPORT)
                 manifest_import(parser, have_docblock);
-                goto enter_manifest_import;
-            }
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
