@@ -487,6 +487,46 @@ void lily_covlib__cover_misc_api(lily_state *s)
         if (lily_mb_pos(msgbuf) != 8)
             lily_RuntimeError(s, "Msgbuf pos failed.");
     }
+    {
+        lily_config config2;
+        lily_config_init(&config2);
+
+        lily_state *subinterp = lily_new_state(&config2);
+        int failed = 0;
+
+        /* Running without content should return 0. */
+        failed = failed || lily_parse_expr(subinterp, NULL);
+        failed = failed || lily_render_content(subinterp);
+        failed = failed || lily_validate_content(subinterp);
+        failed = failed || lily_parse_content(subinterp);
+        failed = failed || lily_parse_manifest(subinterp);
+
+        if (failed)
+            lily_RuntimeError(s, "Empty content handling failed.");
+
+        lily_load_file(subinterp, "doesnotexist.lily");
+
+        const char *message = lily_error_message(subinterp);
+        const char *expect = "Error: Failed to open doesnotexist.lily: ";
+
+        if (strncmp(message, expect, strlen(expect)) != 0)
+            lily_RuntimeError(s,
+                    "Wrong error when opening a file that does not exist.");
+
+        lily_load_string(subinterp, "[test]", "import sys\nsys.exit_success()");
+
+        if (lily_load_string(subinterp, "[check]", "2") ||
+            lily_load_file(subinterp, "check.lily"))
+            lily_RuntimeError(s, "Double loading content.");
+
+        lily_parse_content(subinterp);
+
+        if (lily_load_string(subinterp, "[check]", "2") ||
+            lily_load_file(subinterp, "check.lily"))
+            lily_RuntimeError(s, "Not blocking content after exit.");
+
+        lily_free_state(subinterp);
+    }
 
     lily_return_unit(s);
 }
