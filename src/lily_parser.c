@@ -6163,7 +6163,7 @@ static void manifest_loop(lily_parse_state *parser)
 
             if (lex->token != tk_word)
                 lily_raise_syn(parser->raiser,
-                        "Expected a keyword after docblock, but got %s.\n",
+                        "Expected a keyword after docblock, but got %s.",
                         tokname(lex->token));
         }
 
