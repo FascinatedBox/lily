@@ -6146,7 +6146,6 @@ static void manifest_predefined(lily_parse_state *parser)
 static void manifest_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    int have_docblock = 0;
     int key_id = KEY_BAD_ID;
 
     parser->flags |= PARSER_IN_MANIFEST;
@@ -6159,7 +6158,6 @@ static void manifest_loop(lily_parse_state *parser)
             /* Store documentation for the keyword to pull. */
             save_docblock(parser);
             lily_next_token(lex);
-            have_docblock = 1;
 
             if (lex->token != tk_word)
                 lily_raise_syn(parser->raiser,
@@ -6169,7 +6167,6 @@ static void manifest_loop(lily_parse_state *parser)
 
         if (lex->token == tk_word) {
             key_id = keyword_by_name(lex->label);
-            have_docblock = 0;
 
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
