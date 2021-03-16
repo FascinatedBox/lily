@@ -6067,11 +6067,11 @@ static void expect_manifest_header(lily_parse_state *parser)
                 "Files in manifest mode must start with 'import manifest'.");
 }
 
-static void manifest_import(lily_parse_state *parser, int have_docblock)
+static void manifest_import(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    if (have_docblock)
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
         lily_raise_syn(parser->raiser,
                 "Import keyword should not have a docblock.");
 
@@ -6186,7 +6186,7 @@ static void manifest_loop(lily_parse_state *parser)
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
             else if (key_id == KEY_IMPORT)
-                manifest_import(parser, have_docblock);
+                manifest_import(parser);
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
