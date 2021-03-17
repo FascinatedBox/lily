@@ -1,0 +1,382 @@
+import (Interpreter,
+        LibraryTarget,
+        TestCase) "../t/testing"
+
+class TestBadManifest < TestCase
+{
+    private var @t_covlib =
+        LibraryTarget(
+            :path "covlib",
+            :redirect "test/t/backbone"
+        )
+
+    public define test_basics
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected a keyword after docblock, but got end of file.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            ### example docblock
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Unexpected token '!'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            !
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Invalid keyword potato for manifest.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            potato
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Unexpected token 'end of file'.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            class Example {
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: 'predefined' only available to the prelude module.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            predefined Boolean
+            {
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: '}' outside of a block.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            }
+        """)
+    }
+
+    public define test_class
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Only native classes can have class properties.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            foreign class Example {
+                public var @a: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Only native classes can have class properties.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            foreign class Example(public var @a: Integer)
+            {
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class methods defined in manifest mode must be public.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            class Example
+            {
+                private define a
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class methods defined in manifest mode must be public.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            class Example {
+                protected define a
+            }
+        """)
+    }
+
+    public define test_intro
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            import   manifest
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
+                from [test]:1:\n\
+        """,
+        """ \
+            import manifest
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
+                from [test]:1:\n\
+        """,
+        """\n\
+            import manifest
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            ???
+        """)
+    }
+
+    public define test_import
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Import keyword should not have a docblock.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            ### docblock
+            import asdf
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Manifest files can only import other manifest files.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            import sys
+        """)
+
+        t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Manifest files can only import other manifest files.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            import covlib
+        """)
+    }
+
+    public define test_library
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword must be at toplevel.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            class Example {
+                library potato
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword must come before other keywords.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            import manifest
+
+            class Example
+            {
+            }
+
+            library example
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword must come before other keywords.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            import manifest
+
+            foreign class Example
+            {
+            }
+
+            library example
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword must come before other keywords.\n    \
+                from [test]:9:\n\
+        """,
+        """\
+            import manifest
+
+            enum Example
+            {
+                One,
+                Two
+            }
+
+            library example
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword must come before other keywords.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            var a: Integer
+
+            library example
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Library keyword has already been used.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            import manifest
+
+            ### example
+            library example
+
+            ### potato
+            library potato
+        """)
+    }
+
+    public define test_var
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class var declaration must start with a scope.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            class Example
+            {
+                var @x: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class properties must start with @.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            class Example
+            {
+                public var x: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: An enum must have at least two variants.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            enum Example
+            {
+                var a: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Var declaration not allowed inside of an enum.\n    \
+                from [test]:7:\n\
+        """,
+        """\
+            import manifest
+
+            enum Example
+            {
+                One,
+                Two
+                var a: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Var declaration not allowed inside of an enum.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            import manifest
+
+            enum Example
+            {
+                One,
+                Two
+                define f: Integer
+                var a: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Cannot use a class property outside of a constructor.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            var @x: Integer
+        """)
+    }
+}

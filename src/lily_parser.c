@@ -6018,11 +6018,11 @@ static void manifest_library(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Library keyword must be at toplevel.");
 
-    lily_var *scope_var = scope_block->scope_var;
-
-    if (scope_var->doc_id != UINT16_MAX)
+    if (m->doc_id != UINT16_MAX)
         lily_raise_syn(parser->raiser,
                 "Library keyword has already been used.");
+
+    lily_var *scope_var = scope_block->scope_var;
 
     if (m->class_chain || m->var_chain != scope_var)
         lily_raise_syn(parser->raiser,
