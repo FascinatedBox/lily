@@ -4451,16 +4451,6 @@ static void enter_module(lily_parse_state *parser, lily_module_entry *m)
         lily_next_token(parser->lex);
 }
 
-static void verify_manifest_import(lily_parse_state *parser,
-        lily_module_entry *m)
-{
-    if (parser->ims->is_package_import ||
-        (m->flags & MODULE_IS_PREDEFINED) ||
-        ((m->flags & MODULE_NOT_EXECUTED) == 0))
-        lily_raise_syn(parser->raiser,
-                "Manifest files can only import local manifest files.");
-}
-
 static void import_loop(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -4475,7 +4465,8 @@ static void import_loop(lily_parse_state *parser)
             break;
         }
         else if (parser->flags & PARSER_IN_MANIFEST)
-            verify_manifest_import(parser, m);
+            lily_raise_syn(parser->raiser,
+                    "Manifest files can only import other manifest files.");
 
         parse_import_link(parser, m);
 
