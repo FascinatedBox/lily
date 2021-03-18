@@ -48,19 +48,6 @@ class TestBadClass < TestCase
             }
         """)
 
-        # bad constructor (close over self)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
-                from [test]:3:\n\
-        """,
-        """\
-            class Example {
-                public define f {}
-                public var @b = (|| var w = self )
-            }
-        """)
-
         # bad constructor (closing over constructor vars)
         # Blocked because it creates a closure at the instance level.
 
@@ -281,17 +268,6 @@ class TestBadClass < TestCase
         """\
             var v = 10
             class Test < v { }
-        """)
-
-        # bad inheritance (using self)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
-                from [test]:2:\n\
-        """,
-        """\
-            class Parent(x: Parent) { }
-            class Child < Parent(self) { }
         """)
 
         # bad inheritance (inherit reordered generics)
@@ -659,21 +635,6 @@ class TestBadClass < TestCase
             }
         """)
 
-        # bad static (using self)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
-                from [test]:4:\n\
-        """,
-        """\
-            class Example {
-                public var @a = 10
-                public static define f {
-                    var v = self
-                }
-            }
-        """)
-
         # bad static (using class property)
 
         assert_parse_fails(t, """\
@@ -970,6 +931,85 @@ class TestBadClass < TestCase
         """,
         """\
             static class Test {}
+        """)
+    }
+
+    public define test_self
+    {
+        var t = Interpreter()
+
+        # self (self return at toplevel)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'self' return type only allowed on class methods.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f: self {}
+        """)
+
+        # self (self return on enum)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'self' return type only allowed on class methods.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            enum Example
+            {
+                One,
+                Two
+                define f: self {}
+            }
+        """)
+
+        # self (used outside of a class)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            self
+        """)
+
+        # self (used during inheritance)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:2:\n\
+        """,
+        """\
+            class Parent(x: Parent) { }
+            class Child < Parent(self) { }
+        """)
+
+        # self (close over self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example {
+                public define f {}
+                public var @b = (|| var w = self )
+            }
+        """)
+
+        # self (from a static method)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use self here.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            class Example {
+                public var @a = 10
+                public static define f {
+                    var v = self
+                }
+            }
         """)
     }
 }

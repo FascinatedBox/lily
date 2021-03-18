@@ -658,26 +658,6 @@ class TestBadToken < TestCase
             private define f {}
         """)
 
-        # bad keyword (self used outside class)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
-                from [test]:1:\n\
-        """,
-        """\
-            self
-        """)
-
-        # bad keyword (self return outside class)
-
-        assert_parse_fails(t, """\
-            SyntaxError: 'self' return type only allowed on class methods.\n    \
-                from [test]:1:\n\
-        """,
-        """\
-            define f: self {}
-        """)
-
         # bad keyword (scoped without enum)
 
         assert_parse_fails(t, """\
