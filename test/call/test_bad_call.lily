@@ -374,6 +374,31 @@ class TestBadCall < TestCase
 
             f(:a "1")
         """)
+
+        # keyarg calls (missing parameter out of order)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:\n\
+            * Parameter #2 (:two) of type Integer.\n    \
+                from [test]:10:\n\
+        """,
+        """\
+            define check(
+                :one   one:   Integer,
+                :two   two:   Integer,
+                :three three: Integer,
+                :four  four:  Integer,
+                :five  five:  Integer)
+            {
+            }
+
+            check(
+                :three 3,
+                :five  5,
+                :one   1,
+                :four  4
+            )
+        """)
     }
 
     public define test_mixarg_calls

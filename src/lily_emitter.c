@@ -2064,7 +2064,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
 {
     uint16_t i;
     uint16_t stop = call_type->subtype_count - 1;
-    lily_ast *arg_iter = ast->arg_start;
+    lily_ast *arg_start = ast->arg_start;
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_type **arg_types = call_type->subtypes;
 
@@ -2077,11 +2077,22 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
         stop--;
 
     for (i = 0;i != stop;i++) {
-        if (arg_iter &&
-            arg_iter->keyword_arg_pos == i) {
-            arg_iter = arg_iter->next_arg;
-            continue;
+        lily_ast *arg_iter = arg_start;
+        int skip = 0;
+
+        for (;arg_iter != NULL;arg_iter = arg_iter->next_arg) {
+            if (arg_iter->keyword_arg_pos != i)
+                continue;
+
+            if (arg_start == arg_iter)
+                arg_start = arg_start->next_arg;
+
+            skip = 1;
+            break;
         }
+
+        if (skip)
+            continue;
 
         lily_type *t = arg_types[i + 1];
 
