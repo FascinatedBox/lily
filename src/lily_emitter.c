@@ -2086,7 +2086,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
         lily_type *t = arg_types[i + 1];
 
         if (t->cls->id == LILY_ID_OPTARG)
-            continue;
+            break;
 
         char *key = keywords[i];
 
