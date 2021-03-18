@@ -2038,6 +2038,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
         (arg_flags & (F_COLLECT_VARIANT | F_COLLECT_CLASS)) == 0) {
         lily_next_token(lex);
         if (arg_flags & F_COLLECT_DEFINE &&
+            lex->token == tk_word &&
             strcmp(lex->label, "self") == 0) {
             lily_var *v = (lily_var *)target;
 

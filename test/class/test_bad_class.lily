@@ -1011,5 +1011,16 @@ class TestBadClass < TestCase
                 }
             }
         """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not 'a string'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            class Example
+            {
+                public define f: "self" {}
+            }
+        """)
     }
 }
