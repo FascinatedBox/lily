@@ -112,6 +112,11 @@ class TestVerifyCoverage < TestCase
             if ok == false: {
                 0 / 0
             }
+
+            # Verify 'self' return type.
+            if covlib.C2("asdf", 45).nothing().check() != 45: {
+                0 / 0
+            }
         """)
     }
 

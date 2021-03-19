@@ -8,6 +8,17 @@
 #define LILY_COVLIB_EXPORT
 #endif
 
+#define GET_C2__x(c_) \
+lily_con_get(c_, 0)
+#define SET_C2__x(c_, v_) \
+lily_con_set(c_, 0, v_)
+#define SETFS_C2__x(state, c_) \
+lily_con_set_from_stack(state, c_, 0)
+#define ID_C2(s_) \
+lily_cid_at(s_, 0)
+#define SUPER_C2(s_) \
+lily_push_super(s_, ID_C2(s_), 2)
+
 #define GET_Container__value(c_) \
 lily_con_get(c_, 0)
 #define SET_Container__value(c_, v_) \
@@ -15,7 +26,7 @@ lily_con_set(c_, 0, v_)
 #define SETFS_Container__value(state, c_) \
 lily_con_set_from_stack(state, c_, 0)
 #define ID_Container(s_) \
-lily_cid_at(s_, 0)
+lily_cid_at(s_, 1)
 #define SUPER_Container(s_) \
 lily_push_super(s_, ID_Container(s_), 1)
 
@@ -24,7 +35,7 @@ lily_push_super(s_, ID_Container(s_), 1)
 #define AS_Foreign(v_) \
 (lily_covlib_Foreign *)lily_as_generic(v_)
 #define ID_Foreign(s_) \
-lily_cid_at(s_, 1)
+lily_cid_at(s_, 2)
 #define INIT_Foreign(s_) \
 (lily_covlib_Foreign *)lily_push_foreign(s_, ID_Foreign(s_), (lily_destroy_func)destroy_Foreign, sizeof(lily_covlib_Foreign))
 
@@ -33,42 +44,47 @@ lily_cid_at(s_, 1)
 #define AS_ForeignGeneric(v_) \
 (lily_covlib_ForeignGeneric *)lily_as_generic(v_)
 #define ID_ForeignGeneric(s_) \
-lily_cid_at(s_, 2)
+lily_cid_at(s_, 3)
 #define INIT_ForeignGeneric(s_) \
 (lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
 
 #define ID_FlatOne(s_) \
-(lily_cid_at(s_, 3) + 1)
+(lily_cid_at(s_, 4) + 1)
 #define PUSH_FlatOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
 #define ID_FlatThree(s_) \
-(lily_cid_at(s_, 3) + 2)
+(lily_cid_at(s_, 4) + 2)
 #define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
 #define ID_FlatTwo(s_) \
-(lily_cid_at(s_, 3) + 3)
+(lily_cid_at(s_, 4) + 3)
 #define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 3) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
 
 #define ID_ScopedOne(s_) \
-(lily_cid_at(s_, 4) + 1)
+(lily_cid_at(s_, 5) + 1)
 #define PUSH_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 1)
 #define ID_ScopedThree(s_) \
-(lily_cid_at(s_, 4) + 2)
+(lily_cid_at(s_, 5) + 2)
 #define PUSH_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
 #define ID_ScopedTwo(s_) \
-(lily_cid_at(s_, 4) + 3)
+(lily_cid_at(s_, 5) + 3)
 #define PUSH_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
 
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
-    "\05Container\0Foreign\0ForeignGeneric\0FlatEnum\0ScopedEnum\0"
-    ,"N\04Container\0"
+    "\06C2\0Container\0Foreign\0ForeignGeneric\0FlatEnum\0ScopedEnum\0"
+    ,"N\03C2\0< Container"
+    ,"m\0<new>\0(String,Integer): C2"
+    ,"m\0check\0(C2): Integer"
+    ,"1\0x\0Integer"
+    ,"N\05Container\0"
     ,"m\0<new>\0(String): Container"
     ,"m\0fetch\0(Container): String"
+    ,"m\0nothing\0(Container): self"
     ,"m\0update\0(Container,String)"
     ,"1\0value\0String"
     ,"C\01Foreign\0"
@@ -108,8 +124,13 @@ LILY_COVLIB_EXPORT \
 lily_call_entry_func lily_covlib_call_table[] = { \
     NULL, \
     NULL, \
+    lily_covlib_C2_new, \
+    lily_covlib_C2_check, \
+    NULL, \
+    NULL, \
     lily_covlib_Container_new, \
     lily_covlib_Container_fetch, \
+    lily_covlib_Container_nothing, \
     lily_covlib_Container_update, \
     NULL, \
     NULL, \

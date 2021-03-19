@@ -561,4 +561,25 @@ void lily_covlib_Container_fetch(lily_state *s)
     lily_return_value(s, GET_Container__value(con));
 }
 
+void lily_covlib_Container_nothing(lily_state *s)
+{
+    lily_return_value(s, lily_arg_value(s, 0));
+}
+
+void lily_covlib_C2_new(lily_state *s)
+{
+    lily_container_val *con = SUPER_C2(s);
+    SET_Container__value(con, lily_arg_value(s, 0));
+    SET_C2__x(con, lily_arg_value(s, 1));
+    lily_return_super(s);
+}
+
+void lily_covlib_C2_check(lily_state *s)
+{
+    lily_container_val *con = lily_arg_container(s, 0);
+    lily_value *result = GET_C2__x(con);
+
+    lily_return_value(s, result);
+}
+
 LILY_DECLARE_COVLIB_CALL_TABLE
