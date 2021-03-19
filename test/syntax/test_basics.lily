@@ -1532,6 +1532,8 @@ class TestBasics < TestCase
                 var a1 = 10
                 {
                 }
+
+                define f {}
             }
             {
                 var a1 = "20"

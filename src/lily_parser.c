@@ -5383,7 +5383,8 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     return define_var;
 }
 
-#define ALLOW_DEFINE (SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
+#define ALLOW_DEFINE \
+(SCOPE_ANON | SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
 
 static void keyword_define(lily_parse_state *parser)
 {

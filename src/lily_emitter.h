@@ -9,6 +9,7 @@
 # include "lily_type_maker.h"
 # include "lily_type_system.h"
 
+# define SCOPE_ANON   0x010
 # define SCOPE_CLASS  0x020
 # define SCOPE_DEFINE 0x040
 # define SCOPE_ENUM   0x080
@@ -16,7 +17,7 @@
 # define SCOPE_LAMBDA 0x200
 
 typedef enum {
-    block_anon           = 0,
+    block_anon           = 0 | SCOPE_ANON,
     block_class          = 1 | SCOPE_CLASS,
     block_define         = 2 | SCOPE_DEFINE,
     block_do_while       = 3,
