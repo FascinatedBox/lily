@@ -66,6 +66,7 @@ var keywords = [
 ]
 var docblock_keywords = [
     "class",
+    "constant",
     "define",
     "enum",
     "private",

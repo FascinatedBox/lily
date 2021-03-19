@@ -522,6 +522,12 @@ void lily_introspect_VarEntry_type(lily_state *s)
     unpack_and_return_type(s);
 }
 
+void lily_introspect_ConstantEntry_doc(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ConstantEntry, lily_var *);
+    return_doc(s, entry->doc_id);
+}
+
 void lily_introspect_ConstantEntry_name(lily_state *s)
 {
     FETCH_FIELD(ConstantEntry, lily_var, const char *, name, lily_push_string);

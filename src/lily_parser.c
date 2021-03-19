@@ -4128,6 +4128,9 @@ static void parse_one_constant(lily_parse_state *parser)
                 "Expected a Double, Integer, or String literal, not '%s'.",
                 tokname(lex->token));
 
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        var->doc_id = store_docblock(parser);
+
     lily_next_token(lex);
 }
 

@@ -135,7 +135,8 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parent\0(ClassEntry): Option[ClassEntry]"
     ,"m\0properties\0(ClassEntry): List[PropertyEntry]"
     ,"m\0property_count\0(ClassEntry): Integer"
-    ,"C\03ConstantEntry\0"
+    ,"C\04ConstantEntry\0"
+    ,"m\0doc\0(ConstantEntry): String"
     ,"m\0line_number\0(ConstantEntry): Integer"
     ,"m\0name\0(ConstantEntry): String"
     ,"m\0type\0(ConstantEntry): TypeEntry"
@@ -237,6 +238,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ClassEntry_properties, \
     lily_introspect_ClassEntry_property_count, \
     NULL, \
+    lily_introspect_ConstantEntry_doc, \
     lily_introspect_ConstantEntry_line_number, \
     lily_introspect_ConstantEntry_name, \
     lily_introspect_ConstantEntry_type, \

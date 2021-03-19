@@ -5,6 +5,17 @@ import (Interpreter,
 
 class TestPkgIntrospect < TestCase
 {
+    private var @t_constant_payload =
+        StringTarget(
+            :path "_constant",
+            :data """\
+                ### Test docblock
+                constant ct = 10
+
+                constant asdf = "abc"
+            """
+        )
+
     private var @t_fake =
         PackageTarget(
             :path "fake",
@@ -105,24 +116,35 @@ class TestPkgIntrospect < TestCase
     public define test_constant
     {
         var t = Interpreter.with_targets(
-            @t_symbols
+            @t_constant_payload
         )
 
-        # constant entry (setup)
+        t.config_set_extra_info(true)
 
         assert_parse_string(t, """
             import introspect
-            import (ct) symbols
+            import _constant
 
-            define check(      c_: introspect.ConstantEntry,
-                         :line line: String,
-                         :name name: String,
-                         :type type: String)
+            define check_constant(
+                         c: introspect.ConstantEntry,
+                :doc   doc: String,
+                :line line: Integer,
+                :name name: String,
+                :type type: String
+            )
             {
-                var input = [c_.line_number().to_s(),
-                             c_.name(),
-                             c_.type().as_string()]
-                var expect = [line, name, type]
+                var input = <[
+                    c.doc(),
+                    c.line_number(),
+                    c.name(),
+                    c.type().as_string()
+                ]>
+                var expect = <[
+                    doc,
+                    line,
+                    name,
+                    type
+                ]>
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -130,30 +152,28 @@ class TestPkgIntrospect < TestCase
                 }
             }
 
-            var main_m = introspect.main_module()
-            var constants = main_m.constants()
-            var ct_c = main_m.boxed_constants()[0]
-            var local_c_line = __line__ + 1
-            constant local_c = "a"
-            var self_c = constants[0]
-        """)
+            var mm = introspect.main_module()
+            var constant_m = mm.modules_used()[0]
+            var constants = constant_m.constants()
 
-        # constant entry (check ct_c)
-
-        assert_parse_string(t, """
-            check(ct_c,
-                  :line "2",
-                  :name "ct",
-                  :type "Integer")
-        """)
-
-        # constant entry (check self_c)
-
-        assert_parse_string(t, """
-            check(self_c,
-                  :line local_c_line.to_s(),
-                  :name "local_c",
-                  :type "String")
+            {
+                check_constant(
+                    constants[-1],
+                    :doc       "Test docblock\\n",
+                    :line      2,
+                    :name      "ct",
+                    :type      "Integer"
+                )
+            }
+            {
+                check_constant(
+                    constants[-2],
+                    :doc       "",
+                    :line      4,
+                    :name      "asdf",
+                    :type      "String"
+                )
+            }
         """)
     }
 

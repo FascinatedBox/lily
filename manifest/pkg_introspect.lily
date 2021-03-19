@@ -87,6 +87,10 @@ foreign static class PropertyEntry
 ### This is a foreign class that wraps over a constant value.
 foreign static class ConstantEntry
 {
+    ### Return the docblock of this constant, or an empty string. Docblocks are
+    ### only saved when a function is parsed in manifest mode.
+    public define doc: String
+
     ### Return the line number that this constant was declared on.
     public define line_number: Integer
 
