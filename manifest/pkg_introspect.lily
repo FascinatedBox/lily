@@ -204,6 +204,12 @@ foreign static class ClassEntry
     ### class has been loaded, the properties inside are always loaded. This is
     ### in contrast to methods which may not be loaded.
     public define properties: List[PropertyEntry]
+
+    ### Return the total number of properties in this class.
+    ###
+    ### The total includes properties declared in this class as well as
+    ### properties declared in all parent classes.
+    public define property_count: Integer
 }
 
 ### This is a foreign class that wraps over an enum variant.

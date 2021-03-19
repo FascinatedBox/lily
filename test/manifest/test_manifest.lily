@@ -212,7 +212,8 @@ class TestManifest < TestCase
                 :generics generics: String,
                 :name     name:     String,
                 :native   native:   Boolean,
-                :parent   parent:   String
+                :parent   parent:   String,
+                :props    props:    Integer
             )
             {
                 var input = [c.doc(),
@@ -220,13 +221,15 @@ class TestManifest < TestCase
                              c.generics().map(|m| m.as_string() ).join(", "),
                              c.name(),
                              c.is_native().to_s(),
-                             c.parent().map(|a| a.name() ).unwrap_or("")]
+                             c.parent().map(|a| a.name() ).unwrap_or(""),
+                             c.property_count().to_s()]
                 var expect = [doc,
                               foreign.to_s(),
                               generics,
                               name,
                               native.to_s(),
-                              parent]
+                              parent,
+                              props.to_s()]
 
                 if input != expect: {
                     raise Exception("\\n    Expected: {0}\\n    Given: {1}"
@@ -250,7 +253,8 @@ class TestManifest < TestCase
                     :generics "",
                     :name     "Base",
                     :native   true,
-                    :parent   ""
+                    :parent   "",
+                    :props    3
                 )
 
                 check_method(
@@ -328,7 +332,8 @@ class TestManifest < TestCase
                     :generics "A, B",
                     :name     "GenericClass",
                     :native   true,
-                    :parent   "Base"
+                    :parent   "Base",
+                    :props    4
                 )
 
                 check_method(
@@ -386,7 +391,8 @@ class TestManifest < TestCase
                     :generics "",
                     :name     "ForeignBase",
                     :native   false,
-                    :parent   ""
+                    :parent   "",
+                    :props    0
                 )
 
                 check_method(
@@ -434,7 +440,8 @@ class TestManifest < TestCase
                     :generics "",
                     :name     "StaticBase",
                     :native   false,
-                    :parent   ""
+                    :parent   "",
+                    :props    0
                 )
 
                 check_method(

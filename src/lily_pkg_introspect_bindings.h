@@ -124,7 +124,7 @@ lily_cid_at(s_, 10)
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
     "\013ClassEntry\0ConstantEntry\0EnumEntry\0FunctionEntry\0MethodEntry\0ModuleEntry\0ParameterEntry\0PropertyEntry\0TypeEntry\0VarEntry\0VariantEntry\0"
-    ,"C\011ClassEntry\0"
+    ,"C\012ClassEntry\0"
     ,"m\0doc\0(ClassEntry): String"
     ,"m\0generics\0(ClassEntry): List[TypeEntry]"
     ,"m\0id\0(ClassEntry): Integer"
@@ -134,6 +134,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(ClassEntry): String"
     ,"m\0parent\0(ClassEntry): Option[ClassEntry]"
     ,"m\0properties\0(ClassEntry): List[PropertyEntry]"
+    ,"m\0property_count\0(ClassEntry): Integer"
     ,"C\03ConstantEntry\0"
     ,"m\0line_number\0(ConstantEntry): Integer"
     ,"m\0name\0(ConstantEntry): String"
@@ -234,6 +235,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ClassEntry_name, \
     lily_introspect_ClassEntry_parent, \
     lily_introspect_ClassEntry_properties, \
+    lily_introspect_ClassEntry_property_count, \
     NULL, \
     lily_introspect_ConstantEntry_line_number, \
     lily_introspect_ConstantEntry_name, \

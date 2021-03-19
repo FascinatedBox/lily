@@ -852,6 +852,12 @@ void lily_introspect_ClassEntry_properties(lily_state *s)
     BUILD_LIST_FROM_2(allow_properties, make_property);
 }
 
+void lily_introspect_ClassEntry_property_count(lily_state *s)
+{
+    UNPACK_FIRST_ARG(ClassEntry, lily_class *);
+    lily_return_integer(s, entry->prop_count);
+}
+
 void lily_introspect_VariantEntry_enum_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
