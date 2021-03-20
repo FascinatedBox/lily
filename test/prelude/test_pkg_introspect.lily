@@ -1251,7 +1251,6 @@ class TestPkgIntrospect < TestCase
             var module_list = introspect.module_list()
             var names = [
                 "prelude",
-                "[main]",
                 "coroutine",
                 "fs",
                 "introspect",
@@ -1260,11 +1259,11 @@ class TestPkgIntrospect < TestCase
                 "subprocess",
                 "sys",
                 "time",
+                "[main]",
                 "example",
             ]
             var paths = [
                 "[prelude]",
-                "[test]",
                 "[coroutine]",
                 "[fs]",
                 "[introspect]",
@@ -1273,6 +1272,7 @@ class TestPkgIntrospect < TestCase
                 "[subprocess]",
                 "[sys]",
                 "[time]",
+                "[test]",
                 "nest\\/example.lily",
             ]
 

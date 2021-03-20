@@ -211,9 +211,12 @@ lily_state *lily_new_state(lily_config *config)
     lily_module_register(parser->vm, "prelude", lily_prelude_info_table,
             lily_prelude_call_table);
 
+    /* Make prelude modules available. */
+    lily_prelude_register(parser->vm);
+
     /* Make the symtab and load it. */
     parser->symtab = lily_new_symtab();
-    lily_set_prelude(parser->symtab, parser->module_top);
+    lily_set_prelude(parser->symtab, parser->module_start);
     lily_init_pkg_prelude(parser->symtab);
 
     parser->lex = lily_new_lex_state(parser->raiser);
@@ -238,9 +241,6 @@ lily_state *lily_new_state(lily_config *config)
 
     /* Create the `__main__` var and underlying function. */
     create_main_func(parser);
-
-    /* Make prelude modules available. */
-    lily_prelude_register(parser->vm);
 
     /* Mark prelude modules as being part of the prelude, so they're available
        everywhere. */
@@ -393,10 +393,13 @@ static void initialize_rewind(lily_parse_state *parser)
 static void mark_prelude_modules(lily_parse_state *parser)
 {
     lily_module_entry *module_iter = parser->module_start;
+
     while (module_iter) {
         module_iter->flags |= MODULE_IS_PREDEFINED;
         module_iter = module_iter->next;
     }
+
+    parser->main_module->flags &= ~MODULE_IS_PREDEFINED;
 }
 
 static void add_data_string(lily_parse_state *parser, const char *to_add)
