@@ -32,63 +32,48 @@ static void clear_storages(lily_storage_stack *, uint16_t);
 lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
 {
     lily_emit_state *emit = lily_malloc(sizeof(*emit));
-
-    emit->patches = lily_new_buffer_u16(4);
-    emit->match_cases = lily_new_buffer_u16(4);
-    emit->tm = lily_new_type_maker();
-    emit->ts = lily_new_type_system(emit->tm);
-    emit->code = lily_new_buffer_u16(32);
-    emit->closure_aux_code = NULL;
-
-    emit->closure_spots = lily_new_buffer_u16(4);
-
-    emit->storages = new_storage_stack(4);
-    emit->protos = new_proto_stack(4);
-
-    emit->transform_table = NULL;
-    emit->transform_size = 0;
-
-    emit->expr_strings = lily_new_string_pile();
-
-    emit->block = NULL;
-
-    emit->function_depth = 0;
-    emit->symtab = symtab;
-    emit->raiser = raiser;
-    emit->expr_num = 1;
-
     lily_block *main_block = lily_malloc(sizeof(*main_block));
 
-    main_block->prev = NULL;
-    main_block->next = NULL;
+    emit->block = main_block;
+    emit->closure_aux_code = NULL;
+    emit->closure_spots = lily_new_buffer_u16(4);
+    emit->code = lily_new_buffer_u16(32);
+    emit->expr_num = 1;
+    emit->expr_strings = lily_new_string_pile();
+    emit->function_depth = 1;
+    emit->match_cases = lily_new_buffer_u16(4);
+    emit->patches = lily_new_buffer_u16(4);
+    emit->protos = new_proto_stack(4);
+    emit->raiser = raiser;
+    emit->scope_block = main_block;
+    emit->storages = new_storage_stack(4);
+    emit->symtab = symtab;
+    emit->tm = lily_new_type_maker();
+    emit->transform_size = 0;
+    emit->transform_table = NULL;
+    emit->ts = lily_new_type_system(emit->tm);
+
     main_block->block_type = block_file;
     main_block->class_entry = NULL;
-    main_block->self = NULL;
     main_block->code_start = 0;
+    main_block->forward_class_count = 0;
+    main_block->forward_count = 0;
+    main_block->generic_start = 0;
+    main_block->next = NULL;
     main_block->next_reg_spot = 0;
+    main_block->prev = NULL;
+    main_block->prev_scope_block = NULL;
+    main_block->self = NULL;
     main_block->storage_count = 0;
     main_block->var_count = 0;
-    main_block->forward_count = 0;
-    main_block->forward_class_count = 0;
-    main_block->generic_start = 0;
 
     /* This prevents checking for 'self' from going too far. */
     main_block->flags = BLOCK_SELF_ORIGIN;
-    main_block->prev_scope_block = NULL;
-    emit->block = main_block;
-    emit->function_depth++;
-    emit->scope_block = main_block;
-
     return emit;
 }
 
 void lily_rewind_emit_state(lily_emit_state *emit)
 {
-    lily_u16_set_pos(emit->patches, 0);
-    lily_u16_set_pos(emit->code, 0);
-    lily_u16_set_pos(emit->closure_spots, 0);
-    lily_u16_set_pos(emit->match_cases, 0);
-
     lily_block *block_iter = emit->scope_block;
     lily_block *main_block = block_iter;
     lily_storage_stack *stack = emit->storages;
@@ -111,39 +96,45 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     clear_storages(stack, total - stack->start);
     stack->start = 0;
 
+    /* Now the buffers and the emitter. */
     emit->block->forward_class_count = 0;
     emit->block->forward_count = 0;
     emit->block = main_block;
-    emit->scope_block = main_block;
     emit->function_depth = 1;
+    emit->scope_block = main_block;
+    lily_u16_set_pos(emit->closure_spots, 0);
+    lily_u16_set_pos(emit->code, 0);
+    lily_u16_set_pos(emit->match_cases, 0);
+    lily_u16_set_pos(emit->patches, 0);
 }
 
 void lily_free_emit_state(lily_emit_state *emit)
 {
-    lily_block *current, *temp;
-    current = emit->block;
+    lily_block *current = emit->block;
+
     while (current && current->prev)
         current = current->prev;
 
     while (current) {
-        temp = current->next;
+        lily_block *temp = current->next;
+
         lily_free(current);
         current = temp;
     }
 
-    free_storage_stack(emit->storages);
-    free_proto_stack(emit->protos);
-
-    lily_free_string_pile(emit->expr_strings);
-    lily_free_type_maker(emit->tm);
-    lily_free(emit->transform_table);
-    lily_free_type_system(emit->ts);
     if (emit->closure_aux_code)
         lily_free_buffer_u16(emit->closure_aux_code);
+
+    free_proto_stack(emit->protos);
+    free_storage_stack(emit->storages);
+    lily_free(emit->transform_table);
     lily_free_buffer_u16(emit->closure_spots);
+    lily_free_buffer_u16(emit->code);
     lily_free_buffer_u16(emit->match_cases);
     lily_free_buffer_u16(emit->patches);
-    lily_free_buffer_u16(emit->code);
+    lily_free_string_pile(emit->expr_strings);
+    lily_free_type_maker(emit->tm);
+    lily_free_type_system(emit->ts);
     lily_free(emit);
 }
 
