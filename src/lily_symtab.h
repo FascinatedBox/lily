@@ -50,7 +50,6 @@ typedef struct lily_symtab_ {
 lily_symtab *lily_new_symtab(void);
 void lily_set_prelude(lily_symtab *, lily_module_entry *);
 void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
-void lily_hide_module_symbols(lily_symtab *, lily_module_entry *);
 void lily_free_properties(lily_class *);
 void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
         lily_var *, lily_boxed_sym *, int);
