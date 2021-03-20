@@ -1,4 +1,5 @@
 import (Interpreter,
+        PackageTarget,
         StringTarget,
         TestCase) "../t/testing"
 
@@ -95,6 +96,28 @@ class TestManifest < TestCase
 
                     define f
                 }
+            """
+        )
+
+    private var @t_fake =
+        PackageTarget(
+            :path "fake",
+            :data """\
+                import manifest
+
+                ### Docblock for fake
+                library fake
+            """
+        )
+
+    private var @t_nest_example =
+        StringTarget(
+            :path "nest\/example",
+            :data """\
+                import manifest
+
+                ### Docblock for example
+                library example
             """
         )
 
@@ -924,6 +947,84 @@ class TestManifest < TestCase
 
             if defines.size() != 5: {
                 0 / 0
+            }
+        """)
+    }
+
+    public define test_module
+    {
+        var t = Interpreter.with_targets(
+            @t_nest_example,
+            @t_fake
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import "nest/example"
+            import fake
+        """)
+
+        assert_parse_string(t, """
+            import introspect
+
+            define check_module(
+                         m:       introspect.ModuleEntry,
+                :dirname dirname: String,
+                :doc     doc:     String,
+                :name    name:    String,
+                :path    path:    String
+            )
+            {
+                var input = <[
+                    m.dirname(),
+                    m.doc(),
+                    m.name(),
+                    m.path()
+                ]>
+                var expect = <[
+                    dirname,
+                    doc,
+                    name,
+                    path
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var main_m = introspect.main_module()
+            var modules = main_m.modules_used()
+
+            {
+                check_module(
+                    modules[-3],
+                    :dirname "",
+                    :doc     "",
+                    :name    "introspect",
+                    :path    "[introspect]"
+                )
+
+                check_module(
+                    modules[-2],
+                    :dirname "packages\\/fake\\/src",
+                    :doc     "Docblock for fake\\n",
+                    :name    "fake",
+                    :path    "packages\\/fake\\/src\\/fake.lily"
+                )
+
+                check_module(
+                    modules[-1],
+                    :dirname "",
+                    :doc     "Docblock for example\\n",
+                    :name    "example",
+                    :path    "nest\\/example.lily"
+                )
+
+                if modules.size() != 3: {
+                    0 / 0
+                }
             }
         """)
     }

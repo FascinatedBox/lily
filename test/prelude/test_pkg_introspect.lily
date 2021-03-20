@@ -1025,16 +1025,22 @@ class TestPkgIntrospect < TestCase
             define check_module(
                          m:       introspect.ModuleEntry,
                 :dirname dirname: String,
-                :name    name:    String
+                :doc     doc:     String,
+                :name    name:    String,
+                :path    path:    String
             )
             {
                 var input = <[
                     m.dirname(),
-                    m.name()
+                    m.doc(),
+                    m.name(),
+                    m.path()
                 ]>
                 var expect = <[
                     dirname,
-                    name
+                    doc,
+                    name,
+                    path
                 ]>
 
                 if input != expect: {
@@ -1050,19 +1056,25 @@ class TestPkgIntrospect < TestCase
                 check_module(
                     modules[-3],
                     :dirname "packages\\/fake\\/src",
-                    :name    "fake"
+                    :doc     "",
+                    :name    "fake",
+                    :path    "packages\\/fake\\/src\\/fake.lily"
                 )
 
                 check_module(
                     modules[-2],
                     :dirname "",
-                    :name    "example"
+                    :doc     "",
+                    :name    "example",
+                    :path    "nest\\/example.lily"
                 )
 
                 check_module(
                     modules[-1],
                     :dirname "",
-                    :name    "introspect"
+                    :doc     "",
+                    :name    "introspect",
+                    :path    "[introspect]"
                 )
 
                 if modules.size() != 3: {
@@ -1076,56 +1088,207 @@ class TestPkgIntrospect < TestCase
     {
         var t = Interpreter()
 
-        # toplevel (introspect.class_name)
-
         assert_parse_string(t, """
             import (Random) random
             import (Coroutine) coroutine
-            import (class_name) introspect
+            import introspect
 
             define f(co: Coroutine[Integer, Unit]): Integer {
                 return 0
             }
 
-            var result = [
-                1                  |> class_name,
-                1.0                |> class_name,
-                "1"                |> class_name,
-                '1'                |> class_name,
-                B"1"               |> class_name,
-                true               |> class_name,
-                [1]                |> class_name,
-                [1 => 1]           |> class_name,
-                <[1]>              |> class_name,
-                unit               |> class_name,
-                stdout             |> class_name,
-                Exception("")      |> class_name,
-                ValueError("")     |> class_name,
-                Coroutine.build(f) |> class_name,
-                Some(1)            |> class_name,
-                Random()           |> class_name,
+            define g(a: Integer...) {}
+
+            {
+                var result = [
+                    1                  |> introspect.class_name,
+                    1.0                |> introspect.class_name,
+                    "1"                |> introspect.class_name,
+                    '1'                |> introspect.class_name,
+                    B"1"               |> introspect.class_name,
+                    true               |> introspect.class_name,
+                    [1]                |> introspect.class_name,
+                    [1 => 1]           |> introspect.class_name,
+                    <[1]>              |> introspect.class_name,
+                    unit               |> introspect.class_name,
+                    stdout             |> introspect.class_name,
+                    Exception("")      |> introspect.class_name,
+                    ValueError("")     |> introspect.class_name,
+                    Coroutine.build(f) |> introspect.class_name,
+                    Some(1)            |> introspect.class_name,
+                    Random()           |> introspect.class_name,
+                ]
+
+                var expect = [
+                    "Integer",
+                    "Double",
+                    "String",
+                    "Byte",
+                    "ByteString",
+                    "Boolean",
+                    "List",
+                    "Hash",
+                    "Tuple",
+                    "Unit",
+                    "File",
+                    "Exception",
+                    "ValueError",
+                    "Coroutine",
+                    "Some",
+                    "Random",
+                ]
+
+                if result != expect: {
+                    0 / 0
+                }
+            }
+
+            var mm = introspect.main_module()
+            var defines = mm.functions()
+
+            # Drop __main__ from definitions.
+            defines.pop()
+
+            {
+                var func_type = defines[-2].type()
+                var id = func_type.class_id()
+                var name = func_type.class_name()
+
+                # The api does not guarantee that the id will be a specific
+                # value, so don't test the value.
+                # Instead, do this to make sure that the result is an Integer.
+
+                if id < 0 || id.to_s().parse_i().unwrap() != id: {
+                    0 / 0
+                }
+
+                if func_type.class_name() != "Function": {
+                    0 / 0
+                }
+
+                if func_type.is_vararg_function() == false: {
+                    0 / 0
+                }
+
+                var inner_types = func_type.inner_types()
+
+                # Make sure this works for a non-Function value.
+
+                if inner_types[1].is_vararg_function(): {
+                    0 / 0
+                }
+
+                if inner_types[0].class_name() != "Unit" ||
+                   inner_types[1].class_name() != "List" ||
+                   inner_types.size() != 2: {
+                    0 / 0
+                }
+            }
+            {
+                var func_type = defines[-1].type()
+
+                if func_type.is_vararg_function(): {
+                    0 / 0
+                }
+            }
+            {
+                var type = defines[-1].type()
+                var p = introspect.ParameterEntry(
+                    "test",
+                    "example",
+                    type
+                )
+
+                if p.name != "test" ||
+                   p.keyword != "example" ||
+                   p.type != type: {
+                    0 / 0
+                }
+            }
+            {
+                # This covers calling generics when debug info is off.
+                if defines[-1].generics().size(): {
+                    0 / 0
+                }
+            }
+        """)
+
+        t = Interpreter.with_targets(
+            @t_nest_example
+        )
+
+        assert_parse_string(t, """
+            import introspect
+            import "nest/example"
+
+            define check_module(
+                         m:       introspect.ModuleEntry,
+                :dirname dirname: String,
+                :doc     doc:     String,
+                :name    name:    String,
+                :path    path:    String
+            )
+            {
+                var input = <[
+                    m.dirname(),
+                    m.doc(),
+                    m.name(),
+                    m.path()
+                ]>
+                var expect = <[
+                    dirname,
+                    doc,
+                    name,
+                    path
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var module_list = introspect.module_list()
+            var names = [
+                "prelude",
+                "[main]",
+                "coroutine",
+                "fs",
+                "introspect",
+                "math",
+                "random",
+                "subprocess",
+                "sys",
+                "time",
+                "example",
+            ]
+            var paths = [
+                "[prelude]",
+                "[test]",
+                "[coroutine]",
+                "[fs]",
+                "[introspect]",
+                "[math]",
+                "[random]",
+                "[subprocess]",
+                "[sys]",
+                "[time]",
+                "nest\\/example.lily",
             ]
 
-            var expect = [
-                "Integer",
-                "Double",
-                "String",
-                "Byte",
-                "ByteString",
-                "Boolean",
-                "List",
-                "Hash",
-                "Tuple",
-                "Unit",
-                "File",
-                "Exception",
-                "ValueError",
-                "Coroutine",
-                "Some",
-                "Random",
-            ]
+            for i in 0...names.size() - 1: {
+                var n = names[i]
 
-            if result != expect: {
+                check_module(
+                    module_list[i],
+                    :dirname "",
+                    :doc     "",
+                    :name    n,
+                    :path    paths[i]
+                )
+            }
+
+            if names.size() != module_list.size(): {
                 0 / 0
             }
         """)
