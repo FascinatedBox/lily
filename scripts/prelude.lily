@@ -71,9 +71,7 @@ define generate_call_tables: String
 
 define generate_bootstrap: String
 {
-    var bootstrap_targets = targets.reject(|s| s == "prelude" )
-
-    var data = bootstrap_targets.map(|t|
+    var data = targets.map(|t|
         var info = "lily_" ++ t ++ "_info_table"
         var call = "lily_" ++ t ++ "_call_table"
         var f = "    lily_module_register(vm, \"{0}\", {1}, {2});"

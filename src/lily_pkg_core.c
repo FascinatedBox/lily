@@ -25,6 +25,7 @@ extern lily_call_entry_func lily_time_call_table[];
 
 void lily_prelude_register(lily_vm_state *vm)
 {
+    lily_module_register(vm, "prelude", lily_prelude_info_table, lily_prelude_call_table);
     lily_module_register(vm, "coroutine", lily_coroutine_info_table, lily_coroutine_call_table);
     lily_module_register(vm, "fs", lily_fs_info_table, lily_fs_call_table);
     lily_module_register(vm, "introspect", lily_introspect_info_table, lily_introspect_call_table);

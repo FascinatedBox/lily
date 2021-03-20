@@ -63,8 +63,6 @@ extern lily_type *lily_unit_type;
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
 static void mark_prelude_modules(lily_parse_state *);
-void lily_module_register(lily_state *, const char *, const char **,
-        lily_call_entry_func *);
 void lily_default_import_func(lily_state *, const char *);
 void lily_stdout_print(lily_vm_state *);
 void lily_prelude_register(lily_vm_state *);
@@ -131,9 +129,6 @@ typedef struct lily_import_state_ {
 
     uint32_t pad;
 } lily_import_state;
-
-extern const char *lily_prelude_info_table[];
-extern lily_call_entry_func lily_prelude_call_table[];
 
 void lily_init_pkg_prelude(lily_symtab *);
 
@@ -207,11 +202,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    /* Make the prelude module that holds predefined symbols. */
-    lily_module_register(parser->vm, "prelude", lily_prelude_info_table,
-            lily_prelude_call_table);
-
-    /* Make prelude modules available. */
+    /* Register the prelude and other predefined modules. */
     lily_prelude_register(parser->vm);
 
     /* Make the symtab and load it. */
