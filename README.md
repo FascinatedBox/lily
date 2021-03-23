@@ -84,9 +84,6 @@ Lily is a very young language and the community is still growing.
 
 * Discord: [Lily](https://discord.gg/Vr5CXFY) to chat with others in real-time.
 
-* IRC: [freenode #lily](https://webchat.freenode.net/?channels=%23lily) is
-  another way to chat with others.
-
 * Reddit: [/r/lily](https://reddit.com/r/lily) for discussion around the
   language and providing support to new users.
 
