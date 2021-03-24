@@ -5741,6 +5741,12 @@ static void process_docblock(lily_parse_state *parser)
         key_id = KEY_BAD_ID;
 
     if (valid_docblock_table[key_id]) {
+        lily_block_type block_type = parser->emit->block->block_type;
+
+        if ((block_type & (SCOPE_CLASS | SCOPE_ENUM | SCOPE_FILE)) == 0)
+            lily_raise_syn(parser->raiser,
+                    "Docblocks are only allowed on toplevel symbols.");
+
         lily_next_token(lex);
         handlers[key_id](parser);
     }

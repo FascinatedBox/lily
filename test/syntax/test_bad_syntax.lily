@@ -345,6 +345,34 @@ class TestBadSyntax < TestCase
         ### blah
         ### blah
         """)
+
+        # bad comment (docblock on nested definition)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Docblocks are only allowed on toplevel symbols.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f {
+                ### doc
+                define g {
+
+                }
+            }
+        """)
+
+        # bad comment (docblock on var in anon block)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Docblocks are only allowed on toplevel symbols.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            {
+                ### doc
+                var v = 10
+            }
+        """)
     }
 
     public define test_bad_ctor
