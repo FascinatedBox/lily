@@ -103,9 +103,9 @@ define finish_file(f: File, path: String)
     print(script_name ++ ": Updated " ++ path ++ ".")
 }
 
-define write_table_header(f: File, info: String, size: Integer)
+define write_table_header(f: File, info: String)
 {
-    f.write("static const " ++ info ++ "[" ++ size ++ "] = {\n")
+    f.write("static const " ++ info ++ "[] = {\n")
 }
 
 define write_numeric_table[A](f: File, table: List[A])

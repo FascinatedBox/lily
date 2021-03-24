@@ -181,7 +181,7 @@ define write_ch_table(f: File)
     ch_table['#']  = cc_data["CC_SHARP"]
     ch_table['_']  = word_id
 
-    write_table_header(f, "uint8_t ch_table", 256)
+    write_table_header(f, "uint8_t ch_table")
     write_numeric_table(f, ch_table)
 }
 
@@ -208,7 +208,7 @@ define write_ident_table(f: File)
     # '@' uses this to check properties since 'B' is not tk_word.
     set_range(ident_table, '0'.to_i(), '9'.to_i(), "2")
 
-    write_table_header(f, "uint8_t ident_table", 256)
+    write_table_header(f, "uint8_t ident_table")
     write_numeric_table(f, ident_table)
 }
 
@@ -245,7 +245,7 @@ define write_token_name_table(f: File)
 
     token_table.push(to_write)
 
-    write_table_header(f, "char *token_name_table", token_strings.size())
+    write_table_header(f, "char *token_name_table")
     write_string_table(f, token_table)
 }
 
@@ -271,7 +271,7 @@ define write_priority_table(f: File)
         }
     }
 
-    write_table_header(f, "uint8_t priority_table", priority_table.size())
+    write_table_header(f, "uint8_t priority_table")
     write_numeric_table(f, priority_table)
 }
 

@@ -337,7 +337,7 @@ define write_docblock_keywords(f: File)
     var out_table = table.map(|m| m[1] )
                          .push(0)
 
-    write_table_header(f, "int valid_docblock_table", out_table.size())
+    write_table_header(f, "int valid_docblock_table")
     write_numeric_table(f, out_table)
 }
 

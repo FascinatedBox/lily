@@ -11,7 +11,7 @@
 # define CC_QUESTION 68
 # define CC_SHARP 69
 
-static const uint8_t ch_table[256] = {
+static const uint8_t ch_table[] = {
     58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 67, 58, 58, 58, 58, 58,
     58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58,
     58,  9, 40, 69, 65, 11, 48, 42, 32,  0, 13, 17,  1, 20, 47, 15,
@@ -32,7 +32,7 @@ static const uint8_t ch_table[256] = {
 
 # define IS_IDENT_START(x) (ident_table[x] == 1)
 
-static const uint8_t ident_table[256] = {
+static const uint8_t ident_table[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -51,7 +51,7 @@ static const uint8_t ident_table[256] = {
     1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const char *token_name_table[62] = {
+static const char *token_name_table[] = {
     ")", ",", "{", "}", "[", ":", "~", "^", "^=", "!", "!=", "%", "%=", "*",
     "*=", "/", "/=", "+", "++", "+=", "-", "-=", "<", "<=", "<<", "<<=", ">",
     ">=", ">>", ">>=", "=", "==", "(", "a lambda", "<[", "]>", "]", "=>",
@@ -61,7 +61,7 @@ static const char *token_name_table[62] = {
     "end of lambda", "?>", "end of file",
 };
 
-static const uint8_t priority_table[62] = {
+static const uint8_t priority_table[] = {
     0, 0, 0, 0, 0, 0, 0, 7, 1, 0, 4, 10, 1, 10, 1, 10,
     1, 9, 5, 1, 9, 1, 4, 4, 8, 1, 4, 4, 8, 1, 1, 4,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
