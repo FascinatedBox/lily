@@ -114,7 +114,7 @@ define write_numeric_table[A](f: File, table: List[A])
         var slice = table.slice(i, i + 16)
 
         if slice.size() == 0: {
-            slice = table.slice(i, table.size() - 1)
+            slice = table.slice(i, table.size())
         }
 
         var slice_str = "    " ++ slice.join(", ") ++ ",\n"
