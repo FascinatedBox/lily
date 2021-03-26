@@ -298,15 +298,18 @@ static void emit_jump_if(lily_emit_state *emit, lily_ast *ast, uint16_t jump_on)
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
 }
 
-/* This writes patches down until 'to' is reached. The patches are written so
-   they target the current code position. */
-static void write_patches_since(lily_emit_state *emit, int to)
-{
-    int from = emit->patches->pos - 1;
-    int pos = lily_u16_pos(emit->code);
+/* If no patches have been written since 'start', this does nothing.
 
-    for (;from >= to;from--) {
-        uint16_t patch = lily_u16_pop(emit->patches);
+   Otherwise, this fixes patches written after 'start', as well as 'start'
+   itself. They're fixed to the current code position. */
+static void write_patches_since(lily_emit_state *emit, uint16_t start)
+{
+    uint16_t pos = lily_u16_pos(emit->code);
+    uint16_t stop = lily_u16_pos(emit->patches);
+    uint16_t iter;
+
+    for (iter = start;iter != stop;iter++) {
+        uint16_t patch = lily_u16_get(emit->patches, iter);
 
         /* Skip 0's (those are patches that have been optimized out.
            Here's a bit of math: If the vm is at 'x' and wants to get to 'y', it
@@ -321,6 +324,8 @@ static void write_patches_since(lily_emit_state *emit, int to)
             lily_u16_set_at(emit->code, patch, pos + adjust - patch);
         }
     }
+
+    lily_u16_set_pos(emit->patches, start);
 }
 
 /***
