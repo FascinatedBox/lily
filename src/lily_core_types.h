@@ -232,7 +232,8 @@ typedef struct lily_var_ {
     uint16_t line_num;
     uint16_t doc_id;
     /* This is used to determine if a var is an upvalue, local, or global. */
-    uint32_t function_depth;
+    uint16_t function_depth;
+    uint16_t pad;
 
     union {
         /* If this is a class/enum method, this is the parent. Otherwise, except
