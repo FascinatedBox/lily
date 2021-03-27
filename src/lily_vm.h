@@ -38,9 +38,9 @@ typedef enum {
 
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
-    int code_pos;
     uint32_t call_frame_depth;
-    lily_catch_kind catch_kind : 32;
+    uint16_t code_pos;
+    lily_catch_kind catch_kind : 16;
 
     union {
         lily_jump_link *jump_entry;
