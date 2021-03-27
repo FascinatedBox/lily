@@ -63,13 +63,15 @@ typedef struct lily_ast_ {
     uint16_t args_collected;
 
     union {
-        uint32_t pile_pos;
+        uint16_t pile_pos;
         /* For raw integers or booleans, this is the value to write to the
            bytecode. */
         int16_t backing_value;
         /* For other kinds of literals, this is their register spot. */
         uint16_t literal_reg_spot;
     };
+
+    uint16_t pad;
 
     union {
         lily_item *item;
