@@ -14,9 +14,7 @@
 #   the initialization found within the binding file.
 #
 # * Add the module's name to `targets` right below this comment and run this
-#   script.
-#
-# * Recompile the interpreter. The new module should now be available.
+#   script. This script will reload cmake after updating files.
 #
 # * Add module tests in `test/prelude/test_pkg_<name>.lily` and run the test
 #   suite.
@@ -24,6 +22,8 @@
 # Once the module has been added and properly tested, the website documentation
 # should be updated. However, this checklist does not cover that since the
 # website documentation is located in a different repository.
+
+import subprocess
 
 var targets = [
     "prelude",
@@ -105,11 +105,7 @@ define generate_prelude_c_file
     f.write(output)
     f.close()
 
-    var message = """\
-Updated the prelude file at '{0}'.
-
-Changes will take effect after recompilation.\
-""".format(path)
+    var message = "Updated the prelude file at '{0}'.".format(path)
 
     print(message)
 }
@@ -164,5 +160,16 @@ define generate_prelude_manifest
     print("Updated core manifest file at '{0}'.".format(path))
 }
 
+define update_cmake_file
+{
+    print("Reloading cmake.")
+
+    var pipe = subprocess.popen("cmake .")
+
+    pipe.read().encode().unwrap() |> print
+    pipe.close()
+}
+
 generate_prelude_manifest()
 generate_prelude_c_file()
+update_cmake_file()
