@@ -1,3 +1,95 @@
+Version 1.16 (2021-4-10)
+========================
+
+This is a massive release with several highlights. Garden has been rewritten,
+and is now 100% Lily code. Additionally, all libraries currently included in it
+were updated for new Lily features, some of which were included in this release
+(notably, exit support).
+
+As of this writing, test coverage is reported to be 99%. 100% is impossible due
+to false positives. Even if it were possible, 100% does not mean that
+combinations that cause problems are covered. What the high amount of coverage
+has done, however, is uncover several bugs that were promptly fixed.
+
+On top of that, this release is jammed with fixes and touchups. Docgen generates
+better info now (variable names and docblocks for native definitions). `fs` is
+basic, but it opens the door to new possibilities.
+
+The next release will be 2.0.
+
+New:
+
+* `fs` module with basic filesystem actions (#496).
+
+* Exit support for `sys` via `sys.exit`, `sys.exit_failure`, and
+  `sys.exit_success`. (#503).
+
+* `with` keyword for nicer destructuring (#508).
+
+* Allow multi case match on empty variants (#475).
+
+* `__dir__` magic constant (#495).
+
+* `\xNN` hex escapes (#472).
+
+* `lily_return_string` API function (#470).
+
+* `ClassEntry.prop_count` added to introspection (#514).
+
+* Configuration option for embedders (`extra_info`) to indicate that the
+  interpreter should store docblocks and variable names for introspection.
+  Defaults to off (#497).
+
+* Allow early exit from a function returning `self` (#499).
+
+* Suitable `Integer` literals automatically coerce to `Byte` without an explicit
+  suffix given (#500).
+
+Changes:
+
+* The website sandbox is now built in a different repository (#488).
+
+* `Findlily.cmake` updated for better Windows support (#504).
+
+* By default, template mode renders to C stdout. If Lily's stdout is closed or
+  set to a read-only `File` during a code tag, the next content section will
+  result in `IOError` being raised (#492).
+
+* Allow raise within a lambda (#512).
+
+* Fix strange error message when trying to call a property that is not a
+  `Function` (#498).
+
+* Fix incorrect reporting of missing keyargs (#513).
+
+* The files `lily_int_opcode.h` and `lily_int_code_iter.h` are no longer
+  included in the install. These were originally provided for
+  `FascinatedBox/lily-dis`, back when opcodes were still being worked out. That
+  library now holds local copies of the files, which have been renamed to
+  `lily_opcode.h` and `lily_code_iter.h` (#502).
+
+* Lambdas were not inferring `Unit` in some cases (#507).
+
+Fixes:
+
+* Hash comparison not observing all elements (#505).
+
+* Cannot import a file starting with a number (#506).
+
+* Crash when closing over a variable in a class constructor (#510).
+
+* Potential crash when comparing variants of different sizes (#489).
+
+* Crash when printing a gc tagged value (#490).
+
+* Crash when an iteration method (such as `List.map`) uses upvalues (#491).
+
+* Crash when a class attempts to inherit an incomplete forward class (#501).
+
+* Potential crash splitting a string (#509).
+
+* `String.find` returning the wrong result when given an offset (#494).
+
 Version 1.15 (2021-1-10)
 ========================
 
