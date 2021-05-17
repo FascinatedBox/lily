@@ -432,7 +432,7 @@ predefined String {
     ### If `needle` is found, the result is a `Some` holding the index.
     ###
     ### Otherwise, this returns `None`.
-    public define find(needle: String, start: *Integer=0): Option[Integer]
+    public define find(needle: String, :start start: *Integer=0): Option[Integer]
 
     ### This creates a new `String` by processing `self` as a format. Format
     ### specifiers must be between braces (`{}`), and must be between `0` and
