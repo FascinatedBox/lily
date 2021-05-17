@@ -6610,9 +6610,8 @@ int lily_parse_expr(lily_state *s, const char **text)
 
         return 1;
     }
-    else {
+    else
         parser->rs->pending = 1;
-    }
 
     return 0;
 }
