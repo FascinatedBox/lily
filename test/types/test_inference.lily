@@ -217,4 +217,33 @@ class TestInference < TestCase
             k(1, 2)
         """)
     }
+
+    public define test_vararg_nonvararg
+    {
+        var t = Interpreter()
+
+        # vararg nonvararg (want List, given vararg)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (String...)' to type 'Function (List[String])'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: String...) {}
+
+            var v: Function(List[String]) = f
+        """)
+
+        # vararg nonvararg (want vararg, given List)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Function (List[String])' to type 'Function (String...)'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: List[String]) {}
+
+            var v: Function(String...) = f
+        """)
+    }
 }

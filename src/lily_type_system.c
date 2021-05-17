@@ -269,6 +269,10 @@ static int check_function(lily_type_system *ts, lily_type *left,
         }
     }
 
+    /* Can't disagree on varargs. */
+    if ((left->flags ^ right->flags) & TYPE_IS_VARARGS)
+        ret = 0;
+
     if (ret && flags & T_UNIFY)
         unify_call(ts, left, right, left->subtype_count);
 
