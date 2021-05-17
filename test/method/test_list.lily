@@ -3,6 +3,26 @@ import (Interpreter,
 
 class TestListMethods < TestCase
 {
+    public define test_all
+    {
+        var empty = [].@(List[Integer])
+
+        assert_equal(empty .all(|a| false ),             true)
+        assert_equal([1]   .all(|a| true ),              true)
+        assert_equal([1]   .all(|a| false ),             false)
+        assert_equal([1, 2].all(|a| (a & 1).to_bool() ), false)
+    }
+
+    public define test_any
+    {
+        var empty = [].@(List[Integer])
+
+        assert_equal(empty .any(|a| false ),             true)
+        assert_equal([1]   .any(|a| true ),              true)
+        assert_equal([1]   .any(|a| false ),             false)
+        assert_equal([1, 2].any(|a| (a & 1).to_bool() ), true)
+    }
+
     public define test_clear
     {
         var v = [1, 2, 3]

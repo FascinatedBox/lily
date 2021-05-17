@@ -277,6 +277,22 @@ predefined Integer {
 ### index or a negative one (with negative indexes being an offset from the
 ### end). Attempting to access an invalid index will produce `IndexError`.
 predefined List[A] {
+    ### This calls `fn` for each element within `self`.
+    ###
+    ### Returns `true` if `fn` returns `true` for all elements given, or if
+    ### `self` is empty.
+    ###
+    ### Otherwise, this returns `false`.
+    public define all(fn: Function(A => Boolean)): Boolean
+
+    ### This calls `fn` for each element within `self`.
+    ###
+    ### Returns `true` if `fn` returns `true` for any element in `self`, or if
+    ### `self` is empty.
+    ###
+    ### Otherwise, this returns `false`.
+    public define any(fn: Function(A => Boolean)): Boolean
+
     ### Removes all elements present within `self`. No error is raised if `self`
     ### is being iterated over.
     public define clear

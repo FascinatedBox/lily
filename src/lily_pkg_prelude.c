@@ -836,6 +836,45 @@ void lily_prelude_KeyError_new(lily_state *s)
     return_exception(s, LILY_ID_KEYERROR);
 }
 
+static int list_any_all(lily_state *s, int stop_on)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t size = lily_con_size(input_list);
+
+    if (size == 0)
+        return 1;
+
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    lily_value *result = lily_call_result(s);
+    uint32_t i;
+    int ok = !stop_on;
+
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, v);
+        lily_call(s, 1);
+
+        if (lily_as_boolean(result) == stop_on) {
+            ok = stop_on;
+            break;
+        }
+    }
+
+    return ok;
+}
+
+void lily_prelude_List_all(lily_state *s)
+{
+    lily_return_boolean(s, list_any_all(s, 0));
+}
+
+void lily_prelude_List_any(lily_state *s)
+{
+    lily_return_boolean(s, list_any_all(s, 1));
+}
+
 void lily_prelude_List_clear(lily_state *s)
 {
     lily_container_val *input_list = lily_arg_container(s, 0);
