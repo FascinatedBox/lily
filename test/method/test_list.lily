@@ -42,6 +42,9 @@ class TestListMethods < TestCase
         v3.delete_at(-1)
         assert_equal(v3, [1, 2])
 
+        var v4 = v3.delete_at(0)
+        assert_equal(v4, unit)
+
         assert_raises(
                 "IndexError: Index -2 is too small for list (minimum: -1)",
                 (|| [1].delete_at(-2) ))

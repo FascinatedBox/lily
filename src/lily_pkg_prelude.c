@@ -912,7 +912,8 @@ void lily_prelude_List_delete_at(lily_state *s)
     uint32_t fixed_pos = get_relative_index(s, input_list, pos);
 
     lily_list_take(s, input_list, fixed_pos);
-    lily_return_top(s);
+    lily_stack_drop_top(s);
+    lily_return_unit(s);
 }
 
 void lily_prelude_List_each(lily_state *s)
