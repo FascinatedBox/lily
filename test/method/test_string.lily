@@ -32,6 +32,8 @@ class TestStringMethods < TestCase
         assert_equal("{00000000}".format(0),       "0")
         assert_equal("{1}a{2}"   .format(0, 1, 2), "1a2")
         assert_equal("abc"       .format(0, 1, 2), "abc")
+        assert_equal("{}w{}"     .format(1, 2),    "1w2")
+        assert_equal("{1} {} {0} {}".format(1, 2), "2 1 1 2")
 
         assert_raises("ValueError: Format specifier is empty.",
             (|| "{".format(0) ))
@@ -42,11 +44,11 @@ class TestStringMethods < TestCase
         assert_raises("ValueError: Format must be between 0...99.",
                (|| "{100}".format(0) ))
 
-        assert_raises("ValueError: Format specifier is empty.",
-               (|| "{}".format(0) ))
-
         assert_raises("IndexError: Format specifier is too large.",
                (|| "{5}".format(0) ))
+
+        assert_raises("IndexError: Format specifier is too large.",
+               (|| "{}{}".format(0) ))
 
         assert_raises("ValueError: Format specifier is not closed.",
                (|| "{0".format(0) ))

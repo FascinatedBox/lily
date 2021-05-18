@@ -1595,6 +1595,7 @@ void lily_prelude_String_format(lily_state *s)
 {
     const char *fmt = lily_arg_string_raw(s, 0);
     lily_container_val *args = lily_arg_container(s, 1);
+    uint32_t empty_iter_i = 0;
     uint32_t args_size = lily_con_size(args);
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
     const char *last_fmt = fmt;
@@ -1629,12 +1630,17 @@ void lily_prelude_String_format(lily_state *s)
         }
 
         if (fmt == last_fmt) {
-            if (ch == '}' || ch == '\0')
+            if (ch == '}') {
+                total = empty_iter_i;
+                empty_iter_i++;
+            }
+            else if (ch == '\0')
                 lily_ValueError(s, "Format specifier is empty.");
             else
                 lily_ValueError(s, "Format specifier is not numeric.");
         }
-        else if (total > 99)
+
+        if (total > 99)
             lily_ValueError(s, "Format must be between 0...99.");
         else if (total >= args_size)
             lily_IndexError(s, "Format specifier is too large.");

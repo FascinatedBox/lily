@@ -466,15 +466,23 @@ predefined String {
     ### Otherwise, this returns `None`.
     public define find(needle: String, :start start: *Integer=0): Option[Integer]
 
-    ### This creates a new `String` by processing `self` as a format. Format
-    ### specifiers must be between braces (`{}`), and must be between `0` and
-    ### `99`. Each format specifier is replaced with the according argument,
-    ### with the first argument being at 0, the second at 1, and so on.
+    ### This creates a new `String` by processing `self` as a format.
+    ###
+    ### Format arguments are specified by `{}`. When a number is specified, the
+    ### argument is replaced with the corresponding value. Values are indexed
+    ### from zero, so `{0}` is the first value, `{1}` the second, and so on.
+    ###
+    ### If the format argument is empty `{}`, an internal value iterator is used
+    ### instead. The value iterator begins at 0 (the first value), and counts
+    ### upward.
+    ###
+    ### The internal iterator is not altered by numeric arguments given. As a
+    ### result, it is possible to mix formatting styles. For example,
+    ### `"{1} {} {0} {}".format(1, 2)` is `2 1 1 2`.
     ###
     ### # Errors
     ###
-    ### * `ValueError` if a format specifier is malformed or has too many
-    ### digits.
+    ### * `ValueError` if a format specifier is malformed.
     ###
     ### * `IndexError` if the format specifier specifies an out-of-range
     ### argument.
