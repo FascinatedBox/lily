@@ -208,6 +208,11 @@ class TestStringMethods < TestCase
         assert_equal("abc.def" .split(".xyz"), ["abc.def"])
         assert_equal("aaaabbaa".split("aa"),   ["", "", "bb", ""])
 
+        assert_equal("0.1.2.3".split(".", 2),      ["0", "1", "2.3"])
+        assert_equal("0.1.2.3".split(".", 1),      ["0", "1.2.3"])
+        assert_equal("0.1.2.3".split(".", 0),      ["0.1.2.3"])
+        assert_equal("0.1.2.3".split(".", :max 1), ["0", "1.2.3"])
+
         "1 2 3".split(" ")[0].is_digit() |> assert_true
 
         assert_raises("ValueError: Cannot split by an empty string.",

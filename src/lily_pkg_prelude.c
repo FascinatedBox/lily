@@ -2026,34 +2026,38 @@ void lily_prelude_String_rstrip(lily_state *s)
 }
 
 static uint32_t count_split_elements(const char *input, const char *splitby,
-        int split_len)
+        int split_len, uint32_t max)
 {
     uint32_t result = 0;
+    uint32_t i = 0;
 
     while (1) {
         input = strstr(input, splitby);
         result++;
 
-        if (input == NULL)
+        if (input == NULL || i == max)
             break;
 
         input = input + split_len;
+        i++;
     }
 
     return result;
 }
 
-static void string_split_by_val(lily_state *s, char *input, char *splitby)
+static void string_split_by_val(lily_state *s, char *input, char *splitby,
+        uint32_t max)
 {
     int split_len = strlen(splitby);
-    uint32_t values_needed = count_split_elements(input, splitby, split_len);
+    uint32_t values_needed = count_split_elements(input, splitby, split_len,
+            max);
     lily_container_val *list_val = lily_push_list(s, values_needed);
     uint32_t i = 0;
 
     while (1) {
         char *input_next = strstr(input, splitby);
 
-        if (input_next == NULL)
+        if (input_next == NULL || i == max)
             break;
 
         int offset = (int)(input_next - input);
@@ -2086,19 +2090,35 @@ void lily_prelude_String_split(lily_state *s)
     lily_string_val *input_strval = lily_arg_string(s, 0);
     lily_string_val *split_strval;
     lily_string_val fake_sv;
+    uint32_t max = UINT32_MAX;
 
-    if (lily_arg_count(s) == 2) {
-        split_strval = lily_arg_string(s, 1);
-        if (lily_string_length(split_strval) == 0)
-            lily_ValueError(s, "Cannot split by an empty string.");
-    }
-    else {
-        fake_sv.string = " ";
-        fake_sv.size = 1;
-        split_strval = &fake_sv;
+    switch (lily_arg_count(s)) {
+        case 3: {
+            int64_t integer_val = lily_arg_integer(s, 2);
+
+            if (integer_val < 0 ||
+                integer_val > (int64_t)UINT32_MAX)
+                max = UINT32_MAX;
+            else
+                max = (uint32_t)integer_val;
+        }
+        /* Fallthrough to process what to split by. */
+        case 2:
+            split_strval = lily_arg_string(s, 1);
+
+            if (lily_string_length(split_strval) == 0)
+                lily_ValueError(s, "Cannot split by an empty string.");
+
+            break;
+        /* Always 1, but 'default' prevents a compiler warning. */
+        default:
+            fake_sv.string = " ";
+            fake_sv.size = 1;
+            split_strval = &fake_sv;
+            break;
     }
 
-    string_split_by_val(s, input_strval->string, split_strval->string);
+    string_split_by_val(s, input_strval->string, split_strval->string, max);
     lily_return_top(s);
 }
 

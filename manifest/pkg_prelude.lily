@@ -573,10 +573,17 @@ predefined String {
     ### This attempts to split `self` using `split_by`, with a default value of
     ### a single space.
     ###
+    ### If `limit` is negative (the default), there is no limit to the size of
+    ### the resulting `List`.
+    ###
+    ### Otherwise, this method will make up to `max` splits to the data. As an
+    ### example, a `max` of zero results in a `List` of one element (the input)
+    ### since no splits can be made.
+    ###
     ### # Errors
     ###
     ### * `ValueError` if `split_by` is empty.
-    public define split(split_by: *String=" "): List[String]
+    public define split(split_by: *String=" ", :max max: *Integer=-1): List[String]
 
     ### Checks if `self` starts with `with`.
     public define starts_with(with: String): Boolean

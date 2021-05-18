@@ -110,7 +110,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0rstrip\0(String,String): String"
     ,"m\0size\0(String): Integer"
     ,"m\0slice\0(String,*Integer,*Integer): String"
-    ,"m\0split\0(String,*String): List[String]"
+    ,"m\0split\0(String,*String,:max *Integer): List[String]"
     ,"m\0starts_with\0(String,String): Boolean"
     ,"m\0strip\0(String,String): String"
     ,"m\0to_bytestring\0(String): ByteString"
