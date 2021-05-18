@@ -355,7 +355,6 @@ static void rewind_interpreter(lily_parse_state *parser)
     lily_rewind_emit_state(parser->emit);
     lily_rewind_type_system(parser->emit->ts);
     lily_rewind_lex_state(parser->lex, rs->line_num);
-    lily_rewind_raiser(parser->raiser);
     lily_rewind_vm(parser->vm);
 
     /* Symtab will hide or delete symbols based on the execution state. Symbols
@@ -6373,6 +6372,9 @@ static int open_first_content(lily_state *s, const char *filename,
         if (parser->rs->pending)
             rewind_interpreter(parser);
 
+        /* Always rewind the raiser to account for content loading not setting a
+           pending rewind if it fails. */
+        lily_rewind_raiser(parser->raiser);
         initialize_rewind(parser);
         lily_lexer_load(parser->lex, load_type, load_content);
         /* The first module is now rooted based on the name given. */
@@ -6381,6 +6383,8 @@ static int open_first_content(lily_state *s, const char *filename,
         parser->flags = PARSER_HAS_CONTENT;
         return 1;
     }
+
+    /* Do not set a pending rewind here, because no processing took place. */
 
     return 0;
 }

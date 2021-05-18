@@ -257,6 +257,17 @@ class TestVerifyCoverage < TestCase
         """)
     }
 
+    public define test_file_error_sticking
+    {
+        var t = Interpreter()
+
+        t.parse_string("[ctx]", "var v = 10")
+        t.parse_file("potato")
+        t.parse_string("[ctx]", "var w = v + 10")
+
+        assert_equal(t.error(), "")
+    }
+
     public define test_gc_marking_enums
     {
         var t = Interpreter()
