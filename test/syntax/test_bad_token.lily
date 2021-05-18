@@ -886,6 +886,35 @@ class TestBadToken < TestCase
         """)
     }
 
+    public define test_bad_number
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Number has a base but no value.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = 0b
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Number has a base but no value.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = 0c
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Number has a base but no value.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = 0x
+        """)
+    }
+
     public define test_bad_syntax
     {
         var t = Interpreter()

@@ -518,14 +518,22 @@ static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
     if (*ch == '0') {
         ch++;
 
+        char *base_ch = ch;
+        int is_decimal = 0;
+
         if (*ch == 'b')
             integer_value = scan_binary(&ch);
         else if (*ch == 'c')
             integer_value = scan_octal(&ch);
         else if (*ch == 'x')
             integer_value = scan_hex(&ch);
-        else
+        else {
             integer_value = scan_decimal(lex, &ch, &is_integer);
+            is_decimal = 1;
+        }
+
+        if (is_decimal == 0 && ch == base_ch + 1)
+            lily_raise_syn(lex->raiser, "Number has a base but no value.");
     }
     else
         integer_value = scan_decimal(lex, &ch, &is_integer);
