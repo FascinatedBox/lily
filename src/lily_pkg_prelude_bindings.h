@@ -63,7 +63,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0to_s\0(Integer): String"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"C\030List\0[A]"
+    ,"C\031List\0[A]"
     ,"m\0all\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0any\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0clear\0[A](List[A])"
@@ -82,6 +82,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0push\0[A](List[A],A): List[A]"
     ,"m\0reject\0[A](List[A],Function(A=>Boolean)): List[A]"
     ,"m\0repeat\0[A](Integer,A): List[A]"
+    ,"m\0reverse\0[A](List[A]): List[A]"
     ,"m\0select\0[A](List[A],Function(A=>Boolean)): List[A]"
     ,"m\0shift\0[A](List[A]): A"
     ,"m\0size\0[A](List[A]): Integer"
@@ -157,11 +158,11 @@ const char *lily_prelude_info_table[] = {
 #define Integer_OFFSET 46
 #define KeyError_OFFSET 51
 #define List_OFFSET 53
-#define RuntimeError_OFFSET 78
-#define String_OFFSET 80
-#define Tuple_OFFSET 102
-#define Unit_OFFSET 103
-#define ValueError_OFFSET 104
+#define RuntimeError_OFFSET 79
+#define String_OFFSET 81
+#define Tuple_OFFSET 103
+#define Unit_OFFSET 104
+#define ValueError_OFFSET 105
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -237,6 +238,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_List_push, \
     lily_prelude_List_reject, \
     lily_prelude_List_repeat, \
+    lily_prelude_List_reverse, \
     lily_prelude_List_select, \
     lily_prelude_List_shift, \
     lily_prelude_List_size, \

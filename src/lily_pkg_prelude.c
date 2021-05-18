@@ -1248,6 +1248,30 @@ void lily_prelude_List_repeat(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_prelude_List_reverse(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t size = lily_con_size(input_list);
+    uint32_t end = size;
+    uint32_t i = 0;
+    lily_container_val *result = lily_push_list(s, size);
+
+    if (end == 0) {
+        lily_return_top(s);
+        return;
+    }
+
+    end--;
+
+    for (;i != size;i++, end--) {
+        lily_value *input_v = lily_con_get(input_list, end);
+
+        lily_con_set(result, i, input_v);
+    }
+
+    lily_return_top(s);
+}
+
 void lily_prelude_List_select(lily_state *s)
 {
     list_select_reject_common(s, 1);

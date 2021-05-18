@@ -384,6 +384,10 @@ predefined List[A] {
     ### * `ValueError` if `count` is less than 1.
     public static define repeat(count: Integer, value: A): List[A]
 
+    ### Return a new `List` that contains all elements within `self` ordered
+    ### from last to first.
+    public define reverse: List[A]
+
     ### This calls `fn` for each element within `self`. The result is a newly-
     ### made `List` holding each element where `fn` returns `true`.
     public define select(fn: Function(A => Boolean)): List[A]

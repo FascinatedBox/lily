@@ -298,6 +298,17 @@ class TestListMethods < TestCase
                 (|| List.repeat(10000000000, 123) ))
     }
 
+    public define test_reverse
+    {
+        var empty: List[Integer] = []
+
+        assert_equal(empty             .reverse(), [])
+        assert_equal([1]               .reverse(), [1])
+        assert_equal([1, 2]            .reverse(), [2, 1])
+        assert_equal([1, 2, 3]         .reverse(), [3, 2, 1])
+        assert_equal([1, 2, 3, 4, 5, 6].reverse(), [6, 5, 4, 3, 2, 1])
+    }
+
     public define test_select
     {
         var v: List[Integer] = []
