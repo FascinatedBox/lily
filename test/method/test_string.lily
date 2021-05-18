@@ -122,6 +122,34 @@ class TestStringMethods < TestCase
         "9223372036854775808" .parse_i().is_none() |> assert_true
         "-9223372036854775809".parse_i().is_none() |> assert_true
         "123abc"              .parse_i().is_none() |> assert_true
+
+        var min = -0x8000000000000000
+        var max =  0x7FFFFFFFFFFFFFFF
+
+        assert_equal("+0b11111".parse_i().unwrap(), 31)
+        assert_equal( "0b11111".parse_i().unwrap(), 31)
+        assert_equal("-0b1000".parse_i().unwrap(), -8)
+        "0b".parse_i().is_none() |> assert_true
+        assert_equal(
+        "-0b1000000000000000000000000000000000000000000000000000000000000000"
+        .parse_i().unwrap(), min)
+        assert_equal(
+         "0b111111111111111111111111111111111111111111111111111111111111111"
+        .parse_i().unwrap(), max)
+
+        assert_equal("+0c12345".parse_i().unwrap(), 5349)
+        assert_equal( "0c12345".parse_i().unwrap(), 5349)
+        assert_equal("-0c1000".parse_i().unwrap(), -512)
+        "0c".parse_i().is_none() |> assert_true
+        assert_equal("-0c1000000000000000000000".parse_i().unwrap(), min)
+        assert_equal( "0c777777777777777777777".parse_i().unwrap(), max)
+
+        assert_equal("+0x0123456789abcdef".parse_i().unwrap(), 0x0123456789abcdef)
+        assert_equal( "0xABCDEF".parse_i().unwrap(), 11259375)
+        assert_equal("-0xff".parse_i().unwrap(), -255)
+        "0c".parse_i().is_none() |> assert_true
+        assert_equal("-0x8000000000000000".parse_i().unwrap(), min)
+        assert_equal( "0x7fffffffffffffff".parse_i().unwrap(), max)
     }
 
     public define test_replace

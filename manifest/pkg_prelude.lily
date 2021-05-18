@@ -514,11 +514,23 @@ predefined String {
     ### made copy of self without the elements within `to_strip` at the front.
     public define lstrip(to_strip: String): String
 
-    ### Attempts to convert `self` into an `Integer`. Currently, `self` is
-    ### parsed as a base-10 encoded value.
+    ### Attempts to convert `self` into an `Integer`. The number can optionally
+    ### begin with `-` or `+`, the latter of which is ignored. Afterward,
+    ### processing occurs as follows:
     ###
-    ### If the value is a valid `Integer`, then a `Some` containing the value is
-    ### returned.
+    ### If `self` begins with `0b`, it is scanned as a binary value.
+    ###
+    ### If `self` begins with `0c`, it is scanned as an octal value.
+    ###
+    ### If `self` begins with `0x`, it is scanned as a hex value.
+    ###
+    ### In all other cases, `self` is scanned as a decimal value.
+    ###
+    ### Regardless of format, `self` is only considered valid if all characters
+    ### inside of it are scanned. If `self` contains other characters at the
+    ### beginning or end (such as whitespace), it is invalid.
+    ###
+    ### If `self` is valid, this returns a `Some` containing the scanned value.
     ###
     ### Otherwise, `None` is returned.
     public define parse_i: Option[Integer]

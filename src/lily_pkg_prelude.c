@@ -5,6 +5,7 @@
 
 #include "lily.h"
 #include "lily_alloc.h"
+#include "lily_lexer.h"
 #include "lily_parser.h"
 #include "lily_platform.h"
 #include "lily_symtab.h"
@@ -1870,51 +1871,15 @@ void lily_prelude_String_lstrip(lily_state *s)
 void lily_prelude_String_parse_i(lily_state *s)
 {
     char *input = lily_arg_string_raw(s, 0);
-    int is_negative = 0;
-    int leading_zeroes = 0;
-    unsigned int rounds = 0;
-    uint64_t value = 0;
+    int ok = 1;
+    int64_t result = lily_scan_number(input, &ok);
 
-    if (*input == '-') {
-        is_negative = 1;
-        ++input;
-    }
-    else if (*input == '+')
-        ++input;
-
-    if (*input == '0') {
-        ++input;
-        leading_zeroes = 1;
-        while (*input == '0')
-            ++input;
-    }
-
-    /* A signed int64 peaks at 9223372036854775807 (or ...808 for negative).
-       The maximum number of reasonable digits is therefore 20 for scanning
-       decimal. */
-    while (*input >= '0' && *input <= '9' && rounds != 20) {
-        value = (value * 10) + (*input - '0');
-        ++input;
-        rounds++;
-    }
-
-    /* These cases check for overflow, trailing junk, and just + or just -. */
-    if (value > ((uint64_t)INT64_MAX + is_negative) ||
-        *input != '\0' ||
-        (rounds == 0 && leading_zeroes == 0)) {
-        lily_return_none(s);
-    }
-    else {
-        int64_t signed_value;
-
-        if (is_negative == 0)
-            signed_value = (int64_t)value;
-        else
-            signed_value = -(int64_t)value;
-
-        lily_push_integer(s, signed_value);
+    if (ok) {
+        lily_push_integer(s, result);
         lily_return_some_of_top(s);
     }
+    else
+        lily_return_none(s);
 }
 
 void lily_prelude_String_replace(lily_state *s)

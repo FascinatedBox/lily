@@ -1631,3 +1631,94 @@ uint8_t lily_priority_for_token(lily_token t)
 {
     return priority_table[t];
 }
+
+static uint64_t scan_simple_decimal(char **source_ch)
+{
+    char *ch = *source_ch;
+    uint64_t result = 0;
+    int num_digits = 0;
+    int max_digits = 21;
+
+    /* This is the only scanner that doesn't start off on pos+1. This is because
+       there's no formatting character to skip over. */
+
+    while (*ch == '0')
+        ch++;
+
+    while (num_digits != max_digits) {
+        if (*ch >= '0' && *ch <= '9') {
+            num_digits++;
+            result = (result * 10) + *ch - '0';
+        }
+        else
+            break;
+
+        num_digits++;
+        ch++;
+    }
+
+    *source_ch = ch;
+    return result;
+}
+
+int64_t lily_scan_number(char *ch, int *ok)
+{
+    char sign = *ch;
+    uint64_t integer_value = 0;
+
+    if (sign == '+' || sign == '-')
+        ch++;
+
+    /* Don't allow empty strings. */
+    if (*ch == '\0') {
+        *ok = 0;
+        return 0;
+    }
+
+    *ok = 1;
+
+    if (*ch == '0') {
+        ch++;
+
+        char *base_ch = ch;
+        int is_decimal = 0;
+
+        if (*ch == 'b')
+            integer_value = scan_binary(&ch);
+        else if (*ch == 'c')
+            integer_value = scan_octal(&ch);
+        else if (*ch == 'x')
+            integer_value = scan_hex(&ch);
+        else {
+            integer_value = scan_simple_decimal(&ch);
+            is_decimal = 1;
+        }
+
+        if (is_decimal == 0 && ch == base_ch + 1)
+            *ok = 0;
+    }
+    else
+        integer_value = scan_simple_decimal(&ch);
+
+    int64_t signed_val = 0;
+
+    if (*ch == '\0') {
+        if (sign != '-') {
+            if (integer_value <= INT64_MAX)
+                signed_val = (int64_t)integer_value;
+            else
+                *ok = 0;
+        }
+        else {
+            uint64_t max = (uint64_t)INT64_MAX + 1ULL;
+            if (integer_value <= max)
+                signed_val = -(int64_t)integer_value;
+            else
+                *ok = 0;
+        }
+    }
+    else
+        *ok = 0;
+
+    return signed_val;
+}
