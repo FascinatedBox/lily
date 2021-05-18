@@ -56,10 +56,13 @@ const char *lily_prelude_info_table[] = {
     ,"m\0<new>\0(String): IOError"
     ,"N\01IndexError\0< Exception"
     ,"m\0<new>\0(String): IndexError"
-    ,"C\04Integer\0"
+    ,"C\07Integer\0"
+    ,"m\0to_binary\0(Integer): String"
     ,"m\0to_bool\0(Integer): Boolean"
     ,"m\0to_byte\0(Integer): Byte"
     ,"m\0to_d\0(Integer): Double"
+    ,"m\0to_hex\0(Integer): String"
+    ,"m\0to_octal\0(Integer): String"
     ,"m\0to_s\0(Integer): String"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
@@ -156,13 +159,13 @@ const char *lily_prelude_info_table[] = {
 #define IOError_OFFSET 42
 #define IndexError_OFFSET 44
 #define Integer_OFFSET 46
-#define KeyError_OFFSET 51
-#define List_OFFSET 53
-#define RuntimeError_OFFSET 79
-#define String_OFFSET 81
-#define Tuple_OFFSET 103
-#define Unit_OFFSET 104
-#define ValueError_OFFSET 105
+#define KeyError_OFFSET 54
+#define List_OFFSET 56
+#define RuntimeError_OFFSET 82
+#define String_OFFSET 84
+#define Tuple_OFFSET 106
+#define Unit_OFFSET 107
+#define ValueError_OFFSET 108
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -213,9 +216,12 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     NULL, \
     lily_prelude_IndexError_new, \
     NULL, \
+    lily_prelude_Integer_to_binary, \
     lily_prelude_Integer_to_bool, \
     lily_prelude_Integer_to_byte, \
     lily_prelude_Integer_to_d, \
+    lily_prelude_Integer_to_hex, \
+    lily_prelude_Integer_to_octal, \
     lily_prelude_Integer_to_s, \
     NULL, \
     lily_prelude_KeyError_new, \

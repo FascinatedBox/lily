@@ -258,6 +258,9 @@ predefined Hash[A, B] {
 ### The `Integer` class is Lily's native numeric type. Internally, it is a
 ### wrapper over a C int64_t.
 predefined Integer {
+    ### Create a `String` with the value of `self` in binary.
+    public define to_binary: String
+
     ### Converts an `Integer` to a `Boolean`.
     public define to_bool: Boolean
 
@@ -267,6 +270,12 @@ predefined Integer {
     ### Converts an `Integer` to a `Double`. Internally, this is done by a
     ### typecast to the `Double` type (a raw C double).
     public define to_d: Double
+
+    ### Create a `String` with the value of `self` in hexadecimal.
+    public define to_hex: String
+
+    ### Create a `String` with the value of `self` in octal.
+    public define to_octal: String
 
     ### Convert an `Integer` to a `String` using base-10.
     public define to_s: String

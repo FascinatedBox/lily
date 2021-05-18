@@ -3,6 +3,18 @@ import (Interpreter,
 
 class TestIntegerMethods < TestCase
 {
+    public define test_to_binary
+    {
+        assert_equal(0.to_binary(), "0b0")
+        assert_equal(127.to_binary(), "0b1111111")
+        assert_equal(-127.to_binary(), "-0b1111111")
+        assert_equal(128.to_binary(), "0b10000000")
+        assert_equal(0x7fffffffffffffff.to_binary(),
+             "0b111111111111111111111111111111111111111111111111111111111111111")
+        assert_equal(-0x8000000000000000.to_binary(),
+            "-0b1000000000000000000000000000000000000000000000000000000000000000")
+    }
+
     public define test_to_bool
     {
         assert_equal(1 .to_bool(), true)
@@ -21,5 +33,27 @@ class TestIntegerMethods < TestCase
         assert_equal(500 .to_d(), 500.0)
         assert_equal(-250.to_d(), -250.0)
         assert_equal(0   .to_d(), 0.0)
+    }
+
+    public define test_to_hex
+    {
+        assert_equal(0x0.to_hex(), "0x0")
+        assert_equal(0xff.to_hex(), "0xff")
+        assert_equal(-0xff.to_hex(), "-0xff")
+        assert_equal(0x7fffffffffffffff.to_hex(),
+             "0x7fffffffffffffff")
+        assert_equal(-0x8000000000000000.to_hex(),
+            "-0x8000000000000000")
+    }
+
+    public define test_to_octal
+    {
+        assert_equal(0c0.to_octal(), "0c0")
+        assert_equal(0c77.to_octal(), "0c77")
+        assert_equal(-0c77.to_octal(), "-0c77")
+        assert_equal(0x7fffffffffffffff.to_octal(),
+             "0c777777777777777777777")
+        assert_equal(-0x8000000000000000.to_octal(),
+            "-0c1000000000000000000000")
     }
 }

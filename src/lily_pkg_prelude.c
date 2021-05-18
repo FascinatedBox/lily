@@ -799,6 +799,44 @@ void lily_prelude_IndexError_new(lily_state *s)
     return_exception(s, LILY_ID_INDEXERROR);
 }
 
+void lily_prelude_Integer_to_binary(lily_state *s)
+{
+    uint64_t uvalue = (uint64_t)lily_arg_integer(s, 0);
+    uint64_t mask = ((uint64_t)1) << 63;
+    char buffer_start[128];
+    char *buffer = buffer_start;
+    int i;
+
+    if (uvalue & mask) {
+        *buffer = '-';
+        buffer++;
+        uvalue = ~uvalue + 1;
+    }
+
+    *buffer = '0';
+    buffer++;
+    *buffer = 'b';
+    buffer++;
+
+    for (i = 63;i > 0;i--, mask >>= 1) {
+        if (uvalue & mask)
+            break;
+    }
+
+    for (;i > 0;i--, mask >>= 1) {
+        uint64_t v = (uvalue & mask) >> i;
+
+        *buffer = '0' + (char)v;
+        buffer++;
+    }
+
+    *buffer = '0' + (uvalue & 1);
+    buffer++;
+    *buffer = '\0';
+
+    lily_return_string(s, buffer_start);
+}
+
 void lily_prelude_Integer_to_bool(lily_state *s)
 {
     /* Use !! or `x == true` will fail. */
@@ -815,6 +853,36 @@ void lily_prelude_Integer_to_d(lily_state *s)
     double doubleval = (double)lily_arg_integer(s, 0);
 
     lily_return_double(s, doubleval);
+}
+
+static void hex_octal(lily_state *s, int is_hex)
+{
+    uint64_t value = (uint64_t)lily_arg_integer(s, 0);
+    uint64_t negative = ((uint64_t)1) << 63;
+    char *sign = "";
+    char buffer[32];
+
+    if (value & negative) {
+        sign = "-";
+        value = ~value + 1;
+    }
+
+    if (is_hex)
+        sprintf(buffer, "%s0x%"PRIx64, sign, value);
+    else
+        sprintf(buffer, "%s0c%"PRIo64, sign, value);
+
+    lily_return_string(s, buffer);
+}
+
+void lily_prelude_Integer_to_hex(lily_state *s)
+{
+    hex_octal(s, 1);
+}
+
+void lily_prelude_Integer_to_octal(lily_state *s)
+{
+    hex_octal(s, 0);
 }
 
 void lily_prelude_Integer_to_s(lily_state *s)
