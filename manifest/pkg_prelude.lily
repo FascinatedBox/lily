@@ -114,6 +114,26 @@ predefined File {
     ### * `IOError` if `self` is closed or not open for writing.
     public define flush
 
+    ### Attempt to open `path` using the `mode` given. `mode` may be one of the
+    ### following:
+    ###
+    ### * `"r"` (read only, must exist)
+    ###
+    ### * `"w"` (write only)
+    ###
+    ### * `"a"` (append, create if not exist)
+    ###
+    ### * `"r+"` (read+write, must exist)
+    ###
+    ### * `"w+"` (read+write, creates an empty file if needed)
+    ###
+    ### * `"a+"` (read+append)
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if unable to open `path`, or an invalid `mode` is provided.
+    public static define open(path: String, mode: String): File
+
     ### Attempt to write the contents of `data` to the file provided. `data` is
     ### written with a newline at the end.
     ###
@@ -147,26 +167,6 @@ predefined File {
     ###
     ### * If `self` is closed or is not open for writing, `IOError` is raised.
     public define write[A](data: A)
-
-    ### Attempt to open `path` using the `mode` given. `mode` may be one of the
-    ### following:
-    ###
-    ### * `"r"` (read only, must exist)
-    ###
-    ### * `"w"` (write only)
-    ###
-    ### * `"a"` (append, create if not exist)
-    ###
-    ### * `"r+"` (read+write, must exist)
-    ###
-    ### * `"w+"` (read+write, creates an empty file if needed)
-    ###
-    ### * `"a+"` (read+append)
-    ###
-    ### # Errors
-    ###
-    ### * `IOError` if unable to open `path`, or an invalid `mode` is provided.
-    public static define open(path: String, mode: String): File
 }
 
 ### The `Function` class represents a block of code to be called, which may or
@@ -317,6 +317,14 @@ predefined List[A] {
     ### elements of `self`, `fn` instead receives the index of each element.
     public define each_index(fn: Function(Integer)): List[A]
 
+    ### Generate a `List` of 'count' items using 'fn'.
+    ###
+    ### This calls 'fn' with an index that starts at `0` and proceeds until
+    ### 'count', and does not include 'count'.
+    ###
+    ### If 'count' is `0` or negative, then the resulting `List` will be empty.
+    public static define fill(count: Integer, fn: Function(Integer => A)): List[A]
+
     ### This calls `fn` for each element present within `self`. The first value
     ### sent to `fn` is initially `start`, but will later be the result of `fn`.
     ### Therefore, the value as it accumulates can be found in the first value
@@ -369,6 +377,13 @@ predefined List[A] {
     ### made `List` holding each element where `fn` returns `false`.
     public define reject(fn: Function(A => Boolean)): List[A]
 
+    ### This creates a new `List` that contains `value` repeated `count` times.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `count` is less than 1.
+    public static define repeat(count: Integer, value: A): List[A]
+
     ### This calls `fn` for each element within `self`. The result is a newly-
     ### made `List` holding each element where `fn` returns `true`.
     public define select(fn: Function(A => Boolean)): List[A]
@@ -412,21 +427,6 @@ predefined List[A] {
     ### The size of the result `List` is the same as the smallest `List`
     ### provided.
     public define zip(others: List[$1]...): List[Tuple[A, $1]]
-
-    ### Generate a `List` of 'count' items using 'fn'.
-    ###
-    ### This calls 'fn' with an index that starts at `0` and proceeds until
-    ### 'count', and does not include 'count'.
-    ###
-    ### If 'count' is `0` or negative, then the resulting `List` will be empty.
-    public static define fill(count: Integer, fn: Function(Integer => A)): List[A]
-
-    ### This creates a new `List` that contains `value` repeated `count` times.
-    ###
-    ### # Errors
-    ###
-    ### * `ValueError` if `count` is less than 1.
-    public static define repeat(count: Integer, value: A): List[A]
 }
 
 ### The `String` class provides a wrapper over a C char *. The `String` class is

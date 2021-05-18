@@ -19,6 +19,25 @@ library coroutine
 ### `Coroutine` itself. If the `Function` specifies extra arguments, those
 ### arguments are to be passed to the intermediate result of `Coroutine.create`.
 foreign static class Coroutine[A, B] {
+    ### Build a new `Coroutine` that wraps over the `Function` provided.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError`: If 'fn' is not a native function.
+    public static define build(fn: Function(Coroutine[A, B])): Coroutine[A, B]
+
+    ### Build a new Coroutine that wraps over the `Function` provided. The base
+    ### `Function` has the second argument set to 'value' exactly once before
+    ### any resumption takes place. This method is provided so that a
+    ### `Coroutine` can take an extra value (perhaps a `Tuple`) without needing
+    ### to be a closure.
+    ###
+    ### # Errors
+    ###
+    ### * `RuntimeError`: If 'fn' is not a native function.
+    public static define build_with_value[C](fn: Function(Coroutine[A, B], C),
+                                             value: C): Coroutine[A, B]
+
     ### Returns `true` if the `Coroutine` has returned a value instead of
     ### yielding, `false` otherwise.
     public define is_done: Boolean
@@ -51,6 +70,21 @@ foreign static class Coroutine[A, B] {
     ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
     ### only if it is currently in the 'waiting' state.
     ###
+    ### This function does not send a value to the `Coroutine` which is why it
+    ### requires the second parameter to be `Unit`.
+    ###
+    ### If the `Coroutine` is suspended and yields a value, the result is a
+    ### `Some` of that value.
+    ###
+    ### Otherwise, this returns `None`.
+    ###
+    ### Note that if a `Coroutine` returns a value instead of yielding, the
+    ### value is ignored and the result is `None`.
+    public static define resume(self: Coroutine[A, Unit]): Option[A]
+
+    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
+    ### only if it is currently in the 'waiting' state.
+    ###
     ### This function includes a value for the `Coroutine` to store. The value
     ### is stored only if the `Coroutine` is resumed. If stored, the old value
     ### is ejected from the `Coroutine` provided.
@@ -69,38 +103,4 @@ foreign static class Coroutine[A, B] {
     ### * `RuntimeError` if `self` is the current `Coroutine`, or within a
     ### foreign call.
     public define yield(value: A)
-
-    ### Build a new `Coroutine` that wraps over the `Function` provided.
-    ###
-    ### # Errors
-    ###
-    ### * `RuntimeError`: If 'fn' is not a native function.
-    public static define build(fn: Function(Coroutine[A, B])): Coroutine[A, B]
-
-    ### Build a new Coroutine that wraps over the `Function` provided. The base
-    ### `Function` has the second argument set to 'value' exactly once before
-    ### any resumption takes place. This method is provided so that a
-    ### `Coroutine` can take an extra value (perhaps a `Tuple`) without needing
-    ### to be a closure.
-    ###
-    ### # Errors
-    ###
-    ### * `RuntimeError`: If 'fn' is not a native function.
-    public static define build_with_value[C](fn: Function(Coroutine[A, B], C),
-                                             value: C): Coroutine[A, B]
-
-    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
-    ### only if it is currently in the 'waiting' state.
-    ###
-    ### This function does not send a value to the `Coroutine` which is why it
-    ### requires the second parameter to be `Unit`.
-    ###
-    ### If the `Coroutine` is suspended and yields a value, the result is a
-    ### `Some` of that value.
-    ###
-    ### Otherwise, this returns `None`.
-    ###
-    ### Note that if a `Coroutine` returns a value instead of yielding, the
-    ### value is ignored and the result is `None`.
-    public static define resume(self: Coroutine[A, Unit]): Option[A]
 }
