@@ -2090,7 +2090,7 @@ void lily_prelude_String_split(lily_state *s)
     if (lily_arg_count(s) == 2) {
         split_strval = lily_arg_string(s, 1);
         if (lily_string_length(split_strval) == 0)
-            lily_ValueError(s, "Cannot split by empty string.");
+            lily_ValueError(s, "Cannot split by an empty string.");
     }
     else {
         fake_sv.string = " ";
