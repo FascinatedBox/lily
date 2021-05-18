@@ -351,9 +351,12 @@ predefined List[A] {
     public define insert(index: Integer, value: A)
 
     ### Create a `String` consisting of the elements of `self` interleaved with
-    ### `separator`. The elements of self are converted to a `String` as if they
-    ### were interpolated. If `self` is empty, then the result is an empty
-    ### `String`.
+    ### `separator`.
+    ###
+    ### The elements of `self` are converted into `String` values in the same
+    ### way that `++` stringifies values.
+    ###
+    ### If `self` is empty, the result is an empty `String`.
     public define join(separator: *String=""): String
 
     ### This calls `fn` on each element within `self`. The result of this
@@ -458,10 +461,6 @@ predefined String {
     ### specifiers must be between braces (`{}`), and must be between `0` and
     ### `99`. Each format specifier is replaced with the according argument,
     ### with the first argument being at 0, the second at 1, and so on.
-    ###
-    ### This function is a useful alternative to interpolation for situations
-    ### where the value is a long expression, or where a single value is to be
-    ### repeated several times.
     ###
     ### # Errors
     ###
