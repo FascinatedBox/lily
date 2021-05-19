@@ -29,7 +29,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0<new>\0(String): Exception"
     ,"3\0message\0String"
     ,"3\0traceback\0List[String]"
-    ,"C\010File\0"
+    ,"C\012File\0"
     ,"m\0close\0(File)"
     ,"m\0each_line\0(File,Function(ByteString))"
     ,"m\0flush\0(File)"
@@ -37,7 +37,9 @@ const char *lily_prelude_info_table[] = {
     ,"m\0print\0[A](File,A)"
     ,"m\0read\0(File,*Integer): ByteString"
     ,"m\0read_line\0(File): ByteString"
+    ,"m\0read_to_string\0(String): String"
     ,"m\0write\0[A](File,A)"
+    ,"m\0write_to_path\0[A](String,A)"
     ,"C\0Function\0"
     ,"C\014Hash\0[A,B]"
     ,"m\0clear\0[A,B](Hash[A,B])"
@@ -154,18 +156,18 @@ const char *lily_prelude_info_table[] = {
 #define Double_OFFSET 13
 #define Exception_OFFSET 15
 #define File_OFFSET 19
-#define Function_OFFSET 28
-#define Hash_OFFSET 29
-#define IOError_OFFSET 42
-#define IndexError_OFFSET 44
-#define Integer_OFFSET 46
-#define KeyError_OFFSET 54
-#define List_OFFSET 56
-#define RuntimeError_OFFSET 82
-#define String_OFFSET 84
-#define Tuple_OFFSET 106
-#define Unit_OFFSET 107
-#define ValueError_OFFSET 108
+#define Function_OFFSET 30
+#define Hash_OFFSET 31
+#define IOError_OFFSET 44
+#define IndexError_OFFSET 46
+#define Integer_OFFSET 48
+#define KeyError_OFFSET 56
+#define List_OFFSET 58
+#define RuntimeError_OFFSET 84
+#define String_OFFSET 86
+#define Tuple_OFFSET 108
+#define Unit_OFFSET 109
+#define ValueError_OFFSET 110
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -196,7 +198,9 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_File_print, \
     lily_prelude_File_read, \
     lily_prelude_File_read_line, \
+    lily_prelude_File_read_to_string, \
     lily_prelude_File_write, \
+    lily_prelude_File_write_to_path, \
     NULL, \
     NULL, \
     lily_prelude_Hash_clear, \

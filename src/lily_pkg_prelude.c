@@ -494,6 +494,44 @@ void lily_prelude_File_read_line(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_prelude_File_read_to_string(lily_state *s)
+{
+    char *path = lily_arg_string_raw(s, 0);
+    FILE *f = open_file(s, path, "r");
+    int bufsize = 64;
+    char *buffer = lily_malloc(bufsize * sizeof(*buffer));
+    int pos = 0;
+    int nbuf = bufsize/2;
+    int nread;
+
+    while (1) {
+        int to_read = nbuf;
+
+        nread = fread(buffer+pos, 1, to_read, f);
+        pos += nread;
+
+        if (pos >= bufsize) {
+            nbuf = bufsize;
+            bufsize *= 2;
+            buffer = lily_realloc(buffer, bufsize * sizeof(*buffer));
+        }
+
+        if (nread < to_read) {
+            buffer[pos] = '\0';
+            break;
+        }
+    }
+
+    /* This is a convenience method, so gloss over the details. */
+    if (lily_is_valid_sized_utf8(buffer, pos) == 0)
+        lily_ValueError(s, "File '%s' contains invalid utf-8.", path);
+
+    fclose(f);
+    lily_push_string(s, buffer);
+    lily_free(buffer);
+    lily_return_top(s);
+}
+
 void lily_prelude_File_write(lily_state *s)
 {
     lily_file_val *filev = lily_arg_file(s, 0);
@@ -509,6 +547,25 @@ void lily_prelude_File_write(lily_state *s)
         fputs(lily_mb_raw(msgbuf), inner_file);
     }
 
+    lily_return_unit(s);
+}
+
+void lily_prelude_File_write_to_path(lily_state *s)
+{
+    char *path = lily_arg_string_raw(s, 0);
+    FILE *f = open_file(s, path, "r");
+    lily_value *to_write = lily_arg_value(s, 1);
+
+    if (to_write->flags & V_STRING_FLAG)
+        fputs(to_write->value.string->string, f);
+    else {
+        lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+
+        lily_mb_add_value(msgbuf, s, to_write);
+        fputs(lily_mb_raw(msgbuf), f);
+    }
+
+    fclose(f);
     lily_return_unit(s);
 }
 

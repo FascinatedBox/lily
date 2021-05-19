@@ -357,6 +357,17 @@ class TestFileMethods < TestCase
         read_line_invalid()
     }
 
+    public define test_read_write
+    {
+        var before_text = File.read_to_string("test\/file_for_io.txt")
+
+        File.write_to_path("test\/file_for_io.txt", before_text)
+
+        var after_text = File.read_to_string("test\/file_for_io.txt")
+
+        assert_equal(before_text, after_text)
+    }
+
     private define write_verify
     {
         var f = File.open("test\/file_for_io.txt", "w")

@@ -151,6 +151,18 @@ predefined File {
     ### * `IOError` if `self` is not open for reading, or is closed.
     public define read(size: *Integer=-1): ByteString
 
+    ### Convenience method for reading a whole file into a `String`.
+    ###
+    ### This opens the file named `path`, reads all content into a `String`,
+    ### then closes the file.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if unable to open `path`.
+    ###
+    ### * `ValueError` if the content read is not valid utf-8.
+    public static define read_to_string(path: String): String
+
     ### Attempt to read a line of text from `self`. Currently, this function
     ### does not have a way to signal that the end of the file has been reached.
     ### For now, callers should check the result against `B""`. This will be
@@ -167,6 +179,16 @@ predefined File {
     ###
     ### * If `self` is closed or is not open for writing, `IOError` is raised.
     public define write[A](data: A)
+
+    ### Convenience function for writing data to a file.
+    ###
+    ### This opens the file named `path`, writes `data` to it, then closes the
+    ### file.
+    ###
+    ### # Errors
+    ###
+    ### * `IOError` if unable to open `path`.
+    public static define write_to_path[A](path: String, data: A)
 }
 
 ### The `Function` class represents a block of code to be called, which may or
