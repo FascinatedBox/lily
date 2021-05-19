@@ -79,7 +79,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0fill\0[A](Integer,Function(Integer=>A)): List[A]"
     ,"m\0fold\0[A](List[A],A,Function(A,A=>A)): A"
     ,"m\0get\0[A](List[A],Integer): Option[A]"
-    ,"m\0insert\0[A](List[A],Integer,A): self"
+    ,"m\0insert\0[A](List[A],Integer,A): List[A]"
     ,"m\0join\0[A](List[A],*String): String"
     ,"m\0map\0[A,B](List[A],Function(A=>B)): List[B]"
     ,"m\0merge\0[A](List[A],List[A]...): List[A]"
