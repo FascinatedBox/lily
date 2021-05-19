@@ -379,7 +379,7 @@ predefined List[A] {
     ### # Errors
     ###
     ### * `IndexError` if `index` is not within `self`.
-    public define insert(index: Integer, value: A)
+    public define insert(index: Integer, value: A): List[A]
 
     ### Create a `String` consisting of the elements of `self` interleaved with
     ### `separator`.

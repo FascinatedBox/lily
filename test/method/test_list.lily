@@ -204,6 +204,8 @@ class TestListMethods < TestCase
         v4.insert(-1, 2)
         assert_equal(v4, [2, 1])
 
+        assert_equal([1].insert(0, 0).insert(2, 2), [0, 1, 2])
+
         assert_raises(
                 "IndexError: Index 5 is too large for list (maximum: 1)",
                 (|| [1].insert(5, 100) ))

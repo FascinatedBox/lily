@@ -1201,13 +1201,14 @@ void lily_prelude_List_get(lily_state *s)
 
 void lily_prelude_List_insert(lily_state *s)
 {
-    lily_container_val *input_list = lily_arg_container(s, 0);
+    lily_value *input_arg = lily_arg_value(s, 0);
+    lily_container_val *input_list = lily_as_container(input_arg);
     int64_t insert_pos = lily_arg_integer(s, 1);
     lily_value *insert_value = lily_arg_value(s, 2);
     uint32_t fixed_pos = get_relative_index(s, input_list, insert_pos);
 
     lily_list_insert(input_list, fixed_pos, insert_value);
-    lily_return_unit(s);
+    lily_return_value(s, input_arg);
 }
 
 void lily_prelude_List_join(lily_state *s)
