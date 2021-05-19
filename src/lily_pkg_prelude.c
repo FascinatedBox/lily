@@ -373,6 +373,22 @@ static void file_close(FILE *f)
     fclose(f);
 }
 
+static FILE *open_file(lily_state *s, char *path, char *mode)
+{
+    errno = 0;
+
+    FILE *result = fopen(path, mode);
+
+    if (result == NULL) {
+        char buffer[LILY_STRERROR_BUFFER_SIZE];
+
+        lily_strerror(buffer);
+        lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
+    }
+
+    return result;
+}
+
 void lily_prelude_File_open(lily_state *s)
 {
     char *path = lily_arg_string_raw(s, 0);
@@ -400,16 +416,7 @@ void lily_prelude_File_open(lily_state *s)
     if (ok == 0)
         lily_IOError(s, "Invalid mode '%s' given.", mode);
 
-    errno = 0;
-
-    FILE *f = fopen(path, mode);
-
-    if (f == NULL) {
-        char buffer[LILY_STRERROR_BUFFER_SIZE];
-
-        lily_strerror(buffer);
-        lily_IOError(s, "Errno %d: %s (%s).", errno, buffer, path);
-    }
+    FILE *f = open_file(s, path, mode);
 
     lily_push_file(s, f, mode, file_close);
     lily_return_top(s);
