@@ -308,6 +308,17 @@ predefined Integer {
 ### index or a negative one (with negative indexes being an offset from the
 ### end). Attempting to access an invalid index will produce `IndexError`.
 predefined List[A] {
+    ### Build a transformed `List` with a predicate.
+    ###
+    ### This calls `fn` for each element in `self`, with `output` as the first
+    ### argument each time. Unlike map, `fn` does not have to return a value for
+    ### every element in `self`.
+    ###
+    ### This method is for situations where elements in a source dataset do not
+    ### map 1 to 1 with the result dataset.
+    public define accumulate[B](output: List[B],
+                                fn: Function(List[B], A)): List[B]
+
     ### This calls `fn` for each element within `self`.
     ###
     ### Returns `true` if `fn` returns `true` for all elements given, or if

@@ -3,6 +3,20 @@ import (Interpreter,
 
 class TestListMethods < TestCase
 {
+    public define test_accumulate
+    {
+        var data = ["123", "abc", "456"]
+        var result = data.accumulate(
+            [].@(List[Integer]),
+            (|output, input|
+                with input.parse_i() as Some(s): {
+                    output.push(s)
+                }
+            ))
+
+        assert_equal(result, [123, 456])
+    }
+
     public define test_all
     {
         var empty = [].@(List[Integer])

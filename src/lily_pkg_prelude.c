@@ -998,6 +998,26 @@ static int list_any_all(lily_state *s, int stop_on)
     return ok;
 }
 
+void lily_prelude_List_accumulate(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    lily_value *output = lily_arg_value(s, 1);
+    uint32_t i;
+    uint32_t input_size = lily_con_size(input_list);
+
+    lily_call_prepare(s, lily_arg_function(s, 2));
+
+    for (i = 0;i < input_size;i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, output);
+        lily_push_value(s, v);
+        lily_call(s, 2);
+    }
+
+    lily_return_value(s, output);
+}
+
 void lily_prelude_List_all(lily_state *s)
 {
     lily_return_boolean(s, list_any_all(s, 0));

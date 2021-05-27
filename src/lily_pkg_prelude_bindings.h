@@ -68,7 +68,8 @@ const char *lily_prelude_info_table[] = {
     ,"m\0to_s\0(Integer): String"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"C\031List\0[A]"
+    ,"C\032List\0[A]"
+    ,"m\0accumulate\0[A,B](List[A],List[B],Function(List[B],A)): List[B]"
     ,"m\0all\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0any\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0clear\0[A](List[A])"
@@ -163,11 +164,11 @@ const char *lily_prelude_info_table[] = {
 #define Integer_OFFSET 48
 #define KeyError_OFFSET 56
 #define List_OFFSET 58
-#define RuntimeError_OFFSET 84
-#define String_OFFSET 86
-#define Tuple_OFFSET 108
-#define Unit_OFFSET 109
-#define ValueError_OFFSET 110
+#define RuntimeError_OFFSET 85
+#define String_OFFSET 87
+#define Tuple_OFFSET 109
+#define Unit_OFFSET 110
+#define ValueError_OFFSET 111
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -230,6 +231,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     NULL, \
     lily_prelude_KeyError_new, \
     NULL, \
+    lily_prelude_List_accumulate, \
     lily_prelude_List_all, \
     lily_prelude_List_any, \
     lily_prelude_List_clear, \
