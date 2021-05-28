@@ -11,7 +11,7 @@ var math_ops = ["+" => (|a: Integer, b: Integer| a + b),
     But since it's written as Result[String, Integer], you have a pretty strong
     guarantee that it won't throw exceptions, regardless.
     Furthermore, if it does throw, then you have a valid reason to say that it
-    has a bug (since something that returns Result shouldn't also throw.
+    has a bug (since something that returns Result shouldn't also throw).
 ]#
 define rpn(input: String): Result[String, List[Integer]]
 {
