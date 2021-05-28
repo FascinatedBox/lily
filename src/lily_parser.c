@@ -132,6 +132,11 @@ typedef struct lily_import_state_ {
 
 void lily_init_pkg_prelude(lily_symtab *);
 
+static void wrap_fputs(const char *message, void *data)
+{
+    (void)fputs(message, (FILE *)data);
+}
+
 void lily_config_init(lily_config *conf)
 {
     conf->argc = 0;
@@ -146,7 +151,7 @@ void lily_config_init(lily_config *conf)
     memcpy(conf->sipkey, key, sizeof(key));
 
     conf->import_func = lily_default_import_func;
-    conf->render_func = (lily_render_func)fputs;
+    conf->render_func = (lily_render_func)wrap_fputs;
     conf->render_data = stdout;
     conf->data = NULL;
     conf->extra_info = 0;
