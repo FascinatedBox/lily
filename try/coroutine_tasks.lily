@@ -10,12 +10,12 @@ define factorial_co(co: Coroutine[Integer, Unit], num: Integer) {
 
 define create_tasks(source: List[Integer]): List[Coroutine[Integer, Unit]]
 {
-    print("Creating {0} tasks:".format(source.size()))
+    print("Creating {} tasks:".format(source.size()))
 
     for i in 0...source.size() - 1: {
         var s = source[i]
 
-        print("Task {0} will last {1} rounds.".format(i, s))
+        print("Task {} will last {} rounds.".format(i, s))
     }
 
     var result = source.map(|m| Coroutine.build_with_value(factorial_co, m))
@@ -41,14 +41,14 @@ while 1: {
         break
     }
 
-    print("\nRound {0} with {1} tasks.".format(round, remaining))
+    print("\nRound {} with {} tasks.".format(round, remaining))
 
     for i in 0...results.size() - 1: {
         var r = results[i]
 
         match r: {
             case Some(s):
-                print("Task {0}: factorial({1}) = {2}".format(i, round, s))
+                print("Task {}: factorial({}) = {}".format(i, round, s))
             case None:
         }
     }

@@ -9,11 +9,10 @@ enum TreeObject {
 
             case TreeList(l):
                 var result = "["
-
                 var size = l.size() - 1
 
                 for i in 0...size: {
-                    result = "{0}{1}".format(result, l[i].as_string())
+                    result = "{}{}".format(result, l[i].as_string())
                     if i != size: {
                         result = result ++ " "
                     }

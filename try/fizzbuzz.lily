@@ -11,7 +11,7 @@ define fizzbuzz(start: *Integer = 1, stop: *Integer = 100): List[String] {
         elif (i % 5) == 0:
             result.push("Buzz")
         else:
-            result.push("{0}".format(i))
+            result.push(i.to_s())
         }
     }
 

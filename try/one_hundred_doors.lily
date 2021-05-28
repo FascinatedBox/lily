@@ -15,4 +15,4 @@ doors.each_index(|i|
     }
 )
 
-print("Open doors: {0}".format(open_doors))
+print("Open doors: {}".format(open_doors))

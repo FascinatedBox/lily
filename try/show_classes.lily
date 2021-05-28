@@ -20,7 +20,7 @@ class Point(x: Integer, y: Integer)
 
     public define to_s: String
     {
-        return "Point({0}, {1})".format(@x, @y)
+        return "Point({}, {})".format(@x, @y)
     }
 }
 

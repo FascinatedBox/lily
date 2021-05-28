@@ -18,11 +18,10 @@ define rpn(input: String): Result[String, List[Integer]]
     var values = input.split(" ")
     var stack: List[Integer] = []
     
-    for i in 0...values.size() - 1: {
-        var v = values[i]
-        if v.is_digit(): {
-            v.parse_i().unwrap() |> stack.push
-        elif v.is_space() == false:
+    foreach v in values: {
+        with v.parse_i() as Some(s): {
+            s |> stack.push
+        else:
             if stack.size() < 2: {
                 return Failure("Stack underflow")
             }
@@ -34,11 +33,11 @@ define rpn(input: String): Result[String, List[Integer]]
                 var op_value = op_fn(left, right)
                 stack.push(op_value)
             except KeyError:
-                return Failure("Invalid operation {0}".format(v))
+                return Failure("Invalid operation {}".format(v))
             except DivisionByZeroError:
                 return Failure("Attempt to divide by zero")
             except Exception:
-                return Failure("Unexpected error from op {0}".format(v))
+                return Failure("Unexpected error from op {}".format(v))
             }
         }
     }
@@ -53,4 +52,6 @@ var lines = [
     "1 2 ?"
     ]
 
-lines.each(|l| print("{0}: {1}".format(l, rpn(l)) ) )
+foreach l in lines: {
+    print("{}: {}".format(l, rpn(l)))
+}

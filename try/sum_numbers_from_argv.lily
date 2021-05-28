@@ -1,6 +1,6 @@
 import sys
 sys.argv.map(String.parse_i)
-        .reject(|r| r.is_none() )
-        .map(|m| m.unwrap() )
+        .reject(Option.is_none)
+        .map(Option.unwrap)
         .fold(0, (|a, b| a + b))
         |> print
