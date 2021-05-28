@@ -4263,6 +4263,94 @@ static void keyword_for(lily_parse_state *parser)
     lily_next_token(lex);
 }
 
+static void keyword_foreach(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_emit_state *emit = parser->emit;
+    lily_type *integer_type = parser->symtab->integer_class->self_type;
+
+    NEED_CURRENT_TOK(tk_word)
+    lily_emit_enter_foreach_block(emit);
+
+    lily_var *loop_var = find_active_var(parser, lex->label);
+
+    if (loop_var)
+        lily_raise_syn(parser->raiser, "Foreach variable '%s' already exists.",
+                loop_var->name);
+
+    loop_var = new_typed_local_var(parser, lily_question_type, lex->label,
+            lex->line_num);
+
+    /* Implement foreach in terms of a for loop going from 0 to size - 1.
+       The dummy is because for loop expects to initialize and later increment a
+       user loop var. */
+
+    /* For loop expects to increment a user loop var. */
+    lily_var *for_dummy = new_typed_local_var(parser, integer_type, "", 0);
+    lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
+    lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
+    lily_var *for_step = new_typed_local_var(parser, integer_type, "", 0);
+
+    /* Emitter updates the type after evaluating the loop expression. */
+    lily_var *for_source = new_typed_local_var(parser, lily_question_type, "",
+            0);
+
+    lily_next_token(lex);
+    expect_word(parser, "in");
+
+    /* Evaluate the target list into the source. */
+    lily_next_token(parser->lex);
+    expression(parser);
+    lily_eval_to_foreach_var(parser->emit, parser->expr, for_source);
+    loop_var->type = for_source->type->subtypes[0];
+
+    lily_expr_state *es = parser->expr;
+
+    /* Push a zero to the start. */
+    lily_es_flush(parser->expr);
+    lily_es_push_assign_to(parser->expr, (lily_sym *)for_start);
+
+    lily_es_push_integer(parser->expr, 0);
+    lily_eval_expr(emit, parser->expr);
+
+    /* Push size - 1 to the end. */
+    lily_es_flush(parser->expr);
+    lily_es_push_assign_to(parser->expr, (lily_sym *)for_end);
+    lily_es_push_local_var(parser->expr, for_source);
+
+    int spot = es->pile_current;
+
+    lily_sp_insert(parser->expr_strings, "size", &parser->expr->pile_current);
+    lily_es_push_text(es, tree_oo_access, lex->line_num, spot);
+    lily_es_enter_tree(parser->expr, tree_call);
+    lily_es_leave_tree(parser->expr);
+    lily_es_push_binary_op(parser->expr, tk_minus);
+    lily_es_push_integer(parser->expr, 1);
+    lily_eval_expr(emit, parser->expr);
+
+    lily_es_flush(parser->expr);
+    lily_es_push_assign_to(parser->expr, (lily_sym *)for_step);
+    lily_es_push_integer(parser->expr, 1);
+    lily_eval_expr(emit, parser->expr);
+
+    /* Initialize for loop variables and enter the body. */
+    lily_emit_write_for_header(emit, for_dummy, for_start, for_end,
+                               for_step, lex->line_num);
+
+    lily_es_flush(parser->expr);
+    lily_es_push_assign_to(parser->expr, (lily_sym *)loop_var);
+
+    /* Assign down to the foreach variable, which is always a local. */
+    lily_es_push_local_var(parser->expr, for_source);
+    lily_es_enter_tree(parser->expr, tree_subscript);
+    lily_es_push_local_var(parser->expr, for_start);
+    lily_es_leave_tree(parser->expr);
+    lily_eval_expr(emit, parser->expr);
+
+    NEED_COLON_AND_BRACE;
+    lily_next_token(lex);
+}
+
 static void keyword_do(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;

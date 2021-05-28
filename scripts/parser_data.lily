@@ -48,6 +48,7 @@ var keywords = [
     "enum",
     "except",
     "for",
+    "foreach",
     "forward",
     "if",
     "import",
