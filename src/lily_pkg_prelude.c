@@ -1683,61 +1683,77 @@ void lily_prelude_String_format(lily_state *s)
     uint32_t empty_iter_i = 0;
     uint32_t args_size = lily_con_size(args);
     lily_msgbuf *msgbuf = lily_msgbuf_get(s);
-    const char *last_fmt = fmt;
+    uint32_t len = strlen(fmt);
+    uint32_t text_start = 0;
+    uint32_t i;
 
-    while (1) {
-        fmt = strchr(fmt, '{');
+    for (i = 0;i < len;i++) {
+        char c = fmt[i];
 
-        if (fmt == NULL) {
-            lily_mb_add(msgbuf, last_fmt);
-            break;
-        }
+        if (c == '{') {
+            if (i != text_start)
+                lily_mb_add_slice(msgbuf, fmt, text_start, i);
 
-        int offset = (int)(fmt - last_fmt);
+            i++;
 
-        if (offset)
-            lily_mb_add_sized(msgbuf, last_fmt, offset);
-
-        fmt++;
-        last_fmt = fmt;
-
-        uint32_t total = 0;
-        char ch;
-
-        while (1) {
-            ch = *fmt;
-
-            if (isdigit(ch) == 0 || total > 99)
-                break;
-
-            total = (total * 10) + (ch - '0');
-            fmt++;
-        }
-
-        if (fmt == last_fmt) {
-            if (ch == '}') {
-                total = empty_iter_i;
-                empty_iter_i++;
+            if (fmt[i] == '{') {
+                lily_mb_add_char(msgbuf, '{');
+                text_start = i + 1;
+                continue;
             }
-            else if (ch == '\0')
-                lily_ValueError(s, "Format specifier is empty.");
-            else
-                lily_ValueError(s, "Format specifier is not numeric.");
+
+            uint32_t start = i;
+            uint32_t total = 0;
+            char ch;
+
+            while (1) {
+                ch = fmt[i];
+
+                if (isdigit(ch) == 0 || total > 99)
+                    break;
+
+                total = (total * 10) + (ch - '0');
+                i++;
+            }
+
+            if (i == start) {
+                if (ch == '}') {
+                    total = empty_iter_i;
+                    empty_iter_i++;
+                }
+                else if (ch == '\0')
+                    lily_ValueError(s, "Format specifier is empty.");
+                else
+                    lily_ValueError(s, "Format specifier is not numeric.");
+            }
+
+            if (total > 99)
+                lily_ValueError(s, "Format must be between 0...99.");
+            else if (total >= args_size)
+                lily_IndexError(s, "Format specifier is too large.");
+            else if (fmt[i] != '}')
+                lily_ValueError(s, "Format specifier is not closed.");
+
+            lily_value *v = lily_con_get(args, total);
+
+            lily_mb_add_value(msgbuf, s, v);
+            text_start = i + 1;
         }
+        else if (c == '}') {
+            i++;
 
-        if (total > 99)
-            lily_ValueError(s, "Format must be between 0...99.");
-        else if (total >= args_size)
-            lily_IndexError(s, "Format specifier is too large.");
-        else if (*fmt != '}')
-            lily_ValueError(s, "Format specifier is not closed.");
+            if (fmt[i] == '}') {
+                lily_mb_add_char(msgbuf, '}');
+                text_start = i + 1;
+                continue;
+            }
 
-        lily_value *v = lily_con_get(args, total);
-
-        lily_mb_add_value(msgbuf, s, v);
-        fmt++;
-        last_fmt = fmt;
+            lily_ValueError(s, "Unescaped '}' in format string.");
+        }
     }
+
+    if (i != text_start)
+        lily_mb_add_slice(msgbuf, fmt, text_start, i);
 
     lily_return_string(s, lily_mb_raw(msgbuf));
 }
