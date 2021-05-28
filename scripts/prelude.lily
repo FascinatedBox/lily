@@ -52,7 +52,7 @@ define generate_c_header: String
 define generate_info_tables: String
 {
     var data = targets.map(|t|
-            var f = "extern const char *lily_{0}_info_table[];"
+            var f = "extern const char *lily_{}_info_table[];"
             f.format(t)
         ).join("\n")
 
@@ -62,7 +62,7 @@ define generate_info_tables: String
 define generate_call_tables: String
 {
     var data = targets.map(|t|
-            var f = "extern lily_call_entry_func lily_{0}_call_table[];"
+            var f = "extern lily_call_entry_func lily_{}_call_table[];"
             f.format(t)
         ).join("\n")
 
@@ -74,7 +74,7 @@ define generate_bootstrap: String
     var data = targets.map(|t|
         var info = "lily_" ++ t ++ "_info_table"
         var call = "lily_" ++ t ++ "_call_table"
-        var f = "    lily_module_register(vm, \"{0}\", {1}, {2});"
+        var f = "    lily_module_register(vm, \"{}\", {}, {});"
 
         f.format(t, info, call)
     ).join("\n")
@@ -105,7 +105,7 @@ define generate_prelude_c_file
     f.write(output)
     f.close()
 
-    var message = "Updated the prelude file at '{0}'.".format(path)
+    var message = "Updated the prelude file at '{}'.".format(path)
 
     print(message)
 }
@@ -157,7 +157,7 @@ define generate_prelude_manifest
 
     f.write(output)
     f.close()
-    print("Updated core manifest file at '{0}'.".format(path))
+    print("Updated core manifest file at '{}'.".format(path))
 }
 
 define update_cmake_file

@@ -202,8 +202,7 @@ define write_shorthash_table(f: File, name: String,
 
     f.write("keyword_entry " ++ name ++ "[] =\n{\n")
 
-    for i in 0...table.size() - 1: {
-        var entry = table[i]
+    foreach entry in table: {
         var rec = "    {\"" ++ entry[0] ++ "\", " ++ entry[1] ++ "},\n"
 
         f.write(rec)
@@ -237,8 +236,7 @@ define write_expression_handlers(f: File)
     var group_keys = expression_group_data.keys()
 
     # Default is tk_* -> expr_*.
-    for i in 0...token_names.size() - 1: {
-        var n = token_names[i]
+    foreach n in token_names: {
         var e = n.replace("tk_", "expr_")
 
         token_to_expr_map[n] = e
@@ -246,12 +244,10 @@ define write_expression_handlers(f: File)
     }
 
     # Tokens in the group map to a different expression function.
-    for i in 0...group_keys.size() - 1: {
-        var k = group_keys[i]
+    foreach k in group_keys: {
         var group = expression_group_data[k]
 
-        for j in 0...group.size() - 1: {
-            var target = group[j]
+        foreach target in group: {
             var expr = token_to_expr_map[target]
 
             # Replace what this associates to.
@@ -270,19 +266,15 @@ define write_expression_handlers(f: File)
     forward_names = sort(forward_names, (|a, b| a >= b ))
 
     # Write prototypes for expression functions to be used.
-    for i in 0...forward_names.size() - 1: {
-        var n = forward_names[i]
-
-        f.write("static void {0}(lily_parse_state *, uint16_t *);\n".format(n))
+    foreach n in forward_names: {
+        f.write("static void {}(lily_parse_state *, uint16_t *);\n".format(n))
     }
 
     f.write("\nstatic expr_handler *expr_handlers[] =\n{\n")
 
     # Write the token -> function table.
-    for i in 0...token_names.size() - 1: {
-        var n = token_names[i]
-
-        f.write("    [{0}] = {1},\n".format(n, token_to_expr_map[n]))
+    foreach n in token_names: {
+        f.write("    [{}] = {1},\n".format(n, token_to_expr_map[n]))
     }
 
     f.write("};\n\n")
@@ -296,19 +288,15 @@ define write_keyword_handlers(f: File)
     # See ya shorthashes (only needed them for sorting).
     var table = table_base.map(|m| "keyword_" ++ m[0] )
 
-    for i in 0...table.size() - 1: {
-        var t = table[i]
-
-        f.write("static void {0}(lily_parse_state *);\n".format(t))
+    foreach t in table: {
+        f.write("static void {}(lily_parse_state *);\n".format(t))
     }
 
     f.write("\nstatic keyword_handler *handlers[] =\n{\n")
 
     # Write the token -> function table.
-    for i in 0...table.size() - 1: {
-        var t = table[i]
-
-        f.write("    {0},\n".format(t))
+    foreach t in table: {
+        f.write("    {},\n".format(t))
     }
 
     f.write("};\n\n")
@@ -322,12 +310,8 @@ define write_docblock_keywords(f: File)
     sort(table, sort_entry)
     table = table.map(|m| <[m[0], 0]> )
 
-    for i in 0...table.size() - 1: {
-        var t = table[i]
-
-        for j in 0...docblock_keywords.size() - 1: {
-            var dc = docblock_keywords[j]
-
+    foreach t in table: {
+        foreach dc in docblock_keywords: {
             if t[0] == dc: {
                 t[1] = 1
             }
@@ -353,8 +337,7 @@ define write_lily_parser_data
 
     write_header(f)
 
-    for i in 0...records.size() - 1: {
-        var r = records[i]
+    foreach r in records: {
         var table_base = r[0]
         var table = sort(table_base.map(|m| <[m, shorthash(m)]> ), sort_entry)
         var name = r[1]

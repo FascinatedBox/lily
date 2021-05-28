@@ -26,8 +26,8 @@ class TestCase < backbone.TestCaseBase
         if left != right: {
             var message = """\
                 Assertion (left == right) failed.\n     \
-                  left: `{0}`\n    \
-                 right: `{1}`\
+                  left: `{}`\n    \
+                 right: `{}`\
             """.format(left, right)
             raise TestAssertionFailed(message)
         else:
@@ -48,9 +48,9 @@ class TestCase < backbone.TestCaseBase
         if is_near == false: {
             var message = """\
                 Assertion (left near right) failed.\n     \
-                  left: `{0}`\n    \
-                 right: `{1}`\n    \
-                 delta: `{2}`\n\
+                  left: `{}`\n    \
+                 right: `{}`\n    \
+                 delta: `{}`\n\
             """.format(x, y, delta)
             raise TestAssertionFailed(message)
         else:
@@ -62,8 +62,8 @@ class TestCase < backbone.TestCaseBase
         if left == right: {
             var message = """\
                 Assertion (left != right) failed.\n     \
-                  left: `{0}`\n    \
-                 right: `{1}`\
+                  left: `{}`\n    \
+                 right: `{}`\
             """.format(left, right)
             raise TestAssertionFailed(message)
         else:
@@ -117,8 +117,8 @@ class TestCase < backbone.TestCaseBase
             if expect != reason: {
                 var message = """\
                     Assertion (parse fails) failed incorrectly.\n\
-                    (expected)`{0}`\n\
-                    (received)`{1}`""".format(expect, reason)
+                    (expected)`{}`\n\
+                    (received)`{}`""".format(expect, reason)
                 raise TestAssertionFailed(message)
             else:
                 @pass_count += 1
@@ -154,8 +154,8 @@ class TestCase < backbone.TestCaseBase
             if expect != reason: {
                 var message = """\
                     Assertion (manifest fails) failed incorrectly.\n\
-                    (expected)`{0}`\n\
-                    (received)`{1}`""".format(expect, reason)
+                    (expected)`{}`\n\
+                    (received)`{}`""".format(expect, reason)
                 raise TestAssertionFailed(message)
             else:
                 @pass_count += 1
@@ -177,8 +177,8 @@ class TestCase < backbone.TestCaseBase
             if expect != reason: {
                 var message = """\
                     Assertion (render fails) failed incorrectly.\n\
-                    (expected)`{0}`\n\
-                    (received)`{1}`""".format(expect, reason)
+                    (expected)`{}`\n\
+                    (received)`{}`""".format(expect, reason)
                 raise TestAssertionFailed(message)
             else:
                 @pass_count += 1
@@ -202,8 +202,8 @@ class TestCase < backbone.TestCaseBase
             if expect != given: {
                 var message = """\
                     Assertion (render string) rendered incorrectly.\n\
-                    (expected)`{0}`\n\
-                    (received)`{1}`""".format(expect, given)
+                    (expected)`{}`\n\
+                    (received)`{}`""".format(expect, given)
                 raise TestAssertionFailed(message)
             else:
                 @pass_count += 1
@@ -230,8 +230,8 @@ class TestCase < backbone.TestCaseBase
             if e_header != expect: {
                 var message = """\
                     Assertion (raises) failed.\n    \
-                      expected: `{0}`\n       \
-                         given: `{1}`\
+                      expected: `{}`\n       \
+                         given: `{}`\
                 """.format(expect, e_header)
                 raise TestAssertionFailed(message)
             }
@@ -240,7 +240,7 @@ class TestCase < backbone.TestCaseBase
         if no_error: {
             var message = """\
                 Assertion (raises) failed.\n    \
-                  expected: `{0}`\n       \
+                  expected: `{}`\n       \
                      given: (no error raised)\
             """.format(expect)
 
@@ -285,7 +285,7 @@ class TestCase < backbone.TestCaseBase
             name: String) {
         var error = @fake_error
 
-        stdout.write("    test {0}\r".format(name))
+        stdout.write("    test {}\r".format(name))
         stdout.flush()
 
         try: {
@@ -322,9 +322,7 @@ class Interpreter < backbone.Interpreter
 
     private define do_import_hook(want_path: String)
     {
-        for i in 0...@targets.size() - 1: {
-            var t = @targets[i]
-
+        foreach t in @targets: {
             match t: {
                 case StringTarget(t_path, t_data):
                     if want_path == t_path: {
