@@ -12,9 +12,11 @@ else()
     set(CMAKE_CTEST_COMMAND cp lily ..)
     if(DEBUG)
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -g3")
+    else()
+        set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -O2")
     endif(DEBUG)
 
-    set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -O2 -Wall -Wextra -Wno-implicit-fallthrough -Wsign-compare -Wshadow")
+    set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-implicit-fallthrough -Wsign-compare -Wshadow")
 
     if(WITH_COVERAGE)
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -O0 -fprofile-arcs -ftest-coverage")
