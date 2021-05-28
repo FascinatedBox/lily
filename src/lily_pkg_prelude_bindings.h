@@ -68,7 +68,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0to_s\0(Integer): String"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"C\032List\0[A]"
+    ,"C\034List\0[A]"
     ,"m\0accumulate\0[A,B](List[A],List[B],Function(List[B],A)): List[B]"
     ,"m\0all\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0any\0[A](List[A],Function(A=>Boolean)): Boolean"
@@ -77,12 +77,14 @@ const char *lily_prelude_info_table[] = {
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)): List[A]"
     ,"m\0each_index\0[A](List[A],Function(Integer)): List[A]"
+    ,"m\0each_with_index\0[A](List[A],Function(A,Integer)): List[A]"
     ,"m\0fill\0[A](Integer,Function(Integer=>A)): List[A]"
     ,"m\0fold\0[A](List[A],A,Function(A,A=>A)): A"
     ,"m\0get\0[A](List[A],Integer): Option[A]"
     ,"m\0insert\0[A](List[A],Integer,A): List[A]"
     ,"m\0join\0[A](List[A],*String): String"
     ,"m\0map\0[A,B](List[A],Function(A=>B)): List[B]"
+    ,"m\0map_with_index\0[A,B](List[A],Function(A,Integer=>B)): List[B]"
     ,"m\0merge\0[A](List[A],List[A]...): List[A]"
     ,"m\0pop\0[A](List[A]): A"
     ,"m\0push\0[A](List[A],A): List[A]"
@@ -164,11 +166,11 @@ const char *lily_prelude_info_table[] = {
 #define Integer_OFFSET 48
 #define KeyError_OFFSET 56
 #define List_OFFSET 58
-#define RuntimeError_OFFSET 85
-#define String_OFFSET 87
-#define Tuple_OFFSET 109
-#define Unit_OFFSET 110
-#define ValueError_OFFSET 111
+#define RuntimeError_OFFSET 87
+#define String_OFFSET 89
+#define Tuple_OFFSET 111
+#define Unit_OFFSET 112
+#define ValueError_OFFSET 113
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -239,12 +241,14 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_List_delete_at, \
     lily_prelude_List_each, \
     lily_prelude_List_each_index, \
+    lily_prelude_List_each_with_index, \
     lily_prelude_List_fill, \
     lily_prelude_List_fold, \
     lily_prelude_List_get, \
     lily_prelude_List_insert, \
     lily_prelude_List_join, \
     lily_prelude_List_map, \
+    lily_prelude_List_map_with_index, \
     lily_prelude_List_merge, \
     lily_prelude_List_pop, \
     lily_prelude_List_push, \

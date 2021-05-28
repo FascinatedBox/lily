@@ -1138,6 +1138,22 @@ void lily_prelude_List_each_index(lily_state *s)
     lily_return_value(s, lily_arg_value(s, 0));
 }
 
+void lily_prelude_List_each_with_index(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t i;
+
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_push_value(s, lily_con_get(input_list, i));
+        lily_push_integer(s, i);
+        lily_call(s, 2);
+    }
+
+    lily_return_value(s, lily_arg_value(s, 0));
+}
+
 void lily_prelude_List_fill(lily_state *s)
 {
     int64_t raw_stop = lily_arg_integer(s, 0);
@@ -1276,6 +1292,29 @@ void lily_prelude_List_map(lily_state *s)
 
         lily_push_value(s, v);
         lily_call(s, 1);
+        lily_list_push(result, lily_call_result(s));
+    }
+
+    lily_return_top(s);
+}
+
+void lily_prelude_List_map_with_index(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+
+    lily_call_prepare(s, lily_arg_function(s, 1));
+
+    lily_container_val *result = lily_push_list(s, 0);
+    lily_list_reserve(result, lily_con_size(input_list));
+
+    uint32_t i;
+
+    for (i = 0;i < lily_con_size(input_list);i++) {
+        lily_value *v = lily_con_get(input_list, i);
+
+        lily_push_value(s, v);
+        lily_push_integer(s, i);
+        lily_call(s, 2);
         lily_list_push(result, lily_call_result(s));
     }
 

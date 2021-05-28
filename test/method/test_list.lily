@@ -167,6 +167,15 @@ class TestListMethods < TestCase
         each_index_clear()
     }
 
+    public define test_each_with_index
+    {
+        var v = ["a", "b", "c"]
+        var result = ""
+
+        v.each_with_index(|e, i| result = result ++ e ++ i )
+        assert_equal(result, "a0b1c2")
+    }
+
     public define test_fill
     {
         assert_equal(List.fill(5,  (|a| a + a)),       [0, 2, 4, 6, 8])
@@ -250,6 +259,14 @@ class TestListMethods < TestCase
 
         assert_equal(v        .map(Integer.to_s), [])
         assert_equal([1, 2, 3].map(Integer.to_s), ["1", "2", "3"])
+    }
+
+    public define test_map_with_index
+    {
+        var v = [9, 8, 7]
+        var result = v.map_with_index(|e, i| e ++ i )
+
+        assert_equal(result, ["90", "81", "72"])
     }
 
     public define test_merge

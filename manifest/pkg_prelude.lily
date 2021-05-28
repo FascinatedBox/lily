@@ -359,6 +359,12 @@ predefined List[A] {
     ### elements of `self`, `fn` instead receives the index of each element.
     public define each_index(fn: Function(Integer)): List[A]
 
+    ### Iterate over elements with indexes.
+    ###
+    ### Calls `fn` for each element within `self`. `fn` is given the elements
+    ### as well as their indexes.
+    public define each_with_index(fn: Function(A, Integer)): List[A]
+
     ### Generate a `List` of 'count' items using 'fn'.
     ###
     ### This calls 'fn' with an index that starts at `0` and proceeds until
@@ -404,6 +410,11 @@ predefined List[A] {
     ### This calls `fn` on each element within `self`. The result of this
     ### function is a newly-made `List` containing the results of `fn`.
     public define map[B](fn: Function(A => B)): List[B]
+
+    ### Map elements with indexes.
+    ###
+    ### This is equivalent to map, except that `fn` receives indexes as well.
+    public define map_with_index[B](fn: Function(A, Integer => B)): List[B]
 
     ### Create a new `List` containing every element in `self` and `others`.
     public define merge(others: List[A]...): List[A]
