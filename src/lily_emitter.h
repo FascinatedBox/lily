@@ -241,7 +241,6 @@ typedef struct {
        dynamic loading of functions. */
     struct lily_parse_state_ *parser;
 
-
     /* The symtab is here so the emitter can easily create storages if it needs
        to, which is often. */
     lily_symtab *symtab;
