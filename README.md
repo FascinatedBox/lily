@@ -78,15 +78,6 @@ native code can't test. `pre-commit-tests` is a special runner that executes
 To run Lily's tests, execute `pre-commit-tests` from the directory it's in after
 building Lily.
 
-## Community
-
-Lily is a very young language and the community is still growing.
-
-* Discord: [Lily](https://discord.gg/Vr5CXFY) to chat with others in real-time.
-
-* Reddit: [/r/lily](https://reddit.com/r/lily) for discussion around the
-  language and providing support to new users.
-
 ## Resources
 
 * [Documentation](http://lily-lang.org)
