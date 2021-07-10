@@ -1,3 +1,54 @@
+Version 2.0 (2021-7-10)
+=======================
+
+This release is important for two reasons: One, that Lily turns 10 today. Two,
+that I am taking an indefinite hiatus from this project. I'm incredibly proud of
+what I've made, but I want to shift my focus to other, smaller projects. 
+
+In terms of code, this release is rather small since I didn't want to break the
+interpreter on my proverbial way out.
+
+New:
+
+* Add a long overdue `foreach` keyword (#531).
+
+* Add `String.to_binary`, `String.to_octal` and `String.to_hex` (#522).
+
+* Add `List.all` and `List.any` (#526).
+
+* Add `List.accumulate` (#527).
+
+* Add `File.read_to_string` and `File.write_to_path` (#528).
+
+* Add `List.reverse` (#529).
+
+* Add internal iterator for `{}` to `String.format` (#532).
+
+* Add `List.each_with_index` and `List.map_with_index` (#536).
+
+Changes:
+
+* Prevent `List[<type>]` from unifying with vararg `<type>...` (#516).
+
+* Added `:start` keyword argument to `String.find` (#519).
+
+* `String.parse_i` can now take binary, octal, and hex numbers (#523).
+
+* `String.format` now allows `{{` and `}}` escapes (#524).
+
+* Added a keyed maximum to `String.split` (#525).
+
+* `List.insert` now returns the input `List` to allow chaining (#534).
+
+Fixes:
+
+* `List.delete_as` now correctly returns `Unit` (#518).
+
+* Fixed a C api issue where content loading errors could stick around (#520).
+
+* Fixed oops where numbers could have a base but no value (#535).
+)
+
 Version 1.16 (2021-4-10)
 ========================
 
