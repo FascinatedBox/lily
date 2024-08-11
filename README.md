@@ -1,5 +1,18 @@
 [![Pipeline Status](https://gitlab.com/FascinatedBox/lily/badges/main/pipeline.svg)](https://gitlab.com/FascinatedBox/lily/-/commits/main) [![Windows Build](https://ci.appveyor.com/api/projects/status/gitlab/FascinatedBox/lily?svg=true)](https://ci.appveyor.com/project/FascinatedBox/lily) [![Coverage Report](https://gitlab.com/FascinatedBox/lily/badges/main/coverage.svg)](https://FascinatedBox.gitlab.io/lily/src/index.html)
 
+## Future
+
+A few people have asked me about the future of this language, specifically if I
+will ever come back to it. I have some rather complicated feelings, as one might
+expect of a project spanning a decade. Additionally, I don't think that a README
+is a good space to air those feelings out.
+
+Due to an event that happened in my life since pausing on Lily, I will not be
+providing any further updates to it. I am going to, instead, redirect my energy
+to other projects.
+
+To those who helped with Lily's progress: Thank you.
+
 ## Lily
 
 Lily is a programming language focused on expressiveness and type safety.
