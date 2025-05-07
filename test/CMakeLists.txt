@@ -24,6 +24,7 @@ else()
 endif()
 
 add_executable(pre-commit-tests test_driver.c $<TARGET_OBJECTS:liblily_obj>)
+set_target_properties(pre-commit-tests PROPERTIES ENABLE_EXPORTS TRUE)
 
 if(LILY_NEED_DL)
     target_link_libraries(pre-commit-tests dl)
