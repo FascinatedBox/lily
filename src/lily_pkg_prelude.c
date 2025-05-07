@@ -1779,6 +1779,9 @@ void lily_prelude_String_format(lily_state *s)
             text_start = i + 1;
         }
         else if (c == '}') {
+            if (i != text_start)
+                lily_mb_add_slice(msgbuf, fmt, text_start, i);
+
             i++;
 
             if (fmt[i] == '}') {

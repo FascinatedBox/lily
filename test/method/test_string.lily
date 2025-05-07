@@ -37,6 +37,8 @@ class TestStringMethods < TestCase
 
         assert_equal("{{}}{}{{}}".format(1), "{}1{}")
         assert_equal("{{{{{}}}}}".format(1), "{{1}}")
+        assert_equal("{{ {0} }}".format(1), "{ 1 }")
+        assert_equal("{{ asdf }}".format(), "{ asdf }")
 
         assert_raises("ValueError: Format specifier is empty.",
             (|| "{".format(0) ))
