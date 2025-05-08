@@ -1222,3 +1222,12 @@ uint16_t lily_cid_at(lily_vm_state *vm, int n)
 {
     return vm->call_chain->function->cid_table[n];
 }
+
+void lily_v21_plus_required(lily_vm_state *vm)
+{
+    /* This is a hopefully temporary hack for how older Lily interpreters did
+       not have a failsafe for unknown dynaload types. This should prevent those
+       interpreters from loading modules that will crash them with a hopefully
+       obvious error. */
+    (void)vm;
+}
