@@ -74,6 +74,10 @@ lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
 #define PUSH_ScopedTwo(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
 
+extern const char *lily_farm_info_table[];
+extern lily_call_entry_func lily_farm_call_table[];
+void lily_covlib_module_farm(lily_state *s) { lily_import_library_data(s, "[covlib.farm]", lily_farm_info_table, lily_farm_call_table); }
+
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
     "\06C2\0Container\0Foreign\0ForeignGeneric\0FlatEnum\0ScopedEnum\0"
@@ -117,6 +121,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0raise_keyerror\0"
     ,"F\0scoop_narrow\0(Function($1))"
     ,"F\0scoop_narrow_with_args\0(Function(Integer,String,$1=>Boolean))"
+    ,"M\0farm"
     ,"Z"
 };
 #define LILY_DECLARE_COVLIB_CALL_TABLE \
@@ -163,5 +168,7 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__raise_keyerror, \
     lily_covlib__scoop_narrow, \
     lily_covlib__scoop_narrow_with_args, \
+    lily_covlib_module_farm, \
+    lily_v21_plus_required, \
 };
 #endif

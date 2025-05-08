@@ -2580,6 +2580,19 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)cls;
 }
 
+static void dynaload_module(lily_parse_state *parser, lily_dyna_state *ds)
+{
+    lily_module_entry *m = ds->m;
+    lily_foreign_func module_loader = m->call_table[ds->index];
+
+    /* Clear off prior import data, or the last module will be returned. */
+    parser->ims->last_import = NULL;
+
+    /* This will call lily_import_library_data with the necessary tables. */
+    module_loader(parser->vm);
+    ds->result = (lily_item *)parser->ims->last_import;
+}
+
 static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
 {
     const char *name = dyna_get_name(ds);
@@ -2627,6 +2640,7 @@ static lily_item *run_dynaload(lily_parse_state *parser,
         case 'N': fn = dynaload_native; break;
         case 'R': fn = dynaload_var; break;
         case 'V': fn = dynaload_variant; break;
+        case 'M': fn = dynaload_module; break;
         default: fn = dynaload_fail; break;
     }
 
@@ -3049,6 +3063,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
            it to look through. Walk the modules, then do another search in the
            final module. */
         if (sym->item_kind == ITEM_MODULE) {
+handle_module:;
             m = resolve_module(parser, (lily_module_entry *)sym);
             sym = find_existing_sym(m, name);
         }
@@ -3081,8 +3096,10 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
             lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
         else if (sym->item_kind == ITEM_CONSTANT)
             expr_word_as_constant(parser, (lily_var *)sym);
-        else
+        else if (sym->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM))
             expr_word_as_class(parser, (lily_class *)sym, state);
+        else if (sym->item_kind == ITEM_MODULE)
+            goto handle_module;
     }
     else
         lily_raise_syn(parser->raiser, "%s has not been declared.", name);

@@ -2,6 +2,8 @@ import manifest
 
 library covlib
 
+import farm
+
 foreign class Foreign {}
 foreign static class ForeignGeneric[A, B] {}
 

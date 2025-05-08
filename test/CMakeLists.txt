@@ -15,7 +15,8 @@ endfunction(set_output_dirs)
 
 set(backbone_SOURCES
     t/src/lily_backbone.c
-    t/src/lily_covlib.c)
+    t/src/lily_covlib.c
+    t/src/lily_farm.c)
 
 if(WIN32 OR APPLE)
     add_library(backbone SHARED ${backbone_SOURCES} $<TARGET_OBJECTS:liblily_obj>)

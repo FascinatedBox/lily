@@ -639,4 +639,19 @@ class TestVerifyCoverage < TestCase
             covlib.scoop_narrow_with_args(j)
         """)
     }
+
+    public define test_library_exporting_modules
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            if covlib.farm.carrot_count != 100: {
+                0 / 0
+            }
+        """)
+    }
 }
