@@ -2607,30 +2607,30 @@ static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)var;
 }
 
+static void dynaload_fail(lily_parse_state *parser, lily_dyna_state *ds)
+{
+    (void)parser;
+    /* Either the end (Z) or an unknown record. Give up either way. */
+    ds->result = NULL;
+}
+
 static lily_item *run_dynaload(lily_parse_state *parser,
         lily_dyna_state *ds)
 {
     char rec = dyna_record_type(ds);
-    char records[] = {'C', 'E', 'F', 'N', 'R', 'V'};
-    int i = 0;
+    void (*fn)(lily_parse_state *, lily_dyna_state *);
 
-    if (rec == 'Z')
-        return NULL;
+    switch (rec) {
+        case 'C': fn = dynaload_foreign; break;
+        case 'E': fn = dynaload_enum; break;
+        case 'F': fn = dynaload_function; break;
+        case 'N': fn = dynaload_native; break;
+        case 'R': fn = dynaload_var; break;
+        case 'V': fn = dynaload_variant; break;
+        default: fn = dynaload_fail; break;
+    }
 
-    dyna_function *functions[] = {
-        dynaload_foreign,
-        dynaload_enum,
-        dynaload_function,
-        dynaload_native,
-        dynaload_var,
-        dynaload_variant,
-    };
-
-    while (records[i] != rec)
-        i++;
-
-    functions[i](parser, ds);
-
+    fn(parser, ds);
     return ds->result;
 }
 
