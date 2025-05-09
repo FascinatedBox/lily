@@ -3723,6 +3723,8 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
  *
  */
 
+static void expect_manifest_header(lily_parse_state *);
+
 /** The rest of this focuses on handling handling keywords and blocks. Much of
     this is straightforward and kept in small functions that rely on the above
     stuff. As such, there's no real special attention paid to the rest.
@@ -4552,8 +4554,10 @@ static void enter_module(lily_parse_state *parser, lily_module_entry *m)
     module_var->module = m;
     lily_emit_enter_file_block(parser->emit, module_var);
 
-    if ((parser->flags & PARSER_IN_MANIFEST) == 0)
-        lily_next_token(parser->lex);
+    if ((parser->flags & PARSER_IN_MANIFEST))
+        expect_manifest_header(parser);
+
+    lily_next_token(parser->lex);
 }
 
 static void import_loop(lily_parse_state *parser)
@@ -4569,9 +4573,10 @@ static void import_loop(lily_parse_state *parser)
             enter_module(parser, m);
             break;
         }
-        else if (parser->flags & PARSER_IN_MANIFEST)
+        else if (parser->flags & PARSER_IN_MANIFEST && m->call_table) {
             lily_raise_syn(parser->raiser,
-                    "Manifest files can only import other manifest files.");
+                    "Cannot import '%s' while in manifest mode.", m->loadname);
+        }
 
         parse_import_link(parser, m);
 
@@ -6179,9 +6184,9 @@ static void manifest_import(lily_parse_state *parser)
                 "Import keyword should not have a docblock.");
 
     lily_next_token(lex);
+
+    /* The loop will check the header and queue up the first token. */
     import_loop(parser);
-    expect_manifest_header(parser);
-    lily_next_token(lex);
 }
 
 static void manifest_block_exit(lily_parse_state *parser)

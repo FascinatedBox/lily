@@ -1,5 +1,6 @@
 import (Interpreter,
         LibraryTarget,
+        StringTarget,
         TestCase) "../t/testing"
 
 class TestBadManifest < TestCase
@@ -8,6 +9,14 @@ class TestBadManifest < TestCase
         LibraryTarget(
             :path "covlib",
             :redirect "test/t/backbone"
+        )
+
+    private var @t_left =
+        StringTarget(
+            :path "left",
+            :data """\
+                var a: Integer
+            """
         )
 
     public define test_basics
@@ -184,7 +193,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Manifest files can only import other manifest files.\n    \
+            SyntaxError: Cannot import 'sys' while in manifest mode.\n    \
                 from [test]:3:\n\
         """,
         """\
@@ -194,17 +203,28 @@ class TestBadManifest < TestCase
         """)
 
         t = Interpreter.with_targets(
-            @t_covlib
+            @t_covlib,
+            @t_left
         )
 
         assert_manifest_fails(t, """\
-            SyntaxError: Manifest files can only import other manifest files.\n    \
+            SyntaxError: Cannot import 'covlib' while in manifest mode.\n    \
                 from [test]:3:\n\
         """,
         """\
             import manifest
 
             import covlib
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
+                from left.lily:1:\n\
+        """,
+        """\
+            import manifest
+
+            import left
         """)
     }
 
