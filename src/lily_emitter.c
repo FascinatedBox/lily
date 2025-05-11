@@ -1740,7 +1740,7 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
 static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
         lily_ast *index_ast)
 {
-    lily_type *result = NULL;
+    lily_type *result;
 
     if (type->cls->id == LILY_ID_LIST)
         result = type->subtypes[0];
@@ -1751,7 +1751,7 @@ static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
         int literal_index = index_ast->backing_value;
         result = type->subtypes[literal_index];
     }
-    else if (type->cls->id == LILY_ID_BYTESTRING)
+    else
         result = emit->symtab->byte_class->self_type;
 
     return result;
