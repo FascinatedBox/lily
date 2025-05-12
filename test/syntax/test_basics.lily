@@ -1510,6 +1510,14 @@ class TestBasics < TestCase
 
             if tup2 != [<[1, [], "3"]>]: { 0 / 0 }
         """)
+
+        # subscript basics (String subscript)
+
+        assert_parse_string(t, """
+            var a = "asdf"
+
+            if a[0] != 'a' || a[-1] != 'f': { 0 / 0 }
+        """)
     }
 
     public define test_subscripts

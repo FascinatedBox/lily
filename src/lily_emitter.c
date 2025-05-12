@@ -1694,7 +1694,8 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast)
 {
     int var_cls_id = var_ast->result->type->cls->id;
-    if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING) {
+    if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING ||
+        var_cls_id == LILY_ID_STRING) {
         uint16_t index_id = index_ast->result->type->cls->id;
 
         if (index_id != LILY_ID_INTEGER &&
@@ -2585,9 +2586,15 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     if (index_ast->tree_type != tree_local_var)
         eval_tree(emit, index_ast, lily_question_type);
 
+    lily_type *var_type = var_ast->result->type;
+
     check_valid_subscript(emit, var_ast, index_ast);
 
-    lily_type *elem_type = get_subscript_result(emit, var_ast->result->type,
+    if (var_type->cls->id == LILY_ID_STRING)
+        lily_raise_syn(emit->raiser,
+                "Subscript assignment on a String is not allowed.");
+
+    lily_type *elem_type = get_subscript_result(emit, var_type,
             index_ast);
 
     if (ast->right->tree_type != tree_local_var)

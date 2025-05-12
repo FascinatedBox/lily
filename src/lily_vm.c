@@ -993,7 +993,7 @@ static void do_o_subscript_get(lily_vm_state *vm, uint16_t *code)
     if (base != V_HASH_BASE) {
         int64_t index_int = index_reg->value.integer;
 
-        if (base == V_BYTESTRING_BASE) {
+        if (lhs_reg->flags & (V_BYTESTRING_FLAG | V_STRING_FLAG)) {
             lily_string_val *bytev = lhs_reg->value.string;
             RELATIVE_INDEX(bytev->size)
             move_byte(result_reg, (uint8_t) bytev->string[index_int]);
