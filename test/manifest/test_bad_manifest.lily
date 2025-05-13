@@ -315,6 +315,73 @@ class TestBadManifest < TestCase
         """)
     }
 
+    public define test_constant
+    {
+        var t = Interpreter()
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Cannot declare a constant inside a class or enum.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            import manifest
+
+            class Example
+            {
+                constant x: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Cannot declare a constant inside a class or enum.\n    \
+                from [test]:8:\n\
+        """,
+        """\
+            import manifest
+
+            enum Example
+            {
+                One,
+                Two
+
+                constant x: Integer
+            }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected 'a label', not 'a property name'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import manifest
+
+            constant @x: Integer
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: x has already been declared.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            var x: Integer
+            constant x: Integer
+        """)
+
+
+        assert_manifest_fails(t, """\
+            SyntaxError: x does not have a valid type for a constant.\n    \
+                Valid constant types are: Double, Integer, String.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            import manifest
+
+            constant x: List[String]
+        """)
+    }
+
     public define test_var
     {
         var t = Interpreter()

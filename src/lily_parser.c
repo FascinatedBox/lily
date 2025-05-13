@@ -1461,6 +1461,10 @@ static lily_var *declare_constant(lily_parse_state *parser)
         error_var_redeclaration(parser, var);
 
     var = new_constant_var(parser, lex->label, lex->line_num);
+
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        var->doc_id = store_docblock(parser);
+
     lily_next_token(lex);
     return var;
 }
@@ -4145,9 +4149,6 @@ static void parse_one_constant(lily_parse_state *parser)
                 "Expected a Double, Integer, or String literal, not '%s'.",
                 tokname(lex->token));
 
-    if (parser->flags & PARSER_HAS_DOCBLOCK)
-        var->doc_id = store_docblock(parser);
-
     lily_next_token(lex);
 }
 
@@ -6020,6 +6021,34 @@ static void manifest_foreign(lily_parse_state *parser)
     }
 }
 
+static void manifest_constant(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    if (parser->current_class) {
+        lily_raise_syn(parser->raiser,
+                "Cannot declare a constant inside a class or enum.");
+    }
+
+    NEED_NEXT_TOK(tk_word)
+
+    lily_var *var = declare_constant(parser);
+
+    NEED_CURRENT_TOK(tk_colon)
+    lily_next_token(lex);
+    var->type = get_type(parser);
+
+    uint16_t cls_id = var->type->cls->id;
+
+    if (cls_id != LILY_ID_DOUBLE &&
+        cls_id != LILY_ID_INTEGER &&
+        cls_id != LILY_ID_STRING)
+        lily_raise_syn(parser->raiser,
+                "%s does not have a valid type for a constant.\n"
+                "    Valid constant types are: Double, Integer, String.",
+                var->name);
+}
+
 static void manifest_var(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -6290,6 +6319,8 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_modifier(parser, key_id);
             else if (key_id == KEY_VAR)
                 manifest_var(parser);
+            else if (key_id == KEY_CONSTANT)
+                manifest_constant(parser);
             else if (key_id == KEY_IMPORT)
                 manifest_import(parser);
             else if (strcmp("foreign", lex->label) == 0)
