@@ -2428,6 +2428,39 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)var;
 }
 
+static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
+{
+    dyna_save(parser, ds);
+    lily_next_token(parser->lex);
+
+    lily_type *type = get_type_raw(parser, 0);
+    lily_var *var = new_constant_var(parser, dyna_get_name(ds), 0);
+
+    /* Constants just push a simple builtin value, so leave the tables alone. */
+    var->type = type;
+
+    lily_foreign_func constant_loader = ds->m->call_table[ds->index];
+
+    constant_loader(parser->vm);
+
+    lily_value *v = lily_stack_get_top(parser->vm);
+    uint16_t cls_id = type->cls->id;
+    lily_symtab *symtab = parser->symtab;
+    lily_literal *lit = NULL;
+
+    if (cls_id == LILY_ID_INTEGER)
+        lit = lily_get_integer_literal(symtab, lily_as_integer(v));
+    else if (cls_id == LILY_ID_DOUBLE)
+        lit = lily_get_double_literal(symtab, lily_as_double(v));
+    else if (cls_id == LILY_ID_STRING)
+        lit = lily_get_string_literal(symtab, lily_as_string_raw(v));
+
+    var->reg_spot = lit->reg_spot;
+    lily_stack_drop_top(parser->vm);
+    dyna_restore(parser, ds);
+    ds->result = (lily_item *)var;
+}
+
 /* The vm expects certain predefined classes to have specific ids. This is
    called when dynaload sees a predefined class or enum. */
 static void fix_predefined_class_id(lily_parse_state *parser, lily_class *cls)
@@ -2645,6 +2678,7 @@ static lily_item *run_dynaload(lily_parse_state *parser,
         case 'R': fn = dynaload_var; break;
         case 'V': fn = dynaload_variant; break;
         case 'M': fn = dynaload_module; break;
+        case 'O': fn = dynaload_constant; break;
         default: fn = dynaload_fail; break;
     }
 

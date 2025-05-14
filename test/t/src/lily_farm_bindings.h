@@ -12,6 +12,9 @@ LILY_FARM_EXPORT
 const char *lily_farm_info_table[] = {
     "\0\0"
     ,"R\0carrot_count\0Integer"
+    ,"O\0a\0Integer"
+    ,"O\0b\0Double"
+    ,"O\0c\0String"
     ,"Z"
 };
 #define LILY_DECLARE_FARM_CALL_TABLE \
@@ -19,5 +22,9 @@ LILY_FARM_EXPORT \
 lily_call_entry_func lily_farm_call_table[] = { \
     NULL, \
     lily_farm_var_carrot_count, \
+    lily_farm_constant_a, \
+    lily_farm_constant_b, \
+    lily_farm_constant_c, \
+    lily_v21_plus_required, \
 };
 #endif

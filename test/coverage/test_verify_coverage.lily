@@ -654,4 +654,24 @@ class TestVerifyCoverage < TestCase
             }
         """)
     }
+
+    public define test_library_exporting_constants
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            var v = 10
+
+            if covlib.farm.a != 10 ||
+               covlib.farm.b != 5.5 ||
+               covlib.farm.c != "test" ||
+               v != 10: {
+                0 / 0
+            }
+        """)
+    }
 }
