@@ -4457,30 +4457,24 @@ void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
 void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
         lily_type *return_type)
 {
-    if (return_type != lily_unit_type) {
-        lily_ast *ast = es->root;
+    lily_ast *ast = es->root;
 
-        eval_enforce_value(emit, ast, return_type);
+    eval_enforce_value(emit, ast, return_type);
 
-        if (ast->result->type == return_type ||
-            type_matchup(emit, return_type, ast))
-            ;
-        else if (return_type->cls == lily_self_class &&
-                 ast->tree_type == tree_self)
-            ;
-        else
-            lily_raise_tree(emit->raiser, ast,
-                    "return expected type '^T' but got type '^T'.", return_type,
-                    ast->result->type);
+    if (ast->result->type == return_type ||
+        type_matchup(emit, return_type, ast))
+        ;
+    else if (return_type->cls == lily_self_class &&
+             ast->tree_type == tree_self)
+        ;
+    else
+        lily_raise_tree(emit->raiser, ast,
+                "return expected type '^T' but got type '^T'.", return_type,
+                ast->result->type);
 
-        write_pop_try_blocks_up_to(emit, emit->scope_block);
-        lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,
-                ast->line_num);
-    }
-    else {
-        write_pop_try_blocks_up_to(emit, emit->scope_block);
-        lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
-    }
+    write_pop_try_blocks_up_to(emit, emit->scope_block);
+    lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,
+            ast->line_num);
 
     emit->block->last_exit = lily_u16_pos(emit->code);
 }
@@ -4498,6 +4492,13 @@ void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 
     lily_u16_write_3(emit->code, o_exception_raise, ast->result->reg_spot,
             ast->line_num);
+    emit->block->last_exit = lily_u16_pos(emit->code);
+}
+
+void lily_eval_unit_return(lily_emit_state *emit)
+{
+    write_pop_try_blocks_up_to(emit, emit->scope_block);
+    lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
     emit->block->last_exit = lily_u16_pos(emit->code);
 }
 

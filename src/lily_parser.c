@@ -4113,10 +4113,12 @@ static void keyword_return(lily_parse_state *parser)
 
     lily_type *return_type = block->scope_var->type->subtypes[0];
 
-    if (return_type != lily_unit_type)
+    if (return_type != lily_unit_type) {
         expression(parser);
-
-    lily_eval_return(parser->emit, parser->expr, return_type);
+        lily_eval_return(parser->emit, parser->expr, return_type);
+    }
+    else
+        lily_eval_unit_return(parser->emit);
 
     if (code_is_after_exit(parser)) {
         const char *extra = ".";

@@ -260,6 +260,7 @@ void lily_eval_lambda_body(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_eval_optarg(lily_emit_state *, lily_ast *);
 void lily_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_eval_raise(lily_emit_state *, lily_expr_state *);
+void lily_eval_unit_return(lily_emit_state *);
 void lily_eval_match_with(lily_emit_state *, lily_expr_state *);
 
 void lily_emit_branch_switch(lily_emit_state *);
