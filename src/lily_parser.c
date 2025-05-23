@@ -3737,10 +3737,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     if (root_result != NULL)
         lily_tm_insert(parser->tm, tm_return, root_result);
 
-    int flags = 0;
-    if (expect_type->cls->id == LILY_ID_FUNCTION &&
-        expect_type->flags & TYPE_IS_VARARGS)
-        flags = TYPE_IS_VARARGS;
+    int flags = (expect_type->flags & TYPE_IS_VARARGS);
 
     lambda_var->type = lily_tm_make_call(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);
