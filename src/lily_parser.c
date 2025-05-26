@@ -3649,15 +3649,14 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
     return result_type;
 }
 
-/* This collects the arguments between the two '|' tokens of a lambda.
-   'expect_type' is either a function type for inference to be pulled from, or
-   NULL. Arguments may be just names, or names with types. */
+/* Collect arguments until the second `|` of a lambda, where they end. The type
+   given for inference is either a Function (which may have args), or a
+   placeholder (which will have 0). Arguments may be just names, or names with
+   types. */
 static int collect_lambda_args(lily_parse_state *parser,
         lily_type *expect_type)
 {
-    /* num_args starts at 1 and is adjusted by -1 at the end because the return
-       is at 0 in subtypes. */
-    int infer_count = (expect_type) ? expect_type->subtype_count : -1;
+    int infer_count = expect_type->subtype_count;
     int num_args = 1;
     lily_lex_state *lex = parser->lex;
 
