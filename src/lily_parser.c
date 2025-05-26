@@ -1165,7 +1165,9 @@ static lily_module_entry *find_registered_module(lily_parse_state *parser,
         const char *active_root = symtab->active_module->root_dirname;
         const char *main_root = parser->main_module->root_dirname;
 
-        if (strcmp(active_root, main_root) != 0)
+        /* Children of a module share a pointer to their parent's root_dirname,
+           so a strcmp isn't necessary here. */
+        if (active_root != main_root)
             module = NULL;
     }
 
