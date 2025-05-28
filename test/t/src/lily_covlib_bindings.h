@@ -74,8 +74,8 @@ lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
 #define PUSH_ScopedTwo(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
 
-extern const char *lily_farm_info_table[];
-extern lily_call_entry_func lily_farm_call_table[];
+extern LILY_COVLIB_EXPORT const char *lily_farm_info_table[];
+extern LILY_COVLIB_EXPORT lily_call_entry_func lily_farm_call_table[];
 void lily_covlib_module_farm(lily_state *s) { lily_import_library_data(s, "[covlib.farm]", lily_farm_info_table, lily_farm_call_table); }
 
 LILY_COVLIB_EXPORT
