@@ -2760,17 +2760,17 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
-/* This evaluates a lambda. The parser sent the lambda over as a blob of text
-   since it didn't know what the types were. Now that the types are known, pass
-   it back to the parser to, umm, parse. */
-static void eval_lambda(lily_emit_state *emit, lily_ast *ast,
+/* When parser first sees a lambda, it collects the lambda as a blob of text.
+   Emitter now has an idea of what type to expect back from the lambda, so go
+   back into parser with that information. */
+static void eval_lambda_to_parse(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
     if (expect->cls->id != LILY_ID_FUNCTION)
-        expect = lily_question_type;
+        expect = lily_unset_type;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect);
@@ -4264,7 +4264,7 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_variant)
         eval_variant(emit, ast, expect);
     else if (ast->tree_type == tree_lambda)
-        eval_lambda(emit, ast, expect);
+        eval_lambda_to_parse(emit, ast, expect);
     else if (ast->tree_type == tree_self)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_named_call)
@@ -4416,39 +4416,35 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
             (uint16_t)-location);
 }
 
-/* This is called from parser to evaluate the last expression that is within a
-   lambda. 'full_type' is either a type describing what the lambda wants, or
-   'lily_question_type' if the lambda has no opinion. The latter can happen with
-   a lambda is on the right side of a newly-declared var with no inference
-   information. */
-void lily_eval_lambda_body(lily_emit_state *emit, lily_expr_state *es,
-        lily_type *full_type)
+/* This is called by parser to evaluate a lambda's last expression, which will
+   become the type it returns. */
+lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_type *wanted_type = lily_question_type;
+    lily_type *expect = emit->scope_block->scope_var->type;
 
-    if (full_type != lily_question_type)
-        wanted_type = full_type->subtypes[0];
+    /* Calls infer their arguments by solving their result against what is
+       expected. Unset should never be witnessed, and Unit results in terrible
+       inference (nobody wants a List[Unit]). */
+    if (expect == lily_unset_type ||
+        expect == lily_unit_type)
+        expect = lily_question_type;
 
-    /* Don't send `Unit` down, because it can cause syntax errors if it's used
-       as a solution for generics. */
-    if (wanted_type == lily_unit_type)
-        wanted_type = lily_question_type;
-
-    eval_tree(emit, es->root, wanted_type);
+    eval_tree(emit, es->root, expect);
 
     lily_sym *root_result = es->root->result;
 
-    /* The only time there isn't a result is if the top expression was an
-       assignment. For all other cases, write the resulting output. If the
-       output isn't what the caller wants, then it can always use ts to narrow
-       the output to Unit. */
-    if (root_result)
+    if (root_result) {
         lily_u16_write_3(emit->code, o_return_value, root_result->reg_spot,
                 es->root->line_num);
-    else
+        emit->block->last_exit = lily_u16_pos(emit->code);
+        return root_result->type;
+    }
+    else {
+        /* This only happens if it was an assignment. */
         lily_u16_write_2(emit->code, o_return_unit, es->root->line_num);
-
-    emit->block->last_exit = lily_u16_pos(emit->code);
+        emit->block->last_exit = lily_u16_pos(emit->code);
+        return lily_unit_type;
+    }
 }
 
 /* This handles the 'return' keyword. If parser has the pool filled with some

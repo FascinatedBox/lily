@@ -67,7 +67,9 @@ DEFINE_CONST_CLASS(raw_scoop, LILY_ID_SCOOP, 0, "$1",
 DEFINE_CONST_CLASS(raw_unit, LILY_ID_UNIT, 1953066581, "Unit", 0);
 
 /* When a keyarg function has optional argument holes, this type is used to send
-   empty arguments to fill those holes. */
+   empty arguments to fill those holes. It's also used by lambdas to denote that
+   the caller has no inference to provide. In both cases, ts will never witness
+   this, so setting TYPE_TO_BLOCK here is unnecessary. */
 DEFINE_CONST_CLASS(raw_unset, LILY_ID_UNSET, 0, "", 0);
 
 #undef DEFINE_CONST_CLASS

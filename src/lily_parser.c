@@ -36,6 +36,7 @@ extern lily_type *lily_question_type;
 extern lily_class *lily_scoop_class;
 extern lily_class *lily_self_class;
 extern lily_type *lily_unit_type;
+extern lily_type *lily_unset_type;
 
 /***
  *      ____       _
@@ -3595,8 +3596,7 @@ static void parse_block_exit(lily_parse_state *);
    result of this function is the type of the last expression that was run.
    If the last thing was a block, or did not return a value, then NULL is
    returned. */
-static lily_type *parse_lambda_body(lily_parse_state *parser,
-        lily_type *expect_type)
+static lily_type *parse_lambda_body(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_type *result_type = lily_unit_type;
@@ -3629,15 +3629,9 @@ static lily_type *parse_lambda_body(lily_parse_state *parser,
             if (lex->token != tk_end_lambda)
                 lily_eval_expr(parser->emit, parser->expr);
             else {
-                /* This will be the result, so send inference. */
-                lily_eval_lambda_body(parser->emit, parser->expr,
-                        expect_type);
-
-                lily_sym *s = parser->expr->root->result;
-
-                if (s)
-                    result_type = s->type;
-
+                /* Inference is provided by the scope var's type. */
+                result_type = lily_eval_lambda_result(parser->emit,
+                        parser->expr);
                 break;
             }
         }
@@ -3719,9 +3713,14 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     lily_var *lambda_var = new_define_var(parser, "(lambda)",
             start_line);
 
+    if (expect_type->cls->id == LILY_ID_FUNCTION)
+        lambda_var->type = expect_type->subtypes[0];
+    else
+        lambda_var->type = expect_type;
+
     lily_emit_enter_lambda_block(parser->emit, lambda_var);
 
-    /* Placeholder for the lambda's return type, unless one isn't found.*/
+    /* Placeholder for the return type (if one is found later). */
     lily_tm_add(parser->tm, lily_unit_type);
     lily_next_token(lex);
 
@@ -3732,10 +3731,10 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     /* The current expression may not be done. This makes sure that the pool
        won't use the same trees again. */
     lily_es_checkpoint_save(parser->expr);
-    root_result = parse_lambda_body(parser, expect_type);
+    root_result = parse_lambda_body(parser);
     lily_es_checkpoint_restore(parser->expr);
 
-    if (root_result != NULL)
+    if (root_result)
         lily_tm_insert(parser->tm, tm_return, root_result);
 
     int flags = (expect_type->flags & TYPE_IS_VARARGS);
