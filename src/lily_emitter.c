@@ -4416,6 +4416,27 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
             (uint16_t)-location);
 }
 
+void lily_eval_lambda_exit(lily_emit_state *emit, uint16_t line_num)
+{
+    /* Lambdas use the result type as the var type until they're done. If this
+       was a define, the result would be the first subtype of this type. */
+    lily_type *expect = emit->scope_block->scope_var->type;
+
+    /* It's unset if the parent tree has no inference (and will thus accept
+       anythign). '?' occurs when the parent expects a generic that does not
+       have a solution yet. */
+    if (expect == lily_unset_type ||
+        expect == lily_question_type ||
+        expect == lily_unit_type) {
+        lily_u16_write_2(emit->code, o_return_unit, line_num);
+        emit->block->last_exit = lily_u16_pos(emit->code);
+        return;
+    }
+
+    lily_raise_syn(emit->raiser,
+            "Lambda result should be type '^T', but none given.", expect);
+}
+
 /* This is called by parser to evaluate a lambda's last expression, which will
    become the type it returns. */
 lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
@@ -4432,19 +4453,33 @@ lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
     eval_tree(emit, es->root, expect);
 
     lily_sym *root_result = es->root->result;
+    lily_type *result_type;
 
     if (root_result) {
         lily_u16_write_3(emit->code, o_return_value, root_result->reg_spot,
                 es->root->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
-        return root_result->type;
+        result_type = root_result->type;
     }
     else {
         /* This only happens if it was an assignment. */
         lily_u16_write_2(emit->code, o_return_unit, es->root->line_num);
         emit->block->last_exit = lily_u16_pos(emit->code);
-        return lily_unit_type;
+        result_type = lily_unit_type;
     }
+
+    if (expect == result_type ||
+        expect == lily_question_type)
+        return result_type;
+
+    lily_type *unify_type = lily_ts_unify(emit->ts, expect, result_type);
+
+    if (unify_type == NULL)
+        lily_raise_tree(emit->raiser, es->root,
+                "Lambda result should be type '^T', but got type '^T'.",
+                expect, result_type);
+
+    return unify_type;
 }
 
 /* This handles the 'return' keyword. If parser has the pool filled with some

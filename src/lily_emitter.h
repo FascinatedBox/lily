@@ -257,6 +257,7 @@ void lily_eval_to_loop_var(lily_emit_state *, lily_expr_state *, lily_var *);
 void lily_eval_to_foreach_var(lily_emit_state *, lily_expr_state *, lily_var *);
 void lily_eval_expr(lily_emit_state *, lily_expr_state *);
 lily_type *lily_eval_lambda_result(lily_emit_state *, lily_expr_state *);
+void lily_eval_lambda_exit(lily_emit_state *, uint16_t);
 void lily_eval_optarg(lily_emit_state *, lily_ast *);
 void lily_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_eval_raise(lily_emit_state *, lily_expr_state *);

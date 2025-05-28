@@ -114,6 +114,28 @@ class TestLambdas < TestCase
         assert_parse_string(t, """
             var v: Function(Integer) = (|a| [a] |> List.shift )
         """)
+
+        # inference (block infers to unit when expecting unsolved generic)
+
+        assert_parse_string(t, """
+            define g[A](a: Function( => A)) {}
+
+            g((|| if 1: {} ))
+        """)
+
+        # inference (block inferes to unit when expecting unit)
+
+        assert_parse_string(t, """
+            define h(a: Function()) {}
+
+            h((|| if 1: {} ))
+        """)
+
+        # inference (block infers to unit when parent has no inference)
+
+        assert_parse_string(t, """
+            var i = (|| if 1: {} )
+        """)
     }
 
     public define test_lexing

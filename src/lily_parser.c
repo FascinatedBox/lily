@@ -3635,8 +3635,10 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
                 break;
             }
         }
-        else if (parser->emit->block->block_type == block_lambda)
+        else if (parser->emit->block->block_type == block_lambda) {
+            lily_eval_lambda_exit(parser->emit, lex->line_num);
             break;
+        }
         else
             lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                     tokname(tk_end_lambda));

@@ -85,6 +85,85 @@ class TestBadLambda < TestCase
         """)
     }
 
+    public define test_bad_result
+    {
+        var t = Interpreter()
+
+        # bad result (concrete type mismatch)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: Function( => Integer)) {}
+
+            f((|| "x" ))
+        """)
+
+        # bad result (generic mismatched)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A, b: Function( => A)) {}
+
+            f(1, (|| "1" ))
+        """)
+
+        # bad result (assignment at end)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'Unit'.\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f(a: Function( => Integer)) {}
+
+            var a = 10
+
+            f((|| a = 11 ))
+        """)
+
+        # bad result (assignment at end against generic type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: Integer, b: Function( => Integer)) {}
+
+            f(1, (|| var a = 11 ))
+        """)
+
+        # bad result (no expression against concrete type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f(a: Function( => Integer)) {}
+
+            f((|| if 1: {} ))
+        """)
+
+        # bad result (no expression against generic type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A, b: Function( => A)) {}
+
+            f(1, (|| if 1: {} ))
+        """)
+    }
+
     public define test_lambda_rules
     {
         var t = Interpreter()
