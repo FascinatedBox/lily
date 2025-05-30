@@ -4418,6 +4418,10 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
 
 void lily_eval_lambda_exit(lily_emit_state *emit, uint16_t line_num)
 {
+    if (emit->block->last_exit == lily_u16_pos(emit->code))
+        /* Unreachable, so nothing more to do. */
+        return;
+
     /* Lambdas use the result type as the var type until they're done. If this
        was a define, the result would be the first subtype of this type. */
     lily_type *expect = emit->scope_block->scope_var->type;
@@ -4482,6 +4486,17 @@ lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
     return unify_type;
 }
 
+static void update_lambda_return(lily_emit_state *emit, lily_type *result_type)
+{
+    lily_var *scope_var = emit->scope_block->scope_var;
+    lily_type *expect = scope_var->type;
+    lily_type *unify_type = lily_ts_unify(emit->ts, expect, result_type);
+
+    /* Shouldn't happen, but be on the safe side. */
+    if (unify_type)
+        scope_var->type = unify_type;
+}
+
 /* This handles the 'return' keyword. If parser has the pool filled with some
    expression, then run that expression (checking the result). The pool will be
    cleared out if there was an expression. */
@@ -4506,8 +4521,10 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
     write_pop_try_blocks_up_to(emit, emit->scope_block);
     lily_u16_write_3(emit->code, o_return_value, ast->result->reg_spot,
             ast->line_num);
-
     emit->block->last_exit = lily_u16_pos(emit->code);
+
+    if (return_type->flags & TYPE_IS_INCOMPLETE)
+        update_lambda_return(emit, ast->result->type);
 }
 
 void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)

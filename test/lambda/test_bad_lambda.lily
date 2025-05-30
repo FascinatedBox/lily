@@ -162,6 +162,69 @@ class TestBadLambda < TestCase
 
             f(1, (|| if 1: {} ))
         """)
+
+        # bad result (inconsistent enum directly used)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to Some is invalid:\n\
+            Expected Type: Integer\n\
+            Received Type: String\n    \
+                from [test]:10:\n\
+        """,
+        """\
+            var a = 10
+            define f[A](b: Function( => A)) {}
+
+            f((||
+                if a == 10: {
+                    return Some(1)
+                elif a == 20:
+                    return None
+                elif a == 30:
+                    return Some("")
+                }
+
+                return None
+            ))
+        """)
+
+        # bad result (inconsistent enum with var)
+
+        assert_parse_fails(t, """\
+            SyntaxError: return expected type 'Option[Integer]' but got type 'Option[String]'.\n    \
+                from [test]:11:\n\
+        """,
+        """\
+            var a = 10
+            var b = Some("")
+            define f[A](c: Function( => A)) {}
+
+            f((||
+                if a == 10: {
+                    return Some(1)
+                elif a == 20:
+                    return None
+                elif a == 30:
+                    return b
+                }
+
+                return None
+            ))
+        """)
+
+        # bad result (no inference)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'return' inside of a lambda requires inference, but none given.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            var v = (||
+                if 1 == 1: {
+                    return 10
+                }
+            )
+        """)
     }
 
     public define test_lambda_rules
@@ -190,16 +253,6 @@ class TestBadLambda < TestCase
         """,
         """\
             var v = (|| )
-        """)
-
-        # lambda rules (return not allowed)
-
-        assert_parse_fails(t, """\
-            SyntaxError: 'return' not allowed in a lambda.\n    \
-                from [test]:1:\n\
-        """,
-        """\
-            var v = (|| return )
         """)
 
         # lambda rules (incomplete block at end)

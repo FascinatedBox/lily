@@ -4104,16 +4104,18 @@ static int code_is_after_exit(lily_parse_state *parser)
 static void keyword_return(lily_parse_state *parser)
 {
     lily_block *block = parser->emit->scope_block;
+    lily_type *return_type = block->scope_var->type;
 
     if (block->block_type == block_class)
         lily_raise_syn(parser->raiser,
                 "'return' not allowed in a class constructor.");
-    else if (block->block_type == block_lambda)
-        lily_raise_syn(parser->raiser, "'return' not allowed in a lambda.");
     else if (block->block_type == block_file)
         lily_raise_syn(parser->raiser, "'return' used outside of a function.");
-
-    lily_type *return_type = block->scope_var->type->subtypes[0];
+    else if (block->block_type != block_lambda)
+        return_type = return_type->subtypes[0];
+    else if (return_type == lily_unset_type)
+        lily_raise_syn(parser->raiser,
+                "'return' inside of a lambda requires inference, but none given.");
 
     if (return_type != lily_unit_type) {
         expression(parser);
@@ -4121,6 +4123,9 @@ static void keyword_return(lily_parse_state *parser)
     }
     else
         lily_eval_unit_return(parser->emit);
+
+    /* Lambdas are allowed to have an explicit return at the end due to a lack
+       of checking for tk_end_lambda here. It's harmless. */
 
     if (code_is_after_exit(parser)) {
         const char *extra = ".";

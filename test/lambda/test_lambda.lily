@@ -38,6 +38,78 @@ class TestLambdas < TestCase
         """)
     }
 
+    public define test_early_exit
+    {
+        var t = Interpreter()
+
+        # early exit (simple concrete type then yield)
+
+        assert_parse_string(t, """
+            var a = 10
+            var b: Function( => Boolean) = (||
+                if a == 10: {
+                    return true
+                }
+                false
+            )
+        """)
+
+        # early exit (simple unit then yield)
+
+        assert_parse_string(t, """
+            var c: Function() = (||
+                if a == 10: {
+                    return
+                }
+            )
+        """)
+
+        # early exit (class result)
+
+        assert_parse_string(t, """
+            class One {}
+            class Two < One {}
+
+            define f[A](g: Function( => A)) {}
+
+            f((||
+                if a == 10: {
+                    return One()
+                }
+                Two()
+            ))
+        """)
+
+        # early exit (enum result)
+
+        assert_parse_string(t, """
+            f((||
+                if a == 10: {
+                    return None
+                }
+                Some(1)
+            ))
+        """)
+
+        # early exit (all branches covered)
+
+        assert_parse_string(t, """
+            f((||
+                if a == 10: {
+                    return true
+                else:
+                    return false
+                }
+            ))
+        """)
+
+        # early exit (return at end is fine, if you want)
+
+        assert_parse_string(t, """
+            f((|| return true ))
+        """)
+    }
+
     public define test_inference
     {
         var t = Interpreter()
