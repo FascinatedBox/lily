@@ -1843,6 +1843,10 @@ static int can_optimize_out_assignment(lily_ast *ast)
         else
             can_optimize = 1;
     }
+    else if (right_tree->tree_type == tree_self ||
+             right_tree->tree_type == tree_typecast)
+        /* These do not write any bytecode to optimize out. */
+        ;
     else
         can_optimize = 1;
 

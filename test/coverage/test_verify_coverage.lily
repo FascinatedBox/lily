@@ -674,4 +674,29 @@ class TestVerifyCoverage < TestCase
             }
         """)
     }
+
+    public define test_assign_optimize
+    {
+        var t = Interpreter()
+
+        # assign optimize (typecast does not crash)
+
+        assert_parse_string(t, """
+            define f(a: Integer) { var b = a.@(Integer) }
+        """)
+
+        # assign optimize (self does not crash)
+
+        assert_parse_string(t, """
+            class Example {
+                public define g: Example {
+                    var a = self
+                    return a
+                }
+            }
+
+            var e = Example()
+            var b = e.g() ++ e
+        """)
+    }
 }
