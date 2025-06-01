@@ -264,6 +264,16 @@ class TestBadLambda < TestCase
         """\
             var v = (|| if 1: { )
         """)
+
+        # lambda rules (excess block exits)
+
+        assert_parse_fails(t, """\
+            SyntaxError: '}' outside of a block.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| } 1 )
+        """)
     }
 
     public define test_unterminated

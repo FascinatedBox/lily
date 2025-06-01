@@ -5823,7 +5823,7 @@ static void parse_block_exit(lily_parse_state *parser)
     lily_block *block = emit->block;
     lily_lex_state *lex = parser->lex;
 
-    if (block->block_type == block_file)
+    if (block->block_type & (SCOPE_FILE | SCOPE_LAMBDA))
         lily_raise_syn(parser->raiser, "'}' outside of a block.");
 
     hide_block_vars(parser);
