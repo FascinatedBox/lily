@@ -61,7 +61,7 @@ class TestScoop < TestCase
         # scoop init (init by assign).
 
         assert_parse_fails(t, """\
-            SyntaxError: Right side of assignment is incomplete type 'Function (List[A], List[$1]... => List[Tuple[A, $1]])'.\n    \
+            SyntaxError: Global variables cannot have a type with generics (Function (List[A], List[$1]... => List[Tuple[A, $1]])).\n    \
                 from [test]:1:\n\
         """,
         """\

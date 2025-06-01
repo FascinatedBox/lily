@@ -2512,13 +2512,6 @@ static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
     ast->op = save_op;
 }
 
-/* This runs the body of an assignment targeting a global or local var. The
-   switchboard that calls this handles the common parts of assign. */
-static void eval_assign_global_local(lily_emit_state *emit, lily_ast *ast)
-{
-    eval_tree(emit, ast->right, ast->left->result->type);
-}
-
 /* This handles assignments to a property. It's similar in spirit to oo assign,
    but not as complicated. */
 static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
@@ -2618,14 +2611,24 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 
     if (left_tt == tree_local_var ||
         left_tt == tree_global_var) {
-        eval_assign_global_local(emit, ast);
+
+        eval_tree(emit, ast->right, ast->left->result->type);
 
         left_sym = ast->left->result;
         left_sym->flags &= ~SYM_NOT_INITIALIZED;
         right_sym = ast->right->result;
 
-        if (left_sym->type == lily_question_type)
+        if (left_sym->type == lily_question_type) {
+            /* This allows unsound behavior due to the type system not
+               understanding quantification. */
+            if (left_tt == tree_global_var &&
+                right_sym->type->flags & TYPE_IS_UNRESOLVED)
+                lily_raise_tree(emit->raiser, ast,
+                        "Global variables cannot have a type with generics (^T).",
+                        right_sym->type);
+
             left_sym->type = right_sym->type;
+        }
     }
     else if (left_tt == tree_property) {
         eval_assign_property(emit, ast);

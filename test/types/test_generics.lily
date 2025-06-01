@@ -117,4 +117,25 @@ class TestGenerics < TestCase
             }
         """)
     }
+
+    public define test_quantification
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Global variables cannot have a type with generics (Function (A)).\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A) {}
+
+            var v = f
+
+            define g[A, B](a: A, b: Function(A)) { v = b }
+            define h(a: String) { a.size() |> print }
+
+            g("1", h)
+            v(1)
+        """)
+    }
 }
