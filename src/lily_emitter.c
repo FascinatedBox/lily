@@ -728,22 +728,18 @@ static void finish_block_code(lily_emit_state *emit)
     f->reg_count = block->next_reg_spot;
 }
 
-static int try_write_define_exit(lily_emit_state *emit, uint16_t line_num)
+static int try_write_define_exit(lily_emit_state *emit, lily_type *type,
+        uint16_t line_num)
 {
-    lily_block *block = emit->block;
     int result = 1;
 
-    if (block->last_exit != lily_u16_pos(emit->code)) {
-        lily_type *type = block->scope_var->type->subtypes[0];
-
-        if (type == lily_unit_type)
-            lily_u16_write_2(emit->code, o_return_unit, line_num);
-        else if (type == lily_self_class->self_type)
-            /* The implicit 'self' of a class method is always first (at 0). */
-            lily_u16_write_3(emit->code, o_return_value, 0, line_num);
-        else
-            result = 0;
-    }
+    if (type == lily_unit_type)
+        lily_u16_write_2(emit->code, o_return_unit, line_num);
+    else if (type == lily_self_class->self_type)
+        /* The implicit 'self' of a class method is always first (at 0). */
+        lily_u16_write_3(emit->code, o_return_value, 0, line_num);
+    else
+        result = 0;
 
     return result;
 }
@@ -762,7 +758,10 @@ void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
     lily_block *block = emit->block;
 
     if ((block->scope_var->flags & SYM_IS_FORWARD) == 0) {
-        if (try_write_define_exit(emit, line_num) == 0)
+        lily_type *type = block->scope_var->type->subtypes[0];
+
+        if (block->last_exit != lily_u16_pos(emit->code) &&
+            try_write_define_exit(emit, type, line_num) == 0)
             lily_raise_syn(emit->raiser,
                     "Missing return statement at end of function.");
 
