@@ -274,7 +274,7 @@ void lily_emit_multi_match_mark(lily_emit_state *);
 
 void lily_emit_enter_anon_block(lily_emit_state *);
 void lily_emit_enter_class_block(lily_emit_state *, lily_var *);
-void lily_emit_enter_define_block(lily_emit_state *, lily_var *);
+void lily_emit_enter_define_block(lily_emit_state *, lily_var *, uint16_t);
 void lily_emit_enter_do_while_block(lily_emit_state *);
 void lily_emit_enter_enum_block(lily_emit_state *, lily_class *);
 void lily_emit_enter_file_block(lily_emit_state *, lily_var *);

@@ -5559,8 +5559,7 @@ static void keyword_define(lily_parse_state *parser)
 
     lily_var *define_var = parse_new_define(parser, parent, modifiers);
 
-    lily_emit_enter_define_block(parser->emit, define_var);
-    parser->emit->block->generic_start = generic_start;
+    lily_emit_enter_define_block(parser->emit, define_var, generic_start);
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
 

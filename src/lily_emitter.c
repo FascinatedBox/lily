@@ -522,7 +522,8 @@ void lily_emit_enter_class_block(lily_emit_state *emit, lily_var *var)
     emit->function_depth++;
 }
 
-void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var)
+void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var,
+        uint16_t generic_start)
 {
     lily_block *block = next_block(emit);
     lily_block_type scope_block_type = emit->scope_block->block_type;
@@ -536,6 +537,7 @@ void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var)
         var->flags |= VAR_NEEDS_CLOSURE;
 
     block->block_type = block_define;
+    block->generic_start = generic_start;
     block->scope_var = var;
     setup_scope_block(emit, block);
     emit->function_depth++;
