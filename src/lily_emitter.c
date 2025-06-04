@@ -47,6 +47,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->raiser = raiser;
     emit->scope_block = main_block;
     emit->storages = new_storage_stack(4);
+    emit->self_storages = new_storage_stack(2);
     emit->symtab = symtab;
     emit->tm = lily_new_type_maker();
     emit->transform_size = 0;
@@ -95,6 +96,7 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     stack->start = main_block->storage_count;
     clear_storages(stack, total - stack->start);
     stack->start = 0;
+    emit->self_storages->start = 0;
 
     /* Now the buffers and the emitter. */
     emit->block->forward_class_count = 0;
@@ -127,6 +129,7 @@ void lily_free_emit_state(lily_emit_state *emit)
 
     free_proto_stack(emit->protos);
     free_storage_stack(emit->storages);
+    free_storage_stack(emit->self_storages);
     lily_free(emit->transform_table);
     lily_free_buffer_u16(emit->closure_spots);
     lily_free_buffer_u16(emit->code);
@@ -437,8 +440,7 @@ static lily_storage *get_storage(lily_emit_state *emit, lily_type *type)
             break;
         }
         else if (s->type == type &&
-                 s->expr_num != expr_num &&
-                 (s->flags & STORAGE_IS_LOCKED) == 0) {
+                 s->expr_num != expr_num) {
             s->expr_num = expr_num;
             s->flags = SYM_NOT_ASSIGNABLE;
             break;
@@ -807,6 +809,7 @@ void lily_emit_leave_scope_block(lily_emit_state *emit)
 
     lily_u16_set_pos(emit->code, block->code_start);
     clear_storages(emit->storages, block->storage_count);
+    emit->self_storages->start -= (block->self != NULL);
     emit->scope_block = block->prev_scope_block;
     emit->storages->start -= emit->scope_block->storage_count;
 
@@ -890,12 +893,23 @@ void lily_emit_except_switch(lily_emit_state *emit, lily_class *except_cls,
 
 void lily_emit_create_block_self(lily_emit_state *emit, lily_type *self_type)
 {
-    /* It's important that the storage for self not be written over. Use a type
-       that isn't allowed to make sure it's unique, then lock the storage. */
-    lily_storage *self = get_storage(emit, lily_scoop_type);
+    lily_storage_stack *stack = emit->self_storages;
+    lily_storage *self = stack->data[stack->start];
 
+    if (stack->start + 1 == stack->size)
+        grow_storages(emit->self_storages);
+
+    stack->start++;
+
+    /* Storages for self are in a different stack to prevent get_storage from
+       picking them. They're set with a different item_type to block call result
+       from using it. */
+    self->item_kind = ITEM_SELF_STORAGE;
     self->type = self_type;
-    self->flags |= STORAGE_IS_LOCKED;
+    self->flags = SYM_NOT_ASSIGNABLE;
+    self->reg_spot = emit->scope_block->next_reg_spot;
+    emit->scope_block->next_reg_spot++;
+
     /* This isn't cleared by default because it's the only storage that can be
        closed over. */
     self->closure_spot = UINT16_MAX;

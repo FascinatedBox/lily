@@ -205,6 +205,10 @@ typedef struct {
 
     struct lily_storage_stack_ *storages;
 
+    /* Storages for 'self' are kept away from the regular pool of storages to
+       prevent them from being clobbered. */
+    struct lily_storage_stack_ *self_storages;
+
     struct lily_proto_stack_ *protos;
 
     /* This is the current block, which may or may not be a scope block. This is

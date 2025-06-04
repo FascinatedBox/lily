@@ -375,6 +375,7 @@ typedef struct lily_proto_ {
 #define ITEM_VAR            0x0400
 #define ITEM_VARIANT_EMPTY  0x0800
 #define ITEM_VARIANT_FILLED 0x1000
+#define ITEM_SELF_STORAGE   0x2000
 
 
 /* These are important ids in the interpreter. */
@@ -452,13 +453,6 @@ typedef struct lily_proto_ {
 
 
 /* lily_prop_entry does not have any flags. */
-
-
-/* STORAGE_* flags are for lily_storage. */
-
-
-/* Storages that are locked will not be overwritten by another value. */
-#define STORAGE_IS_LOCKED 0x1
 
 
 /* VAR_* flags are for lily_var. */
