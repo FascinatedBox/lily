@@ -9,7 +9,7 @@ typedef struct {
     struct tm local;
 } lily_time_Time;
 
-void destroy_Time(lily_time_Time *t)
+void lily_time_destroy_Time(lily_time_Time *t)
 {
     (void)t;
 }

@@ -186,11 +186,11 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_ByteString_size, \
     lily_prelude_ByteString_slice, \
     NULL, \
-    lily_prelude_DivisionByZeroError_new, \
+    lily_prelude_new_DivisionByZeroError, \
     NULL, \
     lily_prelude_Double_to_i, \
     NULL, \
-    lily_prelude_Exception_new, \
+    lily_prelude_new_Exception, \
     NULL, \
     NULL, \
     NULL, \
@@ -219,9 +219,9 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_Hash_select, \
     lily_prelude_Hash_size, \
     NULL, \
-    lily_prelude_IOError_new, \
+    lily_prelude_new_IOError, \
     NULL, \
-    lily_prelude_IndexError_new, \
+    lily_prelude_new_IndexError, \
     NULL, \
     lily_prelude_Integer_to_binary, \
     lily_prelude_Integer_to_bool, \
@@ -231,7 +231,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_Integer_to_octal, \
     lily_prelude_Integer_to_s, \
     NULL, \
-    lily_prelude_KeyError_new, \
+    lily_prelude_new_KeyError, \
     NULL, \
     lily_prelude_List_accumulate, \
     lily_prelude_List_all, \
@@ -262,7 +262,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_List_unshift, \
     lily_prelude_List_zip, \
     NULL, \
-    lily_prelude_RuntimeError_new, \
+    lily_prelude_new_RuntimeError, \
     NULL, \
     lily_prelude_String_ends_with, \
     lily_prelude_String_find, \
@@ -288,7 +288,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
-    lily_prelude_ValueError_new, \
+    lily_prelude_new_ValueError, \
     NULL, \
     lily_prelude_Option_and, \
     lily_prelude_Option_and_then, \

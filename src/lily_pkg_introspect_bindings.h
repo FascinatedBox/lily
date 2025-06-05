@@ -15,7 +15,7 @@
 #define ID_ClassEntry(s_) \
 lily_cid_at(s_, 0)
 #define INIT_ClassEntry(s_) \
-(lily_introspect_ClassEntry *)lily_push_foreign(s_, ID_ClassEntry(s_), (lily_destroy_func)destroy_ClassEntry, sizeof(lily_introspect_ClassEntry))
+(lily_introspect_ClassEntry *)lily_push_foreign(s_, ID_ClassEntry(s_), (lily_destroy_func)lily_introspect_destroy_ClassEntry, sizeof(lily_introspect_ClassEntry))
 
 #define ARG_ConstantEntry(s_, i_) \
 (lily_introspect_ConstantEntry *)lily_arg_generic(s_, i_)
@@ -24,7 +24,7 @@ lily_cid_at(s_, 0)
 #define ID_ConstantEntry(s_) \
 lily_cid_at(s_, 1)
 #define INIT_ConstantEntry(s_) \
-(lily_introspect_ConstantEntry *)lily_push_foreign(s_, ID_ConstantEntry(s_), (lily_destroy_func)destroy_ConstantEntry, sizeof(lily_introspect_ConstantEntry))
+(lily_introspect_ConstantEntry *)lily_push_foreign(s_, ID_ConstantEntry(s_), (lily_destroy_func)lily_introspect_destroy_ConstantEntry, sizeof(lily_introspect_ConstantEntry))
 
 #define ARG_EnumEntry(s_, i_) \
 (lily_introspect_EnumEntry *)lily_arg_generic(s_, i_)
@@ -33,7 +33,7 @@ lily_cid_at(s_, 1)
 #define ID_EnumEntry(s_) \
 lily_cid_at(s_, 2)
 #define INIT_EnumEntry(s_) \
-(lily_introspect_EnumEntry *)lily_push_foreign(s_, ID_EnumEntry(s_), (lily_destroy_func)destroy_EnumEntry, sizeof(lily_introspect_EnumEntry))
+(lily_introspect_EnumEntry *)lily_push_foreign(s_, ID_EnumEntry(s_), (lily_destroy_func)lily_introspect_destroy_EnumEntry, sizeof(lily_introspect_EnumEntry))
 
 #define ARG_FunctionEntry(s_, i_) \
 (lily_introspect_FunctionEntry *)lily_arg_generic(s_, i_)
@@ -42,7 +42,7 @@ lily_cid_at(s_, 2)
 #define ID_FunctionEntry(s_) \
 lily_cid_at(s_, 3)
 #define INIT_FunctionEntry(s_) \
-(lily_introspect_FunctionEntry *)lily_push_foreign(s_, ID_FunctionEntry(s_), (lily_destroy_func)destroy_FunctionEntry, sizeof(lily_introspect_FunctionEntry))
+(lily_introspect_FunctionEntry *)lily_push_foreign(s_, ID_FunctionEntry(s_), (lily_destroy_func)lily_introspect_destroy_FunctionEntry, sizeof(lily_introspect_FunctionEntry))
 
 #define ARG_MethodEntry(s_, i_) \
 (lily_introspect_MethodEntry *)lily_arg_generic(s_, i_)
@@ -51,7 +51,7 @@ lily_cid_at(s_, 3)
 #define ID_MethodEntry(s_) \
 lily_cid_at(s_, 4)
 #define INIT_MethodEntry(s_) \
-(lily_introspect_MethodEntry *)lily_push_foreign(s_, ID_MethodEntry(s_), (lily_destroy_func)destroy_MethodEntry, sizeof(lily_introspect_MethodEntry))
+(lily_introspect_MethodEntry *)lily_push_foreign(s_, ID_MethodEntry(s_), (lily_destroy_func)lily_introspect_destroy_MethodEntry, sizeof(lily_introspect_MethodEntry))
 
 #define ARG_ModuleEntry(s_, i_) \
 (lily_introspect_ModuleEntry *)lily_arg_generic(s_, i_)
@@ -60,7 +60,7 @@ lily_cid_at(s_, 4)
 #define ID_ModuleEntry(s_) \
 lily_cid_at(s_, 5)
 #define INIT_ModuleEntry(s_) \
-(lily_introspect_ModuleEntry *)lily_push_foreign(s_, ID_ModuleEntry(s_), (lily_destroy_func)destroy_ModuleEntry, sizeof(lily_introspect_ModuleEntry))
+(lily_introspect_ModuleEntry *)lily_push_foreign(s_, ID_ModuleEntry(s_), (lily_destroy_func)lily_introspect_destroy_ModuleEntry, sizeof(lily_introspect_ModuleEntry))
 
 #define GET_ParameterEntry__keyword(c_) \
 lily_con_get(c_, 0)
@@ -92,7 +92,7 @@ lily_push_super(s_, ID_ParameterEntry(s_), 3)
 #define ID_PropertyEntry(s_) \
 lily_cid_at(s_, 7)
 #define INIT_PropertyEntry(s_) \
-(lily_introspect_PropertyEntry *)lily_push_foreign(s_, ID_PropertyEntry(s_), (lily_destroy_func)destroy_PropertyEntry, sizeof(lily_introspect_PropertyEntry))
+(lily_introspect_PropertyEntry *)lily_push_foreign(s_, ID_PropertyEntry(s_), (lily_destroy_func)lily_introspect_destroy_PropertyEntry, sizeof(lily_introspect_PropertyEntry))
 
 #define ARG_TypeEntry(s_, i_) \
 (lily_introspect_TypeEntry *)lily_arg_generic(s_, i_)
@@ -101,7 +101,7 @@ lily_cid_at(s_, 7)
 #define ID_TypeEntry(s_) \
 lily_cid_at(s_, 8)
 #define INIT_TypeEntry(s_) \
-(lily_introspect_TypeEntry *)lily_push_foreign(s_, ID_TypeEntry(s_), (lily_destroy_func)destroy_TypeEntry, sizeof(lily_introspect_TypeEntry))
+(lily_introspect_TypeEntry *)lily_push_foreign(s_, ID_TypeEntry(s_), (lily_destroy_func)lily_introspect_destroy_TypeEntry, sizeof(lily_introspect_TypeEntry))
 
 #define ARG_VarEntry(s_, i_) \
 (lily_introspect_VarEntry *)lily_arg_generic(s_, i_)
@@ -110,7 +110,7 @@ lily_cid_at(s_, 8)
 #define ID_VarEntry(s_) \
 lily_cid_at(s_, 9)
 #define INIT_VarEntry(s_) \
-(lily_introspect_VarEntry *)lily_push_foreign(s_, ID_VarEntry(s_), (lily_destroy_func)destroy_VarEntry, sizeof(lily_introspect_VarEntry))
+(lily_introspect_VarEntry *)lily_push_foreign(s_, ID_VarEntry(s_), (lily_destroy_func)lily_introspect_destroy_VarEntry, sizeof(lily_introspect_VarEntry))
 
 #define ARG_VariantEntry(s_, i_) \
 (lily_introspect_VariantEntry *)lily_arg_generic(s_, i_)
@@ -119,7 +119,7 @@ lily_cid_at(s_, 9)
 #define ID_VariantEntry(s_) \
 lily_cid_at(s_, 10)
 #define INIT_VariantEntry(s_) \
-(lily_introspect_VariantEntry *)lily_push_foreign(s_, ID_VariantEntry(s_), (lily_destroy_func)destroy_VariantEntry, sizeof(lily_introspect_VariantEntry))
+(lily_introspect_VariantEntry *)lily_push_foreign(s_, ID_VariantEntry(s_), (lily_destroy_func)lily_introspect_destroy_VariantEntry, sizeof(lily_introspect_VariantEntry))
 
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
@@ -289,7 +289,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ModuleEntry_path, \
     lily_introspect_ModuleEntry_vars, \
     NULL, \
-    lily_introspect_ParameterEntry_new, \
+    lily_introspect_new_ParameterEntry, \
     NULL, \
     NULL, \
     NULL, \

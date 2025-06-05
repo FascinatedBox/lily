@@ -15,7 +15,7 @@
 #define ID_Random(s_) \
 lily_cid_at(s_, 0)
 #define INIT_Random(s_) \
-(lily_random_Random *)lily_push_foreign(s_, ID_Random(s_), (lily_destroy_func)destroy_Random, sizeof(lily_random_Random))
+(lily_random_Random *)lily_push_foreign(s_, ID_Random(s_), (lily_destroy_func)lily_random_destroy_Random, sizeof(lily_random_Random))
 
 LILY_RANDOM_EXPORT
 const char *lily_random_info_table[] = {
@@ -30,7 +30,7 @@ LILY_RANDOM_EXPORT \
 lily_call_entry_func lily_random_call_table[] = { \
     NULL, \
     NULL, \
-    lily_random_Random_new, \
+    lily_random_new_Random, \
     lily_random_Random_between, \
 };
 #endif

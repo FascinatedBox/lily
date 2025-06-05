@@ -32,7 +32,7 @@ lily_push_super(s_, ID_Interpreter(s_), 2)
 #define ID_RawInterpreter(s_) \
 lily_cid_at(s_, 1)
 #define INIT_RawInterpreter(s_) \
-(lily_backbone_RawInterpreter *)lily_push_foreign(s_, ID_RawInterpreter(s_), (lily_destroy_func)destroy_RawInterpreter, sizeof(lily_backbone_RawInterpreter))
+(lily_backbone_RawInterpreter *)lily_push_foreign(s_, ID_RawInterpreter(s_), (lily_destroy_func)lily_backbone_destroy_RawInterpreter, sizeof(lily_backbone_RawInterpreter))
 
 #define GET_TestCaseBase__fail_count(c_) \
 lily_con_get(c_, 0)
@@ -101,7 +101,7 @@ LILY_BACKBONE_EXPORT \
 lily_call_entry_func lily_backbone_call_table[] = { \
     NULL, \
     NULL, \
-    lily_backbone_Interpreter_new, \
+    lily_backbone_new_Interpreter, \
     lily_backbone_Interpreter_config_set_extra_info, \
     lily_backbone_Interpreter_error, \
     lily_backbone_Interpreter_error_message, \
@@ -129,7 +129,7 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
-    lily_backbone_TestCaseBase_new, \
+    lily_backbone_new_TestCaseBase, \
     lily_backbone_TestCaseBase_run_tests, \
     NULL, \
     NULL, \

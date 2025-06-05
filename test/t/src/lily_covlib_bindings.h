@@ -37,7 +37,7 @@ lily_push_super(s_, ID_Container(s_), 1)
 #define ID_Foreign(s_) \
 lily_cid_at(s_, 2)
 #define INIT_Foreign(s_) \
-(lily_covlib_Foreign *)lily_push_foreign(s_, ID_Foreign(s_), (lily_destroy_func)destroy_Foreign, sizeof(lily_covlib_Foreign))
+(lily_covlib_Foreign *)lily_push_foreign(s_, ID_Foreign(s_), (lily_destroy_func)lily_covlib_destroy_Foreign, sizeof(lily_covlib_Foreign))
 
 #define ARG_ForeignGeneric(s_, i_) \
 (lily_covlib_ForeignGeneric *)lily_arg_generic(s_, i_)
@@ -46,7 +46,7 @@ lily_cid_at(s_, 2)
 #define ID_ForeignGeneric(s_) \
 lily_cid_at(s_, 3)
 #define INIT_ForeignGeneric(s_) \
-(lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
+(lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)lily_covlib_destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
 
 #define ID_FlatOne(s_) \
 (lily_cid_at(s_, 4) + 1)
@@ -61,17 +61,17 @@ lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
 #define PUSH_FlatTwo(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
 
-#define ID_ScopedOne(s_) \
+#define ID_ScopedEnum_ScopedOne(s_) \
 (lily_cid_at(s_, 5) + 1)
-#define PUSH_ScopedOne(state)\
+#define PUSH_ScopedEnum_ScopedOne(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 5) + 1)
-#define ID_ScopedThree(s_) \
+#define ID_ScopedEnum_ScopedThree(s_) \
 (lily_cid_at(s_, 5) + 2)
-#define PUSH_ScopedThree(state)\
+#define PUSH_ScopedEnum_ScopedThree(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
-#define ID_ScopedTwo(s_) \
+#define ID_ScopedEnum_ScopedTwo(s_) \
 (lily_cid_at(s_, 5) + 3)
-#define PUSH_ScopedTwo(state)\
+#define PUSH_ScopedEnum_ScopedTwo(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
 
 extern LILY_COVLIB_EXPORT const char *lily_farm_info_table[];
@@ -129,17 +129,17 @@ LILY_COVLIB_EXPORT \
 lily_call_entry_func lily_covlib_call_table[] = { \
     NULL, \
     NULL, \
-    lily_covlib_C2_new, \
+    lily_covlib_new_C2, \
     lily_covlib_C2_check, \
     NULL, \
     NULL, \
-    lily_covlib_Container_new, \
+    lily_covlib_new_Container, \
     lily_covlib_Container_fetch, \
     lily_covlib_Container_nothing, \
     lily_covlib_Container_update, \
     NULL, \
     NULL, \
-    lily_covlib_Foreign_new, \
+    lily_covlib_new_Foreign, \
     NULL, \
     NULL, \
     NULL, \

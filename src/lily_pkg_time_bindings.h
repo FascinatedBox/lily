@@ -15,7 +15,7 @@
 #define ID_Time(s_) \
 lily_cid_at(s_, 0)
 #define INIT_Time(s_) \
-(lily_time_Time *)lily_push_foreign(s_, ID_Time(s_), (lily_destroy_func)destroy_Time, sizeof(lily_time_Time))
+(lily_time_Time *)lily_push_foreign(s_, ID_Time(s_), (lily_destroy_func)lily_time_destroy_Time, sizeof(lily_time_Time))
 
 LILY_TIME_EXPORT
 const char *lily_time_info_table[] = {

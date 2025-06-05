@@ -163,52 +163,52 @@ typedef struct {
     lily_class *parent;
 } lily_introspect_PropertyEntry;
 
-static void destroy_ClassEntry(lily_introspect_ClassEntry *c)
+static void lily_introspect_destroy_ClassEntry(lily_introspect_ClassEntry *c)
 {
     (void)c;
 }
 
-static void destroy_ConstantEntry(lily_introspect_ConstantEntry *c)
+static void lily_introspect_destroy_ConstantEntry(lily_introspect_ConstantEntry *c)
 {
     (void)c;
 }
 
-static void destroy_EnumEntry(lily_introspect_EnumEntry *c)
+static void lily_introspect_destroy_EnumEntry(lily_introspect_EnumEntry *c)
 {
     (void)c;
 }
 
-static void destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
+static void lily_introspect_destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
 {
     (void)f;
 }
 
-static void destroy_MethodEntry(lily_introspect_MethodEntry *m)
+static void lily_introspect_destroy_MethodEntry(lily_introspect_MethodEntry *m)
 {
     (void)m;
 }
 
-static void destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
+static void lily_introspect_destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
 {
     (void)m;
 }
 
-static void destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
+static void lily_introspect_destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
 {
     (void)p;
 }
 
-static void destroy_VarEntry(lily_introspect_VarEntry *v)
+static void lily_introspect_destroy_VarEntry(lily_introspect_VarEntry *v)
 {
     (void)v;
 }
 
-static void destroy_VariantEntry(lily_introspect_VariantEntry *v)
+static void lily_introspect_destroy_VariantEntry(lily_introspect_VariantEntry *v)
 {
     (void)v;
 }
 
-static void destroy_TypeEntry(lily_introspect_TypeEntry *t)
+static void lily_introspect_destroy_TypeEntry(lily_introspect_TypeEntry *t)
 {
     (void)t;
 }
@@ -486,7 +486,7 @@ void lily_introspect_TypeEntry_is_vararg_function(lily_state *s)
     lily_return_boolean(s, !!(entry->flags & TYPE_IS_VARARGS));
 }
 
-void lily_introspect_ParameterEntry_new(lily_state *s)
+void lily_introspect_new_ParameterEntry(lily_state *s)
 {
     lily_container_val *con = lily_push_super(s, ID_ParameterEntry(s), 3);
     lily_value *name = lily_arg_value(s, 0);

@@ -30,12 +30,12 @@ typedef struct {
     int remaining;
 } lily_random_Random;
 
-static void destroy_Random(lily_random_Random *r)
+static void lily_random_destroy_Random(lily_random_Random *r)
 {
     (void)r;
 }
 
-void lily_random_Random_new(lily_state *s)
+void lily_random_new_Random(lily_state *s)
 {
     lily_random_Random* mt = INIT_Random(s);
     int64_t seed = 0;

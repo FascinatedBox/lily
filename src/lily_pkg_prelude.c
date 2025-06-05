@@ -270,7 +270,7 @@ void lily_prelude_ByteString_slice(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_prelude_DivisionByZeroError_new(lily_state *s)
+void lily_prelude_new_DivisionByZeroError(lily_state *s)
 {
     return_exception(s, LILY_ID_DBZERROR);
 }
@@ -282,7 +282,7 @@ void lily_prelude_Double_to_i(lily_state *s)
     lily_return_integer(s, integer_val);
 }
 
-void lily_prelude_Exception_new(lily_state *s)
+void lily_prelude_new_Exception(lily_state *s)
 {
     return_exception(s, LILY_ID_EXCEPTION);
 }
@@ -861,7 +861,7 @@ void lily_prelude_Hash_size(lily_state *s)
     lily_return_integer(s, hash_val->num_entries);
 }
 
-void lily_prelude_IndexError_new(lily_state *s)
+void lily_prelude_new_IndexError(lily_state *s)
 {
     return_exception(s, LILY_ID_INDEXERROR);
 }
@@ -961,12 +961,12 @@ void lily_prelude_Integer_to_s(lily_state *s)
     lily_return_string(s, buffer);
 }
 
-void lily_prelude_IOError_new(lily_state *s)
+void lily_prelude_new_IOError(lily_state *s)
 {
     return_exception(s, LILY_ID_IOERROR);
 }
 
-void lily_prelude_KeyError_new(lily_state *s)
+void lily_prelude_new_KeyError(lily_state *s)
 {
     return_exception(s, LILY_ID_KEYERROR);
 }
@@ -1712,7 +1712,7 @@ void lily_prelude_Result_success(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_prelude_RuntimeError_new(lily_state *s)
+void lily_prelude_new_RuntimeError(lily_state *s)
 {
     return_exception(s, LILY_ID_RUNTIMEERROR);
 }
@@ -2374,7 +2374,7 @@ void lily_prelude_String_upper(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_prelude_ValueError_new(lily_state *s)
+void lily_prelude_new_ValueError(lily_state *s)
 {
     return_exception(s, LILY_ID_VALUEERROR);
 }

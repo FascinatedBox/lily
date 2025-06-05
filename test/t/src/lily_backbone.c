@@ -14,7 +14,7 @@ typedef struct lily_backbone_RawInterpreter_ {
     lily_value interp_reg;
 } lily_backbone_RawInterpreter;
 
-void lily_backbone_TestCaseBase_new(lily_state *s)
+void lily_backbone_new_TestCaseBase(lily_state *s)
 {
     lily_container_val *con = SUPER_TestCaseBase(s);
 
@@ -189,12 +189,12 @@ void lily_backbone_TestCaseBase_run_tests(lily_state *s)
 
 /* Begin spawni section. */
 
-static void destroy_RawInterpreter(lily_backbone_RawInterpreter *raw)
+static void lily_backbone_destroy_RawInterpreter(lily_backbone_RawInterpreter *raw)
 {
     lily_free_state(raw->subi);
 }
 
-void lily_backbone_Interpreter_new(lily_state *s)
+void lily_backbone_new_Interpreter(lily_state *s)
 {
     lily_container_val *interp = SUPER_Interpreter(s);
 

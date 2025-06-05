@@ -15,12 +15,12 @@ typedef struct lily_covlib_ForeignGeneric_ {
     LILY_FOREIGN_HEADER
 } lily_covlib_ForeignGeneric;
 
-void destroy_Foreign(lily_covlib_Foreign *f)
+void lily_covlib_destroy_Foreign(lily_covlib_Foreign *f)
 {
     (void)f;
 }
 
-void lily_covlib_Foreign_new(lily_state *s)
+void lily_covlib_new_Foreign(lily_state *s)
 {
     INIT_Foreign(s);
     lily_return_top(s);
@@ -260,11 +260,11 @@ void lily_covlib__make_scoped_n(lily_state *s)
     int64_t arg_n = lily_arg_integer(s, 0);
 
     if (arg_n == 1)
-        PUSH_ScopedOne(s);
+        PUSH_ScopedEnum_ScopedOne(s);
     else if (arg_n == 2)
-        PUSH_ScopedTwo(s);
+        PUSH_ScopedEnum_ScopedTwo(s);
     else
-        PUSH_ScopedThree(s);
+        PUSH_ScopedEnum_ScopedThree(s);
 
     lily_return_top(s);
 }
@@ -541,7 +541,7 @@ void lily_covlib__raise_keyerror(lily_state *s)
     lily_KeyError(s, "test");
 }
 
-void lily_covlib_Container_new(lily_state *s)
+void lily_covlib_new_Container(lily_state *s)
 {
     lily_container_val *con = SUPER_Container(s);
     SET_Container__value(con, lily_arg_value(s, 0));
@@ -566,7 +566,7 @@ void lily_covlib_Container_nothing(lily_state *s)
     lily_return_value(s, lily_arg_value(s, 0));
 }
 
-void lily_covlib_C2_new(lily_state *s)
+void lily_covlib_new_C2(lily_state *s)
 {
     lily_container_val *con = SUPER_C2(s);
     SET_Container__value(con, lily_arg_value(s, 0));

@@ -15,7 +15,7 @@
 #define ID_Coroutine(s_) \
 lily_cid_at(s_, 0)
 #define INIT_Coroutine(s_) \
-(lily_coroutine_Coroutine *)lily_push_foreign(s_, ID_Coroutine(s_), (lily_destroy_func)destroy_Coroutine, sizeof(lily_coroutine_Coroutine))
+(lily_coroutine_Coroutine *)lily_push_foreign(s_, ID_Coroutine(s_), (lily_destroy_func)lily_coroutine_destroy_Coroutine, sizeof(lily_coroutine_Coroutine))
 
 LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
