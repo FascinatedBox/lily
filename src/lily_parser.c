@@ -63,7 +63,6 @@ extern lily_type *lily_unset_type;
  **/
 static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
-static void mark_prelude_modules(lily_parse_state *);
 void lily_default_import_func(lily_state *, const char *);
 void lily_stdout_print(lily_vm_state *);
 void lily_prelude_register(lily_vm_state *);
@@ -239,10 +238,6 @@ lily_state *lily_new_state(lily_config *config)
     /* Create the `__main__` var and underlying function. */
     create_main_func(parser);
 
-    /* Mark prelude modules as being part of the prelude, so they're available
-       everywhere. */
-    mark_prelude_modules(parser);
-
     return parser->vm;
 }
 
@@ -384,18 +379,6 @@ static void initialize_rewind(lily_parse_state *parser)
     rs->main_last_module_link = m->module_chain;
     rs->main_last_module = parser->module_top;
     rs->line_num = parser->lex->line_num;
-}
-
-static void mark_prelude_modules(lily_parse_state *parser)
-{
-    lily_module_entry *module_iter = parser->module_start;
-
-    while (module_iter) {
-        module_iter->flags |= MODULE_IS_PREDEFINED;
-        module_iter = module_iter->next;
-    }
-
-    parser->main_module->flags &= ~MODULE_IS_PREDEFINED;
 }
 
 static void add_data_string(lily_parse_state *parser, const char *to_add)
@@ -1079,6 +1062,19 @@ void lily_module_register(lily_state *s, const char *name,
     add_data_to_module(module, NULL, info_table, call_table);
     module->cmp_len = 0;
     module->flags |= MODULE_IS_REGISTERED;
+}
+
+/* This takes a parser because the api should not use it directly. */
+void lily_predefined_module_register(lily_parse_state *parser, const char *name,
+        const char **info_table, lily_call_entry_func *call_table)
+{
+    lily_module_entry *module = new_module(parser);
+    const char *module_path = lily_mb_sprintf(parser->msgbuf, "[%s]", name);
+
+    add_path_to_module(module, name, module_path);
+    add_data_to_module(module, NULL, info_table, call_table);
+    module->cmp_len = 0;
+    module->flags |= MODULE_IS_REGISTERED | MODULE_IS_PREDEFINED;
 }
 
 /* This adds 'to_link' as an entry within 'target' so that 'target' is able to
