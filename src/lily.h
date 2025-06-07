@@ -121,6 +121,20 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //                     By default, the interpreter does not save parameter names
 //                     or docblocks for introspection. If this is 1 when
 //                     starting a parse, the information is saved and available.
+//
+//     sandbox       - (Default: 0)
+//                     The sandbox mode activates three mechanisms in the
+//                     interpreter to prevent scripts from making unwanted
+//                     modifications.
+//                     When creating a new state (`lily_new_state`), the
+//                     interpreter will not load all predefined modules. To make
+//                     a library available, the embedder must call
+//                     `lily_open_*_library`, or `lily_open_all_libraries`
+//                     before parsing.
+//                     `lily_import_library` will immediately return failure.
+//                     Import failure traceback will not include library paths
+//                     blocked by sandbox mode.
+//                     `File.open` will immediately raise `RuntimeError`.
 typedef struct lily_config_ {
     int argc;
     char **argv;
@@ -132,6 +146,7 @@ typedef struct lily_config_ {
     void *render_data;
     void *data;
     int extra_info;
+    int sandbox;
 } lily_config;
 
 // Function: lily_config_init
@@ -1575,6 +1590,51 @@ lily_destroy_func destroy_func;
 //
 // The value itself should not be destroyed, because the interpreter will do
 // that once the callback has returned.
+
+
+/////////////////////////////////////
+// Section: Open predefined libraries
+/////////////////////////////////////
+// Provide access to a predefined module. For sandbox mode only.
+//
+// The embedder is responsible for ensuring that a library is not opened more
+// than once.
+
+// Function: lily_open_all_libraries
+// Make all predefined libraries available.
+void lily_open_all_libraries(lily_state *);
+
+// Function: lily_open_coroutine_library
+// Make the coroutine library available.
+void lily_open_coroutine_library(lily_state *);
+
+// Function: lily_open_fs_library
+// Make the fs library available.
+void lily_open_fs_library(lily_state *);
+
+// Function: lily_open_introspect_library
+// Make the introspect library available.
+void lily_open_introspect_library(lily_state *);
+
+// Function: lily_open_math_library
+// Make the math library available.
+void lily_open_math_library(lily_state *);
+
+// Function: lily_open_random_library
+// Make the random library available.
+void lily_open_random_library(lily_state *);
+
+// Function: lily_open_subprocess_library
+// Make the subprocess library available.
+void lily_open_subprocess_library(lily_state *);
+
+// Function: lily_open_sys_library
+// Make the sys library available.
+void lily_open_sys_library(lily_state *);
+
+// Function: lily_open_time_library
+// Make the time library available.
+void lily_open_time_library(lily_state *);
 
 /////////////////////////
 // Section: Miscellaneous

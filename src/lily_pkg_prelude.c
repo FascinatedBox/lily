@@ -397,6 +397,9 @@ void lily_prelude_File_open(lily_state *s)
     char *mode = lily_arg_string_raw(s, 1);
     int ok;
 
+    if (s->gs->parser->config->sandbox)
+        lily_RuntimeError(s, "Not allowed to open files in sandbox mode.");
+
     {
         char *mode_ch = mode;
 

@@ -378,6 +378,29 @@ void lily_backbone_Interpreter_import_use_package_dir(lily_state *s)
     lily_return_unit(s);
 }
 
+void lily_backbone_Interpreter_new_sandboxed(lily_state *s)
+{
+    lily_container_val *interp = lily_push_instance(s, ID_Interpreter(s), 2);
+
+    lily_backbone_RawInterpreter *raw = INIT_RawInterpreter(s);
+    lily_config_init(&raw->config);
+    raw->config.sandbox = 1;
+    raw->subi = lily_new_state(&raw->config);
+    raw->sourcei = s;
+
+    SETFS_Interpreter__raw(s, interp);
+    lily_return_top(s);
+}
+
+void lily_backbone_Interpreter_open_math_library(lily_state *s)
+{
+    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
+    lily_state *subi = raw->subi;
+
+    lily_open_math_library(subi);
+    lily_return_unit(s);
+}
+
 void lily_backbone_Interpreter_parse_expr(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);

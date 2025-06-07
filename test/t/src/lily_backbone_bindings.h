@@ -60,7 +60,7 @@ lily_push_super(s_, ID_TestCaseBase(s_), 3)
 LILY_BACKBONE_EXPORT
 const char *lily_backbone_info_table[] = {
     "\03Interpreter\0RawInterpreter\0TestCaseBase\0"
-    ,"N\032Interpreter\0"
+    ,"N\034Interpreter\0"
     ,"m\0<new>\0: Interpreter"
     ,"m\0config_set_extra_info\0(Interpreter,Boolean): Interpreter"
     ,"m\0error\0(Interpreter): String"
@@ -75,6 +75,8 @@ const char *lily_backbone_info_table[] = {
     ,"m\0import_string\0(Interpreter,String,String): Boolean"
     ,"m\0import_use_local_dir\0(Interpreter,String)"
     ,"m\0import_use_package_dir\0(Interpreter,String)"
+    ,"m\0new_sandboxed\0: Interpreter"
+    ,"m\0open_math_library\0(Interpreter)"
     ,"m\0parse_expr\0(Interpreter,String,String): Option[String]"
     ,"m\0parse_file\0(Interpreter,String): Boolean"
     ,"m\0parse_manifest_file\0(Interpreter,String): Boolean"
@@ -115,6 +117,8 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     lily_backbone_Interpreter_import_string, \
     lily_backbone_Interpreter_import_use_local_dir, \
     lily_backbone_Interpreter_import_use_package_dir, \
+    lily_backbone_Interpreter_new_sandboxed, \
+    lily_backbone_Interpreter_open_math_library, \
     lily_backbone_Interpreter_parse_expr, \
     lily_backbone_Interpreter_parse_file, \
     lily_backbone_Interpreter_parse_manifest_file, \

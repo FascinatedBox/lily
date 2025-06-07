@@ -65,7 +65,7 @@ static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
 void lily_default_import_func(lily_state *, const char *);
 void lily_stdout_print(lily_vm_state *);
-void lily_prelude_register(lily_vm_state *);
+void lily_open_prelude_library(lily_parse_state *);
 
 typedef struct {
     const char **table;
@@ -155,6 +155,7 @@ void lily_config_init(lily_config *conf)
     conf->render_data = stdout;
     conf->data = NULL;
     conf->extra_info = 0;
+    conf->sandbox = 0;
 }
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
@@ -207,8 +208,12 @@ lily_state *lily_new_state(lily_config *config)
     parser->vm->gs->gc_multiplier = config->gc_multiplier;
     parser->vm->gs->gc_threshold = config->gc_start;
 
-    /* Register the prelude and other predefined modules. */
-    lily_prelude_register(parser->vm);
+    /* Make just the prelude module available. */
+    lily_open_prelude_library(parser);
+
+    if (parser->config->sandbox == 0)
+        /* Now the other predefined modules. */
+        lily_open_all_libraries(parser->vm);
 
     /* Make the symtab and load it. */
     parser->symtab = lily_new_symtab();
@@ -989,14 +994,16 @@ int lily_import_library(lily_state *s, const char *name)
     const char **suffix = suffix_table;
     int result = 0;
 
+    /* Libraries provide a mechanism for escaping the sandbox. */
+    if (parser->config->sandbox)
+        return 0;
+
     while (*suffix != NULL) {
         const char *path = build_import_path(parser->ims, name, *suffix);
 
         suffix++;
 
         if (import_check(parser, path)) {
-            /* This exact path has been loaded already. This is the only case
-               that should immediately stop. */
             result = (path != NULL);
             break;
         }

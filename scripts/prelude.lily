@@ -74,9 +74,39 @@ define generate_call_tables: String
     return data
 }
 
+define generate_library_openers: String
+{
+    # This takes a parser because the api should not be using it.
+    var prelude = (|t: String|
+        var info = "lily_" ++ t ++ "_info_table"
+        var call = "lily_" ++ t ++ "_call_table"
+        var f = """\
+void lily_open_prelude_library(lily_parse_state *parser) {{
+    lily_predefined_module_register(parser, "{0}", {1}, {2});
+}}
+"""
+
+        f.format(t, info, call)
+    )(targets.shift())
+
+    var data = targets.map(|t|
+        var info = "lily_" ++ t ++ "_info_table"
+        var call = "lily_" ++ t ++ "_call_table"
+        var f = """\
+void lily_open_{0}_library(lily_state *s) {{
+    lily_predefined_module_register(s->gs->parser, "{0}", {1}, {2});
+}}
+"""
+
+        f.format(t, info, call)
+    )
+
+    return data.unshift(prelude).join("\n").rstrip("\n")
+}
+
 define generate_bootstrap: String
 {
-    var data = targets.map(|t|
+    var module_init = targets.map(|t|
         var info = "lily_" ++ t ++ "_info_table"
         var call = "lily_" ++ t ++ "_call_table"
         var f = "    lily_predefined_module_register(parser, \"{}\", {}, {});"
@@ -85,13 +115,13 @@ define generate_bootstrap: String
     ).join("\n")
 
     var result = """\
-void lily_prelude_register(lily_vm_state *vm)
-{
-    lily_parse_state *parser = vm->gs->parser;
+void lily_open_all_libraries(lily_state *s)
+{{
+    lily_parse_state *parser = s->gs->parser;
 
-%data%
-}
-""".replace("%data%", data)
+{0}
+}}
+""".format(module_init)
 
     return result
 }
@@ -102,6 +132,7 @@ define generate_prelude_c_file
         generate_c_header,
         generate_info_tables,
         generate_call_tables,
+        generate_library_openers,
         generate_bootstrap,
     ]
     var output = steps.map(|m| m() )

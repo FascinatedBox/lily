@@ -2,6 +2,7 @@ import (Interpreter,
         LibraryTarget,
         StringTarget,
         TestCase) "../t/testing"
+import "../t/backbone"
 
 class TestVerifyCoverage < TestCase
 {
@@ -697,6 +698,61 @@ class TestVerifyCoverage < TestCase
 
             var e = Example()
             var b = e.g() ++ e
+        """)
+    }
+
+    public define test_internal_sandbox
+    {
+        var t = backbone.Interpreter.new_sandboxed()
+
+        t.open_math_library()
+
+        # internal sandbox (predefined modules not automatically loaded)
+        # The traceback also shows that only native files are looked at.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot import 'sys':\n    \
+                no preloaded package 'sys'\n    \
+                no file '.\/sys.lily'\n    \
+                no file '.\/packages\/sys\/src\/sys.lily'\n    \
+                    from [test]:1:\n\
+        """,
+        """\
+            import sys
+        """)
+
+        # internal sandbox (math library available when opened)
+
+        assert_parse_string(t, """
+            import math
+
+            if math.abs(-1) != 1: {
+                0/0
+            }
+        """)
+
+        # internal sandbox (File.open blocked)
+
+        assert_parse_fails(t, """\
+            RuntimeError: Not allowed to open files in sandbox mode.\n\
+            Traceback:\n    \
+                from [prelude]: in File.open\n    \
+                from [test]:13: in __main__\n\
+        """,
+        """\
+            try: {
+                File.open("test.txt", "w")
+                0/0
+            except RuntimeError:
+            }
+
+            try: {
+                File.open("test.txt", "r")
+                0/0
+            except RuntimeError:
+            }
+
+            File.open("test.txt", "a")
         """)
     }
 }

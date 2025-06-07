@@ -28,11 +28,46 @@ extern lily_call_entry_func lily_subprocess_call_table[];
 extern lily_call_entry_func lily_sys_call_table[];
 extern lily_call_entry_func lily_time_call_table[];
 
-void lily_prelude_register(lily_vm_state *vm)
-{
-    lily_parse_state *parser = vm->gs->parser;
-
+void lily_open_prelude_library(lily_parse_state *parser) {
     lily_predefined_module_register(parser, "prelude", lily_prelude_info_table, lily_prelude_call_table);
+}
+
+void lily_open_coroutine_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "coroutine", lily_coroutine_info_table, lily_coroutine_call_table);
+}
+
+void lily_open_fs_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "fs", lily_fs_info_table, lily_fs_call_table);
+}
+
+void lily_open_introspect_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "introspect", lily_introspect_info_table, lily_introspect_call_table);
+}
+
+void lily_open_math_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "math", lily_math_info_table, lily_math_call_table);
+}
+
+void lily_open_random_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "random", lily_random_info_table, lily_random_call_table);
+}
+
+void lily_open_subprocess_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "subprocess", lily_subprocess_info_table, lily_subprocess_call_table);
+}
+
+void lily_open_sys_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "sys", lily_sys_info_table, lily_sys_call_table);
+}
+
+void lily_open_time_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "time", lily_time_info_table, lily_time_call_table);
+}
+
+void lily_open_all_libraries(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
     lily_predefined_module_register(parser, "coroutine", lily_coroutine_info_table, lily_coroutine_call_table);
     lily_predefined_module_register(parser, "fs", lily_fs_info_table, lily_fs_call_table);
     lily_predefined_module_register(parser, "introspect", lily_introspect_info_table, lily_introspect_call_table);
