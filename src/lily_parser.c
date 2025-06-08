@@ -3672,14 +3672,19 @@ static int collect_lambda_args(lily_parse_state *parser,
             arg_var->type = arg_type;
         }
         else {
-            arg_type = lily_question_type;
-
             if (num_args < infer_count)
+                /* This could be '?' if expecting a generic, but the generic
+                   doesn't have any solutions yet. */
                 arg_type = expect_type->subtypes[num_args];
+            else
+                arg_type = lily_question_type;
 
+            /* This is mostly about blocking '?', but uses TYPE_TO_BLOCK to make
+               sure scoop can't flow through here. */
             if (arg_type->flags & TYPE_TO_BLOCK)
-                lily_raise_syn(parser->raiser, "Cannot infer type of '%s'.",
-                        lex->label);
+                lily_raise_syn(parser->raiser,
+                        "'%s' has an incomplete inferred type (^T).",
+                        lex->label, arg_type);
 
             arg_var->type = arg_type;
         }

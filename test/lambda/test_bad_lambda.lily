@@ -234,11 +234,25 @@ class TestBadLambda < TestCase
         # lambda rules (no unresolved parameters)
         # Blocked because this makes the type system MUCH more difficult.
         assert_parse_fails(t, """\
-            SyntaxError: Cannot infer type of 'a'.\n    \
+            SyntaxError: 'a' has an incomplete inferred type (?).\n    \
                 from [test]:5:\n\
         """,
         """\
             define f[A](g: Function(A => A)) {
+
+            }
+
+            f((|a| a))
+        """)
+
+        # lambda rules (unresolved parameter in container)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'a' has an incomplete inferred type (List[?]).\n    \
+                from [test]:5:\n\
+        """,
+        """\
+            define f[A](g: Function(List[A] => List[A])) {
 
             }
 
@@ -325,7 +339,7 @@ class TestBadLambda < TestCase
         # missing inference (because of too many args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot infer type of 'b_'.\n    \
+            SyntaxError: 'b_' has an incomplete inferred type (?).\n    \
                 from [test]:3:\n\
         """,
         """\
