@@ -100,6 +100,50 @@ class TestBadSyntax < TestCase
             }
         """)
 
+        # bad blocks (bad or/and expression left only)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unit is not a valid condition type.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            if unit || 1: {
+            }
+        """)
+
+        # bad blocks (bad or/and expression right only)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unit is not a valid condition type.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            if 1 || unit: {
+            }
+        """)
+
+        # bad blocks (bad or/and expression middle)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unit is not a valid condition type.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            if 1 || unit && 1: {
+            }
+        """)
+
+        # bad blocks (bad or/and expression middle all or)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unit is not a valid condition type.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            if 1 || unit || 1: {
+            }
+        """)
+
         # bad blocks (for loop var must be Integer)
 
         assert_parse_fails(t, """\

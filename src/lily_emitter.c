@@ -2849,12 +2849,15 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
     /* If the left is the same as this tree, then it's already checked itself
        and doesn't need a retest. However, and/or are opposites, so they have
        to check each other (so the op has to be exactly the same). */
-    if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0)
+    if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0) {
+        ensure_valid_condition_type(emit, ast->left->result->type);
         emit_jump_if(emit, ast->left, jump_on);
+    }
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, lily_question_type);
 
+    ensure_valid_condition_type(emit, ast->right->result->type);
     emit_jump_if(emit, ast->right, jump_on);
 
     if (andor_start != UINT16_MAX) {
