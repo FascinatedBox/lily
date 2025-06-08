@@ -48,18 +48,86 @@ class TestGenerics < TestCase
     {
         var t = Interpreter()
 
-        # Blocked because even though 'g' is an inner function, it may have a
-        # different A than 'f'.
+        # close over generic (definition with assignment)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot close over a var of an incomplete type in this scope.\n    \
-                from [test]:4:\n\
+            SyntaxError: 'b' cannot be used here, because it has a generic type (A) from another scope.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A, b: A) {
+                define g(c: A) {
+                    b = c
+
+                    # Demonstrate why by crashing (String == Integer)
+                    if a == b: {
+
+                    }
+                }
+                g(1)
+            }
+            f("", "")
+        """)
+
+        # close over generic (definition with direct usage)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
+                from [test]:3:\n\
         """,
         """\
             define f[A](a: A) {
-                define g {
-                    var v = a
+                define g(b: A) {
+                    a
                 }
+            }
+        """)
+
+        # close over generic (lambda with assignment)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A) {
+                define g(b: A) {
+                    var v = (|| a = b )
+                }
+            }
+        """)
+
+        # close over generic (lambda with direct usage)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A](a: A) {
+                define g(b: A) {
+                    a
+                }
+            }
+        """)
+
+        # close over generic (ok usage with lambda blocks)
+
+        assert_parse_string(t, """
+            define f[A](a: List[A]): Integer {
+                var m = (||
+                    if a.size(): {
+                        a.shift()
+                    }
+
+                    a.size()
+                )
+
+                return m()
+            }
+
+            if f([1, 2, 3]) != 2: {
+                0/0
             }
         """)
     }

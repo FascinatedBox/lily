@@ -1041,17 +1041,32 @@ static void emit_create_function(lily_emit_state *emit, lily_sym *func_sym,
     emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
 }
 
-/* This function closes over a var, but has a requirement. The requirement is
-   that it cannot be an unsolved type from a higher-up scope. This requirement
-   exists because Lily does not currently understand how to have two different
-   kinds of a generic that are not equivalent / scoped generics. */
-static uint16_t checked_close_over_var(lily_emit_state *emit, lily_var *var)
+/* Close over a var, or send a SyntaxError if the var can't be closed over. */
+static uint16_t checked_close_over_var(lily_emit_state *emit, lily_ast *ast,
+        lily_var *var)
 {
-    if (emit->scope_block->block_type == block_define &&
-        emit->scope_block->prev->block_type == block_define &&
-        var->type->flags & TYPE_IS_UNRESOLVED)
-        lily_raise_syn(emit->raiser,
-                "Cannot close over a var of an incomplete type in this scope.");
+    /* Closing over a variable with a generic type is tricky:
+
+       Closures are allowed to have generic types. Inner definitions are not
+       quantified when they are called. As a result, an inner definition and its
+       outer definition may disagree on what 'A' solves to.
+
+       Lambdas, on the other hand, do get quantified since they exist in the
+       scope of the definition using them. So it's fine if they close over vars
+       in their parent, but no further. Multiple levels of lambdas is probably
+       safe. Given a lack of a use case, that has not been implemented here. */
+    if (var->type->flags & TYPE_IS_UNRESOLVED) {
+        lily_block *scope = emit->scope_block;
+
+        if (scope->block_type == block_lambda &&
+            scope->prev_scope_block->block_type == block_define &&
+            var->function_depth == emit->function_depth - 1)
+            ;
+        else
+            lily_raise_tree(emit->raiser, ast,
+                    "'%s' cannot be used here, because it has a generic type (^T) from another scope.",
+                    var->name, var->type);
+    }
 
     if (var->flags & VAR_CANNOT_BE_UPVALUE)
         lily_raise_syn(emit->raiser,
@@ -2574,7 +2589,7 @@ static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
     uint16_t spot = left_var->closure_spot;
 
     if (spot == UINT16_MAX)
-        spot = checked_close_over_var(emit, left_var);
+        spot = checked_close_over_var(emit, ast, left_var);
 }
 
 /* This handles `x[y] = z` assignments. These are run from left to right
@@ -3029,7 +3044,7 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 
             spot = v->closure_spot;
             if (spot == UINT16_MAX)
-                spot = checked_close_over_var(emit, v);
+                spot = checked_close_over_var(emit, ast, v);
 
             emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
             ret->flags &= ~SYM_NOT_ASSIGNABLE;
