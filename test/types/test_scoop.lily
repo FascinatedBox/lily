@@ -35,6 +35,20 @@ class TestScoop < TestCase
         """\
             var v = [String.format, String.format]
         """)
+
+        # scoop unify (generics cannot solve to any level of scoop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:\n\
+            Expected Type: Function (List[A], ?... => ?)\n\
+            Received Type: Function (List[A], List[$1]... => List[Tuple[A, $1]])\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            define f[A, B, C](a: Function(A, B... => C), b: B, c: B): List[B] { return [b, c] }
+
+            f(List.zip, [1], [""])[1] == f(List.zip, [1], [""])[0]
+        """)
     }
 
     public define test_scoop_from_zip

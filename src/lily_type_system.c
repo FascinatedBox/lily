@@ -374,7 +374,8 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
     if (left->cls->id == LILY_ID_QUESTION) {
         /* Scoop is only valid if it's a requirement. It can't be allowed to
            unify, because it breaks the type system. */
-        if (right != lily_scoop_type && right->cls != lily_self_class) {
+        if ((right->flags & TYPE_HAS_SCOOP) == 0 &&
+            right->cls != lily_self_class) {
             ret = 1;
             if (flags & T_UNIFY)
                 lily_tm_add(ts->tm, right);
