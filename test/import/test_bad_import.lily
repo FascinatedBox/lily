@@ -267,6 +267,19 @@ class TestBadImport < TestCase
         """\
             import \"\"\"asdf\"\"\"
         """)
+
+        # bad import path (format characers)
+
+        t.parse_string("[test]", "import \"%s^T\"")
+        verify_import_error("""\
+            SyntaxError: Cannot import '%s^T':\n    \
+                no preloaded package '%s^T'\n    \
+                no file '.\/%s^T.lily'\n    \
+                no file '.\/%s^T.{lib}'\n    \
+                no file '.\/packages\/%s^T\/src\/%s^T.lily'\n    \
+                no file '.\/packages\/%s^T\/src\/%s^T.{lib}'\n    \
+                from [test]:1:\n\
+        """, t.error())
     }
 
     public define test_bad_imported_file {

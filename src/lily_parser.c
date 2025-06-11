@@ -1209,7 +1209,9 @@ static lily_module_entry *open_module(lily_parse_state *parser)
                     lily_sp_get(parser->data_strings, check_pos));
         }
 
-        lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
+        /* Don't send the buffer as the only argument, because the path may have
+           format characters. */
+        lily_raise_syn(parser->raiser, "%s", lily_mb_raw(msgbuf));
     }
 
     module = ims->last_import;
