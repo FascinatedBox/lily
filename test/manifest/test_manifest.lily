@@ -176,7 +176,7 @@ class TestManifest < TestCase
             :data """\
                 import manifest
 
-                import middle
+                var v: Integer
             """
         )
 

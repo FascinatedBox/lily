@@ -1212,9 +1212,14 @@ static lily_module_entry *open_module(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
     }
 
-    lily_u16_set_pos(parser->data_stack, save_pos);
+    module = ims->last_import;
 
-    return ims->last_import;
+    if (module->flags & MODULE_IN_EXECUTION)
+        lily_raise_syn(parser->raiser, "'%s' is already being imported.",
+                ims->pending_loadname);
+
+    lily_u16_set_pos(parser->data_stack, save_pos);
+    return module;
 }
 
 /***
@@ -6417,6 +6422,9 @@ static void update_main_name(lily_parse_state *parser,
 
     lily_free(module->dirname);
 
+    /* Strange errors occur when the first module is allowed to import itself.
+       Setting this prevents those errors. */
+    module->flags = MODULE_IN_EXECUTION;
     module->path = path;
     module->dirname = dir_from_path(path);
     module->cmp_len = (uint16_t)strlen(path);

@@ -41,6 +41,21 @@ class TestBadImport < TestCase
             :redirect "test\/t\/backbone"
         )
 
+    private var @t_loop =
+        StringTarget(
+            :path "loop",
+            :data "import loop"
+        )
+
+    private var @t_manifest_loop =
+        StringTarget(
+            :path "manifest_loop",
+            :data """\
+                import manifest
+                import manifest_loop
+            """
+        )
+
     private define verify_import_error(expect_text: String, given_text: String)
     {
         var expect_lines = expect_text.split("\n")
@@ -429,5 +444,31 @@ class TestBadImport < TestCase
         var t = Interpreter.with_targets()
 
         assert_parse_fails(t, message, "import \"abc/def\"")
+    }
+
+    public define test_import_loop
+    {
+        # import loop (first module loops)
+
+        var t = Interpreter.with_targets(
+            @t_loop,
+            @t_manifest_loop
+        )
+
+        t.parse_string("[test]", "import loop")
+        verify_import_error("""\
+            SyntaxError: 'loop' is already being imported.\n    \
+                from loop.lily:1:\
+        """, t.error())
+
+        assert_manifest_fails(t, """\
+            SyntaxError: 'manifest_loop' is already being imported.\n    \
+                from manifest_loop.lily:2:\n\
+        """,
+        """\
+            import manifest
+
+            import manifest_loop
+        """)
     }
 }
