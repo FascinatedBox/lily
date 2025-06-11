@@ -866,23 +866,11 @@ void lily_prelude__calltrace(lily_vm_state *vm)
     move_list_f(0, vm->call_chain->return_target, trace);
 }
 
-static void do_print(lily_vm_state *vm, FILE *target, lily_value *source)
-{
-    if (source->flags & V_STRING_FLAG)
-        fputs(source->value.string->string, target);
-    else {
-        lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
-        lily_mb_add_value(msgbuf, vm, source);
-        fputs(lily_mb_raw(msgbuf), target);
-    }
-
-    fputc('\n', target);
-    lily_return_unit(vm);
-}
-
 void lily_prelude__print(lily_vm_state *vm)
 {
-    do_print(vm, stdout, lily_arg_value(vm, 0));
+    lily_value_write_to_file(vm, stdout, lily_arg_value(vm, 0));
+    fputc('\n', stdout);
+    lily_return_unit(vm);
 }
 
 /* Initially, print is implemented through lily_prelude__print. However, when
@@ -896,7 +884,11 @@ void lily_stdout_print(lily_vm_state *vm)
     if (stdout_val->close_func == NULL)
         vm_error(vm, LILY_ID_VALUEERROR, "IO operation on closed file.");
 
-    do_print(vm, stdout_val->inner_file, lily_arg_value(vm, 0));
+    FILE *f = stdout_val->inner_file;
+
+    lily_value_write_to_file(vm, f, lily_arg_value(vm, 0));
+    fputc('\n', f);
+    lily_return_unit(vm);
 }
 
 /***

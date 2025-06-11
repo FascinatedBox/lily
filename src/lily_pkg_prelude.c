@@ -543,15 +543,7 @@ void lily_prelude_File_write(lily_state *s)
     lily_value *to_write = lily_arg_value(s, 1);
     FILE *inner_file = lily_file_for_write(s, filev);
 
-    if (to_write->flags & V_STRING_FLAG)
-        fputs(to_write->value.string->string, inner_file);
-    else {
-        lily_msgbuf *msgbuf = lily_msgbuf_get(s);
-
-        lily_mb_add_value(msgbuf, s, to_write);
-        fputs(lily_mb_raw(msgbuf), inner_file);
-    }
-
+    lily_value_write_to_file(s, inner_file, to_write);
     lily_return_unit(s);
 }
 
@@ -561,15 +553,7 @@ void lily_prelude_File_write_to_path(lily_state *s)
     FILE *f = open_file(s, path, "w");
     lily_value *to_write = lily_arg_value(s, 1);
 
-    if (to_write->flags & V_STRING_FLAG)
-        fputs(to_write->value.string->string, f);
-    else {
-        lily_msgbuf *msgbuf = lily_msgbuf_get(s);
-
-        lily_mb_add_value(msgbuf, s, to_write);
-        fputs(lily_mb_raw(msgbuf), f);
-    }
-
+    lily_value_write_to_file(s, f, to_write);
     fclose(f);
     lily_return_unit(s);
 }

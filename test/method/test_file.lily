@@ -368,10 +368,31 @@ class TestFileMethods < TestCase
         assert_equal(before_text, after_text)
     }
 
+    private define check_bytes_write
+    {
+        # Writing different content to the file is fine because it will be
+        # overwritten before any other test can see it.
+        var f = File.open("test\/file_for_io.txt", "w")
+        var raw_line = B"\137\080\078\071\0\137\080\078\071\0\10"
+
+        f.write('x')
+        f.write(raw_line)
+        f.close()
+
+        f = File.open("test\/file_for_io.txt", "r")
+
+        var written = f.read_line()
+
+        assert_equal(written[0], 'x')
+        assert_equal(written.slice(1), raw_line)
+        f.close()
+    }
+
     private define write_verify
     {
-        var f = File.open("test\/file_for_io.txt", "w")
+        check_bytes_write()
 
+        var f = File.open("test\/file_for_io.txt", "w")
         var expect = """\
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. In efficitur lacinia tortor, ac commodo metus vulputate non.\n\
             Praesent👏blandit👏purus👏sit👏amet👏urna👏faucibus👏dapibus.\n\

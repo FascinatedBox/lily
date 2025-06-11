@@ -286,5 +286,6 @@ uint16_t lily_value_class_id(lily_value *);
 int lily_value_compare(struct lily_vm_state_ *, lily_value *, lily_value *);
 lily_value *lily_value_copy(lily_value *);
 void lily_value_destroy(lily_value *);
+void lily_value_write_to_file(struct lily_vm_state_ *, FILE *, lily_value *);
 
 #endif

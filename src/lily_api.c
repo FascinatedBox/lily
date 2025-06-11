@@ -437,6 +437,23 @@ void lily_value_destroy(lily_value *v)
     }
 }
 
+void lily_value_write_to_file(lily_vm_state *vm, FILE *f, lily_value *v)
+{
+    if (v->flags & V_STRING_FLAG)
+        fputs(v->value.string->string, f);
+    else if ((v->flags & (V_BYTESTRING_FLAG | V_BYTE_FLAG)) == 0) {
+        lily_msgbuf *msgbuf = lily_msgbuf_get(vm);
+
+        lily_mb_add_value(msgbuf, vm, v);
+        fputs(lily_mb_raw(msgbuf), f);
+    }
+    else if (v->flags & V_BYTESTRING_FLAG)
+        fwrite(v->value.string->string, sizeof(char), v->value.string->size,
+                f);
+    else
+        fputc((char)v->value.integer, f);
+}
+
 
 /* Raw value operations. */
 
