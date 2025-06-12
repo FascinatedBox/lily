@@ -368,29 +368,41 @@ class TestFileMethods < TestCase
         assert_equal(before_text, after_text)
     }
 
-    private define check_bytes_write
+    private define check_raw_content(expect: ByteString)
+    {
+        var f = File.open("test\/file_for_io.txt", "r")
+        var written = f.read_line()
+
+        assert_equal(written, expect)
+        f.close()
+    }
+
+    private define raw_bytes_write(line: ByteString)
     {
         # Writing different content to the file is fine because it will be
         # overwritten before any other test can see it.
         var f = File.open("test\/file_for_io.txt", "w")
-        var raw_line = B"\137\080\078\071\0\137\080\078\071\0\10"
 
         f.write('x')
-        f.write(raw_line)
+        f.write(line)
         f.close()
+    }
 
-        f = File.open("test\/file_for_io.txt", "r")
+    private define raw_write_verify
+    {
+        var line = B"\137\080\078\071\0\137\080\078\071\0\10"
+        var full_line = B"x\137\080\078\071\0\137\080\078\071\0\10"
 
-        var written = f.read_line()
+        raw_bytes_write(line)
+        check_raw_content(full_line)
 
-        assert_equal(written[0], 'x')
-        assert_equal(written.slice(1), raw_line)
-        f.close()
+        File.write_to_path("test\/file_for_io.txt", full_line, :binary true)
+        check_raw_content(full_line)
     }
 
     private define write_verify
     {
-        check_bytes_write()
+        raw_write_verify()
 
         var f = File.open("test\/file_for_io.txt", "w")
         var expect = """\

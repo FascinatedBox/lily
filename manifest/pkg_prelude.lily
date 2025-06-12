@@ -185,10 +185,13 @@ predefined File {
     ### This opens the file named `path`, writes `data` to it, then closes the
     ### file.
     ###
+    ### By default, the file is saved in write (w) mode. If `binary` is true,
+    ### the file saved in write binary (wb) mode.
+    ###
     ### # Errors
     ###
     ### * `IOError` if unable to open `path`.
-    public static define write_to_path[A](path: String, data: A)
+    public static define write_to_path[A](path: String, data: A, :binary binary: *Boolean=false)
 }
 
 ### The `Function` class represents a block of code to be called, which may or

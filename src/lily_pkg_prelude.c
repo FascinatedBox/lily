@@ -550,7 +550,12 @@ void lily_prelude_File_write(lily_state *s)
 void lily_prelude_File_write_to_path(lily_state *s)
 {
     char *path = lily_arg_string_raw(s, 0);
-    FILE *f = open_file(s, path, "w");
+    char mode[3] = {'w', '\0', '\0'};
+
+    if (lily_optional_boolean(s, 1, 0))
+        mode[1] = 'b';
+
+    FILE *f = open_file(s, path, mode);
     lily_value *to_write = lily_arg_value(s, 1);
 
     lily_value_write_to_file(s, f, to_write);

@@ -39,7 +39,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0read_line\0(File): ByteString"
     ,"m\0read_to_string\0(String): String"
     ,"m\0write\0[A](File,A)"
-    ,"m\0write_to_path\0[A](String,A)"
+    ,"m\0write_to_path\0[A](String,A,:binary *Boolean)"
     ,"C\0Function\0"
     ,"C\014Hash\0[A,B]"
     ,"m\0clear\0[A,B](Hash[A,B])"
