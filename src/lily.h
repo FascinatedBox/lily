@@ -134,7 +134,8 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //                     `lily_import_library` will immediately return failure.
 //                     Import failure traceback will not include library paths
 //                     blocked by sandbox mode.
-//                     `File.open` will immediately raise `RuntimeError`.
+//                     Any `File` method that attempts to open a file will
+//                     instead raise `RuntimeError`.
 typedef struct lily_config_ {
     int argc;
     char **argv;

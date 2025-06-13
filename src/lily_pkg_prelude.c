@@ -377,6 +377,9 @@ static void file_close(FILE *f)
 
 static FILE *open_file(lily_state *s, char *path, char *mode)
 {
+    if (s->gs->parser->config->sandbox)
+        lily_RuntimeError(s, "Not allowed to open files in sandbox mode.");
+
     errno = 0;
 
     FILE *result = fopen(path, mode);
@@ -396,9 +399,6 @@ void lily_prelude_File_open(lily_state *s)
     char *path = lily_arg_string_raw(s, 0);
     char *mode = lily_arg_string_raw(s, 1);
     int ok;
-
-    if (s->gs->parser->config->sandbox)
-        lily_RuntimeError(s, "Not allowed to open files in sandbox mode.");
 
     {
         char *mode_ch = mode;
