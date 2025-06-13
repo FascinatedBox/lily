@@ -731,13 +731,13 @@ class TestVerifyCoverage < TestCase
             }
         """)
 
-        # internal sandbox (File.open blocked)
+        # internal sandbox (opening files blocked)
 
         assert_parse_fails(t, """\
             RuntimeError: Not allowed to open files in sandbox mode.\n\
             Traceback:\n    \
                 from [prelude]: in File.open\n    \
-                from [test]:13: in __main__\n\
+                from [test]:28: in __main__\n\
         """,
         """\
             try: {
@@ -746,8 +746,23 @@ class TestVerifyCoverage < TestCase
             except RuntimeError:
             }
 
+            # Use paths that don't exist to make sure IOError doesn't activate
+            # before RuntimeError.
+
             try: {
-                File.open("test.txt", "r")
+                File.open("doesnotexist.txt", "r")
+                0/0
+            except RuntimeError:
+            }
+
+            try: {
+                File.write_to_path("doesnotexist.txt", "asdf")
+                0/0
+            except RuntimeError:
+            }
+
+            try: {
+                File.read_to_string("doesnotexist.txt")
                 0/0
             except RuntimeError:
             }
