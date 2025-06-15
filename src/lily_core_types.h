@@ -233,7 +233,9 @@ typedef struct lily_var_ {
     uint16_t doc_id;
     /* This is used to determine if a var is an upvalue, local, or global. */
     uint16_t function_depth;
-    uint16_t pad;
+
+    /* For inline constants, this is the value to send to emitter. */
+    int16_t constant_value;
 
     union {
         /* If this is a class/enum method, this is the parent. Otherwise, except
@@ -468,6 +470,11 @@ typedef struct lily_proto_ {
 
 /* Vars declared outside of a callable scope are global. */
 #define VAR_IS_GLOBAL         0x04
+
+/* This is a constant that has a value capable of being stored in bytecode
+   directly instead of needing a constant. If this is not set, the constant has
+   a literal backing it, and that literal's id is the reg_spot. */
+#define VAR_INLINE_CONSTANT   0x08
 
 /* This is a function or method not defined with native Lily code. */
 #define VAR_IS_FOREIGN_FUNC   0x10

@@ -2441,6 +2441,25 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)var;
 }
 
+#define CAN_INLINE_INTEGER(v_) (v_ >= INT16_MIN && v_ <= INT16_MAX)
+
+static void make_integer_constant(lily_parse_state *parser, lily_var *var,
+        int64_t val)
+{
+    if (CAN_INLINE_INTEGER(val)) {
+        var->constant_value = val;
+        var->flags |= VAR_INLINE_CONSTANT;
+        var->type = parser->symtab->integer_class->self_type;
+    }
+    else {
+        lily_type *t;
+        lily_literal *lit = lily_get_integer_literal(parser->symtab, &t, val);
+
+        var->reg_spot = lit->reg_spot;
+        var->type = t;
+    }
+}
+
 static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
 {
     dyna_save(parser, ds);
@@ -2461,14 +2480,18 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
     lily_symtab *symtab = parser->symtab;
     lily_literal *lit = NULL;
 
-    if (cls_id == LILY_ID_INTEGER)
-        lit = lily_get_integer_literal(symtab, &type, lily_as_integer(v));
+    if (cls_id == LILY_ID_INTEGER) {
+        make_integer_constant(parser, var, lily_as_integer(v));
+        lit = NULL;
+    }
     else if (cls_id == LILY_ID_DOUBLE)
         lit = lily_get_double_literal(symtab, &type, lily_as_double(v));
     else if (cls_id == LILY_ID_STRING)
         lit = lily_get_string_literal(symtab, &type, lily_as_string_raw(v));
 
-    var->reg_spot = lit->reg_spot;
+    if (lit)
+        var->reg_spot = lit->reg_spot;
+
     lily_stack_drop_top(parser->vm);
     dyna_restore(parser, ds);
     ds->result = (lily_item *)var;
@@ -2846,7 +2869,7 @@ static void error_self_usage(lily_parse_state *parser)
 
 static void push_integer(lily_parse_state *parser, int64_t value)
 {
-    if (value >= INT16_MIN && value <= INT16_MAX) {
+    if (CAN_INLINE_INTEGER(value)) {
         lily_es_push_integer(parser->expr, (int16_t)value);
         return;
     }
@@ -3050,18 +3073,13 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
 
 static void expr_word_as_constant(lily_parse_state *parser, lily_var *var)
 {
-    /* A constant's reg_spot is the id of the backing literal. There's no init
-       check since constants are not initialized with an expression. */
-    lily_type *t = var->type;
-    uint16_t cls_id = t->cls->id;
-
-    if (cls_id == LILY_ID_INTEGER) {
-        lily_value *v = lily_literal_at(parser->symtab, var->reg_spot);
-
-        push_integer(parser, v->value.integer);
+    if ((var->flags & VAR_INLINE_CONSTANT) == 0) {
+        /* The var's reg_spot is the literal's id. */
+        lily_es_push_literal(parser->expr, var->type, var->reg_spot);
+        return;
     }
-    else
-        lily_es_push_literal(parser->expr, t, var->reg_spot);
+
+    lily_es_push_integer(parser->expr, var->constant_value);
 }
 
 static void expr_word_as_define(lily_parse_state *parser, lily_var *var)
@@ -4182,8 +4200,10 @@ static void parse_one_constant(lily_parse_state *parser)
 
     lily_next_token(lex);
 
-    if (lex->token == tk_integer)
-        lit = lily_get_integer_literal(symtab, &t, lex->n.integer_val);
+    if (lex->token == tk_integer) {
+        make_integer_constant(parser, var, lex->n.integer_val);
+        return;
+    }
     else if (lex->token == tk_double)
         lit = lily_get_double_literal(symtab, &t, lex->n.double_val);
     else if (lex->token == tk_double_quote)
@@ -4195,7 +4215,6 @@ static void parse_one_constant(lily_parse_state *parser)
 
     var->type = t;
     var->reg_spot = lit->reg_spot;
-    lily_next_token(lex);
 }
 
 static void keyword_constant(lily_parse_state *parser)
@@ -4208,6 +4227,7 @@ static void keyword_constant(lily_parse_state *parser)
 
     while (1) {
         parse_one_constant(parser);
+        lily_next_token(lex);
 
         if (lex->token != tk_comma)
             break;
