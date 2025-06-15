@@ -2441,6 +2441,14 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)var;
 }
 
+static void make_boolean_constant(lily_parse_state *parser, lily_var *var,
+        int64_t val)
+{
+    var->constant_value = val;
+    var->flags |= VAR_INLINE_CONSTANT;
+    var->type = parser->symtab->boolean_class->self_type;
+}
+
 #define CAN_INLINE_INTEGER(v_) (v_ >= INT16_MIN && v_ <= INT16_MAX)
 
 static void make_integer_constant(lily_parse_state *parser, lily_var *var,
@@ -2488,6 +2496,10 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
         lit = lily_get_double_literal(symtab, &type, lily_as_double(v));
     else if (cls_id == LILY_ID_STRING)
         lit = lily_get_string_literal(symtab, &type, lily_as_string_raw(v));
+    else if (cls_id == LILY_ID_BOOLEAN) {
+        make_boolean_constant(parser, var, lily_as_boolean(v));
+        lit = NULL;
+    }
 
     if (lit)
         var->reg_spot = lit->reg_spot;
@@ -3079,7 +3091,12 @@ static void expr_word_as_constant(lily_parse_state *parser, lily_var *var)
         return;
     }
 
-    lily_es_push_integer(parser->expr, var->constant_value);
+    uint16_t cls_id = var->type->cls->id;
+
+    if (cls_id == LILY_ID_INTEGER)
+        lily_es_push_integer(parser->expr, var->constant_value);
+    else
+        lily_es_push_boolean(parser->expr, var->constant_value);
 }
 
 static void expr_word_as_define(lily_parse_state *parser, lily_var *var)
@@ -4179,6 +4196,21 @@ static void keyword_while(lily_parse_state *parser)
     lily_next_token(lex);
 }
 
+static int get_val_if_bool_word(const char *label, int64_t *val)
+{
+    int c = constant_by_name(label);
+    int result = 1;
+
+    if (c == CONST_TRUE)
+        *val = 1;
+    else if (c == CONST_FALSE)
+        *val = 0;
+    else
+        result = 0;
+
+    return result;
+}
+
 static void parse_one_constant(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -4197,6 +4229,7 @@ static void parse_one_constant(lily_parse_state *parser)
 
     lily_literal *lit;
     lily_type *t;
+    int64_t bool_val;
 
     lily_next_token(lex);
 
@@ -4208,9 +4241,14 @@ static void parse_one_constant(lily_parse_state *parser)
         lit = lily_get_double_literal(symtab, &t, lex->n.double_val);
     else if (lex->token == tk_double_quote)
         lit = lily_get_string_literal(symtab, &t, lex->label);
+    else if (lex->token == tk_word &&
+             get_val_if_bool_word(lex->label, &bool_val)) {
+        make_boolean_constant(parser, var, bool_val);
+        return;
+    }
     else
         lily_raise_syn(parser->raiser,
-                "Expected a Double, Integer, or String literal, not '%s'.",
+                "Constant initialization expects a primitive value, not '%s'.",
                 tokname(lex->token));
 
     var->type = t;
@@ -6107,11 +6145,11 @@ static void manifest_constant(lily_parse_state *parser)
 
     if (cls_id != LILY_ID_DOUBLE &&
         cls_id != LILY_ID_INTEGER &&
-        cls_id != LILY_ID_STRING)
+        cls_id != LILY_ID_STRING &&
+        cls_id != LILY_ID_BOOLEAN)
         lily_raise_syn(parser->raiser,
-                "%s does not have a valid type for a constant.\n"
-                "    Valid constant types are: Double, Integer, String.",
-                var->name);
+                "Constant %s given a non-primitive type (^T).",
+                var->name, var->type);
 }
 
 static void manifest_var(lily_parse_state *parser)

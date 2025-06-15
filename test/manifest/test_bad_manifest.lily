@@ -371,8 +371,7 @@ class TestBadManifest < TestCase
 
 
         assert_manifest_fails(t, """\
-            SyntaxError: x does not have a valid type for a constant.\n    \
-                Valid constant types are: Double, Integer, String.\n    \
+            SyntaxError: Constant x given a non-primitive type (List[String]).\n    \
                 from [test]:4:\n\
         """,
         """\

@@ -134,6 +134,8 @@ class TestManifest < TestCase
 
                 ### Doc for three
                 constant three: Double
+
+                constant four: Boolean
             """
         )
 
@@ -1138,7 +1140,14 @@ class TestManifest < TestCase
                 :type       "Double"
             )
 
-            if constants.size() != 3: {
+            check_constant(
+                constants[-4],
+                :doc        "",
+                :name       "four",
+                :type       "Boolean"
+            )
+
+            if constants.size() != 4: {
                 0 / 0
             }
         """)

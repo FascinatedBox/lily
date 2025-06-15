@@ -33,10 +33,15 @@ class TestVerifyConstant < TestCase
 
         assert_parse_string(t, """
             constant double_a = 1.0,
-                     string_a = "2"
+                     string_a = "2",
+                     boolean_a = true,
+                     boolean_b = false
 
             if double_a != 1.0 ||
-               string_a != "2": {
+               string_a != "2" ||
+               boolean_a != true ||
+               boolean_b != false ||
+               boolean_b: {
                 0/0
             }
         """)
@@ -50,6 +55,13 @@ class TestVerifyConstant < TestCase
             else:
                 0 / 0
             }
+
+            constant bool_truthy = true
+
+            if bool_truthy: {
+            else:
+                0 / 0
+            }
         """)
 
         # basics (falsey constant fold)
@@ -59,6 +71,13 @@ class TestVerifyConstant < TestCase
 
             if falsey: {
                 0 / 0
+            }
+
+            constant bool_falsey = false
+
+            if bool_falsey: {
+                0 / 0
+            else:
             }
         """)
 
@@ -109,7 +128,7 @@ class TestVerifyConstant < TestCase
         # failure (init by another constant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a Double, Integer, or String literal, not 'a label'.\n    \
+            SyntaxError: Constant initialization expects a primitive value, not 'a label'.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -120,7 +139,7 @@ class TestVerifyConstant < TestCase
         # failure (bad value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a Double, Integer, or String literal, not 'a lambda'.\n    \
+            SyntaxError: Constant initialization expects a primitive value, not 'a lambda'.\n    \
                 from [test]:1:\n\
         """,
         """\
