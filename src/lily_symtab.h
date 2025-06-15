@@ -56,11 +56,12 @@ void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
 void lily_free_symtab(lily_symtab *);
 
 lily_value *lily_literal_at(lily_symtab *, uint16_t);
-lily_literal *lily_get_integer_literal(lily_symtab *, int64_t);
-lily_literal *lily_get_double_literal(lily_symtab *, double);
-lily_literal *lily_get_bytestring_literal(lily_symtab *, const char *,
-        uint32_t);
-lily_literal *lily_get_string_literal(lily_symtab *, const char *);
+lily_literal *lily_get_integer_literal(lily_symtab *, lily_type **, int64_t);
+lily_literal *lily_get_double_literal(lily_symtab *, lily_type **, double);
+lily_literal *lily_get_bytestring_literal(lily_symtab *, lily_type **,
+        const char *, uint32_t);
+lily_literal *lily_get_string_literal(lily_symtab *, lily_type **,
+        const char *);
 lily_literal *lily_get_unit_literal(lily_symtab *);
 void lily_new_function_literal(lily_symtab *, lily_var *, lily_value *);
 

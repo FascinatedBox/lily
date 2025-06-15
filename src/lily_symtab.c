@@ -315,8 +315,11 @@ static lily_literal *first_lit_of(lily_value_stack *literals, uint32_t to_find)
     return NULL;
 }
 
-lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
+lily_literal *lily_get_integer_literal(lily_symtab *symtab,
+        lily_type **type_ret, int64_t int_val)
 {
+    *type_ret = (lily_type *)symtab->integer_class;
+
     lily_literal *iter = first_lit_of(symtab->literals, V_INTEGER_BASE);
 
     while (iter) {
@@ -342,8 +345,11 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab, int64_t int_val)
     return (lily_literal *)v;
 }
 
-lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
+lily_literal *lily_get_double_literal(lily_symtab *symtab, lily_type **type_ret,
+        double dbl_val)
 {
+    *type_ret = (lily_type *)symtab->double_class;
+
     lily_literal *iter = first_lit_of(symtab->literals, V_DOUBLE_BASE);
 
     while (iter) {
@@ -370,8 +376,10 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, double dbl_val)
 }
 
 lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
-        const char *want_string, uint32_t len)
+        lily_type **type_ret, const char *want_string, uint32_t len)
 {
+    *type_ret = (lily_type *)symtab->bytestring_class;
+
     lily_literal *iter = first_lit_of(symtab->literals, V_BYTESTRING_BASE);
 
     if (len < MAX_STRING_CACHE_LENGTH) {
@@ -414,9 +422,11 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     return (lily_literal *)v;
 }
 
-lily_literal *lily_get_string_literal(lily_symtab *symtab,
+lily_literal *lily_get_string_literal(lily_symtab *symtab, lily_type **type_ret,
         const char *want_string)
 {
+    *type_ret = (lily_type *)symtab->string_class;
+
     lily_literal *iter = first_lit_of(symtab->literals, V_STRING_BASE);
     size_t want_string_len = strlen(want_string);
 

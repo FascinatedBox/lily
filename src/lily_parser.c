@@ -2462,11 +2462,11 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
     lily_literal *lit = NULL;
 
     if (cls_id == LILY_ID_INTEGER)
-        lit = lily_get_integer_literal(symtab, lily_as_integer(v));
+        lit = lily_get_integer_literal(symtab, &type, lily_as_integer(v));
     else if (cls_id == LILY_ID_DOUBLE)
-        lit = lily_get_double_literal(symtab, lily_as_double(v));
+        lit = lily_get_double_literal(symtab, &type, lily_as_double(v));
     else if (cls_id == LILY_ID_STRING)
-        lit = lily_get_string_literal(symtab, lily_as_string_raw(v));
+        lit = lily_get_string_literal(symtab, &type, lily_as_string_raw(v));
 
     var->reg_spot = lit->reg_spot;
     lily_stack_drop_top(parser->vm);
@@ -2851,20 +2851,18 @@ static void push_integer(lily_parse_state *parser, int64_t value)
         return;
     }
 
-    lily_symtab *symtab = parser->symtab;
-    lily_literal *lit = lily_get_integer_literal(symtab, value);
-    lily_type *integer_type = symtab->integer_class->self_type;
+    lily_type *t;
+    lily_literal *lit = lily_get_integer_literal(parser->symtab, &t, value);
 
-    lily_es_push_literal(parser->expr, integer_type, lit->reg_spot);
+    lily_es_push_literal(parser->expr, t, lit->reg_spot);
 }
 
 static void push_string(lily_parse_state *parser, const char *str)
 {
-    lily_symtab *symtab = parser->symtab;
-    lily_type *string_type = symtab->string_class->self_type;
-    lily_literal *lit = lily_get_string_literal(symtab, str);
+    lily_type *t;
+    lily_literal *lit = lily_get_string_literal(parser->symtab, &t, str);
 
-    lily_es_push_literal(parser->expr, string_type, lit->reg_spot);
+    lily_es_push_literal(parser->expr, t, lit->reg_spot);
 }
 
 static void push_unit(lily_parse_state *parser)
@@ -3220,13 +3218,12 @@ static void expr_bytestring(lily_parse_state *parser, uint16_t *state)
         return;
     }
 
-    lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_literal *lit = lily_get_bytestring_literal(symtab, lex->label,
-            lex->string_length);
-    lily_type *bytestring_type = symtab->bytestring_class->self_type;
+    lily_type *t;
+    lily_literal *lit = lily_get_bytestring_literal(parser->symtab, &t,
+            lex->label, lex->string_length);
 
-    lily_es_push_literal(parser->expr, bytestring_type, lit->reg_spot);
+    lily_es_push_literal(parser->expr, t, lit->reg_spot);
     *state = ST_WANT_OPERATOR;
 }
 
@@ -3352,11 +3349,11 @@ static void expr_double(lily_parse_state *parser, uint16_t *state)
     }
 
     lily_lex_state *lex = parser->lex;
-    lily_literal *lit = lily_get_double_literal(parser->symtab,
+    lily_type *t;
+    lily_literal *lit = lily_get_double_literal(parser->symtab, &t,
             lex->n.double_val);
-    lily_type *double_type = parser->symtab->double_class->self_type;
 
-    lily_es_push_literal(parser->expr, double_type, lit->reg_spot);
+    lily_es_push_literal(parser->expr, t, lit->reg_spot);
     *state = ST_WANT_OPERATOR;
 }
 
@@ -4181,26 +4178,22 @@ static void parse_one_constant(lily_parse_state *parser)
                 "An initialization expression is required here.");
 
     lily_literal *lit;
+    lily_type *t;
 
     lily_next_token(lex);
 
-    if (lex->token == tk_integer) {
-        lit = lily_get_integer_literal(symtab, lex->n.integer_val);
-        var->type = symtab->integer_class->self_type;
-    }
-    else if (lex->token == tk_double) {
-        lit = lily_get_double_literal(symtab, lex->n.double_val);
-        var->type = symtab->double_class->self_type;
-    }
-    else if (lex->token == tk_double_quote) {
-        lit = lily_get_string_literal(symtab, lex->label);
-        var->type = symtab->string_class->self_type;
-    }
+    if (lex->token == tk_integer)
+        lit = lily_get_integer_literal(symtab, &t, lex->n.integer_val);
+    else if (lex->token == tk_double)
+        lit = lily_get_double_literal(symtab, &t, lex->n.double_val);
+    else if (lex->token == tk_double_quote)
+        lit = lily_get_string_literal(symtab, &t, lex->label);
     else
         lily_raise_syn(parser->raiser,
                 "Expected a Double, Integer, or String literal, not '%s'.",
                 tokname(lex->token));
 
+    var->type = t;
     var->reg_spot = lit->reg_spot;
     lily_next_token(lex);
 }
@@ -6417,7 +6410,8 @@ static void update_main_name(lily_parse_state *parser,
     /* The first module isn't likely to have several names. Instead of creating
        a special stack to store all of them, throw it into a literal. It'll
        survive until the interpreter is done and won't leak. */
-    lily_literal *lit = lily_get_string_literal(parser->symtab, filename);
+    lily_type *t;
+    lily_literal *lit = lily_get_string_literal(parser->symtab, &t, filename);
     char *path = lily_as_string_raw((lily_value *)lit);
 
     lily_free(module->dirname);
