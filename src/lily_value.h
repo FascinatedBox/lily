@@ -43,10 +43,7 @@ typedef union lily_raw_value_ {
    functions, as if they were a real value...even if they aren't. */
 typedef struct lily_literal_ {
     uint32_t flags;
-    union {
-        uint16_t pad;
-        uint16_t next_index;
-    };
+    uint16_t next_index;
     uint16_t reg_spot;
     lily_raw_value value;
 } lily_literal;
