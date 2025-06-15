@@ -1363,7 +1363,7 @@ static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
 
     /* Constants get their id from the literal they're assigned to. */
     var->item_kind = ITEM_CONSTANT;
-    var->function_depth = parser->emit->function_depth;
+    var->function_depth = 1;
     var->reg_spot = 0;
     var->flags = VAR_IS_READONLY;
     var->next = m->var_chain;
@@ -4186,17 +4186,14 @@ static void parse_one_constant(lily_parse_state *parser)
 
     if (lex->token == tk_integer) {
         lit = lily_get_integer_literal(symtab, lex->n.integer_val);
-        var->reg_spot = lit->reg_spot;
         var->type = symtab->integer_class->self_type;
     }
     else if (lex->token == tk_double) {
         lit = lily_get_double_literal(symtab, lex->n.double_val);
-        var->reg_spot = lit->reg_spot;
         var->type = symtab->double_class->self_type;
     }
     else if (lex->token == tk_double_quote) {
         lit = lily_get_string_literal(symtab, lex->label);
-        var->reg_spot = lit->reg_spot;
         var->type = symtab->string_class->self_type;
     }
     else
@@ -4204,6 +4201,7 @@ static void parse_one_constant(lily_parse_state *parser)
                 "Expected a Double, Integer, or String literal, not '%s'.",
                 tokname(lex->token));
 
+    var->reg_spot = lit->reg_spot;
     lily_next_token(lex);
 }
 
