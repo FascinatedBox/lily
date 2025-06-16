@@ -1935,37 +1935,6 @@ static void incomplete_type_assign_error(lily_emit_state *emit, lily_ast *ast,
             right_type);
 }
 
-static void add_call_name_to_msgbuf(lily_emit_state *emit, lily_msgbuf *msgbuf,
-        lily_ast *ast)
-{
-    lily_item *item = ast->item;
-
-    if (item->item_kind == ITEM_DEFINE) {
-        lily_var *v = (lily_var *)item;
-        lily_value *val = lily_literal_at(emit->symtab, v->reg_spot);
-        lily_proto *p = val->value.function->proto;
-
-        lily_mb_add(msgbuf, p->name);
-    }
-    else if (item->item_kind == ITEM_VAR) {
-        lily_var *v = (lily_var *)item;
-
-        lily_mb_add(msgbuf, v->name);
-    }
-    else if (item->item_kind == ITEM_PROPERTY) {
-        lily_prop_entry *p = (lily_prop_entry *)ast->item;
-
-        lily_mb_add_fmt(msgbuf, "%s.%s", p->parent->name, p->name);
-    }
-    else if (item->item_kind & ITEM_IS_VARIANT) {
-        lily_variant_class *v = (lily_variant_class *)ast->item;
-
-        lily_mb_add(msgbuf, v->name);
-    }
-    else
-        lily_mb_add(msgbuf, "(anonymous)");
-}
-
 /* This is called when call processing has an argument of the wrong type. This
    generates a syntax error with the call name if that can be located.
    This assumes 'index' is 0-based (argument 0 being the first argument to the
@@ -1992,12 +1961,9 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
 
-    lily_mb_add_fmt(msgbuf, "Argument #%d to ", index + 1);
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
-    lily_mb_add_fmt(msgbuf,
-            " is invalid:\n"
+    lily_mb_add_fmt(msgbuf, "Argument #%d to ^I is invalid:\n"
             "Expected Type: ^T\n"
-            "Received Type: ^T", expected, got);
+            "Received Type: ^T", index + 1, ast->item, expected, got);
 
     lily_raise_tree(emit->raiser, ast, lily_mb_raw(msgbuf));
 }
@@ -2040,15 +2006,9 @@ static void error_argument_count(lily_emit_state *emit, lily_ast *ast,
         snprintf(max_str, sizeof(max_str), "%d", max);
     }
 
-    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-    lily_mb_flush(msgbuf);
-
-    lily_mb_add(msgbuf, "Wrong number of arguments to ");
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
-    lily_mb_add_fmt(msgbuf, " (%s for %s%s%s).", arg_str, min_str, div_str,
-            max_str);
-
-    lily_raise_tree(emit->raiser, ast, lily_mb_raw(msgbuf));
+    lily_raise_tree(emit->raiser, ast,
+            "Wrong number of arguments to ^I (%s for %s%s%s).",
+            ast->item, arg_str, min_str, div_str, max_str);
 }
 
 static void error_keyarg_not_supported(lily_emit_state *emit, lily_ast *ast)
@@ -2056,7 +2016,7 @@ static void error_keyarg_not_supported(lily_emit_state *emit, lily_ast *ast)
     lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
     lily_mb_flush(msgbuf);
 
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
+    lily_mb_add_fmt(msgbuf, "^I", ast->sym);
 
     if (ast->sym->item_kind == ITEM_DEFINE)
         lily_mb_add(msgbuf,
@@ -2072,27 +2032,20 @@ static void error_keyarg_not_valid(lily_emit_state *emit, lily_ast *ast,
         lily_ast *arg)
 {
     char *key_name = lily_sp_get(emit->expr_strings, arg->left->pile_pos);
-    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-    lily_mb_flush(msgbuf);
 
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
-    lily_mb_add_fmt(msgbuf, " does not have a keyword named ':%s'.", key_name);
-
-    lily_raise_tree(emit->raiser, arg, lily_mb_raw(msgbuf));
+    lily_raise_tree(emit->raiser, arg,
+            "^I does not have a keyword named ':%s'.",
+            ast->sym, key_name);
 }
 
 static void error_keyarg_duplicate(lily_emit_state *emit, lily_ast *ast,
         lily_ast *arg)
 {
     char *key_name = lily_sp_get(emit->expr_strings, arg->left->pile_pos);
-    lily_msgbuf *msgbuf = emit->raiser->aux_msgbuf;
-    lily_mb_flush(msgbuf);
 
-    lily_mb_add(msgbuf, "Call to ");
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
-    lily_mb_add_fmt(msgbuf, " has multiple values for parameter ':%s'.", key_name);
-
-    lily_raise_tree(emit->raiser, arg, lily_mb_raw(msgbuf));
+    lily_raise_tree(emit->raiser, arg,
+            "Call to ^I has multiple values for parameter ':%s'.",
+            ast->item, key_name);
 }
 
 static void error_keyarg_before_posarg(lily_emit_state *emit, lily_ast *arg)
@@ -2111,9 +2064,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
     lily_type **arg_types = call_type->subtypes;
 
     lily_mb_flush(msgbuf);
-    lily_mb_add(msgbuf, "Call to ");
-    add_call_name_to_msgbuf(emit, msgbuf, ast);
-    lily_mb_add(msgbuf, " is missing parameters:");
+    lily_mb_add_fmt(msgbuf, "Call to ^I is missing parameters:", ast->item);
 
     if (call_type->flags & TYPE_IS_VARARGS)
         stop--;

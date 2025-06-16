@@ -262,6 +262,27 @@ lily_msgbuf *lily_mb_flush(lily_msgbuf *msgbuf)
     return msgbuf;
 }
 
+static void add_named_sym(lily_msgbuf *msgbuf, lily_named_sym *sym)
+{
+    if (sym->item_kind & (ITEM_DEFINE | ITEM_VAR | ITEM_PROPERTY)) {
+        if (sym->parent) {
+            lily_mb_add(msgbuf, sym->parent->name);
+
+            /* It's a class constructor (<new>). Don't include that. */
+            if (sym->name[0] == '<')
+                return;
+
+            lily_mb_add_char(msgbuf, '.');
+        }
+
+        lily_mb_add(msgbuf, sym->name);
+    }
+    else if (sym->item_kind & ITEM_IS_VARIANT)
+        lily_mb_add(msgbuf, sym->name);
+    else
+        lily_mb_add(msgbuf, "(anonymous)");
+}
+
 static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
     lily_mb_add(msgbuf, type->cls->name);
@@ -379,6 +400,10 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
             if (c == 'T') {
                 lily_type *type = va_arg(var_args, lily_type *);
                 add_type(msgbuf, type);
+            }
+            else if (c == 'I') {
+                lily_named_sym *sym = va_arg(var_args, lily_named_sym *);
+                add_named_sym(msgbuf, sym);
             }
 
             text_start = i+1;

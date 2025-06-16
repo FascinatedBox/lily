@@ -4059,14 +4059,13 @@ static const char *static_to_str(uint16_t flags)
 static void error_forward_decl_modifiers(lily_parse_state *parser,
         lily_var *define_var)
 {
-    lily_proto *p = lily_emit_proto_for_var(parser->emit, define_var);
     uint16_t modifiers = define_var->flags;
     const char *scope_str = scope_to_str(modifiers);
     const char *static_str = static_to_str(modifiers);
 
     lily_raise_syn(parser->raiser,
-            "Wrong qualifiers in resolution of %s (expected: %s%s).",
-            p->name, scope_str, static_str);
+            "Wrong qualifiers in resolution of ^I (expected: %s%s).",
+            define_var, scope_str, static_str);
 }
 
 static void keyword_if(lily_parse_state *parser)
