@@ -1169,6 +1169,22 @@ static void do_o_interpolation(lily_vm_state *vm, uint16_t *code)
     move_string(result_reg, sv);
 }
 
+static void do_o_load_bytestring_copy(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->call_chain->start;
+    lily_value *rhs = vm->gs->readonly_table[code[1]];
+    lily_value *lhs = vm_regs[code[2]];
+
+    lily_deref(lhs);
+
+    lily_bytestring_val *source = (lily_bytestring_val *)rhs->value.string;
+    lily_bytestring_val *target = lily_new_bytestring_raw(source->string,
+            source->size);
+
+    lhs->value.string = (lily_string_val *)target;
+    lhs->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE;
+}
+
 /***
  *       ____ _
  *      / ___| | ___  ___ _   _ _ __ ___  ___
@@ -2383,6 +2399,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
 
                 code += 6;
+                break;
+            case o_load_bytestring_copy:
+                do_o_load_bytestring_copy(vm, code);
+                code += 4;
                 break;
             case o_vm_exit:
                 lily_release_jump(vm->raiser);

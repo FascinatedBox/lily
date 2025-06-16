@@ -114,6 +114,9 @@ typedef enum {
     o_load_boolean,
     /* Load a Byte value from bytecode. */
     o_load_byte,
+    /* Load a copy of a ByteString from vm's readonly_table. A copy is made to
+       prevent subscript assignment from mutating literals. */
+    o_load_bytestring_copy,
     /* Load an empty variant. The bytecode supplies a class id. */
     o_load_empty_variant,
 

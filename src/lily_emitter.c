@@ -3020,8 +3020,12 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
 static void emit_literal(lily_emit_state *emit, lily_ast *ast)
 {
     lily_storage *s = get_storage(emit, ast->type);
+    uint16_t op = o_load_readonly;
 
-    lily_u16_write_4(emit->code, o_load_readonly, ast->literal_reg_spot,
+    if (ast->type->cls->id == LILY_ID_BYTESTRING)
+        op = o_load_bytestring_copy;
+
+    lily_u16_write_4(emit->code, op, ast->literal_reg_spot,
             s->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)s;

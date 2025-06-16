@@ -169,6 +169,7 @@ int lily_ci_next(lily_code_iter *iter)
         case o_instance_new:
         case o_load_boolean:
         case o_load_byte:
+        case o_load_bytestring_copy:
         case o_load_empty_variant:
         case o_load_integer:
         case o_load_readonly:

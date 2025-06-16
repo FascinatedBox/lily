@@ -10,6 +10,7 @@ typedef enum {
     tree_binary,
     tree_boolean,
     tree_byte,
+    tree_bytestring,
     tree_cached,
     tree_call,
     tree_defined_func,

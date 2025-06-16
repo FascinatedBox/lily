@@ -770,4 +770,30 @@ class TestVerifyCoverage < TestCase
             File.open("test.txt", "a")
         """)
     }
+
+    public define test_bytestring_literal_no_mutation
+    {
+        var t = Interpreter()
+
+        # ByteString subscript assignment should not mutate literals.
+
+        assert_parse_string(t, """
+            define f: ByteString {
+                var v = B"abc"
+
+                v[0] = 'c'
+                return v
+            }
+
+            define g: ByteString {
+                var w = B"abc"
+
+                return w
+            }
+
+            if f() == g(): {
+                0 / 0
+            }
+        """)
+    }
 }
