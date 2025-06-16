@@ -4168,6 +4168,8 @@ static void keyword_return(lily_parse_state *parser)
     else if (return_type == lily_unset_type)
         lily_raise_syn(parser->raiser,
                 "'return' inside of a lambda requires inference, but none given.");
+    else
+        block->flags |= BLOCK_LAMBDA_RESULT;
 
     if (return_type != lily_unit_type) {
         expression(parser);
@@ -4187,6 +4189,8 @@ static void keyword_return(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Statement(s) after 'return' will not execute%s", extra);
     }
+
+    block->flags &= ~BLOCK_LAMBDA_RESULT;
 }
 
 static void keyword_while(lily_parse_state *parser)

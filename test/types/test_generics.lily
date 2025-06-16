@@ -191,7 +191,7 @@ class TestGenerics < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Global variables cannot have a type with generics (Function (A)).\n    \
+            SyntaxError: f has generics, and must be called or be a call argument.\n    \
                 from [test]:3:\n\
         """,
         """\
@@ -204,6 +204,26 @@ class TestGenerics < TestCase
 
             g("1", h)
             v(1)
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f has generics, and must be called or be a call argument.\n    \
+                from [test]:4:\n\
+        """,
+        """\
+            define f[A](a: A) {}
+
+            class Example {
+                public var @x = f
+
+                public define example[A](fn: Function(A)) {
+                    @x = fn
+                }
+            }
+
+            var v = Example()
+
+            v.x = 1
         """)
     }
 }

@@ -8,9 +8,7 @@ class TestScoop < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Function (String, List[?])\n\
-            Received Type: Function (String, $1... => String)\n    \
+            SyntaxError: String.format must be called, since it uses type $1.\n    \
                 from [test]:5:\n\
         """,
         """\
@@ -27,9 +25,7 @@ class TestScoop < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: List elements do not have a consistent type.\n\
-            Expected Type: Function (String, $1... => String)\n\
-            Received Type: Function (String, $1... => String)\n    \
+            SyntaxError: String.format must be called, since it uses type $1.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -39,9 +35,7 @@ class TestScoop < TestCase
         # scoop unify (generics cannot solve to any level of scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Function (List[A], ?... => ?)\n\
-            Received Type: Function (List[A], List[$1]... => List[Tuple[A, $1]])\n    \
+            SyntaxError: List.zip must be called, since it uses type $1.\n    \
                 from [test]:3:\n\
         """,
         """\
@@ -75,7 +69,7 @@ class TestScoop < TestCase
         # scoop init (init by assign).
 
         assert_parse_fails(t, """\
-            SyntaxError: Global variables cannot have a type with generics (Function (List[A], List[$1]... => List[Tuple[A, $1]])).\n    \
+            SyntaxError: List.zip must be called, since it uses type $1.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -85,13 +79,26 @@ class TestScoop < TestCase
         # scoop init (init by prop assign).
 
         assert_parse_fails(t, """\
-            SyntaxError: Right side of assignment is incomplete type 'Function (List[A], List[$1]... => List[Tuple[A, $1]])'.\n    \
+            SyntaxError: List.zip must be called, since it uses type $1.\n    \
                 from [test]:2:\n\
         """,
         """\
             class Example {
                 public var @x = List.zip
             }
+        """)
+    }
+
+    public define test_lambda_scoop_block
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: List.zip must be called, since it uses type $1.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            var v = (|| List.zip )
         """)
     }
 }

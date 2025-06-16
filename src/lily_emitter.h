@@ -57,6 +57,11 @@ typedef enum {
 /* The self of this function block allows `@<prop>` accesses. */
 # define SELF_PROPERTY        0x40
 
+/* This is set before (and unset after) a lambda handles a return expression or
+   the final result it yields. It's used to prevent lambdas from accepting
+   global generics and/or scoop, both of which allow unsound behavior. */
+# define BLOCK_LAMBDA_RESULT  0x80
+
 /* This block has done at least one branch switch already. */
 # define BLOCK_HAS_BRANCH     0x100
 

@@ -2603,17 +2603,8 @@ static void eval_assign(lily_emit_state *emit, lily_ast *ast)
         left_sym->flags &= ~SYM_NOT_INITIALIZED;
         right_sym = ast->right->result;
 
-        if (left_sym->type == lily_question_type) {
-            /* This allows unsound behavior due to the type system not
-               understanding quantification. */
-            if (left_tt == tree_global_var &&
-                right_sym->type->flags & TYPE_IS_UNRESOLVED)
-                lily_raise_tree(emit->raiser, ast,
-                        "Global variables cannot have a type with generics (^T).",
-                        right_sym->type);
-
+        if (left_sym->type == lily_question_type)
             left_sym->type = right_sym->type;
-        }
     }
     else if (left_tt == tree_property) {
         eval_assign_property(emit, ast);
@@ -2982,6 +2973,40 @@ static void emit_literal(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)s;
 }
 
+static void ensure_safe_global_func(lily_emit_state *emit, lily_ast *ast,
+        lily_var *var)
+{
+    lily_tree_type tt;
+
+    if (ast->parent == NULL) {
+        /* The value will be put into a storage that the user can't reference,
+           unless this is a lambda exiting. Lambda exit can't quantify, so it
+           can't have global generics. */
+        if (emit->scope_block->flags & BLOCK_LAMBDA_RESULT)
+            tt = tree_local_var;
+        else
+            return;
+    }
+    else
+        tt = ast->parent->tree_type;
+
+    uint16_t flags = var->type->flags;
+
+    /* Scoop cannot be quantified so it can never be let out. */
+    if (flags & TYPE_HAS_SCOOP)
+        lily_raise_tree(emit->raiser, ast,
+                "^I must be called, since it uses type $1.", var);
+
+    /* Calls will quantify arguments that are not unquantified, to allow code
+       such as `xyz.map(Option.unwrap)` to succeed. */
+    if (tt == tree_call || tt == tree_named_call)
+        return;
+
+    /* Allowing global generic functions to escape also causes issues. */
+    lily_raise_tree(emit->raiser, ast,
+            "^I has generics, and must be called or be a call argument.", var);
+}
+
 /* This handles loading globals, upvalues, and static functions. */
 static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
 {
@@ -3010,6 +3035,9 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         }
         case tree_static_func:
             ensure_valid_scope(emit, ast);
+        case tree_defined_func:
+            if (sym->type->flags & (TYPE_HAS_SCOOP | TYPE_IS_UNRESOLVED))
+                ensure_safe_global_func(emit, ast, (lily_var *)sym);
         default:
             spot = sym->reg_spot;
             opcode = o_load_readonly;
@@ -4440,7 +4468,8 @@ void lily_eval_lambda_exit(lily_emit_state *emit, uint16_t line_num)
    become the type it returns. */
 lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
 {
-    lily_type *expect = emit->scope_block->scope_var->type;
+    lily_block *scope_block = emit->scope_block;
+    lily_type *expect = scope_block->scope_var->type;
 
     /* Calls infer their arguments by solving their result against what is
        expected. Unset should never be witnessed, and Unit results in terrible
@@ -4449,7 +4478,9 @@ lily_type *lily_eval_lambda_result(lily_emit_state *emit, lily_expr_state *es)
         expect == lily_unit_type)
         expect = lily_question_type;
 
+    scope_block->flags |= BLOCK_LAMBDA_RESULT;
     eval_tree(emit, es->root, expect);
+    scope_block->flags &= ~BLOCK_LAMBDA_RESULT;
 
     lily_sym *root_result = es->root->result;
     lily_type *result_type;
