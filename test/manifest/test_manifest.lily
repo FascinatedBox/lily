@@ -136,6 +136,8 @@ class TestManifest < TestCase
                 constant three: Double
 
                 constant four: Boolean
+
+                constant five: ByteString
             """
         )
 
@@ -1147,7 +1149,14 @@ class TestManifest < TestCase
                 :type       "Boolean"
             )
 
-            if constants.size() != 4: {
+            check_constant(
+                constants[-5],
+                :doc        "",
+                :name       "five",
+                :type       "ByteString"
+            )
+
+            if constants.size() != 5: {
                 0 / 0
             }
         """)

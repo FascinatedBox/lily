@@ -35,13 +35,15 @@ class TestVerifyConstant < TestCase
             constant double_a = 1.0,
                      string_a = "2",
                      boolean_a = true,
-                     boolean_b = false
+                     boolean_b = false,
+                     bytestring_a = B"asdf"
 
             if double_a != 1.0 ||
                string_a != "2" ||
                boolean_a != true ||
                boolean_b != false ||
-               boolean_b: {
+               boolean_b ||
+               bytestring_a != B"asdf": {
                 0/0
             }
         """)

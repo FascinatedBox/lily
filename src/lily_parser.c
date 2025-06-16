@@ -2500,6 +2500,12 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
         make_boolean_constant(parser, var, lily_as_boolean(v));
         lit = NULL;
     }
+    else if (cls_id == LILY_ID_BYTESTRING) {
+        lily_bytestring_val *b = lily_as_bytestring(v);
+
+        lit = lily_get_bytestring_literal(parser->symtab, &type, b->string,
+                b->size);
+    }
 
     if (lit)
         var->reg_spot = lit->reg_spot;
@@ -4246,6 +4252,9 @@ static void parse_one_constant(lily_parse_state *parser)
         make_boolean_constant(parser, var, bool_val);
         return;
     }
+    else if (lex->token == tk_bytestring)
+        lit = lily_get_bytestring_literal(parser->symtab, &t, lex->label,
+                lex->string_length);
     else
         lily_raise_syn(parser->raiser,
                 "Constant initialization expects a primitive value, not '%s'.",
@@ -6146,7 +6155,8 @@ static void manifest_constant(lily_parse_state *parser)
     if (cls_id != LILY_ID_DOUBLE &&
         cls_id != LILY_ID_INTEGER &&
         cls_id != LILY_ID_STRING &&
-        cls_id != LILY_ID_BOOLEAN)
+        cls_id != LILY_ID_BOOLEAN &&
+        cls_id != LILY_ID_BYTESTRING)
         lily_raise_syn(parser->raiser,
                 "Constant %s given a non-primitive type (^T).",
                 var->name, var->type);
