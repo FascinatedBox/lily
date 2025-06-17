@@ -1619,6 +1619,10 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
         lily_type *key_type = type->subtypes[0];
         uint16_t key_id = key_type->cls->id;
 
+        /* Parser allows generic keys so that Hash methods work, but also allows
+           users to have definitions with generic keys. Emitter will make sure
+           when building a Hash that the key is always one of the first two
+           types mentioned here. */
         if (key_id != LILY_ID_INTEGER &&
             key_id != LILY_ID_STRING &&
             key_id != LILY_ID_GENERIC)

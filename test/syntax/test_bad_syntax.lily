@@ -1250,6 +1250,18 @@ class TestBadSyntax < TestCase
         """\
             var v: Hash[Integer, String] = [1 => 1]
         """)
+
+        # hash rules (forbid invalid keys)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Type 'A' is not a valid key for Hash.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            define f[A, B](a: A, b: B): Hash[A, B] { return [a => b] }
+
+            f(unit, unit)
+        """)
     }
 
     public define test_incomplete_assign

@@ -3176,6 +3176,15 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
     if (expect->cls->id == LILY_ID_HASH) {
         key_type = expect->subtypes[0];
         value_type = expect->subtypes[1];
+
+        uint16_t cls_id = key_type->cls->id;
+
+        /* Parser allows keys to be generic. That's fine, as long as emitter
+           doesn't build a Hash that's invalid. To prevent building an invalid
+           Hash, require that the key be one of the known valid types. */
+        if (cls_id != LILY_ID_INTEGER &&
+            cls_id != LILY_ID_STRING)
+            key_type = lily_question_type;
     }
     else {
         key_type = lily_question_type;
