@@ -136,4 +136,19 @@ class TestPkgMath < TestCase
     {
         assert_near_equal(math.to_rad(180.0), math.pi)
     }
+
+    public define test_math_constants_are_constant
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Left side of = is not assignable.\n    \
+                from [test]:3:\n\
+        """,
+        """\
+            import math
+
+            math.pi = 7.0
+        """)
+    }
 }

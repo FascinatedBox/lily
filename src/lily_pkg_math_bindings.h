@@ -36,10 +36,10 @@ const char *lily_math_info_table[] = {
     ,"F\0tanh\0(Double): Double"
     ,"F\0to_deg\0(Double): Double"
     ,"F\0to_rad\0(Double): Double"
-    ,"R\0huge\0Double"
-    ,"R\0infinity\0Double"
-    ,"R\0nan\0Double"
-    ,"R\0pi\0Double"
+    ,"O\0huge\0Double"
+    ,"O\0infinity\0Double"
+    ,"O\0nan\0Double"
+    ,"O\0pi\0Double"
     ,"Z"
 };
 #define LILY_DECLARE_MATH_CALL_TABLE \
@@ -71,9 +71,10 @@ lily_call_entry_func lily_math_call_table[] = { \
     lily_math__tanh, \
     lily_math__to_deg, \
     lily_math__to_rad, \
-    lily_math_var_huge, \
-    lily_math_var_infinity, \
-    lily_math_var_nan, \
-    lily_math_var_pi, \
+    lily_math_constant_huge, \
+    lily_math_constant_infinity, \
+    lily_math_constant_nan, \
+    lily_math_constant_pi, \
+    lily_v21_plus_required, \
 };
 #endif

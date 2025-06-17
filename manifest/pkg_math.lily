@@ -81,13 +81,13 @@ define to_rad(x: Double): Double
 
 ### Value used as an error returned by math functions. +infinity on systems
 ### supporting IEEE Std 754-1985.
-var huge: Double
+constant huge: Double
 
 ### Value representing unsigned infinity
-var infinity: Double
+constant infinity: Double
 
 ### Value representing not a number
-var nan: Double
+constant nan: Double
 
 ### Value of pi
-var pi: Double
+constant pi: Double

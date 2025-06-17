@@ -197,22 +197,22 @@ void lily_math__to_rad(lily_state *s)
     lily_return_double(s, x * (M_PI / 180));
 }
 
-void lily_math_var_huge(lily_state *s)
+void lily_math_constant_huge(lily_state *s)
 {
     lily_push_double(s, HUGE_VAL);
 }
 
-void lily_math_var_infinity(lily_state *s)
+void lily_math_constant_infinity(lily_state *s)
 {
     lily_push_double(s, INFINITY);
 }
 
-void lily_math_var_nan(lily_state *s)
+void lily_math_constant_nan(lily_state *s)
 {
     lily_push_double(s, NAN);
 }
 
-void lily_math_var_pi(lily_state *s)
+void lily_math_constant_pi(lily_state *s)
 {
     lily_push_double(s, M_PI);
 }
