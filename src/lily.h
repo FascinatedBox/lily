@@ -986,6 +986,10 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id);
 // Calls lily_arg_isa with LILY_ID_SUCCESS.
 #define lily_arg_is_success(s, index) lily_arg_isa(s, index, LILY_ID_SUCCESS)
 
+// Macro: lily_arg_is_unset
+// Calls lily_arg_isa with LILY_ID_UNSET.
+#define lily_arg_is_unset(s, index) lily_arg_isa(s, index, LILY_ID_UNSET)
+
 ///////////////////////////
 // Section: Optional Values
 ///////////////////////////
