@@ -2870,19 +2870,37 @@ static int constant_by_name(const char *name)
     return CONST_BAD_ID;
 }
 
-static void error_self_usage(lily_parse_state *parser)
+static void verify_self_access(lily_parse_state *parser, uint16_t flag)
 {
-    lily_lex_state *lex = parser->lex;
-    const char *what;
+    lily_block *block = parser->emit->scope_block;
 
-    if (lex->token == tk_prop_word)
-        what = "a class property";
-    else if (strcmp(lex->label, "self") == 0)
-        what = "self";
+    if ((block->flags & flag) ||
+        lily_emit_can_use_self(parser->emit, flag))
+        return;
+
+    while (block->block_type == block_lambda)
+        block = block->prev_scope_block;
+
+    char *what = "";
+
+    if (flag & SELF_KEYWORD) {
+        if (block->scope_var->flags & VAR_IS_STATIC)
+            what = "Static methods cannot use 'self'.";
+        else if (block->block_type == block_class)
+            what = "Class constructors cannot use 'self'.";
+        else
+            what = "Cannot use 'self' outside of a class or enum.";
+    }
+    else if (flag & SELF_METHOD) {
+        if (block->scope_var->flags & VAR_IS_STATIC)
+            what = "Static methods cannot call instance methods.";
+        else
+            what = "Class constructors cannot call non-static methods.";
+    }
     else
-        what = "an instance method";
+        what = "Cannot use a class property here.";
 
-    lily_raise_syn(parser->raiser, "Cannot use %s here.", what);
+    lily_raise_syn(parser->raiser, what);
 }
 
 static void push_integer(lily_parse_state *parser, int64_t value)
@@ -2977,9 +2995,7 @@ static int expr_word_try_constant(lily_parse_state *parser)
     else if (const_id == CONST_FALSE)
         lily_es_push_boolean(parser->expr, 0);
     else if (const_id == CONST_SELF) {
-        if (lily_emit_can_use_self_keyword(parser->emit) == 0)
-            error_self_usage(parser);
-
+        verify_self_access(parser, SELF_KEYWORD);
         lily_es_push_self(parser->expr);
     }
     else if (const_id == CONST_UNIT)
@@ -3003,9 +3019,7 @@ static int expr_word_try_use_self(lily_parse_state *parser)
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
                 if ((item->flags & VAR_IS_STATIC) == 0) {
-                    if (lily_emit_can_use_self_method(parser->emit) == 0)
-                        error_self_usage(parser);
-
+                    verify_self_access(parser, SELF_METHOD);
                     lily_es_push_method(parser->expr, (lily_var *)item);
                 }
                 else
@@ -3528,8 +3542,7 @@ static void expr_prop_word(lily_parse_state *parser, uint16_t *state)
         return;
     }
 
-    if (lily_emit_can_use_self_property(parser->emit) == 0)
-        error_self_usage(parser);
+    verify_self_access(parser, SELF_PROPERTY);
 
     lily_class *current_class = parser->current_class;
     char *name = parser->lex->label;

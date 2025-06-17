@@ -127,7 +127,7 @@ class TestBadException < TestCase
         """,
         """\
             class Example {
-                public define action {
+                public static define action {
                     if 1: {
                         var k = ValueError("Message.")
                         raise k

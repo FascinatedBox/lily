@@ -166,24 +166,29 @@ class TestClass < TestCase
                 protected var @a = 1
                 protected define f { }
 
-                self.check()
+                public define w {
+                    self.check()
+                }
             }
 
             class Two < One {
-                One.check(self)
-                self.check()
-
                 @a += 1
 
-                f()
-                One.f(self)
-
                 public define add {
+                    One.check(self)
+                    self.check()
+
                     if 1: {
                         @a += 1
                     }
+
+                    f()
+                    One.f(self)
+                    w()
                 }
             }
+
+            Two().add()
         """)
 
         # methods (access method by instance)

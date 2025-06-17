@@ -90,8 +90,9 @@ class TestBadCall < TestCase
         """\
             class Test
             {
-                public define method(x: Integer) {  }
-                method()
+                public define method(x: Integer) {
+                    method()
+                }
             }
         """)
 

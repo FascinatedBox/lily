@@ -425,11 +425,11 @@ class TestVerifyClosures < TestCase
                     g()
                     return @a
                 }
-
-                f()
             }
 
-            if Example().f() != 20: {
+            var v = Example()
+
+            if v.f() != 20: {
                 raise Exception("Failed.")
             }
         """)

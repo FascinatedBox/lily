@@ -923,7 +923,7 @@ void lily_emit_activate_block_self(lily_emit_state *emit)
     uint16_t flags;
 
     if (block_type == block_class)
-        flags = SELF_KEYWORD | SELF_METHOD | SELF_PROPERTY;
+        flags = SELF_PROPERTY;
     else {
         lily_class *self_cls = block->self->type->cls;
 
@@ -938,7 +938,7 @@ void lily_emit_activate_block_self(lily_emit_state *emit)
 
 #define SELF_FLAGS (SELF_KEYWORD | SELF_PROPERTY | SELF_METHOD)
 
-static int can_use_self(lily_emit_state *emit, uint16_t flag)
+int lily_emit_can_use_self(lily_emit_state *emit, uint16_t flag)
 {
     lily_block *block = emit->scope_block;
 
@@ -979,21 +979,6 @@ static int can_use_self(lily_emit_state *emit, uint16_t flag)
 }
 
 #undef SELF_FLAGS
-
-int lily_emit_can_use_self_keyword(lily_emit_state *emit)
-{
-    return can_use_self(emit, SELF_KEYWORD);
-}
-
-int lily_emit_can_use_self_method(lily_emit_state *emit)
-{
-    return can_use_self(emit, SELF_METHOD);
-}
-
-int lily_emit_can_use_self_property(lily_emit_state *emit)
-{
-    return can_use_self(emit, SELF_PROPERTY);
-}
 
 /***
  *       ____ _

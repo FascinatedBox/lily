@@ -38,7 +38,7 @@ class TestBadClass < TestCase
         # bad constructor (close over self for instance method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use an instance method here.\n    \
+            SyntaxError: Class constructors cannot call non-static methods.\n    \
                 from [test]:3:\n\
         """,
         """\
@@ -653,7 +653,7 @@ class TestBadClass < TestCase
         # bad static (using instance method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use an instance method here.\n    \
+            SyntaxError: Static methods cannot call instance methods.\n    \
                 from [test]:4:\n\
         """,
         """\
@@ -768,12 +768,14 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Use @<name> to get/set properties, not self.<name>.\n    \
-                from [test]:3:\n\
+                from [test]:4:\n\
         """,
         """\
-            class Point(x: Integer, y: Integer) {
+            class Example(x: Integer) {
                 public var @x = x
-                public var @y = self.x
+                public define f {
+                    @x = self.x
+                }
             }
         """)
 
@@ -966,7 +968,7 @@ class TestBadClass < TestCase
         # self (used outside of a class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
+            SyntaxError: Cannot use 'self' outside of a class or enum.\n    \
                 from [test]:1:\n\
         """,
         """\
@@ -976,7 +978,7 @@ class TestBadClass < TestCase
         # self (used during inheritance)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
+            SyntaxError: Class constructors cannot use 'self'.\n    \
                 from [test]:2:\n\
         """,
         """\
@@ -987,20 +989,49 @@ class TestBadClass < TestCase
         # self (close over self)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
-                from [test]:3:\n\
+            SyntaxError: Class constructors cannot use 'self'.\n    \
+                from [test]:9:\n\
         """,
         """\
-            class Example {
-                public define f {}
-                public var @b = (|| var w = self )
+            class One {
+
+            }
+
+            var v = One()
+            var m = 10
+
+            class Two < One {
+                v = self
+
+                if m == 10: {
+                    0/0
+                }
+
+                public var @w = 10
+            }
+
+            class Three < Two {
+                public var @m = 12
+            }
+
+            try: {
+                Two()
+            except DivisionByZeroError:
+            }
+
+            match v: {
+                case Two(t):
+                    print(t.w)
+                case Three(t):
+                    print(t.m)
+                else:
             }
         """)
 
         # self (from a static method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use self here.\n    \
+            SyntaxError: Static methods cannot use 'self'.\n    \
                 from [test]:4:\n\
         """,
         """\

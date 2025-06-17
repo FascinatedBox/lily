@@ -68,10 +68,13 @@ class TestCallPipe < TestCase
                     target.push(target.size())
                 }
 
-                check |> f
+                public define g {
+                    check |> f
+                }
             }
 
-            Test()
+            var t = Test()
+            t.g()
 
             if check != [0, 1]: {
                 0 / 0
