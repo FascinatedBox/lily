@@ -740,6 +740,17 @@ int lily_optional_boolean(lily_state *s, int index, int fallback)
     return result;
 }
 
+double lily_optional_double(lily_state *s, int index, double fallback)
+{
+    double result = fallback;
+    lily_value *v = maybe_get_value(s, index, V_DOUBLE_BASE);
+
+    if (v)
+        result = v->value.doubleval;
+
+    return result;
+}
+
 int64_t lily_optional_integer(lily_state *s, int index, int64_t fallback)
 {
     int64_t result = fallback;

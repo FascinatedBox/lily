@@ -1004,6 +1004,10 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id);
 // Fetch a Boolean at 'index' or use the 'fallback' value.
 int lily_optional_boolean(lily_state *s, int pos, int fallback);
 
+// Function: lily_optional_double
+// Fetch a Double at 'index' or use the 'fallback' value.
+double lily_optional_double(lily_state *s, int pos, double fallback);
+
 // Function: lily_optional_integer
 // Fetch an Integer at 'index' or use the 'fallback' value.
 int64_t lily_optional_integer(lily_state *s, int pos, int64_t fallback);

@@ -141,6 +141,17 @@ class TestVerifyCoverage < TestCase
                 <["_, _, _", 3, c.cover_optional_boolean()]>,
             ]
 
+            var d_values = [
+                <["A, B, C", 6.0, c.cover_optional_double(1.0, 2.0, 3.0)]>,
+                <["A, B, _", 303.0, c.cover_optional_double(1.0, 2.0)]>,
+                <["A, _, C", 204.0, c.cover_optional_double(1.0, :c 3.0)]>,
+                <["A, _, _", 501.0, c.cover_optional_double(1.0)]>,
+                <["_, B, C", 105.0, c.cover_optional_double(:b 2.0, :c 3.0)]>,
+                <["_, B, _", 402.0, c.cover_optional_double(:b 2.0)]>,
+                <["_, _, C", 303.0, c.cover_optional_double(:c 3.0)]>,
+                <["_, _, _", 600.0, c.cover_optional_double()]>,
+            ]
+
             var i_values = [
                 <["A, B, C", 6, c.cover_optional_integer(1, 2, 3)]>,
                 <["A, B, _", 303, c.cover_optional_integer(1, 2)]>,
@@ -175,6 +186,7 @@ class TestVerifyCoverage < TestCase
             }
 
             check_table(b_values)
+            check_table(d_values)
             check_table(i_values)
             check_table(s_values)
         """)

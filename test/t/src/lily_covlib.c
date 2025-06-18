@@ -140,6 +140,16 @@ void lily_covlib__cover_value_as(lily_state *s)
     lily_return_unit(s);
 }
 
+void lily_covlib__cover_optional_double(lily_state *s)
+{
+    double arg_a = lily_optional_double(s, 0, 100.0);
+    double arg_b = lily_optional_double(s, 1, 200.0);
+    double arg_c = lily_optional_double(s, 2, 300.0);
+    double total = arg_a + arg_b + arg_c;
+
+    lily_return_double(s, total);
+}
+
 void lily_covlib__cover_optional_integer(lily_state *s)
 {
     int64_t arg_a = lily_optional_integer(s, 0, 100);

@@ -42,6 +42,9 @@ define cover_misc_api
 define cover_optional_boolean(   a: *Boolean = true,
       :b b: *Boolean = true,
       :c c: *Boolean = true): Integer
+define cover_optional_double(   a: *Double = 100.0,
+      :b b: *Double = 200.0,
+      :c c: *Double = 300.0): Double
 define cover_optional_integer(   a: *Integer = 100,
       :b b: *Integer = 200,
       :c c: *Integer = 300): Integer
