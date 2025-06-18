@@ -1182,7 +1182,7 @@ static void do_o_load_bytestring_copy(lily_vm_state *vm, uint16_t *code)
             source->size);
 
     lhs->value.string = (lily_string_val *)target;
-    lhs->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE;
+    lhs->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_DEREFABLE;
 }
 
 /***
