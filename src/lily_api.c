@@ -694,7 +694,15 @@ lily_value *lily_arg_value(lily_state *s, int index)
 
 uint16_t lily_arg_count(lily_state *s)
 {
-    return (uint16_t)(s->call_chain->top - s->call_chain->start);
+    /* The last register that's cleared off is at top - 1. */
+    lily_value **iter = s->call_chain->top - 1;
+    lily_value **end = s->call_chain->start;
+
+    while (iter != end && FLAGS_TO_BASE((*iter)) == LILY_ID_UNSET)
+        iter--;
+
+    iter++;
+    return (uint16_t)(iter - end);
 }
 
 int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
@@ -712,66 +720,45 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id)
    optargs (too few) and keyargs (unset values). */
 
 
-/* Attempt to safely get the raw value of the argument at 'index' as long as it
-   has the marker 'base'. If the argument is missing, unset, or has the wrong
-   base, then the fallback value is returned. */
-static lily_value *maybe_get_value(lily_state *s, int index, uint32_t base)
-{
-    lily_value *result = NULL;
-
-    if (lily_arg_count(s) > index) {
-        lily_value *v = s->call_chain->start[index];
-
-        if (FLAGS_TO_BASE(v) == base)
-            result = v;
-    }
-
-    return result;
-}
-
 int lily_optional_boolean(lily_state *s, int index, int fallback)
 {
-    int result = fallback;
-    lily_value *v = maybe_get_value(s, index, V_BOOLEAN_BASE);
+    lily_value *v = s->call_chain->start[index];
 
-    if (v)
-        result = (int)v->value.integer;
-
-    return result;
+    if (FLAGS_TO_BASE(v) == V_BOOLEAN_BASE)
+        return (int)v->value.integer;
+    else
+        return fallback;
 }
 
 double lily_optional_double(lily_state *s, int index, double fallback)
 {
-    double result = fallback;
-    lily_value *v = maybe_get_value(s, index, V_DOUBLE_BASE);
+    lily_value *v = s->call_chain->start[index];
 
-    if (v)
-        result = v->value.doubleval;
-
-    return result;
+    if (FLAGS_TO_BASE(v) == V_DOUBLE_BASE)
+        return v->value.doubleval;
+    else
+        return fallback;
 }
 
 int64_t lily_optional_integer(lily_state *s, int index, int64_t fallback)
 {
-    int64_t result = fallback;
-    lily_value *v = maybe_get_value(s, index, V_INTEGER_BASE);
+    lily_value *v = s->call_chain->start[index];
 
-    if (v)
-        result = v->value.integer;
-
-    return result;
+    if (FLAGS_TO_BASE(v) == V_INTEGER_BASE)
+        return v->value.integer;
+    else
+        return fallback;
 }
 
 const char *lily_optional_string_raw(lily_state *s, int index,
         const char *fallback)
 {
-    const char *result = fallback;
-    lily_value *v = maybe_get_value(s, index, V_STRING_BASE);
+    lily_value *v = s->call_chain->start[index];
 
-    if (v)
-        result = v->value.string->string;
-
-    return result;
+    if (FLAGS_TO_BASE(v) == V_STRING_BASE)
+        return v->value.string->string;
+    else
+        return fallback;
 }
 
 

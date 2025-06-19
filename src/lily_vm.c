@@ -589,19 +589,6 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
     next_frame->return_target = current_frame->start[code[i + 3]];
 }
 
-static void clear_extra_registers(lily_call_frame *next_frame, uint16_t *code)
-{
-    int i = code[2];
-    lily_value **target_regs = next_frame->start;
-
-    for (;i < next_frame->function->reg_count;i++) {
-        lily_value *reg = target_regs[i];
-        lily_deref(reg);
-
-        reg->flags = 0;
-    }
-}
-
 static void prep_registers(lily_call_frame *frame, uint16_t *code)
 {
     lily_call_frame *next_frame = frame->next;
@@ -622,6 +609,13 @@ static void prep_registers(lily_call_frame *frame, uint16_t *code)
             lily_deref(set_reg);
 
         *set_reg = *get_reg;
+    }
+
+    for (;i < next_frame->function->reg_count;i++) {
+        lily_value *reg = target_regs[i];
+
+        lily_deref(reg);
+        reg->flags = 0;
     }
 }
 
@@ -1724,21 +1718,46 @@ lily_value *lily_call_result(lily_vm_state *vm)
     return vm->call_chain->next->return_target;
 }
 
-void lily_call(lily_vm_state *vm, uint16_t count)
+static void final_setup_before_call(lily_vm_state *vm, uint16_t count)
 {
     lily_call_frame *source_frame = vm->call_chain;
     lily_call_frame *target_frame = vm->call_chain->next;
-    lily_function_val *target_fn = target_frame->function;
 
     /* The last 'count' arguments go from the old frame to the new one. */
     target_frame->top = source_frame->top;
     source_frame->top -= count;
     target_frame->start = source_frame->top;
 
+    int diff = target_frame->function->reg_count - count;
+
+    if (target_frame->top + diff > target_frame->register_end) {
+        vm->call_chain = target_frame;
+        lily_vm_grow_registers(vm, diff);
+    }
+
+    lily_value **start = target_frame->top;
+    lily_value **end = target_frame->top + diff;
+
+    while (start != end) {
+        lily_value *v = *start;
+        lily_deref(v);
+        v->flags = 0;
+        start++;
+    }
+
+    target_frame->top += diff;
+}
+
+void lily_call(lily_vm_state *vm, uint16_t count)
+{
+    lily_call_frame *target_frame = vm->call_chain->next;
+    lily_function_val *target_fn = target_frame->function;
+
+    final_setup_before_call(vm, count);
+    vm->call_chain = target_frame;
     vm->call_depth++;
 
     if (target_fn->code == NULL) {
-        vm->call_chain = target_frame;
         target_fn->foreign_func(vm);
 
         vm->call_chain = target_frame->prev;
@@ -1750,25 +1769,6 @@ void lily_call(lily_vm_state *vm, uint16_t count)
            at. Regular functions like this one start at the top every time, and
            this ensures that. */
         target_frame->code = target_fn->code;
-
-        int diff = target_frame->function->reg_count - count;
-
-        if (target_frame->top + diff > target_frame->register_end) {
-            vm->call_chain = target_frame;
-            lily_vm_grow_registers(vm, diff);
-        }
-
-        lily_value **start = target_frame->top;
-        lily_value **end = target_frame->top + diff;
-        while (start != end) {
-            lily_value *v = *start;
-            lily_deref(v);
-            v->flags = 0;
-            start++;
-        }
-
-        target_frame->top += diff;
-        vm->call_chain = target_frame;
 
         lily_vm_execute(vm);
 
@@ -2092,20 +2092,16 @@ void lily_vm_execute(lily_vm_state *vm)
                 foreign_func_body: ;
 
                 vm_setup_before_call(vm, code);
-
-                i = code[2];
-
                 next_frame = current_frame->next;
                 next_frame->function = fval;
-                next_frame->top = next_frame->start + i;
+                next_frame->top = next_frame->start + fval->reg_count;
 
                 if (next_frame->top >= next_frame->register_end) {
                     vm->call_chain = next_frame;
-                    lily_vm_grow_registers(vm, i + 1);
+                    lily_vm_grow_registers(vm, fval->reg_count);
                 }
 
                 prep_registers(current_frame, code);
-
                 vm_regs = next_frame->start;
                 vm->call_chain = next_frame;
                 vm->call_depth++;
@@ -2124,7 +2120,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 native_func_body: ;
 
                 vm_setup_before_call(vm, code);
-
                 next_frame = current_frame->next;
                 next_frame->function = fval;
                 next_frame->top = next_frame->start + fval->reg_count;
@@ -2135,12 +2130,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 prep_registers(current_frame, code);
-                /* A native Function call is almost certainly going to have more
-                   registers than arguments. They need to be blasted. This is
-                   not part of prep_registers, because foreign functions do not
-                   have this same requirement. */
-                clear_extra_registers(next_frame, code);
-
                 current_frame = current_frame->next;
                 vm->call_chain = current_frame;
                 vm->call_depth++;

@@ -881,14 +881,23 @@ uint32_t lily_string_length(lily_string_val *string_val);
 //
 // Variable arguments - Extra arguments are placed into a List which is empty if
 //                      no extra arguments were passed.
-// Optional arguments - Functions are provided an argument count, and are
-//                      responsible for implementing the default values they
-//                      claim to have.
-// Keyword arguments  - Arguments are rearranged into positional order before
-//                      the function sees them. If keyword arguments are
-//                      optional, then the 'holes' are filled by sending an
-//                      unset value. Use LILY_ID_UNSET with lily_arg_isa to
-//                      test for holes.
+// Optional arguments - Arguments not supplied by the caller are filled with the
+//                      unset value (LILY_ID_UNSET).
+// Keyword arguments  - Arguments are rearranged by the interpreter before the
+//                      foreign function is executed.
+// Keyword+Optional   - Unset values may be given at the end, but also between
+//                      arguments as well.
+//
+// Guarantees:
+//
+// The interpreter will always supply some kind of a value for every argument,
+// be it unset (for optional), or an empty List (if varargs). Functions do
+// **not** need to check for an argument count before testing their arguments.
+//
+// It is always safe to check a value for being of a particular class
+// (`lily_arg_isa`) without first checking if it is unset.
+//
+// Caveats:
 //
 // These functions do **not** support negative indexes.
 
@@ -952,9 +961,16 @@ char *               lily_arg_string_raw(lily_state *s, int index);
 lily_value *         lily_arg_value     (lily_state *s, int index);
 
 // Function: lily_arg_count
-// How many arguments the function being called was given.
+// Returns the position after the last non-unset value.
 //
-// Note: Variable argument functions place their extra arguments into a List.
+// Non-keyed functions: This is the number of arguments provided. Variable
+// arguments pack their extra arguments into a List. For optional functions,
+// this is the number of non-unset values provided.
+//
+// Keyed optional functions: This is the position of the last non-unset
+// argument. There may be unset arguments **before**, but not **after**.
+//
+// Example: `B"".encode("error")` == 2, last valid argument is at 1.
 uint16_t lily_arg_count(lily_state *s);
 
 // Function: lily_arg_isa
@@ -988,6 +1004,9 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id);
 
 // Macro: lily_arg_is_unset
 // Calls lily_arg_isa with LILY_ID_UNSET.
+//
+// It is always safe to use any `lily_arg_isa` function without using this
+// first. This macro is provided in case it is useful.
 #define lily_arg_is_unset(s, index) lily_arg_isa(s, index, LILY_ID_UNSET)
 
 ///////////////////////////
@@ -999,6 +1018,14 @@ int lily_arg_isa(lily_state *s, int index, uint16_t class_id);
 // doesn't. These functions work for optional arguments (where the function
 // receives a smaller count of arguments), as well as keyed optional arguments
 // (where the caller receives placeholder arguments).
+//
+// The interpreter guarantees that all arguments that a foreign function
+// requests are given a value (or unset). It is therefore safe to call these
+// functions without checking for an argument count or unset first.
+//
+// Caveats:
+//
+// These functions **do not** accept negative indexes.
 
 // Function: lily_optional_boolean
 // Fetch a Boolean at 'index' or use the 'fallback' value.
@@ -1364,6 +1391,9 @@ char *               lily_as_string_raw(lily_value *value);
 // argument handling details how various features (varargs, optargs, and
 // keyargs) are implemented. Refer to that for how to call those kinds of
 // functions.
+//
+// For optional functions: If `count` does not equal the amount of arguments
+// the function expects, then unset values will be filled in for the rest.
 //
 // Function calls always have a result. The result is stored in the register
 // that was returned by the last call to 'lily_call_prepare'. If a caller wants

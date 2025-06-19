@@ -592,4 +592,15 @@ void lily_covlib_C2_check(lily_state *s)
     lily_return_value(s, result);
 }
 
+void lily_covlib__optcount(lily_state *s)
+{
+    int64_t total = 0;
+
+    for (int i = 0;i < 16;i++) {
+        total += lily_optional_integer(s, i, 0);
+    }
+
+    lily_return_integer(s, total);
+}
+
 LILY_DECLARE_COVLIB_CALL_TABLE

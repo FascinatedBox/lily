@@ -118,6 +118,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
     ,"F\0make_flat_n\0(Integer): FlatEnum"
     ,"F\0make_scoped_n\0(Integer): ScopedEnum"
+    ,"F\0optcount\0(:a *Integer,:b *Integer,:c *Integer,:d *Integer,:e *Integer,:f *Integer,:g *Integer,:h *Integer,:i *Integer,:j *Integer,:k *Integer,:l *Integer,:m *Integer,:n *Integer,:o *Integer,:p *Integer): Integer"
     ,"F\0raise_dbzerror\0"
     ,"F\0raise_keyerror\0"
     ,"F\0scoop_narrow\0(Function($1))"
@@ -166,6 +167,7 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_value_group, \
     lily_covlib__make_flat_n, \
     lily_covlib__make_scoped_n, \
+    lily_covlib__optcount, \
     lily_covlib__raise_dbzerror, \
     lily_covlib__raise_keyerror, \
     lily_covlib__scoop_narrow, \

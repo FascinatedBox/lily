@@ -1,8 +1,15 @@
 import (Interpreter,
+        LibraryTarget,
         TestCase) "../t/testing"
 
 class TestOptargs < TestCase
 {
+    private var @t_covlib =
+        LibraryTarget(
+            :path "covlib",
+            :redirect "test/t/backbone"
+        )
+
     public define test_base
     {
         var t = Interpreter()
@@ -208,6 +215,66 @@ class TestOptargs < TestCase
             f(1)
             f(1, 2)
             f(1, 2, 3, 4, 5)
+        """)
+    }
+
+    public define test_huge_foreign_optarg_call
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import (optcount) covlib
+
+            var l: List[Integer] = []
+
+            optcount() |> l.push
+            optcount(1) |> l.push
+            optcount(1,2) |> l.push
+            optcount(1,2,3) |> l.push
+            optcount(1,2,3,4) |> l.push
+            optcount(1,2,3,4,5) |> l.push
+            optcount(1,2,3,4,5,6) |> l.push
+            optcount(1,2,3,4,5,6,7) |> l.push
+            optcount(1,2,3,4,5,6,7,8) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11,12) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11,12,13) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11,12,13,14) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15) |> l.push
+            optcount(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16) |> l.push
+
+            var expect = 0
+
+            for i in 0...16: {
+                expect += i
+
+                if l[i] != expect: {
+                    0/0
+                }
+            }
+
+            if optcount(1,2,3,4,:e 5, :g 7, :j 10) != 32: {
+                0/0
+            }
+        """)
+    }
+
+    public define test_immediate_huge_foreign_call
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import (optcount) covlib
+
+            if optcount(1,2,3,4,5,6,7) != 28: {
+                0/0
+            }
         """)
     }
 }
