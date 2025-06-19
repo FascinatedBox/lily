@@ -5471,8 +5471,15 @@ static void parse_match_variant(lily_parse_state *parser, uint16_t count)
         for (i = 0;i < stop;i++) {
             lily_var *var = parse_match_target(parser, var_types[i]);
 
-            if (var)
+            if (var) {
+                if (var->type->flags & TYPE_IS_INCOMPLETE) {
+                    lily_raise_syn(parser->raiser,
+                            "Pattern variable '%s' has an incomplete type (^T).",
+                            var->name, var->type);
+                }
+
                 lily_emit_write_variant_case(parser->emit, var, i);
+            }
 
             if (i == stop - 1)
                 break;

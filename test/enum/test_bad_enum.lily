@@ -165,6 +165,43 @@ class TestBadEnum < TestCase
                 case Some(s):
             }
         """)
+
+        # bad decompose (incomplete type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Pattern variable 'x' has an incomplete type (List[?]).\n    \
+                from [test]:10:\n\
+        """,
+        """\
+
+            enum Multival[A, B] {
+                Tree(A, B),
+                ignore
+            }
+
+            define f {
+                var counter = 3
+
+                with Tree([], []) as Tree(x, y): {
+                    var container: List[List[String]] = []
+
+                    while counter != 0: {
+                        counter -= 1
+                        container.push(x)
+                        container.push(y)
+
+                        x.push("x")
+                        y.push(1)
+                        continue
+                    }
+
+                    foreach c in container: {
+                        print(c[0].size())
+                    }
+                }
+            }
+            f()
+        """)
     }
 
     public define test_bad_flat
