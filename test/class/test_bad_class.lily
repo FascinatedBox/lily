@@ -300,6 +300,16 @@ class TestBadClass < TestCase
 
             class Two < One {}
         """)
+
+        # bad inheritance (from a generic)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'A' cannot be inherited from.\n    \
+                from [test]:1:\n\
+        """,
+        """\
+            class One[A] < A {}
+        """)
     }
 
     public define test_bad_match
