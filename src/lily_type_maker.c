@@ -25,8 +25,8 @@ lily_type *lily_new_raw_type(lily_class *cls)
     lily_type *new_type = lily_malloc(sizeof(*new_type));
     new_type->item_kind = ITEM_TYPE;
     new_type->cls = cls;
+    new_type->cls_id = cls->id;
     new_type->flags = 0;
-    new_type->generic_pos = 0;
     new_type->subtype_count = 0;
     new_type->subtypes = NULL;
     new_type->next = NULL;
@@ -146,7 +146,7 @@ lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls,
     lily_type fake_type;
 
     fake_type.cls = cls;
-    fake_type.generic_pos = 0;
+    fake_type.cls_id = cls->id;
     fake_type.subtypes = tm->types + (tm->pos - num_entries);
     fake_type.subtype_count = num_entries;
     fake_type.flags = 0;
@@ -169,7 +169,7 @@ lily_type *lily_tm_make_call(lily_type_maker *tm, uint16_t flags,
     lily_type fake_type;
 
     fake_type.cls = cls;
-    fake_type.generic_pos = 0;
+    fake_type.cls_id = cls->id;
     fake_type.subtypes = tm->types + (tm->pos - num_entries);
     fake_type.subtype_count = num_entries;
     fake_type.flags = flags;

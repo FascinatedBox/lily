@@ -158,7 +158,7 @@ void lily_emit_write_class_init(lily_emit_state *emit, uint16_t line_num)
 {
     lily_storage *self = emit->scope_block->self;
 
-    lily_u16_write_4(emit->code, o_instance_new, self->type->cls->id,
+    lily_u16_write_4(emit->code, o_instance_new, self->type->cls_id,
             self->reg_spot, line_num);
 }
 
@@ -1692,7 +1692,7 @@ lily_proto *lily_emit_proto_for_var(lily_emit_state *emit, lily_var *var)
    Failure: SyntaxError is raised. */
 static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
 {
-    int cls_id = type->cls->id;
+    int cls_id = type->cls_id;
 
     if (cls_id != LILY_ID_INTEGER &&
         cls_id != LILY_ID_DOUBLE &&
@@ -1708,10 +1708,10 @@ static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
 static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
         lily_ast *index_ast)
 {
-    int var_cls_id = var_ast->result->type->cls->id;
+    int var_cls_id = var_ast->result->type->cls_id;
     if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING ||
         var_cls_id == LILY_ID_STRING) {
-        uint16_t index_id = index_ast->result->type->cls->id;
+        uint16_t index_id = index_ast->result->type->cls_id;
 
         if (index_id != LILY_ID_INTEGER &&
             index_id != LILY_ID_BYTE)
@@ -1758,11 +1758,11 @@ static lily_type *get_subscript_result(lily_emit_state *emit, lily_type *type,
 {
     lily_type *result;
 
-    if (type->cls->id == LILY_ID_LIST)
+    if (type->cls_id == LILY_ID_LIST)
         result = type->subtypes[0];
-    else if (type->cls->id == LILY_ID_HASH)
+    else if (type->cls_id == LILY_ID_HASH)
         result = type->subtypes[1];
-    else if (type->cls->id == LILY_ID_TUPLE) {
+    else if (type->cls_id == LILY_ID_TUPLE) {
         /* check_valid_subscript ensures that this is safe. */
         int literal_index = index_ast->backing_value;
         result = type->subtypes[literal_index];
@@ -1792,7 +1792,7 @@ static void write_build_op(lily_emit_state *emit, uint16_t opcode,
 
     if (opcode == o_build_hash)
         /* The vm the key's id to decide what hashing functions to use. */
-        lily_u16_write_1(emit->code, s->type->subtypes[0]->cls->id);
+        lily_u16_write_1(emit->code, s->type->subtypes[0]->cls_id);
 
     lily_u16_write_1(emit->code, num_values);
 
@@ -2074,7 +2074,7 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
 
         lily_type *t = arg_types[i + 1];
 
-        if (t->cls->id == LILY_ID_OPTARG)
+        if (t->cls_id == LILY_ID_OPTARG)
             break;
 
         char *key = keywords[i];
@@ -2222,7 +2222,7 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
 
     lily_sym *left = ast->left->result;
     lily_sym *right = ast->right->result;
-    uint16_t left_id = left->type->cls->id;
+    uint16_t left_id = left->type->cls_id;
     uint16_t op = ast->op;
     uint16_t opcode = UINT16_MAX;
 
@@ -2292,7 +2292,7 @@ static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
 {
     lily_sym *left = ast->left->result;
     lily_sym *right = ast->right->result;
-    uint16_t left_id = left->type->cls->id;
+    uint16_t left_id = left->type->cls_id;
     uint16_t op = ast->op;
     uint16_t opcode = UINT16_MAX;
     lily_storage *s;
@@ -2553,7 +2553,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
 
     check_valid_subscript(emit, var_ast, index_ast);
 
-    if (var_type->cls->id == LILY_ID_STRING)
+    if (var_type->cls_id == LILY_ID_STRING)
         lily_raise_syn(emit->raiser,
                 "Subscript assignment on a String is not allowed.");
 
@@ -2650,7 +2650,7 @@ after_type_check:;
             lily_u16_set_at(emit->code, pos, left_sym->reg_spot);
         }
         else {
-            uint16_t left_id = left_sym->type->cls->id;
+            uint16_t left_id = left_sym->type->cls_id;
             uint16_t opcode;
 
             if (left_id == LILY_ID_INTEGER ||
@@ -2733,7 +2733,7 @@ static void eval_lambda_to_parse(lily_emit_state *emit, lily_ast *ast,
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
-    if (expect->cls->id != LILY_ID_FUNCTION)
+    if (expect->cls_id != LILY_ID_FUNCTION)
         expect = lily_unset_type;
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
@@ -2909,7 +2909,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
     if (ast->args_collected == 0)
         lily_raise_syn(emit->raiser, "Cannot create an empty Tuple.");
 
-    if (expect->cls->id != LILY_ID_TUPLE ||
+    if (expect->cls_id != LILY_ID_TUPLE ||
         ast->args_collected > expect->subtype_count)
         expect = lily_question_type;
 
@@ -2949,7 +2949,7 @@ static void emit_literal(lily_emit_state *emit, lily_ast *ast)
     lily_storage *s = get_storage(emit, ast->type);
     uint16_t op = o_load_readonly;
 
-    if (ast->type->cls->id == LILY_ID_BYTESTRING)
+    if (ast->type->cls_id == LILY_ID_BYTESTRING)
         op = o_load_bytestring_copy;
 
     lily_u16_write_4(emit->code, op, ast->literal_reg_spot,
@@ -3053,7 +3053,7 @@ static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 static void emit_integer(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    if (expect->cls->id == LILY_ID_BYTE &&
+    if (expect->cls_id == LILY_ID_BYTE &&
         ast->backing_value >= 0 &&
         ast->backing_value <= UINT8_MAX) {
         emit_byte(emit, ast);
@@ -3110,7 +3110,7 @@ static lily_type *bidirectional_unify(lily_type_system *ts,
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
 {
-    uint16_t key_id = key_type->cls->id;
+    uint16_t key_id = key_type->cls_id;
 
     if (key_id != LILY_ID_INTEGER &&
         key_id != LILY_ID_STRING)
@@ -3128,7 +3128,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     lily_class *cls;
     int num, op;
 
-    if (expect->cls->id == LILY_ID_HASH) {
+    if (expect->cls_id == LILY_ID_HASH) {
         lily_type *key_type = expect->subtypes[0];
         lily_type *value_type = expect->subtypes[1];
         ensure_valid_key_type(emit, ast, key_type);
@@ -3143,7 +3143,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
     else {
         lily_type *elem_type = lily_question_type;
 
-        if (expect->cls->id == LILY_ID_LIST) {
+        if (expect->cls_id == LILY_ID_LIST) {
             elem_type = expect->subtypes[0];
 
             /* This is a rare case that's possible with `List.zip` since that
@@ -3173,11 +3173,11 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
 
     lily_type *key_type, *value_type;
 
-    if (expect->cls->id == LILY_ID_HASH) {
+    if (expect->cls_id == LILY_ID_HASH) {
         key_type = expect->subtypes[0];
         value_type = expect->subtypes[1];
 
-        uint16_t cls_id = key_type->cls->id;
+        uint16_t cls_id = key_type->cls_id;
 
         /* Parser allows keys to be generic. That's fine, as long as emitter
            doesn't build a Hash that's invalid. To prevent building an invalid
@@ -3254,7 +3254,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     lily_type *elem_type = lily_question_type;
     lily_ast *arg;
 
-    if (expect->cls->id == LILY_ID_LIST)
+    if (expect->cls_id == LILY_ID_LIST)
         elem_type = expect->subtypes[0];
 
     if (elem_type == lily_scoop_type)
@@ -3342,7 +3342,7 @@ static void get_func_min_max(lily_type *call_type, uint16_t *min, uint16_t *max)
     if (call_type->flags & TYPE_HAS_OPTARGS) {
         uint16_t i;
         for (i = 1;i < call_type->subtype_count;i++) {
-            if (call_type->subtypes[i]->cls->id == LILY_ID_OPTARG)
+            if (call_type->subtypes[i]->cls_id == LILY_ID_OPTARG)
                 break;
         }
         *min = i - 1;
@@ -3484,7 +3484,7 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
 static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
         lily_type *want_type)
 {
-    if (want_type->cls->id == LILY_ID_OPTARG)
+    if (want_type->cls_id == LILY_ID_OPTARG)
         want_type = want_type->subtypes[0];
 
     lily_type *eval_type = want_type;
@@ -3585,7 +3585,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
         /* Varargs are presented as a `List` of their inner values, so use
            subtypes[0] to get the real type. If this vararg is optional, then do
            a double unwrap. */
-        if (vararg_type->cls->id == LILY_ID_OPTARG) {
+        if (vararg_type->cls_id == LILY_ID_OPTARG) {
             is_optarg = 1;
             original_vararg = original_vararg->subtypes[0];
             vararg_type = original_vararg->subtypes[0];
@@ -3734,7 +3734,7 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
         }
     }
 
-    if (call_type->cls->id != LILY_ID_FUNCTION &&
+    if (call_type->cls_id != LILY_ID_FUNCTION &&
         (call_item->item_kind & ITEM_IS_VARIANT) == 0) {
         lily_raise_tree(emit->raiser, ast,
                 "Cannot anonymously call resulting type '^T'.",
@@ -3840,7 +3840,7 @@ static lily_type *get_va_type(lily_type *call_type)
     if (call_type->flags & TYPE_IS_VARARGS) {
         va_type = call_type->subtypes[call_type->subtype_count - 1];
 
-        if (va_type->cls->id == LILY_ID_OPTARG)
+        if (va_type->cls_id == LILY_ID_OPTARG)
             va_type = va_type->subtypes[0];
     }
     else
@@ -4078,7 +4078,7 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
 
         if (var_arg_head ||
-            va_type->cls->id != LILY_ID_OPTARG) {
+            va_type->cls_id != LILY_ID_OPTARG) {
             lily_type *va_list_type = get_va_type(call_type);
 
             if (va_list_type->flags & TYPE_IS_UNRESOLVED)
@@ -4336,7 +4336,7 @@ void lily_eval_to_foreach_var(lily_emit_state *emit, lily_expr_state *es,
 
     lily_type *t = ast->result->type;
 
-    if (t->cls->id != LILY_ID_LIST)
+    if (t->cls_id != LILY_ID_LIST)
         lily_raise_syn(emit->raiser, "Foreach expects a List to iterate over, but was given type '^T'.", t);
 
     lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot, var->reg_spot,

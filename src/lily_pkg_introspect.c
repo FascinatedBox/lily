@@ -456,7 +456,7 @@ void lily_introspect_TypeEntry_class_name(lily_state *s)
 void lily_introspect_TypeEntry_class_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
-    lily_return_integer(s, entry->cls->id);
+    lily_return_integer(s, entry->cls_id);
 }
 
 void lily_introspect_TypeEntry_inner_types(lily_state *s)
@@ -597,13 +597,13 @@ static void return_generics(lily_state *s, char *generic_str)
 {
     /* Cache generics are in letter order. All this function needs to do is to
        iter the saved count of times. */
-    lily_class **generics = s->gs->parser->generics->cache_generics;
+    lily_generic_class **generics = s->gs->parser->generics->cache_generics;
     uint16_t count = (uint16_t)generic_str[0];
     lily_container_val *list_val = lily_push_list(s, count);
     uint16_t i;
 
     for (i = 0;i < count;i++) {
-        lily_class *g = generics[i];
+        lily_generic_class *g = generics[i];
         lily_introspect_TypeEntry *new_type = INIT_TypeEntry(s);
 
         new_type->entry = g->self_type;
@@ -912,7 +912,7 @@ void lily_introspect_VariantEntry_parameters(lily_state *s)
 
        Variants without arguments will return their enum parent with ? in place
        of any generics. */
-    if (type->cls->id != LILY_ID_FUNCTION) {
+    if (type->cls_id != LILY_ID_FUNCTION) {
         lily_push_list(s, 0);
         lily_return_top(s);
         return;

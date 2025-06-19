@@ -74,6 +74,7 @@ lily_module_entry *lily_find_module(lily_module_entry *, const char *);
 lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
 lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
 
+lily_generic_class *lily_new_generic_class(const char *);
 lily_class *lily_new_raw_class(const char *, uint16_t);
 lily_class *lily_new_class(lily_symtab *, const char *, uint16_t);
 lily_class *lily_new_enum_class(lily_symtab *, const char *, uint16_t);

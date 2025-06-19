@@ -94,7 +94,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
 
         lily_type *t;
 
-        if (type->cls->id == LILY_ID_FUNCTION)
+        if (type->cls_id == LILY_ID_FUNCTION)
             t = lily_tm_make_call(ts->tm, type->flags, type->cls,
                     ts->tm->pos - start);
         else
@@ -102,8 +102,9 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
 
         lily_tm_add_unchecked(ts->tm, t);
     }
-    else if (type->cls->id == LILY_ID_GENERIC)
-        lily_tm_add_unchecked(ts->tm, ts->base[type->generic_pos]);
+    else if (type->cls_id == LILY_ID_GENERIC)
+        lily_tm_add_unchecked(ts->tm,
+                ts->base[((lily_generic_type *)type)->generic_pos]);
     else if (type == lily_scoop_type) {
         int i;
         lily_type **base = ts->base + ts->num_used - ts->scoop_count;
@@ -138,14 +139,14 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
         for (;i < type->subtype_count;i++)
             lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
 
-        if (type->cls->id == LILY_ID_FUNCTION)
+        if (type->cls_id == LILY_ID_FUNCTION)
             ret = lily_tm_make_call(ts->tm, type->flags, type->cls,
                     ts->tm->pos - start);
         else
             ret = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
     }
-    else if (type->cls->id == LILY_ID_GENERIC)
-        ret = ts->base[type->generic_pos];
+    else if (type->cls_id == LILY_ID_GENERIC)
+        ret = ts->base[((lily_generic_type *)type)->generic_pos];
 
     return ret;
 }
@@ -162,7 +163,7 @@ static void unify_call(lily_type_system *ts, lily_type *left,
 static void unify_simple(lily_type_system *ts, lily_type *left,
         lily_type *right, int num_subtypes)
 {
-    lily_class *cls = left->cls->id < right->cls->id ? left->cls : right->cls;
+    lily_class *cls = left->cls_id < right->cls_id ? left->cls : right->cls;
 
     if (num_subtypes)
         lily_tm_add(ts->tm, lily_tm_make(ts->tm, cls, num_subtypes));
@@ -182,7 +183,7 @@ static int check_generic(lily_type_system *ts, lily_type *left,
             lily_tm_add(ts->tm, left);
     }
     else {
-        int generic_pos = left->generic_pos;
+        int generic_pos = ((lily_generic_type *)left)->generic_pos;
         lily_type *cmp_type = ts->base[generic_pos];
         ret = 1;
 
@@ -246,7 +247,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
            they're optional. */
         if (left->subtypes[count-1] == lily_scoop_type)
             ;
-        else if (right->subtypes[count]->cls->id == LILY_ID_OPTARG)
+        else if (right->subtypes[count]->cls_id == LILY_ID_OPTARG)
             ;
         else
             ret = 0;
@@ -258,8 +259,8 @@ static int check_function(lily_type_system *ts, lily_type *left,
         left_type = left->subtypes[i];
         right_type = right->subtypes[i];
 
-        if (right_type->cls->id == LILY_ID_OPTARG &&
-            left_type->cls->id != LILY_ID_OPTARG) {
+        if (right_type->cls_id == LILY_ID_OPTARG &&
+            left_type->cls_id != LILY_ID_OPTARG) {
             right_type = right_type->subtypes[0];
         }
 
@@ -371,7 +372,7 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
 {
     int ret = 0;
 
-    if (left->cls->id == LILY_ID_QUESTION) {
+    if (left->cls_id == LILY_ID_QUESTION) {
         /* Scoop is only valid if it's a requirement. It can't be allowed to
            unify, because it breaks the type system. */
         if ((right->flags & TYPE_HAS_SCOOP) == 0 &&
@@ -381,17 +382,17 @@ static int check_raw(lily_type_system *ts, lily_type *left, lily_type *right, in
                 lily_tm_add(ts->tm, right);
         }
     }
-    else if (right->cls->id == LILY_ID_QUESTION) {
+    else if (right->cls_id == LILY_ID_QUESTION) {
         ret = 1;
         if (flags & T_UNIFY)
             lily_tm_add(ts->tm, left);
     }
-    else if (left->cls->id == LILY_ID_GENERIC)
+    else if (left->cls_id == LILY_ID_GENERIC)
         ret = check_generic(ts, left, right, flags);
-    else if (left->cls->id == LILY_ID_FUNCTION &&
-             right->cls->id == LILY_ID_FUNCTION)
+    else if (left->cls_id == LILY_ID_FUNCTION &&
+             right->cls_id == LILY_ID_FUNCTION)
         ret = check_function(ts, left, right, flags);
-    else if (left->cls->id == LILY_ID_TUPLE)
+    else if (left->cls_id == LILY_ID_TUPLE)
         ret = check_tuple(ts, left, right, flags);
     else if (left == lily_scoop_type)
         /* This is a match of a raw scoop versus a single argument. Consider

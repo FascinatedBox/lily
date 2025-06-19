@@ -7,8 +7,8 @@
    set aside as NULL as a sentinel. It's not ideal, but it prevents having to
    use another uint64_t. */
 typedef struct {
-    struct lily_class_ **cache_generics;
-    struct lily_class_ **scope_generics;
+    struct lily_generic_class_ **cache_generics;
+    struct lily_generic_class_ **scope_generics;
     uint16_t cache_size;
 
     uint16_t scope_start;
@@ -21,7 +21,7 @@ void lily_rewind_generic_pool(lily_generic_pool *);
 void lily_free_generic_pool(lily_generic_pool *);
 
 /* Try to find a generic of the given name in the pool. */
-struct lily_class_ *lily_gp_find(lily_generic_pool *, const char *);
+struct lily_generic_class_ *lily_gp_find(lily_generic_pool *, const char *);
 
 /* Add a generic to the current scope. If a generic that matches the name and
    the generic position is given, then that generic is used. Otherwise, a new

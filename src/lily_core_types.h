@@ -72,8 +72,8 @@ typedef struct lily_type_ {
     /* If this really is a type, this is ITEM_TYPE. */
     uint16_t item_kind;
     uint16_t flags;
-    /* If this type is a generic, this is the id (A = 0, B = 1, ...). */
-    uint16_t generic_pos;
+    /* This aligns to the id of a lily_class. */
+    uint16_t cls_id;
     /* A count of how many types are inside of this one. If this is a class in
        disguise, this is 0 and the subtype field is invalid. Otherwise, this is
        at least 1 and the last type is count - 1. */
@@ -148,6 +148,42 @@ typedef struct lily_class_ {
        that represent this class. */
     struct lily_type_ *all_subtypes;
 } lily_class;
+
+/* Instances of this represent some generic class (A, B, C, etc.). Generics are,
+   themselves, always monomorphic so this will be a self type. These are created
+   by symtab, but managed by the generic pool. */
+typedef struct lily_generic_class_ {
+    struct lily_generic_class_ *next;
+
+    /* This will always be ITEM_CLASS_NATIVE. */
+    uint16_t item_kind;
+    uint16_t flags;
+    uint16_t id;
+    uint16_t type_subtype_count;
+    struct lily_type_ *self_type;
+    char *name;
+    uint64_t shorthash;
+    uint16_t line_num;
+    uint16_t doc_id;
+
+    /* Position of this generic (A = 0, B = 1, etc.). */
+    uint16_t generic_pos;
+    uint16_t pad;
+    struct lily_class_ *parent;
+    struct lily_named_sym_ *members;
+    uint16_t inherit_depth;
+
+    /* Renamed to prevent accidentally using it instead of generic_pos. */
+    int16_t generic_count_not_pos;
+    uint16_t prop_count;
+    uint16_t dyna_start;
+
+    /* Remaining fields left off, because they won't be used or accessed:
+       module is only used during dynaload (dyna_start = 0 prevents that), and
+       it's monomorphic (all_subtypes won't be checked). */
+} lily_generic_class;
+
+typedef struct lily_generic_class_ lily_generic_type;
 
 /* This represents a variant inside of an enum. This is aligned to lily_class so
    that it can be used in the vm's class table. */

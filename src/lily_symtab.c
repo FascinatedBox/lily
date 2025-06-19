@@ -794,6 +794,35 @@ lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
     return new_class;
 }
 
+/* This creates a new generic class (A, B, C, etc.) for the generic pool. These
+   are created here because they need to look like a real class, and the real
+   class init is just above this one. */
+lily_generic_class *lily_new_generic_class(const char *name)
+{
+    lily_generic_class *new_class = lily_malloc(sizeof(*new_class));
+    char *name_copy = lily_malloc((strlen(name) + 1) * sizeof(*name_copy));
+
+    strcpy(name_copy, name);
+
+    new_class->item_kind = ITEM_CLASS_NATIVE;
+    new_class->flags = TYPE_IS_UNRESOLVED | CLS_GC_SPECULATIVE;
+    new_class->generic_pos = 0;
+    new_class->self_type = (lily_type *)new_class;
+    new_class->type_subtype_count = 0;
+    new_class->parent = NULL;
+    new_class->shorthash = shorthash_for_name(name);
+    new_class->line_num = 0;
+    new_class->doc_id = UINT16_MAX;
+    new_class->name = name_copy;
+    new_class->generic_count_not_pos = 0;
+    new_class->prop_count = 0;
+    new_class->members = NULL;
+    new_class->dyna_start = 0;
+    new_class->inherit_depth = 0;
+
+    return new_class;
+}
+
 /* This creates a new class-like entity (class or enum) that's linked into the
    current module's class-like listing. The new class-like entry is given the
    next available id. */

@@ -287,7 +287,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
 {
     lily_mb_add(msgbuf, type->cls->name);
 
-    if (type->cls->id == LILY_ID_FUNCTION) {
+    if (type->cls_id == LILY_ID_FUNCTION) {
         lily_mb_add(msgbuf, " (");
 
         if (type->subtype_count > 1) {
@@ -304,7 +304,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
                 /* If varargs is optional, then the type appears as optarg of
                    `List` of the element type. Otherwise, it's just a `List` of
                    the underlying type. */
-                if (v_type->cls->id == LILY_ID_OPTARG) {
+                if (v_type->cls_id == LILY_ID_OPTARG) {
                     lily_mb_add(msgbuf, "*");
                     add_type(msgbuf, v_type->subtypes[0]->subtypes[0]);
                 }
@@ -326,7 +326,7 @@ static void add_type(lily_msgbuf *msgbuf, lily_type *type)
     }
     else if (type->subtype_count) {
         int i;
-        int is_optarg = type->cls->id == LILY_ID_OPTARG;
+        int is_optarg = type->cls_id == LILY_ID_OPTARG;
 
         if (is_optarg == 0)
             lily_mb_add(msgbuf, "[");

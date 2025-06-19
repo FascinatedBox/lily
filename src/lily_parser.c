@@ -627,7 +627,7 @@ lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
         result = lily_find_class(prelude, name);
 
         if (result == NULL && name[1] == '\0')
-            result = lily_gp_find(parser->generics, name);
+            result = (lily_class *)lily_gp_find(parser->generics, name);
 
         if (result == NULL)
             result = find_run_class_dynaload(parser, prelude, name);
@@ -1617,7 +1617,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
     /* Hack: This exists because Lily does not understand constraints. */
     if (type->cls == parser->symtab->hash_class) {
         lily_type *key_type = type->subtypes[0];
-        uint16_t key_id = key_type->cls->id;
+        uint16_t key_id = key_type->cls_id;
 
         /* Parser allows generic keys so that Hash methods work, but also allows
            users to have definitions with generic keys. Emitter will make sure
@@ -2488,7 +2488,7 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
     constant_loader(parser->vm);
 
     lily_value *v = lily_stack_get_top(parser->vm);
-    uint16_t cls_id = type->cls->id;
+    uint16_t cls_id = type->cls_id;
     lily_symtab *symtab = parser->symtab;
     lily_literal *lit = NULL;
 
@@ -3115,7 +3115,7 @@ static void expr_word_as_constant(lily_parse_state *parser, lily_var *var)
         return;
     }
 
-    uint16_t cls_id = var->type->cls->id;
+    uint16_t cls_id = var->type->cls_id;
 
     if (cls_id == LILY_ID_INTEGER)
         lily_es_push_integer(parser->expr, var->constant_value);
@@ -3785,7 +3785,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     lily_var *lambda_var = new_define_var(parser, "(lambda)",
             start_line);
 
-    if (expect_type->cls->id == LILY_ID_FUNCTION)
+    if (expect_type->cls_id == LILY_ID_FUNCTION)
         lambda_var->type = expect_type->subtypes[0];
     else
         lambda_var->type = expect_type;
@@ -6180,7 +6180,7 @@ static void manifest_constant(lily_parse_state *parser)
     lily_next_token(lex);
     var->type = get_type(parser);
 
-    uint16_t cls_id = var->type->cls->id;
+    uint16_t cls_id = var->type->cls_id;
 
     if (cls_id != LILY_ID_DOUBLE &&
         cls_id != LILY_ID_INTEGER &&
