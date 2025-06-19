@@ -288,12 +288,15 @@ static void invoke_gc(lily_vm_state *vm)
     for (gc_iter = vm->gs->gc_live_entries;
          gc_iter;
          gc_iter = gc_iter->next) {
-        if (gc_iter->status == GC_NOT_SEEN &&
-            gc_iter->value.generic != NULL) {
-            /* This tells value destroy to just hollow the value since it may be
-               visited multiple times. */
-            gc_iter->status = GC_SWEEP;
-            lily_value_destroy((lily_value *)gc_iter);
+        if (gc_iter->status == GC_NOT_SEEN) {
+            if (gc_iter->value.generic) {
+                /* This tells value destroy to just hollow the value since it
+                   may be visited multiple times. */
+                gc_iter->status = GC_SWEEP;
+                lily_value_destroy((lily_value *)gc_iter);
+            }
+            else
+                gc_iter->status = GC_RECLAIM;
         }
     }
 
@@ -320,7 +323,7 @@ static void invoke_gc(lily_vm_state *vm)
     while (gc_iter) {
         iter_next = gc_iter->next;
 
-        if (gc_iter->status == GC_SWEEP) {
+        if (gc_iter->status & (GC_SWEEP | GC_RECLAIM)) {
             lily_free(gc_iter->value.generic);
 
             gc_iter->next = new_spare_entries;

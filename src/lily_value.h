@@ -222,6 +222,9 @@ typedef struct lily_generic_gc_val_ {
 /* This value is being deleted by the vm's gc sweep. */
 #define GC_SWEEP    2
 
+/* This value was not seen because it is NULL. It should be reclaimed. */
+#define GC_RECLAIM  4
+
 /* Markers for lily_value's flags. */
 
 #define VAL_IS_GC_TAGGED        0x0010000
