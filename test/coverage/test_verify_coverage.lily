@@ -808,4 +808,16 @@ class TestVerifyCoverage < TestCase
             }
         """)
     }
+
+    public define test_direct_import_keyarg_and_another
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        # The first item dynaloads keyword arguments.
+        assert_parse_string(t, """
+            import (optcount, cover_misc_api) covlib
+        """)
+    }
 }

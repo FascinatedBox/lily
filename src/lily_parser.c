@@ -4522,10 +4522,7 @@ static void link_import_syms(lily_parse_state *parser,
     lily_module_entry *active = symtab->active_module;
     lily_buffer_u16 *buffer = parser->data_stack;
     uint16_t start = lily_u16_pos(buffer) - count;
-    uint16_t iter = start;
-
-    lily_u16_set_pos(parser->data_stack, start);
-    parser->data_string_pos = lily_u16_get(buffer, iter);
+    uint16_t iter = start, restore_to = start;
 
     do {
         uint16_t search_pos = lily_u16_get(buffer, iter);
@@ -4553,6 +4550,8 @@ static void link_import_syms(lily_parse_state *parser,
         iter++;
         count--;
     } while (count);
+
+    lily_u16_set_pos(parser->data_stack, restore_to);
 }
 
 /* This function collects symbol names within parentheses for import. The result
