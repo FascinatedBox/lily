@@ -4275,10 +4275,13 @@ static void parse_one_constant(lily_parse_state *parser)
     else if (lex->token == tk_bytestring)
         lit = lily_get_bytestring_literal(parser->symtab, &t, lex->label,
                 lex->string_length);
-    else
+    else {
+        /* Silence a warning about uninitialized use. */
+        lit = NULL;
         lily_raise_syn(parser->raiser,
                 "Constant initialization expects a primitive value, not '%s'.",
                 tokname(lex->token));
+    }
 
     var->type = t;
     var->reg_spot = lit->reg_spot;
