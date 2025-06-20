@@ -155,7 +155,7 @@ void lily_mb_add(lily_msgbuf *msgbuf, const char *str)
     if (msgbuf->pos + len >= msgbuf->size)
         resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
 
-    strcat(msgbuf->message, str);
+    strcpy(msgbuf->message + msgbuf->pos, str);
     msgbuf->pos += len;
 }
 
