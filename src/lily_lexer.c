@@ -146,11 +146,15 @@ if (i == bufsize) { \
 
 #define READER_EOF_CHECK(to_check, against) \
 if (to_check == against) { \
-    source[i] = '\n'; \
-    source[i + 1] = '\0'; \
-    /* Bump the line number, unless only EOF or \0 was seen. */ \
-    lex->line_num += !!i; \
-    break; \
+    if (i || lex->line_num == 0) { \
+        source[i] = '\n'; \
+        source[i + 1] = '\0'; \
+        /* Bump the line number, unless only EOF or \0 was seen. */ \
+        lex->line_num += !!i; \
+        break; \
+    } \
+    else \
+        return 0; \
 }
 
 #define READER_END \
