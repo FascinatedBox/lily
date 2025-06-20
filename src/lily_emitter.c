@@ -1054,7 +1054,7 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_ast *ast,
     }
 
     if (var->flags & VAR_CANNOT_BE_UPVALUE)
-        lily_raise_syn(emit->raiser,
+        lily_raise_tree(emit->raiser, ast,
                 "Not allowed to close over variables from a class constructor.");
 
     emit->scope_block->flags |= BLOCK_MAKE_CLOSURE;
@@ -1690,16 +1690,17 @@ lily_proto *lily_emit_proto_for_var(lily_emit_state *emit, lily_var *var)
 /* Check if 'type' is something that can be considered truthy/falsey.
    Keep this synced with the vm's o_jump_if calculation.
    Failure: SyntaxError is raised. */
-static void ensure_valid_condition_type(lily_emit_state *emit, lily_type *type)
+static void ensure_valid_condition_type(lily_emit_state *emit, lily_ast *ast)
 {
-    int cls_id = type->cls_id;
+    uint16_t cls_id = ast->result->type->cls_id;
 
     if (cls_id != LILY_ID_INTEGER &&
         cls_id != LILY_ID_DOUBLE &&
         cls_id != LILY_ID_STRING &&
         cls_id != LILY_ID_LIST &&
         cls_id != LILY_ID_BOOLEAN)
-        lily_raise_syn(emit->raiser, "^T is not a valid condition type.", type);
+        lily_raise_tree(emit->raiser, ast,
+                "^T is not a valid condition type.", ast->result->type);
 }
 
 /* This checks to see if 'index_ast' has a type (and possibly, a value) that is
@@ -2554,7 +2555,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     check_valid_subscript(emit, var_ast, index_ast);
 
     if (var_type->cls_id == LILY_ID_STRING)
-        lily_raise_syn(emit->raiser,
+        lily_raise_tree(emit->raiser, ast,
                 "Subscript assignment on a String is not allowed.");
 
     lily_type *elem_type = get_subscript_result(emit, var_type,
@@ -2700,7 +2701,7 @@ after_type_check:;
             IS_ASSIGN_TOKEN(ast->parent->op))
             ast->result = right_sym;
         else
-            lily_raise_syn(emit->raiser,
+            lily_raise_tree(emit->raiser, ast,
                     "Cannot nest an assignment within an expression.");
     }
     else {
@@ -2777,14 +2778,14 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
        and doesn't need a retest. However, and/or are opposites, so they have
        to check each other (so the op has to be exactly the same). */
     if ((ast->left->tree_type == tree_binary && ast->left->op == ast->op) == 0) {
-        ensure_valid_condition_type(emit, ast->left->result->type);
+        ensure_valid_condition_type(emit, ast->left);
         emit_jump_if(emit, ast->left, jump_on);
     }
 
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, lily_question_type);
 
-    ensure_valid_condition_type(emit, ast->right->result->type);
+    ensure_valid_condition_type(emit, ast->right);
     emit_jump_if(emit, ast->right, jump_on);
 
     if (andor_start != UINT16_MAX) {
@@ -2907,7 +2908,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     if (ast->args_collected == 0)
-        lily_raise_syn(emit->raiser, "Cannot create an empty Tuple.");
+        lily_raise_tree(emit->raiser, ast, "Cannot create an empty Tuple.");
 
     if (expect->cls_id != LILY_ID_TUPLE ||
         ast->args_collected > expect->subtype_count)
@@ -3651,7 +3652,7 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast)
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
             if (variant->item_kind == ITEM_VARIANT_EMPTY)
-                lily_raise_syn(emit->raiser,
+                lily_raise_tree(emit->raiser, ast,
                         "%s is an empty variant that should not be called.",
                         variant->name);
 
@@ -4407,7 +4408,7 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
     }
 
     eval_enforce_value(emit, ast, lily_question_type);
-    ensure_valid_condition_type(emit, ast->result->type);
+    ensure_valid_condition_type(emit, ast);
 
     /* Jump if false (0) to the next branch. The branch will be patched when the
        next condition comes in.  */
@@ -4426,7 +4427,7 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
     }
 
     eval_enforce_value(emit, ast, lily_question_type);
-    ensure_valid_condition_type(emit, ast->result->type);
+    ensure_valid_condition_type(emit, ast);
 
     uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
     lily_u16_write_4(emit->code, o_jump_if, 1, ast->result->reg_spot,
@@ -4554,8 +4555,8 @@ void lily_eval_raise(lily_emit_state *emit, lily_expr_state *es)
 
     lily_class *result_cls = ast->result->type->cls;
     if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, result_cls) == 0) {
-        lily_raise_syn(emit->raiser, "Invalid class '%s' given to raise.",
-                result_cls->name);
+        lily_raise_tree(emit->raiser, ast,
+                "Invalid class '%s' given to raise.", result_cls->name);
     }
 
     lily_u16_write_3(emit->code, o_exception_raise, ast->result->reg_spot,

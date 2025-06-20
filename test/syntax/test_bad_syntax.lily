@@ -63,7 +63,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Subscript assignment on a String is not allowed.\n    \
-                from [test]:4:\n\
+                from [test]:3:\n\
         """,
         """\
             var v = "asdf"
@@ -738,7 +738,7 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot create an empty Tuple.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             var v = <[]>

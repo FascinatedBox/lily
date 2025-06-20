@@ -53,7 +53,7 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.\n    \
-                from [test]:4:\n\
+                from [test]:3:\n\
         """,
         """\
             class Example(a: Integer) {

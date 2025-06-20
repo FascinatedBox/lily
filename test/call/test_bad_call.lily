@@ -205,7 +205,7 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Gamma is an empty variant that should not be called.\n    \
-                from [test]:7:\n\
+                from [test]:6:\n\
         """,
         """\
             enum TestE {
