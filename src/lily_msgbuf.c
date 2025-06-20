@@ -201,9 +201,15 @@ void lily_mb_add_slice(lily_msgbuf *msgbuf, const char *text,
 
 void lily_mb_add_char(lily_msgbuf *msgbuf, char c)
 {
-    char ch_buf[2] = {c, '\0'};
+    if (msgbuf->pos + 1 >= msgbuf->size)
+        resize_msgbuf(msgbuf, msgbuf->pos + 2);
 
-    lily_mb_add(msgbuf, ch_buf);
+    char *message = msgbuf->message + msgbuf->pos;
+
+    *message = c;
+    message++;
+    *message = '\0';
+    msgbuf->pos++;
 }
 
 static void add_boolean(lily_msgbuf *msgbuf, int b)
