@@ -87,7 +87,7 @@ typedef struct lily_bytestring_val_ {
     char *string;
 } lily_bytestring_val;
 
-/* This serves List, Tuple, Dynamic, class instances, and variants. All they
+/* This serves List, Tuple, class instances, and (non-empty) variants. All they
    need is some container that holds N number of inner values. Some of them will
    make use of the gc_entry, but others won't. */
 typedef struct lily_container_val_ {
