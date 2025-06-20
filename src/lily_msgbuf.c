@@ -152,7 +152,7 @@ void lily_mb_add(lily_msgbuf *msgbuf, const char *str)
 {
     size_t len = strlen(str);
 
-    if ((msgbuf->pos + len + 1) > msgbuf->size)
+    if (msgbuf->pos + len >= msgbuf->size)
         resize_msgbuf(msgbuf, msgbuf->pos + len + 1);
 
     strcat(msgbuf->message, str);
@@ -176,7 +176,7 @@ void lily_mb_escape_add_str(lily_msgbuf *msgbuf, const char *str)
 
 void lily_mb_add_sized(lily_msgbuf *msgbuf, const char *text, int count)
 {
-    if ((msgbuf->pos + count + 1) > msgbuf->size)
+    if (msgbuf->pos + count >= msgbuf->size)
         resize_msgbuf(msgbuf, msgbuf->pos + count + 1);
 
     memcpy(msgbuf->message + msgbuf->pos, text, count);
@@ -191,7 +191,7 @@ void lily_mb_add_slice(lily_msgbuf *msgbuf, const char *text,
 {
     int range = (stop - start);
 
-    if ((msgbuf->pos + range + 1) > msgbuf->size)
+    if (msgbuf->pos + range >= msgbuf->size)
         resize_msgbuf(msgbuf, msgbuf->pos + range + 1);
 
     memcpy(msgbuf->message + msgbuf->pos, text + start, range);
