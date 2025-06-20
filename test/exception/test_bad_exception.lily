@@ -33,7 +33,7 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid class 'String' given to raise.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             raise "abc"

@@ -3678,10 +3678,8 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
         if (lex->token == tk_word)
             key_id = keyword_by_name(lex->label);
 
-        if (key_id != KEY_BAD_ID) {
-            lily_next_token(lex);
+        if (key_id != KEY_BAD_ID)
             handlers[key_id](parser);
-        }
         else if (lex->token == tk_left_curly) {
             lily_emit_enter_anon_block(parser->emit);
             lily_next_token(lex);
@@ -3971,6 +3969,8 @@ static void keyword_var(lily_parse_state *parser)
     if (block->forward_count)
         error_forward_decl_keyword(parser, KEY_VAR);
 
+    lily_next_token(lex);
+
     while (1) {
         lily_es_flush(parser->expr);
 
@@ -4089,6 +4089,7 @@ static void keyword_if(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_if_block(parser->emit);
     expression(parser);
     lily_eval_entry_condition(parser->emit, parser->expr);
@@ -4107,6 +4108,7 @@ static void keyword_elif(lily_parse_state *parser)
     if (block->flags & BLOCK_FINAL_BRANCH)
         lily_raise_syn(parser->raiser, "elif in exhaustive if.");
 
+    lily_next_token(lex);
     hide_block_vars(parser);
     lily_emit_branch_switch(parser->emit);
     expression(parser);
@@ -4140,6 +4142,7 @@ static void keyword_else(lily_parse_state *parser)
     if (block->flags & BLOCK_FINAL_BRANCH)
         lily_raise_syn(parser->raiser, "else in exhaustive %s.", what);
 
+    lily_next_token(lex);
     hide_block_vars(parser);
     lily_emit_branch_finalize(parser->emit);
     NEED_COLON_AND_NEXT;
@@ -4188,6 +4191,8 @@ static void keyword_return(lily_parse_state *parser)
     else
         block->flags |= BLOCK_LAMBDA_RESULT;
 
+    lily_next_token(parser->lex);
+
     if (return_type != lily_unit_type) {
         expression(parser);
         lily_eval_return(parser->emit, parser->expr, return_type);
@@ -4214,6 +4219,7 @@ static void keyword_while(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_while_block(parser->emit);
 
     expression(parser);
@@ -4295,6 +4301,8 @@ static void keyword_constant(lily_parse_state *parser)
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot declare a constant here.");
 
+    lily_next_token(lex);
+
     while (1) {
         parse_one_constant(parser);
         lily_next_token(lex);
@@ -4311,6 +4319,8 @@ static void keyword_continue(lily_parse_state *parser)
     if (lily_emit_try_write_continue(parser->emit) == 0)
         lily_raise_syn(parser->raiser, "'continue' used outside of a loop.");
 
+    lily_next_token(parser->lex);
+
     if (code_is_after_exit(parser))
         lily_raise_syn(parser->raiser,
                 "Statement(s) after 'continue' will not execute.");
@@ -4320,6 +4330,8 @@ static void keyword_break(lily_parse_state *parser)
 {
     if (lily_emit_try_write_break(parser->emit) == 0)
         lily_raise_syn(parser->raiser, "'break' used outside of a loop.");
+
+    lily_next_token(parser->lex);
 
     if (code_is_after_exit(parser))
         lily_raise_syn(parser->raiser,
@@ -4378,7 +4390,7 @@ static void keyword_for(lily_parse_state *parser)
     lily_emit_state *emit = parser->emit;
     lily_type *integer_type = parser->symtab->integer_class->self_type;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_NEXT_TOK(tk_word)
     lily_emit_enter_for_in_block(emit);
 
     lily_var *loop_var = find_active_var(parser, lex->label);
@@ -4425,7 +4437,7 @@ static void keyword_foreach(lily_parse_state *parser)
     lily_emit_state *emit = parser->emit;
     lily_type *integer_type = parser->symtab->integer_class->self_type;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_NEXT_TOK(tk_word)
     lily_emit_enter_foreach_block(emit);
 
     lily_var *loop_var = find_active_var(parser, lex->label);
@@ -4511,6 +4523,7 @@ static void keyword_do(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_do_while_block(parser->emit);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
@@ -4755,6 +4768,8 @@ static void keyword_import(lily_parse_state *parser)
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot import a file here.");
 
+    lily_next_token(parser->lex);
+
     if (block->forward_count)
         error_forward_decl_keyword(parser, KEY_IMPORT);
 
@@ -4765,6 +4780,7 @@ static void keyword_try(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_try_block(parser->emit, lex->line_num);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
@@ -4778,7 +4794,8 @@ static void keyword_except(lily_parse_state *parser)
     if (block->block_type != block_try)
         lily_raise_syn(parser->raiser, "except outside of try.");
 
-    lily_lex_state *lex = parser->lex;
+    lily_next_token(parser->lex);
+
     lily_class *except_cls = get_type(parser)->cls;
     lily_var *exception_var = NULL;
 
@@ -4791,6 +4808,8 @@ static void keyword_except(lily_parse_state *parser)
 
     if (emit->block->flags & BLOCK_FINAL_BRANCH)
         lily_raise_syn(parser->raiser, "'except' clause is unreachable.");
+
+    lily_lex_state *lex = parser->lex;
 
     hide_block_vars(parser);
 
@@ -4805,6 +4824,7 @@ static void keyword_except(lily_parse_state *parser)
 
 static void keyword_raise(lily_parse_state *parser)
 {
+    lily_next_token(parser->lex);
     expression(parser);
     lily_eval_raise(parser->emit, parser->expr);
 
@@ -5111,7 +5131,7 @@ static void keyword_class(lily_parse_state *parser)
 
     lily_lex_state *lex = parser->lex;
 
-    NEED_CURRENT_TOK(tk_word);
+    NEED_NEXT_TOK(tk_word);
 
     lily_class *search_cls = (lily_class *)search_for_valid_classlike(parser,
                 lex->label);
@@ -5230,7 +5250,6 @@ static void enum_method_check(lily_parse_state *parser)
 
     if (lex->token == tk_word &&
         strcmp(lex->label, "define") == 0) {
-        lily_next_token(lex);
         keyword_define(parser);
         return;
     }
@@ -5292,7 +5311,7 @@ static void keyword_enum(lily_parse_state *parser)
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_NEXT_TOK(tk_word)
 
     lily_item *search_item = search_for_valid_classlike(parser, lex->label);
 
@@ -5316,7 +5335,7 @@ static void keyword_scoped(lily_parse_state *parser)
     if (block->block_type != block_file)
         lily_raise_syn(parser->raiser, "Cannot define an enum here.");
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_NEXT_TOK(tk_word)
     expect_word(parser, "enum");
     NEED_NEXT_TOK(tk_word)
 
@@ -5506,6 +5525,8 @@ static void keyword_case(lily_parse_state *parser)
     lily_class *match_cls = block->match_type->cls;
     uint16_t count = 0;
 
+    lily_next_token(lex);
+
     while (1) {
         if (block->flags & BLOCK_FINAL_BRANCH)
             lily_raise_syn(parser->raiser, "case in exhaustive match.");
@@ -5545,6 +5566,7 @@ static void keyword_match(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_match_block(parser->emit);
     expression(parser);
     lily_eval_match_with(parser->emit, parser->expr);
@@ -5554,8 +5576,6 @@ static void keyword_match(lily_parse_state *parser)
     if (keyword_by_name(lex->label) != KEY_CASE)
         lily_raise_syn(parser->raiser, "match must start with a case.");
 
-    /* The main loop pulls up the next token, so this has to do that too. */
-    lily_next_token(lex);
     keyword_case(parser);
 }
 
@@ -5563,6 +5583,7 @@ static void keyword_with(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
+    lily_next_token(lex);
     lily_emit_enter_with_block(parser->emit);
     expression(parser);
     lily_eval_match_with(parser->emit, parser->expr);
@@ -5647,6 +5668,8 @@ static void keyword_define(lily_parse_state *parser)
     uint16_t generic_start = lily_gp_save(parser->generics);
     uint16_t modifiers = parser->modifiers;
 
+    lily_next_token(lex);
+
     if ((block->block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
@@ -5715,7 +5738,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
                     "'forward' qualifier not allowed in this scope.");
 
         modifiers |= SYM_IS_FORWARD;
-        NEED_CURRENT_TOK(tk_word)
+        NEED_NEXT_TOK(tk_word)
         key = keyword_by_name(lex->label);
     }
 
@@ -5733,10 +5756,8 @@ static void parse_modifier(lily_parse_state *parser, int key)
             lily_raise_syn(parser->raiser, "'%s' is not allowed here.",
                     scope_to_str(modifiers));
 
-        if (modifiers & SYM_IS_FORWARD)
-            lily_next_token(lex);
 
-        NEED_CURRENT_TOK(tk_word)
+        NEED_NEXT_TOK(tk_word)
         key = keyword_by_name(lex->label);
     }
     else if (modifiers & SYM_IS_FORWARD &&
@@ -5757,17 +5778,12 @@ static void parse_modifier(lily_parse_state *parser, int key)
         if (modifiers & SYM_IS_FORWARD)
             lily_raise_syn(parser->raiser, "Cannot use 'forward' with 'var'.");
 
-        lily_next_token(lex);
         keyword_var(parser);
     }
-    else if (key == KEY_DEFINE) {
-        lily_next_token(lex);
+    else if (key == KEY_DEFINE)
         keyword_define(parser);
-    }
-    else if (key == KEY_CLASS) {
-        lily_next_token(lex);
+    else if (key == KEY_CLASS)
         keyword_class(parser);
-    }
     else {
         const char *what = "'class', 'var', or 'define'";
 
@@ -6004,7 +6020,6 @@ static void process_docblock(lily_parse_state *parser)
             lily_raise_syn(parser->raiser,
                     "Docblocks are only allowed on toplevel symbols.");
 
-        lily_next_token(lex);
         handlers[key_id](parser);
     }
     else
@@ -6058,11 +6073,8 @@ static void parser_loop(lily_parse_state *parser)
         if (lex->token == tk_word) {
             /* Is this a keyword or an expression? */
             key_id = keyword_by_name(lex->label);
-            if (key_id != KEY_BAD_ID) {
-                /* Pull the next token and dispatch the keyword. */
-                lily_next_token(lex);
+            if (key_id != KEY_BAD_ID)
                 handlers[key_id](parser);
-            }
             else {
                 /* Give this to expression to figure out. */
                 expression(parser);
@@ -6116,10 +6128,8 @@ static void parser_loop(lily_parse_state *parser)
 
 static void manifest_define(lily_parse_state *parser)
 {
-    lily_lex_state *lex = parser->lex;
     lily_emit_state *emit = parser->emit;
 
-    lily_next_token(lex);
     keyword_define(parser);
 
     /* Close the definition to prevent storing code. */
@@ -6143,7 +6153,6 @@ static void manifest_foreign(lily_parse_state *parser)
     }
 
     expect_word(parser, "class");
-    lily_next_token(lex);
     keyword_class(parser);
     parser->current_class->item_kind = ITEM_CLASS_FOREIGN;
 
@@ -6453,7 +6462,6 @@ static void manifest_loop(lily_parse_state *parser)
             else if (key_id == KEY_CLASS ||
                      key_id == KEY_ENUM ||
                      key_id == KEY_SCOPED) {
-                lily_next_token(lex);
                 handlers[key_id](parser);
             }
             else if (key_id == KEY_PUBLIC ||

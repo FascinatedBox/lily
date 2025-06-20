@@ -252,7 +252,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot nest an assignment within an expression.\n    \
-                from [test]:3:\n\
+                from [test]:2:\n\
         """,
         """\
             var a = 10
@@ -682,7 +682,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: except outside of try.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             except
@@ -727,7 +727,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'break' used outside of a loop.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             break
@@ -737,7 +737,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'continue' used outside of a loop.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             continue
@@ -747,7 +747,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'return' used outside of a function.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             return
@@ -756,7 +756,7 @@ class TestBadToken < TestCase
         # bad keyword (elif without if)
         assert_parse_fails(t, """\
             SyntaxError: elif outside of if.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             elif
@@ -766,7 +766,7 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: else outside of if, match, or with.\n    \
-                from [test]:2:\n\
+                from [test]:1:\n\
         """,
         """\
             else
