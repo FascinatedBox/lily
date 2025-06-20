@@ -99,6 +99,23 @@ define optcount(
     :n n: *Integer=0,
     :o o: *Integer=0,
     :p p: *Integer=0): Integer
+define optsum(
+    :a a: *Integer=0,
+    :b b: *Integer=0,
+    :c c: *Integer=0,
+    :d d: *Integer=0,
+    :e e: *Integer=0,
+    :f f: *Integer=0,
+    :g g: *Integer=0,
+    :h h: *Integer=0,
+    :i i: *Integer=0,
+    :j j: *Integer=0,
+    :k k: *Integer=0,
+    :l l: *Integer=0,
+    :m m: *Integer=0,
+    :n n: *Integer=0,
+    :o o: *Integer=0,
+    :p p: *Integer=0): Integer
 define raise_dbzerror
 define raise_keyerror
 define scoop_narrow(f: Function($1))
