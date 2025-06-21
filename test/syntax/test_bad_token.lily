@@ -985,7 +985,6 @@ class TestBadToken < TestCase
         """)
 
         # invalid token (compound interpolation op)
-        # Blocked until there's more testing to make sure this is done right.
 
         assert_parse_fails(t, """\
             SyntaxError: '++=' is not a valid token.\n    \
