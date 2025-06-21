@@ -6534,95 +6534,6 @@ static void update_main_name(lily_parse_state *parser,
     parser->emit->protos->data[0]->module_path = path;
 }
 
-static void error_add_header(lily_parse_state *parser)
-{
-    lily_raiser *raiser = parser->raiser;
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    const char *name;
-
-    switch (raiser->source) {
-        case err_from_vm:
-            name = raiser->error_class->name;
-            break;
-        case err_from_parse:
-        case err_from_emit:
-            name = "SyntaxError";
-            break;
-        default:
-            name = "Error";
-            break;
-    }
-
-    lily_mb_add(msgbuf, name);
-
-    const char *message = lily_mb_raw(raiser->msgbuf);
-
-    if (message[0] != '\0')
-        lily_mb_add_fmt(msgbuf, ": %s\n", message);
-    else
-        lily_mb_add_char(msgbuf, '\n');
-}
-
-static void error_add_frontend_trace(lily_parse_state *parser)
-{
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    uint16_t line_num = parser->lex->line_num;
-
-    if (parser->raiser->source == err_from_emit)
-        line_num = parser->raiser->error_ast->line_num;
-
-    lily_mb_add_fmt(msgbuf, "    from %s:%d:\n",
-            parser->symtab->active_module->path, line_num);
-}
-
-static void error_add_vm_trace(lily_parse_state *parser)
-{
-    lily_msgbuf *msgbuf = parser->msgbuf;
-    lily_call_frame *frame = parser->vm->call_chain;
-
-    lily_mb_add(msgbuf, "Traceback:\n");
-
-    while (frame->prev) {
-        lily_proto *proto = frame->function->proto;
-
-        if (frame->function->code == NULL)
-            lily_mb_add_fmt(msgbuf, "    from %s: in %s\n", proto->module_path,
-                    proto->name);
-        else
-            lily_mb_add_fmt(msgbuf, "    from %s:%d: in %s\n",
-                    proto->module_path, frame->code[-1], proto->name);
-
-        frame = frame->prev;
-    }
-}
-
-/* This is called when the interpreter encounters an error. This builds an
-   error message that is stored within parser's msgbuf. A runner can later fetch
-   this error with `lily_error_message`. */
-static void build_error(lily_parse_state *parser)
-{
-    lily_raiser *raiser = parser->raiser;
-
-    lily_mb_flush(parser->msgbuf);
-
-    if (raiser->source == err_from_none)
-        return;
-
-    error_add_header(parser);
-
-    switch (raiser->source) {
-        case err_from_emit:
-        case err_from_parse:
-            error_add_frontend_trace(parser);
-            break;
-        case err_from_vm:
-            error_add_vm_trace(parser);
-            break;
-        default:
-            break;
-    }
-}
-
 static FILE *load_file_to_parse(lily_parse_state *parser, const char *path)
 {
     FILE *load_file = fopen(path, "r");
@@ -6932,21 +6843,6 @@ lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
         result = NULL;
 
     return result;
-}
-
-/* Return a string describing the last error encountered by the interpreter.
-   This string is guaranteed to be valid until the next execution of the
-   interpreter. */
-const char *lily_error_message(lily_state *s)
-{
-    build_error(s->gs->parser);
-    return lily_mb_raw(s->gs->parser->msgbuf);
-}
-
-/* Return the message of the last error encountered by the interpreter. */
-const char *lily_error_message_no_trace(lily_state *s)
-{
-    return lily_mb_raw(s->raiser->msgbuf);
 }
 
 lily_config *lily_config_get(lily_state *s)
