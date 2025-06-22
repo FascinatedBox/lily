@@ -142,8 +142,8 @@ class TestPkgMath < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Left side of = is not assignable.\n    \
-                from [test]:3:\n\
+            SyntaxError: Left side of = is not assignable.
+                from [test]:3:
         """,
         """\
             import math

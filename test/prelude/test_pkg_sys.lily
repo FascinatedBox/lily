@@ -77,14 +77,14 @@ class TestPkgSys < TestCase
         # set recursion limit (base case for limit)
 
         assert_parse_fails(t, """\
-            RuntimeError: Function call recursion limit reached.\n\
-            Traceback:\n    \
-                from [test]:4: in f\n    \
-                from [test]:4: in f\n    \
-                from [test]:4: in f\n    \
-                from [test]:4: in f\n    \
-                from [test]:4: in f\n    \
-                from [test]:5: in __main__\n\
+            RuntimeError: Function call recursion limit reached.
+            Traceback:
+                from [test]:4: in f
+                from [test]:4: in f
+                from [test]:4: in f
+                from [test]:4: in f
+                from [test]:4: in f
+                from [test]:5: in __main__
         """,
         """
             import sys
@@ -97,10 +97,10 @@ class TestPkgSys < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            ValueError: Limit value (9999999999999999) is not reasonable.\n\
-            Traceback:\n    \
-                from [sys]: in set_recursion_limit\n    \
-                from [test]:3: in __main__\n\
+            ValueError: Limit value (9999999999999999) is not reasonable.
+            Traceback:
+                from [sys]: in set_recursion_limit
+                from [test]:3: in __main__
         """,
         """
             import sys
@@ -111,11 +111,11 @@ class TestPkgSys < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            ValueError: Limit value (1) is lower than the current recursion depth.\n\
-            Traceback:\n    \
-                from [sys]: in set_recursion_limit\n    \
-                from [test]:5: in f\n    \
-                from [test]:8: in __main__\n\
+            ValueError: Limit value (1) is lower than the current recursion depth.
+            Traceback:
+                from [sys]: in set_recursion_limit
+                from [test]:5: in f
+                from [test]:8: in __main__
         """,
         """
             import sys

@@ -21,8 +21,8 @@ class TestBadForward < TestCase
         # bad resolution (with scope qualifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: protected).\n    \
-                from [test]:3:\n\
+            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: protected).
+                from [test]:3:
         """,
         """\
             class Test {
@@ -34,8 +34,8 @@ class TestBadForward < TestCase
         # bad resolution (with static qualifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: private static).\n    \
-                from [test]:3:\n\
+            SyntaxError: Wrong qualifiers in resolution of Test.f (expected: private static).
+                from [test]:3:
         """,
         """\
             class Test {
@@ -47,8 +47,8 @@ class TestBadForward < TestCase
         # bad resolution (expected public)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong qualifiers in resolution of Example.f (expected: public).\n    \
-                from [test]:3:\n\
+            SyntaxError: Wrong qualifiers in resolution of Example.f (expected: public).
+                from [test]:3:
         """,
         """\
             class Example {
@@ -60,10 +60,10 @@ class TestBadForward < TestCase
         # bad resolution (wrong type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Declaration does not match prior forward declaration at line 2.\n\
-            Expected: Function (Test, Integer)\n\
-            Received: Function (Test, String)\n    \
-                from [test]:3:\n\
+            SyntaxError: Declaration does not match prior forward declaration at line 2.
+            Expected: Function (Test, Integer)
+            Received: Function (Test, String)
+                from [test]:3:
         """,
         """\
             class Test {
@@ -75,8 +75,8 @@ class TestBadForward < TestCase
         # bad resolution (forward class as flat enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class named 'Test' has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: A class named 'Test' has already been declared.
+                from [test]:2:
         """,
         """\
             forward class Test { ... }
@@ -89,8 +89,8 @@ class TestBadForward < TestCase
         # bad resolution (forward class as scoped enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class named 'Test' has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: A class named 'Test' has already been declared.
+                from [test]:2:
         """,
         """\
             forward class Test { ... }
@@ -108,8 +108,8 @@ class TestBadForward < TestCase
         # duplicate forward (of toplevel definition)
 
         assert_parse_fails(t, """\
-            SyntaxError: A forward declaration for f already exists.\n    \
-                from [test]:2:\n\
+            SyntaxError: A forward declaration for f already exists.
+                from [test]:2:
         """,
         """\
             forward define f(Integer) { ... }
@@ -119,8 +119,8 @@ class TestBadForward < TestCase
         # duplicate forward (of class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: A forward declaration for f already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: A forward declaration for f already exists.
+                from [test]:3:
         """,
         """\
             class Example {
@@ -133,8 +133,8 @@ class TestBadForward < TestCase
         # Blocked because it's this way for regular method definitions.
 
         assert_parse_fails(t, """\
-            SyntaxError: f has already been declared.\n    \
-                from [test]:4:\n\
+            SyntaxError: f has already been declared.
+                from [test]:4:
         """,
         """\
             define f {}
@@ -152,9 +152,9 @@ class TestBadForward < TestCase
         # unresolved at end (of class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of class with unresolved forward(s):\n\
-            * Test.f at line 2\n    \
-                from [test]:3:\n\
+            SyntaxError: Reached end of class with unresolved forward(s):
+            * Test.f at line 2
+                from [test]:3:
         """,
         """\
             class Test {
@@ -165,9 +165,9 @@ class TestBadForward < TestCase
         # unresolved at end (of first file)
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward(s):\n\
-            * f at line 1\n    \
-                from [test]:2:\n\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * f at line 1
+                from [test]:2:
         """,
         """\
             forward define f(String): String { ... }
@@ -176,9 +176,9 @@ class TestBadForward < TestCase
         # unresolved at end (of class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a class property when there are unresolved forward(s):\n\
-            * Test.f at line 2\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot declare a class property when there are unresolved forward(s):
+            * Test.f at line 2
+                from [test]:3:
         """,
         """\
             class Test {
@@ -190,9 +190,9 @@ class TestBadForward < TestCase
         # unresolved at end (trying to import)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use 'import' when there are unresolved forward(s):\n\
-            * f at line 1\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot use 'import' when there are unresolved forward(s):
+            * f at line 1
+                from [test]:2:
         """,
         """\
             forward define f { ... }
@@ -202,9 +202,9 @@ class TestBadForward < TestCase
         # unresolved at end (var decl with unresolved)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a global var when there are unresolved forward(s):\n\
-            * f at line 1\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot declare a global var when there are unresolved forward(s):
+            * f at line 1
+                from [test]:2:
         """,
         """\
             forward define f { ... }
@@ -219,11 +219,11 @@ class TestBadForward < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward(s):\n\
-            * h at line 4\n\
-            * g at line 3\n\
-            * f at line 2\n    \
-                from unresolved_target.lily:5:\n\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * h at line 4
+            * g at line 3
+            * f at line 2
+                from unresolved_target.lily:5:
         """,
         """\
             import unresolved_target
@@ -234,9 +234,9 @@ class TestBadForward < TestCase
         t = Interpreter()
 
         assert_render_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward(s):\n\
-            * f at line 1\n    \
-                from [test]:1:\n\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * f at line 1
+                from [test]:1:
         """,
         """\
             <?lily forward define f(String): String { ... } ?>
@@ -245,11 +245,11 @@ class TestBadForward < TestCase
         # unresolved at end (forward class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward class(es):\n\
-            * Three at line 3\n\
-            * Two at line 2\n\
-            * One at line 1\n    \
-                from [test]:4:\n\
+            SyntaxError: Reached end of module with unresolved forward class(es):
+            * Three at line 3
+            * Two at line 2
+            * One at line 1
+                from [test]:4:
         """,
         """\
             forward class One { ... }
@@ -265,8 +265,8 @@ class TestBadForward < TestCase
         # forward collision (against a flat enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: An enum named 'Test' has already been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: An enum named 'Test' has already been declared.
+                from [test]:6:
         """,
         """\
             enum Test {
@@ -280,8 +280,8 @@ class TestBadForward < TestCase
         # forward collision (against a scoped enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: An enum named 'Test' has already been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: An enum named 'Test' has already been declared.
+                from [test]:6:
         """,
         """\
             scoped enum Test {
@@ -295,8 +295,8 @@ class TestBadForward < TestCase
         # forward collision (against a predefined class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A built-in class named 'Exception' already exists.\n    \
-                from [test]:1:\n\
+            SyntaxError: A built-in class named 'Exception' already exists.
+                from [test]:1:
         """,
         """\
             forward class Exception { ... }
@@ -305,8 +305,8 @@ class TestBadForward < TestCase
         # forward collision (against a predefined flat enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: A built-in enum named 'Option' already exists.\n    \
-                from [test]:1:\n\
+            SyntaxError: A built-in enum named 'Option' already exists.
+                from [test]:1:
         """,
         """\
             forward class Option { ... }
@@ -315,8 +315,8 @@ class TestBadForward < TestCase
         # forward collision (against a forward)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class named 'Test' has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: A class named 'Test' has already been declared.
+                from [test]:2:
         """,
         """\
             forward class Test { ... }
@@ -326,8 +326,8 @@ class TestBadForward < TestCase
         # forward collision (against an existing class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class named 'Test' has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: A class named 'Test' has already been declared.
+                from [test]:2:
         """,
         """\
             class Test {}

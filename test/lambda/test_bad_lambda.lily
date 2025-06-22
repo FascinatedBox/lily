@@ -10,8 +10,8 @@ class TestBadLambda < TestCase
         # bad break (for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'break' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'break' used outside of a loop.
+                from [test]:2:
         """,
         """\
             for i in 0...10: {
@@ -22,8 +22,8 @@ class TestBadLambda < TestCase
         # bad break (while loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'break' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'break' used outside of a loop.
+                from [test]:2:
         """,
         """\
             while 0: {
@@ -34,8 +34,8 @@ class TestBadLambda < TestCase
         # bad break (do while loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'break' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'break' used outside of a loop.
+                from [test]:2:
         """,
         """\
             do: {
@@ -51,8 +51,8 @@ class TestBadLambda < TestCase
         # bad continue (for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'continue' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'continue' used outside of a loop.
+                from [test]:2:
         """,
         """\
             for i in 0...10: {
@@ -63,8 +63,8 @@ class TestBadLambda < TestCase
         # bad continue (while loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'continue' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'continue' used outside of a loop.
+                from [test]:2:
         """,
         """\
             while 0: {
@@ -75,8 +75,8 @@ class TestBadLambda < TestCase
         # bad continue (do while loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'continue' used outside of a loop.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'continue' used outside of a loop.
+                from [test]:2:
         """,
         """\
             do: {
@@ -92,8 +92,8 @@ class TestBadLambda < TestCase
         # bad result (concrete type mismatch)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.
+                from [test]:3:
         """,
         """\
             define f(a: Function( => Integer)) {}
@@ -104,8 +104,8 @@ class TestBadLambda < TestCase
         # bad result (generic mismatched)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'String'.
+                from [test]:3:
         """,
         """\
             define f[A](a: A, b: Function( => A)) {}
@@ -116,8 +116,8 @@ class TestBadLambda < TestCase
         # bad result (assignment at end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but got type 'Unit'.\n    \
-                from [test]:5:\n\
+            SyntaxError: Lambda result should be type 'Integer', but got type 'Unit'.
+                from [test]:5:
         """,
         """\
             define f(a: Function( => Integer)) {}
@@ -130,8 +130,8 @@ class TestBadLambda < TestCase
         # bad result (assignment at end against generic type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
-                from [test]:3:\n\
+            SyntaxError: Lambda result should be type 'Integer', but none given.
+                from [test]:3:
         """,
         """\
             define f[A](a: Integer, b: Function( => Integer)) {}
@@ -142,8 +142,8 @@ class TestBadLambda < TestCase
         # bad result (no expression against concrete type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
-                from [test]:3:\n\
+            SyntaxError: Lambda result should be type 'Integer', but none given.
+                from [test]:3:
         """,
         """\
             define f(a: Function( => Integer)) {}
@@ -154,8 +154,8 @@ class TestBadLambda < TestCase
         # bad result (no expression against generic type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Lambda result should be type 'Integer', but none given.\n    \
-                from [test]:3:\n\
+            SyntaxError: Lambda result should be type 'Integer', but none given.
+                from [test]:3:
         """,
         """\
             define f[A](a: A, b: Function( => A)) {}
@@ -166,10 +166,10 @@ class TestBadLambda < TestCase
         # bad result (inconsistent enum directly used)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to Some is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:10:\n\
+            SyntaxError: Argument #1 to Some is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:10:
         """,
         """\
             var a = 10
@@ -191,8 +191,8 @@ class TestBadLambda < TestCase
         # bad result (inconsistent enum with var)
 
         assert_parse_fails(t, """\
-            SyntaxError: return expected type 'Option[Integer]' but got type 'Option[String]'.\n    \
-                from [test]:11:\n\
+            SyntaxError: return expected type 'Option[Integer]' but got type 'Option[String]'.
+                from [test]:11:
         """,
         """\
             var a = 10
@@ -215,8 +215,8 @@ class TestBadLambda < TestCase
         # bad result (no inference)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'return' inside of a lambda requires inference, but none given.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'return' inside of a lambda requires inference, but none given.
+                from [test]:3:
         """,
         """\
             var v = (||
@@ -234,8 +234,8 @@ class TestBadLambda < TestCase
         # lambda rules (no unresolved parameters)
         # Blocked because this makes the type system MUCH more difficult.
         assert_parse_fails(t, """\
-            SyntaxError: 'a' has an incomplete inferred type (?).\n    \
-                from [test]:5:\n\
+            SyntaxError: 'a' has an incomplete inferred type (?).
+                from [test]:5:
         """,
         """\
             define f[A](g: Function(A => A)) {
@@ -248,8 +248,8 @@ class TestBadLambda < TestCase
         # lambda rules (unresolved parameter in container)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'a' has an incomplete inferred type (List[?]).\n    \
-                from [test]:5:\n\
+            SyntaxError: 'a' has an incomplete inferred type (List[?]).
+                from [test]:5:
         """,
         """\
             define f[A](g: Function(List[A] => List[A])) {
@@ -262,8 +262,8 @@ class TestBadLambda < TestCase
         # lambda rules (must not be empty)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of lambda'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token 'end of lambda'.
+                from [test]:1:
         """,
         """\
             var v = (|| )
@@ -272,8 +272,8 @@ class TestBadLambda < TestCase
         # lambda rules (incomplete block at end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of lambda'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token 'end of lambda'.
+                from [test]:1:
         """,
         """\
             var v = (|| if 1: { )
@@ -282,8 +282,8 @@ class TestBadLambda < TestCase
         # lambda rules (excess block exits)
 
         assert_parse_fails(t, """\
-            SyntaxError: '}' outside of a block.\n    \
-                from [test]:1:\n\
+            SyntaxError: '}' outside of a block.
+                from [test]:1:
         """,
         """\
             var v = (|| } 1 )
@@ -298,8 +298,8 @@ class TestBadLambda < TestCase
         # The blank line at start is intentional.
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated lambda (started at line 2).\n    \
-                from [test]:6:\n\
+            SyntaxError: Unterminated lambda (started at line 2).
+                from [test]:6:
         """,
         """\
 
@@ -312,8 +312,8 @@ class TestBadLambda < TestCase
         # unterminated (single-line string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated string (started at line 2).\n    \
-                from [test]:2:\n\
+            SyntaxError: Unterminated string (started at line 2).
+                from [test]:2:
         """,
         """\
             var v =
@@ -323,8 +323,8 @@ class TestBadLambda < TestCase
         # unterminated (newline in single-line string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Newline in single-line string.\n    \
-                from [test]:2:\n\
+            SyntaxError: Newline in single-line string.
+                from [test]:2:
         """,
         """\
             var v = (|| "
@@ -339,8 +339,8 @@ class TestBadLambda < TestCase
         # missing inference (because of too many args)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'b_' has an incomplete inferred type (?).\n    \
-                from [test]:3:\n\
+            SyntaxError: 'b_' has an incomplete inferred type (?).
+                from [test]:3:
         """,
         """\
             define f[A, B](a: Hash[A, B], fn: Function(B)) {}

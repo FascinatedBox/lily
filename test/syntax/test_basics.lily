@@ -554,8 +554,8 @@ class TestBasics < TestCase
          """)
 
         assert_parse_fails(t, """\
-            SyntaxError: A docblock is not allowed here.\n    \
-                from [test]:1:\n\
+            SyntaxError: A docblock is not allowed here.
+                from [test]:1:
         """,
         """\
             ### asdf\
@@ -1019,8 +1019,8 @@ class TestBasics < TestCase
         # foreach loops (var already declared)
 
         assert_parse_fails(t, """\
-            SyntaxError: Foreach variable 'i' already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: Foreach variable 'i' already exists.
+                from [test]:3:
         """,
         """\
             var i = 0
@@ -1033,8 +1033,8 @@ class TestBasics < TestCase
         # foreach loops (loop var must have a type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'String'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot assign type 'Integer' to type 'String'.
+                from [test]:2:
         """,
         """\
             foreach i in [1, 2, 3]: {
@@ -1046,8 +1046,8 @@ class TestBasics < TestCase
         # foreach loops (no 'by' clause)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ':', not 'a label'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected ':', not 'a label'.
+                from [test]:1:
         """,
         """\
             foreach i in [1, 2, 3] by 1: {
@@ -1057,8 +1057,8 @@ class TestBasics < TestCase
         # foreach loops (must take a List)
 
         assert_parse_fails(t, """\
-            SyntaxError: Foreach expects a List to iterate over, but was given type 'Integer'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Foreach expects a List to iterate over, but was given type 'Integer'.
+                from [test]:1:
         """,
         """\
             foreach i in 4: {
@@ -1672,9 +1672,9 @@ class TestBasics < TestCase
         # verify misc (scanning Windows newlines)
 
         assert_parse_string(t, """
-            var v = 10\r\n\
-            v = 11\r\n\
-            if v != 11: {\r\n\
+            var v = 10\r
+            v = 11\r
+            if v != 11: {\r
                 raise Exception("Failed.")
             }
         """)

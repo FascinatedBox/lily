@@ -11,8 +11,8 @@ class TestBadKeyarg < TestCase
         # Blocked to make keyargs easier.
 
         assert_parse_fails(t, """\
-            SyntaxError: Positional argument after keyword argument.\n    \
-                from [test]:5:\n\
+            SyntaxError: Positional argument after keyword argument.
+                from [test]:5:
         """,
         """
             define f(:a a: Integer, :b b: String) {
@@ -25,8 +25,8 @@ class TestBadKeyarg < TestCase
         # Blocked to make keyargs easier, and limited use.
 
         assert_parse_fails(t, """\
-            SyntaxError: Forward declarations not allowed to have keyword arguments.\n    \
-                from [test]:1:\n\
+            SyntaxError: Forward declarations not allowed to have keyword arguments.
+                from [test]:1:
         """,
         """\
             forward define f(:a Integer) { ... }
@@ -35,8 +35,8 @@ class TestBadKeyarg < TestCase
         # keyarg rules (no duplicates)
 
         assert_parse_fails(t, """\
-            SyntaxError: A keyword named :a has already been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: A keyword named :a has already been declared.
+                from [test]:1:
         """,
         """\
             define f(:a a: String, :a b: String) {}
@@ -50,8 +50,8 @@ class TestBadKeyarg < TestCase
         # unsupported (on plain define)
 
         assert_parse_fails(t, """\
-            SyntaxError: f does not specify any keyword arguments.\n    \
-                from [test]:3:\n\
+            SyntaxError: f does not specify any keyword arguments.
+                from [test]:3:
         """,
         """\
             define f(a: Integer) {}
@@ -62,8 +62,8 @@ class TestBadKeyarg < TestCase
         # unsupported (on class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Example.f does not specify any keyword arguments.\n    \
-                from [test]:5:\n\
+            SyntaxError: Example.f does not specify any keyword arguments.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -76,8 +76,8 @@ class TestBadKeyarg < TestCase
         # unsupported (on enum method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Example.f does not specify any keyword arguments.\n    \
-                from [test]:7:\n\
+            SyntaxError: Example.f does not specify any keyword arguments.
+                from [test]:7:
         """,
         """\
             enum Example {
@@ -92,8 +92,8 @@ class TestBadKeyarg < TestCase
         # unsupported (on lambda)
 
         assert_parse_fails(t, """\
-            SyntaxError: v is not capable of receiving keyword arguments.\n    \
-                from [test]:3:\n\
+            SyntaxError: v is not capable of receiving keyword arguments.
+                from [test]:3:
         """,
         """\
             var v = (|a: Integer| 0 )
@@ -104,8 +104,8 @@ class TestBadKeyarg < TestCase
         # unsupported (on nested define)
 
         assert_parse_fails(t, """\
-            SyntaxError: g is not capable of receiving keyword arguments.\n    \
-                from [test]:4:\n\
+            SyntaxError: g is not capable of receiving keyword arguments.
+                from [test]:4:
         """,
         """\
             define f(:a a: Integer) {

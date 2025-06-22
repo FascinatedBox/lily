@@ -58,6 +58,10 @@ class TestBadImport < TestCase
 
     private define verify_import_error(expect_text: String, given_text: String)
     {
+        given_text = given_text.replace("\n", "\n            ")
+                               .rstrip(" \n")
+        expect_text = expect_text.rstrip(" \n")
+
         var expect_lines = expect_text.split("\n")
         var given_lines = given_text.split("\n")
         var expect_i = 0
@@ -104,8 +108,8 @@ class TestBadImport < TestCase
         # bad direct import (trailing comma)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not ')'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Expected 'a label', not ')'.
+                from [test]:2:
         """,
         """
             import (ref_var,) var_exporter
@@ -119,8 +123,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to directly import modules ('var_exporter').\n    \
-                from [test]:3:\n\
+            SyntaxError: Not allowed to directly import modules ('var_exporter').
+                from [test]:3:
         """,
         """
             import (var_exporter) fff
@@ -133,8 +137,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot find symbol 'missing' inside of module 'var_exporter'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot find symbol 'missing' inside of module 'var_exporter'.
+                from [test]:3:
         """,
         """
             import (missing) var_exporter
@@ -144,8 +148,8 @@ class TestBadImport < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            SyntaxError: Cannot find symbol 'missing' inside of module 'sys'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot find symbol 'missing' inside of module 'sys'.
+                from [test]:2:
         """,
         """\
             import (missing) sys
@@ -158,8 +162,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: 'v' has already been declared.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'v' has already been declared.
+                from [test]:3:
         """,
         """
             import (v, v) var_exporter
@@ -172,8 +176,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use 'as' when only specific items are being imported.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot use 'as' when only specific items are being imported.
+                from [test]:2:
         """,
         """
             import (v) var_exporter as f
@@ -186,8 +190,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not ')'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Expected 'a label', not ')'.
+                from [test]:2:
         """,
         """
             import () var_exporter
@@ -201,8 +205,8 @@ class TestBadImport < TestCase
         # bad import path (invalid token)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'import' expected a path (identifier or string), not invalid token.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'import' expected a path (identifier or string), not invalid token.
+                from [test]:1:
         """,
         """\
             import ?
@@ -211,8 +215,8 @@ class TestBadImport < TestCase
         # bad import path (begin with a slash)
 
         assert_parse_fails(t, """\
-            SyntaxError: Import path cannot begin or end with '/'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Import path cannot begin or end with '/'.
+                from [test]:1:
         """,
         """\
             import "/wrong"
@@ -221,8 +225,8 @@ class TestBadImport < TestCase
         # bad import path (end with a slash)
 
         assert_parse_fails(t, """\
-            SyntaxError: Import path cannot begin or end with '/'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Import path cannot begin or end with '/'.
+                from [test]:1:
         """,
         """\
             import "wrong/"
@@ -231,8 +235,8 @@ class TestBadImport < TestCase
         # bad import path (quoting an identifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Simple import paths do not need to be quoted.\n    \
-                from [test]:1:\n\
+            SyntaxError: Simple import paths do not need to be quoted.
+                from [test]:1:
         """,
         """\
             import "asdf"
@@ -241,8 +245,8 @@ class TestBadImport < TestCase
         # bad import path (empty string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Import path must not be empty.\n    \
-                from [test]:1:\n\
+            SyntaxError: Import path must not be empty.
+                from [test]:1:
         """,
         """\
             import ""
@@ -251,8 +255,8 @@ class TestBadImport < TestCase
         # bad import path (escape characters)
 
         assert_parse_fails(t, """\
-            SyntaxError: Import path cannot contain escape characters.\n    \
-                from [test]:1:\n\
+            SyntaxError: Import path cannot contain escape characters.
+                from [test]:1:
         """,
         """\
             import "\\n"
@@ -261,8 +265,8 @@ class TestBadImport < TestCase
         # bad import path (triple-quote string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Import path cannot be a triple-quote string.\n    \
-                from [test]:1:\n\
+            SyntaxError: Import path cannot be a triple-quote string.
+                from [test]:1:
         """,
         """\
             import \"\"\"asdf\"\"\"
@@ -272,13 +276,13 @@ class TestBadImport < TestCase
 
         t.parse_string("[test]", "import \"%s^T\"")
         verify_import_error("""\
-            SyntaxError: Cannot import '%s^T':\n    \
-                no preloaded package '%s^T'\n    \
-                no file '.\/%s^T.lily'\n    \
-                no file '.\/%s^T.{lib}'\n    \
-                no file '.\/packages\/%s^T\/src\/%s^T.lily'\n    \
-                no file '.\/packages\/%s^T\/src\/%s^T.{lib}'\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot import '%s^T':
+                no preloaded package '%s^T'
+                no file '.\/%s^T.lily'
+                no file '.\/%s^T.{lib}'
+                no file '.\/packages\/%s^T\/src\/%s^T.lily'
+                no file '.\/packages\/%s^T\/src\/%s^T.{lib}'
+                from [test]:1:
         """, t.error())
     }
 
@@ -290,8 +294,8 @@ class TestBadImport < TestCase
         # bad imported file (brace at end)
 
         assert_parse_fails(t, """\
-            SyntaxError: '}' outside of a block.\n    \
-                from brace_at_end.lily:1:\n\
+            SyntaxError: '}' outside of a block.
+                from brace_at_end.lily:1:
         """,
         """
             import brace_at_end
@@ -304,8 +308,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?>'.\n    \
-                from tag_at_end.lily:1:\n\
+            SyntaxError: Unexpected token '?>'.
+                from tag_at_end.lily:1:
         """,
         """
             import tag_at_end
@@ -318,8 +322,8 @@ class TestBadImport < TestCase
         )
 
         assert_render_fails(t, """\
-            SyntaxError: Unexpected token '?>'.\n    \
-                from tag_at_end.lily:1:\n\
+            SyntaxError: Unexpected token '?>'.
+                from tag_at_end.lily:1:
         """,
         """<?lily import tag_at_end
         """)
@@ -331,8 +335,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.\n    \
-                from invalid_token.lily:1:\n\
+            SyntaxError: Unexpected token 'invalid token'.
+                from invalid_token.lily:1:
         """,
         """
             import invalid_token
@@ -344,10 +348,10 @@ class TestBadImport < TestCase
         # The library exists, but the tables are missing.
 
         var expect = """\
-            SyntaxError: Cannot import 'bad_asdf':\n    \
-                no preloaded package 'bad_asdf'\n    \
-                no file '.\/test\/t\/backbone.{lib}'\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot import 'bad_asdf':
+                no preloaded package 'bad_asdf'
+                no file '.\/test\/t\/backbone.{lib}'
+                from [test]:1:
         """
 
         var t = Interpreter.with_targets(
@@ -363,13 +367,13 @@ class TestBadImport < TestCase
         # What does a failed import look like?
 
         var expect = """\
-            SyntaxError: Cannot import 'asdf':\n    \
-                no preloaded package 'asdf'\n    \
-                no file '.\/asdf.lily'\n    \
-                no file '.\/asdf.{lib}'\n    \
-                no file '.\/packages\/asdf\/src\/asdf.lily'\n    \
-                no file '.\/packages\/asdf\/src\/asdf.{lib}'\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot import 'asdf':
+                no preloaded package 'asdf'
+                no file '.\/asdf.lily'
+                no file '.\/asdf.{lib}'
+                no file '.\/packages\/asdf\/src\/asdf.lily'
+                no file '.\/packages\/asdf\/src\/asdf.{lib}'
+                from [test]:1:
         """
 
         var t = Interpreter()
@@ -387,8 +391,8 @@ class TestBadImport < TestCase
         # import rules (wrong symbol in direct import)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '+'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Expected either ',' or ')', not '+'.
+                from [test]:2:
         """,
         """
             import (v +) var_exporter
@@ -397,8 +401,8 @@ class TestBadImport < TestCase
         # import rules (not within define)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot import a file here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot import a file here.
+                from [test]:2:
         """,
         """\
             define f {
@@ -413,8 +417,8 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: A module named 'var_access' has already been imported here.\n    \
-                from [test]:3:\n\
+            SyntaxError: A module named 'var_access' has already been imported here.
+                from [test]:3:
         """,
         """
             import var_exporter as var_access
@@ -450,8 +454,8 @@ class TestBadImport < TestCase
         # Don't check preloaded packages for slashed paths.
 
         var message = """\
-            SyntaxError: Cannot import 'abc\/def':\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot import 'abc\/def':
+                from [test]:1:
         """
 
         var t = Interpreter.with_targets()
@@ -470,13 +474,13 @@ class TestBadImport < TestCase
 
         t.parse_string("[test]", "import loop")
         verify_import_error("""\
-            SyntaxError: 'loop' is already being imported.\n    \
-                from loop.lily:1:\
+            SyntaxError: 'loop' is already being imported.
+                from loop.lily:1:
         """, t.error())
 
         assert_manifest_fails(t, """\
-            SyntaxError: 'manifest_loop' is already being imported.\n    \
-                from manifest_loop.lily:2:\n\
+            SyntaxError: 'manifest_loop' is already being imported.
+                from manifest_loop.lily:2:
         """,
         """\
             import manifest

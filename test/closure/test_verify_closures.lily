@@ -8,8 +8,8 @@ class TestVerifyClosures < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Loop var cannot be an upvalue.\n    \
-                from [test]:7:\n\
+            SyntaxError: Loop var cannot be an upvalue.
+                from [test]:7:
         """,
         """\
             define f
@@ -549,12 +549,12 @@ class TestVerifyClosures < TestCase
         # verify trace (uncaught exception from a closure)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:4: in h\n    \
-                from [test]:7: in g\n    \
-                from [test]:10: in f\n    \
-                from [test]:13: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:4: in h
+                from [test]:7: in g
+                from [test]:10: in f
+                from [test]:13: in __main__
         """,
         """\
             define f {

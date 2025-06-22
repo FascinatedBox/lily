@@ -549,8 +549,8 @@ class TestVerifyCoverage < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Unit does not have a constructor.\n    \
-                from [test]:1:\n\
+            SyntaxError: Class Unit does not have a constructor.
+                from [test]:1:
         """,
         """\
             var v = Unit()
@@ -562,8 +562,8 @@ class TestVerifyCoverage < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'Function ()'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot assign type 'Integer' to type 'Function ()'.
+                from [test]:2:
         """,
         """\
             var v = __main__
@@ -576,8 +576,8 @@ class TestVerifyCoverage < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (*Integer...)' to type 'Integer'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'Function (*Integer...)' to type 'Integer'.
+                from [test]:3:
         """,
         """\
             define f(a: *Integer... = []) { }
@@ -613,10 +613,10 @@ class TestVerifyCoverage < TestCase
         # scoop narrowing (wrong result type skip scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
-            Expected Type: Function (Integer, String, $1 => Boolean)\n\
-            Received Type: Function (Integer, String => Integer)\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
+            Expected Type: Function (Integer, String, $1 => Boolean)
+            Received Type: Function (Integer, String => Integer)
+                from [test]:3:
         """,
         """\
             define j(a: Integer, b: String): Integer { return 0 }
@@ -627,10 +627,10 @@ class TestVerifyCoverage < TestCase
         # scoop narrowing (wrong result type with scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
-            Expected Type: Function (Integer, String, $1 => Boolean)\n\
-            Received Type: Function (Integer, String, Double => Integer)\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
+            Expected Type: Function (Integer, String, $1 => Boolean)
+            Received Type: Function (Integer, String, Double => Integer)
+                from [test]:3:
         """,
         """\
             define j(a: Integer, b: String, c: Double): Integer { return 0 }
@@ -641,10 +641,10 @@ class TestVerifyCoverage < TestCase
         # scoop narrowing (too few before scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:\n\
-            Expected Type: Function (Integer, String, $1 => Boolean)\n\
-            Received Type: Function (Integer => Boolean)\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
+            Expected Type: Function (Integer, String, $1 => Boolean)
+            Received Type: Function (Integer => Boolean)
+                from [test]:3:
         """,
         """\
             define j(a: Integer): Boolean { return true }
@@ -723,11 +723,11 @@ class TestVerifyCoverage < TestCase
         # The traceback also shows that only native files are looked at.
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot import 'sys':\n    \
-                no preloaded package 'sys'\n    \
-                no file '.\/sys.lily'\n    \
-                no file '.\/packages\/sys\/src\/sys.lily'\n    \
-                    from [test]:1:\n\
+            SyntaxError: Cannot import 'sys':
+                no preloaded package 'sys'
+                no file '.\/sys.lily'
+                no file '.\/packages\/sys\/src\/sys.lily'
+                from [test]:1:
         """,
         """\
             import sys
@@ -746,10 +746,10 @@ class TestVerifyCoverage < TestCase
         # internal sandbox (opening files blocked)
 
         assert_parse_fails(t, """\
-            RuntimeError: Not allowed to open files in sandbox mode.\n\
-            Traceback:\n    \
-                from [prelude]: in File.open\n    \
-                from [test]:28: in __main__\n\
+            RuntimeError: Not allowed to open files in sandbox mode.
+            Traceback:
+                from [prelude]: in File.open
+                from [test]:28: in __main__
         """,
         """\
             try: {

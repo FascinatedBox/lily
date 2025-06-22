@@ -10,10 +10,10 @@ class TestVariance < TestCase
         # bad narrow invariance (invariant narrow to Unit)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #2 to List.push is invalid:\n\
-            Expected Type: List[Function ( => Integer)]\n\
-            Received Type: List[Function ()]\n    \
-                from [test]:6:\n\
+            SyntaxError: Argument #2 to List.push is invalid:
+            Expected Type: List[Function ( => Integer)]
+            Received Type: List[Function ()]
+                from [test]:6:
         """,
         """\
             var l: List[List[Function( => Integer)]] = []
@@ -27,10 +27,10 @@ class TestVariance < TestCase
         # bad narrow invariance (covariant narrow to Unit)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to g is invalid:\n\
-            Expected Type: Function ( => Integer)\n\
-            Received Type: Function ()\n    \
-                from [test]:7:\n\
+            SyntaxError: Argument #1 to g is invalid:
+            Expected Type: Function ( => Integer)
+            Received Type: Function ()
+                from [test]:7:
         """,
         """\
             define f {}
@@ -45,8 +45,8 @@ class TestVariance < TestCase
         # bad narrow invariance (contravariant narrow to Unit)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (Function ())' to type 'Function (Function ( => Integer))'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'Function (Function ())' to type 'Function (Function ( => Integer))'.
+                from [test]:3:
         """,
         """\
             define f(g: Function(Function( => Integer)),
@@ -61,8 +61,8 @@ class TestVariance < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, *Integer)'.\n    \
-                from [test]:5:\n\
+            SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, *Integer)'.
+                from [test]:5:
         """,
         """\
             define f(a: Integer) {  }
@@ -90,8 +90,8 @@ class TestVariance < TestCase
     {
         var t = Interpreter()
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.\n    \
-                from [test]:5:\n\
+            SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.
+                from [test]:5:
         """,
         """\
             define f(a: String): String { return "10" }

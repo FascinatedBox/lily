@@ -9,16 +9,16 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not 'end of file'.
+                from [test]:1:
         """,
         """\
             1-\
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not 'end of file'.
+                from [test]:1:
         """,
         """\
             1-\
@@ -37,16 +37,16 @@ class TestVerifyRewind < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.\n    \
-                from invalid_token.lily:2:\n\
+            SyntaxError: Unexpected token 'invalid token'.
+                from invalid_token.lily:2:
         """,
         """
             import invalid_token
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.\n    \
-                from invalid_token.lily:2:\n\
+            SyntaxError: Unexpected token 'invalid token'.
+                from invalid_token.lily:2:
         """,
         """
             import invalid_token
@@ -70,18 +70,18 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             0 / 0
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a class property when there are unresolved forward(s):\n\
-            * Test.f at line 2\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot declare a class property when there are unresolved forward(s):
+            * Test.f at line 2
+                from [test]:3:
         """,
         """\
             class Test {
@@ -91,8 +91,8 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated lambda (started at line 2).\n    \
-                from [test]:4:\n\
+            SyntaxError: Unterminated lambda (started at line 2).
+                from [test]:4:
         """,
         """\
 
@@ -101,8 +101,8 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: v has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: v has not been declared.
+                from [test]:1:
         """,
         """\
             v
@@ -114,16 +114,16 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not ')'.
+                from [test]:1:
         """,
         """\
             var v = ((((((((1 + ) + 2) + 3)\
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not ')'.
+                from [test]:1:
         """,
         """\
             var v = ((((((((1 + ) + 2) + 3)\
@@ -135,17 +135,17 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward(s):\n\
-            * f at line 1\n    \
-                from [test]:2:\n\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * f at line 1
+                from [test]:2:
         """,
         """\
             forward define f(Integer) { ... }
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: f has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: f has not been declared.
+                from [test]:1:
         """,
         """\
             f()
@@ -157,9 +157,9 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:8: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:8: in __main__
         """,
         """\
             class Example {}
@@ -173,24 +173,24 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Example has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: Example has not been declared.
+                from [test]:1:
         """,
         """\
             var v = Example()
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class 'Test' does not exist.\n    \
-                from [test]:1:\n\
+            SyntaxError: Class 'Test' does not exist.
+                from [test]:1:
         """,
         """\
             define f(a: Test) {}
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: One has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: One has not been declared.
+                from [test]:1:
         """,
         """\
             var v = One
@@ -215,9 +215,9 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:7: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:7: in __main__
         """,
         """\
             class Point3(x: Integer, y: Integer, z: Integer) < Point(x, y) {
@@ -230,8 +230,8 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Point3 has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: Point3 has not been declared.
+                from [test]:1:
         """,
         """\
             var p2 = Point3(1, 2, 3)
@@ -255,16 +255,16 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token '+'.
+                from [test]:1:
         """,
         """\
             define f(:a a: Integer) { + }
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: g does not have a keyword named ':a'.\n    \
-                from [test]:3:\n\
+            SyntaxError: g does not have a keyword named ':a'.
+                from [test]:3:
         """,
         """\
             define g(:b b: Integer) { }
@@ -278,16 +278,16 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Unexpected token 'end of file'.
+                from [test]:2:
         """,
         """\
             if 1: { if 2: {
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Unexpected token 'end of file'.
+                from [test]:2:
         """,
         """\
             if 1: { if 2: {
@@ -299,16 +299,16 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not ')'.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer=(10 + 20 + )
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a value, not ')'.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer=(10 + 20 + )
@@ -320,8 +320,8 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Unexpected token '+'.
+                from [test]:3:
         """,
         """\
             class Example {
@@ -350,18 +350,18 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             try: { 1 / 0 except ValueError: 0 }
         """)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             try: { 1 / 0 except ValueError: 0 }
@@ -377,16 +377,16 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token '+'.
+                from [test]:1:
         """,
         """\
             class Two < One {} +
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token '+'.
+                from [test]:1:
         """,
         """\
             class Two < One {} +
@@ -402,8 +402,8 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Expected a value, not 'end of file'.
+                from [test]:3:
         """,
         """\
             define g {}
@@ -411,8 +411,8 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Expected a value, not 'end of file'.
+                from [test]:3:
         """,
         """\
             define g {}
@@ -432,9 +432,9 @@ class TestVerifyRewind < TestCase
         )
 
         assert_parse_fails(t, """\
-            Exception: 1010\n\
-            Traceback:\n    \
-                from [test]:4: in __main__\n\
+            Exception: 1010
+            Traceback:
+                from [test]:4: in __main__
         """,
         """
             import (v) var_exporter
@@ -443,9 +443,9 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            Exception: 1010\n\
-            Traceback:\n    \
-                from [test]:4: in __main__\n\
+            Exception: 1010
+            Traceback:
+                from [test]:4: in __main__
         """,
         """
             import (v) var_exporter

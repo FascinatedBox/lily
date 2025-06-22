@@ -21,37 +21,70 @@ class TestCase < backbone.TestCaseBase
 {
     private var @fake_error = Exception("")
 
+    # Since there's a lot of commonality between asserts, these are the assert
+    # helpers. Every assert method needs to raise through one of these, so that
+    # the traceback slicer (test_error) can consistently slice 2 frames off the
+    # other end of traceback.
+    private define send_assert_direct(message: String) {
+        raise TestAssertionFailed(message)
+    }
+
+    private define check_fail_assert(status: Boolean,
+                                     interp: backbone.Interpreter,
+                                     header: String,
+                                     expect: String)
+    {
+        if status == true: {
+            var message = "Assertion ({}) failed.\n".format(header)
+            raise TestAssertionFailed(message)
+        else:
+            var reason = interp.error()
+                               .rstrip(" \n")
+                               .replace("\n", "\n            ")
+            expect = expect.rstrip(" \n")
+
+            if expect != reason: {
+                var message = """\
+                    Assertion ({}) failed incorrectly.\n\
+                    (expected)`\n            {}\n`\n\
+                    (received)`\n            {}\n`"""
+                    .format(header, expect, reason)
+                raise TestAssertionFailed(message)
+            else:
+                @pass_count += 1
+            }
+        }
+    }
+
     public define assert_equal[A](left: A, right: A) {
         if left != right: {
-            var message = """\
+            send_assert_direct("""\
                 Assertion (left == right) failed.\n     \
                   left: `{}`\n    \
                  right: `{}`\
-            """.format(left, right)
-            raise TestAssertionFailed(message)
+            """.format(left, right))
         else:
             @pass_count += 1
         }
     }
 
-    public define assert_near_equal(x: Double,
-                                    y: Double,
+    public define assert_near_equal(left: Double,
+                                    right: Double,
                                     delta: *Double=0.0000001) {
         var is_near = false
 
-        if x == 0.0 && y == 0.0 ||
-           ((x - y) / y < delta): {
+        if left == 0.0 && right == 0.0 ||
+           ((left - right) / right < delta): {
             is_near = true
         }
 
         if is_near == false: {
-            var message = """\
+            send_assert_direct("""\
                 Assertion (left near right) failed.\n     \
                   left: `{}`\n    \
                  right: `{}`\n    \
                  delta: `{}`\n\
-            """.format(x, y, delta)
-            raise TestAssertionFailed(message)
+            """.format(left, right, delta))
         else:
             @pass_count += 1
         }
@@ -59,12 +92,11 @@ class TestCase < backbone.TestCaseBase
 
     public define assert_not_equal[A](left: A, right: A) {
         if left == right: {
-            var message = """\
+            send_assert_direct("""\
                 Assertion (left != right) failed.\n     \
                   left: `{}`\n    \
                  right: `{}`\
-            """.format(left, right)
-            raise TestAssertionFailed(message)
+            """.format(left, right))
         else:
             @pass_count += 1
         }
@@ -72,8 +104,7 @@ class TestCase < backbone.TestCaseBase
 
     public define assert_false(value: Boolean) {
         if value == true: {
-            var message = "Assertion (value == true) failed."
-            raise TestAssertionFailed(message)
+            send_assert_direct("Assertion (value == true) failed.")
         else:
             @pass_count += 1
         }
@@ -81,8 +112,7 @@ class TestCase < backbone.TestCaseBase
 
     public define assert_true(value: Boolean) {
         if value == false: {
-            var message = "Assertion (value == false) failed."
-            raise TestAssertionFailed(message)
+            send_assert_direct("Assertion (value == false) failed.")
         else:
             @pass_count += 1
         }
@@ -94,9 +124,8 @@ class TestCase < backbone.TestCaseBase
         var result = interp.parse_string("[test]", data)
 
         if result == false: {
-            var message = "Assertion (parse string) failed.\n" ++
-                    interp.error()
-            raise TestAssertionFailed(message)
+            send_assert_direct("Assertion (parse string) failed.\n" ++
+                    interp.error())
         else:
             @pass_count += 1
         }
@@ -108,21 +137,7 @@ class TestCase < backbone.TestCaseBase
     {
         var result = interp.parse_string("[test]", data)
 
-        if result == true: {
-            var message = "Assertion (parse fails) failed.\n"
-            raise TestAssertionFailed(message)
-        else:
-            var reason = interp.error()
-            if expect != reason: {
-                var message = """\
-                    Assertion (parse fails) failed incorrectly.\n\
-                    (expected)`{}`\n\
-                    (received)`{}`""".format(expect, reason)
-                raise TestAssertionFailed(message)
-            else:
-                @pass_count += 1
-            }
-        }
+        check_fail_assert(result, interp, "parse fails", expect)
     }
 
     public define assert_manifest_string(interp: backbone.Interpreter,
@@ -131,9 +146,8 @@ class TestCase < backbone.TestCaseBase
         var result = interp.parse_manifest_string("[test]", data)
 
         if result == false: {
-            var message = "Assertion (manifest string) failed.\n" ++
-                    interp.error()
-            raise TestAssertionFailed(message)
+            send_assert_direct("Assertion (manifest string) failed.\n" ++
+                    interp.error())
         else:
             @pass_count += 1
         }
@@ -145,44 +159,16 @@ class TestCase < backbone.TestCaseBase
     {
         var result = interp.parse_manifest_string("[test]", data)
 
-        if result == true: {
-            var message = "Assertion (manifest fails) failed.\n"
-            raise TestAssertionFailed(message)
-        else:
-            var reason = interp.error()
-            if expect != reason: {
-                var message = """\
-                    Assertion (manifest fails) failed incorrectly.\n\
-                    (expected)`{}`\n\
-                    (received)`{}`""".format(expect, reason)
-                raise TestAssertionFailed(message)
-            else:
-                @pass_count += 1
-            }
-        }
+        check_fail_assert(result, interp, "manifest fails", expect)
     }
 
     public define assert_render_fails(interp: backbone.Interpreter,
                                       expect: String,
                                       data: String)
     {
-        var result = interp.render_string("[test]", data)
+        var result = interp.render_string("[test]", data).is_some()
 
-        if result.is_some(): {
-            var message = "Assertion (render fails) failed.\n"
-            raise TestAssertionFailed(message)
-        else:
-            var reason = interp.error()
-            if expect != reason: {
-                var message = """\
-                    Assertion (render fails) failed incorrectly.\n\
-                    (expected)`{}`\n\
-                    (received)`{}`""".format(expect, reason)
-                raise TestAssertionFailed(message)
-            else:
-                @pass_count += 1
-            }
-        }
+        check_fail_assert(result, interp, "render fails", expect)
     }
 
     public define expect_render_string(interp: backbone.Interpreter,
@@ -192,18 +178,16 @@ class TestCase < backbone.TestCaseBase
         var result = interp.render_string("[test]", data)
 
         if result.is_none(): {
-            var message = "Assertion (render string) failed.\n" ++
-                    interp.error()
-            raise TestAssertionFailed(message)
+            send_assert_direct("Assertion (render string) failed.\n" ++
+                    interp.error())
         else:
             var given = result.unwrap()
 
             if expect != given: {
-                var message = """\
+                send_assert_direct("""\
                     Assertion (render string) rendered incorrectly.\n\
                     (expected)`{}`\n\
-                    (received)`{}`""".format(expect, given)
-                raise TestAssertionFailed(message)
+                    (received)`{}`""".format(expect, given))
             else:
                 @pass_count += 1
             }
@@ -227,24 +211,25 @@ class TestCase < backbone.TestCaseBase
             var e_header = error_header(ex)
 
             if e_header != expect: {
-                var message = """\
+                send_assert_direct("""\
                     Assertion (raises) failed.\n    \
                       expected: `{}`\n       \
                          given: `{}`\
-                """.format(expect, e_header)
-                raise TestAssertionFailed(message)
+                """.format(expect, e_header))
             }
         }
 
         if no_error: {
-            var message = """\
+            send_assert_direct("""\
                 Assertion (raises) failed.\n    \
                   expected: `{}`\n       \
                      given: (no error raised)\
-            """.format(expect)
-
-            raise TestAssertionFailed(message)
+            """.format(expect))
         }
+    }
+
+    public define skip(reason: String) {
+        raise TestSkipped(reason)
     }
 
     private define test_error(error: Exception): String {
@@ -253,9 +238,9 @@ class TestCase < backbone.TestCaseBase
 
         match error: {
             case TestAssertionFailed(e):
-                # This was raised by an assert. Don't include the assert call in
-                # the traceback (clip off the top frame).
-                trace = trace.slice(0, -1)
+                # All asserts go through a private function that does the raise,
+                # so clip off two frames.
+                trace = trace.slice(0, -2)
             else:
                 # This is a raw exception, so keep everything.
         }

@@ -314,8 +314,8 @@ class TestLambdas < TestCase
         # lexing (block token gluing)
 
         assert_parse_fails(t, """\
-            SyntaxError: v has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: v has not been declared.
+                from [test]:1:
         """,
         """\
             var a = (|| v#[]#a#[]#r w = 10 )

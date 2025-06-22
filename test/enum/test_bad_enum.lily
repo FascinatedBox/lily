@@ -10,8 +10,8 @@ class TestBadEnum < TestCase
         # bad decl (flat enum duplicate names)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'One' already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: A class with the name 'One' already exists.
+                from [test]:3:
         """,
         """\
             enum Test[A] {
@@ -23,8 +23,8 @@ class TestBadEnum < TestCase
         # bad decl (scoped enum duplicate names)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'Fast' already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: A class with the name 'Fast' already exists.
+                from [test]:3:
         """,
         """\
             scoped enum Speed {
@@ -36,8 +36,8 @@ class TestBadEnum < TestCase
         # bad decl (duplicate enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: An enum named 'Example' has already been declared.\n    \
-                from [test]:5:\n\
+            SyntaxError: An enum named 'Example' has already been declared.
+                from [test]:5:
         """,
         """\
             enum Example {
@@ -53,8 +53,8 @@ class TestBadEnum < TestCase
         # bad decl (first variant collide with class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'One' already exists.\n    \
-                from [test]:4:\n\
+            SyntaxError: A class with the name 'One' already exists.
+                from [test]:4:
         """,
         """\
             class One {}
@@ -68,8 +68,8 @@ class TestBadEnum < TestCase
         # bad decl (nth variant collide with class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'Four' already exists.\n    \
-                from [test]:7:\n\
+            SyntaxError: A class with the name 'Four' already exists.
+                from [test]:7:
         """,
         """\
             class Four {}
@@ -86,8 +86,8 @@ class TestBadEnum < TestCase
         # bad decl (flat enum name too short)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'A' is not a valid class name (too short).\n    \
-                from [test]:1:\n\
+            SyntaxError: 'A' is not a valid class name (too short).
+                from [test]:1:
         """,
         """\
             enum A {
@@ -100,8 +100,8 @@ class TestBadEnum < TestCase
         # bad decl (scoped enum name too short)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'A' is not a valid class name (too short).\n    \
-                from [test]:1:\n\
+            SyntaxError: 'A' is not a valid class name (too short).
+                from [test]:1:
         """,
         """\
             scoped enum A {
@@ -119,8 +119,8 @@ class TestBadEnum < TestCase
         # bad decompose (duplicate vars)
 
         assert_parse_fails(t, """\
-            SyntaxError: asdf has already been declared.\n    \
-                from [test]:9:\n\
+            SyntaxError: asdf has already been declared.
+                from [test]:9:
         """,
         """\
             enum Test {
@@ -139,8 +139,8 @@ class TestBadEnum < TestCase
         # bad decompose (empty for variant with args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '(', not ':'.\n    \
-                from [test]:4:\n\
+            SyntaxError: Expected '(', not ':'.
+                from [test]:4:
         """,
         """\
             var v: Option[Integer] = None
@@ -154,8 +154,8 @@ class TestBadEnum < TestCase
         # bad decompose (non-empty for empty variant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ':', not '('.\n    \
-                from [test]:4:\n\
+            SyntaxError: Expected ':', not '('.
+                from [test]:4:
         """,
         """\
             var v: Option[Integer] = None
@@ -169,8 +169,8 @@ class TestBadEnum < TestCase
         # bad decompose (incomplete type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Pattern variable 'x' has an incomplete type (List[?]).\n    \
-                from [test]:10:\n\
+            SyntaxError: Pattern variable 'x' has an incomplete type (List[?]).
+                from [test]:10:
         """,
         """\
 
@@ -211,8 +211,8 @@ class TestBadEnum < TestCase
         # bad flat (optarg using scoped variant as flat)
 
         assert_parse_fails(t, """\
-            SyntaxError: One has not been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: One has not been declared.
+                from [test]:6:
         """,
         """\
             scoped enum Test {
@@ -226,8 +226,8 @@ class TestBadEnum < TestCase
         # bad flat (match using scoped variant as flat)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.\n    \
-                from [test]:9:\n\
+            SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.
+                from [test]:9:
         """,
         """\
             scoped enum Test {
@@ -246,8 +246,8 @@ class TestBadEnum < TestCase
         # bad flat (assign using scoped enum as flat)
 
         assert_parse_fails(t, """\
-            SyntaxError: One has not been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: One has not been declared.
+                from [test]:6:
         """,
         """\
             scoped enum Test[A] {
@@ -266,8 +266,8 @@ class TestBadEnum < TestCase
         # bad match (start without case)
 
         assert_parse_fails(t, """\
-            SyntaxError: match must start with a case.\n    \
-                from [test]:4:\n\
+            SyntaxError: match must start with a case.
+                from [test]:4:
         """,
         """\
             var v: Option[Integer] = None
@@ -282,8 +282,8 @@ class TestBadEnum < TestCase
         # bad match (not a variant)
 
         assert_parse_fails(t, """\
-            SyntaxError: DoesNotExist is not a member of enum Option.\n    \
-                from [test]:2:\n\
+            SyntaxError: DoesNotExist is not a member of enum Option.
+                from [test]:2:
         """,
         """\
             match Some(1): {
@@ -294,8 +294,8 @@ class TestBadEnum < TestCase
         # bad match (multi match starting with filled variant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Multi case match is only available to empty variants.\n    \
-                from [test]:10:\n\
+            SyntaxError: Multi case match is only available to empty variants.
+                from [test]:10:
         """,
         """\
             enum Example {
@@ -315,8 +315,8 @@ class TestBadEnum < TestCase
         # bad match (multi match including filled variant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Multi case match is only available to empty variants.\n    \
-                from [test]:9:\n\
+            SyntaxError: Multi case match is only available to empty variants.
+                from [test]:9:
         """,
         """\
             enum Example {
@@ -339,9 +339,9 @@ class TestBadEnum < TestCase
         # bad match logic (incomplete)
 
         assert_parse_fails(t, """\
-            SyntaxError: Match pattern not exhaustive. The following case(s) are missing:\n\
-            * None\n    \
-                from [test]:6:\n\
+            SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
+            * None
+                from [test]:6:
         """,
         """\
             var v: Option[Integer] = None
@@ -355,8 +355,8 @@ class TestBadEnum < TestCase
         # bad match logic (else after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: case in exhaustive match.\n    \
-                from [test]:9:\n\
+            SyntaxError: case in exhaustive match.
+                from [test]:9:
         """,
         """\
             class One {}
@@ -374,8 +374,8 @@ class TestBadEnum < TestCase
         # bad match logic (duplicate case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Already have a case for One.\n    \
-                from [test]:8:\n\
+            SyntaxError: Already have a case for One.
+                from [test]:8:
         """,
         """\
             class One {}
@@ -392,8 +392,8 @@ class TestBadEnum < TestCase
         # bad match logic (else when exhaustive)
 
         assert_parse_fails(t, """\
-            SyntaxError: else in exhaustive match.\n    \
-                from [test]:9:\n\
+            SyntaxError: else in exhaustive match.
+                from [test]:9:
         """,
         """\
             class One {}
@@ -411,8 +411,8 @@ class TestBadEnum < TestCase
         # bad match logic (new case when exhaustive)
 
         assert_parse_fails(t, """\
-            SyntaxError: case in exhaustive match.\n    \
-                from [test]:9:\n\
+            SyntaxError: case in exhaustive match.
+                from [test]:9:
         """,
         """\
             class One {}
@@ -435,8 +435,8 @@ class TestBadEnum < TestCase
         # enum rules (no toplevel code in enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '}' or 'define', not 'a label'.\n    \
-                from [test]:8:\n\
+            SyntaxError: Expected '}' or 'define', not 'a label'.
+                from [test]:8:
         """,
         """\
             enum Test {
@@ -453,8 +453,8 @@ class TestBadEnum < TestCase
         # enum rules (no implicit constructor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot implicitly use the constructor of an enum.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot implicitly use the constructor of an enum.
+                from [test]:1:
         """,
         """\
             var v = Option(10)
@@ -464,8 +464,8 @@ class TestBadEnum < TestCase
         # Blocked since it doesn't seem useful.
 
         assert_parse_fails(t, """\
-            SyntaxError: An enum must have at least two variants.\n    \
-                from [test]:3:\n\
+            SyntaxError: An enum must have at least two variants.
+                from [test]:3:
         """,
         """\
             enum Test[A] {
@@ -476,8 +476,8 @@ class TestBadEnum < TestCase
         # enum rules (not within a define)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define an enum here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot define an enum here.
+                from [test]:2:
         """,
         """\
             define f {
@@ -492,8 +492,8 @@ class TestBadEnum < TestCase
 
         # Forbid using a variant as a type in a declaration.
         assert_parse_fails(t, """\
-            SyntaxError: Variant types not allowed in a declaration.\n    \
-                from [test]:6:\n\
+            SyntaxError: Variant types not allowed in a declaration.
+                from [test]:6:
         """,
         """\
             enum Test[A] {
@@ -507,8 +507,8 @@ class TestBadEnum < TestCase
         # enum rules (no empty decl parenth)
 
         assert_parse_fails(t, """\
-            SyntaxError: Empty () found while reading input arguments. Omit instead.\n    \
-                from [test]:2:\n\
+            SyntaxError: Empty () found while reading input arguments. Omit instead.
+                from [test]:2:
         """,
         """\
             enum Example {
@@ -519,8 +519,8 @@ class TestBadEnum < TestCase
         # enum rules (blocking variants as properties)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:6:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:6:
         """,
         """\
             enum Example {
@@ -536,8 +536,8 @@ class TestBadEnum < TestCase
         # enum rules (blocking methods as properties)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:9:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:9:
         """,
         """\
             enum Example {
@@ -556,8 +556,8 @@ class TestBadEnum < TestCase
         # enum rules (access variant by flat enum instance)
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to access a variant through an enum instance.\n    \
-                from [test]:6:\n\
+            SyntaxError: Not allowed to access a variant through an enum instance.
+                from [test]:6:
         """,
         """\
             enum Example {
@@ -571,8 +571,8 @@ class TestBadEnum < TestCase
         # enum rules (access variant by scoped enum instance)
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to access a variant through an enum instance.\n    \
-                from [test]:6:\n\
+            SyntaxError: Not allowed to access a variant through an enum instance.
+                from [test]:6:
         """,
         """\
             scoped enum Example {

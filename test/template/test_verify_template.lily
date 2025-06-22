@@ -106,8 +106,8 @@ class TestVerifyTemplate < TestCase
         # failure (content must start with template tag)
 
         assert_render_fails(t, """\
-            SyntaxError: Files in template mode must start with '<?lily'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in template mode must start with '<?lily'.
+                from [test]:1:
         """,
         """\
             print(1)
@@ -116,8 +116,8 @@ class TestVerifyTemplate < TestCase
         # failure (content has to start with the full template tag)
 
         assert_render_fails(t, """\
-            SyntaxError: Files in template mode must start with '<?lily'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in template mode must start with '<?lily'.
+                from [test]:1:
         """,
         """\
             <?lil print(1) ?>
@@ -127,9 +127,9 @@ class TestVerifyTemplate < TestCase
 
         t = Interpreter()
         assert_render_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             <?lily ?><?lily 0 / 0?>
@@ -139,8 +139,8 @@ class TestVerifyTemplate < TestCase
 
         t = Interpreter()
         assert_render_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token 'end of file'.
+                from [test]:1:
         """,
         """\
             <?lily\
@@ -150,8 +150,8 @@ class TestVerifyTemplate < TestCase
 
         t = Interpreter()
         assert_render_fails(t, """\
-            SyntaxError: Unexpected token '?>'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token '?>'.
+                from [test]:1:
         """,
         """\
             <?lily define f { ?>

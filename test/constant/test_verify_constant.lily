@@ -110,8 +110,8 @@ class TestVerifyConstant < TestCase
         # failure (specify a type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constants cannot explicitly specify a type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Constants cannot explicitly specify a type.
+                from [test]:1:
         """,
         """\
             constant a: Integer = 1
@@ -120,8 +120,8 @@ class TestVerifyConstant < TestCase
         # failure (no initialization)
 
         assert_parse_fails(t, """\
-            SyntaxError: An initialization expression is required here.\n    \
-                from [test]:2:\n\
+            SyntaxError: An initialization expression is required here.
+                from [test]:2:
         """,
         """\
             constant a
@@ -130,8 +130,8 @@ class TestVerifyConstant < TestCase
         # failure (init by another constant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constant initialization expects a primitive value, not 'a label'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Constant initialization expects a primitive value, not 'a label'.
+                from [test]:2:
         """,
         """\
             constant a = 10
@@ -141,8 +141,8 @@ class TestVerifyConstant < TestCase
         # failure (bad value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constant initialization expects a primitive value, not 'a lambda'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Constant initialization expects a primitive value, not 'a lambda'.
+                from [test]:1:
         """,
         """\
             constant a = (|b: Integer| b + b )
@@ -151,8 +151,8 @@ class TestVerifyConstant < TestCase
         # failure (bad location)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a constant here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot declare a constant here.
+                from [test]:2:
         """,
         """\
             if 1: {

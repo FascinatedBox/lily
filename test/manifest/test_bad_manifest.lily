@@ -24,8 +24,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected a keyword after docblock, but got end of file.\n    \
-                from [test]:4:\n\
+            SyntaxError: Expected a keyword after docblock, but got end of file.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -34,8 +34,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Unexpected token '!'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Unexpected token '!'.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -44,8 +44,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Invalid keyword potato for manifest.\n    \
-                from [test]:3:\n\
+            SyntaxError: Invalid keyword potato for manifest.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -54,8 +54,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
-                from [test]:4:\n\
+            SyntaxError: Unexpected token 'end of file'.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -64,8 +64,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: 'predefined' only available to the prelude module.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'predefined' only available to the prelude module.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -76,8 +76,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: '}' outside of a block.\n    \
-                from [test]:3:\n\
+            SyntaxError: '}' outside of a block.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -91,8 +91,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Only native classes can have class properties.\n    \
-                from [test]:4:\n\
+            SyntaxError: Only native classes can have class properties.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -103,8 +103,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Only native classes can have class properties.\n    \
-                from [test]:5:\n\
+            SyntaxError: Only native classes can have class properties.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -115,8 +115,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Class methods defined in manifest mode must be public.\n    \
-                from [test]:5:\n\
+            SyntaxError: Class methods defined in manifest mode must be public.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -128,8 +128,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Class methods defined in manifest mode must be public.\n    \
-                from [test]:4:\n\
+            SyntaxError: Class methods defined in manifest mode must be public.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -145,32 +145,32 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.
+                from [test]:1:
         """,
         """\
             import   manifest
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.
+                from [test]:1:
         """,
         """ \
             import manifest
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.
+                from [test]:1:
         """,
         """\n\
             import manifest
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.
+                from [test]:1:
         """,
         """\
             ???
@@ -182,8 +182,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Import keyword should not have a docblock.\n    \
-                from [test]:4:\n\
+            SyntaxError: Import keyword should not have a docblock.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -193,8 +193,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot import 'sys' while in manifest mode.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot import 'sys' while in manifest mode.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -208,8 +208,8 @@ class TestBadManifest < TestCase
         )
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot import 'covlib' while in manifest mode.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot import 'covlib' while in manifest mode.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -218,8 +218,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Files in manifest mode must start with 'import manifest'.\n    \
-                from left.lily:1:\n\
+            SyntaxError: Files in manifest mode must start with 'import manifest'.
+                from left.lily:1:
         """,
         """\
             import manifest
@@ -233,8 +233,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword must be at toplevel.\n    \
-                from [test]:4:\n\
+            SyntaxError: Library keyword must be at toplevel.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -245,8 +245,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword must come before other keywords.\n    \
-                from [test]:7:\n\
+            SyntaxError: Library keyword must come before other keywords.
+                from [test]:7:
         """,
         """\
             import manifest
@@ -259,8 +259,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword must come before other keywords.\n    \
-                from [test]:7:\n\
+            SyntaxError: Library keyword must come before other keywords.
+                from [test]:7:
         """,
         """\
             import manifest
@@ -273,8 +273,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword must come before other keywords.\n    \
-                from [test]:9:\n\
+            SyntaxError: Library keyword must come before other keywords.
+                from [test]:9:
         """,
         """\
             import manifest
@@ -289,8 +289,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword must come before other keywords.\n    \
-                from [test]:5:\n\
+            SyntaxError: Library keyword must come before other keywords.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -301,8 +301,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Library keyword has already been used.\n    \
-                from [test]:7:\n\
+            SyntaxError: Library keyword has already been used.
+                from [test]:7:
         """,
         """\
             import manifest
@@ -320,8 +320,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot declare a constant inside a class or enum.\n    \
-                from [test]:5:\n\
+            SyntaxError: Cannot declare a constant inside a class or enum.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -333,8 +333,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot declare a constant inside a class or enum.\n    \
-                from [test]:8:\n\
+            SyntaxError: Cannot declare a constant inside a class or enum.
+                from [test]:8:
         """,
         """\
             import manifest
@@ -349,8 +349,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected 'a label', not 'a property name'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Expected 'a label', not 'a property name'.
+                from [test]:3:
         """,
         """\
             import manifest
@@ -359,8 +359,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: x has already been declared.\n    \
-                from [test]:4:\n\
+            SyntaxError: x has already been declared.
+                from [test]:4:
         """,
         """\
             import manifest
@@ -371,8 +371,8 @@ class TestBadManifest < TestCase
 
 
         assert_manifest_fails(t, """\
-            SyntaxError: Constant x given a non-primitive type (List[String]).\n    \
-                from [test]:4:\n\
+            SyntaxError: Constant x given a non-primitive type (List[String]).
+                from [test]:4:
         """,
         """\
             import manifest
@@ -386,8 +386,8 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Class var declaration must start with a scope.\n    \
-                from [test]:5:\n\
+            SyntaxError: Class var declaration must start with a scope.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -399,8 +399,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Class properties must start with @.\n    \
-                from [test]:5:\n\
+            SyntaxError: Class properties must start with @.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -412,8 +412,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: An enum must have at least two variants.\n    \
-                from [test]:5:\n\
+            SyntaxError: An enum must have at least two variants.
+                from [test]:5:
         """,
         """\
             import manifest
@@ -425,8 +425,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Var declaration not allowed inside of an enum.\n    \
-                from [test]:7:\n\
+            SyntaxError: Var declaration not allowed inside of an enum.
+                from [test]:7:
         """,
         """\
             import manifest
@@ -440,8 +440,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Var declaration not allowed inside of an enum.\n    \
-                from [test]:8:\n\
+            SyntaxError: Var declaration not allowed inside of an enum.
+                from [test]:8:
         """,
         """\
             import manifest
@@ -456,8 +456,8 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot use a class property outside of a constructor.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot use a class property outside of a constructor.
+                from [test]:3:
         """,
         """\
             import manifest

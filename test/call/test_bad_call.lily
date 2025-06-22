@@ -10,8 +10,8 @@ class TestBadCall < TestCase
         # basic calls (wrong count to plain call)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to f (1 for 0).\n    \
-                from [test]:3:\n\
+            SyntaxError: Wrong number of arguments to f (1 for 0).
+                from [test]:3:
         """,
         """\
             define f {}
@@ -22,10 +22,10 @@ class TestBadCall < TestCase
         # basic calls (wrong count to global var function)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to v is invalid:\n\
-            Expected Type: String\n\
-            Received Type: Integer\n    \
-                from [test]:2:\n\
+            SyntaxError: Argument #1 to v is invalid:
+            Expected Type: String
+            Received Type: Integer
+                from [test]:2:
         """,
         """\
             var v = String.parse_i
@@ -35,8 +35,8 @@ class TestBadCall < TestCase
         # basic calls (wrong count to parameter function)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to g (3 for 1).\n    \
-                from [test]:2:\n\
+            SyntaxError: Wrong number of arguments to g (3 for 1).
+                from [test]:2:
         """,
         """\
             define f(g: Function(Integer)) {
@@ -47,8 +47,8 @@ class TestBadCall < TestCase
         # basic calls (wrong count to anonymous function)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).\n    \
-                from [test]:9:\n\
+            SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).
+                from [test]:9:
         """,
         """\
             class Test
@@ -65,10 +65,10 @@ class TestBadCall < TestCase
         # basic calls (empty Function as wrong type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Function ()\n\
-            Received Type: Integer\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Function ()
+            Received Type: Integer
+                from [test]:3:
         """,
         """\
             define f(g: Function()) {  }
@@ -84,8 +84,8 @@ class TestBadCall < TestCase
         # class calls (wrong count from method to ctor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (1 for 2).\n    \
-                from [test]:4:\n\
+            SyntaxError: Wrong number of arguments to Test.method (1 for 2).
+                from [test]:4:
         """,
         """\
             class Test
@@ -99,8 +99,8 @@ class TestBadCall < TestCase
         # class calls (wrong count to class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (2 for 1).\n    \
-                from [test]:7:\n\
+            SyntaxError: Wrong number of arguments to Test.method (2 for 1).
+                from [test]:7:
         """,
         """\
             class Test
@@ -115,8 +115,8 @@ class TestBadCall < TestCase
         # class calls (wrong count to class prop function)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to abc.a (3 for 0).\n    \
-                from [test]:6:\n\
+            SyntaxError: Wrong number of arguments to abc.a (3 for 0).
+                from [test]:6:
         """,
         """\
             class abc {
@@ -130,8 +130,8 @@ class TestBadCall < TestCase
         # class calls (wrong arg count to instance without instance method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).\n    \
-                from [test]:1:\n\
+            SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).
+                from [test]:1:
         """,
         """\
             String.ends_with("a", "b", "c")
@@ -140,8 +140,8 @@ class TestBadCall < TestCase
         # class calls (wrong arg count to static method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Example.g (2 for 3).\n    \
-                from [test]:6:\n\
+            SyntaxError: Wrong number of arguments to Example.g (2 for 3).
+                from [test]:6:
         """,
         """\
             class Example {
@@ -155,8 +155,8 @@ class TestBadCall < TestCase
         # class calls (wrong arg count to empty static method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Time.now (1 for 0).\n    \
-                from [test]:5:\n\
+            SyntaxError: Wrong number of arguments to Time.now (1 for 0).
+                from [test]:5:
         """,
         """\
             import (Time) time
@@ -169,10 +169,10 @@ class TestBadCall < TestCase
         # class calls (wrong arg count to static call of static method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to File.open is invalid:\n\
-            Expected Type: String\n\
-            Received Type: File\n    \
-                from [test]:1:\n\
+            SyntaxError: Argument #1 to File.open is invalid:
+            Expected Type: String
+            Received Type: File
+                from [test]:1:
         """,
         """\
             stdin.open("r")
@@ -186,8 +186,8 @@ class TestBadCall < TestCase
         # closure calls (wrong count to closure function)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to g (1 for 0).\n    \
-                from [test]:3:\n\
+            SyntaxError: Wrong number of arguments to g (1 for 0).
+                from [test]:3:
         """,
         """\
             define f(a: Integer) {
@@ -204,8 +204,8 @@ class TestBadCall < TestCase
         # enum calls (empty flat variant with args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Gamma is an empty variant that should not be called.\n    \
-                from [test]:6:\n\
+            SyntaxError: Gamma is an empty variant that should not be called.
+                from [test]:6:
         """,
         """\
             enum TestE {
@@ -219,8 +219,8 @@ class TestBadCall < TestCase
         # enum calls (non-empty flat variant no args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Some (none for 1).\n    \
-                from [test]:1:\n\
+            SyntaxError: Wrong number of arguments to Some (none for 1).
+                from [test]:1:
         """,
         """\
             var v = Some
@@ -229,8 +229,8 @@ class TestBadCall < TestCase
         # enum calls (non-empty flat variant too many args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Some (2 for 1).\n    \
-                from [test]:1:\n\
+            SyntaxError: Wrong number of arguments to Some (2 for 1).
+                from [test]:1:
         """,
         """\
             var v = Some(1, 2)
@@ -239,8 +239,8 @@ class TestBadCall < TestCase
         # enum calls (non-empty scoped variant wrong count)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to One (2 for 1).\n    \
-                from [test]:6:\n\
+            SyntaxError: Wrong number of arguments to One (2 for 1).
+                from [test]:6:
         """,
         """\
             scoped enum Test[A] {
@@ -256,8 +256,8 @@ class TestBadCall < TestCase
         # auto invoked when passed no args.
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to One (none for 0+).\n    \
-                from [test]:6:\n\
+            SyntaxError: Wrong number of arguments to One (none for 0+).
+                from [test]:6:
         """,
         """\
             enum Test[A] {
@@ -276,8 +276,8 @@ class TestBadCall < TestCase
         # invalid calls (call against Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot anonymously call resulting type 'Integer'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot anonymously call resulting type 'Integer'.
+                from [test]:1:
         """,
         """\
             (10)()
@@ -286,8 +286,8 @@ class TestBadCall < TestCase
         # invalid call (call against property holding Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot anonymously call resulting type 'Integer'.\n    \
-                from [test]:5:\n\
+            SyntaxError: Cannot anonymously call resulting type 'Integer'.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -305,8 +305,8 @@ class TestBadCall < TestCase
         # keyarg calls (too many args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to f (4 for 1).\n    \
-                from [test]:2:\n\
+            SyntaxError: Wrong number of arguments to f (4 for 1).
+                from [test]:2:
         """,
         """\
             define f(:a a: Integer) {}
@@ -316,8 +316,8 @@ class TestBadCall < TestCase
         # keyarg calls (not there)
 
         assert_parse_fails(t, """\
-            SyntaxError: f does not have a keyword named ':b'.\n    \
-                from [test]:3:\n\
+            SyntaxError: f does not have a keyword named ':b'.
+                from [test]:3:
         """,
         """\
             define f(:a a: Integer) {  }
@@ -328,10 +328,10 @@ class TestBadCall < TestCase
         # keyarg calls (missing keyargs before and after)
 
         assert_parse_fails(t, """\
-            SyntaxError: Call to f is missing parameters:\n\
-            * Parameter #1 of type Integer.\n\
-            * Parameter #3 of type Double.\n    \
-                from [test]:3:\n\
+            SyntaxError: Call to f is missing parameters:
+            * Parameter #1 of type Integer.
+            * Parameter #3 of type Double.
+                from [test]:3:
         """,
         """\
             define f(a: Integer, :b b: String, c: Double) {}
@@ -342,8 +342,8 @@ class TestBadCall < TestCase
         # keyarg calls (duplicate target by keyargs only)
 
         assert_parse_fails(t, """\
-            SyntaxError: Call to f has multiple values for parameter ':a'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Call to f has multiple values for parameter ':a'.
+                from [test]:2:
         """,
         """\
             define f(:a a: Integer, :b b: Integer) {}
@@ -353,10 +353,10 @@ class TestBadCall < TestCase
         # keyarg calls (wrong type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-                Expected Type: Integer\n\
-                Received Type: String\n    \
-                from [test]:2:\n\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:2:
         """,
         """\
             define f(:a a: Integer) {}
@@ -366,9 +366,9 @@ class TestBadCall < TestCase
         # keyarg calls (valid first arg)
 
         assert_parse_fails(t, """\
-            SyntaxError: Call to f is missing parameters:\n\
-            * Parameter #2 (:b) of type String.\n    \
-                from [test]:3:\n\
+            SyntaxError: Call to f is missing parameters:
+            * Parameter #2 (:b) of type String.
+                from [test]:3:
         """,
         """\
             define f(:a a: Integer, :b b: String) {}
@@ -379,9 +379,9 @@ class TestBadCall < TestCase
         # keyarg calls (missing parameter out of order)
 
         assert_parse_fails(t, """\
-            SyntaxError: Call to check is missing parameters:\n\
-            * Parameter #2 (:two) of type Integer.\n    \
-                from [test]:10:\n\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #2 (:two) of type Integer.
+                from [test]:10:
         """,
         """\
             define check(
@@ -409,8 +409,8 @@ class TestBadCall < TestCase
         # mixarg calls (opt+var with too few)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to f (1 for 2+).\n    \
-                from [test]:5:\n\
+            SyntaxError: Wrong number of arguments to f (1 for 2+).
+                from [test]:5:
         """,
         """\
             define f(a: Integer, b: Integer, c: *Integer = 10, d: *Integer...=[]) {
@@ -424,10 +424,10 @@ class TestBadCall < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            SyntaxError: Call to f is missing parameters:\n\
-            * Parameter #1 (:a) of type Integer.\n\
-            * Parameter #3 (:c) of type Double.\n    \
-                from [test]:3:\n\
+            SyntaxError: Call to f is missing parameters:
+            * Parameter #1 (:a) of type Integer.
+            * Parameter #3 (:c) of type Double.
+                from [test]:3:
         """,
         """\
             define f(:a a: Integer, :b b: String, :c c: Double, :d d: Byte...) {}
@@ -439,9 +439,9 @@ class TestBadCall < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            SyntaxError: Call to f is missing parameters:\n\
-            * Parameter #1 (:a) of type Integer.\n    \
-                from [test]:6:\n\
+            SyntaxError: Call to f is missing parameters:
+            * Parameter #1 (:a) of type Integer.
+                from [test]:6:
         """,
         """\
             define f(:a a: Integer,
@@ -460,8 +460,8 @@ class TestBadCall < TestCase
         # optarg calls (too few with 1 required)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to f (0 for 1..2).\n    \
-                from [test]:5:\n\
+            SyntaxError: Wrong number of arguments to f (0 for 1..2).
+                from [test]:5:
         """,
         """\
             define f(a: Integer, b: *Integer = 10) {
@@ -479,8 +479,8 @@ class TestBadCall < TestCase
         # vararg calls (wrong count when using class method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to Test.method (1 for 2+).\n    \
-                from [test]:7:\n\
+            SyntaxError: Wrong number of arguments to Test.method (1 for 2+).
+                from [test]:7:
         """,
         """\
             class Test
@@ -495,10 +495,10 @@ class TestBadCall < TestCase
         # vararg calls (wrong type BEFORE the end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:4:
         """,
         """\
             define f(a: Integer, b: String...) {
@@ -510,10 +510,10 @@ class TestBadCall < TestCase
         # vararg calls (wrong type AT the end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:4:
         """,
         """\
             define f(a: Integer...) {
@@ -525,10 +525,10 @@ class TestBadCall < TestCase
         # vararg calls (wrong type PAST the end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #4 to f is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #4 to f is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:4:
         """,
         """\
             define f(a: Integer...) {

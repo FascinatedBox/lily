@@ -52,20 +52,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for reading.\n\
-            Traceback:\n    \
-                from [prelude]: in File.each_line\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for reading.
+            Traceback:
+                from [prelude]: in File.each_line
+                from [test]:2: in __main__
         """,
         """
             stdout.each_line(|l| 0 / 0 )
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.each_line\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.each_line
+                from [test]:3: in __main__
         """,
         """
             stdin.close()
@@ -84,20 +84,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for writing.\n\
-            Traceback:\n    \
-                from [prelude]: in File.flush\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for writing.
+            Traceback:
+                from [prelude]: in File.flush
+                from [test]:2: in __main__
         """,
         """
             stdin.flush()
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.flush\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.flush
+                from [test]:3: in __main__
         """,
         """
             stdout.close()
@@ -190,20 +190,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for writing.\n\
-            Traceback:\n    \
-                from [prelude]: in File.print\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for writing.
+            Traceback:
+                from [prelude]: in File.print
+                from [test]:2: in __main__
         """,
         """
             stdin.print(1)
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.print\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.print
+                from [test]:3: in __main__
         """,
         """
             stdout.close()
@@ -263,20 +263,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for reading.\n\
-            Traceback:\n    \
-                from [prelude]: in File.read\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for reading.
+            Traceback:
+                from [prelude]: in File.read
+                from [test]:2: in __main__
         """,
         """
             stdout.read()
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.read\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.read
+                from [test]:3: in __main__
         """,
         """
             stdin.close()
@@ -330,20 +330,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for reading.\n\
-            Traceback:\n    \
-                from [prelude]: in File.read_line\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for reading.
+            Traceback:
+                from [prelude]: in File.read_line
+                from [test]:2: in __main__
         """,
         """
             stdout.read_line()
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.read_line\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.read_line
+                from [test]:3: in __main__
         """,
         """
             stdin.close()
@@ -435,20 +435,20 @@ class TestFileMethods < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            IOError: File not open for writing.\n\
-            Traceback:\n    \
-                from [prelude]: in File.write\n    \
-                from [test]:2: in __main__\n\
+            IOError: File not open for writing.
+            Traceback:
+                from [prelude]: in File.write
+                from [test]:2: in __main__
         """,
         """
             stdin.write(1)
         """)
 
         assert_parse_fails(t, """\
-            IOError: IO operation on closed file.\n\
-            Traceback:\n    \
-                from [prelude]: in File.write\n    \
-                from [test]:3: in __main__\n\
+            IOError: IO operation on closed file.
+            Traceback:
+                from [prelude]: in File.write
+                from [test]:3: in __main__
         """,
         """
             stdout.close()

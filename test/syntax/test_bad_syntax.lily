@@ -10,8 +10,8 @@ class TestBadSyntax < TestCase
         # bad assign type (to global var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot assign type 'String' to type 'Integer'.
+                from [test]:2:
         """,
         """\
             var a = 10
@@ -21,8 +21,8 @@ class TestBadSyntax < TestCase
         # bad assign type (to class property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
-                from [test]:6:\n\
+            SyntaxError: Cannot assign type 'String' to type 'Integer'.
+                from [test]:6:
         """,
         """\
             class Example {
@@ -36,8 +36,8 @@ class TestBadSyntax < TestCase
         # bad assign type (to upvalue)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'String' to type 'Integer'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'String' to type 'Integer'.
+                from [test]:3:
         """,
         """\
             define f(a: Integer) {
@@ -50,8 +50,8 @@ class TestBadSyntax < TestCase
         # bad assign type (to subscript)
 
         assert_parse_fails(t, """\
-            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+                from [test]:3:
         """,
         """\
             var v = [1, 2, 3]
@@ -62,8 +62,8 @@ class TestBadSyntax < TestCase
         # bad assign type (to string subscript)
 
         assert_parse_fails(t, """\
-            SyntaxError: Subscript assignment on a String is not allowed.\n    \
-                from [test]:3:\n\
+            SyntaxError: Subscript assignment on a String is not allowed.
+                from [test]:3:
         """,
         """\
             var v = "asdf"
@@ -79,10 +79,10 @@ class TestBadSyntax < TestCase
         # bad blocks (bad match expression case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid expression given.\n\
-            Expected: A user class or enum.\n\
-            Received: Tuple[Integer, String, Double]\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid expression given.
+            Expected: A user class or enum.
+            Received: Tuple[Integer, String, Double]
+                from [test]:1:
         """,
         """\
             match <[1, "2", 3.3]>: {
@@ -92,8 +92,8 @@ class TestBadSyntax < TestCase
         # bad blocks (bad if expression case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Tuple[Integer, String] is not a valid condition type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Tuple[Integer, String] is not a valid condition type.
+                from [test]:1:
         """,
         """\
             if <[1, "2"]>: {
@@ -103,8 +103,8 @@ class TestBadSyntax < TestCase
         # bad blocks (bad or/and expression left only)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit is not a valid condition type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unit is not a valid condition type.
+                from [test]:1:
         """,
         """\
             if unit || 1: {
@@ -114,8 +114,8 @@ class TestBadSyntax < TestCase
         # bad blocks (bad or/and expression right only)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit is not a valid condition type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unit is not a valid condition type.
+                from [test]:1:
         """,
         """\
             if 1 || unit: {
@@ -125,8 +125,8 @@ class TestBadSyntax < TestCase
         # bad blocks (bad or/and expression middle)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit is not a valid condition type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unit is not a valid condition type.
+                from [test]:1:
         """,
         """\
             if 1 || unit && 1: {
@@ -136,8 +136,8 @@ class TestBadSyntax < TestCase
         # bad blocks (bad or/and expression middle all or)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit is not a valid condition type.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unit is not a valid condition type.
+                from [test]:1:
         """,
         """\
             if 1 || unit || 1: {
@@ -147,8 +147,8 @@ class TestBadSyntax < TestCase
         # bad blocks (for loop var must be Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Loop var must be type Integer, not type 'String'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Loop var must be type Integer, not type 'String'.
+                from [test]:2:
         """,
         """\
             var i = ""
@@ -158,8 +158,8 @@ class TestBadSyntax < TestCase
         # bad blocks (for must start with Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected type 'Integer', but got type 'String'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected type 'Integer', but got type 'String'.
+                from [test]:1:
         """,
         """\
             for i in "a"...0: {
@@ -169,8 +169,8 @@ class TestBadSyntax < TestCase
         # bad blocks (condition using assign)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, but got an assignment instead.\n    \
-                from [test]:2:\n\
+            SyntaxError: Expected a value, but got an assignment instead.
+                from [test]:2:
         """,
         """\
             var v = 10
@@ -183,8 +183,8 @@ class TestBadSyntax < TestCase
         # bad blocks (while after do)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'while', not 'asdf'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Expected 'while', not 'asdf'.
+                from [test]:2:
         """,
         """\
             do: {
@@ -194,8 +194,8 @@ class TestBadSyntax < TestCase
         # bad blocks (require 'by' in for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'by', not 'asdf'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected 'by', not 'asdf'.
+                from [test]:1:
         """,
         """\
             for i in 0...10 asdf
@@ -204,8 +204,8 @@ class TestBadSyntax < TestCase
         # bad blocks (require 'in' within for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'in', not 'asdf'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected 'in', not 'asdf'.
+                from [test]:1:
         """,
         """\
             for i asdf 0...10: {}
@@ -214,9 +214,9 @@ class TestBadSyntax < TestCase
         # bad blocks (bad for step)
 
         assert_parse_fails(t, """\
-            ValueError: for loop step cannot be 0.\n\
-            Traceback:\n    \
-                from [test]:2: in __main__\n\
+            ValueError: for loop step cannot be 0.
+            Traceback:
+                from [test]:2: in __main__
         """,
         """\
 
@@ -228,8 +228,8 @@ class TestBadSyntax < TestCase
         # bad blocks (assign in range expression)
 
         assert_parse_fails(t, """\
-            SyntaxError: For range value expression contains an assignment.\n    \
-                from [test]:2:\n\
+            SyntaxError: For range value expression contains an assignment.
+                from [test]:2:
         """,
         """\
             var v = 10
@@ -241,8 +241,8 @@ class TestBadSyntax < TestCase
         # bad blocks (do while not allowed to use scope vars in condition)
 
         assert_parse_fails(t, """\
-            SyntaxError: v has not been declared.\n    \
-                from [test]:4:\n\
+            SyntaxError: v has not been declared.
+                from [test]:4:
         """,
         """\
             do: {
@@ -254,8 +254,8 @@ class TestBadSyntax < TestCase
         # bad blocks (unterminated if)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Unexpected token 'end of file'.
+                from [test]:2:
         """,
         """\
             if 1: {
@@ -264,8 +264,8 @@ class TestBadSyntax < TestCase
         # bad blocks (else after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: else in exhaustive if.\n    \
-                from [test]:5:\n\
+            SyntaxError: else in exhaustive if.
+                from [test]:5:
         """,
         """\
             if 1: {
@@ -280,8 +280,8 @@ class TestBadSyntax < TestCase
         # bad blocks (elif after else)
 
         assert_parse_fails(t, """\
-            SyntaxError: elif in exhaustive if.\n    \
-                from [test]:5:\n\
+            SyntaxError: elif in exhaustive if.
+                from [test]:5:
         """,
         """\
             if 1: {
@@ -301,8 +301,8 @@ class TestBadSyntax < TestCase
         # bad coercion (Negative Integer for Byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.
+                from [test]:1:
         """,
         """\
             var a: Byte = -1
@@ -311,8 +311,8 @@ class TestBadSyntax < TestCase
         # bad coercion (Out of range Integer for Byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.
+                from [test]:1:
         """,
         """\
             var a: Byte = 256
@@ -326,8 +326,8 @@ class TestBadSyntax < TestCase
         # bad cast (from Integer to Tuple[Integer])
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot cast type 'Integer' to type 'Tuple[Integer]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot cast type 'Integer' to type 'Tuple[Integer]'.
+                from [test]:1:
         """,
         """\
             var v = 1.@(Tuple[Integer])
@@ -341,8 +341,8 @@ class TestBadSyntax < TestCase
         # bad comment (unterminated multi-line)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated multi-line comment (started at line 2).\n    \
-                from [test]:6:\n\
+            SyntaxError: Unterminated multi-line comment (started at line 2).
+                from [test]:6:
         """,
         """\
 
@@ -355,8 +355,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock with double pound)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblock line does not start with full '###'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Docblock line does not start with full '###'.
+                from [test]:2:
         """,
         """\
         ###
@@ -367,8 +367,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock inconsistent indent)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblock has inconsistent indentation.\n    \
-                from [test]:2:\n\
+            SyntaxError: Docblock has inconsistent indentation.
+                from [test]:2:
         """,
         """\
         ### asdf
@@ -379,8 +379,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock not followed by function or class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A docblock is not allowed here.\n    \
-                from [test]:7:\n\
+            SyntaxError: A docblock is not allowed here.
+                from [test]:7:
         """,
         """
         var v = 10
@@ -393,8 +393,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock preceded by non-whitespace).
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblock is preceded by non-whitespace.\n    \
-                from [test]:2:\n\
+            SyntaxError: Docblock is preceded by non-whitespace.
+                from [test]:2:
         """,
         """
         0 ### blah
@@ -405,8 +405,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock on nested definition)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblocks are only allowed on toplevel symbols.\n    \
-                from [test]:3:\n\
+            SyntaxError: Docblocks are only allowed on toplevel symbols.
+                from [test]:3:
         """,
         """\
             define f {
@@ -420,8 +420,8 @@ class TestBadSyntax < TestCase
         # bad comment (docblock on var in anon block)
 
         assert_parse_fails(t, """\
-            SyntaxError: Docblocks are only allowed on toplevel symbols.\n    \
-                from [test]:3:\n\
+            SyntaxError: Docblocks are only allowed on toplevel symbols.
+                from [test]:3:
         """,
         """\
             {
@@ -438,8 +438,8 @@ class TestBadSyntax < TestCase
         # bad ctor (no ctor for Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Integer does not have a constructor.\n    \
-                from [test]:1:\n\
+            SyntaxError: Class Integer does not have a constructor.
+                from [test]:1:
         """,
         """\
             var v = Integer(10)
@@ -453,8 +453,8 @@ class TestBadSyntax < TestCase
         # bad decl (declare var twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: v has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: v has already been declared.
+                from [test]:2:
         """,
         """\
             var v = 10
@@ -464,8 +464,8 @@ class TestBadSyntax < TestCase
         # bad decl (declare define twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: f has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: f has already been declared.
+                from [test]:2:
         """,
         """\
             define f {}
@@ -475,8 +475,8 @@ class TestBadSyntax < TestCase
         # bad decl (declare constant twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: c has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: c has already been declared.
+                from [test]:2:
         """,
         """\
             constant c = 10
@@ -486,8 +486,8 @@ class TestBadSyntax < TestCase
         # bad decl (generic class with not enough types)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Container expects 2 type(s), but got 1 type(s).\n    \
-                from [test]:2:\n\
+            SyntaxError: Class Container expects 2 type(s), but got 1 type(s).
+                from [test]:2:
         """,
         """\
             class Container[A, B] {}
@@ -497,8 +497,8 @@ class TestBadSyntax < TestCase
         # bad decl (generic class with too many types)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Container expects 1 type(s), but got 3 type(s).\n    \
-                from [test]:2:\n\
+            SyntaxError: Class Container expects 1 type(s), but got 3 type(s).
+                from [test]:2:
         """,
         """\
             class Container[A] {}
@@ -513,8 +513,8 @@ class TestBadSyntax < TestCase
         # bad literal (Integer too large)
 
         assert_parse_fails(t, """\
-            SyntaxError: Integer value is too large.\n    \
-                from [test]:1:\n\
+            SyntaxError: Integer value is too large.
+                from [test]:1:
         """,
         """\
             var v = 9223372036854775809
@@ -523,8 +523,8 @@ class TestBadSyntax < TestCase
         # bad literal (Integer too small)
 
         assert_parse_fails(t, """\
-            SyntaxError: Integer value is too small.\n    \
-                from [test]:1:\n\
+            SyntaxError: Integer value is too small.
+                from [test]:1:
         """,
         """\
             var v = -9223372036854775809
@@ -533,8 +533,8 @@ class TestBadSyntax < TestCase
         # bad literal (Double too large)
 
         assert_parse_fails(t, """\
-            SyntaxError: Double value is out of range.\n    \
-                from [test]:1:\n\
+            SyntaxError: Double value is out of range.
+                from [test]:1:
         """,
         """\
             var v = 9e999
@@ -543,8 +543,8 @@ class TestBadSyntax < TestCase
         # bad literal (Double with Byte suffix)
 
         assert_parse_fails(t, """\
-            SyntaxError: Double value with Byte suffix.\n    \
-                from [test]:1:\n\
+            SyntaxError: Double value with Byte suffix.
+                from [test]:1:
         """,
         """\
             var v = 1.1t
@@ -553,8 +553,8 @@ class TestBadSyntax < TestCase
         # bad literal (invalid exponent)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a base 10 number after exponent.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected a base 10 number after exponent.
+                from [test]:1:
         """,
         """\
             var v = 1e?
@@ -563,8 +563,8 @@ class TestBadSyntax < TestCase
         # bad literal (exponent too large)
 
         assert_parse_fails(t, """\
-            SyntaxError: Exponent is too large.\n    \
-                from [test]:1:\n\
+            SyntaxError: Exponent is too large.
+                from [test]:1:
         """,
         """\
             var v = 1e3000
@@ -573,8 +573,8 @@ class TestBadSyntax < TestCase
         # bad literal (Byte with - sign)
 
         assert_parse_fails(t, """\
-            SyntaxError: Byte values cannot have a sign.\n    \
-                from [test]:1:\n\
+            SyntaxError: Byte values cannot have a sign.
+                from [test]:1:
         """,
         """\
             var v = -1t
@@ -583,8 +583,8 @@ class TestBadSyntax < TestCase
         # bad literal (Byte with + sign)
 
         assert_parse_fails(t, """\
-            SyntaxError: Byte values cannot have a sign.\n    \
-                from [test]:1:\n\
+            SyntaxError: Byte values cannot have a sign.
+                from [test]:1:
         """,
         """\
             var v = +1t
@@ -593,8 +593,8 @@ class TestBadSyntax < TestCase
         # bad literal (Byte too large)
 
         assert_parse_fails(t, """\
-            SyntaxError: Byte value is too large.\n    \
-                from [test]:1:\n\
+            SyntaxError: Byte value is too large.
+                from [test]:1:
         """,
         """\
             var v = 256t
@@ -603,8 +603,8 @@ class TestBadSyntax < TestCase
         # bad literal (Byte quote literal not multi-byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Multi-character byte literal.\n    \
-                from [test]:1:\n\
+            SyntaxError: Multi-character byte literal.
+                from [test]:1:
         """,
         """\
             var v = '12'
@@ -613,8 +613,8 @@ class TestBadSyntax < TestCase
         # bad literal (Byte quote literal empty)
 
         assert_parse_fails(t, """\
-            SyntaxError: Byte literals cannot be empty.\n    \
-                from [test]:1:\n\
+            SyntaxError: Byte literals cannot be empty.
+                from [test]:1:
         """,
         """\
             var v = ''
@@ -623,8 +623,8 @@ class TestBadSyntax < TestCase
         # bad literal (invalid Byte escape)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             var v = '\\?'
@@ -633,8 +633,8 @@ class TestBadSyntax < TestCase
         # bad literal (invalid String escape)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             var v = "\\?"
@@ -643,8 +643,8 @@ class TestBadSyntax < TestCase
         # bad literal (unterminated multi-line String)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated string (started at line 3).\n    \
-                from [test]:6:\n\
+            SyntaxError: Unterminated string (started at line 3).
+                from [test]:6:
         """,
         """\
 
@@ -657,8 +657,8 @@ class TestBadSyntax < TestCase
         # bad literal (newline in single-line String)
 
         assert_parse_fails(t, """\
-            SyntaxError: Newline in single-line string.\n    \
-                from [test]:1:\n\
+            SyntaxError: Newline in single-line string.
+                from [test]:1:
         """,
         """\
             var v = "
@@ -667,8 +667,8 @@ class TestBadSyntax < TestCase
         # bad literal (zero escape on String literal)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             var v = "\\0"
@@ -677,8 +677,8 @@ class TestBadSyntax < TestCase
         # bad literal (high-bit escape on String literal)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             var v = "\\128"
@@ -687,8 +687,8 @@ class TestBadSyntax < TestCase
         # bad literal (escape over 255).
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             var v = B"\\256"
@@ -697,8 +697,8 @@ class TestBadSyntax < TestCase
         # bad literal (invalid hex escape for String).
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             "\\xFF"
@@ -707,8 +707,8 @@ class TestBadSyntax < TestCase
         # bad literal (short hex escape).
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             "\\x"
@@ -717,8 +717,8 @@ class TestBadSyntax < TestCase
         # bad literal (empty hex escape).
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             "\\xF"
@@ -727,8 +727,8 @@ class TestBadSyntax < TestCase
         # bad literal (invalid hex value).
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid escape sequence.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid escape sequence.
+                from [test]:1:
         """,
         """\
             "\\xF?"
@@ -737,8 +737,8 @@ class TestBadSyntax < TestCase
         # bad literal (empty Tuple)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot create an empty Tuple.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot create an empty Tuple.
+                from [test]:1:
         """,
         """\
             var v = <[]>
@@ -752,8 +752,8 @@ class TestBadSyntax < TestCase
         # bad operation (String + String)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: String + String.\n    \
-                from [test]:6:\n\
+            SyntaxError: Invalid operation: String + String.
+                from [test]:6:
         """,
         """\
             class Example {
@@ -772,8 +772,8 @@ class TestBadSyntax < TestCase
         # bad operation (== on different types)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: List[Integer] == List[String].\n    \
-                from [test]:4:\n\
+            SyntaxError: Invalid operation: List[Integer] == List[String].
+                from [test]:4:
         """,
         """\
             var v1 = [1]
@@ -785,8 +785,8 @@ class TestBadSyntax < TestCase
         # bad operation (!String)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: !String.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid operation: !String.
+                from [test]:1:
         """,
         """\
             var v = !"a"
@@ -827,8 +827,8 @@ class TestBadSyntax < TestCase
         # bad subscript (Tuple subscript out of range)
 
         assert_parse_fails(t, """\
-            SyntaxError: Index 3 is out of range for Tuple[Integer, String].\n    \
-                from [test]:1:\n\
+            SyntaxError: Index 3 is out of range for Tuple[Integer, String].
+                from [test]:1:
         """,
         """\
             var s: String = <[1, "2"]> [3]
@@ -837,8 +837,8 @@ class TestBadSyntax < TestCase
         # bad subscript (Tuple subscript not a literal)
 
         assert_parse_fails(t, """\
-            SyntaxError: Tuple subscripts must be Integer literals.\n    \
-                from [test]:3:\n\
+            SyntaxError: Tuple subscripts must be Integer literals.
+                from [test]:3:
         """,
         """\
             var a = 1
@@ -849,8 +849,8 @@ class TestBadSyntax < TestCase
         # bad subscript (negative Tuple subscripts not allowed)
 
         assert_parse_fails(t, """\
-            SyntaxError: Index -1 is out of range for Tuple[Integer].\n    \
-                from [test]:2:\n\
+            SyntaxError: Index -1 is out of range for Tuple[Integer].
+                from [test]:2:
         """,
         """\
             var v = <[1]>
@@ -860,8 +860,8 @@ class TestBadSyntax < TestCase
         # bad subscript (positive Tuple subscript out of range)
 
         assert_parse_fails(t, """\
-            SyntaxError: Index 5 is out of range for Tuple[Integer].\n    \
-                from [test]:2:\n\
+            SyntaxError: Index 5 is out of range for Tuple[Integer].
+                from [test]:2:
         """,
         """\
             var v = <[1]>
@@ -871,8 +871,8 @@ class TestBadSyntax < TestCase
         # bad subscript (invalid List subscript type)
 
         assert_parse_fails(t, """\
-            SyntaxError: List index is not an Integer or a Byte.\n    \
-                from [test]:2:\n\
+            SyntaxError: List index is not an Integer or a Byte.
+                from [test]:2:
         """,
         """\
             var v = [1]
@@ -882,8 +882,8 @@ class TestBadSyntax < TestCase
         # bad subscript (invalid ByteString subscript type)
 
         assert_parse_fails(t, """\
-            SyntaxError: ByteString index is not an Integer or a Byte.\n    \
-                from [test]:2:\n\
+            SyntaxError: ByteString index is not an Integer or a Byte.
+                from [test]:2:
         """,
         """\
             var v = B"1"
@@ -893,8 +893,8 @@ class TestBadSyntax < TestCase
         # bad subscript (invalid Hash subscript type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Hash index should be type 'Integer', not type 'String'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Hash index should be type 'Integer', not type 'String'.
+                from [test]:1:
         """,
         """\
             [1 => 1, 2 => 2]["1"]
@@ -903,8 +903,8 @@ class TestBadSyntax < TestCase
         # bad subscript (not supported on this type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot subscript type 'Option[Integer]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot subscript type 'Option[Integer]'.
+                from [test]:1:
         """,
         """\
             Some(1)[1]
@@ -913,9 +913,9 @@ class TestBadSyntax < TestCase
         # bad subscript (Bytestring subscript out of range)
 
         assert_parse_fails(t, """\
-            IndexError: Subscript index -50 is out of range.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            IndexError: Subscript index -50 is out of range.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             B"Ā ā Ă ă Ą"[-50]
@@ -924,9 +924,9 @@ class TestBadSyntax < TestCase
         # bad subscript (KeyError with large Integer value)
 
         assert_parse_fails(t, """\
-            KeyError: 9000000000000000000\n\
-            Traceback:\n    \
-                from [test]:2: in __main__\n\
+            KeyError: 9000000000000000000
+            Traceback:
+                from [test]:2: in __main__
         """,
         """\
             var v = [1 => 1]
@@ -936,9 +936,9 @@ class TestBadSyntax < TestCase
         # bad subscript (KeyError with reasonable Integer value)
 
         assert_parse_fails(t, """\
-            KeyError: 65535\n\
-            Traceback:\n    \
-                from [test]:2: in __main__\n\
+            KeyError: 65535
+            Traceback:
+                from [test]:2: in __main__
         """,
         """\
             var v = [1 => 1]
@@ -953,8 +953,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with if)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:10:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:10:
         """,
         """\
             define f(a: Integer) : Integer
@@ -972,8 +972,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with enum match case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:9:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:9:
         """,
         """\
             define f(a: Option[Integer]) : Integer
@@ -990,8 +990,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with enum match final else)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:9:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:9:
         """,
         """\
             define f(a: Option[Integer]) : Integer
@@ -1008,8 +1008,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with class match case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:14:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:14:
         """,
         """\
             class One {}
@@ -1031,8 +1031,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with class match final else)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:14:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:14:
         """,
         """\
             class One {}
@@ -1054,8 +1054,8 @@ class TestBadSyntax < TestCase
         # broken exit fold (with try base case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:8:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:8:
         """,
         """\
             define f(a: Integer) : Integer
@@ -1076,8 +1076,8 @@ class TestBadSyntax < TestCase
         # code after exit (after raise)
 
         assert_parse_fails(t, """\
-            SyntaxError: Statement(s) after 'raise' will not execute.\n    \
-                from [test]:2:\n\
+            SyntaxError: Statement(s) after 'raise' will not execute.
+                from [test]:2:
         """,
         """\
             raise ValueError("")
@@ -1087,8 +1087,8 @@ class TestBadSyntax < TestCase
         # code after exit (after value returned)
 
         assert_parse_fails(t, """\
-            SyntaxError: Statement(s) after 'return' will not execute.\n    \
-                from [test]:4:\n\
+            SyntaxError: Statement(s) after 'return' will not execute.
+                from [test]:4:
         """,
         """\
             define f : Integer
@@ -1101,8 +1101,8 @@ class TestBadSyntax < TestCase
         # code after exit (after Unit returned)
 
         assert_parse_fails(t, """\
-            SyntaxError: Statement(s) after 'return' will not execute (no return type given).\n    \
-                from [test]:1:\n\
+            SyntaxError: Statement(s) after 'return' will not execute (no return type given).
+                from [test]:1:
         """,
         """\
             define test { return 0 }
@@ -1111,8 +1111,8 @@ class TestBadSyntax < TestCase
         # code after exit (break)
 
         assert_parse_fails(t, """\
-            SyntaxError: Statement(s) after 'break' will not execute.\n    \
-                from [test]:3:\n\
+            SyntaxError: Statement(s) after 'break' will not execute.
+                from [test]:3:
         """,
         """\
             for i in 0...10: {
@@ -1124,8 +1124,8 @@ class TestBadSyntax < TestCase
         # code after exit (continue)
 
         assert_parse_fails(t, """\
-            SyntaxError: Statement(s) after 'continue' will not execute.\n    \
-                from [test]:3:\n\
+            SyntaxError: Statement(s) after 'continue' will not execute.
+                from [test]:3:
         """,
         """\
             for i in 0...10: {
@@ -1142,8 +1142,8 @@ class TestBadSyntax < TestCase
         # define rules (verify returning a value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Missing return statement at end of function.\n    \
-                from [test]:1:\n\
+            SyntaxError: Missing return statement at end of function.
+                from [test]:1:
         """,
         """\
             define f : Integer {  }
@@ -1152,8 +1152,8 @@ class TestBadSyntax < TestCase
         # define rules (forbid scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '$1'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected 'a label', not '$1'.
+                from [test]:1:
         """,
         """\
             define test: $1 {}
@@ -1162,8 +1162,8 @@ class TestBadSyntax < TestCase
         # define rules (no explicit Unit return)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit return type is automatic. Omit instead.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unit return type is automatic. Omit instead.
+                from [test]:1:
         """,
         """\
             define f: Unit {}
@@ -1172,8 +1172,8 @@ class TestBadSyntax < TestCase
         # define rules (redeclare parameter)
 
         assert_parse_fails(t, """\
-            SyntaxError: a has already been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: a has already been declared.
+                from [test]:1:
         """,
         """\
             define f(a: Integer, a: Integer) {}
@@ -1182,8 +1182,8 @@ class TestBadSyntax < TestCase
         # define rules (within an if block)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define a function here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot define a function here.
+                from [test]:2:
         """,
         """\
             if 1: {
@@ -1199,8 +1199,8 @@ class TestBadSyntax < TestCase
         # list rules (ignore expected mismatch for first element)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'List[Integer]' to type 'List[String]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'List[Integer]' to type 'List[String]'.
+                from [test]:1:
         """,
         """\
             var v: List[String] = [1]
@@ -1214,8 +1214,8 @@ class TestBadSyntax < TestCase
         # hash rules (invalid key provided in type)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'Option[Integer]' is not a valid key for Hash.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'Option[Integer]' is not a valid key for Hash.
+                from [test]:1:
         """,
         """\
             var v: Hash[Option[Integer], String] = [Some(1) => "a"]
@@ -1224,8 +1224,8 @@ class TestBadSyntax < TestCase
         # hash rules (inferring invalid key)
 
         assert_parse_fails(t, """\
-            SyntaxError: Type 'ByteString' is not a valid key for Hash.\n    \
-                from [test]:1:\n\
+            SyntaxError: Type 'ByteString' is not a valid key for Hash.
+                from [test]:1:
         """,
         """\
             var v = [B"" => 1]
@@ -1234,8 +1234,8 @@ class TestBadSyntax < TestCase
         # hash rules (ignore expected mismatch for first key)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Hash[String, String]' to type 'Hash[Integer, String]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'Hash[String, String]' to type 'Hash[Integer, String]'.
+                from [test]:1:
         """,
         """\
             var v: Hash[Integer, String] = ["1" => "1"]
@@ -1244,8 +1244,8 @@ class TestBadSyntax < TestCase
         # hash rules (ignore expected mismatch for first value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Hash[Integer, Integer]' to type 'Hash[Integer, String]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'Hash[Integer, Integer]' to type 'Hash[Integer, String]'.
+                from [test]:1:
         """,
         """\
             var v: Hash[Integer, String] = [1 => 1]
@@ -1254,8 +1254,8 @@ class TestBadSyntax < TestCase
         # hash rules (forbid invalid keys)
 
         assert_parse_fails(t, """\
-            SyntaxError: Type 'A' is not a valid key for Hash.\n    \
-                from [test]:1:\n\
+            SyntaxError: Type 'A' is not a valid key for Hash.
+                from [test]:1:
         """,
         """\
             define f[A, B](a: A, b: B): Hash[A, B] { return [a => b] }
@@ -1271,8 +1271,8 @@ class TestBadSyntax < TestCase
         # incomplete assign (to global var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+                from [test]:1:
         """,
         """\
             var v = None
@@ -1281,8 +1281,8 @@ class TestBadSyntax < TestCase
         # incomplete assign (to class property outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.\n    \
-                from [test]:6:\n\
+            SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+                from [test]:6:
         """,
         """\
             class Test {
@@ -1301,8 +1301,8 @@ class TestBadSyntax < TestCase
         # not assignable (subscript result of a call)
 
         assert_parse_fails(t, """\
-            SyntaxError: Left side of = is not assignable.\n    \
-                from [test]:5:\n\
+            SyntaxError: Left side of = is not assignable.
+                from [test]:5:
         """,
         """\
             define f : List[Integer] {
@@ -1315,8 +1315,8 @@ class TestBadSyntax < TestCase
         # not assignable (parenth expr)
 
         assert_parse_fails(t, """\
-            SyntaxError: Left side of = is not assignable.\n    \
-                from [test]:3:\n\
+            SyntaxError: Left side of = is not assignable.
+                from [test]:3:
         """,
         """\
             var a = 1
@@ -1328,8 +1328,8 @@ class TestBadSyntax < TestCase
         # not assignable (assign to class method by dot)
 
         assert_parse_fails(t, """\
-            SyntaxError: Left side of = is not assignable.\n    \
-                from [test]:5:\n\
+            SyntaxError: Left side of = is not assignable.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -1347,8 +1347,8 @@ class TestBadSyntax < TestCase
         # var rules (no self-initialization)
 
         assert_parse_fails(t, """\
-            SyntaxError: Attempt to use uninitialized value 'v'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Attempt to use uninitialized value 'v'.
+                from [test]:1:
         """,
         """\
             var v = v
@@ -1357,8 +1357,8 @@ class TestBadSyntax < TestCase
         # var rules (init expression required)
 
         assert_parse_fails(t, """\
-            SyntaxError: An initialization expression is required here.\n    \
-                from [test]:2:\n\
+            SyntaxError: An initialization expression is required here.
+                from [test]:2:
         """,
         """\
             var v
@@ -1372,8 +1372,8 @@ class TestBadSyntax < TestCase
         # verify misc (end tag in code-only file)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?>'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Unexpected token '?>'.
+                from [test]:1:
         """,
         """\
             ?>
@@ -1382,8 +1382,8 @@ class TestBadSyntax < TestCase
         # verify misc (wrong type for return)
 
         assert_parse_fails(t, """\
-            SyntaxError: return expected type 'Option[Integer]' but got type 'Integer'.\n    \
-                from [test]:3:\n\
+            SyntaxError: return expected type 'Option[Integer]' but got type 'Integer'.
+                from [test]:3:
         """,
         """\
             define f: Option[Integer]
@@ -1395,8 +1395,8 @@ class TestBadSyntax < TestCase
         # verify misc (wrong type for static Tuple)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Tuple[Integer]' to type 'Tuple[String]'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot assign type 'Tuple[Integer]' to type 'Tuple[String]'.
+                from [test]:1:
         """,
         """\
             var v: Tuple[String] = <[1]>
@@ -1405,8 +1405,8 @@ class TestBadSyntax < TestCase
         # verify misc (invalid binary op)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: Integer * Double.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid operation: Integer * Double.
+                from [test]:1:
         """,
         """\
             var v = (1 * 1.1)

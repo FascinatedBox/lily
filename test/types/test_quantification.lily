@@ -10,10 +10,10 @@ class TestQuantification < TestCase
         # This should fail because A is quantified by f's scope.
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #2 to f is invalid:\n\
-            Expected Type: List[Integer]\n\
-            Received Type: List[A]\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #2 to f is invalid:
+            Expected Type: List[Integer]
+            Received Type: List[A]
+                from [test]:4:
         """,
         """\
             define f[A](a: List[A], b: List[A]) {}
@@ -33,10 +33,10 @@ class TestQuantification < TestCase
         # passed to it. This requires rank-2 polymorphism to work.
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to g is invalid:\n\
-            Expected Type: A\n\
-            Received Type: B\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #1 to g is invalid:
+            Expected Type: A
+            Received Type: B
+                from [test]:4:
         """,
         """\
         # This isn't allowed because A and B may be incompatible types.
@@ -61,10 +61,10 @@ class TestQuantification < TestCase
         # This is the same as above but in a different context.
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #3 to f is invalid:\n\
-            Expected Type: List[A]\n\
-            Received Type: List[Box]\n    \
-                from [test]:10:\n\
+            SyntaxError: Argument #3 to f is invalid:
+            Expected Type: List[A]
+            Received Type: List[Box]
+                from [test]:10:
         """,
         """\
             class Box(a: Integer) {}
@@ -96,10 +96,10 @@ class TestQuantification < TestCase
         # but instead the g's quantified A that cannot be narrowed.
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #3 to f is invalid:\n\
-            Expected Type: List[A]\n\
-            Received Type: List[List[Integer]]\n    \
-                from [test]:6:\n\
+            SyntaxError: Argument #3 to f is invalid:
+            Expected Type: List[A]
+            Received Type: List[List[Integer]]
+                from [test]:6:
         """,
         """\
             class Box(a: Integer) {}
@@ -121,10 +121,10 @@ class TestQuantification < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #2 to List.push is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:2:\n\
+            SyntaxError: Argument #2 to List.push is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:2:
         """,
         """\
             var v = [Some(1)].map(Option.unwrap)
@@ -139,10 +139,10 @@ class TestQuantification < TestCase
         # quantification (generic against concrete type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #2 to f is invalid:\n\
-            Expected Type: A\n\
-            Received Type: Integer\n    \
-                from [test]:4:\n\
+            SyntaxError: Argument #2 to f is invalid:
+            Expected Type: A
+            Received Type: Integer
+                from [test]:4:
         """,
         """\
             define f[A](v1: A, v2: A) {  }

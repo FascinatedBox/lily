@@ -529,8 +529,8 @@ class TestImport < TestCase
             @t_template_check
         )
         assert_render_fails(t, """\
-            SyntaxError: Unexpected token '<'.\n    \
-                from template_check.lily:1:\n\
+            SyntaxError: Unexpected token '<'.
+                from template_check.lily:1:
         """,
         """\
             <?lily ?>

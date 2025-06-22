@@ -107,8 +107,8 @@ class TestInference < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (Integer, Integer, Integer)' to type 'Function (Integer, Integer)'.\n    \
-                from [test]:6:\n\
+            SyntaxError: Cannot assign type 'Function (Integer, Integer, Integer)' to type 'Function (Integer, Integer)'.
+                from [test]:6:
         """,
         """\
             define f(a: Integer, b: Integer, c: Integer) {}
@@ -144,10 +144,10 @@ class TestInference < TestCase
         # inference to draw from.
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to g is invalid:\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to g is invalid:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:3:
         """,
         """\
             define f[A](value1: A, value2: A) {  }
@@ -225,8 +225,8 @@ class TestInference < TestCase
         # vararg nonvararg (want List, given vararg)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (String...)' to type 'Function (List[String])'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'Function (String...)' to type 'Function (List[String])'.
+                from [test]:3:
         """,
         """\
             define f(a: String...) {}
@@ -237,8 +237,8 @@ class TestInference < TestCase
         # vararg nonvararg (want vararg, given List)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (List[String])' to type 'Function (String...)'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'Function (List[String])' to type 'Function (String...)'.
+                from [test]:3:
         """,
         """\
             define f(a: List[String]) {}

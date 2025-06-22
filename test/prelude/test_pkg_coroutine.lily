@@ -200,10 +200,10 @@ class TestPkgCoroutine < TestCase
         # incorrect (close over a foreign function)
 
         assert_parse_fails(t, """\
-            RuntimeError: Only native functions can be coroutines.\n\
-            Traceback:\n    \
-                from [coroutine]: in Coroutine.build\n    \
-                from [test]:3: in __main__\n\
+            RuntimeError: Only native functions can be coroutines.
+            Traceback:
+                from [coroutine]: in Coroutine.build
+                from [test]:3: in __main__
         """,
         """\
             import (Coroutine) coroutine

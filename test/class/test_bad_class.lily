@@ -10,8 +10,8 @@ class TestBadClass < TestCase
         # bad constructor (cannot use return)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'return' not allowed in a class constructor.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'return' not allowed in a class constructor.
+                from [test]:3:
         """,
         """\
             class example {
@@ -25,8 +25,8 @@ class TestBadClass < TestCase
         # Blocked because it creates a closure at the instance level.
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:3:
         """,
         """\
             class Example {
@@ -38,8 +38,8 @@ class TestBadClass < TestCase
         # bad constructor (close over self for instance method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class constructors cannot call non-static methods.\n    \
-                from [test]:3:\n\
+            SyntaxError: Class constructors cannot call non-static methods.
+                from [test]:3:
         """,
         """\
             class Example {
@@ -52,8 +52,8 @@ class TestBadClass < TestCase
         # Blocked because it creates a closure at the instance level.
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to close over variables from a class constructor.\n    \
-                from [test]:3:\n\
+            SyntaxError: Not allowed to close over variables from a class constructor.
+                from [test]:3:
         """,
         """\
             class Example(a: Integer) {
@@ -71,8 +71,8 @@ class TestBadClass < TestCase
         # bad decl (redeclare property as method)
 
         assert_parse_fails(t, """\
-            SyntaxError: A property in class 'Test' already has the name @abc.\n    \
-                from [test]:3:\n\
+            SyntaxError: A property in class 'Test' already has the name @abc.
+                from [test]:3:
         """,
         """\
             class Test {
@@ -86,8 +86,8 @@ class TestBadClass < TestCase
         # bad decl (redeclare method as property)
 
         assert_parse_fails(t, """\
-            SyntaxError: A method in class 'Test' already has the name 'abc'.\n    \
-                from [test]:5:\n\
+            SyntaxError: A method in class 'Test' already has the name 'abc'.
+                from [test]:5:
         """,
         """\
             class Test {
@@ -101,8 +101,8 @@ class TestBadClass < TestCase
         # bad decl (declare property twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: A property in class 'ABC' already has the name @a.\n    \
-                from [test]:1:\n\
+            SyntaxError: A property in class 'ABC' already has the name @a.
+                from [test]:1:
         """,
         """\
             class ABC { public var @a = 1 public var @a = 1 }
@@ -111,8 +111,8 @@ class TestBadClass < TestCase
         # bad decl (declare method twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: A method in class 'ABC' already has the name 'a'.\n    \
-                from [test]:1:\n\
+            SyntaxError: A method in class 'ABC' already has the name 'a'.
+                from [test]:1:
         """,
         """\
             class ABC { public define a {} public define a {} }
@@ -121,8 +121,8 @@ class TestBadClass < TestCase
         # bad decl (redeclare predefined class)
 
         assert_parse_fails(t, """\
-            SyntaxError: A built-in class named 'Exception' already exists.\n    \
-                from [test]:1:\n\
+            SyntaxError: A built-in class named 'Exception' already exists.
+                from [test]:1:
         """,
         """\
             class Exception {}
@@ -131,8 +131,8 @@ class TestBadClass < TestCase
         # bad decl (declare class twice)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class named 'AlreadyExists' has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: A class named 'AlreadyExists' has already been declared.
+                from [test]:2:
         """,
         """\
             class AlreadyExists {}
@@ -142,8 +142,8 @@ class TestBadClass < TestCase
         # bad decl (class method shadows constructor var)
 
         assert_parse_fails(t, """\
-            SyntaxError: x has already been declared.\n    \
-                from [test]:2:\n\
+            SyntaxError: x has already been declared.
+                from [test]:2:
         """,
         """\
             class Test(x: Integer) {
@@ -154,8 +154,8 @@ class TestBadClass < TestCase
         # bad decl (predefined class redeclared after dynaload)
 
         assert_parse_fails(t, """\
-            SyntaxError: A built-in class named 'ValueError' already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: A built-in class named 'ValueError' already exists.
+                from [test]:3:
         """,
         """\
             var v = ValueError("")
@@ -168,8 +168,8 @@ class TestBadClass < TestCase
         # bad decl (ValueError redeclared after dynaload)
 
         assert_parse_fails(t, """\
-            SyntaxError: A built-in class named 'ValueError' already exists.\n    \
-                from [test]:3:\n\
+            SyntaxError: A built-in class named 'ValueError' already exists.
+                from [test]:3:
         """,
         """\
             var v = ValueError("")
@@ -182,8 +182,8 @@ class TestBadClass < TestCase
         # bad decl (redeclare an enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: An enum named 'Example' has already been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: An enum named 'Example' has already been declared.
+                from [test]:6:
         """,
         """\
             enum Example {
@@ -197,8 +197,8 @@ class TestBadClass < TestCase
         # bad decl (redeclare a variant)
 
         assert_parse_fails(t, """\
-            SyntaxError: A variant named 'One' has already been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: A variant named 'One' has already been declared.
+                from [test]:6:
         """,
         """\
             enum Example {
@@ -217,8 +217,8 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from foreign class)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'Integer' cannot be inherited from.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'Integer' cannot be inherited from.
+                from [test]:1:
         """,
         """\
             class abc < Integer {  }
@@ -227,8 +227,8 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from itself)
 
         assert_parse_fails(t, """\
-            SyntaxError: A class cannot inherit from itself!\n    \
-                from [test]:1:\n\
+            SyntaxError: A class cannot inherit from itself!
+                from [test]:1:
         """,
         """\
             class abc < abc {  }
@@ -237,8 +237,8 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'Two' cannot be inherited from.\n    \
-                from [test]:6:\n\
+            SyntaxError: 'Two' cannot be inherited from.
+                from [test]:6:
         """,
         """\
             enum Test {
@@ -252,8 +252,8 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from missing class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class 'DoesNotExist' does not exist.\n    \
-                from [test]:1:\n\
+            SyntaxError: Class 'DoesNotExist' does not exist.
+                from [test]:1:
         """,
         """\
             class One < DoesNotExist {}
@@ -262,8 +262,8 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class 'v' does not exist.\n    \
-                from [test]:2:\n\
+            SyntaxError: Class 'v' does not exist.
+                from [test]:2:
         """,
         """\
             var v = 10
@@ -278,10 +278,10 @@ class TestBadClass < TestCase
         # matter how deep the lineage).
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to First is invalid:\n\
-            Expected Type: A\n\
-            Received Type: B\n    \
-                from [test]:3:\n\
+            SyntaxError: Argument #1 to First is invalid:
+            Expected Type: A
+            Received Type: B
+                from [test]:3:
         """,
         """\
             class First[A](value: A) {  }
@@ -292,8 +292,8 @@ class TestBadClass < TestCase
         # bad inheritance (from a forward class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot inherit from an incomplete class.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot inherit from an incomplete class.
+                from [test]:3:
         """,
         """\
             forward class One { ... }
@@ -304,8 +304,8 @@ class TestBadClass < TestCase
         # bad inheritance (from a generic)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'A' cannot be inherited from.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'A' cannot be inherited from.
+                from [test]:1:
         """,
         """\
             class One[A] < A {}
@@ -319,8 +319,8 @@ class TestBadClass < TestCase
         # bad match (class match using generics)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class matching only works for types without generics.\n    \
-                from [test]:6:\n\
+            SyntaxError: Class matching only works for types without generics.
+                from [test]:6:
         """,
         """\
             class One[A](a: A) {}
@@ -335,8 +335,8 @@ class TestBadClass < TestCase
         # bad match (class match not inheriting base)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Three does not inherit from matching class One.\n    \
-                from [test]:8:\n\
+            SyntaxError: Class Three does not inherit from matching class One.
+                from [test]:8:
         """,
         """\
             class One {}
@@ -353,8 +353,8 @@ class TestBadClass < TestCase
         # bad match (require else clause)
 
         assert_parse_fails(t, """\
-            SyntaxError: Match against a class must have an 'else' case.\n    \
-                from [test]:7:\n\
+            SyntaxError: Match against a class must have an 'else' case.
+                from [test]:7:
         """,
         """\
             class One {}
@@ -369,8 +369,8 @@ class TestBadClass < TestCase
         # bad match (duplicate case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Already have a case for Two.\n    \
-                from [test]:8:\n\
+            SyntaxError: Already have a case for Two.
+                from [test]:8:
         """,
         """\
             class One {}
@@ -388,8 +388,8 @@ class TestBadClass < TestCase
         # bad match (multi case)
 
         assert_parse_fails(t, """\
-            SyntaxError: Multi case match is only available to empty variants.\n    \
-                from [test]:8:\n\
+            SyntaxError: Multi case match is only available to empty variants.
+                from [test]:8:
         """,
         """\
             class One {}
@@ -412,8 +412,8 @@ class TestBadClass < TestCase
         # bad misc (use missing var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)\n    \
-                from [test]:2:\n\
+            SyntaxError: Property xyz is not in class Test. ('var' keyword missing?)
+                from [test]:2:
         """,
         """\
             class Test {
@@ -429,8 +429,8 @@ class TestBadClass < TestCase
         # bad scope (protected shorthand var outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Test.a is marked protected, and not available here.\n    \
-                from [test]:4:\n\
+            SyntaxError: Test.a is marked protected, and not available here.
+                from [test]:4:
         """,
         """\
             class Test(protected var @a: Integer) { }
@@ -442,8 +442,8 @@ class TestBadClass < TestCase
         # bad scope (private shorthand var outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Test.a is marked private, and not available here.\n    \
-                from [test]:4:\n\
+            SyntaxError: Test.a is marked private, and not available here.
+                from [test]:4:
         """,
         """\
             class Test(private var @a: Integer) { }
@@ -455,8 +455,8 @@ class TestBadClass < TestCase
         # bad scope (protected var outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Test.x is marked protected, and not available here.\n    \
-                from [test]:3:\n\
+            SyntaxError: Test.x is marked protected, and not available here.
+                from [test]:3:
         """,
         """\
             class Test { protected var @x = 10 }
@@ -467,8 +467,8 @@ class TestBadClass < TestCase
         # bad scope (protected method outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: abc.f is marked protected, and not available here.\n    \
-                from [test]:5:\n\
+            SyntaxError: abc.f is marked protected, and not available here.
+                from [test]:5:
         """,
         """\
             class abc {
@@ -481,8 +481,8 @@ class TestBadClass < TestCase
         # bad scope (private method from parent)
 
         assert_parse_fails(t, """\
-            SyntaxError: One.f is marked private, and not available here.\n    \
-                from [test]:7:\n\
+            SyntaxError: One.f is marked private, and not available here.
+                from [test]:7:
         """,
         """\
             class One {
@@ -499,8 +499,8 @@ class TestBadClass < TestCase
         # bad scope (private method from parent using self)
 
         assert_parse_fails(t, """\
-            SyntaxError: One.f is marked private, and not available here.\n    \
-                from [test]:7:\n\
+            SyntaxError: One.f is marked private, and not available here.
+                from [test]:7:
         """,
         """\
             class One {
@@ -517,8 +517,8 @@ class TestBadClass < TestCase
         # bad scope (private property from parent)
 
         assert_parse_fails(t, """\
-            SyntaxError: abc.f is marked private, and not available here.\n    \
-                from [test]:6:\n\
+            SyntaxError: abc.f is marked private, and not available here.
+                from [test]:6:
         """,
         """\
             class abc {
@@ -533,8 +533,8 @@ class TestBadClass < TestCase
         # bad scope (no var scope)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class var declaration must start with a scope.\n    \
-                from [test]:2:\n\
+            SyntaxError: Class var declaration must start with a scope.
+                from [test]:2:
         """,
         """\
             class Test {
@@ -545,8 +545,8 @@ class TestBadClass < TestCase
         # bad scope (no method scope)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class method declaration must start with a scope.\n    \
-                from [test]:2:\n\
+            SyntaxError: Class method declaration must start with a scope.
+                from [test]:2:
         """,
         """\
             class Test {
@@ -562,8 +562,8 @@ class TestBadClass < TestCase
         # bad shorthand (property self-initialization)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:1:
         """,
         """\
             class Test(public var @a: *Integer = @a) { }
@@ -572,8 +572,8 @@ class TestBadClass < TestCase
         # bad shorthand (missing scope)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constructor var declaration must start with a scope.\n    \
-                from [test]:1:\n\
+            SyntaxError: Constructor var declaration must start with a scope.
+                from [test]:1:
         """,
         """\
             class Test(var @a: Integer) { }
@@ -582,8 +582,8 @@ class TestBadClass < TestCase
         # bad shorthand (missing var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'var' after scope was given.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected 'var' after scope was given.
+                from [test]:1:
         """,
         """\
             class Test(public @x: Integer) { }
@@ -592,8 +592,8 @@ class TestBadClass < TestCase
         # bad shorthand (duplicate property name)
 
         assert_parse_fails(t, """\
-            SyntaxError: A property in class 'One' already has the name @a.\n    \
-                from [test]:1:\n\
+            SyntaxError: A property in class 'One' already has the name @a.
+                from [test]:1:
         """,
         """\
             class One(public var @a: Integer, public var @a: Integer) {}
@@ -602,8 +602,8 @@ class TestBadClass < TestCase
         # bad shorthand (redeclare super method)
 
         assert_parse_fails(t, """\
-            SyntaxError: A method in class 'One' already has the name 'x'.\n    \
-                from [test]:5:\n\
+            SyntaxError: A method in class 'One' already has the name 'x'.
+                from [test]:5:
         """,
         """\
             class One {
@@ -616,8 +616,8 @@ class TestBadClass < TestCase
         # bad shorthand (redeclare super property)
 
         assert_parse_fails(t, """\
-            SyntaxError: A method in class 'One' already has the name 'x'.\n    \
-                from [test]:5:\n\
+            SyntaxError: A method in class 'One' already has the name 'x'.
+                from [test]:5:
         """,
         """\
             class One {
@@ -635,8 +635,8 @@ class TestBadClass < TestCase
         # bad static (static before scope)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'static' must follow a scope (public, protected, or private).\n    \
-                from [test]:2:\n\
+            SyntaxError: 'static' must follow a scope (public, protected, or private).
+                from [test]:2:
         """,
         """\
             class Example {
@@ -648,8 +648,8 @@ class TestBadClass < TestCase
         # bad static (using class property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:4:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:4:
         """,
         """\
             class Example {
@@ -663,8 +663,8 @@ class TestBadClass < TestCase
         # bad static (using instance method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Static methods cannot call instance methods.\n    \
-                from [test]:4:\n\
+            SyntaxError: Static methods cannot call instance methods.
+                from [test]:4:
         """,
         """\
             class Example {
@@ -678,8 +678,8 @@ class TestBadClass < TestCase
         # bad static (returning self)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'self' return type not allowed on a static method.\n    \
-                from [test]:2:\n\
+            SyntaxError: 'self' return type not allowed on a static method.
+                from [test]:2:
         """,
         """\
             class Test {
@@ -691,8 +691,8 @@ class TestBadClass < TestCase
         # bad static (protected static outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Example.f is marked protected, and not available here.\n    \
-                from [test]:5:\n\
+            SyntaxError: Example.f is marked protected, and not available here.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -705,8 +705,8 @@ class TestBadClass < TestCase
         # bad static (private static outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: One.f is marked private, and not available here.\n    \
-                from [test]:6:\n\
+            SyntaxError: One.f is marked private, and not available here.
+                from [test]:6:
         """,
         """\
             class One {
@@ -727,8 +727,8 @@ class TestBadClass < TestCase
         # Blocked because I don't want them.
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define a class here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot define a class here.
+                from [test]:2:
         """,
         """\
             class c1(a: Integer) {
@@ -741,8 +741,8 @@ class TestBadClass < TestCase
         # class rules (class inside of if)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define a class here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot define a class here.
+                from [test]:2:
         """,
         """\
             if 1: {
@@ -755,8 +755,8 @@ class TestBadClass < TestCase
         # Blocked because it interferes with generics.
 
         assert_parse_fails(t, """\
-            SyntaxError: 'A' is not a valid class name (too short).\n    \
-                from [test]:1:\n\
+            SyntaxError: 'A' is not a valid class name (too short).
+                from [test]:1:
         """,
         """\
             class A() {}
@@ -766,8 +766,8 @@ class TestBadClass < TestCase
         # Blocked for consistency.
 
         assert_parse_fails(t, """\
-            SyntaxError: Class properties must start with @.\n    \
-                from [test]:1:\n\
+            SyntaxError: Class properties must start with @.
+                from [test]:1:
         """,
         """\
             class ABC { public var a: integer }
@@ -777,8 +777,8 @@ class TestBadClass < TestCase
         # blocked for consistency (require @<name> always)
 
         assert_parse_fails(t, """\
-            SyntaxError: Use @<name> to get/set properties, not self.<name>.\n    \
-                from [test]:4:\n\
+            SyntaxError: Use @<name> to get/set properties, not self.<name>.
+                from [test]:4:
         """,
         """\
             class Example(x: Integer) {
@@ -793,8 +793,8 @@ class TestBadClass < TestCase
         # Blocked for consistency with standard defines.
 
         assert_parse_fails(t, """\
-            SyntaxError: Left side of = is not assignable.\n    \
-                from [test]:7:\n\
+            SyntaxError: Left side of = is not assignable.
+                from [test]:7:
         """,
         """\
             class Test {
@@ -809,8 +809,8 @@ class TestBadClass < TestCase
         # class rules (class prop self init)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid use of uninitialized property '@x'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Invalid use of uninitialized property '@x'.
+                from [test]:2:
         """,
         """\
             class Point {
@@ -821,8 +821,8 @@ class TestBadClass < TestCase
         # class rules (method of a generic type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class A does not have a member named asdf.\n    \
-                from [test]:2:\n\
+            SyntaxError: Class A does not have a member named asdf.
+                from [test]:2:
         """,
         """\
             define f[A](a: A) {
@@ -833,8 +833,8 @@ class TestBadClass < TestCase
         # class rules (prop use inside constructor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property here.\n    \
-                from [test]:4:\n\
+            SyntaxError: Cannot use a class property here.
+                from [test]:4:
         """,
         """\
             class Base(message: String) {
@@ -850,8 +850,8 @@ class TestBadClass < TestCase
         # class rules (call scoped out definition)
 
         assert_parse_fails(t, """\
-            SyntaxError: g has not been declared.\n    \
-                from [test]:7:\n\
+            SyntaxError: g has not been declared.
+                from [test]:7:
         """,
         """\
             class Example {
@@ -867,8 +867,8 @@ class TestBadClass < TestCase
         # class rules (lambda cannot send self back)
 
         assert_parse_fails(t, """\
-            SyntaxError: x is a property, and must be referenced as @x.\n    \
-                from [test]:5:\n\
+            SyntaxError: x is a property, and must be referenced as @x.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -883,8 +883,8 @@ class TestBadClass < TestCase
         # class rules (static access to property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use a class property without a class instance.\n    \
-                from [test]:5:\n\
+            SyntaxError: Cannot use a class property without a class instance.
+                from [test]:5:
         """,
         """\
             class Example {
@@ -897,8 +897,8 @@ class TestBadClass < TestCase
         # class rules (method accessed as property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot access a method as a property (use f instead of @f).\n    \
-                from [test]:7:\n\
+            SyntaxError: Cannot access a method as a property (use f instead of @f).
+                from [test]:7:
         """,
         """\
             class Example {
@@ -918,16 +918,16 @@ class TestBadClass < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: 'public' is not allowed here.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'public' is not allowed here.
+                from [test]:1:
         """,
         """\
             public class Test {}
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define a class here.\n    \
-                from [test]:2:\n\
+            SyntaxError: Cannot define a class here.
+                from [test]:2:
         """,
         """\
             class Test {
@@ -938,8 +938,8 @@ class TestBadClass < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'static' must follow a scope (public, protected, or private).\n    \
-                from [test]:1:\n\
+            SyntaxError: 'static' must follow a scope (public, protected, or private).
+                from [test]:1:
         """,
         """\
             static class Test {}
@@ -953,8 +953,8 @@ class TestBadClass < TestCase
         # self (self return at toplevel)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'self' return type only allowed on class methods.\n    \
-                from [test]:1:\n\
+            SyntaxError: 'self' return type only allowed on class methods.
+                from [test]:1:
         """,
         """\
             define f: self {}
@@ -963,8 +963,8 @@ class TestBadClass < TestCase
         # self (self return on enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'self' return type only allowed on class methods.\n    \
-                from [test]:5:\n\
+            SyntaxError: 'self' return type only allowed on class methods.
+                from [test]:5:
         """,
         """\
             enum Example
@@ -978,8 +978,8 @@ class TestBadClass < TestCase
         # self (used outside of a class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use 'self' outside of a class or enum.\n    \
-                from [test]:1:\n\
+            SyntaxError: Cannot use 'self' outside of a class or enum.
+                from [test]:1:
         """,
         """\
             self
@@ -988,8 +988,8 @@ class TestBadClass < TestCase
         # self (used during inheritance)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class constructors cannot use 'self'.\n    \
-                from [test]:2:\n\
+            SyntaxError: Class constructors cannot use 'self'.
+                from [test]:2:
         """,
         """\
             class Parent(x: Parent) { }
@@ -999,8 +999,8 @@ class TestBadClass < TestCase
         # self (close over self)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class constructors cannot use 'self'.\n    \
-                from [test]:9:\n\
+            SyntaxError: Class constructors cannot use 'self'.
+                from [test]:9:
         """,
         """\
             class One {
@@ -1041,8 +1041,8 @@ class TestBadClass < TestCase
         # self (from a static method)
 
         assert_parse_fails(t, """\
-            SyntaxError: Static methods cannot use 'self'.\n    \
-                from [test]:4:\n\
+            SyntaxError: Static methods cannot use 'self'.
+                from [test]:4:
         """,
         """\
             class Example {
@@ -1054,8 +1054,8 @@ class TestBadClass < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not 'a string'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Expected 'a label', not 'a string'.
+                from [test]:3:
         """,
         """\
             class Example

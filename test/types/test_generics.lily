@@ -10,10 +10,10 @@ class TestGenerics < TestCase
         # bad list hash unify (fail on a List)
 
         assert_parse_fails(t, """\
-            SyntaxError: List elements do not have a consistent type.\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:1:\n\
+            SyntaxError: List elements do not have a consistent type.
+            Expected Type: Integer
+            Received Type: String
+                from [test]:1:
         """,
         """\
             var v = [1, "2"]
@@ -22,10 +22,10 @@ class TestGenerics < TestCase
         # bad list hash unify (fail on Hash key)
 
         assert_parse_fails(t, """\
-            SyntaxError: Hash keys do not have a consistent type.\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:1:\n\
+            SyntaxError: Hash keys do not have a consistent type.
+            Expected Type: Integer
+            Received Type: String
+                from [test]:1:
         """,
         """\
             var v = [1 => 1, "2" => 2]
@@ -34,10 +34,10 @@ class TestGenerics < TestCase
         # bad list hash unify (fail on Hash value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Hash values do not have a consistent type.\n\
-            Expected Type: Integer\n\
-            Received Type: String\n    \
-                from [test]:1:\n\
+            SyntaxError: Hash values do not have a consistent type.
+            Expected Type: Integer
+            Received Type: String
+                from [test]:1:
         """,
         """\
             var v = [1 => 1, 2 => "2"]
@@ -51,8 +51,8 @@ class TestGenerics < TestCase
         # close over generic (definition with assignment)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'b' cannot be used here, because it has a generic type (A) from another scope.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'b' cannot be used here, because it has a generic type (A) from another scope.
+                from [test]:3:
         """,
         """\
             define f[A](a: A, b: A) {
@@ -72,8 +72,8 @@ class TestGenerics < TestCase
         # close over generic (definition with direct usage)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+                from [test]:3:
         """,
         """\
             define f[A](a: A) {
@@ -86,8 +86,8 @@ class TestGenerics < TestCase
         # close over generic (lambda with assignment)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+                from [test]:3:
         """,
         """\
             define f[A](a: A) {
@@ -100,8 +100,8 @@ class TestGenerics < TestCase
         # close over generic (lambda with direct usage)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+                from [test]:3:
         """,
         """\
             define f[A](a: A) {
@@ -154,10 +154,10 @@ class TestGenerics < TestCase
         # self inferenece (block resolving a generic as self)
 
         assert_parse_fails(t, """\
-            SyntaxError: Argument #1 to f is invalid:\n\
-            Expected Type: Function (Example => ?)\n\
-            Received Type: Function (Example => self)\n    \
-                from [test]:7:\n\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Function (Example => ?)
+            Received Type: Function (Example => self)
+                from [test]:7:
         """,
         """\
             class Example {
@@ -175,8 +175,8 @@ class TestGenerics < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Too many generics.\n    \
-                from [test]:1:\n\
+            SyntaxError: Too many generics.
+                from [test]:1:
         """,
         """\
             enum Test[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, a] {
@@ -191,8 +191,8 @@ class TestGenerics < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: f has generics, and must be called or be a call argument.\n    \
-                from [test]:3:\n\
+            SyntaxError: f has generics, and must be called or be a call argument.
+                from [test]:3:
         """,
         """\
             define f[A](a: A) {}
@@ -207,8 +207,8 @@ class TestGenerics < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: f has generics, and must be called or be a call argument.\n    \
-                from [test]:4:\n\
+            SyntaxError: f has generics, and must be called or be a call argument.
+                from [test]:4:
         """,
         """\
             define f[A](a: A) {}

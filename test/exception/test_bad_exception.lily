@@ -12,8 +12,8 @@ class TestBadException < TestCase
         # information in the vm. It knows the class, but not the whole type.
 
         assert_parse_fails(t, """\
-            SyntaxError: 'except' type cannot have subtypes.\n    \
-                from [test]:8:\n\
+            SyntaxError: 'except' type cannot have subtypes.
+                from [test]:8:
         """,
         """\
             class Ex[A](message: String, v: A) < Exception(message)
@@ -32,8 +32,8 @@ class TestBadException < TestCase
         # exception rules (must derive from exception)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid class 'String' given to raise.\n    \
-                from [test]:1:\n\
+            SyntaxError: Invalid class 'String' given to raise.
+                from [test]:1:
         """,
         """\
             raise "abc"
@@ -43,8 +43,8 @@ class TestBadException < TestCase
         # Blocked because the vars might be unset.
 
         assert_parse_fails(t, """\
-            SyntaxError: v has not been declared.\n    \
-                from [test]:4:\n\
+            SyntaxError: v has not been declared.
+                from [test]:4:
         """,
         """\
             try: {
@@ -57,8 +57,8 @@ class TestBadException < TestCase
         # exception rules (must inherit Exception)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'String' is not a valid exception class.\n    \
-                from [test]:3:\n\
+            SyntaxError: 'String' is not a valid exception class.
+                from [test]:3:
         """,
         """\
             try: {
@@ -71,8 +71,8 @@ class TestBadException < TestCase
         # exception rules (unreachable except clause)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'except' clause is unreachable.\n    \
-                from [test]:5:\n\
+            SyntaxError: 'except' clause is unreachable.
+                from [test]:5:
         """,
         """\
             try: {
@@ -87,8 +87,8 @@ class TestBadException < TestCase
         # exception rules (var already declared)
 
         assert_parse_fails(t, """\
-            SyntaxError: v has already been declared.\n    \
-                from [test]:4:\n\
+            SyntaxError: v has already been declared.
+                from [test]:4:
         """,
         """\
             var v = 10
@@ -108,9 +108,9 @@ class TestBadException < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            Exception: Test\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            Exception: Test
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             raise Exception("Test")
@@ -119,11 +119,11 @@ class TestBadException < TestCase
         # raise check (check traceback when a method throws)
 
         assert_parse_fails(t, """\
-            ValueError: Message.\n\
-            Traceback:\n    \
-                from [test]:5: in Example.action\n    \
-                from [test]:8: in Example\n    \
-                from [test]:11: in __main__\n\
+            ValueError: Message.
+            Traceback:
+                from [test]:5: in Example.action
+                from [test]:8: in Example
+                from [test]:11: in __main__
         """,
         """\
             class Example {
@@ -142,9 +142,9 @@ class TestBadException < TestCase
         # raise check (check throwing custom exception)
 
         assert_parse_fails(t, """\
-            MyException: Correct!\n\
-            Traceback:\n    \
-                from [test]:5: in __main__\n\
+            MyException: Correct!
+            Traceback:
+                from [test]:5: in __main__
         """,
         """\
             class MyException(msg: String) < Exception(msg) {
@@ -157,9 +157,9 @@ class TestBadException < TestCase
         # raise check (raise from an except clause)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:4: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:4: in __main__
         """,
         """\
             try: {
@@ -172,9 +172,9 @@ class TestBadException < TestCase
         # raise check (empty message)
 
         assert_parse_fails(t, """\
-            ValueError\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            ValueError
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             raise ValueError("")
@@ -183,10 +183,10 @@ class TestBadException < TestCase
         # raise check (within a class constructor)
 
         assert_parse_fails(t, """\
-            ValueError: Test\n\
-            Traceback:\n    \
-                from [test]:3: in Example\n    \
-                from [test]:6: in __main__\n\
+            ValueError: Test
+            Traceback:
+                from [test]:3: in Example
+                from [test]:6: in __main__
         """,
         """\
             class Example
@@ -201,10 +201,10 @@ class TestBadException < TestCase
 
         t = Interpreter()
         assert_parse_fails(t, """\
-            ValueError: Test\n\
-            Traceback:\n    \
-                from [test]:15: in g\n    \
-                from [test]:19: in __main__\n\
+            ValueError: Test
+            Traceback:
+                from [test]:15: in g
+                from [test]:19: in __main__
         """,
         """\
             define f(a: Integer)
@@ -231,10 +231,10 @@ class TestBadException < TestCase
         # raise check (function returning A can always raise)
 
         assert_parse_fails(t, """\
-            ValueError: Test.\n\
-            Traceback:\n    \
-                from [test]:1: in always_fail\n    \
-                from [test]:3: in __main__\n\
+            ValueError: Test.
+            Traceback:
+                from [test]:1: in always_fail
+                from [test]:3: in __main__
         """,
         """\
             define always_fail[A]: A { raise ValueError("Test.") }
@@ -245,9 +245,9 @@ class TestBadException < TestCase
         # raise check (double division by zero)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             1.0 / 0.0
@@ -256,9 +256,9 @@ class TestBadException < TestCase
         # raise check (modulo by zero)
 
         assert_parse_fails(t, """\
-            DivisionByZeroError: Attempt to divide by zero.\n\
-            Traceback:\n    \
-                from [test]:1: in __main__\n\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:1: in __main__
         """,
         """\
             1 % 0

@@ -8,8 +8,8 @@ class TestScoop < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: String.format must be called, since it uses type $1.\n    \
-                from [test]:5:\n\
+            SyntaxError: String.format must be called, since it uses type $1.
+                from [test]:5:
         """,
         """\
             define f[A](a: Function(String, List[A]), b: A, c: A): List[A] {
@@ -25,8 +25,8 @@ class TestScoop < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: String.format must be called, since it uses type $1.\n    \
-                from [test]:1:\n\
+            SyntaxError: String.format must be called, since it uses type $1.
+                from [test]:1:
         """,
         """\
             var v = [String.format, String.format]
@@ -35,8 +35,8 @@ class TestScoop < TestCase
         # scoop unify (generics cannot solve to any level of scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: List.zip must be called, since it uses type $1.\n    \
-                from [test]:3:\n\
+            SyntaxError: List.zip must be called, since it uses type $1.
+                from [test]:3:
         """,
         """\
             define f[A, B, C](a: Function(A, B... => C), b: B, c: B): List[B] { return [b, c] }
@@ -52,8 +52,8 @@ class TestScoop < TestCase
         # List.zip shouldn't send scoop back if the input is empty.
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'List[Tuple[Integer, Unit]]'.\n    \
-                from [test]:3:\n\
+            SyntaxError: Cannot assign type 'Integer' to type 'List[Tuple[Integer, Unit]]'.
+                from [test]:3:
         """,
         """\
             var v = [1, 2].zip([])
@@ -69,8 +69,8 @@ class TestScoop < TestCase
         # scoop init (init by assign).
 
         assert_parse_fails(t, """\
-            SyntaxError: List.zip must be called, since it uses type $1.\n    \
-                from [test]:1:\n\
+            SyntaxError: List.zip must be called, since it uses type $1.
+                from [test]:1:
         """,
         """\
             var v = List.zip
@@ -79,8 +79,8 @@ class TestScoop < TestCase
         # scoop init (init by prop assign).
 
         assert_parse_fails(t, """\
-            SyntaxError: List.zip must be called, since it uses type $1.\n    \
-                from [test]:2:\n\
+            SyntaxError: List.zip must be called, since it uses type $1.
+                from [test]:2:
         """,
         """\
             class Example {
@@ -94,8 +94,8 @@ class TestScoop < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: List.zip must be called, since it uses type $1.\n    \
-                from [test]:1:\n\
+            SyntaxError: List.zip must be called, since it uses type $1.
+                from [test]:1:
         """,
         """\
             var v = (|| List.zip )

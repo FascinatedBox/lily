@@ -10,8 +10,8 @@ class TestBadOptargs < TestCase
         # bad value (enum given non-member)
 
         assert_parse_fails(t, """\
-            SyntaxError: what has not been declared.\n    \
-                from [test]:6:\n\
+            SyntaxError: what has not been declared.
+                from [test]:6:
         """,
         """\
             enum Test {
@@ -25,8 +25,8 @@ class TestBadOptargs < TestCase
         # bad value (Boolean given non-Boolean)
 
         assert_parse_fails(t, """\
-            SyntaxError: hello has not been declared.\n    \
-                from [test]:1:\n\
+            SyntaxError: hello has not been declared.
+                from [test]:1:
         """,
         """\
             define f(a: *Boolean=hello) { }
@@ -40,8 +40,8 @@ class TestBadOptargs < TestCase
         # optarg rules (no default arguments for lambdas)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '*'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected 'a label', not '*'.
+                from [test]:1:
         """,
         """\
             var v = (|a: *Integer=10| a )
@@ -51,8 +51,8 @@ class TestBadOptargs < TestCase
         # Blocked because these aren't functions.
 
         assert_parse_fails(t, """\
-            SyntaxError: Variant types cannot have default values.\n    \
-                from [test]:2:\n\
+            SyntaxError: Variant types cannot have default values.
+                from [test]:2:
         """,
         """\
             enum Test {
@@ -64,8 +64,8 @@ class TestBadOptargs < TestCase
         # optarg rules (default value cannot be a lambda)
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to use a lambda here.\n    \
-                from [test]:1:\n\
+            SyntaxError: Not allowed to use a lambda here.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer=(|| 10)()) {
@@ -78,8 +78,8 @@ class TestBadOptargs < TestCase
         # optarg rules (optarg self reference in constructor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constructor for class Test is not initialized.\n    \
-                from [test]:1:\n\
+            SyntaxError: Constructor for class Test is not initialized.
+                from [test]:1:
         """,
         """\
             class Test(a: *Test=Test()) {
@@ -89,8 +89,8 @@ class TestBadOptargs < TestCase
         # optarg rules (optarg self reference in define)
 
         assert_parse_fails(t, """\
-            SyntaxError: Attempt to use uninitialized value 'f'.\n    \
-                from [test]:1:\n\
+            SyntaxError: Attempt to use uninitialized value 'f'.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer=f(1)): Integer {
@@ -102,8 +102,8 @@ class TestBadOptargs < TestCase
         # Blocked because it makes the type system more difficult.
 
         assert_parse_fails(t, """\
-            SyntaxError: Non-optional argument follows optional argument.\n    \
-                from [test]:1:\n\
+            SyntaxError: Non-optional argument follows optional argument.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer=10, b: Integer) {  }
@@ -112,8 +112,8 @@ class TestBadOptargs < TestCase
         # optarg rules (wrong token before value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '=', not ','.\n    \
-                from [test]:1:\n\
+            SyntaxError: Expected '=', not ','.
+                from [test]:1:
         """,
         """\
             define f(a: *Integer,1) { }

@@ -43,8 +43,8 @@ class TestVariance < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (Two)' to type 'Function (One)'.\n    \
-                from [test]:8:\n\
+            SyntaxError: Cannot assign type 'Function (Two)' to type 'Function (One)'.
+                from [test]:8:
         """,
         """\
             class One {}
@@ -100,8 +100,8 @@ class TestVariance < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'List[Two]' to type 'List[One]'.\n    \
-                from [test]:7:\n\
+            SyntaxError: Cannot assign type 'List[Two]' to type 'List[One]'.
+                from [test]:7:
         """,
         """\
             class One {}
