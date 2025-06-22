@@ -433,6 +433,24 @@ int lily_mb_pos(lily_msgbuf *msgbuf)
     return msgbuf->pos;
 }
 
+void lily_mb_repeat_n(lily_msgbuf *msgbuf, char c, int count)
+{
+    if (msgbuf->pos + count >= msgbuf->size)
+        resize_msgbuf(msgbuf, msgbuf->pos + count + 1);
+
+    char *message = msgbuf->message + msgbuf->pos;
+
+    msgbuf->pos += count;
+
+    while (count) {
+        *message = c;
+        message++;
+        count--;
+    }
+
+    *message = '\0';
+}
+
 const char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *fmt, ...)
 {
     lily_mb_flush(msgbuf);

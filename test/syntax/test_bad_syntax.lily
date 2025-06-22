@@ -356,6 +356,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Docblock line does not start with full '###'.
+
+               |
+             2 | ##
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -368,6 +373,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Docblock has inconsistent indentation.
+
+               |
+             2 | ### 1234
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -394,6 +404,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Docblock is preceded by non-whitespace.
+
+               |
+             2 | 0 ### blah
+               | ^
+
                 from [test]:2:
         """,
         """
@@ -514,6 +529,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Integer value is too large.
+
+               |
+             1 | var v = 9223372036854775809
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -524,6 +544,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Integer value is too small.
+
+               |
+             1 | var v = -9223372036854775809
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -534,6 +559,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Double value is out of range.
+
+               |
+             1 | var v = 9e999
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -544,6 +574,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Double value with Byte suffix.
+
+               |
+             1 | var v = 1.1t
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -554,6 +589,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a base 10 number after exponent.
+
+               |
+             1 | var v = 1e?
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -564,6 +604,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Exponent is too large.
+
+               |
+             1 | var v = 1e3000
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -574,6 +619,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Byte values cannot have a sign.
+
+               |
+             1 | var v = -1t
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -584,6 +634,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Byte values cannot have a sign.
+
+               |
+             1 | var v = +1t
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -594,6 +649,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Byte value is too large.
+
+               |
+             1 | var v = 256t
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -604,6 +664,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Multi-character byte literal.
+
+               |
+             1 | var v = '12'
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -614,6 +679,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Byte literals cannot be empty.
+
+               |
+             1 | var v = ''
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -624,6 +694,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | var v = '\\?'
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -634,6 +709,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | var v = "\\?"
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -658,6 +738,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Newline in single-line string.
+
+               |
+             1 | var v = "
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -668,6 +753,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | var v = "\\0"
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -678,6 +768,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | var v = "\\128"
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -688,6 +783,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | var v = B"\\256"
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -698,6 +798,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | "\\xFF"
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -708,6 +813,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | "\\x"
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -718,6 +828,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | "\\xF"
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -728,6 +843,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid escape sequence.
+
+               |
+             1 | "\\xF?"
+               | ^
+
                 from [test]:1:
         """,
         """\

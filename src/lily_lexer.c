@@ -41,6 +41,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->entry = entry;
     lex->string_pile = lily_new_string_pile();
     lex->raiser = raiser;
+    lex->token_start = lex->source;
 
     return lex;
 }
@@ -357,14 +358,14 @@ static void scan_exponent(lily_lex_state *lex, char **source_ch)
        ch++;
 
     if (*ch < '0' || *ch > '9')
-        lily_raise_syn(lex->raiser,
+        lily_raise_lex(lex->raiser,
                    "Expected a base 10 number after exponent.");
 
     while (*ch >= '0' && *ch <= '9') {
         num_digits++;
 
         if (num_digits > 3)
-            lily_raise_syn(lex->raiser, "Exponent is too large.");
+            lily_raise_lex(lex->raiser, "Exponent is too large.");
 
         ch++;
     }
@@ -537,7 +538,7 @@ static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
         }
 
         if (is_decimal == 0 && ch == base_ch + 1)
-            lily_raise_syn(lex->raiser, "Number has a base but no value.");
+            lily_raise_lex(lex->raiser, "Number has a base but no value.");
     }
     else
         integer_value = scan_decimal(lex, &ch, &is_integer);
@@ -546,13 +547,13 @@ static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
         ch++;
 
         if (is_integer == 0)
-            lily_raise_syn(lex->raiser, "Double value with Byte suffix.");
+            lily_raise_lex(lex->raiser, "Double value with Byte suffix.");
 
         if (sign == '-' || sign == '+')
-            lily_raise_syn(lex->raiser, "Byte values cannot have a sign.");
+            lily_raise_lex(lex->raiser, "Byte values cannot have a sign.");
 
         if (integer_value > 0xFF)
-            lily_raise_syn(lex->raiser, "Byte value is too large.");
+            lily_raise_lex(lex->raiser, "Byte value is too large.");
 
         lex->n.integer_val = integer_value;
         *tok = tk_byte;
@@ -565,14 +566,14 @@ static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
             if (integer_value <= INT64_MAX)
                 signed_val = (int64_t)integer_value;
             else
-                lily_raise_syn(lex->raiser, "Integer value is too large.");
+                lily_raise_lex(lex->raiser, "Integer value is too large.");
         }
         else {
             uint64_t max = (uint64_t)INT64_MAX + 1ULL;
             if (integer_value <= max)
                 signed_val = -(int64_t)integer_value;
             else
-                lily_raise_syn(lex->raiser, "Integer value is too small.");
+                lily_raise_lex(lex->raiser, "Integer value is too small.");
         }
 
         lex->n.integer_val = signed_val;
@@ -598,7 +599,7 @@ static void scan_number(lily_lex_state *lex, char **source_ch, uint8_t *tok)
         double double_val = strtod(lex->label, NULL);
 
         if (errno == ERANGE)
-            lily_raise_syn(lex->raiser, "Double value is out of range.");
+            lily_raise_lex(lex->raiser, "Double value is out of range.");
 
         lex->n.double_val = double_val;
         *tok = tk_double;
@@ -626,7 +627,8 @@ static void scan_multiline_comment(lily_lex_state *lex, char **source_ch)
                 continue;
             }
             else {
-                lily_raise_syn(lex->raiser,
+                lex->token_start = NULL;
+                lily_raise_lex(lex->raiser,
                         "Unterminated multi-line comment (started at line %d).",
                         lex->expand_start_line);
             }
@@ -670,19 +672,21 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             i++;
         }
 
+        lex->token_start = ch;
+
         if (*ch != '#') {
             if (lex->line_num == start_line)
-                lily_raise_syn(lex->raiser,
+                lily_raise_lex(lex->raiser,
                         "Docblock is preceded by non-whitespace.");
 
             break;
         }
         else if (*(ch + 1) != '#' ||
                  *(ch + 2) != '#')
-            lily_raise_syn(lex->raiser,
+            lily_raise_lex(lex->raiser,
                     "Docblock line does not start with full '###'.");
         else if (i != offset)
-            lily_raise_syn(lex->raiser,
+            lily_raise_lex(lex->raiser,
                     "Docblock has inconsistent indentation.");
 
         /* Don't include the triple # in the docblock. */
@@ -735,10 +739,11 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
         ch++;
     }
 
+    lex->expand_start_line = lex->line_num;
+
     /* Triple quote is a multi-line string. */
     if (*(ch + 1) == '"' &&
         *(ch + 2) == '"') {
-        lex->expand_start_line = lex->line_num;
         is_multiline = 1;
         ch += 2;
     }
@@ -758,25 +763,27 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
             uint16_t distance = scan_escape(ch, &esc_ch);
 
             if (distance == 0)
-                lily_raise_syn(lex->raiser, "Invalid escape sequence.");
+                lily_raise_lex(lex->raiser, "Invalid escape sequence.");
 
             ch += distance;
 
             /* Make sure String is \0 terminated and utf-8 clean. */
             if (is_bytestring == 0 &&
                 (esc_ch == 0 || (unsigned char)esc_ch > 127))
-                lily_raise_syn(lex->raiser, "Invalid escape sequence.");
+                lily_raise_lex(lex->raiser, "Invalid escape sequence.");
 
             label[label_pos] = esc_ch;
             label_pos++;
         }
         else if (*ch == '\n') {
             if (is_multiline == 0 && backslash_before_newline == 0)
-                lily_raise_syn(lex->raiser, "Newline in single-line string.");
+                lily_raise_lex(lex->raiser,
+                        "Newline in single-line string.");
 
             int line_length = read_line(lex);
             if (line_length == 0) {
-                lily_raise_syn(lex->raiser,
+                lex->token_start = NULL;
+                lily_raise_lex(lex->raiser,
                            "Unterminated string (started at line %d).",
                            lex->expand_start_line);
             }
@@ -824,6 +831,9 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
 
     lex->string_length = label_pos;
     *source_ch = ch;
+
+    if (lex->expand_start_line != lex->line_num)
+        lex->token_start = lex->source;
 }
 
 static void scan_single_quote(lily_lex_state *lex, char **source_ch)
@@ -838,7 +848,7 @@ static void scan_single_quote(lily_lex_state *lex, char **source_ch)
         uint16_t distance = scan_escape(ch, &esc_ch);
 
         if (distance == 0)
-            lily_raise_syn(lex->raiser, "Invalid escape sequence.");
+            lily_raise_lex(lex->raiser, "Invalid escape sequence.");
 
         result = esc_ch;
         ch += distance;
@@ -848,10 +858,10 @@ static void scan_single_quote(lily_lex_state *lex, char **source_ch)
         ch++;
     }
     else
-        lily_raise_syn(lex->raiser, "Byte literals cannot be empty.");
+        lily_raise_lex(lex->raiser, "Byte literals cannot be empty.");
 
     if (*ch != '\'')
-        lily_raise_syn(lex->raiser, "Multi-character byte literal.");
+        lily_raise_lex(lex->raiser, "Multi-character byte literal.");
 
     *source_ch = ch + 1;
     lex->n.integer_val = (unsigned char)result;
@@ -896,13 +906,17 @@ static void scan_string_for_lambda(lily_lex_state *lex, char **source_ch,
         if (*ch == '\n') {
             if (is_multiline || backslash_before)
                 backslash_before = 0;
-            else
-                lily_raise_syn(lex->raiser, "Newline in single-line string.");
+            else {
+                lex->token_start = *source_ch;
+                lily_raise_lex(lex->raiser, "Newline in single-line string.");
+            }
 
-            if (read_line_for_buffer(lex, &label, i) == 0)
-                lily_raise_syn(lex->raiser,
-                           "Unterminated string (started at line %d).",
-                           start_line);
+            if (read_line_for_buffer(lex, &label, i) == 0) {
+                lex->token_start = NULL;
+                lily_raise_lex(lex->raiser,
+                        "Unterminated string (started at line %d).",
+                        start_line);
+            }
 
             ch = lex->read_cursor;
             label[i] = '\n';
@@ -974,10 +988,12 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
             (*ch == '#' &&
              *(ch + 1) != '[')) {
             int length = read_line_for_buffer(lex, &label, i);
-            if (length == 0)
-                lily_raise_syn(lex->raiser,
+            if (length == 0) {
+                lex->token_start = NULL;
+                lily_raise_lex(lex->raiser,
                         "Unterminated lambda (started at line %d).",
                         start_line);
+            }
 
             ch = lex->read_cursor;
             label[i] = '\n';
@@ -1045,6 +1061,9 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
     lex->expand_start_line = start_line;
     label[i] = '\0';
     *source_ch = ch + 1;
+
+    if (lex->expand_start_line != lex->line_num)
+        lex->token_start = lex->source;
 }
 
 /* Walk the string literal that 'import' was given to make sure that it's
@@ -1055,7 +1074,7 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
     char *label = lex->label;
 
     if (label[0] == '\0')
-        lily_raise_syn(lex->raiser, "Import path must not be empty.");
+        lily_raise_lex(lex->raiser, "Import path must not be empty.");
 
     int original_len = strlen(lex->label);
     int len = original_len;
@@ -1066,16 +1085,16 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
     if (lex->source + 2 < lex->read_cursor &&
         *reverse_iter == '"' &&
         *(reverse_iter - 1) == '"')
-        lily_raise_syn(lex->raiser,
+        lily_raise_lex(lex->raiser,
                 "Import path cannot be a triple-quote string.");
 
     if (*reverse_label == '/' || *label == '/')
-        lily_raise_syn(lex->raiser,
+        lily_raise_lex(lex->raiser,
                 "Import path cannot begin or end with '/'.");
 
     while (len) {
         if (*reverse_iter != *reverse_label)
-            lily_raise_syn(lex->raiser,
+            lily_raise_lex(lex->raiser,
                     "Import path cannot contain escape characters.");
 
         char label_ch = *reverse_label;
@@ -1096,7 +1115,7 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
     }
 
     if (necessary == 0)
-        lily_raise_syn(lex->raiser,
+        lily_raise_lex(lex->raiser,
                 "Simple import paths do not need to be quoted.");
 }
 
@@ -1312,6 +1331,8 @@ start: ;
          These fake token values will never be returned by this function. */
     uint8_t token = ch_table[(unsigned char)*ch];
 
+    lex->token_start = ch;
+
     switch (token) {
         case tk_word: {
 word_case: ;
@@ -1405,7 +1426,7 @@ word_case: ;
                 token = tk_three_dots;
             }
             else {
-                lily_raise_syn(lex->raiser,
+                lily_raise_lex(lex->raiser,
                         "'..' is not a valid token (expected 1 or 3 dots).");
             }
             break;
@@ -1416,8 +1437,7 @@ word_case: ;
                 move_2_set_token(tk_plus_eq)
             else if (*(ch + 1) == '+') {
                 if (*(ch + 2) == '=')
-                    lily_raise_syn(lex->raiser,
-                            "'++=' is not a valid token.");
+                    lily_raise_lex(lex->raiser, "'++=' is not a valid token.");
 
                 move_2_set_token(tk_plus_plus)
             }

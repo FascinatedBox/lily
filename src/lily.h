@@ -1598,6 +1598,10 @@ int lily_mb_pos(lily_msgbuf *msgbuf);
 // Add html-escaped version of 'input' to the msgbuf.
 const char *lily_mb_html_escape(lily_msgbuf *msgbuf, const char *input);
 
+// Function: lily_mb_repeat_n
+// Write 'count' amount of 'ch' into the buffer.
+void lily_mb_repeat_n(lily_msgbuf *msgbuf, char ch, int count);
+
 // Function: lily_mb_sprintf
 // Equivalent to flush, add_fmt, returning the underlying buffer.
 const char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *format, ...);

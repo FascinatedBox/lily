@@ -60,6 +60,7 @@ typedef struct {
        always at least the size of the source, so that identifier reading
        doesn't need to do buffer size checks when copying over. */
     char *label;
+    char *token_start;
 
     uint32_t source_size;
     uint32_t label_size;

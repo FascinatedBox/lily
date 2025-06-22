@@ -42,6 +42,7 @@ class TestCase < backbone.TestCaseBase
                                .rstrip(" \n")
                                .replace("\n", "\n            ")
             expect = expect.rstrip(" \n")
+                           .replace("\n\n", "\n            \n")
 
             if expect != reason: {
                 var message = """\

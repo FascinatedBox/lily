@@ -892,6 +892,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Number has a base but no value.
+
+               |
+             1 | var v = 0b
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -900,6 +905,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Number has a base but no value.
+
+               |
+             1 | var v = 0c
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -908,6 +918,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Number has a base but no value.
+
+               |
+             1 | var v = 0x
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -938,6 +953,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: '..' is not a valid token (expected 1 or 3 dots).
+
+               |
+             1 | ..
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -988,6 +1008,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: '++=' is not a valid token.
+
+               |
+             2 | v ++= "b"
+               |   ^
+
                 from [test]:2:
         """,
         """\

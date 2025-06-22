@@ -313,6 +313,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Newline in single-line string.
+
+               |
+             2 | (|| "
+               |     ^
+
                 from [test]:2:
         """,
         """\
@@ -324,6 +329,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Newline in single-line string.
+
+               |
+             1 | var v = (|| "
+               |             ^
+
                 from [test]:1:
         """,
         """\

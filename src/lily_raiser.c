@@ -92,6 +92,15 @@ void lily_raise_class(lily_raiser *raiser, struct lily_class_ *error_class,
     longjmp(raiser->all_jumps->jump, 1);
 }
 
+void lily_raise_lex(lily_raiser *raiser, const char *fmt, ...)
+{
+    raiser->source = err_from_lex;
+
+    HANDLE_VARARGS
+
+    longjmp(raiser->all_jumps->jump, 1);
+}
+
 void lily_raise_raw(lily_raiser *raiser, const char *fmt, ...)
 {
     raiser->source = err_from_raw;

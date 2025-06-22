@@ -216,6 +216,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Import path cannot begin or end with '/'.
+
+               |
+             1 | import "/wrong"
+               |        ^
+
                 from [test]:1:
         """,
         """\
@@ -226,6 +231,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Import path cannot begin or end with '/'.
+
+               |
+             1 | import "wrong/"
+               |        ^
+
                 from [test]:1:
         """,
         """\
@@ -236,6 +246,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Simple import paths do not need to be quoted.
+
+               |
+             1 | import "asdf"
+               |        ^
+
                 from [test]:1:
         """,
         """\
@@ -246,6 +261,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Import path must not be empty.
+
+               |
+             1 | import ""
+               |        ^
+
                 from [test]:1:
         """,
         """\
@@ -256,6 +276,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Import path cannot contain escape characters.
+
+               |
+             1 | import "\\n"
+               |        ^
+
                 from [test]:1:
         """,
         """\
@@ -266,6 +291,11 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Import path cannot be a triple-quote string.
+
+               |
+             1 | import ""\"asdf\"""
+               |        ^
+
                 from [test]:1:
         """,
         """\

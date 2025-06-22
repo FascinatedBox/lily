@@ -8,6 +8,7 @@
 
 typedef enum {
     err_from_emit,
+    err_from_lex,
     err_from_none,
     err_from_parse,
     err_from_raw,
@@ -46,6 +47,7 @@ void lily_rewind_raiser(lily_raiser *);
 void lily_free_raiser(lily_raiser *);
 
 void lily_raise_class(lily_raiser *, struct lily_class_ *, const char *);
+void lily_raise_lex(lily_raiser *, const char *, ...);
 void lily_raise_tree(lily_raiser *, struct lily_ast_ *, const char *, ...);
 void lily_raise_syn(lily_raiser *, const char *, ...);
 void lily_raise_raw(lily_raiser *, const char *, ...);
