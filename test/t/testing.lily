@@ -248,14 +248,6 @@ class TestCase < backbone.TestCaseBase
         }
     }
 
-    public define fail(reason: String) {
-        raise TestAssertionFailed(reason)
-    }
-
-    public define skip(reason: String) {
-        raise TestSkipped(reason)
-    }
-
     private define test_error(error: Exception): String {
         # These first few frames are overhead from the test suite itself.
         var trace = error.traceback.slice(@trace_overhead)
