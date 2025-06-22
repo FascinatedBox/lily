@@ -14,13 +14,12 @@ import "../t/backbone"
 class TestAssertionFailed(message: String) < Exception(message) {  }
 class TestSkipped(message: String) < Exception(message) {  }
 
+# When an error is raised, the traceback includes frames from the driver.
+constant trace_overhead = 3
+
 class TestCase < backbone.TestCaseBase
 {
     private var @fake_error = Exception("")
-
-    # When an error is raised, the traceback includes frames from the driver.
-    # Most subclasses don't do anything interesting and can leave this alone.
-    protected var @trace_overhead = 3
 
     public define assert_equal[A](left: A, right: A) {
         if left != right: {
@@ -250,7 +249,7 @@ class TestCase < backbone.TestCaseBase
 
     private define test_error(error: Exception): String {
         # These first few frames are overhead from the test suite itself.
-        var trace = error.traceback.slice(@trace_overhead)
+        var trace = error.traceback.slice(trace_overhead)
 
         match error: {
             case TestAssertionFailed(e):
