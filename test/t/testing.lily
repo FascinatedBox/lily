@@ -275,12 +275,11 @@ class TestCase < backbone.TestCaseBase
         }
 
         stdout.write("                                                            \r")
+        stdout.flush()
 
         if error != @fake_error: {
-            error |> test_error |> stdout.print
+            error |> test_error |> stderr.print
         }
-
-        stdout.flush()
     }
 }
 
