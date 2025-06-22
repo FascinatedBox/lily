@@ -334,4 +334,61 @@ class TestBadForward < TestCase
             forward class Test { ... }
         """)
     }
+
+    public define test_forward_generic_class_mismatch
+    {
+        var t = Interpreter()
+
+        # Forward has zero, class gives more.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example
+            Received: Example[A, B]
+                from [test]:2:
+        """,
+        """\
+            forward class Example { ... }
+            class Example[A, B] {}
+        """)
+
+        # Forward has non-zero, class gives more.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A]
+            Received: Example[A, B]
+                from [test]:2:
+        """,
+        """\
+            forward class Example[A] { ... }
+            class Example[A, B] {}
+        """)
+
+        # Forward has non-zero, class gives less.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A, B]
+            Received: Example[A]
+                from [test]:2:
+        """,
+        """\
+            forward class Example[A, B] { ... }
+            class Example[A] {}
+        """)
+
+        # Forward has non-zero, class gives zero.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A, B]
+            Received: Example
+                from [test]:2:
+        """,
+        """\
+            forward class Example[A, B] { ... }
+            class Example {}
+        """)
+    }
 }

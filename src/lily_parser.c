@@ -5091,6 +5091,8 @@ static void collect_and_verify_generics_for(lily_parse_state *parser,
     int16_t generic_count = cls->generic_count;
     lily_type *self_type = cls->self_type;
 
+    /* Default value if no generics are collected. */
+    cls->generic_count = 0;
     collect_generics_for(parser, cls);
 
     if (cls->generic_count == generic_count)
@@ -5101,10 +5103,21 @@ static void collect_and_verify_generics_for(lily_parse_state *parser,
 
     /* This is the only case wherein the generics of a type can be wrong. */
     lily_mb_add_fmt(msgbuf, "Wrong generics in resolution of %s:\n", cls->name);
-    cls->generic_count = generic_count;
-    lily_mb_add_fmt(msgbuf, "Expected: ^T\n", self_type);
-    cls->generic_count = new_count;
-    lily_mb_add_fmt(msgbuf, "Received: ^T", cls->self_type);
+
+    /* If the class expected 0 but was given more, then the self_type has been
+       changed. So use just the class name instead. */
+    if (generic_count == 0)
+        lily_mb_add_fmt(msgbuf, "Expected: %s\n", cls->name);
+    else
+        lily_mb_add_fmt(msgbuf, "Expected: ^T\n", self_type);
+
+    /* Like above, except it's the current self_type now. */
+    if (new_count == 0)
+        lily_mb_add_fmt(msgbuf, "Received: %s", cls->name);
+    else
+        lily_mb_add_fmt(msgbuf, "Received: ^T", cls->self_type);
+
+    /* This class will be hidden, so don't bother fixing the generic count. */
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
