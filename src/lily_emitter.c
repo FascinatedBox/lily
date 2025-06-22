@@ -758,20 +758,14 @@ void lily_emit_leave_class_block(lily_emit_state *emit, uint16_t line_num)
 void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
 {
     lily_block *block = emit->block;
+    lily_type *type = block->scope_var->type->subtypes[0];
 
-    if ((block->scope_var->flags & SYM_IS_FORWARD) == 0) {
-        lily_type *type = block->scope_var->type->subtypes[0];
+    if (block->last_exit != lily_u16_pos(emit->code) &&
+        try_write_define_exit(emit, type, line_num) == 0)
+        lily_raise_syn(emit->raiser,
+                "Missing return statement at end of function.");
 
-        if (block->last_exit != lily_u16_pos(emit->code) &&
-            try_write_define_exit(emit, type, line_num) == 0)
-            lily_raise_syn(emit->raiser,
-                    "Missing return statement at end of function.");
-
-        finish_block_code(emit);
-    }
-    else
-        block->prev->forward_count++;
-
+    finish_block_code(emit);
     lily_emit_leave_scope_block(emit);
 }
 

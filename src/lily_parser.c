@@ -5822,7 +5822,8 @@ static void keyword_forward(lily_parse_state *parser)
        the other hand, don't enter the block since that's complicated. */
     if (block->block_type == block_define) {
         hide_block_vars(parser);
-        lily_emit_leave_define_block(emit, lex->line_num);
+        lily_emit_leave_scope_block(emit);
+        block->prev->forward_count++;
         lily_next_token(lex);
     }
 }
