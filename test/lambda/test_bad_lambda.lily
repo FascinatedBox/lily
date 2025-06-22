@@ -312,7 +312,7 @@ class TestBadLambda < TestCase
         # unterminated (single-line string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unterminated string (started at line 2).
+            SyntaxError: Newline in single-line string.
                 from [test]:2:
         """,
         """\
@@ -324,7 +324,7 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Newline in single-line string.
-                from [test]:2:
+                from [test]:1:
         """,
         """\
             var v = (|| "

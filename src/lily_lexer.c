@@ -894,6 +894,11 @@ static void scan_string_for_lambda(lily_lex_state *lex, char **source_ch,
 
     while (1) {
         if (*ch == '\n') {
+            if (is_multiline || backslash_before)
+                backslash_before = 0;
+            else
+                lily_raise_syn(lex->raiser, "Newline in single-line string.");
+
             if (read_line_for_buffer(lex, &label, i) == 0)
                 lily_raise_syn(lex->raiser,
                            "Unterminated string (started at line %d).",
@@ -902,13 +907,7 @@ static void scan_string_for_lambda(lily_lex_state *lex, char **source_ch,
             ch = lex->read_cursor;
             label[i] = '\n';
             i++;
-
-            if (is_multiline || backslash_before) {
-                backslash_before = 0;
-                continue;
-            }
-
-            lily_raise_syn(lex->raiser, "Newline in single-line string.");
+            continue;
         }
         else if (*ch == '"') {
             label[i] = *ch;
