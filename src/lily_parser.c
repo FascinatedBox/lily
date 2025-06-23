@@ -6154,6 +6154,24 @@ static void manifest_define(lily_parse_state *parser)
     lily_emit_leave_scope_block(emit);
 }
 
+static void manifest_forward(lily_parse_state *parser)
+{
+    lily_block_type block_type = parser->emit->block->block_type;
+
+    if (block_type != block_file)
+        lily_raise_syn(parser->raiser, "'forward' must be at toplevel.");
+
+    lily_next_token(parser->lex);
+    expect_word(parser, "class");
+    parser->modifiers |= SYM_IS_FORWARD;
+    keyword_class(parser);
+    parser->modifiers = 0;
+
+    /* The class block wasn't entered, but generics may have been collected.
+       Since this is always at toplevel, the restore point is always 0. */
+    lily_gp_restore(parser->generics, 0);
+}
+
 static void manifest_foreign(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -6488,6 +6506,8 @@ static void manifest_loop(lily_parse_state *parser)
                 manifest_constant(parser);
             else if (key_id == KEY_IMPORT)
                 manifest_import(parser);
+            else if (key_id == KEY_FORWARD)
+                manifest_forward(parser);
             else if (strcmp("foreign", lex->label) == 0)
                 manifest_foreign(parser);
             else if (strcmp("library", lex->label) == 0)
@@ -6506,6 +6526,9 @@ static void manifest_loop(lily_parse_state *parser)
             if (b->block_type != block_file)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(tk_eof));
+
+            if (b->forward_class_count)
+                error_forward_classes_pending(parser);
 
             if (b->prev != NULL)
                 finish_import(parser);

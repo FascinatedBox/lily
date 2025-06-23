@@ -19,6 +19,16 @@ class TestBadManifest < TestCase
             """
         )
 
+    private var @t_unresolved_target =
+        StringTarget(
+            :path "unresolved_target",
+            :data """\
+                import manifest
+
+                forward class Zero { ... }
+            """
+        )
+
     public define test_basics
     {
         var t = Interpreter()
@@ -463,6 +473,144 @@ class TestBadManifest < TestCase
             import manifest
 
             var @x: Integer
+        """)
+    }
+
+    public define test_forward
+    {
+        var t = Interpreter.with_targets(
+            @t_unresolved_target
+        )
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward class(es):
+            * Zero at line 3
+                from unresolved_target.lily:4:
+        """,
+        """\
+            import manifest
+
+            import unresolved_target
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward class(es):
+            * One at line 3
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class One { ... }
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected 'class', not 'foreign'.
+                from [test]:3:
+        """,
+        """\
+            import manifest
+
+            forward foreign
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class 'A' does not exist.
+                from [test]:5:
+        """,
+        """\
+            import manifest
+
+            forward class One[A] { ... }
+
+            var v: A
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected '...', not 'end of file'.
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class One {
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected '}', not 'end of file'.
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class One { ...
+        """)
+    }
+
+    public define test_forward_generic_class_generics
+    {
+        # This is duplicated from test_bad_forward.lily's function of the same
+        # name to ensure that manifest classes don't have the same pitfalls.
+        var t = Interpreter()
+
+        # Forward has zero, class gives more.
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example
+            Received: Example[A, B]
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class Example { ... }
+            class Example[A, B] {}
+        """)
+
+        # Forward has non-zero, class gives more.
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A]
+            Received: Example[A, B]
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class Example[A] { ... }
+            class Example[A, B] {}
+        """)
+
+        # Forward has non-zero, class gives less.
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A, B]
+            Received: Example[A]
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class Example[A, B] { ... }
+            class Example[A] {}
+        """)
+
+        # Forward has non-zero, class gives zero.
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Wrong generics in resolution of Example:
+            Expected: Example[A, B]
+            Received: Example
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class Example[A, B] { ... }
+            class Example {}
         """)
     }
 }

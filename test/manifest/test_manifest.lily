@@ -184,6 +184,33 @@ class TestManifest < TestCase
             """
         )
 
+    private var @t_check_forwards =
+        StringTarget(
+            :path "check_forwards",
+            :data """\
+                import manifest
+
+                forward class One { ... }
+                forward class Two { ... }
+                forward class Three { ... }
+                forward class Four[A] { ... }
+
+                enum Example[A] {
+                    First(One),
+                    Second(Two),
+                    Third(Three),
+                    Fourth(Four[A])
+                }
+
+                foreign class One {}
+                class Two {}
+                foreign static class Three {}
+                class Four[A](a: A) {
+                    protected var @pro_prop: String
+                }
+            """
+        )
+
     public define test_class
     {
         var t = Interpreter.with_targets(
@@ -1268,6 +1295,19 @@ class TestManifest < TestCase
             import manifest
             import left
             import right
+        """)
+    }
+
+    public define test_keyword_forward
+    {
+        var t = Interpreter.with_targets(
+            @t_check_forwards
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+
+            import check_forwards
         """)
     }
 }
