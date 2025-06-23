@@ -530,6 +530,11 @@ class TestImport < TestCase
         )
         assert_render_fails(t, """\
             SyntaxError: Unexpected token '<'.
+
+               |
+             1 | <?lily 0 / 0 ?>
+               | ^
+
                 from template_check.lily:1:
         """,
         """\

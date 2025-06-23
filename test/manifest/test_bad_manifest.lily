@@ -45,6 +45,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Unexpected token '!'.
+
+               |
+             3 | !
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -55,6 +60,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Invalid keyword potato for manifest.
+
+               |
+             3 | potato
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -75,6 +85,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: 'predefined' only available to the prelude module.
+
+               |
+             3 | predefined Boolean
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -102,6 +117,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Only native classes can have class properties.
+
+               |
+             4 | public var @a: Integer
+               |        ^
+
                 from [test]:4:
         """,
         """\
@@ -126,6 +146,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Class methods defined in manifest mode must be public.
+
+               |
+             5 | private define a
+               |         ^
+
                 from [test]:5:
         """,
         """\
@@ -139,6 +164,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Class methods defined in manifest mode must be public.
+
+               |
+             4 | protected define a
+               |           ^
+
                 from [test]:4:
         """,
         """\
@@ -156,6 +186,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Files in manifest mode must start with 'import manifest'.
+
+               |
+             1 | import   manifest
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -164,6 +199,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Files in manifest mode must start with 'import manifest'.
+
+               |
+             1 | import manifest
+               |^
+
                 from [test]:1:
         """,
         """ \
@@ -180,6 +220,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Files in manifest mode must start with 'import manifest'.
+
+               |
+             1 | ???
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -193,6 +238,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Import keyword should not have a docblock.
+
+               |
+             4 | import asdf
+               | ^
+
                 from [test]:4:
         """,
         """\
@@ -204,6 +254,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Cannot import 'sys' while in manifest mode.
+
+               |
+             3 | import sys
+               |        ^
+
                 from [test]:3:
         """,
         """\
@@ -219,6 +274,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Cannot import 'covlib' while in manifest mode.
+
+               |
+             3 | import covlib
+               |        ^
+
                 from [test]:3:
         """,
         """\
@@ -229,6 +289,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Files in manifest mode must start with 'import manifest'.
+
+               |
+             1 | var a: Integer
+               | ^
+
                 from left.lily:1:
         """,
         """\
@@ -244,6 +309,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword must be at toplevel.
+
+               |
+             4 | library potato
+               | ^
+
                 from [test]:4:
         """,
         """\
@@ -256,6 +326,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword must come before other keywords.
+
+               |
+             7 | library example
+               | ^
+
                 from [test]:7:
         """,
         """\
@@ -270,6 +345,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword must come before other keywords.
+
+               |
+             7 | library example
+               | ^
+
                 from [test]:7:
         """,
         """\
@@ -284,6 +364,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword must come before other keywords.
+
+               |
+             9 | library example
+               | ^
+
                 from [test]:9:
         """,
         """\
@@ -300,6 +385,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword must come before other keywords.
+
+               |
+             5 | library example
+               | ^
+
                 from [test]:5:
         """,
         """\
@@ -312,6 +402,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Library keyword has already been used.
+
+               |
+             7 | library potato
+               | ^
+
                 from [test]:7:
         """,
         """\
@@ -331,6 +426,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Cannot declare a constant inside a class or enum.
+
+               |
+             5 | constant x: Integer
+               | ^
+
                 from [test]:5:
         """,
         """\
@@ -344,6 +444,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Cannot declare a constant inside a class or enum.
+
+               |
+             8 | constant x: Integer
+               | ^
+
                 from [test]:8:
         """,
         """\
@@ -360,6 +465,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Expected 'a label', not 'a property name'.
+
+               |
+             3 | constant @x: Integer
+               |          ^
+
                 from [test]:3:
         """,
         """\
@@ -370,6 +480,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: x has already been declared.
+
+               |
+             4 | constant x: Integer
+               |          ^
+
                 from [test]:4:
         """,
         """\
@@ -397,6 +512,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Class var declaration must start with a scope.
+
+               |
+             5 | var @x: Integer
+               | ^
+
                 from [test]:5:
         """,
         """\
@@ -410,6 +530,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Class properties must start with @.
+
+               |
+             5 | public var x: Integer
+               |            ^
+
                 from [test]:5:
         """,
         """\
@@ -423,6 +548,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: An enum must have at least two variants.
+
+               |
+             5 | var a: Integer
+               |     ^
+
                 from [test]:5:
         """,
         """\
@@ -436,6 +566,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Var declaration not allowed inside of an enum.
+
+               |
+             7 | var a: Integer
+               | ^
+
                 from [test]:7:
         """,
         """\
@@ -451,6 +586,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Var declaration not allowed inside of an enum.
+
+               |
+             8 | var a: Integer
+               | ^
+
                 from [test]:8:
         """,
         """\
@@ -467,6 +607,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Cannot use a class property outside of a constructor.
+
+               |
+             3 | var @x: Integer
+               |     ^
+
                 from [test]:3:
         """,
         """\
@@ -506,6 +651,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Expected 'class', not 'foreign'.
+
+               |
+             3 | forward foreign
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -516,6 +666,11 @@ class TestBadManifest < TestCase
 
         assert_manifest_fails(t, """\
             SyntaxError: Class 'A' does not exist.
+
+               |
+             5 | var v: A
+               |        ^
+
                 from [test]:5:
         """,
         """\
@@ -559,6 +714,11 @@ class TestBadManifest < TestCase
             SyntaxError: Wrong generics in resolution of Example:
             Expected: Example
             Received: Example[A, B]
+
+               |
+             4 | class Example[A, B] {}
+               |                     ^
+
                 from [test]:4:
         """,
         """\
@@ -574,6 +734,11 @@ class TestBadManifest < TestCase
             SyntaxError: Wrong generics in resolution of Example:
             Expected: Example[A]
             Received: Example[A, B]
+
+               |
+             4 | class Example[A, B] {}
+               |                     ^
+
                 from [test]:4:
         """,
         """\
@@ -589,6 +754,11 @@ class TestBadManifest < TestCase
             SyntaxError: Wrong generics in resolution of Example:
             Expected: Example[A, B]
             Received: Example[A]
+
+               |
+             4 | class Example[A] {}
+               |                  ^
+
                 from [test]:4:
         """,
         """\
@@ -604,6 +774,11 @@ class TestBadManifest < TestCase
             SyntaxError: Wrong generics in resolution of Example:
             Expected: Example[A, B]
             Received: Example
+
+               |
+             4 | class Example {}
+               |               ^
+
                 from [test]:4:
         """,
         """\

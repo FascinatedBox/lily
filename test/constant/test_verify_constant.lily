@@ -111,6 +111,11 @@ class TestVerifyConstant < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Constants cannot explicitly specify a type.
+
+               |
+             1 | constant a: Integer = 1
+               |           ^
+
                 from [test]:1:
         """,
         """\
@@ -131,6 +136,11 @@ class TestVerifyConstant < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Constant initialization expects a primitive value, not 'a label'.
+
+               |
+             2 | constant b = a
+               |              ^
+
                 from [test]:2:
         """,
         """\
@@ -142,6 +152,11 @@ class TestVerifyConstant < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Constant initialization expects a primitive value, not 'a lambda'.
+
+               |
+             1 | constant a = (|b: Integer| b + b )
+               |              ^
+
                 from [test]:1:
         """,
         """\
@@ -152,6 +167,11 @@ class TestVerifyConstant < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot declare a constant here.
+
+               |
+             2 | constant a: Integer = 1
+               | ^
+
                 from [test]:2:
         """,
         """\

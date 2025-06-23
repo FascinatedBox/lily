@@ -49,7 +49,8 @@ static int can_show_context(lily_parse_state *parser, lily_error_source es,
             return 0;
     }
 
-    if (es != err_from_lex)
+    if (es != err_from_lex &&
+        es != err_from_parse)
         return 0;
 
     lily_lex_state *lex = parser->lex;
@@ -94,6 +95,10 @@ static int is_source_useful(char *source)
     if (*source == '\n')
         /* It's an empty line. Don't bother. */
         result = 0;
+    else if (*source == '}' && *(source + 1) == '\n')
+        /* A match didn't complete. A define didn't return. Pointing to the
+           lonely closing brace isn't worth it. */
+        result = 0;
 
     return result;
 }
@@ -131,7 +136,6 @@ static void add_context(lily_msgbuf *msgbuf,
                             "%s |\n"
                             " %d | %s"
                             "%s |", pipe_space, line_num, line, pipe_space);
-
     lily_mb_repeat_n(msgbuf, ' ', source_end - line + 1);
     lily_mb_add(msgbuf, "^\n\n");
 }
@@ -144,10 +148,8 @@ static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
     if (es == err_from_emit)
         line_num = parser->raiser->error_ast->line_num;
 
-    if (can_show_context(parser, es, line_num)) {
-        if (es == err_from_lex)
-            add_context(msgbuf, parser, line_num);
-    }
+    if (can_show_context(parser, es, line_num))
+        add_context(msgbuf, parser, line_num);
 
     lily_mb_add_fmt(msgbuf, "    from %s:%d:\n",
             parser->symtab->active_module->path, line_num);

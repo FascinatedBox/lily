@@ -107,6 +107,11 @@ class TestVerifyTemplate < TestCase
 
         assert_render_fails(t, """\
             SyntaxError: Files in template mode must start with '<?lily'.
+
+               |
+             1 | print(1)
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -117,6 +122,11 @@ class TestVerifyTemplate < TestCase
 
         assert_render_fails(t, """\
             SyntaxError: Files in template mode must start with '<?lily'.
+
+               |
+             1 | <?lil print(1) ?>
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -140,6 +150,11 @@ class TestVerifyTemplate < TestCase
         t = Interpreter()
         assert_render_fails(t, """\
             SyntaxError: Unexpected token 'end of file'.
+
+               |
+             1 | <?lily
+               |       ^
+
                 from [test]:1:
         """,
         """\
@@ -151,6 +166,11 @@ class TestVerifyTemplate < TestCase
         t = Interpreter()
         assert_render_fails(t, """\
             SyntaxError: Unexpected token '?>'.
+
+               |
+             1 | <?lily define f { ?>
+               |                   ^
+
                 from [test]:1:
         """,
         """\

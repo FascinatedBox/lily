@@ -13,6 +13,11 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'except' type cannot have subtypes.
+
+               |
+             8 | except Ex[Integer] as e:
+               |                    ^
+
                 from [test]:8:
         """,
         """\
@@ -44,6 +49,11 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has not been declared.
+
+               |
+             4 | v = 11
+               | ^
+
                 from [test]:4:
         """,
         """\
@@ -58,6 +68,11 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'String' is not a valid exception class.
+
+               |
+             3 | except String:
+               |              ^
+
                 from [test]:3:
         """,
         """\
@@ -72,6 +87,11 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'except' clause is unreachable.
+
+               |
+             5 | except IndexError:
+               |                  ^
+
                 from [test]:5:
         """,
         """\
@@ -88,6 +108,11 @@ class TestBadException < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has already been declared.
+
+               |
+             4 | except Exception as v:
+               |                     ^
+
                 from [test]:4:
         """,
         """\

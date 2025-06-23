@@ -35,7 +35,7 @@ typedef struct lily_lex_entry_ {
        When another entry becomes current, the lexer's state is saved into the
        entry. */
     lily_token token: 8;
-    uint8_t pad;
+    lily_lex_entry_type entry_type: 8;
     uint16_t line_num;
     uint16_t expand_start_line;
     uint16_t string_length;
@@ -47,7 +47,7 @@ typedef struct lily_lex_entry_ {
     uint16_t ident_length;
     /* How far the read cursor is from the source line. */
     uint16_t cursor_offset;
-    lily_lex_entry_type entry_type: 16;
+    uint16_t token_start_offset;
 
     struct lily_lex_entry_ *prev;
     struct lily_lex_entry_ *next;

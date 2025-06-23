@@ -176,6 +176,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Too many generics.
+
+               |
+             1 | enum Test[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, a] {
+               |                                                                                         ^
+
                 from [test]:1:
         """,
         """\

@@ -26,6 +26,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Forward declarations not allowed to have keyword arguments.
+
+               |
+             1 | forward define f(:a Integer) { ... }
+               |                              ^
+
                 from [test]:1:
         """,
         """\
@@ -36,6 +41,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: A keyword named :a has already been declared.
+
+               |
+             1 | define f(:a a: String, :a b: String) {}
+               |                        ^
+
                 from [test]:1:
         """,
         """\

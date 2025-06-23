@@ -82,6 +82,11 @@ class TestBadSyntax < TestCase
             SyntaxError: Invalid expression given.
             Expected: A user class or enum.
             Received: Tuple[Integer, String, Double]
+
+               |
+             1 | match <[1, "2", 3.3]>: {
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -148,6 +153,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Loop var must be type Integer, not type 'String'.
+
+               |
+             2 | for i in 0...10: {}
+               |     ^
+
                 from [test]:2:
         """,
         """\
@@ -159,6 +169,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected type 'Integer', but got type 'String'.
+
+               |
+             1 | for i in "a"...0: {
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -170,6 +185,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, but got an assignment instead.
+
+               |
+             2 | if v = 5:
+               |         ^
+
                 from [test]:2:
         """,
         """\
@@ -184,6 +204,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected 'while', not 'asdf'.
+
+               |
+             2 | } asdf
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -195,6 +220,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected 'by', not 'asdf'.
+
+               |
+             1 | for i in 0...10 asdf
+               |                 ^
+
                 from [test]:1:
         """,
         """\
@@ -205,6 +235,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected 'in', not 'asdf'.
+
+               |
+             1 | for i asdf 0...10: {}
+               |       ^
+
                 from [test]:1:
         """,
         """\
@@ -229,6 +264,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: For range value expression contains an assignment.
+
+               |
+             2 | for i in v = 5...10: {
+               |               ^
+
                 from [test]:2:
         """,
         """\
@@ -242,6 +282,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has not been declared.
+
+               |
+             4 | } while v == 10
+               |         ^
+
                 from [test]:4:
         """,
         """\
@@ -265,6 +310,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: else in exhaustive if.
+
+               |
+             5 | else:
+               | ^
+
                 from [test]:5:
         """,
         """\
@@ -281,6 +331,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: elif in exhaustive if.
+
+               |
+             5 | elif 1:
+               | ^
+
                 from [test]:5:
         """,
         """\
@@ -421,6 +476,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Docblocks are only allowed on toplevel symbols.
+
+               |
+             3 | define g {
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -436,6 +496,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Docblocks are only allowed on toplevel symbols.
+
+               |
+             3 | var v = 10
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -454,6 +519,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class Integer does not have a constructor.
+
+               |
+             1 | var v = Integer(10)
+               |                ^
+
                 from [test]:1:
         """,
         """\
@@ -469,6 +539,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has already been declared.
+
+               |
+             2 | var v = 10
+               |     ^
+
                 from [test]:2:
         """,
         """\
@@ -480,6 +555,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f has already been declared.
+
+               |
+             2 | define f {}
+               |        ^
+
                 from [test]:2:
         """,
         """\
@@ -491,6 +571,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: c has already been declared.
+
+               |
+             2 | constant c = 10
+               |          ^
+
                 from [test]:2:
         """,
         """\
@@ -502,6 +587,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class Container expects 2 type(s), but got 1 type(s).
+
+               |
+             2 | var v: Container[Integer] = Container()
+               |                         ^
+
                 from [test]:2:
         """,
         """\
@@ -513,6 +603,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class Container expects 1 type(s), but got 3 type(s).
+
+               |
+             2 | var v: Container[Integer, Integer, Integer] = Container()
+               |                                           ^
+
                 from [test]:2:
         """,
         """\
@@ -1197,6 +1292,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Statement(s) after 'raise' will not execute.
+
+               |
+             2 | var v = 10
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -1208,6 +1308,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Statement(s) after 'return' will not execute.
+
+               |
+             4 | var v = 2
+               | ^
+
                 from [test]:4:
         """,
         """\
@@ -1222,6 +1327,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Statement(s) after 'return' will not execute (no return type given).
+
+               |
+             1 | define test { return 0 }
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -1232,6 +1342,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Statement(s) after 'break' will not execute.
+
+               |
+             3 | print(i)
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -1245,6 +1360,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Statement(s) after 'continue' will not execute.
+
+               |
+             3 | print(i)
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -1263,6 +1383,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Missing return statement at end of function.
+
+               |
+             1 | define f : Integer {  }
+               |                       ^
+
                 from [test]:1:
         """,
         """\
@@ -1273,6 +1398,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected 'a label', not '$1'.
+
+               |
+             1 | define test: $1 {}
+               |              ^
+
                 from [test]:1:
         """,
         """\
@@ -1283,6 +1413,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unit return type is automatic. Omit instead.
+
+               |
+             1 | define f: Unit {}
+               |                ^
+
                 from [test]:1:
         """,
         """\
@@ -1293,6 +1428,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: a has already been declared.
+
+               |
+             1 | define f(a: Integer, a: Integer) {}
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -1303,6 +1443,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot define a function here.
+
+               |
+             2 | define f {}
+               |        ^
+
                 from [test]:2:
         """,
         """\
@@ -1335,6 +1480,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'Option[Integer]' is not a valid key for Hash.
+
+               |
+             1 | var v: Hash[Option[Integer], String] = [Some(1) => "a"]
+               |                                    ^
+
                 from [test]:1:
         """,
         """\
@@ -1468,6 +1618,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Attempt to use uninitialized value 'v'.
+
+               |
+             1 | var v = v
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -1493,6 +1648,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token '?>'.
+
+               |
+             1 | ?>
+               | ^
+
                 from [test]:1:
         """,
         """\

@@ -9,6 +9,11 @@ class TestVerifyClosures < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Loop var cannot be an upvalue.
+
+               |
+             7 | for i in 0...10: {
+               |     ^
+
                 from [test]:7:
         """,
         """\

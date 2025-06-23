@@ -10,6 +10,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not 'end of file'.
+
+               |
+             1 | 1-
+               |   ^
+
                 from [test]:1:
         """,
         """\
@@ -18,6 +23,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not 'end of file'.
+
+               |
+             1 | 1-
+               |   ^
+
                 from [test]:1:
         """,
         """\
@@ -38,6 +48,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token 'invalid token'.
+
+               |
+             2 | ?
+               | ^
+
                 from invalid_token.lily:2:
         """,
         """
@@ -46,6 +61,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token 'invalid token'.
+
+               |
+             2 | ?
+               | ^
+
                 from invalid_token.lily:2:
         """,
         """
@@ -81,6 +101,11 @@ class TestVerifyRewind < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Cannot declare a class property when there are unresolved forward(s):
             * Test.f at line 2
+
+               |
+             3 | public var @v = 10
+               |        ^
+
                 from [test]:3:
         """,
         """\
@@ -102,6 +127,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has not been declared.
+
+               |
+             1 | v
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -115,6 +145,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | var v = ((((((((1 + ) + 2) + 3)
+               |                     ^
+
                 from [test]:1:
         """,
         """\
@@ -123,6 +158,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | var v = ((((((((1 + ) + 2) + 3)
+               |                     ^
+
                 from [test]:1:
         """,
         """\
@@ -145,6 +185,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f has not been declared.
+
+               |
+             1 | f()
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -174,6 +219,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Example has not been declared.
+
+               |
+             1 | var v = Example()
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -182,6 +232,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class 'Test' does not exist.
+
+               |
+             1 | define f(a: Test) {}
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -190,6 +245,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: One has not been declared.
+
+               |
+             1 | var v = One
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -231,6 +291,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Point3 has not been declared.
+
+               |
+             1 | var p2 = Point3(1, 2, 3)
+               |          ^
+
                 from [test]:1:
         """,
         """\
@@ -256,6 +321,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token '+'.
+
+               |
+             1 | define f(:a a: Integer) { + }
+               |                           ^
+
                 from [test]:1:
         """,
         """\
@@ -300,6 +370,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | define f(a: *Integer=(10 + 20 + )
+               |                                 ^
+
                 from [test]:1:
         """,
         """\
@@ -308,6 +383,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | define f(a: *Integer=(10 + 20 + )
+               |                                 ^
+
                 from [test]:1:
         """,
         """\
@@ -321,6 +401,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token '+'.
+
+               |
+             3 | public var @b = +
+               |                 ^
+
                 from [test]:3:
         """,
         """\
@@ -378,6 +463,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token '+'.
+
+               |
+             1 | class Two < One {} +
+               |                    ^
+
                 from [test]:1:
         """,
         """\
@@ -386,6 +476,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unexpected token '+'.
+
+               |
+             1 | class Two < One {} +
+               |                    ^
+
                 from [test]:1:
         """,
         """\

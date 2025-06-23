@@ -555,6 +555,11 @@ class TestBasics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: A docblock is not allowed here.
+
+               |
+             1 | ### asdf
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -1020,6 +1025,11 @@ class TestBasics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Foreach variable 'i' already exists.
+
+               |
+             3 | foreach i in [1, 2, 3]: {
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -1047,6 +1057,11 @@ class TestBasics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected ':', not 'a label'.
+
+               |
+             1 | foreach i in [1, 2, 3] by 1: {
+               |                        ^
+
                 from [test]:1:
         """,
         """\
@@ -1058,6 +1073,11 @@ class TestBasics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Foreach expects a List to iterate over, but was given type 'Integer'.
+
+               |
+             1 | foreach i in 4: {
+               |               ^
+
                 from [test]:1:
         """,
         """\

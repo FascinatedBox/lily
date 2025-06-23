@@ -533,15 +533,19 @@ class TestVerifyCoverage < TestCase
         )
 
         # parse expr api (broken expression returns None, sets error)
+        # Since this doesn't go through assert_*_fails, it gets the raw string.
+        # In this case, forget about the indentation and match exactly.
 
         t.parse_expr("[test]", "10 +").is_none() |> assert_true
-        assert_equal(
-            t.error(),
-            """\
-                SyntaxError: Expected a value, not 'end of file'.\n    \
-                    from [test]:1:\n\
-            """
-        )
+        assert_equal(t.error(), """\
+SyntaxError: Expected a value, not 'end of file'.
+
+   |
+ 1 | 10 +
+   |     ^
+
+    from [test]:1:
+""")
     }
 
     public define test_unit_call_error
@@ -550,6 +554,11 @@ class TestVerifyCoverage < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class Unit does not have a constructor.
+
+               |
+             1 | var v = Unit()
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -727,6 +736,11 @@ class TestVerifyCoverage < TestCase
                 no preloaded package 'sys'
                 no file '.\/sys.lily'
                 no file '.\/packages\/sys\/src\/sys.lily'
+
+               |
+             1 | import sys
+               |        ^
+
                 from [test]:1:
         """,
         """\

@@ -11,6 +11,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: what has not been declared.
+
+               |
+             6 | define f(a: *Test = what)
+               |                     ^
+
                 from [test]:6:
         """,
         """\
@@ -26,6 +31,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: hello has not been declared.
+
+               |
+             1 | define f(a: *Boolean=hello) { }
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -52,6 +62,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Variant types cannot have default values.
+
+               |
+             2 | Check(*Integer),
+               |               ^
+
                 from [test]:2:
         """,
         """\
@@ -65,6 +80,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to use a lambda here.
+
+               |
+             1 | define f(a: *Integer=(|| 10)()) {
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -79,6 +99,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Constructor for class Test is not initialized.
+
+               |
+             1 | class Test(a: *Test=Test()) {
+               |                         ^
+
                 from [test]:1:
         """,
         """\
@@ -90,6 +115,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Attempt to use uninitialized value 'f'.
+
+               |
+             1 | define f(a: *Integer=f(1)): Integer {
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -103,6 +133,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Non-optional argument follows optional argument.
+
+               |
+             1 | define f(a: *Integer=10, b: Integer) {  }
+               |                             ^
+
                 from [test]:1:
         """,
         """\
@@ -113,6 +148,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected '=', not ','.
+
+               |
+             1 | define f(a: *Integer,1) { }
+               |                     ^
+
                 from [test]:1:
         """,
         """\

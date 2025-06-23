@@ -1173,6 +1173,7 @@ void lily_pop_lex_entry(lily_lex_state *lex)
 
     strcpy(lex->source, saved_source);
     lex->read_cursor = lex->source + entry->cursor_offset;
+    lex->token_start = lex->source + entry->token_start_offset;
 
     switch (entry->token) {
         case tk_word:
@@ -1215,6 +1216,8 @@ static void save_lex_state(lily_lex_state *lex)
     target->expand_start_line = lex->expand_start_line;
     target->n = lex->n;
     target->cursor_offset = (uint16_t)(lex->read_cursor - lex->source);
+    target->token_start_offset =
+            (uint16_t)(lex->token_start - lex->source);
 
     uint16_t pile_start = target->pile_start;
     uint16_t ident_start = pile_start;
@@ -1564,6 +1567,8 @@ int lily_read_manifest_header(lily_lex_state *lex)
        token to be consistent with template header reading below. */
     if (result)
         read_line(lex);
+    else
+        lex->token_start = lex->source;
 
     return result;
 }
