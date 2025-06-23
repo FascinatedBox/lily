@@ -771,7 +771,7 @@ void lily_prelude_Hash_merge(lily_state *s)
     lily_hash_val *result_hash = lily_push_hash(s, hash_size);
     int bin_i;
     uint32_t merge_i;
-  
+
     for (bin_i = 0;bin_i < hash_val->num_bins;bin_i++) {
         lily_hash_entry *entry = hash_val->bins[bin_i];
 
@@ -1508,6 +1508,139 @@ void lily_prelude_List_slice(lily_state *s)
         lily_con_set(result, result_i, v);
     }
 
+    lily_return_top(s);
+}
+
+static int64_t quicksort_compare(lily_state *s, lily_value *compare_result,
+                                 lily_value *a, lily_value *b) {
+    if (compare_result) {
+        lily_push_value(s, a);
+        lily_push_value(s, b);
+
+        lily_call(s, 2);
+        return lily_as_integer(compare_result);
+    }
+
+    switch (lily_value_class_id(a)) {
+        case LILY_ID_DOUBLE: {
+            double a_double = lily_as_double(a);
+            double b_double = lily_as_double(b);
+
+            if (a_double < b_double) return -1;
+            if (a_double > b_double) return 1;
+
+            break;
+        }
+
+        case LILY_ID_INTEGER: {
+            int64_t a_integer = lily_as_integer(a);
+            int64_t b_integer = lily_as_integer(b);
+
+            if (a_integer < b_integer) return -1;
+            if (a_integer > b_integer) return 1;
+
+            break;
+        }
+
+        case LILY_ID_STRING: {
+            int comparison = strcmp(lily_string_raw(lily_as_string(a)),
+                    lily_string_raw(lily_as_string(b)));
+
+            if (comparison < 0) return -1;
+            if (comparison > 0) return 1;
+
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static void quicksort(lily_state *s, lily_container_val *list,
+                      lily_value *compare_result, uint32_t left,
+                      uint32_t right)
+{
+    if (left >= right)
+        return;
+
+    uint32_t pivot = (left + right) / 2;
+    lily_value *pivot_value = lily_con_get(list, pivot);
+
+    uint32_t i = left;
+    uint32_t j = right;
+
+    while (i < j) {
+        while (i < right && quicksort_compare(s, compare_result,
+                                              lily_con_get(list, i),
+                                              pivot_value) < 0)
+            i++;
+
+        while (j > left && quicksort_compare(s, compare_result,
+                                             lily_con_get(list, j),
+                                             pivot_value) > 0)
+            j--;
+
+        if (i > j)
+            break;
+
+        // Don't swap if the elements are equal. This has the additional benefit
+        // of not changing the list at all if the comparator always returns 0,
+        // which is consistent with the behavior when it always returns -1 or 1.
+        if (quicksort_compare(s, compare_result, lily_con_get(list, i),
+                              lily_con_get(list, j)) != 0) {
+            lily_push_value(s, lily_con_get(list, i));
+            lily_con_set(list, i, lily_con_get(list, j));
+            lily_con_set_from_stack(s, list, j);
+        }
+
+        if (i < right) i++;
+        if (j > left) j--;
+    }
+
+    if (j > left)
+        quicksort(s, list, compare_result, left, j);
+
+    if (i < right)
+        quicksort(s, list, compare_result, i, right);
+}
+
+void lily_prelude_List_sort(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    uint32_t size = lily_con_size(input_list);
+
+    // We can't sort an empty list.
+    if (size == 0) {
+        lily_push_list(s, 0);
+        lily_return_top(s);
+        return;
+    }
+
+    lily_value *compare_result;
+    if (lily_arg_count(s) == 1) {
+        uint16_t id = lily_value_class_id(lily_con_get(input_list, 0));
+        if (id != LILY_ID_DOUBLE && id != LILY_ID_INTEGER
+            && id != LILY_ID_STRING)
+            lily_ValueError(s, "Type cannot be automatically compared.");
+
+        compare_result = NULL;
+    }
+    else {
+        lily_call_prepare(s, lily_arg_function(s, 1));
+        compare_result = lily_call_result(s);
+    }
+
+    lily_container_val *result = lily_push_list(s, size);
+    for (uint32_t i = 0; i < size; i++)
+        lily_con_set(result, i, lily_con_get(input_list, i));
+
+    // There's no point sorting a list with only one element.
+    if (size == 1) {
+        lily_return_top(s);
+        return;
+    }
+
+    quicksort(s, result, compare_result, 0, size - 1);
     lily_return_top(s);
 }
 

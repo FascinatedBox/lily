@@ -95,6 +95,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0shift\0[A](List[A]): A"
     ,"m\0size\0[A](List[A]): Integer"
     ,"m\0slice\0[A](List[A],*Integer,*Integer): List[A]"
+    ,"m\0sort\0[A](List[A],*Function(A,A=>Integer)): List[A]"
     ,"m\0unshift\0[A](List[A],A): List[A]"
     ,"m\0zip\0[A](List[A],List[$1]...): List[Tuple[A,$1]]"
     ,"N\01RuntimeError\0< Exception"
@@ -166,11 +167,11 @@ const char *lily_prelude_info_table[] = {
 #define Integer_OFFSET 48
 #define KeyError_OFFSET 56
 #define List_OFFSET 58
-#define RuntimeError_OFFSET 87
-#define String_OFFSET 89
-#define Tuple_OFFSET 111
-#define Unit_OFFSET 112
-#define ValueError_OFFSET 113
+#define RuntimeError_OFFSET 88
+#define String_OFFSET 90
+#define Tuple_OFFSET 112
+#define Unit_OFFSET 113
+#define ValueError_OFFSET 114
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -259,6 +260,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_List_shift, \
     lily_prelude_List_size, \
     lily_prelude_List_slice, \
+    lily_prelude_List_sort, \
     lily_prelude_List_unshift, \
     lily_prelude_List_zip, \
     NULL, \
