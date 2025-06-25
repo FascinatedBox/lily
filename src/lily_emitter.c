@@ -2728,8 +2728,15 @@ static void eval_lambda_to_parse(lily_emit_state *emit, lily_ast *ast,
     int save_expr_num = emit->expr_num;
     char *lambda_body = lily_sp_get(emit->expr_strings, ast->pile_pos);
 
-    if (expect->cls_id != LILY_ID_FUNCTION)
+    if (expect->cls_id == LILY_ID_FUNCTION)
+        ;
+    else if (expect == lily_question_type)
         expect = lily_unset_type;
+    else
+        /* This is a better error than letting the parameters fail to infer. */
+        lily_raise_tree(emit->raiser, ast,
+                "Lambda given where non-Function value expected (^T).",
+                expect);
 
     lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
             ast->line_num, lambda_body, expect);

@@ -357,5 +357,17 @@ class TestBadLambda < TestCase
 
             f([1 => 2], (|a_, b_|))
         """)
+
+        # missing inference (expecting a different type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Lambda given where non-Function value expected (List[Integer]).
+                from [test]:3:
+        """,
+        """\
+            define f(a: List[Integer], b: Function(Integer => Integer)) {}
+
+            f((|a| a * 2), [1, 2, 3])
+        """)
     }
 }
