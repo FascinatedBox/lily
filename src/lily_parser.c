@@ -1578,11 +1578,26 @@ static void collect_optarg_for(lily_parse_state *parser, lily_sym *sym)
 {
     lily_lex_state *lex = parser->lex;
 
-    NEED_CURRENT_TOK(tk_equal)
     lily_es_optarg_save(parser->expr);
     lily_es_push_assign_to(parser->expr, sym);
-    lily_next_token(lex);
-    simple_expression(parser);
+
+    if (lex->token == tk_equal) {
+        lily_next_token(lex);
+        simple_expression(parser);
+        return;
+    }
+
+    if (parser->flags & PARSER_IN_MANIFEST) {
+        /* Allow manifest mode to omit a value. This is useful in rare cases
+           where the default value is difficult or impossible to express in a
+           simple Lily expression. Optarg parsing expects an assignment, so give
+           it one that will never fail. */
+        sym->flags &= ~SYM_NOT_INITIALIZED;
+        lily_es_push_local_var(parser->expr, (lily_var *)sym);
+    }
+    else
+        lily_raise_syn(parser->raiser,
+                "Expected '=', then an optional argument value.");
 }
 
 /* Return a type that is an optional of the type given. This is the only place

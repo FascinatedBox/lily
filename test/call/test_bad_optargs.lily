@@ -147,7 +147,7 @@ class TestBadOptargs < TestCase
         # optarg rules (wrong token before value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '=', not ','.
+            SyntaxError: Expected '=', then an optional argument value.
 
                |
              1 | define f(a: *Integer,1) { }
@@ -157,6 +157,21 @@ class TestBadOptargs < TestCase
         """,
         """\
             define f(a: *Integer,1) { }
+        """)
+
+        # optarg rules (no default value given)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | define f(a: *Integer=) { }
+               |                      ^
+
+                from [test]:1:
+        """,
+        """\
+            define f(a: *Integer=) { }
         """)
     }
 }

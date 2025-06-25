@@ -211,6 +211,23 @@ class TestManifest < TestCase
             """
         )
 
+    private var @t_blank_optarg =
+        StringTarget(
+            :path "blank_optarg",
+            :data """\
+                import manifest
+
+                define f(a: *Integer, b: *String, c: *Double)
+                define g(a: *Integer=1, b: *Function(*Double), c: *String="")
+                define h(a: *Integer, b: *Option[Integer]=Some(1), c: *String)
+
+                class Example {
+                    public define i(a: *Integer=1, b: *Double=1.1, c: *Function(Integer))
+                    public define j(a: *Integer, b: *Double=1.1, c: *String="")
+                }
+            """
+        )
+
     public define test_class
     {
         var t = Interpreter.with_targets(
@@ -1308,6 +1325,19 @@ class TestManifest < TestCase
             import manifest
 
             import check_forwards
+        """)
+    }
+
+    public define test_blank_optarg
+    {
+        var t = Interpreter.with_targets(
+            @t_blank_optarg
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+
+            import blank_optarg
         """)
     }
 }
