@@ -5696,8 +5696,6 @@ static void keyword_define(lily_parse_state *parser)
     uint16_t generic_start = lily_gp_save(parser->generics);
     uint16_t modifiers = parser->modifiers;
 
-    lily_next_token(lex);
-
     if ((block->block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
 
@@ -5705,6 +5703,8 @@ static void keyword_define(lily_parse_state *parser)
         (modifiers & ANY_SCOPE) == 0)
         lily_raise_syn(parser->raiser,
                 "Class method declaration must start with a scope.");
+
+    lily_next_token(lex);
 
     if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
         parent = parser->current_class;

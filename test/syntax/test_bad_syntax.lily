@@ -1446,7 +1446,7 @@ class TestBadSyntax < TestCase
 
                |
              2 | define f {}
-               |        ^
+               | ^
 
                 from [test]:2:
         """,
