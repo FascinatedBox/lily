@@ -1165,7 +1165,6 @@ void lily_pop_lex_entry(lily_lex_state *lex)
 
     lex->token = entry->token;
     lex->line_num = entry->line_num;
-    lex->expand_start_line = entry->expand_start_line;
     lex->n = entry->n;
 
     /* The source buffer is always saved first so it's easy to restore back. */
@@ -1213,7 +1212,6 @@ static void save_lex_state(lily_lex_state *lex)
 
     target->token = lex->token;
     target->line_num = lex->line_num;
-    target->expand_start_line = lex->expand_start_line;
     target->n = lex->n;
     target->cursor_offset = (uint16_t)(lex->read_cursor - lex->source);
     target->token_start_offset =

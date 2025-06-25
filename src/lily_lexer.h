@@ -37,7 +37,7 @@ typedef struct lily_lex_entry_ {
     lily_token token: 8;
     lily_lex_entry_type entry_type: 8;
     uint16_t line_num;
-    uint16_t expand_start_line;
+    uint16_t pad;
     uint16_t string_length;
     lily_lex_number n;
 
