@@ -384,6 +384,40 @@ class TestListMethods < TestCase
         assert_equal([1, 2, 3, 4, 5].slice(-4, -2), [2, 3])
     }
 
+    public define test_sort
+    {
+        assert_equal([] .sort(), [])
+        assert_equal([1].sort(), [1])
+
+        assert_equal([3, 1, 4, 2]  .sort(), [1, 2, 3, 4])
+        assert_equal([1, 2, -1, -2].sort(), [-2, -1, 1, 2])
+        assert_equal([1, 2, 3, 4]  .sort(), [1, 2, 3, 4])
+        assert_equal([1, 1, 1, 1]  .sort(), [1, 1, 1, 1])
+
+        assert_equal([3, 1, 4, 2].sort(|a, b| b - a), [4, 3, 2, 1])
+
+        assert_equal([3.0, 1.0, 4.0, 2.0].sort(), [1.0, 2.0, 3.0, 4.0])
+        assert_equal([0.3, 0.1, 0.4, 0.2].sort(), [0.1, 0.2, 0.3, 0.4])
+
+        assert_equal(["c", "a", "d", "b"]    .sort(), ["a", "b", "c", "d"])
+        assert_equal(["a", "1", "_", "A"]    .sort(), ["1", "A", "_", "a"])
+        assert_equal(["3", "1", "4", "2"]    .sort(), ["1", "2", "3", "4"])
+        assert_equal(["ac", "aa", "ad", "ab"].sort(), ["aa", "ab", "ac", "ad"])
+
+        assert_equal([<[3, 1]>, <[1, 5]>, <[4, 2]>, <[2, 6]>].sort(
+            (|a: Tuple[Integer, Integer], b: Tuple[Integer, Integer]|
+                a[0] - b[0])
+        ), [<[1, 5]>, <[2, 6]>, <[3, 1]>, <[4, 2]>])
+
+        assert_equal([3, 1, 4, 2].sort(|a, b| -1), [3, 1, 4, 2])
+        assert_equal([3, 1, 4, 2].sort(|a, b| 1),  [3, 1, 4, 2])
+        assert_equal([3, 1, 4, 2].sort(|a, b| 0),  [3, 1, 4, 2])
+
+        assert_raises(
+                "ValueError: Type cannot be automatically compared.",
+                (|| [true, false].sort()))
+    }
+
     public define test_unshift
     {
         var v = [1]

@@ -473,6 +473,34 @@ predefined List[A] {
     ### * The `start` is larger than the `stop` (reversed).
     public define slice(start: *Integer=0, stop: *Integer=-1): List[A]
 
+    ### Returns a new `List` that contains all elements within `self` in
+    ### ascending order.
+    ###
+    ### If `fn` is not provided, the elements will be compared automatically.
+    ### This is only possible when the inner type is `Double`, `Integer`, or
+    ### `String` - the first two of those will be sorted from smallest to
+    ### largest, and the latter will be sorted alphabetically.
+    ###
+    ### If `fn` is provided, it will be used to compare elements instead. It is
+    ### passed two elements at a time, and its return value determines how they
+    ### should be ordered:
+    ###
+    ### * `< 0`: The first element should be placed before the second one.
+    ###
+    ### * `0`: The order of the elements doesn't matter (eg. they are equal).
+    ###
+    ### * `> 0`: The second element should be placed before the first one.
+    ###
+    ### It is expected that `fn` is a valid comparator, if it is provided. An
+    ### invalid comparator will likely result in the returned `List` being
+    ### identical to `self`, though that behavior should not be depended on.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `fn` is not provided, but `self` has an inner type
+    ###   that is not `Double`, `Integer`, or `String`.
+    public define sort(fn: *Function(A, A => Integer)): List[A]
+
     ### Inserts value at the front of self, moving all other elements to the
     ### right.
     public define unshift(value: A): List[A]
