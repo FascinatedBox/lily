@@ -296,6 +296,27 @@ class TestBadCall < TestCase
 
             Example().a()
         """)
+
+        # invalid call (call incomplete anonymous type)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot call an incomplete type (Function (?, ? => List[?])).
+                from [test]:10:
+        """,
+        """\
+            define f[A, B](a: A, b: A): List[A] { return [a, b] }
+
+            class Example[A](a: A) {
+                public var @x = a
+                public define y: A {
+                    return @x
+                }
+            }
+
+            var v = Example(f).y()(1, 2).push("3")
+
+            print(v[0].size())
+        """)
     }
 
     public define test_keyarg_calls

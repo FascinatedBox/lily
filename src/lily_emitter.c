@@ -3729,6 +3729,10 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
         default: {
             lily_storage *s = (lily_storage *)call_item;
 
+            if (s->type->flags & TYPE_IS_INCOMPLETE)
+                lily_raise_tree(emit->raiser, ast,
+                        "Cannot call an incomplete type (^T).", s->type);
+
             ast->sym = (lily_sym *)first_arg->result;
             call_source_reg = first_arg->result->reg_spot;
             call_type = s->type;
