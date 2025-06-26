@@ -201,8 +201,8 @@ class TestBadManifest < TestCase
             SyntaxError: Files in manifest mode must start with 'import manifest'.
 
                |
-             1 | import manifest
-               |^
+             1 |  import manifest
+               | ^
 
                 from [test]:1:
         """,

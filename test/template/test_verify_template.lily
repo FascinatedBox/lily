@@ -176,5 +176,19 @@ class TestVerifyTemplate < TestCase
         """\
             <?lily define f { ?>
         """)
+
+        # failure (prefix space)
+
+        t = Interpreter()
+        assert_render_fails(t, """\
+            SyntaxError: Files in template mode must start with '<?lily'.
+
+               |
+             1 |  <?lily beans f { ?>
+               | ^
+
+                from [test]:1:
+        """,
+        " <?lily beans f { ?>")
     }
 }

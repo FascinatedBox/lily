@@ -1573,9 +1573,11 @@ int lily_read_manifest_header(lily_lex_state *lex)
 
 int lily_read_template_header(lily_lex_state *lex)
 {
-    /* An error is raised if this fails, so don't worry about the cursor going
-       too far. */
+    /* This cursor will either be in bounds or an exception will be raised. */
     lex->read_cursor += 6;
+
+    /* Prevent line context from going too far if this fails. */
+    lex->token_start = lex->source;
     return strncmp(lex->source, "<?lily", 6) == 0;
 }
 

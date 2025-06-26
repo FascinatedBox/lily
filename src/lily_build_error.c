@@ -85,6 +85,11 @@ static char *find_source_start(lily_lex_state *lex)
     while (*source == ' ' || *source == '\t')
         source++;
 
+    /* This can happen if a header scan (ex: 'import manifest') fails because of
+       space at the front. */
+    if (source > lex->token_start)
+        source = lex->token_start;
+
     return source;
 }
 
@@ -109,7 +114,6 @@ static void add_context(lily_msgbuf *msgbuf,
     lily_lex_state *lex = parser->lex;
     char pipe_space[] = "        ";
     char line_num_str[16];
-    char *source_end = lex->token_start;
 
     fill_line_info(line_num_str, pipe_space, line_num);
 
@@ -118,6 +122,8 @@ static void add_context(lily_msgbuf *msgbuf,
 
     if (is_source_useful(line) == 0)
         return;
+
+    char *source_end = lex->token_start;
 
     /* The context should look like this:
 
