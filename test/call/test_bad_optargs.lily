@@ -79,7 +79,7 @@ class TestBadOptargs < TestCase
         # optarg rules (default value cannot be a lambda)
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to use a lambda here.
+            SyntaxError: Lambdas are too complex to be a default argument.
 
                |
              1 | define f(a: *Integer=(|| 10)()) {

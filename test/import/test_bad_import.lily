@@ -574,7 +574,7 @@ class TestBadImport < TestCase
 
         t.parse_string("[test]", "import loop")
         verify_import_error("""\
-            SyntaxError: 'loop' is already being imported.
+            SyntaxError: This module is already being imported.
 
                |
              1 | import loop
@@ -584,7 +584,7 @@ class TestBadImport < TestCase
         """, t.error())
 
         assert_manifest_fails(t, """\
-            SyntaxError: 'manifest_loop' is already being imported.
+            SyntaxError: This module is already being imported.
 
                |
              2 | import manifest_loop

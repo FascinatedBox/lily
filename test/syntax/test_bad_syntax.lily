@@ -1412,7 +1412,7 @@ class TestBadSyntax < TestCase
         # define rules (no explicit Unit return)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unit return type is automatic. Omit instead.
+            SyntaxError: Unit return type does not need to be explicitly stated.
 
                |
              1 | define f: Unit {}

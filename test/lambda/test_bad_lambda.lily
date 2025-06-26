@@ -262,7 +262,7 @@ class TestBadLambda < TestCase
         # lambda rules (must not be empty)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of lambda'.
+            SyntaxError: Lambda does not have a value.
                 from [test]:1:
         """,
         """\
@@ -272,7 +272,7 @@ class TestBadLambda < TestCase
         # lambda rules (incomplete block at end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of lambda'.
+            SyntaxError: End of lambda while inside a block.
                 from [test]:1:
         """,
         """\

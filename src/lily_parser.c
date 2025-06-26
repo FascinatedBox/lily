@@ -1217,8 +1217,8 @@ static lily_module_entry *open_module(lily_parse_state *parser)
     module = ims->last_import;
 
     if (module->flags & MODULE_IN_EXECUTION)
-        lily_raise_syn(parser->raiser, "'%s' is already being imported.",
-                ims->pending_loadname);
+        lily_raise_syn(parser->raiser,
+                "This module is already being imported.");
 
     lily_u16_set_pos(parser->data_stack, save_pos);
     return module;
@@ -1843,8 +1843,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
                 break;
             else
                 lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ']', not '%s'.",
-                        tokname(lex->token));
+                        "Expected ',' <type> or ']' here.");
         }
 
         result = lily_tm_make(parser->tm, cls, i);
@@ -1917,8 +1916,8 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
                 lily_raise_syn(parser->raiser, "Too many generics.");
             else {
                 lily_raise_syn(parser->raiser,
-                        "Invalid generic name (wanted %s, got %s).",
-                        name, lex->label);
+                        "Generics must be in order (expected %s here).",
+                        name);
             }
         }
 
@@ -1939,8 +1938,7 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
         }
         else if (lex->token != tk_comma)
             lily_raise_syn(parser->raiser,
-                    "Expected either ',' or ']', not '%s'.",
-                    tokname(lex->token));
+                    "Expected either ',' <type> or ']' here.");
 
         name[0] = ch;
     }
@@ -2041,7 +2039,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         if (lex->token == tk_right_parenth)
             lily_raise_syn(parser->raiser,
-                    "Empty () found while reading input arguments. Omit instead.");
+                    "() must be removed if there are no arguments inside.");
 
         while (1) {
             if (lex->token == tk_keyword_arg) {
@@ -2090,7 +2088,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             lily_type *result_type = get_type_raw(parser, arg_flags);
             if (result_type == lily_unit_type) {
                 lily_raise_syn(parser->raiser,
-                        "Unit return type is automatic. Omit instead.");
+                        "Unit return type does not need to be explicitly stated.");
             }
 
             /* Use the arg flags so that dynaload can use $1 in the return. */
@@ -3064,7 +3062,7 @@ static void expr_word_ctor(lily_parse_state *parser, lily_class *cls)
 {
     if (cls->item_kind & ITEM_IS_ENUM)
         lily_raise_syn(parser->raiser,
-                "Cannot implicitly use the constructor of an enum.");
+                "To construct an enum, specify a variant.");
 
     lily_var *target = (lily_var *)lily_find_member_in_class(cls, "<new>");
 
@@ -3491,7 +3489,8 @@ static void expr_keyword_arg(lily_parse_state *parser, uint16_t *state)
 static void expr_lambda(lily_parse_state *parser, uint16_t *state)
 {
     if (parser->flags & PARSER_SIMPLE_EXPR)
-        lily_raise_syn(parser->raiser, "Not allowed to use a lambda here.");
+        lily_raise_syn(parser->raiser,
+                "Lambdas are too complex to be a default argument.");
 
     /* Checking for an operator allows this
 
@@ -3578,8 +3577,8 @@ static void expr_prop_word(lily_parse_state *parser, uint16_t *state)
     }
     else if (sym->item_kind == ITEM_DEFINE) {
         lily_raise_syn(parser->raiser,
-                "Cannot access a method as a property (use %s instead of @%s).",
-                name, name);
+                "%s is a method (use %s instead of @%s).",
+                name, name, name);
     }
 
     if (sym->flags & SYM_NOT_INITIALIZED)
@@ -3684,7 +3683,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
     lily_next_token(parser->lex);
 
     if (lex->token == tk_end_lambda)
-        lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
+        lily_raise_syn(parser->raiser, "Lambda does not have a value.",
                 tokname(tk_end_lambda));
 
     while (1) {
@@ -3718,8 +3717,8 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
             break;
         }
         else
-            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                    tokname(tk_end_lambda));
+            lily_raise_syn(parser->raiser,
+                    "End of lambda while inside a block.");
     }
 
     return result_type;
@@ -4314,7 +4313,8 @@ static void keyword_constant(lily_parse_state *parser)
     lily_block *block = parser->emit->block;
 
     if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Cannot declare a constant here.");
+        lily_raise_syn(parser->raiser,
+                "Cannot declare a constant while inside a block.");
 
     lily_next_token(lex);
 
@@ -4979,7 +4979,7 @@ static void super_expression(lily_parse_state *parser, lily_class *cls)
         lily_next_token(lex);
         if (lex->token == tk_right_parenth)
             lily_raise_syn(parser->raiser,
-                    "Empty () not needed here for inherited new.");
+                    "() must be removed if there are no arguments inside.");
 
         /* Call expression to handle the rest. This flag tells expression to
            stop on ')'. If this raises, rewind will fix the flags. */
@@ -5283,8 +5283,7 @@ static void enum_method_check(lily_parse_state *parser)
     }
 
     lily_raise_syn(parser->raiser,
-            "Expected '}' or 'define', not '%s'.",
-            tokname(lex->token));
+            "Expected 'define' or '}', not this (did you forget a comma?)");
 }
 
 static void determine_enum_gc_flag(lily_class *enum_cls)
@@ -5337,7 +5336,8 @@ static void keyword_enum(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Cannot define an enum here.");
+        lily_raise_syn(parser->raiser,
+                "Cannot declare an enum while inside a block.");
 
     NEED_NEXT_TOK(tk_word)
 
@@ -5361,7 +5361,8 @@ static void keyword_scoped(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser, "Cannot define an enum here.");
+        lily_raise_syn(parser->raiser,
+            "Cannot declare an enum while inside a block.");
 
     NEED_NEXT_TOK(tk_word)
     expect_word(parser, "enum");
@@ -5783,7 +5784,6 @@ static void parse_modifier(lily_parse_state *parser, int key)
         if (parser->emit->block->block_type != block_class)
             lily_raise_syn(parser->raiser, "'%s' is not allowed here.",
                     scope_to_str(modifiers));
-
 
         NEED_NEXT_TOK(tk_word)
         key = keyword_by_name(lex->label);
@@ -6223,10 +6223,9 @@ static void manifest_constant(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    if (parser->current_class) {
+    if (parser->current_class)
         lily_raise_syn(parser->raiser,
                 "Cannot declare a constant inside a class or enum.");
-    }
 
     NEED_NEXT_TOK(tk_word)
 
@@ -6244,8 +6243,8 @@ static void manifest_constant(lily_parse_state *parser)
         cls_id != LILY_ID_BOOLEAN &&
         cls_id != LILY_ID_BYTESTRING)
         lily_raise_syn(parser->raiser,
-                "Constant %s given a non-primitive type (^T).",
-                var->name, var->type);
+                "Constants must have a primitive type (this has ^T).",
+                var->type);
 }
 
 static void manifest_var(lily_parse_state *parser)

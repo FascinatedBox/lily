@@ -496,7 +496,7 @@ class TestBadManifest < TestCase
 
 
         assert_manifest_fails(t, """\
-            SyntaxError: Constant x given a non-primitive type (List[String]).
+            SyntaxError: Constants must have a primitive type (this has List[String]).
                 from [test]:4:
         """,
         """\

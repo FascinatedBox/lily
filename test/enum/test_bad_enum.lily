@@ -545,7 +545,7 @@ class TestBadEnum < TestCase
         # enum rules (no toplevel code in enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '}' or 'define', not 'a label'.
+            SyntaxError: Expected 'define' or '}', not this (did you forget a comma?)
 
                |
              8 | var @v = 10
@@ -568,7 +568,7 @@ class TestBadEnum < TestCase
         # enum rules (no implicit constructor)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot implicitly use the constructor of an enum.
+            SyntaxError: To construct an enum, specify a variant.
 
                |
              1 | var v = Option(10)
@@ -596,7 +596,7 @@ class TestBadEnum < TestCase
         # enum rules (not within a define)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define an enum here.
+            SyntaxError: Cannot declare an enum while inside a block.
 
                |
              2 | enum Option[A] {
@@ -637,7 +637,7 @@ class TestBadEnum < TestCase
         # enum rules (no empty decl parenth)
 
         assert_parse_fails(t, """\
-            SyntaxError: Empty () found while reading input arguments. Omit instead.
+            SyntaxError: () must be removed if there are no arguments inside.
 
                |
              2 | One()

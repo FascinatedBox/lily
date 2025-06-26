@@ -166,7 +166,7 @@ class TestVerifyConstant < TestCase
         # failure (bad location)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a constant here.
+            SyntaxError: Cannot declare a constant while inside a block.
 
                |
              2 | constant a: Integer = 1

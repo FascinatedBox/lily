@@ -1122,7 +1122,7 @@ class TestBadClass < TestCase
         # class rules (method accessed as property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot access a method as a property (use f instead of @f).
+            SyntaxError: f is a method (use f instead of @f).
 
                |
              7 | var v = @f

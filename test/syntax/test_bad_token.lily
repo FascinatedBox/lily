@@ -10,7 +10,7 @@ class TestBadToken < TestCase
         # class (decl with empty parenth)
 
         assert_parse_fails(t, """\
-            SyntaxError: Empty () found while reading input arguments. Omit instead.
+            SyntaxError: () must be removed if there are no arguments inside.
 
                |
              1 | class Example() {}
@@ -56,7 +56,7 @@ class TestBadToken < TestCase
         # class (inherit sending empty parenth)
 
         assert_parse_fails(t, """\
-            SyntaxError: Empty () not needed here for inherited new.
+            SyntaxError: () must be removed if there are no arguments inside.
 
                |
              2 | class Two < One() {}
@@ -143,7 +143,7 @@ class TestBadToken < TestCase
         # bad define (empty parentheses)
 
         assert_parse_fails(t, """\
-            SyntaxError: Empty () found while reading input arguments. Omit instead.
+            SyntaxError: () must be removed if there are no arguments inside.
 
                |
              1 | define f() {}
@@ -718,7 +718,7 @@ class TestBadToken < TestCase
         # bad generics (wrong closing token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ']', not '&&'.
+            SyntaxError: Expected either ',' <type> or ']' here.
 
                |
              1 | define f[A, B &&
@@ -733,7 +733,7 @@ class TestBadToken < TestCase
         # bad generics (wrong generic name)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid generic name (wanted B, got Q).
+            SyntaxError: Generics must be in order (expected B here).
 
                |
              1 | define f[A, Q]
