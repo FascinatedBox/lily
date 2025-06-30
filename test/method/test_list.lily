@@ -80,19 +80,19 @@ class TestListMethods < TestCase
         assert_equal(v4, unit)
 
         assert_raises(
-                "IndexError: Index -2 is too small for list (minimum: -1)",
+                "IndexError: Index -2 is too small (minimum: -1)",
                 (|| [1].delete_at(-2) ))
         assert_raises(
-                "IndexError: Index 5 is too large for list (maximum: 1)",
+                "IndexError: Index 5 is too large (maximum: 1)",
                 (|| [1].delete_at(5) ))
         assert_raises(
                 "IndexError: Cannot delete from an empty list.",
                 (|| [].@(List[Integer]).delete_at(5) ))
         assert_raises(
-                "IndexError: Index -1000000000000 is too small for list (minimum: -1)",
+                "IndexError: Index -1000000000000 is too small (minimum: -1)",
                 (|| [1].delete_at(-1000000000000) ))
         assert_raises(
-                "IndexError: Index 1000000000000 is too large for list (maximum: 1)",
+                "IndexError: Index 1000000000000 is too large (maximum: 1)",
                 (|| [1].delete_at(1000000000000) ))
     }
 
@@ -230,16 +230,16 @@ class TestListMethods < TestCase
         assert_equal([1].insert(0, 0).insert(2, 2), [0, 1, 2])
 
         assert_raises(
-                "IndexError: Index 5 is too large for list (maximum: 1)",
+                "IndexError: Index 5 is too large (maximum: 1)",
                 (|| [1].insert(5, 100) ))
         assert_raises(
-                "IndexError: Index -10 is too small for list (minimum: -1)",
+                "IndexError: Index -10 is too small (minimum: -1)",
                 (|| [1].insert(-10, 200) ))
         assert_raises(
-                "IndexError: Index 10000000000 is too large for list (maximum: 1)",
+                "IndexError: Index 10000000000 is too large (maximum: 1)",
                 (|| [1].insert(10000000000, 100) ))
         assert_raises(
-                "IndexError: Index -10000000000 is too small for list (minimum: -1)",
+                "IndexError: Index -10000000000 is too small (minimum: -1)",
                 (|| [1].insert(-10000000000, 200) ))
     }
 

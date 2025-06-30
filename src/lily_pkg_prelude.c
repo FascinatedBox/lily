@@ -1063,25 +1063,17 @@ void lily_prelude_List_count(lily_state *s)
     lily_return_integer(s, (int64_t)total);
 }
 
-static uint32_t get_relative_index(lily_state *s, lily_container_val *list_val,
-        int64_t pos)
+static uint32_t get_wrapped_index(lily_state *s, uint32_t max, int64_t pos)
 {
-    uint32_t list_size = lily_con_size(list_val);
-
     if (pos < 0) {
         int64_t old_pos = pos;
 
-        pos += list_size;
+        pos += max;
 
-        if (pos < 0 ||
-            pos > list_size)
-            lily_IndexError(s,
-                    "Index %ld is too small for list (minimum: -%d)", old_pos,
-                    list_size);
+        if (pos < 0 || pos > max)
+            lily_IndexError(s, "Index %ld is too small (minimum: -%d)",
+                    old_pos, max);
     }
-    else if (pos > list_size)
-        lily_IndexError(s, "Index %ld is too large for list (maximum: %d)",
-                pos, list_size);
 
     return (uint32_t)pos;
 }
@@ -1095,9 +1087,14 @@ void lily_prelude_List_delete_at(lily_state *s)
     if (input_size == 0)
         lily_IndexError(s, "Cannot delete from an empty list.");
 
-    uint32_t fixed_pos = get_relative_index(s, input_list, pos);
+    uint32_t limit = lily_con_size(input_list);
+    uint32_t wrapped_pos = get_wrapped_index(s, limit, pos);
 
-    lily_list_take(s, input_list, fixed_pos);
+    if (wrapped_pos > limit)
+        lily_IndexError(s, "Index %ld is too large (maximum: %d)",
+                pos, limit);
+
+    lily_list_take(s, input_list, wrapped_pos);
     lily_stack_drop_top(s);
     lily_return_unit(s);
 }
@@ -1213,7 +1210,7 @@ void lily_prelude_List_get(lily_state *s)
     int64_t raw_pos = lily_arg_integer(s, 1);
     uint32_t input_size = lily_con_size(input_list);
 
-    /* This does what get_relative_index does, except the error case doesn't
+    /* This does what get_wrapped_index does, except the error case doesn't
        raise an error. */
     if (raw_pos < 0)
         raw_pos += input_size;
@@ -1235,9 +1232,14 @@ void lily_prelude_List_insert(lily_state *s)
     lily_container_val *input_list = lily_as_container(input_arg);
     int64_t insert_pos = lily_arg_integer(s, 1);
     lily_value *insert_value = lily_arg_value(s, 2);
-    uint32_t fixed_pos = get_relative_index(s, input_list, insert_pos);
+    uint32_t limit = lily_con_size(input_list);
+    uint32_t wrapped_pos = get_wrapped_index(s, limit, insert_pos);
 
-    lily_list_insert(input_list, fixed_pos, insert_value);
+    if (wrapped_pos > limit)
+        lily_IndexError(s, "Index %ld is too large (maximum: %d)",
+                insert_pos, limit);
+
+    lily_list_insert(input_list, wrapped_pos, insert_value);
     lily_return_value(s, input_arg);
 }
 
