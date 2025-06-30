@@ -344,34 +344,42 @@ class TestBasics < TestCase
         # digit collection (base cases)
 
         assert_parse_string(t, """
-            define verify_integer(x: String, y: String) {
+            define check_eq(x: String, y: String) {
                 if x != y: {
-                    0 / 0
+                    raise ValueError("Expected {}, but have {}".format(x, y))
                 }
             }
 
-            define verify_double(x: Double, y: Double) {
+            define check_double_val(x: Double, y: Double) {
                 if x != y: {
-                    0 / 0
+                    raise ValueError("Expected {}, but have {}".format(x, y))
                 }
             }
 
-            verify_integer(0b0110.to_s(),       "6")
-            verify_integer(0c1234567.to_s(),    "342391")
-            verify_integer(0x1234567890.to_s(), "78187493520")
-            verify_integer(0xabcdef.to_s(),     "11259375")
-            verify_integer(0xABCDEF.to_s(),     "11259375")
+            check_eq(0b0110.to_s(),       "6")
+            check_eq(0c1234567.to_s(),    "342391")
+            check_eq(0x1234567890.to_s(), "78187493520")
+            check_eq(0xabcdef.to_s(),     "11259375")
+            check_eq(0xABCDEF.to_s(),     "11259375")
 
-            verify_integer(0b0000110.to_s(),       "6")
-            verify_integer(0c0001234567.to_s(),    "342391")
-            verify_integer(0x0001234567890.to_s(), "78187493520")
-            verify_integer(0x000abcdef.to_s(),     "11259375")
-            verify_integer(0x000ABCDEF.to_s(),     "11259375")
+            check_eq(0b0000110.to_s(),       "6")
+            check_eq(0c0001234567.to_s(),    "342391")
+            check_eq(0x0001234567890.to_s(), "78187493520")
+            check_eq(0x000abcdef.to_s(),     "11259375")
+            check_eq(0x000ABCDEF.to_s(),     "11259375")
 
-            verify_double(1e-1, 0.1)
-            verify_double(1e+1, 10.0)
-            verify_double(1e1,  10.0)
-            verify_double(.1,   0.1)
+            check_double_val(1e-1, 0.1)
+            check_double_val(1e+1, 10.0)
+            check_double_val(1e1,  10.0)
+            check_double_val(.1,   0.1)
+
+            check_eq("{}".format(1e-1), "0.1")
+
+            # Too much precision makes this come out funky.
+            check_eq("{}".format(1.23456789012), "1.23456789012")
+
+            # Too little makes this wrap.
+            check_eq("{}".format(1542.3159), "1542.3159")
         """)
 
         # digit collection (min + max for all digits)

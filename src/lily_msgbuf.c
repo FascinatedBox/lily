@@ -25,6 +25,11 @@ typedef struct lily_msgbuf_ {
     uint32_t size;
 } lily_msgbuf;
 
+/* It's important to have the right amount of precision. Too little precision,
+   and Double values get rounded off. Too much precision, and numbers start
+   getting funky extra zeroes added on. This appears to be a good compromise. */
+#define LILY_DOUBLE_FORMAT ".15g"
+
 /* Is this character printable? This is 1 for every non-control character except
    backslash, single quote, and double quote. */
 static const uint8_t print_table[256] = {
@@ -255,7 +260,7 @@ static void add_int64(lily_msgbuf *msgbuf, int64_t i)
 static void add_double(lily_msgbuf *msgbuf, double d)
 {
     char buf[64];
-    sprintf(buf, "%g", d);
+    sprintf(buf, "%" LILY_DOUBLE_FORMAT, d);
 
     lily_mb_add(msgbuf, buf);
 }
