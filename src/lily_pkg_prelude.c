@@ -1090,9 +1090,10 @@ void lily_prelude_List_delete_at(lily_state *s)
     uint32_t limit = lily_con_size(input_list);
     uint32_t wrapped_pos = get_wrapped_index(s, limit, pos);
 
-    if (wrapped_pos > limit)
+    /* This is >= limit because deleting past the end is not ok. */
+    if (wrapped_pos >= limit)
         lily_IndexError(s, "Index %ld is too large (maximum: %d)",
-                pos, limit);
+                pos, limit - 1);
 
     lily_list_take(s, input_list, wrapped_pos);
     lily_stack_drop_top(s);
@@ -1235,6 +1236,7 @@ void lily_prelude_List_insert(lily_state *s)
     uint32_t limit = lily_con_size(input_list);
     uint32_t wrapped_pos = get_wrapped_index(s, limit, insert_pos);
 
+    /* This is > limit because inserting past the end is ok. */
     if (wrapped_pos > limit)
         lily_IndexError(s, "Index %ld is too large (maximum: %d)",
                 insert_pos, limit);

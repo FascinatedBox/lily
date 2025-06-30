@@ -83,8 +83,11 @@ class TestListMethods < TestCase
                 "IndexError: Index -2 is too small (minimum: -1)",
                 (|| [1].delete_at(-2) ))
         assert_raises(
-                "IndexError: Index 5 is too large (maximum: 1)",
+                "IndexError: Index 5 is too large (maximum: 0)",
                 (|| [1].delete_at(5) ))
+        assert_raises(
+                "IndexError: Index 1 is too large (maximum: 0)",
+                (|| [1].delete_at(1) ))
         assert_raises(
                 "IndexError: Cannot delete from an empty list.",
                 (|| [].@(List[Integer]).delete_at(5) ))
@@ -92,7 +95,7 @@ class TestListMethods < TestCase
                 "IndexError: Index -1000000000000 is too small (minimum: -1)",
                 (|| [1].delete_at(-1000000000000) ))
         assert_raises(
-                "IndexError: Index 1000000000000 is too large (maximum: 1)",
+                "IndexError: Index 1000000000000 is too large (maximum: 0)",
                 (|| [1].delete_at(1000000000000) ))
     }
 
