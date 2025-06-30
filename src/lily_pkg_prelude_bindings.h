@@ -68,7 +68,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0to_s\0(Integer): String"
     ,"N\01KeyError\0< Exception"
     ,"m\0<new>\0(String): KeyError"
-    ,"C\034List\0[A]"
+    ,"C\035List\0[A]"
     ,"m\0accumulate\0[A,B](List[A],List[B],Function(List[B],A)): List[B]"
     ,"m\0all\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0any\0[A](List[A],Function(A=>Boolean)): Boolean"
