@@ -53,6 +53,16 @@ predefined Byte {
 ### utf-8. The `ByteString` class currently does not support any primitive
 ### operations.
 predefined ByteString {
+    ### Create a new `ByteString` of a given size.
+    ###
+    ### `byte` is used to populate the returned `ByteString`. By default, it is
+    ### `\0`.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `size <= 0`.
+    static public define create(size: Integer, byte: *Byte='\0'): ByteString
+
     ### Call `fn` for each `Byte` within the given `ByteString`.
     public define each_byte(fn: Function(Byte))
 
@@ -62,6 +72,31 @@ predefined ByteString {
     ### If encode is `"error"`, then invalid utf-8 or embedded '\0' values
     ### within `self` will result in `None`.
     public define encode(encode: *String="error"): Option[String]
+
+    ### Replaces a section of `self`, starting at `index`, with the contents of
+    ### `bytes`.
+    ###
+    ### If a negative index is given, it is treated as an offset from the end of
+    ### `self`, with `-1` being considered the last element.
+    ###
+    ### If `start` and `stop` are provided, only the section between them in
+    ### `bytes` will be used (if only `start` is provided, the section will
+    ### include the remainder of `self`). They may also be negative.
+    ###
+    ### This method returns `self`, so that it can be chained with others.
+    ###
+    ### # Errors
+    ###
+    ### * `IndexError` if `index` is out of range for `self`.
+    ###
+    ### * `IndexError` if either `start` or `stop` are out of range for `bytes`,
+    ###   or if `start` is larger than `stop`.
+    ###
+    ### * `IndexError` if the section to replace extends out of range.
+    ###
+    ### * `ValueError` if `bytes` is empty (nothing to replace with).
+    public define replace_bytes(index: Integer, bytes: ByteString,
+                                start: *Integer=0, stop: *Integer=-1): self
 
     ### Return the number of `Byte` values within `self`.
     public define size: Integer
