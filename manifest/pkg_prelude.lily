@@ -61,7 +61,7 @@ predefined ByteString {
     ### # Errors
     ###
     ### * `ValueError` if `size <= 0`.
-    static public define create(size: Integer, byte: *Byte='\0'): ByteString
+    public static define create(size: Integer, byte: *Byte='\0'): ByteString
 
     ### Call `fn` for each `Byte` within the given `ByteString`.
     public define each_byte(fn: Function(Byte))

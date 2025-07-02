@@ -16,7 +16,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0to_s\0(Boolean): String"
     ,"C\01Byte\0"
     ,"m\0to_i\0(Byte): Integer"
-    ,"C\04ByteString\0"
+    ,"C\06ByteString\0"
     ,"m\0create\0(Integer,*Byte): ByteString"
     ,"m\0each_byte\0(ByteString,Function(Byte))"
     ,"m\0encode\0(ByteString,*String): Option[String]"
