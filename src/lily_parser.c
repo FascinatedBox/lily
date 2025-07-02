@@ -3728,22 +3728,22 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
    given for inference is either a Function (which may have args), or a
    placeholder (which will have 0). Arguments may be just names, or names with
    types. */
-static int collect_lambda_args(lily_parse_state *parser,
-        lily_type *expect_type)
+static int collect_lambda_args(lily_parse_state *parser, lily_type *expect_type,
+        int *flags)
 {
     int infer_count = expect_type->subtype_count;
     int num_args = 1;
     lily_lex_state *lex = parser->lex;
+    lily_var *arg_var = NULL;
 
     while (1) {
         NEED_NEXT_TOK(tk_word)
-        lily_var *arg_var = declare_local_var(parser, NULL);
+        arg_var = declare_local_var(parser, NULL);
         lily_type *arg_type;
 
         if (lex->token == tk_colon) {
             lily_next_token(lex);
             arg_type = get_type(parser);
-            arg_var->type = arg_type;
         }
         else {
             if (num_args < infer_count)
@@ -3759,10 +3759,9 @@ static int collect_lambda_args(lily_parse_state *parser,
                 lily_raise_syn(parser->raiser,
                         "'%s' has an incomplete inferred type (^T).",
                         lex->label, arg_type);
-
-            arg_var->type = arg_type;
         }
 
+        arg_var->type = arg_type;
         lily_tm_add(parser->tm, arg_type);
         num_args++;
 
@@ -3774,6 +3773,16 @@ static int collect_lambda_args(lily_parse_state *parser,
             lily_raise_syn(parser->raiser,
                     "Expected either ',' or '|', not '%s'.",
                     tokname(lex->token));
+    }
+
+    /* Only mark the lambda as varargs if it can do that. */
+    if (expect_type->flags & TYPE_IS_VARARGS &&
+        infer_count == num_args) {
+
+        lily_type *last_type = expect_type->subtypes[num_args - 1];
+
+        if (last_type == arg_var->type)
+            *flags = TYPE_IS_VARARGS;
     }
 
     return num_args - 1;
@@ -3790,6 +3799,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     lily_lex_state *lex = parser->lex;
     int args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
+    int flags = 0;
 
     lily_lexer_load(lex, et_lambda, lambda_body);
     lex->line_num = start_line;
@@ -3809,7 +3819,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     lily_next_token(lex);
 
     if (lex->token == tk_bitwise_or)
-        args_collected = collect_lambda_args(parser, expect_type);
+        args_collected = collect_lambda_args(parser, expect_type, &flags);
     /* Otherwise the token is ||, meaning the lambda does not have args. */
 
     /* The current expression may not be done. This makes sure that the pool
@@ -3820,8 +3830,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
 
     if (root_result)
         lily_tm_insert(parser->tm, tm_return, root_result);
-
-    int flags = (expect_type->flags & TYPE_IS_VARARGS);
 
     lambda_var->type = lily_tm_make_call(parser->tm, flags,
             parser->symtab->function_class, args_collected + 1);

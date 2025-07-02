@@ -370,4 +370,51 @@ class TestBadLambda < TestCase
             f((|a| a * 2), [1, 2, 3])
         """)
     }
+
+    public define test_complex_arg_error
+    {
+        var t = Interpreter()
+
+        # complex arg error (vararg with not enough parameters)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Function (Integer, ?...)
+            Received Type: Function (Integer => Integer)
+                from [test]:3:
+        """,
+        """\
+            define f[A, B](a: Function(A, B...)) {}
+
+            f(|x: Integer| x )
+        """)
+
+        # complex arg error (vararg incorrect parameter type given)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Function (Integer, Integer...)
+            Received Type: Function (Integer, Integer => Integer)
+                from [test]:3:
+        """,
+        """\
+            define f[A, B](a: Function(A, Integer...)) {}
+
+            f(|x: Integer, y: Integer| x )
+        """)
+
+        # complex arg error (vararg too many parameters)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: Function (Integer, Integer...)
+            Received Type: Function (Integer, List[Integer], String => Integer)
+                from [test]:3:
+        """,
+        """\
+            define f[A, B](a: Function(A, Integer...)) {}
+
+            f(|x: Integer, y, z: String| x )
+        """)
+    }
 }
