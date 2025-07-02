@@ -114,6 +114,28 @@ void lily_prelude_Byte_to_i(lily_state *s)
     lily_return_integer(s, lily_arg_byte(s, 0));
 }
 
+void lily_prelude_ByteString_create(lily_state *s)
+{
+    int64_t size = lily_arg_integer(s, 0);
+
+    if (size <= 0)
+        lily_ValueError(s, "Size must be > 0 (%ld given).", size);
+
+    uint8_t byte;
+
+    if (lily_arg_count(s) == 1)
+        byte = '\0';
+    else
+        byte = lily_arg_byte(s, 1);
+
+    char *buffer = lily_malloc(size * sizeof(*buffer));
+    memset(buffer, byte, size);
+    lily_push_bytestring(s, buffer, size);
+    lily_free(buffer);
+
+    lily_return_top(s);
+}
+
 void lily_prelude_ByteString_each_byte(lily_state *s)
 {
     lily_bytestring_val *sv = lily_arg_bytestring(s, 0);
@@ -156,6 +178,88 @@ void lily_prelude_ByteString_encode(lily_state *s)
     lily_return_some_of_top(s);
 }
 
+int get_slice_range(lily_state *s, uint32_t max, uint32_t *start,
+        uint32_t *stop, int index)
+{
+    uint16_t count = lily_arg_count(s);
+    int64_t raw_start, raw_stop;
+
+    if (count == index) {
+        *start = 0;
+        *stop = max;
+        return 1;
+    }
+
+    if (count == index + 2) {
+        raw_stop = lily_arg_integer(s, index + 1);
+
+        if (raw_stop < 0)
+            raw_stop += max;
+    }
+    else
+        raw_stop = max;
+
+    raw_start = lily_arg_integer(s, index);
+
+    if (raw_start < 0)
+        raw_start += max;
+
+    int ok = 1;
+
+    if (raw_start >= 0 &&
+        raw_start < raw_stop &&
+        raw_stop <= max) {
+        *start = (uint32_t)raw_start;
+        *stop = (uint32_t)raw_stop;
+    }
+    else
+        ok = 0;
+
+    return ok;
+}
+
+void lily_prelude_ByteString_replace_bytes(lily_state *s)
+{
+    lily_bytestring_val *dest_sv = lily_arg_bytestring(s, 0);
+    uint32_t dest_len = lily_bytestring_length(dest_sv);
+
+    int64_t index = lily_arg_integer(s, 1);
+
+    if (index < 0) {
+        int64_t old_index = index;
+        index += dest_len;
+
+        if (index < 0 || index > dest_len)
+            lily_IndexError(s, "Index %ld is too small (minimum: -%d).",
+                    old_index, dest_len);
+    }
+    else if (index >= dest_len)
+        lily_IndexError(s, "Index %ld is too large (maximum: %d).", index,
+                dest_len - 1);
+
+    lily_bytestring_val *source_sv = lily_arg_bytestring(s, 2);
+    uint32_t source_len = lily_bytestring_length(source_sv);
+
+    if (source_len == 0)
+        lily_ValueError(s, "No replacement bytes provided.");
+
+    uint32_t start, stop;
+
+    if (get_slice_range(s, source_len, &start, &stop, 3) == 0)
+        lily_IndexError(s, "Replacement section is invalid.");
+
+    uint32_t section_len = stop - start;
+
+    if (index + section_len > dest_len)
+        lily_IndexError(s, "Section to replace extends out of range.");
+
+    char *dest = lily_bytestring_raw(dest_sv);
+    char *source = lily_bytestring_raw(source_sv);
+    memcpy(dest + index, source + start, section_len);
+
+    lily_return_value(s, lily_arg_value(s, 0));
+}
+
 void lily_prelude_ByteString_size(lily_state *s)
 {
     lily_bytestring_val *input_bv = lily_arg_bytestring(s, 0);
@@ -187,53 +291,13 @@ static const uint8_t follower_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-int get_slice_range(lily_state *s, uint32_t max, uint32_t *start,
-        uint32_t *stop)
-{
-    uint16_t count = lily_arg_count(s);
-    int64_t raw_start, raw_stop;
-
-    if (count == 1) {
-        *start = 0;
-        *stop = max;
-        return 1;
-    }
-
-    if (count == 3) {
-        raw_stop = lily_arg_integer(s, 2);
-
-        if (raw_stop < 0)
-            raw_stop += max;
-    }
-    else
-        raw_stop = max;
-
-    raw_start = lily_arg_integer(s, 1);
-
-    if (raw_start < 0)
-        raw_start += max;
-
-    int ok = 1;
-
-    if (raw_start >= 0 &&
-        raw_start < raw_stop &&
-        raw_stop <= max) {
-        *start = (uint32_t)raw_start;
-        *stop = (uint32_t)raw_stop;
-    }
-    else
-        ok = 0;
-
-    return ok;
-}
-
 void do_str_slice(lily_state *s, int is_bytestring)
 {
     lily_string_val *input_sv = lily_arg_string(s, 0);
     char *input_str = lily_string_raw(input_sv);
     uint32_t input_size = lily_string_length(input_sv);
     uint32_t start, stop;
-    int ok = get_slice_range(s, input_size, &start, &stop);
+    int ok = get_slice_range(s, input_size, &start, &stop, 1);
 
     if (ok == 0) {
         if (is_bytestring == 0)
@@ -1492,7 +1556,7 @@ void lily_prelude_List_slice(lily_state *s)
     lily_container_val *input_list = lily_arg_container(s, 0);
     uint32_t input_size = lily_con_size(input_list);
     uint32_t source_i, stop;
-    int ok = get_slice_range(s, input_size, &source_i, &stop);
+    int ok = get_slice_range(s, input_size, &source_i, &stop, 1);
 
     if (ok == 0) {
         lily_push_list(s, 0);

@@ -3,6 +3,19 @@ import (Interpreter,
 
 class TestByteStringMethods < TestCase
 {
+    public define test_create
+    {
+        assert_equal(ByteString.create(3),      B"\0\0\0")
+        assert_equal(ByteString.create(3, 'A'), B"AAA")
+
+        assert_raises(
+            "ValueError: Size must be > 0 (0 given).",
+            (|| ByteString.create(0) ))
+        assert_raises(
+            "ValueError: Size must be > 0 (-1 given).",
+            (|| ByteString.create(-1) ))
+    }
+
     public define test_each_byte
     {
         var output: List[Byte] = []
@@ -21,6 +34,39 @@ class TestByteStringMethods < TestCase
         B"0"           .encode("invalidmode").is_none() |> assert_true
         B"\000"        .encode("error")      .is_none() |> assert_true
         B"\255\255\255".encode("error")      .is_none() |> assert_true
+    }
+
+    public define test_replace_bytes
+    {
+        var bytestring = B"ABCDEF"
+
+        assert_equal(bytestring.replace_bytes(2, B"cd"),           B"ABcdEF")
+        assert_equal(bytestring.replace_bytes(0, B"a"),            B"aBcdEF")
+        assert_equal(bytestring.replace_bytes(0, B"abcdef"),       B"abcdef")
+        assert_equal(bytestring.replace_bytes(2, B"ABCDEF", 2, 4), B"abCDef")
+        assert_equal(bytestring.replace_bytes(4, B"ABCDEF", 4),    B"abCDEF")
+
+        assert_raises(
+            "IndexError: Index -7 is too small (minimum: -6).",
+            (|| bytestring.replace_bytes(-7, B"ABC") ))
+        assert_raises(
+            "IndexError: Index 6 is too large (maximum: 5).",
+            (|| bytestring.replace_bytes(6, B"ABC") ))
+        assert_raises(
+            "IndexError: Replacement section is invalid.",
+            (|| bytestring.replace_bytes(0, B"ABCDEF", -7) ))
+        assert_raises(
+            "IndexError: Replacement section is invalid.",
+            (|| bytestring.replace_bytes(0, B"ABCDEF", 0, 7) ))
+        assert_raises(
+            "IndexError: Replacement section is invalid.",
+            (|| bytestring.replace_bytes(0, B"ABCDEF", 6, 0) ))
+        assert_raises(
+            "IndexError: Section to replace extends out of range.",
+            (|| bytestring.replace_bytes(5, B"efg") ))
+        assert_raises(
+            "ValueError: No replacement bytes provided.",
+            (|| bytestring.replace_bytes(0, B"") ))
     }
 
     public define test_size

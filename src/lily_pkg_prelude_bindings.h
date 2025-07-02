@@ -17,8 +17,10 @@ const char *lily_prelude_info_table[] = {
     ,"C\01Byte\0"
     ,"m\0to_i\0(Byte): Integer"
     ,"C\04ByteString\0"
+    ,"m\0create\0(Integer,*Byte): ByteString"
     ,"m\0each_byte\0(ByteString,Function(Byte))"
     ,"m\0encode\0(ByteString,*String): Option[String]"
+    ,"m\0replace_bytes\0(ByteString,Integer,ByteString,*Integer,*Integer): self"
     ,"m\0size\0(ByteString): Integer"
     ,"m\0slice\0(ByteString,*Integer,*Integer): ByteString"
     ,"N\01DivisionByZeroError\0< Exception"
@@ -156,22 +158,22 @@ const char *lily_prelude_info_table[] = {
 #define Boolean_OFFSET 1
 #define Byte_OFFSET 4
 #define ByteString_OFFSET 6
-#define DivisionByZeroError_OFFSET 11
-#define Double_OFFSET 13
-#define Exception_OFFSET 15
-#define File_OFFSET 19
-#define Function_OFFSET 30
-#define Hash_OFFSET 31
-#define IOError_OFFSET 44
-#define IndexError_OFFSET 46
-#define Integer_OFFSET 48
-#define KeyError_OFFSET 56
-#define List_OFFSET 58
-#define RuntimeError_OFFSET 88
-#define String_OFFSET 90
-#define Tuple_OFFSET 112
-#define Unit_OFFSET 113
-#define ValueError_OFFSET 114
+#define DivisionByZeroError_OFFSET 13
+#define Double_OFFSET 15
+#define Exception_OFFSET 17
+#define File_OFFSET 21
+#define Function_OFFSET 32
+#define Hash_OFFSET 33
+#define IOError_OFFSET 46
+#define IndexError_OFFSET 48
+#define Integer_OFFSET 50
+#define KeyError_OFFSET 58
+#define List_OFFSET 60
+#define RuntimeError_OFFSET 90
+#define String_OFFSET 92
+#define Tuple_OFFSET 114
+#define Unit_OFFSET 115
+#define ValueError_OFFSET 116
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -182,8 +184,10 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     NULL, \
     lily_prelude_Byte_to_i, \
     NULL, \
+    lily_prelude_ByteString_create, \
     lily_prelude_ByteString_each_byte, \
     lily_prelude_ByteString_encode, \
+    lily_prelude_ByteString_replace_bytes, \
     lily_prelude_ByteString_size, \
     lily_prelude_ByteString_slice, \
     NULL, \
