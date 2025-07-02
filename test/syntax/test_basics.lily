@@ -1614,6 +1614,23 @@ class TestBasics < TestCase
             }
         """)
 
+
+        # truthiness (Integer non-0 is true)
+
+        assert_parse_string(t, """
+            if 1: {
+            else:
+                0 / 0
+            }
+
+            var itrue = 1
+
+            if itrue: {
+            else:
+                0 / 0
+            }
+        """)
+
         # truthiness (Double 0.0 is false)
 
         assert_parse_string(t, """
@@ -1628,6 +1645,22 @@ class TestBasics < TestCase
             }
         """)
 
+        # truthiness (Double non-0.0 is true)
+
+        assert_parse_string(t, """
+            if 1.0: {
+            else:
+                0 / 0
+            }
+
+            var dtrue = 1.0
+
+            if dtrue: {
+            else:
+                0 / 0
+            }
+        """)
+
         # truthiness (String "" is false)
 
         assert_parse_string(t, """
@@ -1638,6 +1671,22 @@ class TestBasics < TestCase
             var sfalse = ""
 
             if sfalse: {
+                0 / 0
+            }
+        """)
+
+        # truthiness (String non-"" is true)
+
+        assert_parse_string(t, """
+            if "a": {
+            else:
+                0 / 0
+            }
+
+            var strue = "a"
+
+            if strue: {
+            else:
                 0 / 0
             }
         """)

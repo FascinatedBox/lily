@@ -2081,7 +2081,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     else if (base == V_LIST_BASE)
                         result = (lhs_reg->value.container->num_values == 0);
                     else
-                        result = 1;
+                        result = (lhs_reg->value.doubleval == 0.0);
 
                     if (result != code[1])
                         code += (int16_t)code[3];
