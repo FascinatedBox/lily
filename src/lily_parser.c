@@ -2533,11 +2533,10 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
 }
 
 /* The vm expects certain predefined classes to have specific ids. This is
-   called when dynaload sees a predefined class or enum. */
+   called when dynaload sees a predefined class. */
 static void fix_predefined_class_id(lily_parse_state *parser, lily_class *cls)
 {
     char *name = cls->name;
-    uint16_t adjust = 1;
     uint16_t new_id = 12345;
 
     if (strcmp(name, "DivisionByZeroError") == 0)
@@ -2554,28 +2553,28 @@ static void fix_predefined_class_id(lily_parse_state *parser, lily_class *cls)
         new_id = LILY_ID_RUNTIMEERROR;
     else if (strcmp(name, "ValueError") == 0)
         new_id = LILY_ID_VALUEERROR;
-    else if (cls->item_kind & ITEM_IS_ENUM) {
-        /* Has to be Option or Result, both of which have two members. */
-        lily_named_sym *first = cls->members;
-        lily_named_sym *second = first->next;
 
-        /* No ids were given out. Fix the two variants manually. */
-        if (strcmp(name, "Option") == 0) {
-            new_id = LILY_ID_OPTION;
-            first->id = LILY_ID_SOME;
-            second->id = LILY_ID_NONE;
-        }
-        else if (strcmp(name, "Result") == 0) {
-            new_id = LILY_ID_RESULT;
-            first->id = LILY_ID_SUCCESS;
-            second->id = LILY_ID_FAILURE;
-        }
-
-        adjust = 0;
-    }
-
-    parser->symtab->next_class_id -= adjust;
+    parser->symtab->next_class_id--;
     cls->id = new_id;
+}
+
+static void fix_option_result_class_ids(lily_class *enum_cls)
+{
+    lily_named_sym *first = enum_cls->members;
+    lily_named_sym *second = first->next;
+    uint16_t id;
+
+    /* It's going to be one of these two. */
+    if (enum_cls->name[0] == 'O')
+        id = LILY_ID_OPTION;
+    else
+        id = LILY_ID_RESULT;
+
+    /* Result's variants are in order, but Option's variants are reversed. A
+       little math is used to get the right ids. */
+    enum_cls->id = id;
+    first->id = id + (id == LILY_ID_RESULT) + 1;
+    second->id = id + (id == LILY_ID_OPTION) + 1;
 }
 
 static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
@@ -2616,7 +2615,7 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     } while (dyna_record_type(ds) == 'V');
 
     if (ds->m == parser->module_start)
-        fix_predefined_class_id(parser, enum_cls);
+        fix_option_result_class_ids(enum_cls);
     else
         lily_fix_enum_variant_ids(parser->symtab, enum_cls);
 
@@ -6467,8 +6466,10 @@ static void manifest_predefined(lily_parse_state *parser)
     lily_free_properties(cls);
     cls->members = NULL;
 
-    if (cls->item_kind & ITEM_IS_ENUM)
+    if (cls->item_kind & ITEM_IS_ENUM) {
         parse_enum_header(parser, cls);
+        fix_option_result_class_ids(cls);
+    }
     else {
         collect_generics_for(parser, cls);
         parse_class_header(parser, cls);
@@ -6480,10 +6481,9 @@ static void manifest_predefined(lily_parse_state *parser)
             lily_free_properties(cls);
             cls->members = NULL;
         }
+        else
+            fix_predefined_class_id(parser, parser->current_class);
     }
-
-    if (cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE))
-        fix_predefined_class_id(parser, parser->current_class);
 }
 
 static void manifest_loop(lily_parse_state *parser)
