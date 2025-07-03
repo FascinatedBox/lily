@@ -2619,6 +2619,7 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     else
         lily_fix_enum_variant_ids(parser->symtab, enum_cls);
 
+    lily_fix_enum_type_ids(enum_cls);
     dyna_restore(parser, ds);
     ds->result = (lily_item *)enum_cls;
 }
@@ -6469,6 +6470,7 @@ static void manifest_predefined(lily_parse_state *parser)
     if (cls->item_kind & ITEM_IS_ENUM) {
         parse_enum_header(parser, cls);
         fix_option_result_class_ids(cls);
+        lily_fix_enum_type_ids(cls);
     }
     else {
         collect_generics_for(parser, cls);

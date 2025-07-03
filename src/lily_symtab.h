@@ -86,5 +86,6 @@ lily_prop_entry *lily_add_class_property(lily_class *, lily_type *,
 void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
 void lily_fix_enum_variant_ids(lily_symtab *, lily_class *);
+void lily_fix_enum_type_ids(lily_class *);
 void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
 #endif

@@ -1367,4 +1367,24 @@ class TestPkgIntrospect < TestCase
             }
         """)
     }
+
+    public define test_enum_types_have_their_ids_fixed
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define f[A](a: A): Option[A] { return Some(a) }
+
+            var m = introspect.main_module()
+            var functions = m.functions()
+
+            foreach func in functions: {
+                if func.result_type().class_id() == 0: {
+                    0 / 0
+                }
+            }
+        """)
+    }
 }

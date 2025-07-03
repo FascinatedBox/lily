@@ -942,6 +942,22 @@ void lily_fix_enum_variant_ids(lily_symtab *symtab, lily_class *enum_cls)
     symtab->next_class_id++;
 }
 
+/* Types have a cached class id (type->cls_id) that needs to be updated, if the
+   enum takes inner types. */
+void lily_fix_enum_type_ids(lily_class *enum_cls)
+{
+    /* Monomorphic enums are their own self type, nothing to do. */
+    if (enum_cls->generic_count == 0)
+        return;
+
+    lily_type *iter = enum_cls->all_subtypes;
+
+    while (iter) {
+        iter->cls_id = enum_cls->id;
+        iter = iter->next;
+    }
+}
+
 /***
  *      _   _      _
  *     | | | | ___| |_ __   ___ _ __ ___
