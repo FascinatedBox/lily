@@ -1,3 +1,115 @@
+Version 2.1 (2025-7-10)
+=======================
+
+After a long hiatus, work on this release started in May of this year. This
+release is on the smaller side, since it's only a couple months and some of that
+time was spent getting reacquainted with the interpreter's internals.
+
+Highlights:
+
+* Many syntax errors now show the context of a line (#559). What a difference it
+  makes! Since this was a late addition, this release contains the first pass of
+  the feature. It doesn't work for expressions, and won't work inside of a
+  lambda. The next release will address those shortcomings.
+
+```
+SyntaxError: Unexpected token 'invalid token'.
+
+   |
+ 1 | var v = 1 ? 2
+   |           ^
+
+    from example.lily:1:
+```
+
+* New methods: `List.sort`, `Bytestring.create`, and `ByteString.replace_bytes`.
+  All methods are thanks to @python-b5. `List.sort` uses a default custom
+  comparator that works on `Integer`, `Double`, and `String` values. For all
+  other types, it will raise `ValueError`.
+
+* Foreign libraries can now have inner modules (#538) and constants (#542).
+
+* The interpreter now supports a sandbox mode for embedders (#544). In sandbox
+  mode, predefined modules are not loaded by default. Instead, the embedder must
+  make them available with `lily_open_*_library`. Prelude methods that open a
+  `File` will raise `RuntimeError`. In this new mode, the interpreter will also
+  ignore requests to open shared libraries (even if specified by the embedder).
+  If an import fails, the shared library paths will not be included in the
+  traceback.
+
+New:
+
+* Manifest mode now allows forward classes (#568). Optional arguments in
+  manifest can also omit the value, in cases where the value does not make sense
+  in native Lily code.
+
+* `String` can now be subscripted to return a `Byte` (#541).
+
+* Lambdas can now use `return` (#543).
+
+* `Boolean` and `ByteString` constants are now allowed.
+
+* New opcode: `o_load_bytestring_copy`. `ByteString` literals are now copied
+  before their mutation. This is done transparently to code.
+
+Changes:
+
+* Interpolation of `Double` values is now more precise (#570).
+
+Before:
+```
+print(1542.3159) # 1542.32
+```
+
+Now:
+```
+print(1542.3159) # 1542.3159
+```
+
+* `File.write_to_path` now has a `binary` optional argument. If `true`, the
+  underlying file is opened in binary mode, which is useful on Windows.
+
+* CMake minimum changed to 3.10 to avoid CMake warnings about old versions.
+
+Breaking changes:
+
+* Class constructors are no longer allowed to use `self` (#557). It was
+  possible for a class to save itself to a global variable, fail to fully init,
+  declare a property. A class match on that incomplete class would result in an
+  uninitialized value, crashing the interpreter. This prevents class
+  constructors from using non-static methods. However, they are still able to
+  use static methods, as there is no safety concern there.
+
+* When building a `Hash` through `[x => y]`, the key is no longer allowed to be
+  a generic type (#556). Since Lily does not (and likely will not ever) have
+  constraints for types, it is not possible to do that safely. User-defined
+  methods are still allowed to work with `Hash` values with a generic key, as
+  that appears to be safe.
+
+* Global variables are no longer able to have a generic type (#545). This was a
+  gateway to breaking the type system.
+
+* Global functions that take a generic must be called or be a parameter (#554).
+  Functions that use the magic type `$1` that allows any type (such as
+  `List.zip`) must be immediately called, no exceptions. These new limits are
+  the simplest way to prevent fully generic types from being created in areas
+  they shouldn't, causing interpreter crashes.
+
+Fixes:
+
+* String.format now correctly handles `}}` (#539).
+
+* Excess `}` inside a lambda caused a crash.
+
+* The interpreter now ensures that functions get all of their arguments (#560).
+  The prior strategy was to leave off arguments that were not provided if they
+  were optional. The result was total chaos when foreign functions tried to use
+  keyword and optional arguments.
+
+* VM was not reusing gc tags as well as it could in some cases (#564).
+
+* Circular imports are now explicitly blocked by the interpreter (#552).
+
 Version 2.0 (2021-7-10)
 =======================
 
