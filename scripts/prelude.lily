@@ -16,8 +16,10 @@
 # * Add the module's name to `targets` right below this comment and run this
 #   script. This script will reload cmake after updating files.
 #
-# * Add module tests in `test/prelude/test_pkg_<name>.lily` and run the test
-#   suite.
+# * Add module tests in `test/prelude/test_pkg_<name>.lily`.
+#
+# * Search for 'prelude' in `test/test_driver.c`. Insert a new entry to execute
+#   the module tests.
 #
 # Once the module has been added and properly tested, the website documentation
 # should be updated. However, this checklist does not cover that since the
