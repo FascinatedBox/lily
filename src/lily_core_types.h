@@ -518,10 +518,6 @@ typedef struct lily_proto_ {
 /* Static methods don't receive an implicit self. */
 #define VAR_IS_STATIC         0x20
 
-/* Class constructor parameters are not allowed in closures to make closures
-   easier to implement. */
-#define VAR_CANNOT_BE_UPVALUE 0x40
-
 
 /* lily_variant_class does not have any flags. */
 

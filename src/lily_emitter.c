@@ -1034,9 +1034,9 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_ast *ast,
        scope of the definition using them. So it's fine if they close over vars
        in their parent, but no further. Multiple levels of lambdas is probably
        safe. Given a lack of a use case, that has not been implemented here. */
-    if (var->type->flags & TYPE_IS_UNRESOLVED) {
-        lily_block *scope = emit->scope_block;
+    lily_block *scope = emit->scope_block;
 
+    if (var->type->flags & TYPE_IS_UNRESOLVED) {
         if (scope->block_type == block_lambda &&
             scope->prev_scope_block->block_type == block_define &&
             var->function_depth == emit->function_depth - 1)
@@ -1047,7 +1047,8 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_ast *ast,
                     var->name, var->type);
     }
 
-    if (var->flags & VAR_CANNOT_BE_UPVALUE)
+    /* Closing over these variables is unnecessary and can cause crashes. */
+    if (var->function_depth == 2 && scope->class_entry)
         lily_raise_tree(emit->raiser, ast,
                 "Not allowed to close over variables from a class constructor.");
 

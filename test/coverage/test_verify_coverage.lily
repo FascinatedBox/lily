@@ -207,69 +207,6 @@ class TestVerifyCoverage < TestCase
         """)
     }
 
-    public define test_class_closure
-    {
-        var t = Interpreter()
-
-        assert_parse_string(t, """
-            class Totals(source: List[Integer])
-            {
-                public var @pass_count = 0
-                public var @fail_count = 0
-                public var @skip_count = 0
-
-                {
-                    var pass = 0
-                    var fail = 0
-                    var skip = 0
-
-                    source.each(|e|
-                        if e == 1: {
-                            pass += 1
-                        elif e == 2:
-                            fail += 1
-                        elif e == 3:
-                            skip += 1
-                        }
-                    )
-
-                    @pass_count = pass
-                    @fail_count = fail
-                    @skip_count = skip
-                }
-            }
-
-            {
-                var t = Totals([1, 2, 3])
-
-                if t.pass_count != 1 ||
-                   t.fail_count != 1 ||
-                   t.skip_count != 1:{
-                    0 / 0
-                }
-            }
-        """)
-
-        assert_parse_string(t, """
-            var count: List[Integer] = []
-
-            class T2(source: List[Integer])
-            {
-                for i in 0...source.size() - 1: {
-                    var v = (|| count.push(i) )
-
-                    v()
-                }
-            }
-
-            T2([1, 2])
-
-            if count != [0, 1]: {
-                0 / 0
-            }
-        """)
-    }
-
     public define test_file_error_sticking
     {
         var t = Interpreter()

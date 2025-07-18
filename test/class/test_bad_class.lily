@@ -67,6 +67,31 @@ class TestBadClass < TestCase
                 }
             }
         """)
+
+        # bad constructor (closing over a loop var)
+        # Blocked because it crashes.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to close over variables from a class constructor.
+                from [test]:7:
+        """,
+        """\
+            var v: Function() = (|| unit )
+
+            class Example {
+                for i in 0...10: {
+                    {
+                        define f {
+                            print(i)
+                        }
+                        v = f
+                    }
+                }
+            }
+
+            Example()
+            v()
+        """)
     }
 
     public define test_bad_decl

@@ -1776,10 +1776,8 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
         prop->flags |= SYM_NOT_INITIALIZED;
         var = new_local_var(parser, "", 0);
     }
-    else {
+    else
         var = declare_local_var(parser, NULL);
-        var->flags |= VAR_CANNOT_BE_UPVALUE;
-    }
 
     NEED_COLON_AND_NEXT;
 
