@@ -3307,7 +3307,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     * x[0]()
     * x()()
     * Some(10)
-    * {|| 10} ()
+    * (|| 10) ()
     * [1, 2, 3].y()
     * x |> y
 
