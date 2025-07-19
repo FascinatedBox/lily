@@ -48,22 +48,30 @@ lily_call_entry_func lily_math_call_table[] = { \
     NULL, \
     lily_math__abs, \
     lily_math__acos, \
+    lily_math__acosh, \
     lily_math__asin, \
+    lily_math__asinh, \
     lily_math__atan, \
+    lily_math__atanh, \
+    lily_math__cbrt, \
     lily_math__ceil, \
     lily_math__cos, \
     lily_math__cosh, \
     lily_math__exp, \
+    lily_math__exp2, \
     lily_math__fabs, \
     lily_math__floor, \
     lily_math__fmod, \
+    lily_math__hypot, \
     lily_math__is_infinity, \
     lily_math__is_nan, \
     lily_math__ldexp, \
     lily_math__log, \
+    lily_math__log2, \
     lily_math__log10, \
     lily_math__modf, \
     lily_math__pow, \
+    lily_math__round, \
     lily_math__sin, \
     lily_math__sinh, \
     lily_math__sqrt, \
