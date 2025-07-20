@@ -5510,13 +5510,13 @@ static void parse_match_variant(lily_parse_state *parser, uint16_t count)
     NEED_CURRENT_TOK(tk_word)
 
     if (match_cls->item_kind == ITEM_ENUM_SCOPED) {
-        if (strcmp(match_cls->name, lex->label) != 0)
-            lily_raise_syn(parser->raiser,
-                    "Expected '%s.<variant>', not '%s' because '%s' is a scoped enum.",
-                    match_cls->name, lex->label, match_cls->name);
-
-        NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_TOK(tk_word)
+        /* Lily v2.1 and prior required scoped enums to have their matches
+           written as `EnumName.VariantName`. This is done to prevent breaking
+           older code unnecessarily. However, it will eventually be removed. */
+        if (strcmp(match_cls->name, lex->label) == 0) {
+            NEED_NEXT_TOK(tk_dot)
+            NEED_NEXT_TOK(tk_word)
+        }
     }
 
     lily_variant_class *variant = lily_find_variant(match_cls, lex->label);

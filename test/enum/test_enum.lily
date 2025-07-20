@@ -256,6 +256,16 @@ class TestEnum < TestCase
                     raise Exception("Failed.")
             }
         """)
+
+        # scope (match scoped enum variants directly)
+
+        assert_parse_string(t, """\
+            match check: {
+                case One(s):
+                case Two:
+                    raise Exception("Failed.")
+            }
+        """)
     }
 
     public define test_shorthand

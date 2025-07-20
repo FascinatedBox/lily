@@ -283,31 +283,6 @@ class TestBadEnum < TestCase
             define f(a: *Test = One) {}
         """)
 
-        # bad flat (match using scoped variant as flat)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Expected 'Test.<variant>', not 'One' because 'Test' is a scoped enum.
-
-               |
-             9 | case One:
-               |      ^
-
-                from [test]:9:
-        """,
-        """\
-            scoped enum Test {
-                One,
-                Two
-            }
-
-            var v = Test.One
-
-            match v: {
-                case One:
-                case Two:
-            }
-        """)
-
         # bad flat (assign using scoped enum as flat)
 
         assert_parse_fails(t, """\
@@ -418,6 +393,31 @@ class TestBadEnum < TestCase
 
             match v: {
                 case Two, One(s):
+            }
+        """)
+
+        # bad match (wrong scope name)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Banana is not a member of enum Example.
+
+               |
+             9 | case Banana.One:
+               |      ^
+
+                from [test]:9:
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two
+            }
+
+            var v = Example.Two
+
+            match v: {
+                case Banana.One:
+                case Example.Two:
             }
         """)
     }
