@@ -257,4 +257,107 @@ class TestEnum < TestCase
             }
         """)
     }
+
+    public define test_shorthand
+    {
+        var t = Interpreter()
+
+        # test shorthand (expression setup)
+        assert_parse_string(t, """
+            enum FlatSpeed {
+                FSlow,
+                FMedium,
+                FFast
+            }
+
+            scoped enum ScSpeed {
+                Slow,
+                Medium,
+                Fast
+            }
+
+            define sc_check(:input input: ScSpeed) {}
+            define fl_check(:input input: FlatSpeed) {}
+            define takemany[A](a: A, m: A...) {}
+            define taketwo[A](a: A, b: A) {}
+        """)
+
+        # test shorthand (different calls)
+        assert_parse_string(t, """
+            sc_check(.Slow)
+            sc_check(.Fast)
+
+            fl_check(.FSlow)
+            fl_check(.FFast)
+
+            taketwo(ScSpeed.Slow, .Medium)
+            taketwo(FSlow, .FSlow)
+            takemany(ScSpeed.Slow, .Slow, .Medium)
+            takemany(FSlow, .FSlow, .FMedium)
+        """)
+
+        # test shorthand (assignments)
+        assert_parse_string(t, """
+            class Example {
+                public var @x: ScSpeed = .Fast
+            }
+
+            var v: ScSpeed = .Fast
+
+            define f {
+                var w: ScSpeed = .Fast
+                var box: List[ScSpeed] = [.Medium]
+
+                box[0] = .Fast
+
+                define g {
+                    w = .Medium
+                }
+            }
+        """)
+
+        # test shorthand (return)
+        assert_parse_string(t, """
+            define g: ScSpeed {
+                return .Fast
+            }
+
+            define h: FlatSpeed {
+                return .FFast
+            }
+        """)
+
+        # test shorthand (builders)
+        assert_parse_string(t, """
+            {
+                var v2: List[ScSpeed] = [.Fast, .Slow]
+                var v3: Hash[Integer, ScSpeed] = [1 => .Fast]
+                var v4: Tuple[ScSpeed] = <[.Fast]>
+            }
+            {
+                var v2: List[FlatSpeed] = [.FFast, .FSlow]
+                var v3: Hash[Integer, FlatSpeed] = [1 => .FFast]
+                var v4: Tuple[FlatSpeed] = <[.FFast]>
+            }
+        """)
+
+        # test shorthand (practical nested usage)
+        assert_parse_string(t, """
+            scoped enum Tree {
+                Leaf(Integer),
+                Branch(Tree, Tree)
+            }
+
+            define check(t: Tree)
+            {
+                var v2 = t ++ ""
+
+                if v2 != "Tree.Branch(Tree.Leaf(1), Tree.Leaf(2))": {
+                    0 / 0
+                }
+            }
+
+            check(.Branch(.Leaf(1), Tree.Leaf(2)))
+        """)
+    }
 }

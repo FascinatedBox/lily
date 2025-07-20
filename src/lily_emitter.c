@@ -1881,6 +1881,28 @@ static int type_matchup(lily_emit_state *emit, lily_type *want_type,
     return ret;
 }
 
+static void unpack_dot_variant(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_class *enum_cls = expect->cls;
+    char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
+
+    /* It's assumed that this will typically be '?' because the user forgot to
+       include inference. Based on that assumption, don't write the expected
+       type. Hopefully the mention of it not being an enum is enough. */
+    if ((enum_cls->item_kind & ITEM_IS_ENUM) == 0)
+        lily_raise_tree(emit->raiser, ast,
+                "Cannot use member '%s' of non-enum without a value.",
+                oo_name);
+
+    ast->variant = lily_find_variant(enum_cls, oo_name);
+
+    if (ast->variant == NULL)
+        lily_raise_tree(emit->raiser, ast,
+                "%s does not have a variant named '%s'.",
+                enum_cls->name, oo_name);
+}
+
 /***
  *      _____
  *     | ____|_ __ _ __ ___  _ __ ___
@@ -3311,6 +3333,7 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     * (|| 10) ()
     * [1, 2, 3].y()
     * x |> y
+    * .UserVariant()
 
     The different kinds of functions allowed in Lily mean that a call could have
     many kinds of sources. Once that hurdle has been passed, most calls support
@@ -3324,9 +3347,10 @@ static void eval_build_list(lily_emit_state *emit, lily_ast *ast,
     may have half of the type, and another have the other.
 
     This area has some strategies to make calls easier:
+
     * Call piping rewrites the tree so that it looks like a call and dispatches
       to call. This prevents bugs that would otherwise be caused by differing
-      implementations.
+      implementations. The same is also true for variant shorthand.
 
     * For non-variant targets, the source tree has the 'sym' field set to the
       target that will be called.
@@ -3625,7 +3649,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
     write_call(emit, ast, stop, vararg_s);
 }
 
-static void init_call_state(lily_emit_state *emit, lily_ast *ast)
+static void init_call_state(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
     lily_item *call_item;
     lily_ast *first_arg = ast->arg_start;
@@ -3652,6 +3677,10 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast)
 
             call_item = first_arg->item;
             break;
+        case tree_dot_variant:
+            unpack_dot_variant(emit, first_arg, expect);
+            first_arg->tree_type = tree_variant;
+            /* Fallthrough to typical variant handling. */
         case tree_variant: {
             lily_variant_class *variant = first_arg->variant;
             if (variant->item_kind == ITEM_VARIANT_EMPTY)
@@ -3802,7 +3831,7 @@ static void eval_call(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
     lily_ts_save_point p;
 
-    init_call_state(emit, ast);
+    init_call_state(emit, ast, expect);
 
     lily_type *call_type = start_call(emit, ast);
 
@@ -4116,7 +4145,7 @@ static void eval_named_call(lily_emit_state *emit, lily_ast *ast,
 {
     lily_ts_save_point p;
 
-    init_call_state(emit, ast);
+    init_call_state(emit, ast, expect);
 
     lily_type *call_type = start_call(emit, ast);
 
@@ -4160,6 +4189,13 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     lily_u16_write_4(emit->code, o_load_empty_variant, variant->cls_id,
                 s->reg_spot, ast->line_num);
     ast->result = (lily_sym *)s;
+}
+
+static void eval_dot_variant(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    unpack_dot_variant(emit, ast, expect);
+    eval_variant(emit, ast, expect);
 }
 
 /* This handles function pipes by faking them as calls and running them as a
@@ -4294,6 +4330,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_self(emit, ast);
     else if (ast->tree_type == tree_named_call)
         eval_named_call(emit, ast, expect);
+    else if (ast->tree_type == tree_dot_variant)
+        eval_dot_variant(emit, ast, expect);
 }
 
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,

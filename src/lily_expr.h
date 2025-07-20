@@ -14,6 +14,7 @@ typedef enum {
     tree_cached,
     tree_call,
     tree_defined_func,
+    tree_dot_variant,
     tree_global_var,
     tree_hash,
     tree_inherited_new,

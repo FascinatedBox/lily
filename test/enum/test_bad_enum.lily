@@ -728,4 +728,65 @@ class TestBadEnum < TestCase
             var v = Example.One.One
         """)
     }
+
+    public define test_bad_shorthand
+    {
+        var t = Interpreter()
+
+        # Bad shorthand (when expecting a non-enum)
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use member 'One' of non-enum without a value.
+                from [test]:6:
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two
+            }
+
+            var v: Integer = .One
+        """)
+
+        # Bad shorthand (variant not in enum)
+        assert_parse_fails(t, """\
+            SyntaxError: Example does not have a variant named 'Thre'.
+                from [test]:6:
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two
+            }
+
+            var v: Example = .Thre
+        """)
+
+        # Bad shorthand (empty variant given args)
+        assert_parse_fails(t, """\
+            SyntaxError: Two is an empty variant that should not be called.
+                from [test]:6:
+        """,
+        """\
+            scoped enum Example {
+                One(Integer),
+                Two
+            }
+
+            var v: Example = .Two(1)
+        """)
+
+        # Bad shorthand (variant expecting args given none)
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to One (0 for 1).
+                from [test]:6:
+        """,
+        """\
+            scoped enum Example {
+                One(Integer),
+                Two
+            }
+
+            var v: Example = .One
+        """)
+    }
 }

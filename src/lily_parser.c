@@ -3374,13 +3374,34 @@ static void expr_comma(lily_parse_state *parser, uint16_t *state)
         *state = ST_WANT_VALUE;
 }
 
-/* This handles two rather different things. It could be an `x.y` access, OR
-   `x.@(<type>)`. The emitter will have type information, so don't bother
-   checking if either of them is correct. */
+static void expr_maybe_variant_shorthand(lily_parse_state *parser,
+        uint16_t *state)
+{
+    lily_expr_state *es = parser->expr;
+    int spot = es->pile_current;
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+
+    if (lex->token == tk_typecast_parenth) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+    else if (lex->token != tk_word)
+        lily_raise_syn(parser->raiser,
+                "Expected a name for variant shorthand.");
+
+    lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
+    lily_es_push_text(es, tree_dot_variant, lex->line_num, spot);
+    *state = ST_WANT_OPERATOR;
+}
+
+/* Lexer handles numbers with dots inside, so this is a member access, a cast,
+   or variant shorthand. */
 static void expr_dot(lily_parse_state *parser, uint16_t *state)
 {
     if (*state != ST_WANT_OPERATOR) {
-        *state = ST_BAD_TOKEN;
+        expr_maybe_variant_shorthand(parser, state);
         return;
     }
 
