@@ -3656,8 +3656,6 @@ static void expression_raw(lily_parse_state *parser)
     }
 }
 
-/* This calls expression_raw demanding a value. If you need that (and most
-   callers do), then use this. If you don't, then call it raw. */
 static void expression(lily_parse_state *parser)
 {
     lily_es_flush(parser->expr);
