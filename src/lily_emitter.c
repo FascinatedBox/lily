@@ -2515,9 +2515,10 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 /* This handles assignments to things that are marked as upvalues. */
 static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_tree(emit, ast->right, lily_question_type);
-
     lily_var *left_var = (lily_var *)ast->left->sym;
+
+    eval_tree(emit, ast->right, left_var->type);
+
     uint16_t spot = left_var->closure_spot;
 
     if (spot == UINT16_MAX)

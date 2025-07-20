@@ -246,4 +246,19 @@ class TestInference < TestCase
             var v: Function(String...) = f
         """)
     }
+
+    public define test_assign_infer_upvalue
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """\
+            define f {
+                var a: Byte = 1
+
+                define g {
+                    a = 1
+                }
+            }
+        """)
+    }
 }
