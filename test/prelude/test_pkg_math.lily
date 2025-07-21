@@ -24,6 +24,11 @@ class TestPkgMath < TestCase
         assert_near_equal(math.atan(math.pi / 4.0), 0.6657737500283538)
     }
 
+    public define test_cbrt
+    {
+        assert_near_equal(math.cbrt(27.0), 3.0)
+    }
+
     public define test_ceil
     {
         assert_near_equal(math.ceil(23.4), 24.0)
@@ -76,6 +81,11 @@ class TestPkgMath < TestCase
         assert_near_equal(math.log(math.exp(1.0)), 1.0)
     }
 
+    public define test_log2
+    {
+        assert_near_equal(math.log2(2.0), 1.0)
+    }
+
     public define test_log10
     {
         assert_near_equal(math.log10(10.0), 1.0)
@@ -96,6 +106,12 @@ class TestPkgMath < TestCase
         math.pow(999999.0, 99999.0)
             |> math.is_infinity
             |> assert_true
+    }
+
+    public define test_round
+    {
+        assert_near_equal(math.round(23.4), 23.0)
+        assert_near_equal(math.round(23.5), 24.0)
     }
 
     public define test_sin
