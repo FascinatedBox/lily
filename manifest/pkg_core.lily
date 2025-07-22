@@ -25,3 +25,4 @@ import pkg_random
 import pkg_subprocess
 import pkg_sys
 import pkg_time
+import pkg_utf8

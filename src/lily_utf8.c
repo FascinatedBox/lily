@@ -5,9 +5,6 @@
 
 #include "lily_utf8.h"
 
-#define UTF8_ACCEPT 0
-#define UTF8_REJECT 1
-
 static const uint8_t utf8d[] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
@@ -26,7 +23,7 @@ static const uint8_t utf8d[] = {
 };
 
 uint32_t
-decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
+lily_decode_utf8(uint32_t* state, uint32_t* codep, uint32_t byte) {
     uint32_t type = utf8d[byte];
 
     *codep = (*state != UTF8_ACCEPT) ?
@@ -45,7 +42,7 @@ int lily_is_valid_utf8(const char *input)
     uint32_t state = 0;
 
     for (;*s; ++s)
-        if (decode(&state, &codepoint, *s) == UTF8_REJECT)
+        if (lily_decode_utf8(&state, &codepoint, *s) == UTF8_REJECT)
             break;
 
     return state == UTF8_ACCEPT;
@@ -60,7 +57,7 @@ int lily_is_valid_sized_utf8(const char *input, uint32_t size)
     uint32_t state = 0;
 
     for (;*s; ++s)
-        if (decode(&state, &codepoint, *s) == UTF8_REJECT)
+        if (lily_decode_utf8(&state, &codepoint, *s) == UTF8_REJECT)
             break;
 
     return (state == UTF8_ACCEPT) && (s == end);

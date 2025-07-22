@@ -37,6 +37,7 @@ var targets = [
     "subprocess",
     "sys",
     "time",
+    "utf8"
 ]
 
 define generate_c_header: String

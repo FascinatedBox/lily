@@ -44,6 +44,7 @@ const char *all_test_paths[] =
     TEST("prelude",     "test_pkg_subprocess"),
     TEST("prelude",     "test_pkg_sys"),
     TEST("prelude",     "test_pkg_time"),
+    TEST("prelude",     "test_pkg_utf8"),
     TEST("call",        "test_call_pipe"),
     TEST("call",        "test_keyargs"),
     TEST("call",        "test_optargs"),

@@ -17,6 +17,7 @@ extern const char *lily_random_info_table[];
 extern const char *lily_subprocess_info_table[];
 extern const char *lily_sys_info_table[];
 extern const char *lily_time_info_table[];
+extern const char *lily_utf8_info_table[];
 
 extern lily_call_entry_func lily_prelude_call_table[];
 extern lily_call_entry_func lily_coroutine_call_table[];
@@ -27,6 +28,7 @@ extern lily_call_entry_func lily_random_call_table[];
 extern lily_call_entry_func lily_subprocess_call_table[];
 extern lily_call_entry_func lily_sys_call_table[];
 extern lily_call_entry_func lily_time_call_table[];
+extern lily_call_entry_func lily_utf8_call_table[];
 
 void lily_open_prelude_library(lily_parse_state *parser) {
     lily_predefined_module_register(parser, "prelude", lily_prelude_info_table, lily_prelude_call_table);
@@ -64,6 +66,10 @@ void lily_open_time_library(lily_state *s) {
     lily_predefined_module_register(s->gs->parser, "time", lily_time_info_table, lily_time_call_table);
 }
 
+void lily_open_utf8_library(lily_state *s) {
+    lily_predefined_module_register(s->gs->parser, "utf8", lily_utf8_info_table, lily_utf8_call_table);
+}
+
 void lily_open_all_libraries(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
@@ -76,4 +82,5 @@ void lily_open_all_libraries(lily_state *s)
     lily_predefined_module_register(parser, "subprocess", lily_subprocess_info_table, lily_subprocess_call_table);
     lily_predefined_module_register(parser, "sys", lily_sys_info_table, lily_sys_call_table);
     lily_predefined_module_register(parser, "time", lily_time_info_table, lily_time_call_table);
+    lily_predefined_module_register(parser, "utf8", lily_utf8_info_table, lily_utf8_call_table);
 }
