@@ -1,0 +1,55 @@
+import manifest
+
+### This package provides some basic utilities for working with Unicode text.
+###
+### Lily ensures that `String` values are valid UTF-8, but the `String` class
+### otherwise does not provide Unicode functionality. Instead, it is provided in
+### this module.
+###
+### Notes:
+###
+### * This module works with codepoints, not graphemes, since the latter are
+###   significantly more complicated to handle.
+###
+### * There are currently no utilities for inspecting properties of codepoints.
+library utf8
+
+### Return a `List` of all codepoints in `string`.
+define as_list(string: String): List[Integer]
+
+### Compare `a` and `b` in terms of codepoints.
+###
+### If `a` is lesser than `b`, `-1` is returned. If `a` is greater than `b`, `1`
+### is returned. If they are identical, `0` is returned. This is the same return
+### format `List.sort` uses, so this function can be used as a custom comparator
+### for it.
+define compare(a: String, b: String): Integer
+
+### Call `fn` for each codepoint within `string`.
+define each_codepoint(string: String, fn: Function(Integer))
+
+### Return the codepoint at `index` in `string`.
+###
+### If a negative index is given, it is treated as an offset from the end of
+### `string`, with `-1` being considered the last element.
+###
+### # Errors
+###
+### * `IndexError` if `index` is out of range.
+define get(string: String, index: Integer): Integer
+
+### Return the length of `string` in codepoints.
+define length(string: String): Integer
+
+### Create a new `String` copying a section of `string` from `start` to `stop`.
+### Unlike `String.slice`, the indices refer to codepoints, not bytes.
+###
+### If a negative index is given, it is treated as an offset from the end of
+### `string`, with `-1` being considered the last element.
+###
+### On error, this generates an empty `String`. Error conditions are:
+###
+### * Either `start` or `stop` is out of range.
+###
+### * The `start` is larger than the `stop` (reversed).
+define slice(string: String, start: *Integer=0, stop: *Integer=-1): String

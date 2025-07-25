@@ -1679,6 +1679,10 @@ void lily_open_sys_library(lily_state *);
 // Make the time library available.
 void lily_open_time_library(lily_state *);
 
+// Function: lily_open_utf8_library
+// Make the UTF-8 library available.
+void lily_open_utf8_library(lily_state *);
+
 /////////////////////////
 // Section: Miscellaneous
 /////////////////////////

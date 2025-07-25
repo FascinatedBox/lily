@@ -1259,6 +1259,7 @@ class TestPkgIntrospect < TestCase
                 "subprocess",
                 "sys",
                 "time",
+                "utf8",
                 "[main]",
                 "example",
             ]
@@ -1272,6 +1273,7 @@ class TestPkgIntrospect < TestCase
                 "[subprocess]",
                 "[sys]",
                 "[time]",
+                "[utf8]",
                 "[test]",
                 "nest\\/example.lily",
             ]
