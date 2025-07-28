@@ -92,6 +92,31 @@ class TestBadClass < TestCase
             Example()
             v()
         """)
+
+        # bad constructor (closing over a local var)
+        # This probably crashes too.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Not allowed to close over variables from a class constructor.
+                from [test]:7:
+        """,
+        """\
+            class Example {
+                var q = 10
+
+                for i in 0...10: {
+                    {
+                        define f {
+                            print(q)
+                        }
+                        v = f
+                    }
+                }
+            }
+
+            Example()
+            v()
+        """)
     }
 
     public define test_bad_decl
@@ -678,11 +703,11 @@ class TestBadClass < TestCase
         # bad scope (no var scope)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class var declaration must start with a scope.
+            SyntaxError: Only class properties can use @<name>.
 
                |
              2 | var @a = 1
-               | ^
+               |     ^
 
                 from [test]:2:
         """,

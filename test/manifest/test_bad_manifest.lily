@@ -178,6 +178,23 @@ class TestBadManifest < TestCase
                 protected define a
             }
         """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Class var declaration must start with a scope.
+
+               |
+             4 | var x: Integer
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            class Example {
+                var x: Integer
+            }
+        """)
     }
 
     public define test_intro
@@ -606,7 +623,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Cannot use a class property outside of a constructor.
+            SyntaxError: Only class properties can use @<name>.
 
                |
              3 | var @x: Integer

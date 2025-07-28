@@ -3929,7 +3929,7 @@ static void bad_decl_token(lily_parse_state *parser)
     if (parser->lex->token == tk_word)
         message = "Class properties must start with @.";
     else
-        message = "Cannot use a class property outside of a constructor.";
+        message = "Only class properties can use @<name>.";
 
     lily_raise_syn(parser->raiser, message);
 }
@@ -3992,11 +3992,7 @@ static void keyword_var(lily_parse_state *parser)
     uint16_t modifiers = parser->modifiers;
 
     lily_token want_token, other_token;
-    if (block->block_type == block_class) {
-        if (modifiers == 0)
-            lily_raise_syn(parser->raiser,
-                    "Class var declaration must start with a scope.");
-
+    if (block->block_type == block_class && modifiers) {
         want_token = tk_prop_word;
         other_token = tk_word;
     }
