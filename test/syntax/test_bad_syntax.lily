@@ -356,7 +356,7 @@ class TestBadSyntax < TestCase
         # bad coercion (Negative Integer for Byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.
+            SyntaxError: Value -1 is out of range for a Byte.
                 from [test]:1:
         """,
         """\
@@ -366,7 +366,7 @@ class TestBadSyntax < TestCase
         # bad coercion (Out of range Integer for Byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Integer' to type 'Byte'.
+            SyntaxError: Value 256 is out of range for a Byte.
                 from [test]:1:
         """,
         """\

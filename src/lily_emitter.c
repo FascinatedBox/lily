@@ -3081,11 +3081,17 @@ static void emit_byte(lily_emit_state *emit, lily_ast *ast)
 static void emit_integer(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    if (expect->cls_id == LILY_ID_BYTE &&
-        ast->backing_value >= 0 &&
-        ast->backing_value <= UINT8_MAX) {
-        emit_byte(emit, ast);
-        return;
+    if (expect->cls_id == LILY_ID_BYTE) {
+        if (ast->backing_value >= 0 &&
+            ast->backing_value <= UINT8_MAX) {
+            emit_byte(emit, ast);
+            return;
+        }
+        else
+            /* The cast prevents msgbuf from writing it wrong. */
+            lily_raise_tree(emit->raiser, ast,
+                    "Value %ld is out of range for a Byte.",
+                    (int64_t)ast->backing_value);
     }
 
     lily_storage *s = get_storage(emit, emit->symtab->integer_class->self_type);
