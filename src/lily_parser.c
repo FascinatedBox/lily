@@ -1674,11 +1674,6 @@ static lily_type *get_nameless_arg(lily_parse_state *parser, int *flags)
 
     lily_type *type = get_type_raw(parser, *flags);
 
-    /* get_type ends with a call to lily_lexer, so don't call that again. */
-
-    if (type->flags & TYPE_HAS_SCOOP)
-        *flags |= TYPE_HAS_SCOOP;
-
     if (lex->token == tk_three_dots) {
         lily_tm_add(parser->tm, type);
         type = lily_tm_make(parser->tm, parser->symtab->list_class, 1);
