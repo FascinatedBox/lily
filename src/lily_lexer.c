@@ -1534,7 +1534,7 @@ word_case: ;
             if (*ch == '>')
                 move_set_token(tk_end_tag)
             else
-                token = tk_invalid;
+                token = tk_question;
             break;
         case CC_CASH:
             ch++;

@@ -1566,6 +1566,127 @@ class TestBasics < TestCase
         """)
     }
 
+    public define test_ternary
+    {
+        var t = Interpreter()
+
+        # ternary (simple but in different contexts)
+
+        assert_parse_string(t, """
+            {
+                var t1 = (true ? 1 : 0)
+                var f1 = (false ? 1 : 0)
+
+                if t1 != 1 || f1 != 0: {
+                    0 / 0
+                }
+            }
+
+            define f {
+                var t1 = (true ? 1 : 0)
+                var f1 = (false ? 1 : 0)
+
+                if t1 != 1 || f1 != 0: {
+                    0 / 0
+                }
+            }
+
+            f()
+
+            define g {
+                var t1 = (true ? 1 : 0)
+                var f1 = (false ? 1 : 0)
+
+                define h {
+                    if t1 != 1 || f1 != 0: {
+                        0 / 0
+                    }
+                }
+
+                h()
+            }
+
+            g()
+        """)
+
+        # ternary (bidirectional unification with classes)
+
+        assert_parse_string(t, """
+            {
+                var v1 = (true ? Exception("") : ValueError(""))
+                var v2 = (true ? ValueError("") : Exception(""))
+
+                if (v1 ++ "").starts_with("<Exception") == false ||
+                   (v2 ++ "").starts_with("<ValueError") == false: {
+                    0 / 0
+                }
+            }
+        """)
+
+        # ternary (nested truthy table)
+
+        assert_parse_string(t, """
+            {
+                var v1 = (true ? (true ? 1 : 2) : 3)
+                var v2 = (true ? (false ? 1 : 2) : 3)
+                var v3 = (false ? (true ? 1 : 2) : 3)
+                var v4 = (false ? (false ? 1 : 2) : 3)
+
+                if [v1, v2, v3, v4] != [1, 2, 3, 3]: {
+                    0 / 0
+                }
+            }
+        """)
+
+        # ternary (string truthiness)
+
+        assert_parse_string(t, """
+            {
+                var v1 = ("" ? true : false)
+                var v2 = ("a" ? true : false)
+
+                if v1 == true || v2 == false: {
+                    0 / 0
+                }
+            }
+        """)
+
+        # ternary (string truthiness)
+
+        assert_parse_string(t, """
+            {
+                var v1 = ("" ? true : false)
+                var v2 = ("a" ? true : false)
+
+                if v1 == true || v2 == false: {
+                    0 / 0
+                }
+            }
+        """)
+
+        # ternary (yield a List)
+
+        assert_parse_string(t, """
+            {
+                var v1 = ("" ? [1, 2, 3] : [])
+                var v2 = ("" ? [] : [1, 2, 3])
+
+                if v1 != [] || v2 == []: {
+                    0 / 0
+                }
+            }
+        """)
+
+        # ternary (variant unification in result)
+
+        assert_parse_string(t, """
+            {
+                var v1 = (true ? None : Some(1))
+                var v2: Option[Integer] = v1
+            }
+        """)
+    }
+
     public define test_truthiness
     {
         var t = Interpreter()

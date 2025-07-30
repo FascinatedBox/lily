@@ -1692,4 +1692,141 @@ class TestBadSyntax < TestCase
             var v = (1 * 1.1)
         """)
     }
+
+    public define test_ternary
+    {
+        var t = Interpreter()
+
+        # ternary (? without value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '?'.
+
+               |
+             1 | var v = (? 1 : 2)
+               |          ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (? 1 : 2)
+        """)
+
+        # ternary (comma after ? before value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a value, not ','.
+
+               |
+             1 | var v = (1 ? ,)
+               |              ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? ,)
+        """)
+
+        # ternary (comma after ? after value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Comma not allowed within ternary.
+
+               |
+             1 | var v = (1 ? 2, )
+               |               ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2, )
+        """)
+
+        # ternary (comma after colon before value)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a value, not ','.
+
+               |
+             1 | var v = (1 ? 2 : , )
+               |                  ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2 : , )
+        """)
+
+        # ternary (comma instead of close parenth)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Comma not allowed within ternary.
+
+               |
+             1 | var v = (1 ? 2 : 3,
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2 : 3,
+        """)
+
+        # ternary (close parenth instead of colon)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected closing token ':', not ')'.
+
+               |
+             1 | var v = (1 ? 2)
+               |               ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2)
+        """)
+
+        # ternary (empty falsey part)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a value, not ')'.
+
+               |
+             1 | var v = (1 ? 2 : )
+               |                  ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2 : )
+        """)
+
+        # ternary (wrong close token)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected closing token ')', not ']'.
+
+               |
+             1 | var v = (1 ? 2 : 3]
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2 : 3]
+        """)
+
+        # ternary (inconsistent class types)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Ternary branches have different types:
+            First: Integer
+            Second: String
+                from [test]:1:
+        """,
+        """\
+            var v = (1 ? 2 : "3")
+        """)
+    }
 }

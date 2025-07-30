@@ -221,7 +221,7 @@ class TestBadImport < TestCase
         # bad import path (invalid token)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'import' expected a path (identifier or string), not invalid token.
+            SyntaxError: 'import' expected a path (identifier or string), not ?.
 
                |
              1 | import ?

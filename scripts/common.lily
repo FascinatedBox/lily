@@ -71,6 +71,7 @@ var token_data = [
     <[' ',  "...",              "tk_three_dots"]>,
     <[' ',  "|>",               "tk_func_pipe"]>,
     <[' ',  "$1",               "tk_scoop"]>,
+    <['?',  "?",                "tk_question"]>,
     <[' ',  "invalid token",    "tk_invalid"]>,
     <[' ',  "end of lambda",    "tk_end_lambda"]>,
     <[' ',  "?>",               "tk_end_tag"]>,

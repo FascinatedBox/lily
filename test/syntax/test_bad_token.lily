@@ -1339,21 +1339,6 @@ class TestBadToken < TestCase
             ;
         """)
 
-        # invalid token (question mark)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
-
-               |
-             1 | ?
-               | ^
-
-                from [test]:1:
-        """,
-        """\
-            ?
-        """)
-
         # invalid token (at with number)
 
         assert_parse_fails(t, """\

@@ -1824,22 +1824,21 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
-static int can_optimize_out_assignment(lily_ast *ast)
+static int can_optimize_out_assignment(lily_ast *tree)
 {
-    lily_ast *right_tree = ast->right;
     int can_optimize = 0;
 
-    while (right_tree->tree_type == tree_parenth)
-        right_tree = right_tree->arg_start;
+    while (tree->tree_type == tree_parenth)
+        tree = tree->arg_start;
 
     /* Keep these conditions away from each other since each has a different
        reason why optimization can't be done. */
 
-    if (right_tree->tree_type == tree_local_var)
+    if (tree->tree_type == tree_local_var)
         /* Can't skip basic assignments. */
         ;
-    else if (right_tree->tree_type == tree_binary) {
-        uint8_t op = right_tree->op;
+    else if (tree->tree_type == tree_binary) {
+        uint8_t op = tree->op;
 
         if (IS_ASSIGN_TOKEN(op))
             ;
@@ -1854,9 +1853,12 @@ static int can_optimize_out_assignment(lily_ast *ast)
         else
             can_optimize = 1;
     }
-    else if (right_tree->tree_type == tree_self ||
-             right_tree->tree_type == tree_typecast)
+    else if (tree->tree_type == tree_self ||
+             tree->tree_type == tree_typecast)
         /* These do not write any bytecode to optimize out. */
+        ;
+    else if (tree->tree_type == tree_ternary_second)
+        /* Only one of the two branches would get patched. */
         ;
     else
         can_optimize = 1;
@@ -2661,7 +2663,7 @@ after_type_check:;
     }
 
     if (left_tt == tree_local_var) {
-        if (can_optimize_out_assignment(ast)) {
+        if (can_optimize_out_assignment(ast->right)) {
             /* Trees always finish by writing a result and then the line number.
                Optimize out by patching the result to target the left side. */
             int pos = lily_u16_pos(emit->code) - 2;
@@ -3109,14 +3111,18 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)emit->scope_block->self;
 }
 
-/***
- *      _     _     _             _   _           _
- *     | |   (_)___| |_     _    | | | | __ _ ___| |__
- *     | |   | / __| __|  _| |_  | |_| |/ _` / __| '_ \
- *     | |___| \__ \ |_  |_   _| |  _  | (_| \__ \ | | |
- *     |_____|_|___/\__|   |_|   |_| |_|\__,_|___/_| |_|
- *
- */
+/* Either the truthy or falsey branch of ternary is done. The branch result
+   needs to be in a storage so it can be rerouted. */
+static uint16_t ternary_branch_fixup(lily_emit_state *emit, lily_ast *ast)
+{
+    if (can_optimize_out_assignment(ast) == 0)
+        /* Finish it with an assignment (which can be rerouted). */
+        lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot, 0,
+                ast->line_num);
+
+    /* Trees always finish with a line number and a result. */
+    return lily_u16_pos(emit->code) - 2;
+}
 
 /* Unify, like type checking, expects that the right side will be the same or
    more than the right. However, in this case, order is not important. All
@@ -3132,6 +3138,74 @@ static lily_type *bidirectional_unify(lily_type_system *ts,
 
     return result;
 }
+
+static void eval_ternary(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    if (expect->flags & TYPE_HAS_SCOOP)
+        expect = lily_question_type;
+
+    /* Ternary is tricky because both sides need to eval into the same storage
+       and must have the same type. The latter is tougher when there are
+       incomplete types floating around. */
+    lily_ast *cond_ast = ast->arg_start;
+    lily_ast *truthy_ast = cond_ast->next_arg;
+    lily_ast *falsey_ast = truthy_ast->next_arg;
+    uint16_t truthy_escape, truthy_patch_pos;
+
+    /* The condition doesn't get inference because there are several truthy
+       types. At the end, write a jump to take if false (fall to truthy). */
+    eval_tree(emit, cond_ast, lily_question_type);
+    ensure_valid_condition_type(emit, cond_ast);
+    emit_jump_if(emit, cond_ast, 0);
+    eval_tree(emit, truthy_ast, expect);
+
+    truthy_patch_pos = ternary_branch_fixup(emit, truthy_ast);
+    lily_u16_write_2(emit->code, o_jump, 1);
+    truthy_escape = lily_u16_pos(emit->code) - 1;
+
+    /* Truthy is done, so falsey lands here. */
+    uint16_t patch = lily_u16_pop(emit->patches);
+    uint16_t adjust = lily_u16_get(emit->code, patch);
+
+    lily_u16_set_at(emit->code, patch,
+            lily_u16_pos(emit->code) + adjust - patch);
+
+    /* Since the branches need to agree on a type, have the falsey side use the
+       truthy side for inference. This seems right. */
+    eval_tree(emit, falsey_ast, truthy_ast->result->type);
+
+    uint16_t falsey_patch_pos = ternary_branch_fixup(emit, falsey_ast);
+
+    lily_u16_set_at(emit->code, truthy_escape,
+            lily_u16_pos(emit->code) + 1 - truthy_escape);
+
+    lily_type *storage_type = bidirectional_unify(emit->ts, truthy_ast->result->type,
+            falsey_ast->result->type);
+
+    if (storage_type == NULL)
+        lily_raise_tree(emit->raiser, ast,
+                "Ternary branches have different types:\n"
+                "First: ^T\n"
+                "Second: ^T",
+                truthy_ast->result->type,
+                falsey_ast->result->type);
+
+    lily_storage *result = get_storage(emit, storage_type);
+
+    lily_u16_set_at(emit->code, falsey_patch_pos, result->reg_spot);
+    lily_u16_set_at(emit->code, truthy_patch_pos, result->reg_spot);
+    ast->result = (lily_sym *)result;
+}
+
+/***
+ *      _     _     _             _   _           _
+ *     | |   (_)___| |_     _    | | | | __ _ ___| |__
+ *     | |   | / __| __|  _| |_  | |_| |/ _` / __| '_ \
+ *     | |___| \__ \ |_  |_   _| |  _  | (_| \__ \ | | |
+ *     |_____|_|___/\__|   |_|   |_| |_|\__,_|___/_| |_|
+ *
+ */
 
 static void ensure_valid_key_type(lily_emit_state *emit, lily_ast *ast,
         lily_type *key_type)
@@ -4332,6 +4406,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_named_call(emit, ast, expect);
     else if (ast->tree_type == tree_dot_variant)
         eval_dot_variant(emit, ast, expect);
+    else if (ast->tree_type == tree_ternary_second)
+        eval_ternary(emit, ast, expect);
 }
 
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,

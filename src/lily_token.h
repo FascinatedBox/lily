@@ -62,6 +62,7 @@ typedef enum {
     tk_three_dots,
     tk_func_pipe,
     tk_scoop,
+    tk_question,
     tk_invalid,
     tk_end_lambda,
     tk_end_tag,

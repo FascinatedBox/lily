@@ -112,6 +112,7 @@ static void expr_left_bracket(lily_parse_state *, uint16_t *);
 static void expr_left_parenth(lily_parse_state *, uint16_t *);
 static void expr_minus(lily_parse_state *, uint16_t *);
 static void expr_prop_word(lily_parse_state *, uint16_t *);
+static void expr_question(lily_parse_state *, uint16_t *);
 static void expr_tuple_open(lily_parse_state *, uint16_t *);
 static void expr_unary(lily_parse_state *, uint16_t *);
 static void expr_word(lily_parse_state *, uint16_t *);
@@ -176,6 +177,7 @@ static expr_handler *expr_handlers[] =
     [tk_three_dots] = expr_close_token,
     [tk_func_pipe] = expr_binary,
     [tk_scoop] = expr_invalid,
+    [tk_question] = expr_question,
     [tk_invalid] = expr_invalid,
     [tk_end_lambda] = expr_close_token,
     [tk_end_tag] = expr_close_token,

@@ -3317,7 +3317,7 @@ static void expr_close_token(lily_parse_state *parser, uint16_t *state)
     lily_token expect;
 
     if (tt == tree_call || tt == tree_parenth || tt == tree_typecast ||
-        tt == tree_named_call) {
+        tt == tree_named_call || tt == tree_ternary_second) {
         if ((parser->flags & PARSER_SUPER_EXPR) && depth == 1)
             /* Super expressions should stop when they're done. */
             *state = ST_DONE;
@@ -3326,8 +3326,19 @@ static void expr_close_token(lily_parse_state *parser, uint16_t *state)
     }
     else if (tt == tree_tuple)
         expect = tk_tuple_close;
-    else
+    else if (tt != tree_ternary_first)
         expect = tk_right_bracket;
+    /* Currently here `(cond ? truthy --> : <-- falsey)`. */
+    else if (token == tk_colon) {
+        lily_es_collect_arg(parser->expr);
+        tree->tree_type = tree_ternary_second;
+
+        /* Not done yet (must collect falsey part). */
+        *state = ST_DEMAND_VALUE;
+        return;
+    }
+    else
+        expect = tk_colon;
 
     if (token != expect)
         lily_raise_syn(parser->raiser, "Expected closing token '%s', not '%s'.",
@@ -3364,6 +3375,8 @@ static void expr_comma(lily_parse_state *parser, uint16_t *state)
         lily_raise_syn(parser->raiser, "Subscripts cannot contain ','.");
     else if (last_tt == tree_parenth)
         lily_raise_syn(parser->raiser, "() expression cannot contain ','.");
+    else if (last_tt == tree_ternary_first || last_tt == tree_ternary_second)
+        lily_raise_syn(parser->raiser, "Comma not allowed within ternary.");
 
     lily_es_collect_arg(parser->expr);
 
@@ -3471,6 +3484,28 @@ static void expr_integer(lily_parse_state *parser, uint16_t *state)
 
     push_integer(parser, lex->n.integer_val);
     *state = ST_WANT_OPERATOR;
+}
+
+static void expr_question(lily_parse_state *parser, uint16_t *state)
+{
+    /* Ternary operations must be with parentheses and have a prior value. */
+    if (*state != ST_WANT_OPERATOR ||
+        parser->expr->save_depth == 0) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    lily_ast *last_tree = lily_es_get_saved_tree(parser->expr);
+
+    if (last_tree->tree_type != tree_parenth) {
+        *state = ST_BAD_TOKEN;
+        return;
+    }
+
+    /* Change this so ':' knows it's taking the truthy value of a ternary. */
+    last_tree->tree_type = tree_ternary_first;
+    lily_es_collect_arg(parser->expr);
+    *state = ST_DEMAND_VALUE;
 }
 
 static void expr_invalid(lily_parse_state *parser, uint16_t *state)

@@ -47,7 +47,7 @@ class TestVerifyRewind < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token '?'.
 
                |
              2 | ?
@@ -60,7 +60,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token '?'.
 
                |
              2 | ?

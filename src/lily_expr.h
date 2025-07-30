@@ -32,6 +32,8 @@ typedef enum {
     tree_self,
     tree_static_func,
     tree_subscript,
+    tree_ternary_first,
+    tree_ternary_second,
     tree_tuple,
     tree_typecast,
     tree_typecast_type,
