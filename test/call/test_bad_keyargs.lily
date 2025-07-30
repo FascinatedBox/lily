@@ -25,11 +25,11 @@ class TestBadKeyarg < TestCase
         # Blocked to make keyargs easier, and limited use.
 
         assert_parse_fails(t, """\
-            SyntaxError: Forward declarations not allowed to have keyword arguments.
+            SyntaxError: Forward declarations cannot have keyword arguments.
 
                |
              1 | forward define f(:a Integer) { ... }
-               |                              ^
+               |                  ^
 
                 from [test]:1:
         """,

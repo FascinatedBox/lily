@@ -1649,6 +1649,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 /* These are flags used by argument collection. They start high so that type and
    class flags don't collide with them. */
 #define F_SCOOP_OK          0x040000
+#define F_IS_FORWARD        0x080000
 #define F_COLLECT_DEFINE    0x100000
 #define F_COLLECT_DYNALOAD (0x200000 | F_SCOOP_OK)
 #define F_COLLECT_CLASS     0x400000
@@ -1978,11 +1979,17 @@ static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
             "Received: ^T", var->line_num, var->type, got);
 }
 
-static void check_duplicate_keyarg(lily_parse_state *parser, uint16_t pos)
+static void collect_keyarg(lily_parse_state *parser, uint16_t pos,
+        int *arg_flags)
 {
     lily_buffer_u16 *ds = parser->data_stack;
-    uint16_t stop = lily_u16_pos(ds);
+    uint16_t stop = lily_u16_pos(ds) - 1;
     char *name = parser->lex->label;
+
+    if (*arg_flags & F_IS_FORWARD)
+        /* Not worth the trouble. */
+        lily_raise_syn(parser->raiser,
+                "Forward declarations cannot have keyword arguments.");
 
     for (;pos != stop;pos += 2) {
         uint16_t key_pos = lily_u16_get(ds, pos + 1);
@@ -1992,6 +1999,8 @@ static void check_duplicate_keyarg(lily_parse_state *parser, uint16_t pos)
             lily_raise_syn(parser->raiser,
                     "A keyword named :%s has already been declared.", name);
     }
+
+    add_data_string(parser, name);
 }
 
 static void collect_call_args(lily_parse_state *parser, void *target,
@@ -2017,8 +2026,10 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         if ((var->flags & SYM_IS_FORWARD) == 0)
             arg_collect = get_define_arg;
-        else
+        else {
             arg_collect = get_nameless_arg;
+            arg_flags |= F_IS_FORWARD;
+        }
     }
     else if (arg_flags & F_COLLECT_DYNALOAD)
         arg_collect = get_nameless_arg;
@@ -2036,9 +2047,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
         while (1) {
             if (lex->token == tk_keyword_arg) {
-                check_duplicate_keyarg(parser, keyarg_start);
                 lily_u16_write_1(parser->data_stack, i);
-                add_data_string(parser, lex->label);
+                collect_keyarg(parser, keyarg_start, &arg_flags);
                 lily_next_token(lex);
             }
 
@@ -2090,16 +2100,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     }
 
     if (keyarg_start != lily_u16_pos(parser->data_stack)) {
-        lily_sym *sym = (lily_sym *)target;
-
-        /* Allowing this would mean checking that the argument strings are the
-           same. That's difficult, and forward declarations are really about
-           allowing mutually recursive functions. */
-        if (sym->flags & SYM_IS_FORWARD) {
-            lily_raise_syn(parser->raiser,
-                    "Forward declarations not allowed to have keyword arguments.");
-        }
-
         char **keys = build_strings_by_data(parser, i, keyarg_start);
 
         put_keywords_in_target(parser, target, keys);
