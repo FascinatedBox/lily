@@ -126,4 +126,95 @@ class TestBadKeyarg < TestCase
             }
         """)
     }
+
+    public define test_keyarg_shorthand
+    {
+        var t = Interpreter()
+
+        # shorthand (not allowed on variants)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variants cannot use keyword argument shorthand.
+
+               |
+             2 | One(:_ Integer)
+               |     ^
+
+                from [test]:2:
+        """,
+        """\
+            enum Example {
+                One(:_ Integer)
+            }
+        """)
+
+        # shorthand (non-class argument collision)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A keyword named :x has already been declared.
+
+               |
+             1 | define f(:x a: Integer, :_ x: Integer) {}
+               |                            ^
+
+                from [test]:1:
+        """,
+        """\
+            define f(:x a: Integer, :_ x: Integer) {}
+        """)
+
+        # shorthand (class argument collision)
+
+        assert_parse_fails(t, """\
+            SyntaxError: A keyword named :x has already been declared.
+
+               |
+             1 | class Example(:x x: Integer, :_ public var @x: Integer) {}
+               |                                            ^
+
+                from [test]:1:
+        """,
+        """\
+            class Example(:x x: Integer, :_ public var @x: Integer) {}
+        """)
+
+        # shorthand (expect a name)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a name here.
+
+               |
+             1 | define f(:_ @x: Integer) {}
+               |             ^
+
+                from [test]:1:
+        """,
+        """\
+            define f(:_ @x: Integer) {}
+        """)
+
+        # keyarg shorthand (non-auto following auto does not collect)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f does not have a keyword named ':h'.
+                from [test]:3:
+        """,
+        """\
+            define f(:_ g: Integer, h: Integer) {}
+
+            f(:g 1, :h 2)
+        """)
+
+        # keyarg shorthand (the name is not the shorthand)
+
+        assert_parse_fails(t, """\
+            SyntaxError: f does not have a keyword named ':_'.
+                from [test]:3:
+        """,
+        """\
+            define f(:_ g: Integer) {}
+
+            f(:_ 1)
+        """)
+    }
 }

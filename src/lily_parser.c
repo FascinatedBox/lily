@@ -1564,6 +1564,7 @@ static int constant_by_name(const char *);
 static lily_prop_entry *declare_property(lily_parse_state *, uint16_t);
 static void simple_expression(lily_parse_state *);
 static int keyword_by_name(const char *);
+static void collect_keyarg(lily_parse_state *, uint16_t, int *);
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -1648,6 +1649,7 @@ static void ensure_valid_type(lily_parse_state *parser, lily_type *type)
 
 /* These are flags used by argument collection. They start high so that type and
    class flags don't collide with them. */
+#define F_AUTO_KEYARG       0x020000
 #define F_SCOOP_OK          0x040000
 #define F_IS_FORWARD        0x080000
 #define F_COLLECT_DEFINE    0x100000
@@ -1750,15 +1752,9 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
             modifiers = SYM_SCOPE_PROTECTED;
         else if (keyword == KEY_PUBLIC)
             modifiers = SYM_SCOPE_PUBLIC;
-    }
-    else if (lex->label[0] == 'v' &&
-             strcmp(lex->label, "var") == 0) {
-        lily_raise_syn(parser->raiser,
-                "Constructor var declaration must start with a scope.");
-    }
 
-    if (modifiers) {
         lily_next_token(lex);
+
         if (lex->token != tk_word ||
             strcmp(lex->label, "var") != 0) {
             lily_raise_syn(parser->raiser,
@@ -1766,6 +1762,21 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
         }
 
         NEED_NEXT_TOK(tk_prop_word)
+    }
+    else if (lex->label[0] == 'v' &&
+             strcmp(lex->label, "var") == 0) {
+        lily_raise_syn(parser->raiser,
+                "Constructor var declaration must start with a scope.");
+    }
+
+    if (*flags & F_AUTO_KEYARG) {
+        uint16_t start = lily_u16_pop(parser->data_stack);
+
+        collect_keyarg(parser, start, flags);
+        *flags &= ~F_AUTO_KEYARG;
+    }
+
+    if (modifiers) {
         prop = declare_property(parser, modifiers);
 
         /* Properties aren't assigned until all optargs are done. */
@@ -1984,12 +1995,42 @@ static void collect_keyarg(lily_parse_state *parser, uint16_t pos,
 {
     lily_buffer_u16 *ds = parser->data_stack;
     uint16_t stop = lily_u16_pos(ds) - 1;
-    char *name = parser->lex->label;
+    lily_lex_state *lex = parser->lex;
+    char *name = lex->label;
+    int load_next = (lex->token == tk_keyword_arg);
 
     if (*arg_flags & F_IS_FORWARD)
         /* Not worth the trouble. */
         lily_raise_syn(parser->raiser,
                 "Forward declarations cannot have keyword arguments.");
+
+    if (name[0] == '_' && name[1] == '\0' &&
+        lex->token == tk_keyword_arg) {
+        /* `:_` means use the parameter name as the keyword name. The third
+           check prevents `:_ public var @_` from entering here. */
+
+        if (*arg_flags & F_COLLECT_VARIANT)
+            lily_raise_syn(parser->raiser,
+                    "Variants cannot use keyword argument shorthand.");
+
+        lily_next_token(lex);
+
+        if (lex->token != tk_word)
+            lily_raise_syn(parser->raiser, "Expected a name here.");
+
+        /* This could be `:_ public var @<name>`, or just `:_ <name>`. Class
+           argument collection will call this function again when it has the
+           name. Save the start for it to peel off. */
+        if (*arg_flags & F_COLLECT_CLASS) {
+            *arg_flags |= F_AUTO_KEYARG;
+            lily_u16_write_1(ds, pos);
+            return;
+        }
+
+        /* (Unlikely) next token may have moved lex->label, so must resync. */
+        name = lex->label;
+        load_next = 0;
+    }
 
     for (;pos != stop;pos += 2) {
         uint16_t key_pos = lily_u16_get(ds, pos + 1);
@@ -2001,6 +2042,9 @@ static void collect_keyarg(lily_parse_state *parser, uint16_t pos,
     }
 
     add_data_string(parser, name);
+
+    if (load_next)
+        lily_next_token(lex);
 }
 
 static void collect_call_args(lily_parse_state *parser, void *target,
@@ -2049,7 +2093,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             if (lex->token == tk_keyword_arg) {
                 lily_u16_write_1(parser->data_stack, i);
                 collect_keyarg(parser, keyarg_start, &arg_flags);
-                lily_next_token(lex);
             }
 
             lily_tm_add(parser->tm, arg_collect(parser, &arg_flags));

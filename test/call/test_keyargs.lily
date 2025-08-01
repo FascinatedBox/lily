@@ -326,4 +326,58 @@ class TestKeyargs < TestCase
             }
         """)
     }
+
+    public define test_keyarg_shorthand
+    {
+        var t = Interpreter()
+
+        # keyarg shorthand (basic definition case)
+
+        assert_parse_string(t, """
+            define ab(:_ a: Integer, :_ b: Integer): List[Integer] { return [a, b] }
+
+            if ab(:a 1, :b 2) != [1, 2] ||
+               ab(1, :b 2) != [1, 2]: {
+                0/0
+            }
+        """)
+
+        # keyarg shorthand (class arguments)
+
+        assert_parse_string(t, """
+            class Example(:_ public var @x: Integer,
+                                 :_ y: Integer)
+            {
+                public var @xy = [@x, y]
+            }
+
+            if Example(:x 1, :y 2).xy != [1, 2]||
+               Example(1, :y 2).xy != [1, 2]: {
+                0/0
+            }
+        """)
+
+        # keyarg shorthand (collision avoidance)
+
+        assert_parse_string(t, """
+            class Example2(:public x: Integer,
+                          :_ public var @x: Integer)
+            {
+                public var @xx = [@x, x]
+            }
+
+            if Example2(:public 1, :x 2).xx != [2, 1]: {
+                0/0
+            }
+        """)
+
+        # keyarg shorthand (empty class name)
+        # Not reasonable, but should not cause a crash.
+
+        assert_parse_string(t, """
+            class Example3(:_ public var @_: Integer) {}
+
+            Example3(:_ 1)
+        """)
+    }
 }
