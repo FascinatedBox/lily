@@ -10,11 +10,23 @@ define abs(x: Integer): Integer
 ### Calculates the arc cosine of a double in radians.
 define acos(x: Double): Double
 
+### Calculates the hyperbolic arc cosine of a double in radians.
+define acosh(x: Double): Double
+
 ### Calculates the arc sine of a double in radians.
 define asin(x: Double): Double
 
+### Calculates the hyperbolic arc sine of a double in radians.
+define asinh(x: Double): Double
+
 ### Calculates the arc tangent of a double in radians.
 define atan(x: Double): Double
+
+### Calculates the hyperbolic arc tangent of a double in radians.
+define atanh(x: Double): Double
+
+### Calculate the cube root of a double.
+define cbrt(x: Double): Double
 
 ### Round a double up to the nearest integer.
 define ceil(x: Double): Double
@@ -27,6 +39,9 @@ define cosh(x: Double): Double
 
 ### Calculate e^x.
 define exp(x: Double): Double
+
+### Calculate 2^x.
+define exp2(x: Double): Double
 
 ### Calculates the absolute value of a double.
 define fabs(x: Double): Double
@@ -49,14 +64,23 @@ define ldexp(x: Double, y: Integer): Double
 ### Calculate the log of a double with base e.
 define log(x: Double): Double
 
+### Calculate the log of a double with base 2.
+define log2(x: Double): Double
+
 ### Calculate the log of a double with base 10.
 define log10(x: Double): Double
 
 ### Split a double into an integer and a fractional part <[ipart, fpart]>.
 define modf(x: Double): Tuple[Double, Double]
 
+### Calculate the square roots of x and y then the square root of them added together.
+define hypot(x: Double, y: Double): Double
+
 ### Calculate x^y.
 define pow(x: Double, y: Double): Double
+
+### Round a double to the nearest integer.
+define round(x: Double): Double
 
 ### Calculate the sine of a double in radians.
 define sin(x: Double): Double
