@@ -228,6 +228,25 @@ class TestManifest < TestCase
             """
         )
 
+    private var @t_value_enum_payload =
+        StringTarget(
+            :path "_value_enum",
+            :data """\
+                import manifest
+
+                enum ValueDirection > Integer
+                {
+                    North,
+                    East = -2,
+                    South,
+                    West = 4567890,
+                    Test
+
+                    define check
+                }
+            """
+        )
+
     public define test_class
     {
         var t = Interpreter.with_targets(
@@ -1338,6 +1357,241 @@ class TestManifest < TestCase
             import manifest
 
             import blank_optarg
+        """)
+    }
+
+    public define test_value_variants
+    {
+        var t = Interpreter.with_targets(
+            @t_value_enum_payload
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _value_enum
+        """)
+
+        assert_parse_string(t, """\
+            import introspect
+
+            define stringify_parameters(p: List[introspect.ParameterEntry])
+                : String
+            {
+                return p.map(|m| "({0},{1},{2})".format(
+                    m.name,
+                    m.type.as_string(),
+                    m.keyword
+                )).join()
+            }
+
+            define check_value_enum(
+                           e:         introspect.EnumEntry,
+                :doc       doc:       String,
+                :generics  generics:  String,
+                :is_flat   is_flat:   Boolean,
+                :is_scoped is_scoped: Boolean,
+                :name      name:      String,
+                :parent    parent:    String
+            )
+            {
+                var input = <[
+                    e.doc(),
+                    e.generics().map(introspect.TypeEntry.as_string).join(", "),
+                    e.is_flat(),
+                    e.is_scoped(),
+                    e.name(),
+                    e.parent().map(introspect.ClassEntry.name).unwrap_or("")
+                ]>
+                var expect = <[
+                    doc,
+                    generics,
+                    is_flat,
+                    is_scoped,
+                    name,
+                    parent
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_enum_method(
+                           m:      introspect.MethodEntry,
+                :doc       doc:    String,
+                :name      name:   String,
+                :params    params: String,
+                :private   pri:    Boolean,
+                :protected pro:    Boolean,
+                :public    pub:    Boolean,
+                :result    result: String,
+                :type      type:   String
+            )
+            {
+                var input = <[
+                    m.doc(),
+                    m.function_name(),
+                    stringify_parameters(m.parameters()),
+                    m.is_private(),
+                    m.is_protected(),
+                    m.is_public(),
+                    m.result_type().as_string(),
+                    m.type().as_string()
+                ]>
+                var expect = <[
+                    doc,
+                    name,
+                    params,
+                    pri,
+                    pro,
+                    pub,
+                    result,
+                    type
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            define check_variant(
+                           v:     introspect.VariantEntry,
+                :enum_id   enum_id:   Integer,
+                :enum_name enum_name: String,
+                :is_empty  is_empty:  Boolean,
+                :is_scoped is_scoped: Boolean,
+                :params    params:    String,
+                :name      name:      String,
+                :type      type:      String,
+                :value     value:     String
+            )
+            {
+                var input = <[
+                    v.enum_id(),
+                    v.enum_name(),
+                    v.is_empty(),
+                    v.is_scoped(),
+                    stringify_parameters(v.parameters()),
+                    v.name(),
+                    v.type().as_string(),
+                    v.value()
+                ]>
+                var expect = <[
+                    enum_id,
+                    enum_name,
+                    is_empty,
+                    is_scoped,
+                    params,
+                    name,
+                    type,
+                    value
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var mm = introspect.main_module()
+            var enum_m = mm.modules_used()[1]
+            var enums = enum_m.enums()
+
+            {
+                var e = enums[-1]
+                var methods = e.methods()
+                var variants = e.variants()
+                var id = e.id()
+
+                check_value_enum(
+                    e,
+                    :doc      "",
+                    :generics "",
+                    :name     "ValueDirection",
+                    :is_flat   true,
+                    :is_scoped false,
+                    :parent    "Integer"
+                )
+
+                check_enum_method(
+                    methods[-1],
+                    :doc        "",
+                    :name       "check",
+                    :params     "(,ValueDirection,)",
+                    :private    false,
+                    :protected  false,
+                    :public     true,
+                    :result     "Unit",
+                    :type       "Function (ValueDirection)"
+                )
+
+                check_variant(
+                    variants[-1],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "North",
+                    :params    "",
+                    :type      "ValueDirection",
+                    :value     "0"
+                )
+
+                check_variant(
+                    variants[-2],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "East",
+                    :params    "",
+                    :type      "ValueDirection",
+                    :value     "-2"
+                )
+
+                check_variant(
+                    variants[-3],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "South",
+                    :params    "",
+                    :type      "ValueDirection",
+                    :value     "-1"
+                )
+
+                check_variant(
+                    variants[-4],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "West",
+                    :params    "",
+                    :type      "ValueDirection",
+                    :value     "4567890"
+                )
+
+                check_variant(
+                    variants[-5],
+                    :enum_id   e.id(),
+                    :enum_name e.name(),
+                    :is_empty  true,
+                    :is_scoped false,
+                    :name      "Test",
+                    :params    "",
+                    :type      "ValueDirection",
+                    :value     "4567891"
+                )
+
+                if methods.size() != 1 ||
+                   variants.size() != 5: {
+                    0 / 0
+                }
+            }
         """)
     }
 }

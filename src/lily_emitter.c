@@ -1522,9 +1522,26 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
 
     lily_u16_write_1(emit->match_cases, cls->id);
 
-    /* If this isn't the class, jump to the next branch (or exit). */
-    lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id, match_reg, 3);
-    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    if ((cls->item_kind & ITEM_IS_VARIANT) == 0 ||
+        (cls->flags & VARIANT_HAS_VALUE) == 0) {
+        /* If this isn't the class, jump to the next branch (or exit). */
+        lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id, match_reg,
+                3);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+    }
+    else {
+        lily_storage *s = get_storage(emit,
+                (lily_type *)emit->symtab->integer_class);
+        lily_variant_class *variant = (lily_variant_class *)cls;
+
+        /* Value variants are Integer values under the hood, so do a jumping
+           compare instead. */
+        lily_u16_write_4(emit->code, o_load_readonly, variant->backing_lit,
+                s->reg_spot, *emit->lex_linenum);
+        lily_u16_write_5(emit->code, o_compare_eq, match_reg,
+                s->reg_spot, 3, *emit->lex_linenum);
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+    }
 
     if (cls->item_kind & ITEM_IS_VARIANT) {
         uint16_t total = lily_u16_pos(emit->match_cases);
@@ -4259,15 +4276,29 @@ static void eval_variant(lily_emit_state *emit, lily_ast *ast,
     /* An empty variant's build type is the enum self type with any generics
        being solved with ?. Use that unless there's inference to pull from. */
     lily_type *storage_type = variant->build_type;
+    int is_value_enum = (storage_type->cls->parent != NULL);
 
     if (storage_type->flags & TYPE_IS_INCOMPLETE &&
         expect->cls == variant->parent)
         storage_type = expect;
 
+    uint16_t op, what;
+
+    if (is_value_enum == 0) {
+        op = o_load_empty_variant;
+        what = variant->cls_id;
+    }
+    else {
+        if (expect->cls_id == LILY_ID_INTEGER)
+            storage_type = expect;
+
+        op = o_load_readonly;
+        what = variant->backing_lit;
+    }
+
     lily_storage *s = get_storage(emit, storage_type);
 
-    lily_u16_write_4(emit->code, o_load_empty_variant, variant->cls_id,
-                s->reg_spot, ast->line_num);
+    lily_u16_write_4(emit->code, op, what, s->reg_spot, ast->line_num);
     ast->result = (lily_sym *)s;
 }
 

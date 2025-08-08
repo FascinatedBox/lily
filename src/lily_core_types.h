@@ -207,16 +207,20 @@ typedef struct {
     char *name;
 
     uint64_t shorthash;
-
     uint16_t line_num;
-    uint16_t pad1;
+    uint16_t backing_lit;
     uint32_t pad2;
 
     /* A variant's parent is the enum it belongs to. */
     struct lily_class_ *parent;
 
-    /* See lily_proto's keywords. */
-    char **keywords;
+    union {
+        /* See lily_proto's keywords. */
+        char **keywords;
+
+        /* If this is a value variant, the backing value. */
+        int64_t raw_value;
+    };
 } lily_variant_class;
 
 /* This represents a property inside of a class. */
@@ -519,7 +523,11 @@ typedef struct lily_proto_ {
 #define VAR_IS_STATIC         0x20
 
 
-/* lily_variant_class does not have any flags. */
+/* VARIANT_* flags are for lily_variant_class. */
+
+
+/* This is a value variant with a backing literal. */
+#define VARIANT_HAS_VALUE       0x1
 
 
 /* The remaining flags apply to at least two or more groups of symbols. */

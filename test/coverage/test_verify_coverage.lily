@@ -771,4 +771,25 @@ SyntaxError: Expected a value, not 'end of file'.
             import (optcount, cover_misc_api) covlib
         """)
     }
+
+    public define test_value_variant_foreign_method
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import (ScopedValueDirection) covlib
+
+            var v: ScopedValueDirection = .North
+            var in: List[ScopedValueDirection] = [.North, .East, .South, .West]
+            var out: List[ScopedValueDirection] = [.East, .South, .West, .North]
+
+            in = in.map(ScopedValueDirection.turn_right)
+
+            if in != out: {
+                0/0
+            }
+        """)
+    }
 }

@@ -579,14 +579,16 @@ class TestPkgIntrospect < TestCase
                     e.generics().map(|m| m.as_string() ).join(", "),
                     e.is_flat(),
                     e.is_scoped(),
-                    e.name()
+                    e.name(),
+                    e.parent().map(introspect.ClassEntry.name).unwrap_or("")
                 ]>
                 var expect = <[
                     doc,
                     generics,
                     is_flat,
                     is_scoped,
-                    name
+                    name,
+                    ""
                 ]>
 
                 if input != expect: {

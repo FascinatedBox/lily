@@ -727,6 +727,26 @@ class TestBadEnum < TestCase
 
             var v = Example.One.One
         """)
+
+        # enum rules (must inherit Integer to have values)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Enums must inherit from Integer to have values.
+
+               |
+             4 | Three = 1,
+               |       ^
+
+                from [test]:4:
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two,
+                Three = 1,
+                Four
+            }
+        """)
     }
 
     public define test_bad_shorthand
@@ -787,6 +807,202 @@ class TestBadEnum < TestCase
             }
 
             var v: Example = .One
+        """)
+    }
+
+    public define test_bad_value_variant_usage
+    {
+        var t = Interpreter()
+
+        # bad vv (cannot have generics)
+        assert_parse_fails(t, """\
+            SyntaxError: Enums with generics are not allowed to inherit.
+
+               |
+             1 | scoped enum Example[A] > Integer {
+               |                        ^
+
+                from [test]:1:
+        """,
+        """\
+            scoped enum Example[A] > Integer {
+                One,
+                Two
+            }
+        """)
+
+        # bad vv (must inherit from Integer)
+        # Extending this to other classes is unlikely.
+        assert_parse_fails(t, """\
+            SyntaxError: Enums are only allowed to inherit from Integer.
+
+               |
+             1 | scoped enum Direction > String {
+               |                         ^
+
+                from [test]:1:
+        """,
+        """\
+            scoped enum Direction > String {
+                One,
+                Two
+            }
+        """)
+
+        # bad vv (cannot take parameters)
+        assert_parse_fails(t, """\
+            SyntaxError: An enum must have at least two variants.
+
+               |
+             2 | North(Integer),
+               |      ^
+
+                from [test]:2:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North(Integer),
+            }
+        """)
+
+        # bad vv (still require 2+ variants)
+        assert_parse_fails(t, """\
+            SyntaxError: An enum must have at least two variants.
+                from [test]:3:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North
+            }
+        """)
+
+        # bad vv (duplicate value)
+        assert_parse_fails(t, """\
+            SyntaxError: Duplicate variant value (already in use by North).
+
+               |
+             3 | East = 1
+               |        ^
+
+                from [test]:3:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North = 1,
+                East = 1
+            }
+        """)
+
+        # These overlap with definition variance testing.
+        # However, this is the only time a primitive is inherited from.
+
+        # bad vv (Definitions cannot take Integer if expecting a value enum)
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to f is invalid:
+            Expected Type: LR
+            Received Type: Integer
+                from [test]:13:
+        """,
+        """\
+            enum LR > Integer {
+                Left,
+                Right
+            }
+
+            define f(a: LR): Integer {
+                match a: {
+                    case Left, Right:
+                        return 0
+                }
+            }
+
+            f(7)
+        """)
+
+        # bad vv (Definitions cannot send Integer if expecting a value enum)
+        assert_parse_fails(t, """\
+            SyntaxError: return expected type 'LR' but got type 'Integer'.
+                from [test]:6:
+        """,
+        """\
+            enum LR > Integer {
+                Left,
+                Right
+            }
+
+            define f: LR { return 1 }
+        """)
+
+        # Tests for this feature below this line may eventually work.
+        # These tests ensure that the behavior will only change by intention,
+        # and not by accident.
+
+        # bad vv (expression value)
+        assert_parse_fails(t, """\
+            SyntaxError: A number is required here.
+
+               |
+             4 | South = (1 << 2)
+               |         ^
+
+                from [test]:4:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North,
+                East,
+                South = (1 << 2)
+            }
+        """)
+
+        # bad vv (math ops)
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid operation: Direction + Integer.
+                from [test]:8:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North,
+                East,
+                South,
+                West
+            }
+
+            var v = Direction.North + 1
+        """)
+
+        # bad vv (subscript by enum)
+        assert_parse_fails(t, """\
+            SyntaxError: List index is not an Integer or a Byte.
+                from [test]:8:
+        """,
+        """\
+            scoped enum Direction > Integer {
+                North,
+                East,
+                South,
+                West
+            }
+
+            var v = [1, 2, 3, 4][Direction.North]
+        """)
+
+        # bad vv (generic resolution pins on the enum)
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #2 to x is invalid:
+            Expected Type: LR
+            Received Type: Integer
+                from [test]:8:
+        """,
+        """\
+            enum LR > Integer {
+                Left = 0,
+                Right = 1
+            }
+
+            define x[A](a: A, b: A) { }
+
+            x(Left, 0)
         """)
     }
 }

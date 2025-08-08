@@ -140,7 +140,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(ConstantEntry): Integer"
     ,"m\0name\0(ConstantEntry): String"
     ,"m\0type\0(ConstantEntry): TypeEntry"
-    ,"C\010EnumEntry\0"
+    ,"C\011EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
     ,"m\0generics\0(EnumEntry): List[TypeEntry]"
     ,"m\0id\0(EnumEntry): Integer"
@@ -148,6 +148,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0is_scoped\0(EnumEntry): Boolean"
     ,"m\0methods\0(EnumEntry): List[MethodEntry]"
     ,"m\0name\0(EnumEntry): String"
+    ,"m\0parent\0(EnumEntry): Option[ClassEntry]"
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
     ,"C\07FunctionEntry\0"
     ,"m\0doc\0(FunctionEntry): String"
@@ -209,7 +210,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
     ,"m\0type\0(VarEntry): TypeEntry"
-    ,"C\07VariantEntry\0"
+    ,"C\010VariantEntry\0"
     ,"m\0enum_id\0(VariantEntry): Integer"
     ,"m\0enum_name\0(VariantEntry): String"
     ,"m\0is_empty\0(VariantEntry): Boolean"
@@ -217,6 +218,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(VariantEntry): String"
     ,"m\0parameters\0(VariantEntry): List[ParameterEntry]"
     ,"m\0type\0(VariantEntry): TypeEntry"
+    ,"m\0value\0(VariantEntry): String"
     ,"F\0class_name\0[A](A): String"
     ,"F\0main_module\0: ModuleEntry"
     ,"F\0module_list\0: List[ModuleEntry]"
@@ -250,6 +252,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_EnumEntry_is_scoped, \
     lily_introspect_EnumEntry_methods, \
     lily_introspect_EnumEntry_name, \
+    lily_introspect_EnumEntry_parent, \
     lily_introspect_EnumEntry_variants, \
     NULL, \
     lily_introspect_FunctionEntry_doc, \
@@ -319,6 +322,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_name, \
     lily_introspect_VariantEntry_parameters, \
     lily_introspect_VariantEntry_type, \
+    lily_introspect_VariantEntry_value, \
     lily_introspect__class_name, \
     lily_introspect__main_module, \
     lily_introspect__module_list, \

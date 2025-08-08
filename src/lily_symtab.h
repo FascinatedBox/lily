@@ -70,6 +70,7 @@ lily_var *lily_find_var(lily_module_entry *, const char *);
 lily_named_sym *lily_find_member(lily_class *, const char *);
 lily_named_sym *lily_find_member_in_class(lily_class *, const char *);
 lily_variant_class *lily_find_variant(lily_class *, const char *);
+lily_variant_class *lily_find_variant_with_lit(lily_class *, uint16_t);
 lily_module_entry *lily_find_module(lily_module_entry *, const char *);
 lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
 lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);

@@ -76,11 +76,13 @@ void lily_free_properties(lily_class *cls)
 {
     lily_named_sym *prop_iter = cls->members;
     lily_named_sym *next_prop;
+    int is_value_enum = (cls->parent && (cls->item_kind & ITEM_IS_ENUM));
 
     while (prop_iter) {
         next_prop = prop_iter->next;
 
-        if (prop_iter->item_kind & ITEM_IS_VARIANT) {
+        if (prop_iter->item_kind & ITEM_IS_VARIANT &&
+            is_value_enum == 0) {
             lily_variant_class *variant = (lily_variant_class *)prop_iter;
 
             if (variant->keywords) {
@@ -690,6 +692,28 @@ lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
     return (lily_variant_class *)sym_iter;
 }
 
+/* Parser uses this to prevent duplicate variant literals. It's only called on
+   the second (and subsequent) variants of a value enum. */
+lily_variant_class *lily_find_variant_with_lit(lily_class *enum_cls,
+        uint16_t lit_id)
+{
+    /* Never called on the first entry, so this is always ok. */
+    lily_named_sym *sym_iter = enum_cls->members->next;
+
+    while (sym_iter) {
+        if (sym_iter->item_kind & ITEM_IS_VARIANT) {
+            lily_variant_class *cls = (lily_variant_class *)sym_iter;
+
+            if (cls->backing_lit == lit_id)
+                break;
+        }
+
+        sym_iter = sym_iter->next;
+    }
+
+    return (lily_variant_class *)sym_iter;
+}
+
 lily_module_entry *lily_find_module(lily_module_entry *module, const char *name)
 {
     lily_module_link *link_iter = module->module_chain;
@@ -924,19 +948,21 @@ lily_variant_class *lily_new_variant_class(lily_class *enum_cls,
 void lily_fix_enum_variant_ids(lily_symtab *symtab, lily_class *enum_cls)
 {
     enum_cls->id = symtab->next_class_id;
-    symtab->next_class_id += enum_cls->variant_size;
 
-    uint16_t next_id = symtab->next_class_id;
-    lily_named_sym *member_iter = enum_cls->members;
+    if (enum_cls->parent == NULL) {
+        symtab->next_class_id += enum_cls->variant_size;
 
-    /* Method collection hasn't happened yet, so all members are variants. */
-    while (member_iter) {
-        lily_variant_class *variant = (lily_variant_class *)member_iter;
+        uint16_t next_id = symtab->next_class_id;
+        lily_named_sym *member_iter = enum_cls->members;
 
-        variant->cls_id = next_id;
-        next_id--;
+        while (member_iter) {
+            lily_variant_class *variant = (lily_variant_class *)member_iter;
 
-        member_iter = member_iter->next;
+            variant->cls_id = next_id;
+            next_id--;
+
+            member_iter = member_iter->next;
+        }
     }
 
     symtab->next_class_id++;
@@ -980,7 +1006,9 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
         while (class_iter) {
             lily_vm_add_class_unchecked(vm, class_iter);
 
-            if (class_iter->item_kind & ITEM_IS_ENUM) {
+            /* The second check blocks value enums. */
+            if (class_iter->item_kind & ITEM_IS_ENUM &&
+                class_iter->parent == NULL) {
                 lily_named_sym *sym_iter = class_iter->members;
                 while (sym_iter) {
                     if (sym_iter->item_kind & ITEM_IS_VARIANT) {

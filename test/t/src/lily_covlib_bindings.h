@@ -61,18 +61,28 @@ lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
 #define PUSH_FlatTwo(state)\
 lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
 
+#define East_VALUE -2
+#define North_VALUE 0
+#define South_VALUE -1
+#define West_VALUE 4567890
+
 #define ID_ScopedEnum_ScopedOne(s_) \
-(lily_cid_at(s_, 5) + 1)
+(lily_cid_at(s_, 6) + 1)
 #define PUSH_ScopedEnum_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 5) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 1)
 #define ID_ScopedEnum_ScopedThree(s_) \
-(lily_cid_at(s_, 5) + 2)
+(lily_cid_at(s_, 6) + 2)
 #define PUSH_ScopedEnum_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 2)
 #define ID_ScopedEnum_ScopedTwo(s_) \
-(lily_cid_at(s_, 5) + 3)
+(lily_cid_at(s_, 6) + 3)
 #define PUSH_ScopedEnum_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 3)
+
+#define ScopedValueDirection_East_VALUE 5
+#define ScopedValueDirection_North_VALUE 4
+#define ScopedValueDirection_South_VALUE 6
+#define ScopedValueDirection_West_VALUE 7
 
 extern LILY_COVLIB_EXPORT const char *lily_farm_info_table[];
 extern LILY_COVLIB_EXPORT lily_call_entry_func lily_farm_call_table[];
@@ -80,7 +90,7 @@ void lily_covlib_module_farm(lily_state *s) { lily_import_library_data(s, "[covl
 
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
-    "\06C2\0Container\0Foreign\0ForeignGeneric\0FlatEnum\0ScopedEnum\0"
+    "\010C2\0Container\0Foreign\0ForeignGeneric\0FlatEnum\0FlatValueDirection\0ScopedEnum\0ScopedValueDirection\0"
     ,"N\03C2\0< Container"
     ,"m\0<new>\0(String,Integer): C2"
     ,"m\0check\0(C2): Integer"
@@ -98,10 +108,21 @@ const char *lily_covlib_info_table[] = {
     ,"V\0FlatOne\0"
     ,"V\0FlatThree\0"
     ,"V\0FlatTwo\0"
+    ,"E\0FlatValueDirection\0< Integer"
+    ,"V\0East\0=-2"
+    ,"V\0North\0=0"
+    ,"V\0South\0=-1"
+    ,"V\0West\0=4567890"
     ,"E\03ScopedEnum\0"
     ,"V\0ScopedOne\0"
     ,"V\0ScopedThree\0"
     ,"V\0ScopedTwo\0"
+    ,"E\05ScopedValueDirection\0< Integer"
+    ,"m\0turn_right\0(ScopedValueDirection): ScopedValueDirection"
+    ,"V\0East\0=5"
+    ,"V\0North\0=4"
+    ,"V\0South\0=6"
+    ,"V\0West\0=7"
     ,"F\0cover_func_check\0(Function(Integer),Function(Integer=>String)): Boolean"
     ,"F\0cover_function_bytecode\0(Function(String),Function(Integer)): Boolean"
     ,"F\0cover_id_checks\0[A](Unit,A,String): Boolean"
@@ -148,6 +169,17 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     NULL, \
     NULL, \
     NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    lily_covlib_ScopedValueDirection_turn_right, \
     NULL, \
     NULL, \
     NULL, \

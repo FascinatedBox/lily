@@ -33,6 +33,22 @@ scoped enum ScopedEnum {
     ScopedThree
 }
 
+enum FlatValueDirection > Integer {
+    North,
+    East = -2,
+    South,
+    West = 4567890
+}
+
+scoped enum ScopedValueDirection > Integer {
+    North = 4,
+    East = 5,
+    South = 6,
+    West = 7
+
+    define turn_right: ScopedValueDirection
+}
+
 define cover_func_check(native: Function(Integer), foreign: Function(Integer => String)): Boolean
 define cover_function_bytecode(foreign: Function(String), native: Function(Integer)): Boolean
 define cover_id_checks[A](u: Unit, c: A, d: String): Boolean

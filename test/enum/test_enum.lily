@@ -370,4 +370,124 @@ class TestEnum < TestCase
             check(.Branch(.Leaf(1), Tree.Leaf(2)))
         """)
     }
+
+    public define test_value_variants
+    {
+        var t = Interpreter()
+
+        # test value variants (basic usage, numeric interpolation)
+        assert_parse_string(t, """
+            scoped enum Direction > Integer {
+                North,
+                East = -2,
+                South,
+                West = 4567890
+            }
+
+            var directions = [.North, .East, .South, .West]
+                                .@(List[Direction])
+                                .map(|m| (m ++ "").parse_i().unwrap() )
+
+            if directions != [0, -2, -1, 4567890]: {
+                0 / 0
+            }
+        """)
+
+        # test value variants (flat enum too)
+        assert_parse_string(t, """
+            enum FlatDirection > Integer {
+                FNorth,
+                FEast = -2,
+                FSouth,
+                FWest = 4567890
+            }
+
+            var flat_directions = [.FNorth, .FEast, .FSouth, .FWest]
+                                    .@(List[FlatDirection])
+                                    .map(|m| (m ++ "").parse_i().unwrap() )
+
+            if flat_directions != [0, -2, -1, 4567890]: {
+                0 / 0
+            }
+        """)
+
+        # test value variants (coerce to Integer)
+        assert_parse_string(t, """
+            var v: Integer = Direction.South
+
+            directions = [Direction.North, Direction.East, Direction.South,
+                          Direction.West]
+                          .@(List[Integer])
+
+            if v != -1 ||
+               directions != [0, -2, -1, 4567890]: {
+                0 / 0
+            }
+        """)
+
+        # test value variants (match behavior)
+        assert_parse_string(t, """
+            define match_direction(d: Direction): Integer
+            {
+                match d: {
+                    case East:
+                        return 0
+                    case South, West:
+                        return (d == .West).to_i() + 1
+                    else:
+                        return 3
+                }
+            }
+
+            var strictd: List[Direction] = [.North, .East, .South, .West]
+            var int_d = strictd.map(match_direction)
+
+            if int_d != [3, 0, 1, 2]: {
+                0 / 0
+            }
+        """)
+
+        # test value variants (with behavior)
+        assert_parse_string(t, """
+            define is_south(d: Direction): Boolean
+            {
+                with d as South: {
+                    return true
+                else:
+                    return false
+                }
+            }
+
+            var base: List[Direction] = [.North, .East, .South, .West]
+            var mapped = base.map(is_south)
+
+            if mapped != [false, false, true, false]: {
+                0 / 0
+            }
+        """)
+
+        # test value variants (variance)
+        assert_parse_string(t, """
+            enum LR > Integer {
+                Left = 0,
+                Right = 1
+            }
+
+            define x(a: Integer, b: Integer): Integer
+            {
+                if a != b: { 0/0 }
+                return Left
+            }
+
+            x(Left, 0)
+            x(Right, 1)
+        """)
+
+        # test value variants (typecast narrowing)
+        assert_parse_string(t, """
+            define x2[A](a: A, b: A) { }
+
+            x2(Left.@(Integer), 0)
+        """)
+    }
 }

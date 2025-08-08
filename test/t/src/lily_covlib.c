@@ -26,6 +26,27 @@ void lily_covlib_new_Foreign(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_covlib_ScopedValueDirection_turn_right(lily_state *s)
+{
+    int64_t v = lily_arg_integer(s, 0);
+    int64_t values[] = {
+            ScopedValueDirection_North_VALUE,
+            ScopedValueDirection_East_VALUE,
+            ScopedValueDirection_South_VALUE,
+            ScopedValueDirection_West_VALUE
+    };
+
+    for (int i = 0;i < 4;i++) {
+        if (v != values[i])
+            continue;
+
+        v = values[(i + 1) % 4];
+        break;
+    }
+
+    lily_return_integer(s, v);
+}
+
 void lily_covlib__cover_list_reserve(lily_state *s)
 {
     lily_container_val *l = lily_push_list(s, 0);

@@ -2218,6 +2218,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     prelude module. At well over 100 records, this makes a considerable
     difference in startup memory cost. */
 
+static void parse_value_variant(lily_parse_state *, lily_variant_class *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_type *build_empty_variant_type(lily_parse_state *, lily_class *);
 static lily_item *try_dynaload_method(lily_parse_state *, lily_class *,
@@ -2624,6 +2625,12 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     enum_cls->dyna_start = ds->index;
     collect_generics_for(parser, enum_cls);
 
+    if (lex->token == tk_lt)
+        /* Integer is the only valid option, so assume it's that. */
+        enum_cls->parent = parser->symtab->integer_class;
+
+    int is_value_enum = (lex->token == tk_lt);
+
     /* Enums are followed by methods, then variants. Flat enums will write an
        offset that goes to the first enum, whereas scoped enums skip to the next
        toplevel entry. */
@@ -2641,10 +2648,14 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
         lily_lexer_load(lex, et_shallow_string, dyna_get_body(ds));
         lily_next_token(lex);
 
-        if (lex->token == tk_left_parenth)
-            parse_variant_header(parser, variant);
+        if (is_value_enum == 0) {
+            if (lex->token == tk_left_parenth)
+                parse_variant_header(parser, variant);
+            else
+                variant->build_type = empty_type;
+        }
         else
-            variant->build_type = empty_type;
+            parse_value_variant(parser, variant);
 
         lily_pop_lex_entry(lex);
         dyna_iter_next(ds);
@@ -5301,6 +5312,79 @@ static void parse_variant_header(lily_parse_state *parser,
     variant_cls->item_kind = ITEM_VARIANT_FILLED;
 }
 
+static void parse_enum_inheritance(lily_parse_state *parser,
+        lily_class *enum_cls)
+{
+    /* These don't take arguments so this isn't useful. */
+    if (enum_cls->generic_count != 0)
+        lily_raise_syn(parser->raiser,
+                "Enums with generics are not allowed to inherit.");
+
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+
+    if (lex->token != tk_word || strcmp(lex->label, "Integer") != 0)
+        lily_raise_syn(parser->raiser,
+                "Enums are only allowed to inherit from Integer.");
+
+    enum_cls->parent = parser->symtab->integer_class;
+    lily_next_token(lex);
+}
+
+static void parse_value_variant(lily_parse_state *parser,
+        lily_variant_class *variant_cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *enum_cls = variant_cls->parent;
+
+    /* Variants always come before methods, so this is always a variant. */
+    lily_variant_class *last = (lily_variant_class *)variant_cls->next;
+    int64_t value;
+
+    if (lex->token == tk_equal) {
+        lily_next_token(lex);
+
+        if (lex->token != tk_integer)
+            lily_raise_syn(parser->raiser, "A number is required here.");
+
+        value = lex->n.integer_val;
+        /* Don't pull the next token yet (error context will be off). */
+    }
+    else if (last)
+        value = last->raw_value + 1;
+    else
+        value = 0;
+
+    lily_type *t;
+    lily_literal *lit = lily_get_integer_literal(parser->symtab, &t, value);
+
+    /* Value enums are always monomorphic so this is fine. */
+    variant_cls->build_type = enum_cls->self_type;
+
+    /* This works because variants are heavily gated: Parser doesn't allow them
+       in type declaration, and they are dispatched by item_kind in expression
+       handling. Emitter never feeds raw variants to ts, so these ids won't be
+       seen. Finally, symtab doesn't register these variant classes. */
+    variant_cls->cls_id = (last ? last->cls_id + 1 : 0);
+    variant_cls->raw_value = value;
+    variant_cls->backing_lit = lit->reg_spot;
+    variant_cls->flags |= VARIANT_HAS_VALUE;
+
+    if (last) {
+        lily_variant_class *c = lily_find_variant_with_lit(enum_cls,
+                lit->reg_spot);
+
+        /* This is enough (the above never returns the current variant). */
+        if (c)
+            lily_raise_syn(parser->raiser,
+                    "Duplicate variant value (already in use by %s).", c->name);
+    }
+
+    if (lex->token == tk_integer)
+        lily_next_token(parser->lex);
+}
+
 static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 {
     int is_scoped = (enum_cls->item_kind == ITEM_ENUM_SCOPED);
@@ -5311,6 +5395,10 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     collect_generics_for(parser, enum_cls);
 
     lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
+    int is_value_enum = (lex->token == tk_gt);
+
+    if (is_value_enum)
+        parse_enum_inheritance(parser, enum_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
@@ -5334,15 +5422,23 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
                 lex->line_num);
 
         lily_next_token(lex);
-        if (lex->token == tk_left_parenth)
-            parse_variant_header(parser, variant_cls);
+
+        if (is_value_enum == 0) {
+            if (lex->token == tk_left_parenth)
+                parse_variant_header(parser, variant_cls);
+            else
+                variant_cls->build_type = empty_type;
+        }
         else
-            variant_cls->build_type = empty_type;
+            parse_value_variant(parser, variant_cls);
 
         if (lex->token == tk_comma) {
             lily_next_token(lex);
             continue;
         }
+        else if (lex->token == tk_equal && is_value_enum == 0)
+            lily_raise_syn(parser->raiser,
+                "Enums must inherit from Integer to have values.");
 
         break;
     }

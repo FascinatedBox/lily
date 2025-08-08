@@ -245,6 +245,9 @@ foreign static class VariantEntry
 
     ### Return the type of the method provided.
     public define type: TypeEntry
+
+    ### Return the backing value (if a value variant), `""` otherwise.
+    public define value: String
 }
 
 ### This is a foreign class that wraps over an enum.
@@ -274,6 +277,10 @@ foreign static class EnumEntry
 
     ### Return the name of the class provided.
     public define name: String
+
+    ### Returns a `Some` of the `Integer` class if a value enum, `None`
+    ### otherwise.
+    public define parent: Option[ClassEntry]
 
     ### Return the variants that were declared within this enum. No ordering is
     ### guaranteed.

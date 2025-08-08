@@ -929,6 +929,21 @@ void lily_introspect_VariantEntry_type(lily_state *s)
     unpack_and_return_type(s);
 }
 
+void lily_introspect_VariantEntry_value(lily_state *s)
+{
+    UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
+
+    if ((entry->flags & VARIANT_HAS_VALUE) == 0) {
+        lily_return_string(s, "");
+        return;
+    }
+
+    char buf[64];
+
+    sprintf(buf, "%" PRId64, entry->raw_value);
+    lily_return_string(s, buf);
+}
+
 void lily_introspect_EnumEntry_doc(lily_state *s)
 {
     lily_introspect_ClassEntry_doc(s);
@@ -964,6 +979,11 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
     lily_named_sym *source_iter = source;
 
     BUILD_LIST_FROM_2(allow_methods, make_method);
+}
+
+void lily_introspect_EnumEntry_parent(lily_state *s)
+{
+    return lily_introspect_ClassEntry_parent(s);
 }
 
 void lily_introspect_EnumEntry_variants(lily_state *s)
