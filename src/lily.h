@@ -421,6 +421,12 @@ void lily_default_import_func(lily_state *s, const char *target);
 // Returns 1 on success, 0 on failure.
 int lily_import_file(lily_state *s, const char *target);
 
+// Function: lily_import_file_or_library
+// Convenience function for importing a file or library.
+//
+// This is equivalent to `import_file(...) || import_library(...)`
+int lily_import_file_or_library(lily_state *s, const char *target);
+
 // Function: lily_import_library
 // Load a library from a given path.
 //

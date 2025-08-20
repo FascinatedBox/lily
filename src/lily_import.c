@@ -380,6 +380,11 @@ int lily_import_file(lily_state *s, const char *name)
     return 1;
 }
 
+int lily_import_file_or_library(lily_state *s, const char *name)
+{
+    return lily_import_file(s, name) || lily_import_library(s, name);
+}
+
 int lily_import_string(lily_state *s, const char *name, const char *source)
 {
     lily_parse_state *parser = s->gs->parser;
