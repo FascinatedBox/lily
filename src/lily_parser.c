@@ -5,6 +5,7 @@
 
 #include "lily.h"
 #include "lily_alloc.h"
+#include "lily_import.h"
 #include "lily_library.h"
 #include "lily_opcode.h"
 #include "lily_parser.h"
@@ -61,9 +62,7 @@ extern lily_type *lily_unset_type;
     All api functions use the initial vm so that the api does not need to know
     about the parser.
  **/
-static lily_module_entry *new_module(lily_parse_state *);
 static void create_main_func(lily_parse_state *);
-void lily_default_import_func(lily_state *, const char *);
 void lily_stdout_print(lily_vm_state *);
 void lily_open_prelude_library(lily_parse_state *);
 
@@ -92,43 +91,6 @@ typedef struct lily_rewind_state_
     uint8_t has_exited;
     uint16_t pad;
 } lily_rewind_state;
-
-/* The import state (ims) holds data relevant to the interpreter's import hook.
-   Rewind does not need to adjust any fields because they are set before running
-   the import hook. */
-typedef struct lily_import_state_ {
-    /* Buffer for constructing paths into. */
-    lily_msgbuf *path_msgbuf;
-
-    /* This is set to NULL before running the import hook. If an import function
-       succeeds, this is non-NULL. */
-    lily_module_entry *last_import;
-
-    /* This module called for the import. */
-    lily_module_entry *source_module;
-
-    /* Strictly for the import hook (might be NULL/invalid outside of it). This
-       is the name that the imported module will have. It is also the name used
-       in symbol searches if using `lily_import_library`. */
-    const char *pending_loadname;
-
-    /* The full path that was handed to import. This provides a nicer means of
-       getting lex->label. Used internally. */
-    const char *fullname;
-
-    /* The directory the user passed. Goes between the source's root and the
-       target. */
-    const char *dirname;
-
-    /* 1 if fullname has slashes, 0 otherwise. Used internally. */
-    uint16_t is_slashed_path;
-
-    /* 1 if a package import, 0 otherwise. If 1, path building adds a package
-       base directory after the dirname above. */
-    uint16_t is_package_import;
-
-    uint32_t pad;
-} lily_import_state;
 
 void lily_init_pkg_prelude(lily_symtab *);
 
@@ -235,7 +197,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->emit->lex_linenum = &parser->lex->line_num;
 
     /* Build the module that will hold `__main__`. */
-    lily_module_entry *main_module = new_module(parser);
+    lily_module_entry *main_module = lily_ims_new_module(parser);
 
     parser->main_module = main_module;
     parser->symtab->active_module = parser->main_module;
@@ -386,12 +348,6 @@ static void initialize_rewind(lily_parse_state *parser)
     rs->line_num = parser->lex->line_num;
 }
 
-static void add_data_string(lily_parse_state *parser, const char *to_add)
-{
-    lily_u16_write_1(parser->data_stack, parser->data_string_pos);
-    lily_sp_insert(parser->data_strings, to_add, &parser->data_string_pos);
-}
-
 /***
  *      ____
  *     |  _ \  ___   ___ ___
@@ -503,11 +459,17 @@ static uint16_t store_docblock(lily_parse_state *parser)
     return build_doc_data(parser, 1);
 }
 
+void lily_pa_add_data_string(lily_parse_state *parser, const char *to_add)
+{
+    lily_u16_write_1(parser->data_stack, parser->data_string_pos);
+    lily_sp_insert(parser->data_strings, to_add, &parser->data_string_pos);
+}
+
 static void save_docblock(lily_parse_state *parser)
 {
     if (parser->flags & PARSER_EXTRA_INFO) {
         lily_u16_write_1(parser->data_stack, 0);
-        add_data_string(parser, parser->lex->label);
+        lily_pa_add_data_string(parser, parser->lex->label);
         parser->flags |= PARSER_HAS_DOCBLOCK;
     }
 }
@@ -523,14 +485,14 @@ static void write_generics(lily_parse_state *parser, uint16_t where)
 
     lily_mb_add_char(msgbuf, range);
     lily_u16_write_1(parser->data_stack, where);
-    add_data_string(parser, lily_mb_raw(msgbuf));
+    lily_pa_add_data_string(parser, lily_mb_raw(msgbuf));
 }
 
 static uint16_t store_enum_docblock(lily_parse_state *parser)
 {
     if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
         lily_u16_write_1(parser->data_stack, 0);
-        add_data_string(parser, "");
+        lily_pa_add_data_string(parser, "");
     }
     else
         parser->flags &= ~PARSER_HAS_DOCBLOCK;
@@ -550,7 +512,7 @@ static void set_definition_doc(lily_parse_state *parser)
 
     if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
         lily_u16_write_1(parser->data_stack, 0);
-        add_data_string(parser, "");
+        lily_pa_add_data_string(parser, "");
     }
     else
         parser->flags &= ~PARSER_HAS_DOCBLOCK;
@@ -570,13 +532,13 @@ static void set_definition_doc(lily_parse_state *parser)
 
     for (i = count;i > offset;i--) {
         lily_u16_write_1(parser->data_stack, i);
-        add_data_string(parser, var_iter->name);
+        lily_pa_add_data_string(parser, var_iter->name);
         var_iter = var_iter->next;
     }
 
     if (offset) {
         lily_u16_write_1(parser->data_stack, i);
-        add_data_string(parser, "");
+        lily_pa_add_data_string(parser, "");
     }
 
     write_generics(parser, count + 1);
@@ -655,573 +617,6 @@ lily_sym *find_existing_sym(lily_module_entry *m, const char *name)
         result = (lily_sym *)lily_find_module(m, name);
 
     return result;
-}
-
-/***
- *      ___                            _
- *     |_ _|_ __ ___  _ __   ___  _ __| |_
- *      | || '_ ` _ \| '_ \ / _ \| '__| __|
- *      | || | | | | | |_) | (_) | |  | |_
- *     |___|_| |_| |_| .__/ \___/|_|   \__|
- *                   |_|
- */
-
-/** Within the interpreter, code is broken down into different modules. Every
-    module is a namespace that can contain classes, enums, variables, and
-    possibly other modules. Every module is a 1-to-1 mapping between some
-    symbol source (like sys), a dynamically-loaded library, a string source, or
-    a file.
-
-    The prelude module is the foundation of Lily, and the only module that is
-    implicitly loaded. All other modules must be explicitly loaded through the
-    import keyword. This is intentional. An important part of Lily is being able
-    to know where symbols come from. The same reasoning is why `import *` is not
-    present in the interpreter.
-
-    What about grouping modules together? A package is a 1-to-many grouping of
-    modules. `sys` is referred to as a package, for example, because even though
-    it is one module, it is complete by itself. Inside the interpreter, there is
-    no strict representation of packages apart from modules. Rather, the
-    distinction comes in loading behavior.
-
-    The first source (file or string) that is loaded into the interpreter
-    automatically becomes a root module. Additionally, the first module of any
-    package that is loaded becomes the root for that package. What's the
-    difference? Internally, it's that non-root modules borrow the root_dirname
-    field from the root module of their respective package.
-
-    When the interpreter wants to run an import, that import is done relative to
-    the root module. Consider the following example:
-
-    ```
-    farmer.lily
-    vegetables/
-        common.lily
-        spinach.lily
-        broccoli.lily
-    ```
-
-    If execution starts with `farmer.lily`, then it becomes the root module. If
-    `spinach.lily` wants to import `common.lily`, it must use
-    `import "vegetables/common"` even though it exists in the same directory as
-    `common.lily`. This was done to lessen the amount of relative (`../`)
-    imports and for packages.
-
-    How does the interpreter know the difference between a regular module and
-    the root module of a package? Packages in Lily have a specific organization.
-    Following the above example:
-
-    ```
-    farmer.lily
-    packages/
-        potato/
-            src/
-                potato.lily
-    vegetables/
-        common.lily
-        spinach.lily
-        broccoli.lily
-    ```
-
-    The root module of `potato` is `packages/potato/src/potato.suffix`. For an
-    example `apple` module, it would be `packages/apple/src/apple.suffix`. Since
-    modules are relative from the root, `spinach.lily` can simply use
-    `import potato` to open the potato package, rooted at the above-mentioned
-    `potato.lily` file.
-
-    Designing packages this way allows them to have subpackages and a module
-    tree of their own. But there's one other catch. Lily is also supposed to be
-    embeddable, and different embedders may have different needs.
-
-    The import hook is the solution to this. The hook selects between a local
-    directory and a package directory. The selection is also able to specify a
-    directory to go between the root and the target provided. An embedder can
-    make `tests/` able to access `src/`. A sandbox can choose to skip library
-    loads. **/
-
-static lily_module_entry *new_module(lily_parse_state *parser)
-{
-    lily_module_entry *module = lily_malloc(sizeof(*module));
-
-    module->loadname = NULL;
-    module->dirname = NULL;
-    module->path = NULL;
-    module->doc_id = UINT16_MAX;
-    module->cmp_len = 0;
-    module->info_table = NULL;
-    module->cid_table = NULL;
-    module->next = NULL;
-    module->module_chain = NULL;
-    module->class_chain = NULL;
-    module->var_chain = NULL;
-    module->handle = NULL;
-    module->call_table = NULL;
-    module->boxed_chain = NULL;
-    module->item_kind = ITEM_MODULE;
-    /* If the module has a foreign source, setting the data will drop this. */
-    module->flags = MODULE_NOT_EXECUTED;
-    module->root_dirname = NULL;
-
-    if (parser->module_start) {
-        parser->module_top->next = module;
-        parser->module_top = module;
-    }
-    else {
-        parser->module_start = module;
-        parser->module_top = module;
-    }
-
-    parser->ims->last_import = module;
-
-    return module;
-}
-
-static void add_data_to_module(lily_module_entry *module, void *handle,
-        const char **table, lily_foreign_func *call_table)
-{
-    module->handle = handle;
-    module->info_table = table;
-    module->call_table = call_table;
-    module->flags &= ~MODULE_NOT_EXECUTED;
-
-    unsigned char cid_count = module->info_table[0][0];
-
-    if (cid_count) {
-        module->cid_table = lily_malloc(cid_count * sizeof(*module->cid_table));
-        memset(module->cid_table, 0, cid_count * sizeof(*module->cid_table));
-    }
-}
-
-/* Return a path without dot-slash characters at the front. Import path building
-   adds those to prevent some platforms from using system load paths. */
-static const char *simplified_path(const char *path)
-{
-    if (path[0] == '.' && path[1] == LILY_PATH_CHAR)
-        path += 2;
-
-    return path;
-}
-
-static void add_path_to_module(lily_module_entry *module,
-            const char *loadname, const char *path)
-{
-    module->loadname = lily_malloc(
-            (strlen(loadname) + 1) * sizeof(*module->loadname));
-    strcpy(module->loadname, loadname);
-
-    path = simplified_path(path);
-
-    module->cmp_len = (uint16_t)strlen(path);
-    module->path = lily_malloc((strlen(path) + 1) * sizeof(*module->path));
-    strcpy(module->path, path);
-}
-
-static char *dir_from_path(const char *path)
-{
-    const char *slash = strrchr(path, LILY_PATH_CHAR);
-    char *out;
-
-    if (slash == NULL) {
-        out = lily_malloc(1 * sizeof(*out));
-        out[0] = '\0';
-    }
-    else {
-        size_t bare_len = slash - path;
-        out = lily_malloc((bare_len + 1) * sizeof(*out));
-
-        strncpy(out, path, bare_len);
-        out[bare_len] = '\0';
-    }
-
-    return out;
-}
-
-static void set_dirs_on_module(lily_parse_state *parser,
-        lily_module_entry *module)
-{
-    /* This only needs to be called on modules that will run an import. Foreign
-       modules can skip this. */
-    if (parser->ims->is_package_import) {
-        module->dirname = dir_from_path(module->path);
-        module->root_dirname = module->dirname;
-    }
-    else
-        module->root_dirname = parser->ims->source_module->root_dirname;
-}
-
-static int import_check(lily_parse_state *parser, const char *path)
-{
-    lily_module_entry *m = parser->ims->last_import;
-    int result = 1;
-
-    if (m == NULL && path != NULL) {
-        /* Import path building adds a dot-slash at the front that isn't stored
-           in the module's path (it's useless). Use a fixed path or the module
-           search will incorrectly turn up empty. */
-        path = simplified_path(path);
-
-        m = lily_find_module_by_path(parser->symtab, path);
-        if (m != NULL)
-            parser->ims->last_import = m;
-        else
-            result = 0;
-    }
-
-    return result;
-}
-
-static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
-{
-#ifdef _WIN32
-    /* For Windows, add the directory but replacing '/' with '\\'. */
-    int start = 0, stop = 0;
-    const char *ch = &input_str[0];
-
-    while (1) {
-        if (*ch == '/') {
-            stop = (ch - input_str);
-            lily_mb_add_slice(msgbuf, input_str, start, stop);
-            lily_mb_add_char(msgbuf, '\\');
-            start = stop + 1;
-        }
-        else if (*ch == '\0')
-            break;
-
-        ch++;
-    }
-
-    if (start != 0) {
-        stop = (ch - input_str);
-        lily_mb_add_slice(msgbuf, input_str, start, stop);
-    }
-#else
-    /* Platforms which already use '/' can simply add the string. */
-    lily_mb_add(msgbuf, input_str);
-#endif
-    size_t len = strlen(input_str);
-
-    if (input_str[len] != LILY_PATH_CHAR)
-        lily_mb_add_char(msgbuf, LILY_PATH_CHAR);
-}
-
-static const char *build_import_path(lily_import_state *ims, const char *target,
-        const char *suffix)
-{
-    /* Make sure the caller used a `lily_import_use_*` function first. */
-    if (ims->dirname == NULL)
-        return NULL;
-
-    /* The packages directory is always flat, so slashed paths will always fail
-       to match. Don't let them through. */
-    if (ims->is_package_import &&
-        strchr(target, LILY_PATH_CHAR))
-        return NULL;
-
-    lily_msgbuf *path_msgbuf = lily_mb_flush(ims->path_msgbuf);
-    const char *root_dirname = ims->source_module->root_dirname;
-
-    if (root_dirname == NULL || root_dirname[0] == '\0')
-        lily_mb_add_char(path_msgbuf, '.');
-    else
-        lily_mb_add(path_msgbuf, root_dirname);
-
-    lily_mb_add_char(path_msgbuf, LILY_PATH_CHAR);
-
-    if (ims->dirname[0] != '\0')
-        add_fixslash_dir(path_msgbuf, ims->dirname);
-
-    if (ims->is_package_import == 1) {
-        lily_mb_add_fmt(path_msgbuf,
-                "packages" LILY_PATH_SLASH
-                "%s" LILY_PATH_SLASH
-                "src" LILY_PATH_SLASH, target);
-    }
-
-    lily_mb_add(path_msgbuf, target);
-    lily_mb_add_char(path_msgbuf, '.');
-    lily_mb_add(path_msgbuf, suffix);
-
-    return lily_mb_raw(path_msgbuf);
-}
-
-int lily_import_file(lily_state *s, const char *name)
-{
-    lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, name, "lily");
-
-    if (import_check(parser, path))
-        return path != NULL;
-
-    FILE *source = fopen(path, "r");
-    if (source == NULL) {
-        add_data_string(parser, path);
-        return 0;
-    }
-
-    lily_lexer_load(parser->lex, et_file, source);
-
-    lily_module_entry *module = new_module(parser);
-
-    add_path_to_module(module, parser->ims->pending_loadname, path);
-    set_dirs_on_module(parser, module);
-    return 1;
-}
-
-int lily_import_string(lily_state *s, const char *name, const char *source)
-{
-    lily_parse_state *parser = s->gs->parser;
-    const char *path = build_import_path(parser->ims, name, "lily");
-
-    if (import_check(parser, path))
-        return path != NULL;
-
-    /* Always copy strings to be imported. The string being sent may have a
-       lifetime that cannot be guaranteed to be as long as the interpreter's
-       current parse/render cycle. */
-    lily_lexer_load(parser->lex, et_copied_string, (char *)source);
-
-    lily_module_entry *module = new_module(parser);
-
-    add_path_to_module(module, parser->ims->pending_loadname, path);
-    set_dirs_on_module(parser, module);
-    return 1;
-}
-
-int lily_import_library(lily_state *s, const char *name)
-{
-    lily_parse_state *parser = s->gs->parser;
-    const char *suffix_table[] = LILY_LIB_SUFFIXES;
-    const char **suffix = suffix_table;
-    int result = 0;
-
-    /* Libraries provide a mechanism for escaping the sandbox. */
-    if (parser->config->sandbox)
-        return 0;
-
-    while (*suffix != NULL) {
-        const char *path = build_import_path(parser->ims, name, *suffix);
-
-        suffix++;
-
-        if (import_check(parser, path)) {
-            result = (path != NULL);
-            break;
-        }
-
-        void *handle = lily_library_load(path);
-
-        if (handle == NULL) {
-            add_data_string(parser, path);
-            continue;
-        }
-
-        lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-        const char *loadname = parser->ims->pending_loadname;
-
-        const char **info_table = (const char **)lily_library_get(handle,
-                lily_mb_sprintf(msgbuf, "lily_%s_info_table", loadname));
-
-        lily_foreign_func *call_table = lily_library_get(handle,
-                lily_mb_sprintf(msgbuf, "lily_%s_call_table", loadname));
-
-        if (info_table == NULL || call_table == NULL) {
-            add_data_string(parser, path);
-            lily_library_free(handle);
-            continue;
-        }
-
-        lily_module_entry *module = new_module(parser);
-
-        add_path_to_module(module, parser->ims->pending_loadname, path);
-        add_data_to_module(module, handle, info_table, call_table);
-        result = 1;
-        break;
-    }
-
-    return result;
-}
-
-int lily_import_library_data(lily_state *s, const char *path,
-        const char **info_table, lily_call_entry_func *call_table)
-{
-    lily_parse_state *parser = s->gs->parser;
-
-    if (import_check(parser, path))
-        return 1;
-
-    lily_module_entry *module = new_module(parser);
-
-    add_path_to_module(module, parser->ims->pending_loadname, path);
-    add_data_to_module(module, NULL, info_table, call_table);
-    return 1;
-}
-
-void lily_module_register(lily_state *s, const char *name,
-        const char **info_table, lily_call_entry_func *call_table)
-{
-    lily_parse_state *parser = s->gs->parser;
-    lily_module_entry *module = new_module(parser);
-
-    /* This special "path" is for vm and parser traceback. */
-    const char *module_path = lily_mb_sprintf(parser->msgbuf, "[%s]", name);
-
-    add_path_to_module(module, name, module_path);
-    add_data_to_module(module, NULL, info_table, call_table);
-    module->cmp_len = 0;
-    module->flags |= MODULE_IS_REGISTERED;
-}
-
-/* This takes a parser because the api should not use it directly. */
-void lily_predefined_module_register(lily_parse_state *parser, const char *name,
-        const char **info_table, lily_call_entry_func *call_table)
-{
-    lily_module_entry *module = new_module(parser);
-    const char *module_path = lily_mb_sprintf(parser->msgbuf, "[%s]", name);
-
-    add_path_to_module(module, name, module_path);
-    add_data_to_module(module, NULL, info_table, call_table);
-    module->cmp_len = 0;
-    module->flags |= MODULE_IS_REGISTERED | MODULE_IS_PREDEFINED;
-}
-
-/* This adds 'to_link' as an entry within 'target' so that 'target' is able to
-   reference it later on. If 'as_name' is not NULL, then 'to_link' will be
-   available through that name. Otherwise, it will be available as the name it
-   actually has. */
-static void link_module_to(lily_module_entry *target, lily_module_entry *to_link,
-        const char *as_name)
-{
-    lily_module_link *new_link = lily_malloc(sizeof(*new_link));
-    char *link_name;
-    if (as_name == NULL)
-        link_name = NULL;
-    else {
-        link_name = lily_malloc((strlen(as_name) + 1) * sizeof(*link_name));
-        strcpy(link_name, as_name);
-    }
-
-    new_link->module = to_link;
-    new_link->next = target->module_chain;
-    new_link->as_name = link_name;
-
-    target->module_chain = new_link;
-}
-
-void lily_import_use_local_dir(lily_state *s, const char *dirname)
-{
-    lily_import_state *ims = s->gs->parser->ims;
-
-    ims->dirname = dirname;
-    ims->is_package_import = 0;
-}
-
-void lily_import_use_package_dir(lily_state *s, const char *dirname)
-{
-    lily_import_state *ims = s->gs->parser->ims;
-
-    ims->dirname = dirname;
-    ims->is_package_import = 1;
-}
-
-const char *lily_import_current_root_dir(lily_state *s)
-{
-    lily_parse_state *parser = s->gs->parser;
-
-    const char *current_root = parser->ims->source_module->root_dirname;
-    const char *first_root = parser->main_module->root_dirname;
-    const char *result = current_root + strlen(first_root);
-
-    return result;
-}
-
-void lily_default_import_func(lily_state *s, const char *target)
-{
-    /* Perform a local search from this directory. */
-    lily_import_use_local_dir(s, "");
-    if (lily_import_file(s, target) ||
-        lily_import_library(s, target))
-        return;
-
-    /* Packages are in this directory as well. */
-    lily_import_use_package_dir(s, "");
-    if (lily_import_file(s, target) ||
-        lily_import_library(s, target))
-        return;
-}
-
-static lily_module_entry *find_registered_module(lily_parse_state *parser,
-        const char *target)
-{
-    /* Registered modules are allowed to have non-identifier paths, but it's
-       really not a good idea. Block them to discourage that. */
-    if (parser->ims->is_slashed_path)
-        return NULL;
-
-    lily_symtab *symtab = parser->symtab;
-    lily_module_entry *module = lily_find_registered_module(symtab, target);
-
-    if (module &&
-        (module->flags & MODULE_IS_PREDEFINED) == 0) {
-        /* Prevent registered modules from being loaded outside of the initial
-           package. This allows a different embedder to simulate the module by
-           only needing to supply a single file at the initial root. It also
-           prevents potential issues from name conflicts in subpackages. */
-        const char *active_root = symtab->active_module->root_dirname;
-        const char *main_root = parser->main_module->root_dirname;
-
-        /* Children of a module share a pointer to their parent's root_dirname,
-           so a strcmp isn't necessary here. */
-        if (active_root != main_root)
-            module = NULL;
-    }
-
-    return module;
-}
-
-static lily_module_entry *open_module(lily_parse_state *parser)
-{
-    lily_import_state *ims = parser->ims;
-    lily_module_entry *module = find_registered_module(parser,
-            ims->pending_loadname);
-
-    if (module)
-        return module;
-
-    uint16_t save_pos = lily_u16_pos(parser->data_stack);
-    const char *name = ims->fullname;
-
-    parser->config->import_func(parser->vm, name);
-
-    if (ims->last_import == NULL) {
-        lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-
-        lily_mb_add_fmt(msgbuf, "Cannot import '%s':", name);
-
-        if (ims->is_slashed_path == 0)
-            lily_mb_add_fmt(msgbuf, "\n    no preloaded package '%s'", name);
-
-        lily_buffer_u16 *b = parser->data_stack;
-        uint16_t i;
-
-        for (i = save_pos;i < lily_u16_pos(b);i++) {
-            uint16_t check_pos = lily_u16_get(b, i);
-            lily_mb_add_fmt(msgbuf, "\n    no file '%s'",
-                    lily_sp_get(parser->data_strings, check_pos));
-        }
-
-        /* Don't send the buffer as the only argument, because the path may have
-           format characters. */
-        lily_raise_syn(parser->raiser, "%s", lily_mb_raw(msgbuf));
-    }
-
-    module = ims->last_import;
-
-    if (module->flags & MODULE_IN_EXECUTION)
-        lily_raise_syn(parser->raiser,
-                "This module is already being imported.");
-
-    lily_u16_set_pos(parser->data_stack, save_pos);
-    return module;
 }
 
 /***
@@ -2041,7 +1436,7 @@ static void collect_keyarg(lily_parse_state *parser, uint16_t pos,
                     "A keyword named :%s has already been declared.", name);
     }
 
-    add_data_string(parser, name);
+    lily_pa_add_data_string(parser, name);
 
     if (load_next)
         lily_next_token(lex);
@@ -3020,7 +2415,7 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 static void push_dir_constant(lily_parse_state *parser)
 {
     lily_module_entry *module = parser->symtab->active_module;
-    char *dir = dir_from_path(module->path);
+    char *dir = lily_ims_dir_from_path(module->path);
     const char *push_dir = "." LILY_PATH_SLASH;
 
     if (dir[0] != '\0') {
@@ -4702,7 +4097,7 @@ static void parse_import_refs(lily_parse_state *parser)
 
         while (1) {
             NEED_NEXT_TOK(tk_word)
-            add_data_string(parser, lex->label);
+            lily_pa_add_data_string(parser, lex->label);
             count++;
 
             lily_next_token(lex);
@@ -4792,7 +4187,7 @@ static void parse_import_link(lily_parse_state *parser, lily_module_entry *m)
 
         /* This link must be done now, because the next token may be a word
            and lex->label would be modified. */
-        link_module_to(active, m, name);
+        lily_ims_link_module_to(active, m, name);
 
         if (name != NULL)
             lily_next_token(lex);
@@ -4836,7 +4231,7 @@ static void import_loop(lily_parse_state *parser)
     while (1) {
         parse_import_target(parser);
 
-        lily_module_entry *m = open_module(parser);
+        lily_module_entry *m = lily_ims_open_module(parser);
 
         if (m->flags & MODULE_NOT_EXECUTED) {
             enter_module(parser, m);
@@ -6769,7 +6164,7 @@ static void update_main_name(lily_parse_state *parser,
        Setting this prevents those errors. */
     module->flags = MODULE_IN_EXECUTION;
     module->path = path;
-    module->dirname = dir_from_path(path);
+    module->dirname = lily_ims_dir_from_path(path);
     module->cmp_len = (uint16_t)strlen(path);
     module->root_dirname = module->dirname;
     /* The loadname isn't set because the first module isn't importable. */

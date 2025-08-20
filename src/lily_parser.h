@@ -107,5 +107,6 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *, uint16_t, const char *,
 lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *,
         const char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
+void lily_pa_add_data_string(lily_parse_state *, const char *);
 
 #endif
