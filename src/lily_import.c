@@ -145,8 +145,7 @@ const char *lily_ims_build_path(lily_import_state *ims, const char *target,
 
     /* The packages directory is always flat, so slashed paths will always fail
        to match. Don't let them through. */
-    if (ims->is_package_import &&
-        strchr(target, LILY_PATH_CHAR))
+    if (ims->is_package_import && ims->is_slashed_path)
         return NULL;
 
     lily_msgbuf *path_msgbuf = lily_mb_flush(ims->path_msgbuf);
