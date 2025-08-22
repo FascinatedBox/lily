@@ -14,6 +14,7 @@ static void usage()
           "                 Everything else is printed to stdout.\n"
           "                 By default, everything is treated as code.\n"
           "-s string      : The program is a string (end of options).\n"
+          "-l             : Local imports only (don't use system dirs).\n"
           "-gstart N      : Initial # of objects allowed before a gc sweep.\n"
           "-gmul N        : (# allowed * N) when sweep can't free anything.\n"
           "file           : The program is the given filename.\n", stderr);
@@ -24,6 +25,7 @@ int is_file;
 int do_tags = 0;
 int gc_start = -1;
 int gc_multiplier = -1;
+int use_sys_dirs = 1;
 char *to_process = NULL;
 
 static void process_args(int argc, char **argv, int *argc_offset)
@@ -57,6 +59,8 @@ static void process_args(int argc, char **argv, int *argc_offset)
             is_file = 0;
             break;
         }
+        else if (strcmp("-l", arg) == 0)
+            use_sys_dirs = 0;
         else {
             is_file = 1;
             break;
@@ -85,6 +89,7 @@ int main(int argc, char **argv)
 
     config.argc = argc - argc_offset;
     config.argv = argv + argc_offset;
+    config.use_sys_dirs = use_sys_dirs;
 
     lily_state *state = lily_new_state(&config);
 

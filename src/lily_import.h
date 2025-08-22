@@ -5,6 +5,14 @@
 
 struct lily_parse_state_;
 
+/* The type of import being performed. There is no 'none' value because path
+   building checks for `dirname == NULL` instead. */
+typedef enum {
+   imp_local,
+   imp_package,
+   imp_system
+} lily_import_type;
+
 /* The import state (ims) holds data relevant to the interpreter's import hook.
    Rewind does not need to adjust any fields because they are set before running
    the import hook. */
@@ -32,12 +40,16 @@ typedef struct lily_import_state_ {
        target. */
     const char *dirname;
 
+    /* System directories are stored here with \0 between each one. The last
+       entry is denoted by LILY_PATH_CHAR. */
+    char *sys_dirs;
+
     /* 1 if fullname has slashes, 0 otherwise. Used internally. */
     uint16_t is_slashed_path;
 
     /* 1 if a package import, 0 otherwise. If 1, path building adds a package
        base directory after the dirname above. */
-    uint16_t is_package_import;
+    lily_import_type import_type: 16;
 
     uint32_t pad;
 } lily_import_state;
@@ -52,5 +64,6 @@ void lily_ims_link_module_to(lily_module_entry *, lily_module_entry *,
         const char *);
 lily_module_entry *lily_ims_new_module(struct lily_parse_state_ *);
 lily_module_entry *lily_ims_open_module(struct lily_parse_state_ *);
+void lily_ims_process_sys_dirs(struct lily_parse_state_ *, lily_config *);
 
 #endif

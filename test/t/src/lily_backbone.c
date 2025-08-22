@@ -12,6 +12,7 @@ typedef struct lily_backbone_RawInterpreter_ {
     lily_config config;
     lily_state *sourcei;
     lily_value interp_reg;
+    char *sys_dirs;
 } lily_backbone_RawInterpreter;
 
 void lily_backbone_new_TestCaseBase(lily_state *s)
@@ -191,6 +192,7 @@ void lily_backbone_TestCaseBase_run_tests(lily_state *s)
 
 static void lily_backbone_destroy_RawInterpreter(lily_backbone_RawInterpreter *raw)
 {
+    lily_free(raw->sys_dirs);
     lily_free_state(raw->subi);
 }
 
@@ -202,6 +204,7 @@ void lily_backbone_new_Interpreter(lily_state *s)
     lily_config_init(&raw->config);
     raw->subi = lily_new_state(&raw->config);
     raw->sourcei = s;
+    raw->sys_dirs = NULL;
 
     SETFS_Interpreter__raw(s, interp);
 
@@ -378,6 +381,26 @@ void lily_backbone_Interpreter_import_use_package_dir(lily_state *s)
     lily_return_unit(s);
 }
 
+void lily_backbone_Interpreter_new_non_local(lily_state *s)
+{
+    lily_container_val *interp = lily_push_instance(s, ID_Interpreter(s), 2);
+    const char *dirs = lily_arg_string_raw(s, 0);
+    char *sys_dirs = lily_malloc((strlen(dirs) + 1) * sizeof(*sys_dirs));
+
+    strcpy(sys_dirs, dirs);
+
+    lily_backbone_RawInterpreter *raw = INIT_RawInterpreter(s);
+    lily_config_init(&raw->config);
+    raw->config.use_sys_dirs = 1;
+    raw->config.sys_dirs = sys_dirs;
+    raw->subi = lily_new_state(&raw->config);
+    raw->sourcei = s;
+    raw->sys_dirs = sys_dirs;
+
+    SETFS_Interpreter__raw(s, interp);
+    lily_return_top(s);
+}
+
 void lily_backbone_Interpreter_new_sandboxed(lily_state *s)
 {
     lily_container_val *interp = lily_push_instance(s, ID_Interpreter(s), 2);
@@ -387,6 +410,7 @@ void lily_backbone_Interpreter_new_sandboxed(lily_state *s)
     raw->config.sandbox = 1;
     raw->subi = lily_new_state(&raw->config);
     raw->sourcei = s;
+    raw->sys_dirs = NULL;
 
     SETFS_Interpreter__raw(s, interp);
     lily_return_top(s);

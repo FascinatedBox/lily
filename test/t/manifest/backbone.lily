@@ -34,6 +34,7 @@ class Interpreter
     public define import_use_package_dir(dir: String)
 
     # Not from spawni (for testing internal sandbox mode)
+    public static define new_non_local(dirs: String): Interpreter
     public static define new_sandboxed: Interpreter
     public define open_math_library
 

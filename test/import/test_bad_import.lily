@@ -2,6 +2,7 @@ import (Interpreter,
         LibraryTarget,
         StringTarget,
         TestCase) "../t/testing"
+import "../t/backbone"
 
 class TestBadImport < TestCase
 {
@@ -597,5 +598,102 @@ class TestBadImport < TestCase
 
             import manifest_loop
         """)
+    }
+
+
+    public define test_windows_sys_dirs
+    {
+        # Crude platform detection :(
+        if "\/" == "/": {
+            return
+        }
+
+        var t = backbone.Interpreter.new_non_local("|\\dir\\;C:\\")
+
+        t.parse_string("[test]", "import doesnotexist")
+
+        # This one's tough to check.
+        # On Windows, '|' is replaced with the current process directory, since
+        # there is no official directory for libraries.
+        # This checks that *some* kind of replacement was done.
+        # The non-Windows side doesn't check as much, because 
+
+        var message = t.error().split("\n")
+        var dirs_checked = message.select(|s| s.starts_with("    no file"))
+                                  .size()
+
+        # Should have 8 paths tested:
+        # 2 per directory. 1 local dir, 1 package dir, 2 system dirs.
+        # This fails if the directories weren't split right.
+        assert_equal(dirs_checked, 8)
+
+        # '|' is used because it's not a valid Windows path character.
+        # If it's present, it wasn't replaced, which is wrong.
+        var has_pipe = message.select(|s| s.starts_with("    no file"))
+                              .join()
+                              .find("|")
+                              .is_some()
+
+        assert_false(has_pipe)
+
+        # Make sure system dirs aren't trying slashed paths.
+        t.parse_string("[test]", "import \"abc/def\"")
+
+        verify_import_error("""\
+            SyntaxError: Cannot import 'abc\\def':
+                no file '.\\abc\\def.lily'
+                no file '.\\abc\\def.dll'
+
+               |
+             1 | import "abc/def"
+               |        ^
+
+                from [test]:1:
+        """, t.error())
+    }
+
+    public define test_nonwindows_sys_dirs
+    {
+        if "\/" == "\\": {
+            return
+        }
+
+        var t = backbone.Interpreter.new_non_local("/1/2/:/3/")
+
+        t.parse_string("[test]", "import doesnotexist")
+
+        verify_import_error("""\
+            SyntaxError: Cannot import 'doesnotexist':
+                no preloaded package 'doesnotexist'
+                no file './doesnotexist.lily'
+                no file './doesnotexist.{lib}'
+                no file './packages/doesnotexist/src/doesnotexist.lily'
+                no file './packages/doesnotexist/src/doesnotexist.{lib}'
+                no file '/1/2/doesnotexist/src/doesnotexist.lily'
+                no file '/1/2/doesnotexist/src/doesnotexist.{lib}'
+                no file '/3/doesnotexist/src/doesnotexist.lily'
+                no file '/3/doesnotexist/src/doesnotexist.{lib}'
+
+               |
+             1 | import doesnotexist
+               |        ^
+
+                from [test]:1:
+        """, t.error())
+
+        # Make sure system dirs aren't trying slashed paths.
+        t.parse_string("[test]", "import \"abc/def\"")
+
+        verify_import_error("""\
+            SyntaxError: Cannot import 'abc/def':
+                no file './abc/def.lily'
+                no file './abc/def.so'
+            
+               |
+             1 | import "abc/def"
+               |        ^
+            
+                from [test]:1:
+        """, t.error())
     }
 }

@@ -8,6 +8,11 @@
 #include "lily_parser.h"
 #include "lily_platform.h"
 
+#ifdef _WIN32
+/* Need this to process system directories. */
+# include <windows.h>
+#endif
+
 /** The import system (ims) handles building modules and dispatching imports to
     the right location. Modules hold symbols: Classes, enums, vars, and more.
     Each module is backed by a single source (library, file, string, etc).
@@ -88,9 +93,9 @@ static void add_path_to_module(lily_module_entry *module,
 static void set_dirs_on_module(lily_parse_state *parser,
         lily_module_entry *module)
 {
-    /* This only needs to be called on modules that will run an import. Foreign
-       modules can skip this. */
-    if (parser->ims->is_package_import) {
+    /* Fix the directory of a module that might run an import. */
+    if (parser->ims->import_type != imp_local) {
+        /* The first module of a package or system import is the root. */
         module->dirname = lily_ims_dir_from_path(module->path);
         module->root_dirname = module->dirname;
     }
@@ -143,29 +148,35 @@ const char *lily_ims_build_path(lily_import_state *ims, const char *target,
     if (ims->dirname == NULL)
         return NULL;
 
-    /* The packages directory is always flat, so slashed paths will always fail
-       to match. Don't let them through. */
-    if (ims->is_package_import && ims->is_slashed_path)
+    /* Keep package and system paths simple. */
+    if (ims->import_type != imp_local && ims->is_slashed_path)
         return NULL;
 
     lily_msgbuf *path_msgbuf = lily_mb_flush(ims->path_msgbuf);
     const char *root_dirname = ims->source_module->root_dirname;
 
-    if (root_dirname == NULL || root_dirname[0] == '\0')
-        lily_mb_add_char(path_msgbuf, '.');
-    else
-        lily_mb_add(path_msgbuf, root_dirname);
+    if (ims->import_type != imp_system) {
+        if (root_dirname == NULL || root_dirname[0] == '\0')
+            lily_mb_add_char(path_msgbuf, '.');
+        else
+            lily_mb_add(path_msgbuf, root_dirname);
 
-    lily_mb_add_char(path_msgbuf, LILY_PATH_CHAR);
+        lily_mb_add_char(path_msgbuf, LILY_PATH_CHAR);
 
-    if (ims->dirname[0] != '\0')
-        add_fixslash_dir(path_msgbuf, ims->dirname);
+        if (ims->dirname[0] != '\0')
+            add_fixslash_dir(path_msgbuf, ims->dirname);
 
-    if (ims->is_package_import == 1) {
+        if (ims->import_type == imp_package) {
+            lily_mb_add_fmt(path_msgbuf,
+                    "packages" LILY_PATH_SLASH
+                    "%s" LILY_PATH_SLASH
+                    "src" LILY_PATH_SLASH, target);
+        }
+    }
+    else {
         lily_mb_add_fmt(path_msgbuf,
-                "packages" LILY_PATH_SLASH
-                "%s" LILY_PATH_SLASH
-                "src" LILY_PATH_SLASH, target);
+                "%s%s" LILY_PATH_SLASH
+                "src" LILY_PATH_SLASH, ims->dirname, target);
     }
 
     lily_mb_add(path_msgbuf, target);
@@ -329,6 +340,79 @@ lily_module_entry *lily_ims_open_module(lily_parse_state *parser)
     lily_u16_set_pos(parser->data_stack, save_pos);
     return module;
 }
+
+#ifdef _WIN32
+# define pattern LILY_DIR_SEPARATOR LILY_DIR_PROCESS_STR
+# define search_fn strpbrk
+#else
+# define pattern LILY_DIR_SEPARATOR
+# define search_fn strstr
+#endif
+
+/* Process directories specified by config into a \0 divided string for the
+   import system. LILY_PATH_CHAR is written at the end to act as a sentinel.
+   Since Windows does not have a standard location for libraries, this also
+   transforms LILY_DIR_PROCESS_CHAR (default `|`) into the path of the current
+   process, allowing paths relative to that. */
+void lily_ims_process_sys_dirs(lily_parse_state *parser, lily_config *config)
+{
+    lily_import_state *ims = parser->ims;
+
+    if (config->use_sys_dirs == 0 || ims->sys_dirs) {
+        return;
+    }
+
+#ifdef _WIN32
+    char buffer[MAX_PATH + 1];
+    DWORD buffer_size = sizeof(buffer) / sizeof(*buffer);
+    DWORD n = GetModuleFileNameA(NULL, buffer, buffer_size);
+
+    if (n == 0 || n == buffer_size)
+        /* Assume this will never happen and be brief. */
+        lily_raise_raw(parser->raiser, "GetModuleFileNameA failed.");
+
+    char *end = strrchr(buffer, '\\');
+
+    *end = '\0';
+#endif
+
+    lily_msgbuf *msgbuf = lily_mb_flush(ims->path_msgbuf);
+    char *start = config->sys_dirs;
+    char *iter = search_fn(start, pattern);
+
+    while (iter) {
+#if _WIN32
+        if (*iter == LILY_DIR_PROCESS_CHAR)
+            lily_mb_add(msgbuf, buffer);
+        else {
+            lily_mb_add_slice(msgbuf, start, 0, iter - start);
+            lily_mb_add_char(msgbuf, '\0');
+        }
+#else
+        lily_mb_add_slice(msgbuf, start, 0, iter - start);
+        lily_mb_add_char(msgbuf, '\0');
+#endif
+
+        start = iter + 1;
+        iter = search_fn(iter + 1, pattern);
+    }
+
+    lily_mb_add(msgbuf, start);
+
+    /* Add a sentinel so path looping knows where to stop. */
+    lily_mb_add_sized(msgbuf, "\0" LILY_DIR_SEPARATOR, 2);
+
+    uint32_t size = lily_mb_pos(msgbuf);
+    char *dirs = lily_malloc((size + 1) * sizeof(*dirs));
+
+    /* The message is always \0 terminated, so size + 1 is safe. */
+    memcpy(dirs, lily_mb_raw(msgbuf), size + 1);
+
+    ims->sys_dirs = dirs;
+}
+
+#undef pattern
+#undef search_fn
 
 
 /* External (lily.h) import api (except module registration) */
@@ -513,12 +597,36 @@ const char *lily_import_current_root_dir(lily_state *s)
     return result;
 }
 
+int lily_import_foreach_sys_dir(lily_state *s, const char *target,
+        lily_sys_dir_func func)
+{
+    lily_import_state *ims = s->gs->parser->ims;
+
+    if (ims->sys_dirs == NULL || ims->is_slashed_path)
+        return 0;
+
+    ims->import_type = imp_system;
+
+    const char *iter = ims->sys_dirs;
+    int result = 0;
+
+    while (*iter != LILY_DIR_CHAR && result == 0) {
+        ims->dirname = iter;
+        result = func(s, target);
+        iter = iter + strlen(iter) + 1;
+    }
+
+    /* Reset this in case the embedder wants to try more imports. */
+    ims->dirname = NULL;
+    return result;
+}
+
 void lily_import_use_local_dir(lily_state *s, const char *dirname)
 {
     lily_import_state *ims = s->gs->parser->ims;
 
     ims->dirname = dirname;
-    ims->is_package_import = 0;
+    ims->import_type = imp_local;
 }
 
 void lily_import_use_package_dir(lily_state *s, const char *dirname)
@@ -526,7 +634,7 @@ void lily_import_use_package_dir(lily_state *s, const char *dirname)
     lily_import_state *ims = s->gs->parser->ims;
 
     ims->dirname = dirname;
-    ims->is_package_import = 1;
+    ims->import_type = imp_package;
 }
 
 void lily_default_import_func(lily_state *s, const char *target)
@@ -542,4 +650,7 @@ void lily_default_import_func(lily_state *s, const char *target)
     if (lily_import_file(s, target) ||
         lily_import_library(s, target))
         return;
+
+    /* As a last resort, try system directories. */
+    lily_import_foreach_sys_dir(s, target, lily_import_file_or_library);
 }

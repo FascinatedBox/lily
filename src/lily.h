@@ -57,6 +57,8 @@ typedef void (*lily_import_func)(lily_state *s, const char *target);
 
 typedef void (*lily_render_func)(const char *content, void *data);
 
+typedef int (*lily_sys_dir_func)(lily_state *s, const char *target);
+
 typedef void (*lily_call_entry_func)(lily_state *);
 
 /////////////////////////
@@ -136,6 +138,16 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //                     blocked by sandbox mode.
 //                     Any `File` method that attempts to open a file will
 //                     instead raise `RuntimeError`.
+//
+//     use_sys_dirs  - (Default: 0)
+//                     If set to 1, the interpreter's import hook **may** use
+//                     the directories specified by `sys_dirs`.
+//
+//     sys_dirs      - (Default: Platform dependent)
+//                     This specifies system directories for `import` to use.
+//                     The interpreter expects that the specified directories
+//                     are reasonable and well-formed. On Windows, the
+//                     directories are processed.
 typedef struct lily_config_ {
     int argc;
     char **argv;
@@ -148,6 +160,8 @@ typedef struct lily_config_ {
     void *data;
     int extra_info;
     int sandbox;
+    int use_sys_dirs;
+    char *sys_dirs;
 } lily_config;
 
 // Function: lily_config_init
@@ -510,6 +524,25 @@ void lily_import_use_local_dir(lily_state *s, const char *dir);
 //
 // This lasts until the other function is called.
 void lily_import_use_package_dir(lily_state *s, const char *dir);
+
+// Function: lily_import_foreach_sys_dir
+// Call a function for each system directory.
+//
+// If the interpreter is in local mode (see lily_config `is_local`), this
+// function immediately returns 0 and performs no other effects.
+//
+// If not in local mode, this instructs the interpreter that `lily_import_*`
+// calls dispatched by `func` are to be executed in a system directory. `func`
+// is then executed for every system directory defined, until `func` returns `1`
+// or there are no more system directories.
+//
+// When this function is complete, it clears the internal state that
+// `lily_import_use_*` functions set. Embedders that want to continue imports
+// after this function must call a `lily_import_use_*` again.
+//
+// Returns 1 if any usage of `func` returned 1, 0 otherwise.
+int lily_import_foreach_sys_dir(lily_state *s, const char *target,
+        lily_sys_dir_func func);
 
 // Function: lily_import_current_root_dir
 // Return the directory of the package that the source import belongs to.

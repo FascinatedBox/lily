@@ -4,6 +4,11 @@ file(GLOB lily_SOURCES *.c *.h)
 # itself is never installed.
 add_library(liblily_obj OBJECT ${lily_SOURCES})
 
+target_compile_definitions(liblily_obj
+    PUBLIC
+    LILY_MAJOR="${LILY_MAJOR}"
+    LILY_MINOR="${LILY_MINOR}")
+
 if(WIN32)
     # C extensions that use interpreter functions need to have their own copy of
     # interpreter functions due to how DLLs work. This builds that.

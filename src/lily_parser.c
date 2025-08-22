@@ -118,6 +118,8 @@ void lily_config_init(lily_config *conf)
     conf->data = NULL;
     conf->extra_info = 0;
     conf->sandbox = 0;
+    conf->use_sys_dirs = 0;
+    conf->sys_dirs = LILY_CONFIG_SYS_DIRS_INIT;
 }
 
 /* This sets up the core of the interpreter. It's pretty rough around the edges,
@@ -150,6 +152,8 @@ lily_state *lily_new_state(lily_config *config)
     /* These two hold import data and rewind state. */
     parser->ims = lily_malloc(sizeof(*parser->ims));
     parser->ims->path_msgbuf = lily_new_msgbuf(64);
+    parser->ims->sys_dirs = NULL;
+
     parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
     parser->rs->has_exited = 0;
@@ -284,6 +288,7 @@ void lily_free_state(lily_state *vm)
     lily_free_buffer_u16(parser->data_stack);
     lily_free_msgbuf(parser->ims->path_msgbuf);
     lily_free_msgbuf(parser->msgbuf);
+    lily_free(parser->ims->sys_dirs);
     lily_free(parser->ims);
     lily_free(parser->rs);
     lily_free_string_pile(parser->data_strings);
@@ -6198,6 +6203,8 @@ static int open_first_content(lily_state *s, const char *filename,
     /* Loading initial content should only be done outside of execution, so
        using the parser's base jump is okay. */
     if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_ims_process_sys_dirs(parser, parser->config);
+
         lily_lex_entry_type load_type;
         void *load_content;
 
