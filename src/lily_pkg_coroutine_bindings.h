@@ -19,8 +19,8 @@ lily_cid_at(s_, 0)
 
 LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
-    "\01Coroutine\0"
-    ,"C\012Coroutine\0[A,B]"
+    "\1Coroutine\0"
+    ,"C\12Coroutine\0[A,B]"
     ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
     ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
     ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"

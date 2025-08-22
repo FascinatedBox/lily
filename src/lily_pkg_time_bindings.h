@@ -19,8 +19,8 @@ lily_cid_at(s_, 0)
 
 LILY_TIME_EXPORT
 const char *lily_time_info_table[] = {
-    "\01Time\0"
-    ,"C\04Time\0"
+    "\1Time\0"
+    ,"C\4Time\0"
     ,"m\0clock\0: Double"
     ,"m\0now\0: Time"
     ,"m\0since_epoch\0(Time): Integer"

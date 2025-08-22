@@ -59,8 +59,8 @@ lily_push_super(s_, ID_TestCaseBase(s_), 3)
 
 LILY_BACKBONE_EXPORT
 const char *lily_backbone_info_table[] = {
-    "\03Interpreter\0RawInterpreter\0TestCaseBase\0"
-    ,"N\034Interpreter\0"
+    "\3Interpreter\0RawInterpreter\0TestCaseBase\0"
+    ,"N\34Interpreter\0"
     ,"m\0<new>\0: Interpreter"
     ,"m\0config_set_extra_info\0(Interpreter,Boolean): Interpreter"
     ,"m\0error\0(Interpreter): String"
@@ -90,7 +90,7 @@ const char *lily_backbone_info_table[] = {
     ,"1\0import_hook\0Function(Interpreter,String)"
     ,"1\0raw\0RawInterpreter"
     ,"C\0RawInterpreter\0"
-    ,"N\05TestCaseBase\0"
+    ,"N\5TestCaseBase\0"
     ,"m\0<new>\0: TestCaseBase"
     ,"m\0run_tests\0(TestCaseBase)"
     ,"3\0fail_count\0Integer"
