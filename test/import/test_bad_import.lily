@@ -57,6 +57,22 @@ class TestBadImport < TestCase
             """
         )
 
+    private var @t_direct_left =
+        StringTarget(
+            :path "direct_left",
+            :data """\
+                var a = 10
+            """
+        )
+
+    private var @t_direct_mid =
+        StringTarget(
+            :path "direct_mid",
+            :data """\
+                import direct_left as abc
+            """
+        )
+
     private define verify_import_error(expect_text: String, given_text: String)
     {
         given_text = given_text.replace("\n", "\n            ")
@@ -122,19 +138,19 @@ class TestBadImport < TestCase
             import (ref_var,) var_exporter
         """)
 
-        # bad direct import (target a module)
+        # bad direct import (direct module with 'as' name using original name)
 
         t = Interpreter.with_targets(
-            @t_fff,
-            @t_var_exporter
+            @t_direct_mid,
+            @t_direct_left
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to directly import modules ('var_exporter').
+            SyntaxError: Cannot find symbol 'direct_left' inside of module 'direct_mid'.
                 from [test]:3:
         """,
         """
-            import (var_exporter) fff
+            import (direct_left) direct_mid
         """)
 
         # bad direct import (missing symbol)

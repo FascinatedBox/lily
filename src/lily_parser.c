@@ -4078,11 +4078,12 @@ static void link_import_syms(lily_parse_state *parser,
             lily_raise_syn(parser->raiser,
                     "Cannot find symbol '%s' inside of module '%s'.",
                     name, source->loadname);
-        else if (sym->item_kind == ITEM_MODULE)
-            lily_raise_syn(parser->raiser,
-                    "Not allowed to directly import modules ('%s').", name);
 
-        lily_add_symbol_ref(active, sym);
+        if (sym->item_kind != ITEM_MODULE)
+            lily_add_symbol_ref(active, sym);
+        else
+            lily_ims_link_module_to(active, (lily_module_entry *)sym, name);
+
         iter++;
         count--;
     } while (count);

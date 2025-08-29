@@ -242,6 +242,31 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_direct_a =
+        StringTarget(
+            :path "direct_a",
+            :data """\
+                var x = 10
+            """
+        )
+
+    private var @t_direct_abc =
+        StringTarget(
+            :path "direct_abc",
+            :data """\
+                var y = 20
+            """
+        )
+
+    private var @t_direct_mid =
+        StringTarget(
+            :path "direct_mid",
+            :data """\
+                import direct_a
+                import direct_abc as direct_b
+            """
+        )
+
     public define test_import_as
     {
         var t = Interpreter.with_targets(
@@ -554,6 +579,24 @@ class TestImport < TestCase
             import one
 
             var f: Function() = one.__module__
+        """)
+    }
+
+    public define test_direct_module_import
+    {
+        var t = Interpreter.with_targets(
+            @t_direct_a,
+            @t_direct_abc,
+            @t_direct_mid
+        )
+
+        assert_parse_string(t, """
+            import (direct_a, direct_b) direct_mid
+
+            if direct_a.x != 10 ||
+                direct_b.y != 20: {
+                0/0
+            }
         """)
     }
 }
