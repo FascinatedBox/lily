@@ -11,10 +11,11 @@ library random
 ### less, then the current time (`time(NULL)` in C) is used instead.
 foreign class Random(seed: *Integer = 0)
 {
-    ### Generate a random `Integer` value between `lower` and `upper`.
+    ### Generate a random `Integer` value between `lower` and `upper`
+    ### (inclusive).
     ###
     ### # Errors
     ###
-    ### * `ValueError` is raised if the range is empty, or reversed.
+    ### * `ValueError` is raised if the range is reversed.
     public define between(lower: Integer, upper: Integer): Integer
 }

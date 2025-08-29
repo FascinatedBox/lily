@@ -105,8 +105,8 @@ void lily_random_Random_between(lily_state *s)
     int64_t start = lily_arg_integer(s, 1);
     int64_t end = lily_arg_integer(s, 2);
 
-    if (start >= end)
-        lily_ValueError(s, "Interval range is empty.");
+    if (start > end)
+        lily_ValueError(s, "Interval range is reversed.");
 
     int64_t distance = end - start + 1;
 
