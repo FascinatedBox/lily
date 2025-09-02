@@ -3926,6 +3926,8 @@ static void keyword_for(lily_parse_state *parser)
              (loop_var->flags & VAR_IS_GLOBAL) == 0)
             lily_raise_syn(parser->raiser, "Loop var cannot be an upvalue.");
 
+    loop_var->flags |= SYM_NOT_INITIALIZED;
+
     lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_step = new_typed_local_var(parser, integer_type, "", 0);
@@ -3947,6 +3949,7 @@ static void keyword_for(lily_parse_state *parser)
 
     lily_emit_write_for_header(emit, loop_var, for_start, for_end,
                                for_step, lex->line_num);
+    loop_var->flags &= ~SYM_NOT_INITIALIZED;
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 }

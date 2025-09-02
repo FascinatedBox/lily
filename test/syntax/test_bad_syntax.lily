@@ -278,6 +278,56 @@ class TestBadSyntax < TestCase
             }
         """)
 
+        # bad blocks (for range start using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             1 | for i in i...10: {
+               |          ^
+
+                from [test]:1:
+        """,
+        """\
+            for i in i...10: {
+            }
+        """)
+
+        # bad blocks (for range end using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             1 | for i in 0...i: {
+               |              ^
+
+                from [test]:1:
+        """,
+        """\
+            for i in 0...i: {
+            }
+        """)
+
+        # bad blocks (for range step using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             3 | for i in 0...10 by i: {
+               |                    ^
+
+                from [test]:3:
+        """,
+        """\
+            var i = 0
+
+            for i in 0...10 by i: {
+            }
+        """)
+
         # bad blocks (do while not allowed to use scope vars in condition)
 
         assert_parse_fails(t, """\
