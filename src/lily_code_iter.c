@@ -90,6 +90,8 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 3;
             break;
+        case o_build_hash:
+        case o_build_variant:
         case o_call_foreign:
         case o_call_native:
         case o_call_register:
@@ -122,16 +124,6 @@ int lily_ci_next(lily_code_iter *iter)
             iter->line_6 = 1;
 
             iter->round_total = buffer[1] + 4;
-            break;
-        case o_build_hash:
-        case o_build_variant:
-            iter->special_1 = 1;
-            iter->counter_2 = 1;
-            iter->inputs_3 = buffer[2];
-            iter->outputs_4 = 1;
-            iter->line_6 = 1;
-
-            iter->round_total = buffer[2] + 5;
             break;
         case o_for_integer:
             iter->inputs_3 = 3;
