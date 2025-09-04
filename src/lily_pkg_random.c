@@ -97,6 +97,22 @@ uint32_t mtwist_u32rand(lily_random_Random* mt)
     return (uint32_t)r;
 }
 
+/* This is not libmtwist's original implementation of this function. Instead, we
+ * generate two random u32 values, and combine bits from each to create a
+ * double. This gives us more possible values than with libmtwist's
+ * implementation, which used only a single random u32.
+ *
+ * This approach is described here:
+ * https://www.sciencedirect.com/science/article/abs/pii/S0378475418302040 */
+double mtwist_drand(lily_random_Random* mt)
+{
+    uint32_t high = mtwist_u32rand(mt) >> 5;  /* Get 27 bits. */
+    uint32_t low = mtwist_u32rand(mt) >> 6;   /* Get 26 bits. */
+
+    /* Combine them to get the 53 bits we need for a double. */
+    return (high * 67108864.0 + low) * (1.0 / 9007199254740992.0);
+}
+
 void lily_random_Random_between(lily_state *s)
 {
     lily_random_Random *r = ARG_Random(s, 0);
@@ -108,6 +124,11 @@ void lily_random_Random_between(lily_state *s)
     if (start > end)
         lily_ValueError(s, "Interval range is reversed.");
 
+    if (start == end) {
+        lily_return_integer(s, start);
+	return;
+    }
+
     int64_t distance = end - start + 1;
 
     if (distance < INT32_MIN ||
@@ -117,6 +138,33 @@ void lily_random_Random_between(lily_state *s)
     uint64_t result = start + (rng % distance);
 
     lily_return_integer(s, result);
+}
+
+void lily_random_Random_double(lily_state *s)
+{
+    lily_random_Random *r = ARG_Random(s, 0);
+    lily_return_double(s, mtwist_drand(r));
+}
+
+void lily_random_Random_double_between(lily_state *s)
+{
+    lily_random_Random *r = ARG_Random(s, 0);
+    double rng = mtwist_drand(r);
+
+    double start = lily_arg_double(s, 1);
+    double end = lily_arg_double(s, 2);
+
+    if (start > end)
+        lily_ValueError(s, "Interval range is reversed.");
+
+    if (start == end) {
+	lily_return_double(s, start);
+	return;
+    }
+
+    double result = start + rng * (end - start);
+
+    lily_return_double(s, result);
 }
 
 LILY_DECLARE_RANDOM_CALL_TABLE

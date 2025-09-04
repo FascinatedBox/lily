@@ -20,9 +20,11 @@ lily_cid_at(s_, 0)
 LILY_RANDOM_EXPORT
 const char *lily_random_info_table[] = {
     "\1Random\0"
-    ,"C\2Random\0"
+    ,"C\4Random\0"
     ,"m\0<new>\0(*Integer): Random"
     ,"m\0between\0(Random,Integer,Integer): Integer"
+    ,"m\0double\0(Random): Double"
+    ,"m\0double_between\0(Random,Double,Double): Double"
     ,"Z"
 };
 #define LILY_DECLARE_RANDOM_CALL_TABLE \
@@ -32,5 +34,7 @@ lily_call_entry_func lily_random_call_table[] = { \
     NULL, \
     lily_random_new_Random, \
     lily_random_Random_between, \
+    lily_random_Random_double, \
+    lily_random_Random_double_between, \
 };
 #endif

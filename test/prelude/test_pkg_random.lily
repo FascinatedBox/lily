@@ -3,14 +3,24 @@ import (Interpreter,
 
 class TestPkgRandom < TestCase
 {
-    private define random_ctor_no_seed
+    private define check_ranges(r: random.Random)
     {
-        var r = random.Random()
-        var to_check = r.between(0, 10)
         var ok = true
         for i in 0...100: {
             var b = r.between(0, 10)
             if b < 0 || b > 10: {
+                ok = false
+                break
+            }
+
+            var d = r.double()
+            if d < 0.0 || d >= 1.0: {
+                ok = false
+                break
+            }
+
+            var db = r.double_between(0.0, 10.0)
+            if db < 0.0 || db > 10.0: {
                 ok = false
                 break
             }
@@ -19,31 +29,41 @@ class TestPkgRandom < TestCase
         ok |> assert_true
     }
 
-    private define random_ctor_with_seed
+    public define test_Random_ranges
     {
-        var r = random.Random(1234567890)
-        var to_check = r.between(0, 10)
+        check_ranges(random.Random())
+        check_ranges(random.Random(1234567890))
+    }
+
+    public define test_Random_determinism
+    {
+        var r1 = random.Random(1234567890)
+        var r2 = random.Random(1234567890)
+
         var ok = true
         for i in 0...100: {
-            var b = r.between(0, 10)
-            if b < 0 || b > 10: {
+            if r1.between(0, 10) != r2.between(0, 10): {
+                ok = false
+                break
+            }
+
+            if r1.double() != r2.double(): {
+                ok = false
+                break
+            }
+
+            if r1.double_between(0.0, 10.0) != r2.double_between(0.0, 10.0): {
                 ok = false
                 break
             }
         }
 
         ok |> assert_true
-    }
-
-    public define test_Random_ctor
-    {
-        random_ctor_no_seed()
-        random_ctor_with_seed()
     }
 
     public define test_Random_between
     {
-        assert_equal(random.Random().between(0, 0),  0)
+        assert_equal(random.Random().between(0, 0), 0)
 
         assert_raises("ValueError: Interval range is reversed.",
             (|| random.Random().between(10, 0) ))
@@ -53,5 +73,13 @@ class TestPkgRandom < TestCase
 
         assert_raises("ValueError: Interval exceeds 32 bits in size.",
             (|| random.Random().between(0, 999999999999999) ))
+    }
+
+    public define test_Random_double_between
+    {
+        assert_equal(random.Random().double_between(0.0, 0.0), 0.0)
+
+        assert_raises("ValueError: Interval range is reversed.",
+            (|| random.Random().double_between(10.0, 0.0) ))
     }
 }
