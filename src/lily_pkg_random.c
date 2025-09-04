@@ -124,6 +124,11 @@ void lily_random_Random_between(lily_state *s)
     if (start > end)
         lily_ValueError(s, "Interval range is reversed.");
 
+    if (start == end) {
+        lily_return_integer(s, start);
+	return;
+    }
+
     int64_t distance = end - start + 1;
 
     if (distance < INT32_MIN ||
@@ -149,8 +154,13 @@ void lily_random_Random_double_between(lily_state *s)
     double start = lily_arg_double(s, 1);
     double end = lily_arg_double(s, 2);
 
-    if (start >= end)
-        lily_ValueError(s, "Interval range is empty.");
+    if (start > end)
+        lily_ValueError(s, "Interval range is reversed.");
+
+    if (start == end) {
+	lily_return_double(s, start);
+	return;
+    }
 
     double result = start + rng * (end - start);
 

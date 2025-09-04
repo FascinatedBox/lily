@@ -26,6 +26,6 @@ foreign class Random(seed: *Integer = 0)
     ###
     ### # Errors
     ###
-    ### * `ValueError` is raised if the range is empty, or reversed.
+    ### * `ValueError` is raised if the range is reversed.
     public define double_between(lower: Double, upper: Double): Double
 }

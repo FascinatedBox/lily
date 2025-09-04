@@ -63,7 +63,7 @@ class TestPkgRandom < TestCase
 
     public define test_Random_between
     {
-        assert_equal(random.Random().between(0, 0),  0)
+        assert_equal(random.Random().between(0, 0), 0)
 
         assert_raises("ValueError: Interval range is reversed.",
             (|| random.Random().between(10, 0) ))
@@ -77,10 +77,9 @@ class TestPkgRandom < TestCase
 
     public define test_Random_double_between
     {
-        assert_raises("ValueError: Interval range is empty.",
-            (|| random.Random().double_between(0.0, 0.0) ))
+        assert_equal(random.Random().double_between(0.0, 0.0), 0.0)
 
-        assert_raises("ValueError: Interval range is empty.",
+        assert_raises("ValueError: Interval range is reversed.",
             (|| random.Random().double_between(10.0, 0.0) ))
     }
 }
