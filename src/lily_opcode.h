@@ -68,6 +68,8 @@ typedef enum {
 
     /* Perform a single step of a `for i in a...b` loop. */
     o_for_integer,
+    /* The above, but with `for i(,elem) in list` loops. */
+    o_for_list_step,
     /* Does setup work needed by `o_for_integer`. */
     o_for_setup,
 

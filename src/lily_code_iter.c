@@ -217,6 +217,14 @@ int lily_ci_next(lily_code_iter *iter)
 
             iter->round_total = 2;
             break;
+        case o_for_list_step:
+            iter->inputs_3 = 2;
+            iter->outputs_4 = 1;
+            iter->jumps_5 = 1;
+            iter->line_6 = 1;
+
+            iter->round_total = 6;
+            break;
     }
 
     return 1;

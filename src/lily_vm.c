@@ -2278,6 +2278,23 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
+            case o_for_list_step:
+                rhs_reg = vm_regs[code[1]]; /* Source */
+                loop_reg = vm_regs[code[2]]; /* Index */
+                lhs_reg = vm_regs[code[3]]; /* Element */
+
+                loop_reg->value.integer++;
+                for_temp = loop_reg->value.integer;
+
+                if (for_temp < rhs_reg->value.container->num_values) {
+                    rhs_reg = rhs_reg->value.container->values[for_temp];
+                    lily_value_assign(lhs_reg, rhs_reg);
+                    code += 6;
+                }
+                else
+                    code += code[4];
+
+                break;
             case o_for_integer:
                 /* loop_reg is an internal counter, while lhs_reg is an external
                    counter. rhs_reg is the stopping point. */

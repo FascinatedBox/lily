@@ -3860,20 +3860,8 @@ static void keyword_break(lily_parse_state *parser)
 
 static void parse_for_expr(lily_parse_state *parser, lily_var *var)
 {
-    lily_expr_state *es = parser->expr;
-
     lily_next_token(parser->lex);
     expression(parser);
-
-    /* Don't allow assigning expressions, since that just looks weird.
-       ex: for i in a += 10..5
-       Also, it makes no real sense to do that. */
-    if (es->root->tree_type == tree_binary &&
-        IS_ASSIGN_TOKEN(es->root->op)) {
-        lily_raise_syn(parser->raiser,
-                   "For range value expression contains an assignment.");
-    }
-
     lily_eval_to_loop_var(parser->emit, parser->expr, var);
 }
 
@@ -3904,38 +3892,93 @@ static int extra_if_word(lily_parse_state *parser, const char *what)
     return result;
 }
 
-static void keyword_for(lily_parse_state *parser)
+static lily_var *parse_for_var(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
-    lily_emit_state *emit = parser->emit;
-    lily_type *integer_type = parser->symtab->integer_class->self_type;
 
     NEED_NEXT_TOK(tk_word)
-    lily_emit_enter_for_in_block(emit);
 
-    lily_var *loop_var = find_active_var(parser, lex->label);
+    lily_var *result = find_active_var(parser, lex->label);
 
-    if (loop_var == NULL)
-        loop_var = new_typed_local_var(parser, integer_type, lex->label,
+    if (result == NULL)
+        /* Could be the index or the element. Use ? for now, fix it later. */
+        result = new_typed_local_var(parser, lily_question_type, lex->label,
                 lex->line_num);
-    else if (loop_var->type != integer_type)
+    else if (parser->emit->function_depth != result->function_depth &&
+            (result->flags & VAR_IS_GLOBAL) == 0)
+        /* Blocked because closures and for loop vars tend to mix poorly. */
+        lily_raise_syn(parser->raiser, "Loop var cannot be an upvalue.");
+
+    result->flags |= SYM_NOT_INITIALIZED;
+    lily_next_token(lex);
+
+    return result;
+}
+
+static void ensure_valid_for_loop_index(lily_parse_state *parser,
+        lily_var *index_var)
+{
+    if (index_var->type->cls_id == LILY_ID_INTEGER)
+        return;
+
+    lily_type *integer_type = (lily_type *)parser->symtab->integer_class;
+
+    if (index_var->type == lily_question_type)
+        index_var->type = integer_type;
+    else {
         lily_raise_syn(parser->raiser,
-                   "Loop var must be type Integer, not type '^T'.",
-                   loop_var->type);
-    else if (emit->function_depth != loop_var->function_depth &&
-             (loop_var->flags & VAR_IS_GLOBAL) == 0)
-            lily_raise_syn(parser->raiser, "Loop var cannot be an upvalue.");
+                "For loop index must be Integer, but %s has type ^T.",
+                index_var->name, index_var->type);
+    }
+}
 
-    loop_var->flags |= SYM_NOT_INITIALIZED;
+/* Parse a `for` over a single expression (a foreach).
+   If there's only one var, it's the element.
+   If there's two, the first is the index, the second is the element. */
+static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
+        lily_var *second_var)
+{
+    if (second_var == NULL) {
+        /* Make it so the second spot is always the element. The first spot
+           needs to be filled, because for loops need a counter. */
+        lily_type *integer_type = (lily_type *)parser->symtab->integer_class;
 
+        second_var = first_var;
+        first_var = new_typed_local_var(parser, integer_type, "", 0);
+    }
+    else
+        ensure_valid_for_loop_index(parser, first_var);
+
+    /* This is blocked because it's not worth the trouble of implementing. */
+    if ((first_var->flags | second_var->flags) & VAR_IS_GLOBAL)
+        lily_raise_syn(parser->raiser, "For list variables cannot be global.");
+
+    /* Emitter will fix this type in eval. */
+    lily_var *source = new_typed_local_var(parser, lily_question_type, "", 0);
+
+    lily_eval_for_list(parser->emit, parser->expr, source, second_var);
+    lily_emit_write_for_list(parser->emit, source, first_var, second_var,
+            parser->lex->line_num);
+
+    /* Caller fixes the other var. */
+    second_var->flags &= ~SYM_NOT_INITIALIZED;
+}
+
+static void parse_for_range(lily_parse_state *parser, lily_var *first_var,
+        lily_var *second_var)
+{
+    if (second_var)
+        lily_raise_syn(parser->raiser,
+                "For range does not have elements for %s.\n", second_var->name);
+
+    ensure_valid_for_loop_index(parser, first_var);
+
+    lily_type *integer_type = (lily_type *)parser->symtab->integer_class;
     lily_var *for_start = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_end = new_typed_local_var(parser, integer_type, "", 0);
     lily_var *for_step = new_typed_local_var(parser, integer_type, "", 0);
 
-    lily_next_token(lex);
-    expect_word(parser, "in");
-    parse_for_expr(parser, for_start);
-    NEED_CURRENT_TOK(tk_three_dots)
+    lily_eval_to_loop_var(parser->emit, parser->expr, for_start);
     parse_for_expr(parser, for_end);
 
     if (extra_if_word(parser, "by"))
@@ -3944,12 +3987,40 @@ static void keyword_for(lily_parse_state *parser)
         lily_es_flush(parser->expr);
         lily_es_push_assign_to(parser->expr, (lily_sym *)for_step);
         lily_es_push_integer(parser->expr, 1);
-        lily_eval_expr(emit, parser->expr);
+        lily_eval_expr(parser->emit, parser->expr);
     }
 
-    lily_emit_write_for_header(emit, loop_var, for_start, for_end,
-                               for_step, lex->line_num);
-    loop_var->flags &= ~SYM_NOT_INITIALIZED;
+    lily_emit_write_for_header(parser->emit, first_var, for_start, for_end,
+                               for_step, parser->lex->line_num);
+}
+
+/* Either `for <index> in start...end (by step): { ... }`
+   or     `for <element> in range: { ... }`. */
+static void keyword_for(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_emit_state *emit = parser->emit;
+    lily_var *first_var, *second_var = NULL;
+
+    lily_emit_enter_for_in_block(emit);
+    first_var = parse_for_var(parser);
+
+    if (lex->token == tk_comma)
+        second_var = parse_for_var(parser);
+
+    expect_word(parser, "in");
+    lily_next_token(parser->lex);
+    expression(parser);
+
+    if (lex->token == tk_colon)
+        parse_for_list(parser, first_var, second_var);
+    else if (lex->token == tk_three_dots)
+        parse_for_range(parser, first_var, second_var);
+    else
+        lily_raise_syn(parser->raiser, "Expected ':' or '...' here.");
+
+    /* For list handling fixes the second var, if that's necessary. */
+    first_var->flags &= ~SYM_NOT_INITIALIZED;
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 }

@@ -225,6 +225,23 @@ void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
     }
 }
 
+void lily_emit_write_for_list(lily_emit_state *emit, lily_var *for_source,
+        lily_var *for_index, lily_var *for_elem, uint16_t line_num)
+{
+    /* This needs to do a negative step like o_for_integer. However, since the
+       first index is always 0 and the step is always 1, just start at -1. */
+    lily_u16_write_4(emit->code, o_load_integer, (uint16_t)-1,
+            for_index->reg_spot, line_num);
+
+    /* Fix the start so the continue doesn't reinitialize loop vars. */
+    emit->block->code_start = lily_u16_pos(emit->code);
+
+    /* The patched jump will need 4 spaces of adjustment. */
+    lily_u16_write_6(emit->code, o_for_list_step, for_source->reg_spot,
+            for_index->reg_spot, for_elem->reg_spot, 4, line_num);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+}
+
 /* This is called before 'continue', 'break', or 'return' is written. It writes
    the appropriate number of try+catch pop instructions to offset the movement.
    A search is done from the current block down to 'stop_block' to find out how
@@ -4503,10 +4520,58 @@ void lily_eval_to_foreach_var(lily_emit_state *emit, lily_expr_state *es,
     var->type = t;
 }
 
+void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
+        lily_var *for_source, lily_var *elem_var)
+{
+    lily_ast *ast = es->root;
+
+    if (ast->tree_type == tree_binary &&
+        IS_ASSIGN_TOKEN(ast->op)) {
+        lily_raise_syn(emit->raiser,
+                   "For list expression contains an assignment.");
+    }
+
+    eval_tree(emit, ast, lily_question_type);
+    emit->expr_num++;
+
+    lily_type *t = ast->result->type;
+
+    if (t->cls->id != LILY_ID_LIST)
+        lily_raise_syn(emit->raiser,
+                "For list expression expected a List but got ^T.", t);
+    else if (t->flags & TYPE_IS_INCOMPLETE)
+        lily_raise_syn(emit->raiser,
+                "For list expression has incomplete type ^T.", t);
+
+    t = t->subtypes[0];
+
+    if (elem_var->type == lily_question_type)
+        /* Fix parser's placeholder type. */
+        elem_var->type = t;
+    else if (lily_ts_type_greater_eq(emit->ts, elem_var->type, t) == 0)
+        lily_raise_syn(emit->raiser,
+            "For list element type is not compatible:\n"
+            "Received: ^T\n"
+            "Expected (by %s): ^T",
+            t, elem_var->name, elem_var->type);
+
+    lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot,
+            for_source->reg_spot, ast->line_num);
+}
+
 void lily_eval_to_loop_var(lily_emit_state *emit, lily_expr_state *es,
         lily_var *var)
 {
     lily_ast *ast = es->root;
+
+    /* Don't allow assigning expressions, since that just looks weird.
+       ex: for i in a += 10..5
+       Also, it makes no real sense to do that. */
+    if (ast->tree_type == tree_binary &&
+        IS_ASSIGN_TOKEN(ast->op)) {
+        lily_raise_syn(emit->raiser,
+                   "For range value expression contains an assignment.");
+    }
 
     eval_tree(emit, ast, lily_question_type);
     emit->expr_num++;

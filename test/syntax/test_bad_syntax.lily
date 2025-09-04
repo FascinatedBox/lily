@@ -152,11 +152,11 @@ class TestBadSyntax < TestCase
         # bad blocks (for loop var must be Integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Loop var must be type Integer, not type 'String'.
+            SyntaxError: For loop index must be Integer, but i has type String.
 
                |
              2 | for i in 0...10: {}
-               |     ^
+               |           ^
 
                 from [test]:2:
         """,
@@ -214,118 +214,6 @@ class TestBadSyntax < TestCase
         """\
             do: {
             } asdf
-        """)
-
-        # bad blocks (require 'by' in for loop)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Expected 'by', not 'asdf'.
-
-               |
-             1 | for i in 0...10 asdf
-               |                 ^
-
-                from [test]:1:
-        """,
-        """\
-            for i in 0...10 asdf
-        """)
-
-        # bad blocks (require 'in' within for loop)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Expected 'in', not 'asdf'.
-
-               |
-             1 | for i asdf 0...10: {}
-               |       ^
-
-                from [test]:1:
-        """,
-        """\
-            for i asdf 0...10: {}
-        """)
-
-        # bad blocks (bad for step)
-
-        assert_parse_fails(t, """\
-            ValueError: for loop step cannot be 0.
-            Traceback:
-                from [test]:2: in __main__
-        """,
-        """\
-
-            for i in 0...0 by 0: {
-                0 / 0
-            }
-        """)
-
-        # bad blocks (assign in range expression)
-
-        assert_parse_fails(t, """\
-            SyntaxError: For range value expression contains an assignment.
-
-               |
-             2 | for i in v = 5...10: {
-               |               ^
-
-                from [test]:2:
-        """,
-        """\
-            var v = 10
-            for i in v = 5...10: {
-                1
-            }
-        """)
-
-        # bad blocks (for range start using index)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Attempt to use uninitialized value 'i'.
-
-               |
-             1 | for i in i...10: {
-               |          ^
-
-                from [test]:1:
-        """,
-        """\
-            for i in i...10: {
-            }
-        """)
-
-        # bad blocks (for range end using index)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Attempt to use uninitialized value 'i'.
-
-               |
-             1 | for i in 0...i: {
-               |              ^
-
-                from [test]:1:
-        """,
-        """\
-            for i in 0...i: {
-            }
-        """)
-
-        # bad blocks (for range step using index)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Attempt to use uninitialized value 'i'.
-
-               |
-             3 | for i in 0...10 by i: {
-               |                    ^
-
-                from [test]:3:
-        """,
-        """\
-            var i = 0
-
-            for i in 0...10 by i: {
-            }
         """)
 
         # bad blocks (do while not allowed to use scope vars in condition)
@@ -1877,6 +1765,334 @@ class TestBadSyntax < TestCase
         """,
         """\
             var v = (1 ? 2 : "3")
+        """)
+    }
+
+    public define test_bad_for_range
+    {
+        # For loops are complex, so they get two testing functions.
+        # This one's for `for x in y (by z)` loops.
+        var t = Interpreter()
+
+        # bad for range (require 'by' in for loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'by', not 'asdf'.
+
+               |
+             1 | for i in 0...10 asdf
+               |                 ^
+
+                from [test]:1:
+        """,
+        """\
+            for i in 0...10 asdf
+        """)
+
+        # bad for range (require 'in' within for loop)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'in', not 'asdf'.
+
+               |
+             1 | for i asdf 0...10: {}
+               |       ^
+
+                from [test]:1:
+        """,
+        """\
+            for i asdf 0...10: {}
+        """)
+
+        # bad for range (bad for step)
+
+        assert_parse_fails(t, """\
+            ValueError: for loop step cannot be 0.
+            Traceback:
+                from [test]:2: in __main__
+        """,
+        """\
+
+            for i in 0...0 by 0: {
+                0 / 0
+            }
+        """)
+
+        # bad for range (assign in range expression)
+
+        assert_parse_fails(t, """\
+            SyntaxError: For range value expression contains an assignment.
+
+               |
+             2 | for i in v = 5...10: {
+               |               ^
+
+                from [test]:2:
+        """,
+        """\
+            var v = 10
+            for i in v = 5...10: {
+                1
+            }
+        """)
+
+        # bad for range (for range start using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             1 | for i in i...10: {
+               |          ^
+
+                from [test]:1:
+        """,
+        """\
+            for i in i...10: {
+            }
+        """)
+
+        # bad for range (for range end using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             1 | for i in 0...i: {
+               |              ^
+
+                from [test]:1:
+        """,
+        """\
+            for i in 0...i: {
+            }
+        """)
+
+        # bad for range (for range step using index)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Attempt to use uninitialized value 'i'.
+
+               |
+             3 | for i in 0...10 by i: {
+               |                    ^
+
+                from [test]:3:
+        """,
+        """\
+            var i = 0
+
+            for i in 0...10 by i: {
+            }
+        """)
+    }
+
+    public define test_bad_for_list
+    {
+        # This one handles `for x(, y) in z` loops.
+        var t = Interpreter()
+
+        # Index and/or element can't be global.
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list variables cannot be global.
+
+               |
+             3 | for i in [1]: {}
+               |             ^
+
+                from [test]:3:
+        """,
+        """\
+            var i = 1
+
+            for i in [1]: {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list variables cannot be global.
+
+               |
+             3 | for i, elem in [1]: {}
+               |                   ^
+
+                from [test]:3:
+        """,
+        """\
+            var elem = 1
+
+            for i, elem in [1]: {}
+        """)
+
+        # Index/elem can't be upvalues either.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Loop var cannot be an upvalue.
+
+               |
+             4 | for i in [1]: {}
+               |     ^
+
+                from [test]:4:
+        """,
+        """\
+            define f {
+                var i = 1
+                define g {
+                    for i in [1]: {}
+                }
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Loop var cannot be an upvalue.
+
+               |
+             4 | for i, elem in [1]: {}
+               |        ^
+
+                from [test]:4:
+        """,
+        """\
+            define f {
+                var elem = 1
+                define g {
+                    for i, elem in [1]: {}
+                }
+            }
+        """)
+
+        # Must have 1 or 2 vars.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not '['.
+
+               |
+             1 | for in [1]: {}
+               |        ^
+
+                from [test]:1:
+        """,
+        """\
+            for in [1]: {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not ','.
+
+               |
+             1 | for a, b, c in [1]: {}
+               |         ^
+
+                from [test]:1:
+        """,
+        """\
+            for a, b, c in [1]: {}
+        """)
+
+        # No assignments
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list expression contains an assignment.
+
+               |
+             3 | for a, b in x = []: {}
+               |                   ^
+
+                from [test]:3:
+        """,
+        """\
+            var x = [1]
+
+            for a, b in x = []: {}
+        """)
+
+        # Type assurances
+
+        assert_parse_fails(t, """\
+            SyntaxError: For loop index must be Integer, but i has type String.
+
+               |
+             4 | for i, elem in [1]: {}
+               |                   ^
+
+                from [test]:4:
+        """,
+        """\
+            define f {
+                var i = ""
+
+                for i, elem in [1]: {}
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list element type is not compatible:
+            Received: Integer
+            Expected (by elem): String
+
+               |
+             4 | for i, elem in [1]: {}
+               |                   ^
+
+                from [test]:4:
+        """,
+        """\
+            define f {
+                var elem = ""
+
+                for i, elem in [1]: {}
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list expression expected a List but got String.
+
+               |
+             1 | for i, elem in "": {}
+               |                  ^
+
+                from [test]:1:
+        """,
+        """\
+            for i, elem in "": {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list expression has incomplete type List[Option[?]].
+
+               |
+             1 | for i, elem in [None]: {}
+               |                      ^
+
+                from [test]:1:
+        """,
+        """\
+            for i, elem in [None]: {}
+        """)
+
+        # No bidirectional unification on the element.
+
+        assert_parse_fails(t, """\
+            SyntaxError: For list element type is not compatible:
+            Received: One
+            Expected (by elem): Two
+
+               |
+             7 | for i, elem in [One()]: {}
+               |                       ^
+
+                from [test]:7:
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            define f {
+                var elem = Two()
+
+                for i, elem in [One()]: {}
+            }
         """)
     }
 }
