@@ -1146,6 +1146,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
 
     if (lex->label[0] == 'p') {
         int keyword = keyword_by_name(lex->label);
+
         if (keyword == KEY_PRIVATE)
             modifiers = SYM_SCOPE_PRIVATE;
         else if (keyword == KEY_PROTECTED)
@@ -1153,15 +1154,17 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
         else if (keyword == KEY_PUBLIC)
             modifiers = SYM_SCOPE_PUBLIC;
 
-        lily_next_token(lex);
+        if (modifiers) {
+            lily_next_token(lex);
 
-        if (lex->token != tk_word ||
-            strcmp(lex->label, "var") != 0) {
-            lily_raise_syn(parser->raiser,
-                    "Expected 'var' after scope was given.");
+            if (lex->token != tk_word ||
+                strcmp(lex->label, "var") != 0) {
+                lily_raise_syn(parser->raiser,
+                        "Expected 'var' after scope was given.");
+            }
+
+            NEED_NEXT_TOK(tk_prop_word)
         }
-
-        NEED_NEXT_TOK(tk_prop_word)
     }
     else if (lex->label[0] == 'v' &&
              strcmp(lex->label, "var") == 0) {

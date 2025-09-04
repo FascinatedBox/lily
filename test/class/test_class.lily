@@ -349,6 +349,14 @@ class TestClass < TestCase
                raise Exception("Failed.")
             }
         """)
+
+        # Shouldn't interfere with var names
+
+        assert_parse_string(t, """
+            class NameCheck(portal: Integer, public var @potato: Integer) {
+                public var @portal = portal
+            }
+        """)
     }
 
     public define test_self
