@@ -1900,21 +1900,15 @@ static int can_optimize_out_assignment(lily_ast *tree)
     return can_optimize;
 }
 
-/* This is a simple function that checks if the result in 'right' is suitable
-   to be the type required by 'want_type'. Returns 1 if yes, 0 if no. */
-static int type_matchup(lily_emit_state *emit, lily_type *want_type,
-        lily_ast *right)
+/* Check if the ast's result matches the expected type. This does a simple
+   equality check before a recursive structural check. */
+static int result_matches_type(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
-    int ret;
-    lily_type *right_type = right->result->type;
+    if (ast->result->type == expect)
+        return 1;
 
-    if (want_type == right_type ||
-        lily_ts_type_greater_eq(emit->ts, want_type, right_type))
-        ret = 1;
-    else
-        ret = 0;
-
-    return ret;
+    return lily_ts_type_greater_eq(emit->ts, expect, ast->result->type);
 }
 
 static void unpack_dot_variant(lily_emit_state *emit, lily_ast *ast,
@@ -2565,8 +2559,7 @@ static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
     if (right_type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast, right_type);
 
-    if (left_type != right_type &&
-        type_matchup(emit, left_type, ast->right) == 0)
+    if (result_matches_type(emit, ast->right, left_type) == 0)
         bad_assign_error(emit, ast, left_type, right_type);
 }
 
@@ -2623,7 +2616,7 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     if (right_type->flags & TYPE_TO_BLOCK)
         incomplete_type_assign_error(emit, ast, right_type);
 
-    if (type_matchup(emit, elem_type, ast->right) == 0)
+    if (result_matches_type(emit, ast->right, elem_type) == 0)
         bad_assign_error(emit, ast, elem_type, right_type);
 }
 
@@ -2916,8 +2909,7 @@ static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
 
     ast->result = right_tree->result;
 
-    if (cast_type != ast->result->type &&
-        type_matchup(emit, cast_type, ast->right) == 0)
+    if (result_matches_type(emit, ast->right, cast_type) == 0)
         lily_raise_tree(emit->raiser, ast,
                 "Cannot cast type '^T' to type '^T'.",
                 ast->result->type, cast_type);
@@ -4751,8 +4743,7 @@ void lily_eval_return(lily_emit_state *emit, lily_expr_state *es,
 
     eval_enforce_value(emit, ast, return_type);
 
-    if (ast->result->type == return_type ||
-        type_matchup(emit, return_type, ast))
+    if (result_matches_type(emit, ast, return_type))
         ;
     else if (return_type->cls == lily_self_class &&
              ast->tree_type == tree_self)
