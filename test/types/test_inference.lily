@@ -261,4 +261,233 @@ class TestInference < TestCase
             }
         """)
     }
+
+    public define test_autopromote_byte_to_integer_in_assign
+    {
+        var t = Interpreter()
+
+        # Assignments are complex, so this handles just those.
+        # Start with setup.
+
+        assert_parse_string(t, """\
+            var byte_int_val = 'a'.to_i()
+            var byte_val = 'a'
+            var byte_zero = '\\0'
+        """)
+
+        # Global assignment + interpolation to check value correctness.
+
+        assert_parse_string(t, """\
+            var global_a = 1
+            var global_b: Integer = byte_val
+            var interpolation_check = global_b ++ global_b
+
+            if interpolation_check.is_digit() == false: {
+                0/0
+            }
+
+            global_a = byte_val
+            global_a = 'a'
+
+            if global_a != byte_int_val || global_b != byte_int_val: {
+                0/0
+            }
+        """)
+
+        # Local assignment
+
+        assert_parse_string(t, """\
+            define local_fn {
+                var local_a = 1
+                var local_b: Integer = byte_val
+
+                local_a = byte_val
+                local_a = 'a'
+            }
+        """)
+
+        # Subscript and subscript assignment
+
+        assert_parse_string(t, """\
+            {
+                var list_a: List[Integer] = [byte_val]
+
+                list_a[byte_zero] = byte_zero
+                list_a[list_a[byte_zero]] = byte_zero
+                list_a[byte_zero] = '\\0'
+                list_a[list_a['\\0']] = 'a'
+            }
+        """)
+
+        # @prop with concrete types
+
+        assert_parse_string(t, """\
+            class Example {
+                public var @prop_a: Integer = byte_zero
+                public var @prop_b = 1
+                public var @prop_byte = byte_zero
+
+                @prop_a = @prop_byte
+                @prop_b = byte_zero
+                @prop_b = 'a'
+            }
+        """)
+
+        # Member access with concrete types
+
+        assert_parse_string(t, """\
+            {
+                var cls_val = Example()
+
+                cls_val.prop_a = byte_zero
+                cls_val.prop_a = cls_val.prop_byte
+                cls_val.prop_a = 'a'
+            }
+        """)
+
+        # Assignments with a solved type
+
+        assert_parse_string(t, """\
+            class GenericExample[A, B](value1: A, value2: B) {
+                public var @value1 = value1
+                public var @value2 = value2
+            }
+
+            {
+                var g = GenericExample(1, 'a')
+
+                g.value1 = g.value2
+                g.value1 = byte_zero
+                g.value1 = 'a'
+            }
+        """)
+
+        # Upvalue assignment
+
+        assert_parse_string(t, """\
+            define up_fn {
+                var up_i: Integer = 0
+                var up_b = 0
+                var up_byte = byte_zero
+
+                define inner_fn {
+                    up_i = up_byte
+                    up_i = 'a'
+                    up_b = byte_zero
+                }
+            }
+        """)
+    }
+
+    public define test_autopromote_byte_to_integer_non_assign
+    {
+        var t = Interpreter()
+
+        # Non-assign cases are grouped together since there's not many.
+
+        assert_parse_string(t, """\
+            define infer_by_var(a: Integer): Integer {
+                var b = 'b'
+
+                if a == 1: {
+                    return 'a'
+                else:
+                    return b
+                }
+            }
+        """)
+
+        # Call optargs and varargs
+
+        assert_parse_string(t, """\
+            var byte_val = 'a'
+
+            define opt(a: *Integer=byte_val, b: *Integer='a') {}
+            define varopt(a: *Integer...=['a', byte_val]) {}
+
+            opt(byte_val, 'a')
+            varopt(1, 'a', 2, byte_val)
+        """)
+
+        # Typecast
+
+        assert_parse_string(t, """\
+            {
+                var cast_a = byte_val.@(Integer)
+                var cast_b = 'b'.@(Integer)
+
+                cast_a.to_byte()
+                cast_b.to_byte()
+            }
+        """)
+
+        # Using a generic solved to Integer
+
+        assert_parse_string(t, """\
+            define solve_check[A](a: A, b: A, c: A) {}
+
+            solve_check(1, 'a', byte_val)
+        """)
+
+        # Simple lambda result
+
+        assert_parse_string(t, """\
+            var lamb_a: Function( => Integer) = (||
+                var inner_byte = 'a'
+                var inner_int: Integer = inner_byte
+
+                inner_int
+            )
+
+            lamb_a = (||
+                var inner_byte = 'a'
+
+                inner_byte
+            )
+
+            lamb_a = (|| 'a' )
+        """)
+
+        # Lambda early exit inference
+
+        assert_parse_string(t, """\
+            define lamb_infer_filter[A](a: A, b: List[Integer], c: Function(Integer => A)) {}
+
+            lamb_infer_filter(1, [1, 2], (|x|
+                var inner_byte = 'a'
+
+                if x % 2: {
+                    return inner_byte
+                }
+
+                if x % 4: {
+                    return 'a'
+                }
+
+                0
+            ))
+        """)
+
+        # Value builders
+
+        assert_parse_string(t, """\
+            {
+                var list_a: List[Integer] = ['a']
+                var hash_a: Hash[Integer, Integer] = ['a' => 1]
+                var tuple_a: Tuple[Integer] = <['a']>
+            }
+        """)
+
+        # Ranged for loops send Integer for all parameters
+
+        assert_parse_string(t, """\
+            for i in 'a'...'z' by 'a': {
+                if i > 1: {
+                    break
+                }
+
+                i.to_byte()
+            }
+        """)
+    }
 }

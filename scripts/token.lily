@@ -167,10 +167,10 @@ define write_ch_table(f: File)
         ch_table[ch] = digit
     }
 
-    set_range(ch_table, 'a'.to_i(), 'z'.to_i(), word_id)
-    set_range(ch_table, 'A'.to_i(), 'Z'.to_i(), word_id)
+    set_range(ch_table, 'a', 'z', word_id)
+    set_range(ch_table, 'A', 'Z', word_id)
     set_range(ch_table, 0xC2,       0xF4,       word_id)
-    set_range(ch_table, '0'.to_i(), '9'.to_i(), cc_data["CC_DIGIT"])
+    set_range(ch_table, '0', '9', cc_data["CC_DIGIT"])
 
     ch_table['@']  = cc_data["CC_AT"]
     ch_table['B']  = cc_data["CC_B"]
@@ -196,8 +196,8 @@ define write_ident_table(f: File)
     # This table is generated to make it easier to verify.
     var ident_table = List.repeat(256, "0")
 
-    set_range(ident_table, 'a'.to_i(), 'z'.to_i(), "1")
-    set_range(ident_table, 'A'.to_i(), 'Z'.to_i(), "1")
+    set_range(ident_table, 'a', 'z', "1")
+    set_range(ident_table, 'A', 'Z', "1")
     ident_table['_'] = "1"
 
     # Lexer's line reading verifies that utf-8 is properly formed.
@@ -205,7 +205,7 @@ define write_ident_table(f: File)
     set_range(ident_table, 0x80,       0xBF,       "1")
 
     # '@' uses this to check properties since 'B' is not tk_word.
-    set_range(ident_table, '0'.to_i(), '9'.to_i(), "2")
+    set_range(ident_table, '0', '9', "2")
 
     write_table_header(f, "uint8_t ident_table")
     write_numeric_table(f, ident_table)

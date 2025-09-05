@@ -1933,6 +1933,29 @@ static void unpack_dot_variant(lily_emit_state *emit, lily_ast *ast,
                 enum_cls->name, oo_name);
 }
 
+/* Since the ast's result doesn't match the expected type, try promoting it.
+   Promotion is currently Byte -> Integer (avoid by sending ? for inference).
+   This is intended for use by eval functions that produce a value. Caller must
+   have ast->result set already. */
+static void maybe_promote_value(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_sym *sym = ast->result;
+
+    if (expect->cls_id != LILY_ID_INTEGER ||
+        sym->type->cls_id != LILY_ID_BYTE)
+        return;
+
+    lily_storage *s = get_storage(emit, expect);
+
+    /* The promoted value needs to be tagged as an integer and in a register for
+       Integer values only. This opcode will do the job: `x | x` is always `x`
+       and the vm tags the result as an Integer. */
+    lily_u16_write_5(emit->code, o_int_bitwise_or, sym->reg_spot, sym->reg_spot,
+            s->reg_spot, ast->line_num);
+    ast->result = (lily_sym *)s;
+}
+
 /***
  *      _____
  *     | ____|_ __ _ __ ___  _ __ ___
@@ -2231,12 +2254,19 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
 
 /* This is the actual handler for simple 'x.y' accesses. It doesn't do assigns
    though. */
-static void eval_oo_access(lily_emit_state *emit, lily_ast *ast)
+static void eval_oo_access(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
     eval_oo_access_for_item(emit, ast);
     /* An 'x.y' access will either yield a property or a class method. */
-    if (ast->item->item_kind == ITEM_PROPERTY)
+    if (ast->item->item_kind == ITEM_PROPERTY) {
         oo_property_read(emit, ast);
+
+        /* Promotion is handled here because the other callers (compound op and
+           call) have no use for it. */
+        if (ast->result->type != expect)
+            maybe_promote_value(emit, ast, expect);
+    }
     else {
         lily_storage *result = get_storage(emit, ast->sym->type);
         lily_u16_write_4(emit->code, o_load_readonly, ast->sym->reg_spot,
@@ -2758,7 +2788,8 @@ after_type_check:;
 }
 
 /* This handles access to properties (@<name>). */
-static void eval_property(lily_emit_state *emit, lily_ast *ast)
+static void eval_property(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
     ensure_valid_scope(emit, ast);
 
@@ -2770,6 +2801,9 @@ static void eval_property(lily_emit_state *emit, lily_ast *ast)
 
     result->flags &= ~SYM_NOT_ASSIGNABLE;
     ast->result = (lily_sym *)result;
+
+    if (result->type != expect)
+        maybe_promote_value(emit, ast, expect);
 }
 
 /* When parser first sees a lambda, it collects the lambda as a blob of text.
@@ -2872,7 +2906,8 @@ static void eval_logical_op(lily_emit_state *emit, lily_ast *ast)
 }
 
 /* This runs a subscript, including validation of the indexes. */
-static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
+static void eval_subscript(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
     lily_ast *var_ast = ast->arg_start;
     lily_ast *index_ast = var_ast->next_arg;
@@ -2898,6 +2933,9 @@ static void eval_subscript(lily_emit_state *emit, lily_ast *ast)
             index_ast->result->reg_spot, result->reg_spot, ast->line_num);
 
     ast->result = (lily_sym *)result;
+
+    if (result->type != expect)
+        maybe_promote_value(emit, ast, expect);
 }
 
 static void eval_typecast(lily_emit_state *emit, lily_ast *ast)
@@ -3046,8 +3084,20 @@ static void ensure_safe_global_func(lily_emit_state *emit, lily_ast *ast,
             "^I has generics, and must be called or be a call argument.", var);
 }
 
+/* Local var eval is unique in that the result is already set. There's nothing
+   to do unless the type needs to be promoted. */
+static void emit_local_var(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    if (expect == lily_question_type || ast->result->type == expect)
+        return;
+
+    maybe_promote_value(emit, ast, expect);
+}
+
 /* This handles loading globals, upvalues, and static functions. */
-static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
+static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
 {
     int opcode;
     uint16_t spot;
@@ -3087,18 +3137,30 @@ static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast)
         ast->tree_type == tree_upvalue) {
         lily_u16_write_4(emit->code, opcode, spot, ret->reg_spot,
                 ast->line_num);
-    }
-    else
-        emit_create_function(emit, sym, ret);
+        ast->result = (lily_sym *)ret;
 
-    ast->result = (lily_sym *)ret;
+        if (sym->type != expect)
+            maybe_promote_value(emit, ast, expect);
+    }
+    else {
+        emit_create_function(emit, sym, ret);
+        ast->result = (lily_sym *)ret;
+    }
 }
 
-static void emit_byte(lily_emit_state *emit, lily_ast *ast)
+static void emit_byte(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
 {
-    lily_storage *s = get_storage(emit, emit->symtab->byte_class->self_type);
+    lily_type *t = emit->symtab->byte_class->self_type;
+    uint16_t opcode = o_load_byte;
 
-    lily_u16_write_4(emit->code, o_load_byte, ast->backing_value, s->reg_spot,
+    if (expect->cls_id == LILY_ID_INTEGER) {
+        t = expect;
+        opcode = o_load_integer;
+    }
+
+    lily_storage *s = get_storage(emit, t);
+
+    lily_u16_write_4(emit->code, opcode, ast->backing_value, s->reg_spot,
             ast->line_num);
 
     ast->result = (lily_sym *)s;
@@ -3110,7 +3172,7 @@ static void emit_integer(lily_emit_state *emit, lily_ast *ast,
     if (expect->cls_id == LILY_ID_BYTE) {
         if (ast->backing_value >= 0 &&
             ast->backing_value <= UINT8_MAX) {
-            emit_byte(emit, ast);
+            emit_byte(emit, ast, expect);
             return;
         }
         else
@@ -4407,13 +4469,15 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         ast->tree_type == tree_method ||
         ast->tree_type == tree_inherited_new ||
         ast->tree_type == tree_upvalue)
-        emit_nonlocal_var(emit, ast);
+        emit_nonlocal_var(emit, ast, expect);
+    else if (ast->tree_type == tree_local_var)
+        emit_local_var(emit, ast, expect);
     else if (ast->tree_type == tree_literal)
         emit_literal(emit, ast);
     else if (ast->tree_type == tree_integer)
         emit_integer(emit, ast, expect);
     else if (ast->tree_type == tree_byte)
-        emit_byte(emit, ast);
+        emit_byte(emit, ast, expect);
     else if (ast->tree_type == tree_boolean)
         emit_boolean(emit, ast);
     else if (ast->tree_type == tree_call)
@@ -4435,13 +4499,13 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
     else if (ast->tree_type == tree_tuple)
         eval_build_tuple(emit, ast, expect);
     else if (ast->tree_type == tree_subscript)
-        eval_subscript(emit, ast);
+        eval_subscript(emit, ast, expect);
     else if (ast->tree_type == tree_typecast)
         eval_typecast(emit, ast);
     else if (ast->tree_type == tree_oo_access)
-        eval_oo_access(emit, ast);
+        eval_oo_access(emit, ast, expect);
     else if (ast->tree_type == tree_property)
-        eval_property(emit, ast);
+        eval_property(emit, ast, expect);
     else if (ast->tree_type == tree_variant)
         eval_variant(emit, ast, expect);
     else if (ast->tree_type == tree_lambda)
@@ -4565,7 +4629,8 @@ void lily_eval_to_loop_var(lily_emit_state *emit, lily_expr_state *es,
                    "For range value expression contains an assignment.");
     }
 
-    eval_tree(emit, ast, lily_question_type);
+    /* Send the type to allow autopromotion. */
+    eval_tree(emit, ast, var->type);
     emit->expr_num++;
 
     if (ast->result->type != var->type) {
@@ -4574,8 +4639,6 @@ void lily_eval_to_loop_var(lily_emit_state *emit, lily_expr_state *es,
                    ast->result->type);
     }
 
-    /* Note: This works because the only time this is called is to handle
-             for..in range expressions, which are always integers. */
     lily_u16_write_4(emit->code, o_assign_noref, ast->result->reg_spot,
             var->reg_spot, ast->line_num);
 }
