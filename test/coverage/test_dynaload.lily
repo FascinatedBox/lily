@@ -1,8 +1,15 @@
 import (Interpreter,
+        LibraryTarget,
         TestCase) "../t/testing"
 
 class TestDynaload < TestCase
 {
+    private var @t_covlib =
+        LibraryTarget(
+            :path "covlib",
+            :redirect "test/t/backbone"
+        )
+
     public define test_dynaload_class_names
     {
         var t = Interpreter()
@@ -75,6 +82,29 @@ class TestDynaload < TestCase
                     @contents.size()
                 }
             }
+        """)
+    }
+
+    public define test_type_resolution_with_module_dynaload
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            define f(t: covlib.farm.Farmer) {}
+        """)
+
+        t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            var v = covlib.farm.Farmer()
         """)
     }
 }

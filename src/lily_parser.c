@@ -565,6 +565,8 @@ static void set_definition_doc(lily_parse_state *parser)
 
 static lily_class *find_run_class_dynaload(lily_parse_state *,
         lily_module_entry *, const char *);
+static lily_module_entry *find_run_module_dynaload(lily_parse_state *,
+        lily_module_entry *, const char *);
 
 static lily_var *find_active_var(lily_parse_state *parser, const char *name)
 {
@@ -605,6 +607,28 @@ lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
 
     if (result == NULL && m->info_table)
         result = find_run_class_dynaload(parser, m, name);
+
+    return result;
+}
+
+lily_class *find_dl_class_in(lily_parse_state *parser, lily_module_entry *m,
+        const char *name)
+{
+    lily_class *result = lily_find_class(m, name);
+
+    if (result == NULL && m->info_table)
+        result = find_run_class_dynaload(parser, m, name);
+
+    return result;
+}
+
+lily_module_entry *find_dl_module_in(lily_parse_state *parser,
+        lily_module_entry *m, const char *name)
+{
+    lily_module_entry *result = lily_find_module(m, name);
+
+    if (result == NULL && m->info_table)
+        result = find_run_module_dynaload(parser, m, name);
 
     return result;
 }
@@ -1693,26 +1717,44 @@ static lily_module_entry *resolve_module(lily_parse_state *parser,
     return result;
 }
 
-/* This is used to collect class names. Trying to just get a class name isn't
-   possible because there could be a module before the class name (`a.b.c`).
-   To make things more complicated, there could be a dynaload of a class. */
+/* Type collection uses this to find the class. It could be a simple predefined
+   class or a generic. If there are module(s), walk them. If there's a dynaload
+   of a class (or a module!), walk those two.
+   Caller must ensure the token is on the first identifier. */
 static lily_class *resolve_class_name(lily_parse_state *parser)
 {
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     lily_module_entry *m = symtab->active_module;
+    char *name = lex->label;
 
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_class *result = find_or_dl_class(parser, m, lex->label);
+    /* Try the prelude and generics first. */
+    lily_class *result = find_dl_class_in(parser, symtab->prelude_module, name);
 
     if (result == NULL) {
-        m = lily_find_module(m, lex->label);
+        if (name[1] == '\0')
+            result = (lily_class *)lily_gp_find(parser->generics, name);
 
-        if (m) {
-            m = resolve_module(parser, m);
-            result = find_or_dl_class(parser, m, lex->label);
-        }
+        if (result == NULL)
+            result = find_dl_class_in(parser, m, name);
+    }
+
+    if (result)
+        return result;
+
+    m = lily_find_module(m, name);
+
+    while (m) {
+        NEED_NEXT_TOK(tk_dot)
+        NEED_NEXT_TOK(tk_word)
+        name = lex->label;
+
+        result = find_dl_class_in(parser, m, name);
+
+        if (result)
+            return result;
+
+        m = find_dl_module_in(parser, m, name);
     }
 
     if (result == NULL)
@@ -2235,10 +2277,23 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
 
-    if (result && result->item_kind & ITEM_IS_VARLIKE)
+    if (result && result->item_kind & (ITEM_MODULE | ITEM_IS_VARLIKE))
         result = NULL;
 
     return (lily_class *)result;
+}
+
+static lily_module_entry *find_run_module_dynaload(lily_parse_state *parser,
+        lily_module_entry *m, const char *name)
+{
+    lily_dyna_state ds;
+
+    if (dyna_find_toplevel_item(&ds, m, name) == 0 ||
+        dyna_record_type(&ds) != 'M')
+        return NULL;
+
+    dynaload_module(parser, &ds);
+    return (lily_module_entry *)ds.result;
 }
 
 lily_class *lily_dynaload_exception(lily_parse_state *parser, const char *name)

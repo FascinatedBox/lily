@@ -8,9 +8,16 @@
 #define LILY_FARM_EXPORT
 #endif
 
+#define ID_farm_Farmer(s_) \
+lily_cid_at(s_, 0)
+#define SUPER_farm_Farmer(s_) \
+lily_push_super(s_, ID_farm_Farmer(s_), 0)
+
 LILY_FARM_EXPORT
 const char *lily_farm_info_table[] = {
-    "\0\0"
+    "\1Farmer\0"
+    ,"N\1Farmer\0"
+    ,"m\0<new>\0: Farmer"
     ,"R\0carrot_count\0Integer"
     ,"O\0a\0Integer"
     ,"O\0b\0Double"
@@ -21,6 +28,8 @@ const char *lily_farm_info_table[] = {
 LILY_FARM_EXPORT \
 lily_call_entry_func lily_farm_call_table[] = { \
     NULL, \
+    NULL, \
+    lily_farm_new_Farmer, \
     lily_farm_var_carrot_count, \
     lily_farm_constant_a, \
     lily_farm_constant_b, \

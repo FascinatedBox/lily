@@ -2,6 +2,7 @@ import manifest
 
 library farm
 
+class Farmer {}
 var carrot_count: Integer
 constant a: Integer
 constant b: Double
