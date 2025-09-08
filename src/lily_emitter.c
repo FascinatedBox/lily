@@ -2290,6 +2290,18 @@ static void eval_func_pipe(lily_emit_state *, lily_ast *, lily_type *);
 static void eval_logical_op(lily_emit_state *, lily_ast *);
 static void eval_plus_plus(lily_emit_state *, lily_ast *);
 
+/* Byte -> Integer autopromotion is encouraged since there's no precision loss.
+   Integer -> Double can lose precision, so promotion isn't as permissive. */
+static void promote_to_double(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_storage *s = get_storage(emit,
+            (lily_type *)emit->symtab->double_class);
+
+    lily_u16_write_4(emit->code, o_double_promotion, ast->result->reg_spot,
+            s->reg_spot, ast->line_num);
+    ast->result = (lily_sym *)s;
+}
+
 static uint16_t eval_for_compare(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->left->tree_type != tree_local_var)
@@ -2315,6 +2327,14 @@ static uint16_t eval_for_compare(lily_emit_state *emit, lily_ast *ast)
         /* Yes. Autopromotion failed because the left doesn't have inference.
            The vm groups these together. */
         ;
+    /* Autopromotion handles Integer cmp Byte.
+       No autopromotion for Integer -> Double, so check both sides. */
+    else if (left_id == LILY_ID_INTEGER &&
+             right_id == LILY_ID_DOUBLE)
+        promote_to_double(emit, ast->left);
+    else if (left_id == LILY_ID_DOUBLE &&
+             right_id == LILY_ID_INTEGER)
+        promote_to_double(emit, ast->right);
     else
         result = UINT16_MAX;
 
@@ -2386,19 +2406,6 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast)
     /* Patch the success path to jump here, after the false path. */
     lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 1);
 
-    ast->result = (lily_sym *)s;
-}
-
-/* Byte -> Integer autopromotion is encouraged since there's no precision loss.
-   Integer -> Double can lose precision, so promotion isn't as permissive.
-   Math operations perform this promotion to make math less cumbersome. */
-static void promote_to_double(lily_emit_state *emit, lily_ast *ast)
-{
-    lily_storage *s = get_storage(emit,
-            (lily_type *)emit->symtab->double_class);
-
-    lily_u16_write_4(emit->code, o_double_promotion, ast->result->reg_spot,
-            s->reg_spot, ast->line_num);
     ast->result = (lily_sym *)s;
 }
 

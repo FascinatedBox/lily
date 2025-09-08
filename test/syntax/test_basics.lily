@@ -2278,5 +2278,23 @@ class TestBasics < TestCase
                 }
             }
         """)
+
+        # Comparisons allow Integer and Double for math convenience.
+
+        assert_parse_string(t, """
+            if 10 > 10.5: {
+                0/0
+            }
+
+            if 15.0 != 15: {
+                0/0
+            }
+
+            var d = 10.0
+
+            if 10 != d: {
+                0/0
+            }
+        """)
     }
 }
