@@ -2304,7 +2304,21 @@ static uint16_t eval_for_compare(lily_emit_state *emit, lily_ast *ast)
     if (left_type == right_type)
         return ast->op;
 
-    return UINT16_MAX;
+    /* Are these types suitable to compare? */
+
+    uint16_t left_id = left_type->cls_id;
+    uint16_t right_id = right_type->cls_id;
+    uint16_t result = ast->op;
+
+    if (left_id == LILY_ID_BYTE &&
+        right_id == LILY_ID_INTEGER)
+        /* Yes. Autopromotion failed because the left doesn't have inference.
+           The vm groups these together. */
+        ;
+    else
+        result = UINT16_MAX;
+
+    return result;
 }
 
 static void write_compare_or_error(lily_emit_state *emit, lily_ast *ast,

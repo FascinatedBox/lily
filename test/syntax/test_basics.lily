@@ -2208,7 +2208,7 @@ class TestBasics < TestCase
         """)
     }
 
-    public define test_math_ops
+    public define test_math_and_compare_ops
     {
         var t = Interpreter()
 
@@ -2257,6 +2257,26 @@ class TestBasics < TestCase
 
             # Ensure Double is the yielded type.
             (10.0 + 1).to_i()
+        """)
+
+        # Byte -> Integer comparison relies on inference.
+        # The left side of a compare has no inference (right uses left's type).
+
+        assert_parse_string(t, """
+            var check: Integer = 'a'
+
+            if 'a' != check: {
+                0/0
+            }
+
+            define f {
+                var byte = 'a'
+                var v = 10
+
+                if byte == v: {
+                    0/0
+                }
+            }
         """)
     }
 }
