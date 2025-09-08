@@ -128,12 +128,13 @@ const char *lily_prelude_info_table[] = {
     ,"C\0Unit\0"
     ,"N\1ValueError\0< Exception"
     ,"m\0<new>\0(String): ValueError"
-    ,"E\12Option\0[A]"
+    ,"E\13Option\0[A]"
     ,"m\0and\0[A,B](Option[A],Option[B]): Option[B]"
     ,"m\0and_then\0[A,B](Option[A],Function(A=>Option[B])): Option[B]"
     ,"m\0is_none\0[A](Option[A]): Boolean"
     ,"m\0is_some\0[A](Option[A]): Boolean"
     ,"m\0map\0[A,B](Option[A],Function(A=>B)): Option[B]"
+    ,"m\0map_or\0[A,B](Option[A],B,Function(A=>B)): B"
     ,"m\0or\0[A](Option[A],Option[A]): Option[A]"
     ,"m\0or_else\0[A](Option[A],Function(=>Option[A])): Option[A]"
     ,"m\0unwrap\0[A](Option[A]): A"
@@ -301,6 +302,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_Option_is_none, \
     lily_prelude_Option_is_some, \
     lily_prelude_Option_map, \
+    lily_prelude_Option_map_or, \
     lily_prelude_Option_or, \
     lily_prelude_Option_or_else, \
     lily_prelude_Option_unwrap, \

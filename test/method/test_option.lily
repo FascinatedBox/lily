@@ -41,6 +41,15 @@ class TestOptionMethods < TestCase
         assert_equal(v2, 3)
     }
 
+    public define test_map_or
+    {
+        var v: Option[Integer] = None
+        assert_equal(v.map_or("5", (|x| "")), "5")
+
+        var v2 = Some(1)
+        assert_equal(v2.map_or("10", (|x| x.to_s())), "1")
+    }
+
     public define test_or
     {
         var v = None.@(Option[Integer]).or(None)

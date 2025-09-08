@@ -767,6 +767,11 @@ predefined Option[A] {
     ### Otherwise, this returns `None`.
     define map[B](fn: Function(A => B)): Option[B]
 
+    ### If `self` is a `Some`, returns the result of `fn`.
+    ###
+    ### Otherwise, this returns `alternate`.
+    define map_or[B](alternate: B, fn: Function(A => B)): B
+
     ### If `self` is a `Some`, this returns `self`.
     ###
     ### Otherwise, this returns `alternate`.

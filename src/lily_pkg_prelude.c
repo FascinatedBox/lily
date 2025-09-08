@@ -1812,6 +1812,20 @@ void lily_prelude_Option_map(lily_state *s)
         lily_return_none(s);
 }
 
+void lily_prelude_Option_map_or(lily_state *s)
+{
+    if (lily_arg_is_some(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
+
+        lily_call_prepare(s, lily_arg_function(s, 2));
+        lily_push_value(s, lily_con_get(con, 0));
+        lily_call(s, 1);
+        lily_return_value(s, lily_call_result(s));
+    }
+    else
+        lily_return_value(s, lily_arg_value(s, 1));
+}
+
 void lily_prelude_Option_or(lily_state *s)
 {
     if (lily_arg_is_some(s, 0))
