@@ -1885,6 +1885,9 @@ else if (lhs_reg->flags & V_STRING_FLAG) { \
     i = strcmp(lhs_reg->value.string->string, \
                rhs_reg->value.string->string) OP 0; \
 } \
+else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
+    i = lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
+} \
 else { \
     SAVE_LINE(+5); \
     i = lily_value_compare(vm, lhs_reg, rhs_reg) OP 1; \
