@@ -971,6 +971,16 @@ class TestBadSyntax < TestCase
                 b1[0] = Leaf(1)
             }
         """)
+
+        # Can't think of a good use case for math between these two.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid operation: Double + Byte.
+                from [test]:1:
+        """,
+        """\
+            var v = 1.0 + 'a'
+        """)
     }
 
     public define test_bad_subscript
@@ -1623,11 +1633,11 @@ class TestBadSyntax < TestCase
         # verify misc (invalid binary op)
 
         assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: Integer * Double.
+            SyntaxError: Invalid operation: String / Integer.
                 from [test]:1:
         """,
         """\
-            var v = (1 * 1.1)
+            var v = ("abc" / 5)
         """)
     }
 

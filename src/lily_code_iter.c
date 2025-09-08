@@ -31,6 +31,7 @@ int lily_ci_next(lily_code_iter *iter)
     switch ((lily_opcode)*buffer) {
         case o_assign:
         case o_assign_noref:
+        case o_double_promotion:
         case o_unary_bitwise_not:
         case o_unary_minus:
         case o_unary_not:

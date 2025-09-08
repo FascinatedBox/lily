@@ -2207,4 +2207,56 @@ class TestBasics < TestCase
             }
         """)
     }
+
+    public define test_math_ops
+    {
+        var t = Interpreter()
+
+        # Byte operations yield Integer to prevent overflow.
+        # Not the full range, but enough to show it works.
+
+        assert_parse_string(t, """
+            if 'a' + 1 != 'c' - 1: {
+                0/0
+            }
+
+            if 1 * 'a' * 1 != 'a': {
+                0/0
+            }
+
+            if 'a' / 'a' != 1: {
+                0/0
+            }
+
+            if 1 != 'a' / 'a': {
+                0/0
+            }
+
+            # Type check by method call that avoids autopromotion.
+            ('a' + 'a').to_byte()
+        """)
+
+        # Double operations allow Integer on either side.
+
+        assert_parse_string(t, """
+            if 10 + 15.5 != 25.5: {
+                0/0
+            }
+
+            if 15.5 - 10 != 5.5: {
+                0/0
+            }
+
+            if 10 * 4.2 != 42.0: {
+                0/0
+            }
+
+            if 10 / .5 != 20.0: {
+                0/0
+            }
+
+            # Ensure Double is the yielded type.
+            (10.0 + 1).to_i()
+        """)
+    }
 }

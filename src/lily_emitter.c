@@ -2366,16 +2366,56 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
     ast->result = (lily_sym *)s;
 }
 
-static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
+/* Byte -> Integer autopromotion is encouraged since there's no precision loss.
+   Integer -> Double can lose precision, so promotion isn't as permissive.
+   Math operations perform this promotion to make math less cumbersome. */
+static void promote_to_double(lily_emit_state *emit, lily_ast *ast)
 {
-    lily_sym *left = ast->left->result;
-    lily_sym *right = ast->right->result;
-    uint16_t left_id = left->type->cls_id;
-    uint16_t op = ast->op;
-    uint16_t opcode = UINT16_MAX;
-    lily_storage *s;
+    lily_storage *s = get_storage(emit,
+            (lily_type *)emit->symtab->double_class);
+
+    lily_u16_write_4(emit->code, o_double_promotion, ast->result->reg_spot,
+            s->reg_spot, ast->line_num);
+    ast->result = (lily_sym *)s;
+}
+
+static uint16_t arith_group_for(lily_emit_state *emit, lily_ast *ast)
+{
+    uint16_t left_id = ast->left->result->type->cls_id;
+    uint16_t right_id = ast->right->result->type->cls_id;
+    uint16_t group = LILY_ID_NONE;
 
     if (left_id == LILY_ID_INTEGER) {
+        if (right_id == LILY_ID_BYTE ||
+            right_id == LILY_ID_INTEGER)
+            group = LILY_ID_INTEGER;
+        else if (right_id == LILY_ID_DOUBLE) {
+            promote_to_double(emit, ast->left);
+            group = LILY_ID_DOUBLE;
+        }
+    }
+    else if (left_id == LILY_ID_DOUBLE) {
+        if (right_id == LILY_ID_DOUBLE)
+            group = LILY_ID_DOUBLE;
+        else if (right_id == LILY_ID_INTEGER) {
+            promote_to_double(emit, ast->right);
+            group = LILY_ID_DOUBLE;
+        }
+    }
+    else if (left_id == LILY_ID_BYTE) {
+        if (right_id == LILY_ID_BYTE ||
+            right_id == LILY_ID_INTEGER)
+            group = LILY_ID_INTEGER;
+    }
+
+    return group;
+}
+
+static uint16_t arith_group_to_opcode(uint16_t group, uint16_t op)
+{
+    uint16_t opcode = UINT16_MAX;
+
+    if (group == LILY_ID_INTEGER) {
         if (op == tk_plus)
             opcode = o_int_add;
         else if (op == tk_minus)
@@ -2397,7 +2437,7 @@ static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
         else if (op == tk_bitwise_xor)
             opcode = o_int_bitwise_xor;
     }
-    else if (left_id == LILY_ID_DOUBLE) {
+    else if (group == LILY_ID_DOUBLE) {
         if (op == tk_plus)
             opcode = o_number_add;
         else if (op == tk_minus)
@@ -2408,22 +2448,30 @@ static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
             opcode = o_number_divide;
     }
 
-    if (opcode == UINT16_MAX || left->type != right->type)
-        lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
-                left->type, tokname(op), right->type);
+    return opcode;
+}
 
+static void eval_arith_op(lily_emit_state *emit, lily_ast *ast)
+{
+    /* Send emitter so this first function can do promotion. */
+    uint16_t group = arith_group_for(emit, ast);
+    uint16_t opcode = arith_group_to_opcode(group, ast->op);
+    lily_sym *left = ast->left->result;
+    lily_sym *right = ast->right->result;
+
+    if (opcode == UINT16_MAX)
+        lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
+                left->type, tokname(ast->op), right->type);
+
+    /* Use symtab for the type since Byte op Byte == Integer. */
     lily_type *storage_type;
 
-    switch (op) {
-        case tk_plus:
-        case tk_minus:
-        case tk_multiply:
-        case tk_divide:
-            storage_type = left->type;
-            break;
-        default:
-            storage_type = emit->symtab->integer_class->self_type;
-    }
+    if (group == LILY_ID_INTEGER)
+        storage_type = (lily_type *)emit->symtab->integer_class;
+    else
+        storage_type = (lily_type *)emit->symtab->double_class;
+
+    lily_storage *s;
 
     /* Try to use an existing storage again before getting a new one. */
     if (left->item_kind == ITEM_STORAGE &&

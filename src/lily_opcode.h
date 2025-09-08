@@ -164,6 +164,9 @@ typedef enum {
        fresh. */
     o_closure_function,
 
+    /* Convert an Integer into a Double. */
+    o_double_promotion,
+
     /* This takes a series of values and shoves them into a msgbuf. The content
        of the msgbuf (a String) is deposited into a register. */
     o_interpolation,

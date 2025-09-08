@@ -2278,6 +2278,13 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;
                 break;
+            case o_double_promotion:
+                rhs_reg = vm_regs[code[1]];
+                lhs_reg = vm_regs[code[2]];
+                lhs_reg->value.doubleval = (double)rhs_reg->value.integer;
+                lhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+                code += 4;
+                break;
             case o_for_list_step:
                 rhs_reg = vm_regs[code[1]]; /* Source */
                 loop_reg = vm_regs[code[2]]; /* Index */
