@@ -2290,7 +2290,7 @@ static void eval_func_pipe(lily_emit_state *, lily_ast *, lily_type *);
 static void eval_logical_op(lily_emit_state *, lily_ast *);
 static void eval_plus_plus(lily_emit_state *, lily_ast *);
 
-static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
+static uint16_t eval_for_compare(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->left->tree_type != tree_local_var)
         eval_tree(emit, ast->left, lily_question_type);
@@ -2298,10 +2298,21 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, ast->left->result->type);
 
+    lily_type *left_type = ast->left->result->type;
+    lily_type *right_type = ast->right->result->type;
+
+    if (left_type == right_type)
+        return ast->op;
+
+    return UINT16_MAX;
+}
+
+static void write_compare_or_error(lily_emit_state *emit, lily_ast *ast,
+        uint16_t op)
+{
     lily_sym *left = ast->left->result;
     lily_sym *right = ast->right->result;
     uint16_t left_id = left->type->cls_id;
-    uint16_t op = ast->op;
     uint16_t opcode = UINT16_MAX;
 
     if (op == tk_eq_eq)
@@ -2330,22 +2341,20 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast, int fold)
             opcode = o_compare_greater;
     }
 
-    if (opcode == UINT16_MAX || left->type != right->type)
+    if (opcode == UINT16_MAX)
         lily_raise_tree(emit->raiser, ast, "Invalid operation: ^T %s ^T.",
-                left->type, tokname(op), right->type);
+                left->type, tokname(ast->op), right->type);
 
     /* Comparison ops include a jump to take if they fail. In many cases,
        comparisons are done as part of a conditional test. Putting a jump in the
        compare allows omitting a separate o_jump_if_false op. */
     lily_u16_write_5(emit->code, opcode, left->reg_spot, right->reg_spot, 3,
             ast->line_num);
+}
 
-    if (fold) {
-        /* This tree is the root of a comparison. Add the falsey jump to patches
-           to get patched so the comparison doesn't have to write a jump. */
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
-        return;
-    }
+static void eval_compare_op(lily_emit_state *emit, lily_ast *ast)
+{
+    write_compare_or_error(emit, ast, eval_for_compare(emit, ast));
 
     uint16_t patch = lily_u16_pos(emit->code) - 2;
     lily_storage *s = get_storage(emit, emit->symtab->boolean_class->self_type);
@@ -2504,7 +2513,7 @@ static void eval_binary_op(lily_emit_state *emit, lily_ast *ast,
             eval_logical_op(emit, ast);
             break;
         case 4:
-            eval_compare_op(emit, ast, 0);
+            eval_compare_op(emit, ast);
             break;
         case 5:
             eval_plus_plus(emit, ast);
@@ -4727,9 +4736,11 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
     }
 
     if (is_compare_tree(ast)) {
-        /* Run the compare op with 1 so that it finishes by writing a falsey
-           jump to be patched. */
-        eval_compare_op(emit, ast, 1);
+        /* Do exactly the start of eval_compare_op. */
+        write_compare_or_error(emit, ast, eval_for_compare(emit, ast));
+
+        /* Comparison ops end with a jump, then a line number. Use that jump. */
+        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
         return;
     }
 
