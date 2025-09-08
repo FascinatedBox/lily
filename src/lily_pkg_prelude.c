@@ -1631,21 +1631,20 @@ static void quicksort(lily_state *s, lily_container_val *list,
     if (left >= right)
         return;
 
-    uint32_t pivot = (left + right) / 2;
-    lily_value *pivot_value = lily_con_get(list, pivot);
+    lily_push_value(s, lily_con_get(list, (left + right) / 2));
 
     uint32_t i = left;
     uint32_t j = right;
 
     while (i < j) {
+        lily_value *pivot = lily_stack_get_top(s);
+
         while (i < right && quicksort_compare(s, compare_result,
-                                              lily_con_get(list, i),
-                                              pivot_value) < 0)
+                                              lily_con_get(list, i), pivot) < 0)
             i++;
 
         while (j > left && quicksort_compare(s, compare_result,
-                                             lily_con_get(list, j),
-                                             pivot_value) > 0)
+                                             lily_con_get(list, j), pivot) > 0)
             j--;
 
         if (i > j)
@@ -1664,6 +1663,8 @@ static void quicksort(lily_state *s, lily_container_val *list,
         if (i < right) i++;
         if (j > left) j--;
     }
+
+    lily_stack_drop_top(s);
 
     if (j > left)
         quicksort(s, list, compare_result, left, j);
