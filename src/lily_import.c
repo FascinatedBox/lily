@@ -315,7 +315,7 @@ lily_module_entry *lily_ims_open_module(lily_parse_state *parser)
         lily_mb_add_fmt(msgbuf, "Cannot import '%s':", name);
 
         if (ims->is_slashed_path == 0)
-            lily_mb_add_fmt(msgbuf, "\n    no preloaded package '%s'", name);
+            lily_mb_add_fmt(msgbuf, "\n    no builtin module '%s'", name);
 
         lily_buffer_u16 *b = parser->data_stack;
         uint16_t i;

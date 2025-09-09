@@ -345,7 +345,7 @@ class TestBadImport < TestCase
         t.parse_string("[test]", "import \"%s^T\"")
         verify_import_error("""\
             SyntaxError: Cannot import '%s^T':
-                no preloaded package '%s^T'
+                no builtin module '%s^T'
                 no file '.\/%s^T.lily'
                 no file '.\/%s^T.{lib}'
                 no file '.\/packages\/%s^T\/src\/%s^T.lily'
@@ -437,7 +437,7 @@ class TestBadImport < TestCase
 
         var expect = """\
             SyntaxError: Cannot import 'bad_asdf':
-                no preloaded package 'bad_asdf'
+                no builtin module 'bad_asdf'
                 no file '.\/test\/t\/backbone.{lib}'
 
                |
@@ -461,7 +461,7 @@ class TestBadImport < TestCase
 
         var expect = """\
             SyntaxError: Cannot import 'asdf':
-                no preloaded package 'asdf'
+                no builtin module 'asdf'
                 no file '.\/asdf.lily'
                 no file '.\/asdf.{lib}'
                 no file '.\/packages\/asdf\/src\/asdf.lily'
@@ -564,7 +564,7 @@ class TestBadImport < TestCase
 
     public define test_import_skip_preloaded
     {
-        # Don't check preloaded packages for slashed paths.
+        # Don't check builtin modules for slashed paths.
 
         var t = Interpreter.with_targets()
 
@@ -680,7 +680,7 @@ class TestBadImport < TestCase
 
         verify_import_error("""\
             SyntaxError: Cannot import 'doesnotexist':
-                no preloaded package 'doesnotexist'
+                no builtin module 'doesnotexist'
                 no file './doesnotexist.lily'
                 no file './doesnotexist.{lib}'
                 no file './packages/doesnotexist/src/doesnotexist.lily'

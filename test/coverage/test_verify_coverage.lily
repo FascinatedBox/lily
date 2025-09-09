@@ -675,7 +675,7 @@ SyntaxError: Expected a value, not 'end of file'.
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot import 'sys':
-                no preloaded package 'sys'
+                no builtin module 'sys'
                 no file '.\/sys.lily'
                 no file '.\/packages\/sys\/src\/sys.lily'
 
