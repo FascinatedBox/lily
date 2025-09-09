@@ -5,6 +5,8 @@
 
 #include "lily.h"
 
+extern uint8_t lily_repl(lily_state *);
+
 static void usage()
 {
     fputs("Usage: lily [option] ...\n"
@@ -75,8 +77,6 @@ int main(int argc, char **argv)
 {
     int argc_offset;
     process_args(argc, argv, &argc_offset);
-    if (to_process == NULL)
-        usage();
 
     lily_config config;
 
@@ -92,6 +92,9 @@ int main(int argc, char **argv)
     config.use_sys_dirs = use_sys_dirs;
 
     lily_state *state = lily_new_state(&config);
+
+    if (to_process == NULL)
+        exit(lily_repl(state));
 
     int result;
 
