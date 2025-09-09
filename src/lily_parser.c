@@ -6396,11 +6396,11 @@ void lily_parser_exit(lily_state *s, uint8_t status)
     longjmp(jump_iter->jump, 1);
 }
 
-int lily_exit_code(lily_state *s)
+uint8_t lily_exit_code(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
     lily_rewind_state *rs = parser->rs;
-    int result;
+    uint8_t result;
 
     if (rs->has_exited)
         result = rs->exit_status;

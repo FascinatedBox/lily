@@ -186,7 +186,7 @@ lily_config *lily_config_get(lily_state *s);
 // If `sys.exit` has been called, this will return the exit code given to it.
 // Otherwise, this returns EXIT_SUCCESS if the last content handling function
 // succeeded, or EXIT_FAILURE if it did not.
-int lily_exit_code(lily_state *s);
+uint8_t lily_exit_code(lily_state *s);
 
 // Function: lily_has_exited
 // Return 1 if an exit function has been called, 0 otherwise.
