@@ -9,17 +9,17 @@ extern uint8_t lily_repl(lily_state *);
 
 static void usage()
 {
-    fputs("Usage: lily [option] ...\n"
-          "Options:\n"
-          "-h             : Print this help and exit.\n"
-          "-t             : Code is between <?lily ... ?> tags.\n"
-          "                 Everything else is printed to stdout.\n"
-          "                 By default, everything is treated as code.\n"
-          "-s string      : The program is a string (end of options).\n"
-          "-l             : Local imports only (don't use system dirs).\n"
-          "-gstart N      : Initial # of objects allowed before a gc sweep.\n"
-          "-gmul N        : (# allowed * N) when sweep can't free anything.\n"
-          "file           : The program is the given filename.\n", stderr);
+    fputs(
+          "Usage: lily [options] [script [arguments]]\n"
+          "\n"
+          "Available options are:\n"
+          "  -t            execute code between <?lily ... ?> tags\n"
+          "  -s cmd        execute string 'cmd' instead of a script\n"
+          "  -l            local imports only (don't use system dirs)\n"
+          "  -gstart N     # of values to allow before a gc sweep\n"
+          "  -gmul N       (# allowed * N) when sweep can't free anything\n"
+          "  -h            show this help\n"
+          , stderr);
     exit(EXIT_FAILURE);
 }
 
