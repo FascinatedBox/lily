@@ -6593,9 +6593,13 @@ int lily_parse_expr(lily_state *s, const char **text)
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
             if (reg->flags & V_STRING_FLAG)
-                lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
-            else if (sym->type != lily_unit_type)
+                lily_mb_add_fmt(msgbuf, "\"%s\"\n", reg->value.string->string);
+            else if (sym->type != lily_unit_type) {
                 lily_mb_add_value(msgbuf, s, reg);
+
+                /* Traceback has a newline at the end. Follow that example. */
+                lily_mb_add_char(msgbuf, '\n');
+            }
 
             /* Unit values are not interesting enough to print. */
 
