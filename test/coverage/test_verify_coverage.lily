@@ -459,14 +459,14 @@ class TestVerifyCoverage < TestCase
 
         assert_equal(
             t.parse_expr("[test]", "10").unwrap(),
-            "(Integer): 10"
+            "10"
         )
 
         # parse expr api (String values are quoted)
 
         assert_equal(
             t.parse_expr("[test]", "\"asdf\"").unwrap(),
-            "(String): \"asdf\""
+            "\"asdf\""
         )
 
         # parse expr api (broken expression returns None, sets error)

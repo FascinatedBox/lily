@@ -6590,8 +6590,6 @@ int lily_parse_expr(lily_state *s, const char **text)
             lily_value *reg = s->call_chain->next->start[sym->reg_spot];
             lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
 
-            lily_mb_add_fmt(msgbuf, "(^T): ", sym->type);
-
             /* Add value doesn't quote String values, because most callers do
                not want that. This one does, so bypass that. */
             if (reg->flags & V_STRING_FLAG)

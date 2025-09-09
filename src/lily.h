@@ -297,14 +297,11 @@ int lily_render_content(lily_state *s);
 // Function: lily_parse_expr
 // Parse an expression prepared for the interpreter.
 //
-// This parses the content provided as an expression in code mode. The content
-// is consumed regardless of this function's result.
+// This parses the content provided as an expression. The content is consumed
+// regardless of the function's result.
 //
-// If the expression is successfully processed, then 'output' is set to a buffer
-// holding the type and the value of the type.
-//
-// The buffer that 'output' holds on success points to an internal msgbuf. It is
-// valid until the next parse or render function is called.
+// If this function succeeds, output is set to a string describing the value.
+// The string will remain valid until the next parse or render call.
 //
 // Parameters:
 //     s      - The interpreter.
