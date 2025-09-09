@@ -6594,8 +6594,10 @@ int lily_parse_expr(lily_state *s, const char **text)
                not want that. This one does, so bypass that. */
             if (reg->flags & V_STRING_FLAG)
                 lily_mb_add_fmt(msgbuf, "\"%s\"", reg->value.string->string);
-            else
+            else if (sym->type != lily_unit_type)
                 lily_mb_add_value(msgbuf, s, reg);
+
+            /* Unit values are not interesting enough to print. */
 
             *text = lily_mb_raw(msgbuf);
         }

@@ -469,6 +469,11 @@ class TestVerifyCoverage < TestCase
             "\"asdf\""
         )
 
+        assert_equal(
+            t.parse_expr("[test]", "unit").unwrap(),
+            ""
+        )
+
         # parse expr api (broken expression returns None, sets error)
         # Since this doesn't go through assert_*_fails, it gets the raw string.
         # In this case, forget about the indentation and match exactly.
