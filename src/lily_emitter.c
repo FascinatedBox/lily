@@ -2169,27 +2169,13 @@ static void error_keyarg_missing_params(lily_emit_state *emit, lily_ast *ast,
  *
  */
 
-/** Member access for classes is quite annoying. The parser doesn't have type
-    information, so it packages them as having a tree and a name. It seems like
-    it would be as simple as 'evaluate the tree, lookup the name', but it isn't.
-
-    The name could be a method that needs to be dynaloaded, a class member, or a
-    method that has already been loaded. The thing that is loaded must dump a
-    value to a storage.
-
-    Problems begin with 'x.y = z' (oo/prop assign). This kind of access needs to
-    know what type that it is targeting. Running the 'x.y' access is a waste,
-    because it's not possible to assign to a storage (that fails if y is an
-    integer property). Additionally, 'y' might be a property that isn't solved
-    yet, so that's another issue. 'x.y += z' is also tricky. **/
-
-/* This runs an 'x.y' kind of access. The inner tree is evaluated, but no result
-   is set. Instead, the ast's item is set to either the var or the storage that
-   is returned.
-
-   SyntaxError is raised if the name specified doesn't exist, or is not
-   available in the current scope. */
-static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
+/* Evaluate and verify member access (`<something>.y`). The inner tree (the
+   something) is evaluated. This performs a dynaload if necessary, as well as
+   ensuring the member access is allowed. This does not load the value, because
+   that is usually wrong. Instead, the ast's item is set to either the property
+   (ITEM_PROPERTY) or the method (not ITEM_PROPERTY) to access. The item's
+   item_kind is returned for convenience. */
+static uint16_t eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 {
     if (ast->arg_start->tree_type != tree_local_var)
         eval_tree(emit, ast->arg_start, lily_question_type);
@@ -2214,8 +2200,8 @@ static void eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
                 "Not allowed to access a variant through an enum instance.");
 
     ast->item = item;
-
     ensure_valid_scope(emit, ast);
+    return item->item_kind;
 }
 
 /* This is called on oo trees that have been evaluated and which contain a
@@ -2257,9 +2243,8 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
 static void eval_oo_access(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    eval_oo_access_for_item(emit, ast);
-    /* An 'x.y' access will either yield a property or a class method. */
-    if (ast->item->item_kind == ITEM_PROPERTY) {
+    /* The result is a property or class method. */
+    if (eval_oo_access_for_item(emit, ast) == ITEM_PROPERTY) {
         oo_property_read(emit, ast);
 
         /* Promotion is handled here because the other callers (compound op and
@@ -2651,10 +2636,7 @@ static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
    property (which is the proper type to compare against). */
 static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 {
-    eval_oo_access_for_item(emit, ast->left);
-
-    /* Can't assign to a method. */
-    if (ast->left->item->item_kind != ITEM_PROPERTY)
+    if (eval_oo_access_for_item(emit, ast->left) != ITEM_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
                 "Left side of %s is not assignable.", tokname(ast->op));
 
@@ -3913,8 +3895,7 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
             call_item = first_arg->item;
             break;
         case tree_oo_access:
-            eval_oo_access_for_item(emit, first_arg);
-            if (first_arg->item->item_kind == ITEM_PROPERTY)
+            if (eval_oo_access_for_item(emit, first_arg) == ITEM_PROPERTY)
                 oo_property_read(emit, first_arg);
             else {
                 first_arg->result = first_arg->arg_start->result;
