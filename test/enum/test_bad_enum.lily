@@ -145,6 +145,43 @@ class TestBadEnum < TestCase
                 Three
             }
         """)
+
+        # non-identifier on first variant
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'a label', not 'a string'.
+
+               |
+             2 | "One",
+               | ^
+
+                from [test]:2:
+        """,
+        """\
+            enum Example {
+                "One",
+                Two,
+                Three
+            }
+        """)
+
+        # non-identifier found after first variant
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a variant name, '}', or 'define' here.
+
+               |
+             3 | "Two"
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            enum Example {
+                One,
+                "Two"
+            }
+        """)
     }
 
     public define test_bad_decompose

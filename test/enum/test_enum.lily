@@ -490,4 +490,47 @@ class TestEnum < TestCase
             x2(Left.@(Integer), 0)
         """)
     }
+
+    public define test_trailing_comma
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            enum Example {
+                One,
+                Two,
+                Three,
+            }
+
+            enum ExampleB {
+                BOne,
+                BTwo,
+                define f {}
+            }
+
+            enum ValueExample > Integer {
+                First = 1,
+                Second = 2,
+                Third = 3,
+            }
+
+            enum ValueExampleB > Integer {
+                BFirst = 1,
+                BSecond = 2,
+                define f {}
+            }
+
+            scoped enum ScopedExample {
+                SFirst,
+                SSecond,
+                SThird,
+            }
+
+            scoped enum ScopedExampleB {
+                SFirst,
+                SSecond,
+                define f {}
+            }
+        """)
+    }
 }

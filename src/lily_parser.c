@@ -4934,11 +4934,9 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
         parse_enum_inheritance(parser, enum_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    lily_next_token(lex);
+    NEED_NEXT_TOK(tk_word);
 
     while (1) {
-        NEED_CURRENT_TOK(tk_word)
-
         lily_variant_class *variant_cls = lily_find_variant(enum_cls,
                 lex->label);
 
@@ -4967,7 +4965,19 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 
         if (lex->token == tk_comma) {
             lily_next_token(lex);
-            continue;
+
+            if (lex->token == tk_word) {
+                if (lex->label[0] == 'd' &&
+                   (strcmp(lex->label, "define") == 0))
+                    break;
+                else
+                    continue;
+            }
+            else if (lex->token == tk_right_curly)
+                break;
+
+            lily_raise_syn(parser->raiser,
+                    "Expected a variant name, '}', or 'define' here.");
         }
         else if (lex->token == tk_equal && is_value_enum == 0)
             lily_raise_syn(parser->raiser,
