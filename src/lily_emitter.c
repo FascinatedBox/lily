@@ -2652,7 +2652,7 @@ static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
 static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 {
     eval_oo_access_for_item(emit, ast->left);
-    ensure_valid_scope(emit, ast->left);
+
     /* Can't assign to a method. */
     if (ast->left->item->item_kind != ITEM_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
