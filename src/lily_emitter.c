@@ -2573,101 +2573,213 @@ static void set_compound_spoof_op(lily_ast *ast)
     ast->op = spoof_op;
 }
 
-static void emit_compound_op(lily_emit_state *emit, lily_ast *ast)
+static void verify_assign_types(lily_emit_state *emit, lily_ast *ast,
+        lily_type *left, lily_type *right)
 {
-    lily_tree_type left_tt = ast->left->tree_type;
+    if (left == right ||
+        lily_ts_type_greater_eq(emit->ts, left, right))
+        return;
 
-    if (left_tt == tree_global_var ||
-        left_tt == tree_local_var) {
-        if (left_tt == tree_global_var)
-            eval_tree(emit, ast->left, lily_question_type);
-    }
-    else if (left_tt == tree_property) {
-        eval_tree(emit, ast->left, lily_question_type);
-    }
-    else if (left_tt == tree_oo_access) {
-        oo_property_read(emit, ast->left);
-    }
-    else if (left_tt == tree_upvalue) {
-        lily_var *left_var = (lily_var *)ast->left->sym;
-        /* eval_assign_upvalue makes sure this sym is closed over. */
-        uint16_t spot = left_var->closure_spot;
+    lily_raise_tree(emit->raiser, ast,
+            "Cannot assign type '^T' to type '^T'.",
+            right, left);
+}
 
-        lily_storage *s = get_storage(emit, ast->left->sym->type);
-        lily_u16_write_4(emit->code, o_closure_get, spot, s->reg_spot,
-                ast->line_num);
-        ast->left->result = (lily_sym *)s;
-    }
-    else if (left_tt == tree_subscript) {
-        /* The spoofed binary op expects a left side, so run a subscript using
-           the already-computed var + index first. */
-        lily_ast *index_ast = ast->left->arg_start->next_arg;
-        lily_sym *var_sym = ast->left->arg_start->result;
-        lily_sym *index_sym = index_ast->result;
-        lily_type *elem_type = get_subscript_result(emit, var_sym->type,
-                index_ast);
-        lily_storage *s = get_storage(emit, elem_type);
-
-        lily_u16_write_5(emit->code, o_subscript_get, var_sym->reg_spot,
-                index_sym->reg_spot, s->reg_spot, ast->line_num);
-
-        ast->left->result = (lily_sym *)s;
-
-        /* Run the compound op now that ->left is set properly. */
-    }
-
+/* Handle the compound op part of any assignment by spoofing a math op
+   (ex: `+=` => `+`). Caller must ensure the left's result is initialized. The
+   math op will set a result to yield. */
+static lily_sym *eval_assign_spoof_op(lily_emit_state *emit, lily_ast *ast)
+{
     lily_token save_op = ast->op;
+    lily_sym *save_left = ast->left->result;
 
     set_compound_spoof_op(ast);
     eval_arith_op(emit, ast);
     ast->op = save_op;
+
+    /* If the left was promoted, the type was changed since it couldn't fit.
+       Don't change the type, send an error. */
+    if (save_left != ast->left->result)
+        bad_assign_error(emit, ast, save_left->type, ast->right->result->type);
+
+    return ast->result;
 }
 
-/* This handles assignments to a property. It's similar in spirit to oo assign,
-   but not as complicated. */
+/* This section of tree eval handles assignments. The tree type of the left side
+   determines which assignment function handles it. The assignment function
+   handles simple assignments (`x = y`) as well as compound assignments
+   (`x += y`). Assignment chains are handled by the assign handler setting a
+   result where appropriate. */
+
+/* Evaluate `x = y` or `x += y` where the left is a local var. Local vars are
+   the only ones that can have their assign optimized out. */
+static void eval_assign_local(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *left_sym = ast->left->result;
+    lily_sym *right_sym;
+
+    eval_tree(emit, ast->right, left_sym->type);
+    right_sym = ast->right->result;
+    left_sym->flags &= ~SYM_NOT_INITIALIZED;
+
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
+        incomplete_type_assign_error(emit, ast, right_sym->type);
+
+    if (left_sym->type == lily_question_type)
+        left_sym->type = right_sym->type;
+
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, left_sym->type, right_sym->type);
+    else
+        right_sym = eval_assign_spoof_op(emit, ast);
+
+    if (can_optimize_out_assignment(ast->right)) {
+        /* Reroute the last opcode to target the left. Offset is -2 since
+           opcodes that send a result finish with result, then line. */
+        int pos = lily_u16_pos(emit->code) - 2;
+
+        lily_u16_set_at(emit->code, pos, left_sym->reg_spot);
+    }
+    else {
+        uint16_t left_id = left_sym->type->cls_id;
+        uint16_t opcode;
+
+        if (left_id == LILY_ID_INTEGER ||
+            left_id == LILY_ID_DOUBLE)
+            opcode = o_assign_noref;
+        else
+            opcode = o_assign;
+
+        lily_u16_write_4(emit->code, opcode, right_sym->reg_spot,
+                left_sym->reg_spot, ast->line_num);
+    }
+
+    ast->result = right_sym;
+}
+
+/* Evaluate `x = y` or `x += y` where left is a global var. */
+static void eval_assign_global(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *left_sym = ast->left->result;
+    lily_sym *right_sym;
+
+    eval_tree(emit, ast->right, left_sym->type);
+    right_sym = ast->right->result;
+    left_sym->flags &= ~SYM_NOT_INITIALIZED;
+
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
+        incomplete_type_assign_error(emit, ast, right_sym->type);
+
+    if (left_sym->type == lily_question_type)
+        left_sym->type = right_sym->type;
+
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, left_sym->type, right_sym->type);
+    else {
+        eval_tree(emit, ast->left, lily_question_type);
+        right_sym = eval_assign_spoof_op(emit, ast);
+    }
+
+    lily_u16_write_4(emit->code, o_global_set, right_sym->reg_spot,
+            left_sym->reg_spot, ast->line_num);
+    ast->result = right_sym;
+}
+
+/* Evaluate `@x = y` or `@x += y`. Parser ensures the left has a property, so
+   there's no need to check if it's a method. Since this operates within a class
+   constructor or method, the property *must not* be solved. */
 static void eval_assign_property(lily_emit_state *emit, lily_ast *ast)
 {
     ensure_valid_scope(emit, ast->left);
-    eval_tree(emit, ast->right, ast->left->property->type);
+
+    lily_prop_entry *left_property = ast->left->property;
+    lily_sym *right_sym;
+
+    eval_tree(emit, ast->right, left_property->type);
+    right_sym = ast->right->result;
+    left_property->flags &= ~SYM_NOT_INITIALIZED;
+
+    if (left_property->type == lily_question_type)
+        left_property->type = right_sym->type;
+
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
+        incomplete_type_assign_error(emit, ast, right_sym->type);
+
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, left_property->type, right_sym->type);
+    else {
+        eval_tree(emit, ast->left, lily_question_type);
+        right_sym = eval_assign_spoof_op(emit, ast);
+    }
+
+    lily_u16_write_5(emit->code, o_property_set, left_property->id,
+            emit->scope_block->self->reg_spot, right_sym->reg_spot,
+            ast->line_num);
+    ast->result = right_sym;
 }
 
-/* This handles 'x.y = z' kinds of assignments. This is the only assign that
-   does its own type checking. It needs to, because 'y' may be an unsolved
-   property (which is the proper type to compare against). */
+/* Evaluate `x.y = z` or `x.y += z`. The assignment needs to be done against the
+   property's type (solved using the instance type). */
 static void eval_assign_oo(lily_emit_state *emit, lily_ast *ast)
 {
     if (eval_oo_access_for_item(emit, ast->left) != ITEM_PROPERTY)
         lily_raise_tree(emit->raiser, ast,
                 "Left side of %s is not assignable.", tokname(ast->op));
 
-    lily_type *left_type = get_solved_property_type(emit, ast->left);
+    lily_prop_entry *left_property = ast->left->property;
+    lily_type *real_left_type = get_solved_property_type(emit, ast->left);
+    lily_sym *right_sym;
 
-    eval_tree(emit, ast->right, left_type);
+    eval_tree(emit, ast->right, real_left_type);
+    right_sym = ast->right->result;
 
-    lily_type *right_type = ast->right->result->type;
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
+        incomplete_type_assign_error(emit, ast, right_sym->type);
 
-    if (right_type->flags & TYPE_TO_BLOCK)
-        incomplete_type_assign_error(emit, ast, right_type);
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, real_left_type, right_sym->type);
+    else {
+        oo_property_read(emit, ast->left);
+        right_sym = eval_assign_spoof_op(emit, ast);
+    }
 
-    if (result_matches_type(emit, ast->right, left_type) == 0)
-        bad_assign_error(emit, ast, left_type, right_type);
+    lily_u16_write_5(emit->code, o_property_set, left_property->id,
+            ast->left->arg_start->result->reg_spot, right_sym->reg_spot,
+            ast->line_num);
+    ast->result = right_sym;
 }
 
-/* This handles assignments to things that are marked as upvalues. */
+/* Evaluate `x = y` or `x += y` where the left side is an upvalue. */
 static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
 {
     lily_var *left_var = (lily_var *)ast->left->sym;
 
     eval_tree(emit, ast->right, left_var->type);
 
+    /* This must be captured *after* the above. Since the left is initialized,
+       the right may involve the left (ex: `x = x ++ y ++ z`) and give it an
+       initial closure spot. */
     uint16_t spot = left_var->closure_spot;
+    lily_sym *right_sym = ast->right->result;
 
     if (spot == UINT16_MAX)
         spot = checked_close_over_var(emit, ast, left_var);
+
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, left_var->type, right_sym->type);
+    else {
+        eval_tree(emit, ast->left, lily_question_type);
+        right_sym = eval_assign_spoof_op(emit, ast);
+    }
+
+    lily_u16_write_4(emit->code, o_closure_set, spot, right_sym->reg_spot,
+            ast->line_num);
+    ast->result = right_sym;
 }
 
-/* This handles `x[y] = z` assignments. These are run from left to right
-   (target, index, then source). */
+/* Evaluate `x[y] = z` or `x[y] += z`. The left side of this is a subscript,
+   wherein the first tree is the subject, and the second is the index. This is
+   the most complex of the assignments. */
 static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
 {
     lily_ast *var_ast = ast->left->arg_start;
@@ -2701,150 +2813,60 @@ static void eval_assign_sub(lily_emit_state *emit, lily_ast *ast)
     if (ast->right->tree_type != tree_local_var)
         eval_tree(emit, ast->right, elem_type);
 
-    lily_type *right_type = ast->right->result->type;
+    lily_sym *right_sym = ast->right->result;
 
-    if (right_type->flags & TYPE_TO_BLOCK)
-        incomplete_type_assign_error(emit, ast, right_type);
+    if (right_sym->type->flags & TYPE_TO_BLOCK)
+        incomplete_type_assign_error(emit, ast, right_sym->type);
 
-    if (result_matches_type(emit, ast->right, elem_type) == 0)
-        bad_assign_error(emit, ast, elem_type, right_type);
+    if (ast->op == tk_equal)
+        verify_assign_types(emit, ast, elem_type, right_sym->type);
+    else {
+        /* Subscript eval has to do most of the above business again, so just
+           inline it here. */
+        lily_storage *s = get_storage(emit, elem_type);
+
+        lily_u16_write_5(emit->code, o_subscript_get, var_ast->result->reg_spot,
+                index_ast->result->reg_spot, s->reg_spot, ast->line_num);
+        ast->left->result = (lily_sym *)s;
+        right_sym = eval_assign_spoof_op(emit, ast);
+    }
+
+    lily_u16_write_5(emit->code, o_subscript_set, var_ast->result->reg_spot,
+            index_ast->result->reg_spot, right_sym->reg_spot, ast->line_num);
+    ast->result = right_sym;
 }
 
 /* This handles the common parts of assignments, using helpers as needed. */
 static void eval_assign(lily_emit_state *emit, lily_ast *ast)
 {
     lily_tree_type left_tt = ast->left->tree_type;
-    lily_sym *left_sym = NULL;
-    lily_sym *right_sym = NULL;
 
-    if (left_tt == tree_local_var ||
-        left_tt == tree_global_var) {
-
-        eval_tree(emit, ast->right, ast->left->result->type);
-
-        left_sym = ast->left->result;
-        left_sym->flags &= ~SYM_NOT_INITIALIZED;
-        right_sym = ast->right->result;
-
-        if (left_sym->type == lily_question_type)
-            left_sym->type = right_sym->type;
-    }
-    else if (left_tt == tree_property) {
+    if (left_tt == tree_local_var)
+        eval_assign_local(emit, ast);
+    else if (left_tt == tree_global_var)
+        eval_assign_global(emit, ast);
+    else if (left_tt == tree_property)
         eval_assign_property(emit, ast);
-        /* It's actually a property, but this way avoids a cast. */
-        left_sym = ast->left->sym;
-        left_sym->flags &= ~SYM_NOT_INITIALIZED;
-        right_sym = ast->right->result;
-
-        if (left_sym->type == lily_question_type)
-            left_sym->type = right_sym->type;
-    }
-    else if (left_tt == tree_oo_access) {
+    else if (left_tt == tree_oo_access)
         eval_assign_oo(emit, ast);
-        left_sym = ast->left->sym;
-        right_sym = ast->right->result;
-        /* oo assign is a special case, because the left side could be an
-           unsolved property. For simplicity, route around the type check. */
-        goto after_type_check;
-    }
-    else if (left_tt == tree_upvalue) {
+    else if (left_tt == tree_upvalue)
         eval_assign_upvalue(emit, ast);
-        left_sym = ast->left->sym;
-        right_sym = ast->right->result;
-    }
-    else if (left_tt == tree_subscript) {
+    else if (left_tt == tree_subscript)
         eval_assign_sub(emit, ast);
-        right_sym = ast->right->result;
-        /* Subscript assign is a special case because the type check should be
-           against the nth element of the left side. */
-        goto after_type_check;
-    }
     else
         lily_raise_tree(emit->raiser, ast,
                 "Left side of %s is not assignable.", tokname(ast->op));
 
-    if (right_sym->type->flags & TYPE_TO_BLOCK)
-        incomplete_type_assign_error(emit, ast, right_sym->type);
-
-    if (left_sym->type != right_sym->type &&
-        lily_ts_type_greater_eq(emit->ts, left_sym->type, right_sym->type) == 0)
-        bad_assign_error(emit, ast, left_sym->type, right_sym->type);
-
-after_type_check:;
-
-    if (ast->op != tk_equal) {
-        emit_compound_op(emit, ast);
-        /* Compound eval simulates a binary op to produce a result. That result
-           is the actual right side to use. */
-        right_sym = ast->result;
-    }
-
-    if (left_tt == tree_local_var) {
-        if (can_optimize_out_assignment(ast->right)) {
-            /* Trees always finish by writing a result and then the line number.
-               Optimize out by patching the result to target the left side. */
-            int pos = lily_u16_pos(emit->code) - 2;
-
-            lily_u16_set_at(emit->code, pos, left_sym->reg_spot);
-        }
-        else {
-            uint16_t left_id = left_sym->type->cls_id;
-            uint16_t opcode;
-
-            if (left_id == LILY_ID_INTEGER ||
-                left_id == LILY_ID_DOUBLE)
-                opcode = o_assign_noref;
-            else
-                opcode = o_assign;
-
-            lily_u16_write_4(emit->code, opcode, right_sym->reg_spot,
-                    left_sym->reg_spot, ast->line_num);
-        }
-    }
-    else if (left_tt == tree_global_var) {
-        lily_u16_write_4(emit->code, o_global_set, right_sym->reg_spot,
-                left_sym->reg_spot, ast->line_num);
-    }
-    else if (left_tt == tree_property) {
-        lily_u16_write_5(emit->code, o_property_set,
-                ((lily_prop_entry *)left_sym)->id,
-                emit->scope_block->self->reg_spot,
-                right_sym->reg_spot, ast->line_num);
-    }
-    else if (left_tt == tree_oo_access) {
-        uint16_t left_id = ((lily_prop_entry *)left_sym)->id;
-
-        lily_u16_write_5(emit->code, o_property_set, left_id,
-                ast->left->arg_start->result->reg_spot, right_sym->reg_spot,
-                ast->line_num);
-    }
-    else if (left_tt == tree_upvalue) {
-        uint16_t spot = ((lily_var *)left_sym)->closure_spot;
-
-        lily_u16_write_4(emit->code, o_closure_set, spot, right_sym->reg_spot,
-                ast->line_num);
-    }
-    else if (left_tt == tree_subscript) {
-        lily_ast *index_ast = ast->left->arg_start->next_arg;
-        lily_sym *var_sym = ast->left->arg_start->result;
-        lily_sym *index_sym = index_ast->result;
-
-        lily_u16_write_5(emit->code, o_subscript_set, var_sym->reg_spot,
-                index_sym->reg_spot, right_sym->reg_spot, ast->line_num);
-    }
-
-    if (ast->parent) {
-        if (ast->parent->tree_type == tree_binary &&
-            IS_ASSIGN_TOKEN(ast->parent->op))
-            ast->result = right_sym;
-        else
-            lily_raise_tree(emit->raiser, ast,
-                    "Cannot nest an assignment within an expression.");
-    }
-    else {
-        /* This prevents conditions from using the result of an assignment. */
+    if (ast->parent == NULL)
+        /* Block conditions from using the result of an assignment. */
         ast->result = NULL;
-    }
+    /* This allows assignment chains. */
+    else if (ast->parent->tree_type == tree_binary &&
+        IS_ASSIGN_TOKEN(ast->parent->op))
+        ;
+    else
+        lily_raise_tree(emit->raiser, ast,
+                "Cannot nest an assignment within an expression.");
 }
 
 /* This handles access to properties (@<name>). */

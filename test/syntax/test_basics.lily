@@ -2297,4 +2297,193 @@ class TestBasics < TestCase
             }
         """)
     }
+
+    public define test_compound_assign_right_integer_promotion
+    {
+        var t = Interpreter()
+
+        # Math operations can promote either side Integer -> Double
+        # `some_double += an_integer_that_will_be_promoted` is ok.
+
+        # Local var left side
+
+        assert_parse_string(t, """
+            define f {
+                var local_v = 10.0
+
+                local_v += 5
+
+                if local_v != 15.0: {
+                    0/0
+                }
+            }
+
+            # Ensure assign optimization (only for left = local) is stable
+
+            define optimized_fold {
+                var local_v = 10.0
+
+                # Typecast doesn't write a value.
+                local_v += (10.@(Integer))
+
+                if local_v != 20.0: {
+                    0/0
+                }
+
+                var fn = (|| 10 )
+
+                local_v += fn()
+
+                if local_v != 30.0: {
+                    0/0
+                }
+            }
+
+            f()
+        """)
+
+        # Global var left side
+
+        assert_parse_string(t, """
+            var global_v = 10.0
+
+            global_v += 5
+
+            if global_v != 15.0: {
+                0/0
+            }
+        """)
+
+        # Property left side
+
+        assert_parse_string(t, """
+            class Example {
+                public var @x = 10.0
+
+                @x += 5
+
+                if @x != 15.0: {
+                    0/0
+                }
+            }
+        """)
+
+        # Dot access left side
+
+        assert_parse_string(t, """
+            var e = Example()
+
+            e.x += 5
+
+            if e.x != 20.0: {
+                0/0
+            }
+        """)
+
+        # Upvalue left side
+
+        assert_parse_string(t, """
+            define up_f {
+                var a = 10.0
+
+                define up_g {
+                    a += 1
+                }
+
+                define up_h {
+                    a += 1
+
+                    if a != 12.0: {
+                        0/0
+                    }
+                }
+
+                up_g()
+
+                if a != 11.0: {
+                    0/0
+                }
+
+                up_h()
+            }
+        """)
+
+        # Subscript left side
+
+        assert_parse_string(t, """
+            define subs_f {
+                var bytes_v = B"a"
+                var bytes2_v = B"a"
+                var list_v = [10.0]
+                var double_list_v = [10.0]
+                var hash_list_v = [0 => 10.0]
+                var tuple_v = <[10.0]>
+
+                bytes_v[0] += 1
+                bytes2_v[0] += 'a'
+                list_v[0] += 5
+                double_list_v[0] += 6
+                hash_list_v[0] += 7
+                tuple_v[0] += 8
+
+                if bytes_v[0] != 'b' ||
+                    bytes2_v[0] != ('a' + 'a') ||
+                    list_v[0] != 15.0 ||
+                    double_list_v[0] != 16.0 ||
+                    hash_list_v[0] != 17.0 ||
+                    tuple_v[0] != 18.0: {
+                    0/0
+                }
+            }
+
+            subs_f()
+        """)
+
+        # Subscript compound assign shouldn't re-eval trees
+
+        assert_parse_string(t, """
+            var effect_a = 0
+            var effect_b = 10
+
+            define get_a: Integer
+            {
+                var result = effect_a
+
+                effect_a += 1
+                return result
+            }
+
+            define get_b: Integer
+            {
+                var result = effect_b
+
+                effect_b += 1
+                return result
+            }
+
+            var l = [1]
+
+            l[get_a()] += get_b()
+
+            if l != [11]: {
+                0/0
+            }
+        """)
+
+        # mixed promotion chain
+
+        assert_parse_string(t, """
+            define mixed_chain {
+                var a = 1.0, b = 2.0, c = 3
+
+                a += b += c
+
+                if a != 6.0 || b != 5.0 || c != 3: {
+                    0/0
+                }
+            }
+
+            mixed_chain()
+        """)
+    }
 }

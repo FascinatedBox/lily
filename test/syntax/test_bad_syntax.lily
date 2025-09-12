@@ -2105,4 +2105,122 @@ class TestBadSyntax < TestCase
             }
         """)
     }
+
+    public define test_compound_assign_no_left_double_promotion
+    {
+        var t = Interpreter()
+
+        # Math operations can promote either side Integer -> Double.
+        # However, `an_int += some_double` is not a valid assignment.
+
+        # Local var left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:4:
+        """,
+        """\
+            define f {
+                var v = 10
+
+                v += 1.0
+            }
+        """)
+
+        # Global var left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:3:
+        """,
+        """\
+            var v = 10
+
+            v += 1.0
+        """)
+
+        # Property left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:4:
+        """,
+        """\
+            class Example {
+                public var @v = 10
+
+                @v += 1.0
+            }
+        """)
+
+        # Dot access left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:7:
+        """,
+        """\
+            class Example {
+                public var @v = 10
+            }
+
+            var e = Example()
+
+            e.v += 1.0
+        """)
+
+        # Upvalue left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:5:
+        """,
+        """\
+            define f {
+                var a = 10
+
+                define g {
+                    a += 1.0
+                }
+            }
+        """)
+
+        # Subscript left side
+
+        assert_parse_fails(t, """\
+            SyntaxError: Value 300 is out of range for a Byte.
+                from [test]:2:
+        """,
+        """\
+            var v = B"a"
+            v[0] += 300
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:2:
+        """,
+        """\
+            var v = [1]
+            v[0] += 1.0
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:2:
+        """,
+        """\
+            var v = [0 => 1]
+            v[0] += 1.0
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+                from [test]:2:
+        """,
+        """\
+            var v = <[0]>
+            v[0] += 1.0
+        """)
+    }
 }
