@@ -199,7 +199,7 @@ void lily_es_push_literal(lily_expr_state *, lily_type *, uint16_t);
 void lily_es_push_unary_op(lily_expr_state *, lily_token);
 void lily_es_push_property(lily_expr_state *, lily_prop_entry *);
 void lily_es_push_variant(lily_expr_state *, lily_variant_class *);
-void lily_es_push_text(lily_expr_state *, lily_tree_type, uint16_t, int);
+void lily_es_push_text(lily_expr_state *, lily_tree_type, uint16_t, uint16_t);
 void lily_es_push_inherited_new(lily_expr_state *, lily_var *);
 void lily_es_push_self(lily_expr_state *);
 void lily_es_push_upvalue(lily_expr_state *, lily_var *);

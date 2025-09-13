@@ -1076,8 +1076,8 @@ void lily_lexer_verify_path_string(lily_lex_state *lex)
     if (label[0] == '\0')
         lily_raise_lex(lex->raiser, "Import path must not be empty.");
 
-    int original_len = strlen(lex->label);
-    int len = original_len;
+    size_t original_len = strlen(lex->label);
+    size_t len = original_len;
     int necessary = 0;
     char *reverse_iter = lex->read_cursor - 2;
     char *reverse_label = label + len - 1;

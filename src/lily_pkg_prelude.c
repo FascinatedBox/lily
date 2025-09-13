@@ -130,7 +130,7 @@ void lily_prelude_ByteString_create(lily_state *s)
 
     char *buffer = lily_malloc(size * sizeof(*buffer));
     memset(buffer, byte, size);
-    lily_push_bytestring(s, buffer, size);
+    lily_push_bytestring(s, buffer, (int)size);
     lily_free(buffer);
 
     lily_return_top(s);
@@ -2379,7 +2379,7 @@ void lily_prelude_String_rstrip(lily_state *s)
 }
 
 static uint32_t count_split_elements(const char *input, const char *splitby,
-        int split_len, uint32_t max)
+        size_t split_len, uint32_t max)
 {
     uint32_t result = 0;
     uint32_t i = 0;
@@ -2401,7 +2401,7 @@ static uint32_t count_split_elements(const char *input, const char *splitby,
 static void string_split_by_val(lily_state *s, char *input, char *splitby,
         uint32_t max)
 {
-    int split_len = strlen(splitby);
+    size_t split_len = strlen(splitby);
     uint32_t values_needed = count_split_elements(input, splitby, split_len,
             max);
     lily_container_val *list_val = lily_push_list(s, values_needed);
@@ -2613,7 +2613,7 @@ void lily_prelude_var_stderr(lily_state *s)
 }
 
 static lily_class *build_class(lily_symtab *symtab, const char *name,
-        int generic_count, int dyna_start)
+        int16_t generic_count, uint16_t dyna_start)
 {
     lily_class *result = lily_new_class(symtab, name, 0);
     result->item_kind = ITEM_CLASS_FOREIGN;
@@ -2627,7 +2627,7 @@ static lily_class *build_class(lily_symtab *symtab, const char *name,
    Giving them a sequential id is a waste because the vm will want to eventually
    scoop it up into the class table. So don't do that. */
 static lily_class *build_special(lily_symtab *symtab, const char *name,
-        int generic_count, int id, int visible)
+        int16_t generic_count, uint16_t id, int visible)
 {
     lily_class *result = lily_new_class(symtab, name, 0);
     result->item_kind = ITEM_CLASS_FOREIGN;

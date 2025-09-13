@@ -86,8 +86,8 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
         lily_tm_reserve(ts->tm, type->subtype_count + 1 + ts->num_used);
 
         lily_type **subtypes = type->subtypes;
-        int start = ts->tm->pos;
-        int i = 0;
+        uint16_t start = ts->tm->pos;
+        uint16_t i = 0;
 
         for (;i < type->subtype_count;i++)
             do_scoop_resolve(ts, subtypes[i]);
@@ -133,8 +133,8 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
            prevent repeated growing checks. */
         lily_tm_reserve(ts->tm, type->subtype_count);
         lily_type **subtypes = type->subtypes;
-        int start = ts->tm->pos;
-        int i = 0;
+        uint16_t start = ts->tm->pos;
+        uint16_t i = 0;
 
         for (;i < type->subtype_count;i++)
             lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
@@ -152,16 +152,16 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 }
 
 static void unify_call(lily_type_system *ts, lily_type *left,
-        lily_type *right, int num_subtypes)
+        lily_type *right, uint16_t num_subtypes)
 {
     lily_class *cls = left->cls;
-    int flags = (left->flags & TYPE_IS_VARARGS) &
-                (right->flags & TYPE_IS_VARARGS);
+    uint16_t flags = (left->flags & TYPE_IS_VARARGS) &
+                     (right->flags & TYPE_IS_VARARGS);
     lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, cls, num_subtypes));
 }
 
 static void unify_simple(lily_type_system *ts, lily_type *left,
-        lily_type *right, int num_subtypes)
+        lily_type *right, uint16_t num_subtypes)
 {
     lily_class *cls = left->cls_id < right->cls_id ? left->cls : right->cls;
 
@@ -206,7 +206,7 @@ static int check_function(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
     int ret = 1;
-    int tm_start = lily_tm_pos(ts->tm);
+    uint16_t tm_start = lily_tm_pos(ts->tm);
     /* The return type is at [0] and always exists. */
     lily_type *left_type = left->subtypes[0];
     lily_type *right_type = right->subtypes[0];
@@ -280,7 +280,8 @@ static int check_function(lily_type_system *ts, lily_type *left,
     return ret;
 }
 
-static int invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
+static int invariant_check(lily_type *left, lily_type *right,
+        uint16_t *num_subtypes)
 {
     int ret = left->cls == right->cls;
     *num_subtypes = left->subtype_count;
@@ -288,7 +289,8 @@ static int invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
     return ret;
 }
 
-static int non_invariant_check(lily_type *left, lily_type *right, int *num_subtypes)
+static int non_invariant_check(lily_type *left, lily_type *right,
+        uint16_t *num_subtypes)
 {
     int ret = lily_class_greater_eq(left->cls, right->cls);
     *num_subtypes = left->subtype_count;
@@ -300,7 +302,7 @@ static int check_misc(lily_type_system *ts, lily_type *left, lily_type *right,
         int flags)
 {
     int ret;
-    int num_subtypes;
+    uint16_t num_subtypes;
 
     if (flags & T_COVARIANT)
         ret = non_invariant_check(left, right, &num_subtypes);
@@ -411,7 +413,7 @@ int lily_ts_check(lily_type_system *ts, lily_type *left, lily_type *right)
 
 lily_type *lily_ts_unify(lily_type_system *ts, lily_type *left, lily_type *right)
 {
-    int save_pos = ts->tm->pos;
+    uint16_t save_pos = ts->tm->pos;
     int ok = check_raw(ts, left, right, T_DONT_SOLVE | T_COVARIANT | T_UNIFY);
     lily_type *result;
 

@@ -217,7 +217,7 @@ void lily_mb_add_char(lily_msgbuf *msgbuf, char c)
     msgbuf->pos++;
 }
 
-static void add_boolean(lily_msgbuf *msgbuf, int b)
+static void add_boolean(lily_msgbuf *msgbuf, int64_t b)
 {
     if (b == 0)
         lily_mb_add(msgbuf, "false");
@@ -360,7 +360,7 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
     uint32_t i, len, text_start;
 
     text_start = 0;
-    len = strlen(fmt);
+    len = (uint32_t)strlen(fmt);
 
     for (i = 0;i < len;i++) {
         char c = fmt[i];
@@ -383,7 +383,7 @@ void lily_mb_add_fmt_va(lily_msgbuf *msgbuf, const char *fmt,
                 add_int(msgbuf, d);
             }
             else if (c == 'c') {
-                char ch = va_arg(var_args, int);
+                char ch = (char)va_arg(var_args, int);
                 lily_mb_add_char(msgbuf, ch);
             }
             else if (c == 'p') {

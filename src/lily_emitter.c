@@ -1146,9 +1146,9 @@ static void setup_for_transform(lily_emit_state *emit,
    to highest. The reason for that is it makes it easier for closure transform
    to step through them.
    This is a helper for closure transform: Nothing else should use it. */
-static void maybe_add_jump(lily_buffer_u16 *buffer, int i, int dest)
+static void maybe_add_jump(lily_buffer_u16 *buffer, uint16_t i, uint16_t dest)
 {
-    int end = lily_u16_pos(buffer);
+    uint16_t end = lily_u16_pos(buffer);
 
     for (;i < end;i += 2) {
         int jump = lily_u16_get(buffer, i);
@@ -1200,7 +1200,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     return count;
 }
 
-uint16_t iter_for_first_line(lily_emit_state *emit, int pos)
+uint16_t iter_for_first_line(lily_emit_state *emit, uint16_t pos)
 {
     uint16_t result = 0;
     lily_code_iter ci;
@@ -1385,7 +1385,7 @@ static void perform_closure_transform(lily_emit_state *emit,
                             lily_u16_pos(emit->closure_aux_code),
                             ci.round_total - ci.jumps_5 - ci.line_6 + i);
 
-                    lily_u16_write_1(emit->closure_aux_code, destination);
+                    lily_u16_write_1(emit->closure_aux_code, (uint16_t)destination);
                 }
                 else
                     lily_u16_write_1(emit->closure_aux_code, 0);
@@ -1411,7 +1411,7 @@ static void perform_closure_transform(lily_emit_state *emit,
         /* This is where, in the new code, that the jump is located. */
         int aux_pos = lily_u16_get(emit->patches, j);
         /* This has been set to an absolute destination in old code. */
-        int original = lily_u16_get(emit->closure_aux_code, aux_pos);
+        uint16_t original = lily_u16_get(emit->closure_aux_code, aux_pos);
         int k;
 
         for (k = patch_start;k < patch_stop;k += 2) {
@@ -3087,7 +3087,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         ast->args_collected > expect->subtype_count)
         expect = lily_question_type;
 
-    int i;
+    uint16_t i;
     lily_ast *arg;
 
     for (i = 0, arg = ast->arg_start;
@@ -3109,8 +3109,7 @@ static void eval_build_tuple(lily_emit_state *emit, lily_ast *ast,
         lily_tm_add(emit->tm, arg->result->type);
     }
 
-    lily_type *new_type = lily_tm_make(emit->tm, emit->symtab->tuple_class,
-            i);
+    lily_type *new_type = lily_tm_make(emit->tm, emit->symtab->tuple_class, i);
     lily_storage *s = get_storage(emit, new_type);
 
     write_build_op(emit, o_build_tuple, ast->arg_start, ast->line_num,
@@ -3181,8 +3180,7 @@ static void emit_local_var(lily_emit_state *emit, lily_ast *ast,
 static void emit_nonlocal_var(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    int opcode;
-    uint16_t spot;
+    uint16_t opcode, spot;
     lily_sym *sym = ast->sym;
     lily_storage *ret = get_storage(emit, sym->type);
 
@@ -3402,7 +3400,7 @@ static void make_empty_list_or_hash(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
     lily_class *cls;
-    int num, op;
+    uint16_t num, op;
 
     if (expect->cls_id == LILY_ID_HASH) {
         lily_type *key_type = expect->subtypes[0];
@@ -3872,8 +3870,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
             vararg_type = vararg_type->subtypes[0];
 
         lily_ast *vararg_iter = arg;
+        uint16_t vararg_i;
 
-        int vararg_i;
         for (vararg_i = i;
              arg != NULL;
              arg = arg->next_arg, vararg_i++) {
@@ -4204,7 +4202,6 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     uint16_t num_args = ast->args_collected;
     uint16_t va_pos = UINT16_MAX;
     int have_keyargs = 0;
-    int i;
 
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
@@ -4214,8 +4211,8 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     if (keywords == NULL)
         error_keyarg_not_supported(emit, ast);
 
-    for (i = 0; arg != NULL; i++, arg = arg->next_arg) {
-        int pos;
+    for (uint16_t i = 0; arg != NULL; i++, arg = arg->next_arg) {
+        uint16_t pos;
 
         if (arg->tree_type == tree_binary &&
             arg->op == tk_keyword_arg) {
@@ -4284,7 +4281,7 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
     lily_ast *next_arg = arg->next_arg;
     lily_ast *basic_arg_head = NULL;
     lily_ast *var_arg_head = NULL;
-    int base_count = 0, va_count = 0, va_pos = INT_MAX;
+    uint16_t base_count = 0, va_count = 0, va_pos = UINT16_MAX;
 
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
@@ -4359,7 +4356,7 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *vararg_s = NULL;
 
-    if (va_pos != INT_MAX) {
+    if (va_pos != UINT16_MAX) {
         lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
 
         if (var_arg_head ||
@@ -4494,7 +4491,7 @@ static void eval_plus_plus(lily_emit_state *emit, lily_ast *ast)
          ast->parent->op != tk_plus_plus)) {
         lily_u16_write_2(emit->code, o_interpolation, 0);
 
-        int fix_spot = lily_u16_pos(emit->code) - 1;
+        uint16_t fix_spot = lily_u16_pos(emit->code) - 1;
         lily_ast *iter_ast = ast->left;
         lily_storage *s = get_storage(emit,
                 emit->symtab->string_class->self_type);

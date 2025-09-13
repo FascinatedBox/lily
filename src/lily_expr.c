@@ -672,7 +672,7 @@ void lily_es_push_assign_to(lily_expr_state *es, lily_sym *sym)
 }
 
 void lily_es_push_text(lily_expr_state *es, lily_tree_type tt, uint16_t start,
-        int pos)
+        uint16_t pos)
 {
     AST_COMMON_INIT(a, tt)
 

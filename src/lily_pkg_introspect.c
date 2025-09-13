@@ -983,7 +983,7 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
 
 void lily_introspect_EnumEntry_parent(lily_state *s)
 {
-    return lily_introspect_ClassEntry_parent(s);
+    lily_introspect_ClassEntry_parent(s);
 }
 
 void lily_introspect_EnumEntry_variants(lily_state *s)

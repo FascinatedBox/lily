@@ -112,7 +112,7 @@ static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
 
     while (1) {
         if (*ch == '/') {
-            stop = (ch - input_str);
+            stop = (int)(ch - input_str);
             lily_mb_add_slice(msgbuf, input_str, start, stop);
             lily_mb_add_char(msgbuf, '\\');
             start = stop + 1;
@@ -124,7 +124,7 @@ static void add_fixslash_dir(lily_msgbuf *msgbuf, const char *input_str)
     }
 
     if (start != 0) {
-        stop = (ch - input_str);
+        stop = (int)(ch - input_str);
         lily_mb_add_slice(msgbuf, input_str, start, stop);
     }
 #else
@@ -385,7 +385,7 @@ void lily_ims_process_sys_dirs(lily_parse_state *parser, lily_config *config)
         if (*iter == LILY_DIR_PROCESS_CHAR)
             lily_mb_add(msgbuf, buffer);
         else {
-            lily_mb_add_slice(msgbuf, start, 0, iter - start);
+            lily_mb_add_slice(msgbuf, start, 0, (int)(iter - start));
             lily_mb_add_char(msgbuf, '\0');
         }
 #else

@@ -11,7 +11,7 @@ void *lily_library_load(const char *path)
 
 void *lily_library_get(void *source, const char *target)
 {
-    return GetProcAddress((HMODULE)source, target);
+    return (void *)GetProcAddress((HMODULE)source, target);
 }
 
 void lily_library_free(void *source)

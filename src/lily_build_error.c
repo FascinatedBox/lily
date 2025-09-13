@@ -71,7 +71,7 @@ static void fill_line_info(char *line_num_str, char *pipe_space,
 {
     snprintf(line_num_str, 8, "%d", line_num);
 
-    int len = strlen(line_num_str) + 1;
+    size_t len = strlen(line_num_str) + 1;
 
     line_num_str[len] = '\0';
     pipe_space[len] = '\0';
@@ -142,7 +142,7 @@ static void add_context(lily_msgbuf *msgbuf,
                             "%s |\n"
                             " %d | %s"
                             "%s |", pipe_space, line_num, line, pipe_space);
-    lily_mb_repeat_n(msgbuf, ' ', source_end - line + 1);
+    lily_mb_repeat_n(msgbuf, ' ', (int)(source_end - line + 1));
     lily_mb_add(msgbuf, "^\n\n");
 }
 

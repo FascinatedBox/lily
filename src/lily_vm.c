@@ -273,7 +273,8 @@ static void invoke_gc(lily_vm_state *vm)
        value set to NULL as an indicator. */
 
     lily_value **regs_from_main = vm->gs->regs_from_main;
-    uint32_t total = vm->call_chain->register_end - vm->gs->regs_from_main;
+    uint32_t total = (uint32_t)
+            (vm->call_chain->register_end - vm->gs->regs_from_main);
     lily_gc_entry *gc_iter;
     uint32_t i;
 
@@ -422,7 +423,7 @@ static void coroutine_marker(lily_value *v)
     lily_coroutine_val *co_val = v->value.coroutine;
     lily_vm_state *co_vm = co_val->vm;
     lily_value **base = co_vm->register_root;
-    int total = co_vm->call_chain->register_end - base - 1;
+    int total = (int)(co_vm->call_chain->register_end - base - 1);
     int i;
 
     for (i = total;i >= 0;i--) {
@@ -1114,7 +1115,7 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
    opcode as a way of deducing what to do with the newly-made instance. */
 static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 {
-    int cls_id = code[1];
+    uint16_t cls_id = code[1];
     lily_value **vm_regs = vm->call_chain->start;
     lily_value *result = vm_regs[code[2]];
 
@@ -1446,7 +1447,7 @@ static void dispatch_exception(lily_vm_state *vm)
                 break;
             }
             else {
-                int move_by = code[jump_location + 2];
+                uint16_t move_by = code[jump_location + 2];
                 if (move_by == 0)
                     break;
 
@@ -1731,7 +1732,7 @@ static void final_setup_before_call(lily_vm_state *vm, uint16_t count)
     source_frame->top -= count;
     target_frame->start = source_frame->top;
 
-    int diff = target_frame->function->reg_count - count;
+    uint16_t diff = target_frame->function->reg_count - count;
 
     if (target_frame->top + diff > target_frame->register_end) {
         vm->call_chain = target_frame;

@@ -1263,7 +1263,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         result = cls->self_type;
     else if (cls->id != LILY_ID_FUNCTION) {
         NEED_NEXT_TOK(tk_left_bracket)
-        int i = 0;
+        uint16_t i = 0;
         while (1) {
             lily_next_token(lex);
             lily_tm_add(parser->tm, get_type_raw(parser, flags));
@@ -1285,8 +1285,8 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
         NEED_NEXT_TOK(tk_left_parenth)
         lily_next_token(lex);
         int arg_flags = flags & F_SCOOP_OK;
-        int i = 0;
-        int result_pos = parser->tm->pos;
+        uint16_t i = 0;
+        uint16_t result_pos = parser->tm->pos;
 
         lily_tm_add(parser->tm, lily_unit_type);
 
@@ -1800,7 +1800,7 @@ static char dyna_iter_next(lily_dyna_state *ds)
 
 static char dyna_check_next(lily_dyna_state *ds)
 {
-    int index = ds->index;
+    uint16_t index = ds->index;
 
     char ch = dyna_iter_next(ds);
 
@@ -1941,9 +1941,9 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
 }
 
 static void make_boolean_constant(lily_parse_state *parser, lily_var *var,
-        int64_t val)
+        int val)
 {
-    var->constant_value = val;
+    var->constant_value = (int16_t)val;
     var->flags |= VAR_INLINE_CONSTANT;
     var->type = parser->symtab->boolean_class->self_type;
 }
@@ -1954,7 +1954,7 @@ static void make_integer_constant(lily_parse_state *parser, lily_var *var,
         int64_t val)
 {
     if (CAN_INLINE_INTEGER(val)) {
-        var->constant_value = val;
+        var->constant_value = (int16_t)val;
         var->flags |= VAR_INLINE_CONSTANT;
         var->type = parser->symtab->integer_class->self_type;
     }
@@ -2898,7 +2898,7 @@ static void expr_maybe_variant_shorthand(lily_parse_state *parser,
         uint16_t *state)
 {
     lily_expr_state *es = parser->expr;
-    int spot = es->pile_current;
+    uint16_t spot = es->pile_current;
     lily_lex_state *lex = parser->lex;
 
     lily_next_token(lex);
@@ -2931,7 +2931,7 @@ static void expr_dot(lily_parse_state *parser, uint16_t *state)
 
     if (lex->token == tk_word) {
         lily_expr_state *es = parser->expr;
-        int spot = es->pile_current;
+        uint16_t spot = es->pile_current;
         lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
         lily_es_push_text(es, tree_oo_access, lex->line_num, spot);
     }
@@ -3040,7 +3040,7 @@ static void expr_keyword_arg(lily_parse_state *parser, uint16_t *state)
 
     last_tree->tree_type = tree_named_call;
 
-    int spot = es->pile_current;
+    uint16_t spot = es->pile_current;
     lily_sp_insert(parser->expr_strings, parser->lex->label, &es->pile_current);
     lily_es_push_text(es, tree_oo_access, 0, spot);
     lily_es_push_binary_op(es, tk_keyword_arg);
@@ -3065,7 +3065,7 @@ static void expr_lambda(lily_parse_state *parser, uint16_t *state)
 
     lily_lex_state *lex = parser->lex;
     lily_expr_state *es = parser->expr;
-    int spot = es->pile_current;
+    uint16_t spot = es->pile_current;
 
     if (*state == ST_WANT_OPERATOR)
         lily_es_enter_tree(es, tree_call);
@@ -3287,11 +3287,11 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
    given for inference is either a Function (which may have args), or a
    placeholder (which will have 0). Arguments may be just names, or names with
    types. */
-static int collect_lambda_args(lily_parse_state *parser, lily_type *expect_type,
-        int *flags)
+static uint16_t collect_lambda_args(lily_parse_state *parser,
+        lily_type *expect_type, uint16_t *flags)
 {
-    int infer_count = expect_type->subtype_count;
-    int num_args = 1;
+    uint16_t infer_count = expect_type->subtype_count;
+    uint16_t num_args = 1;
     lily_lex_state *lex = parser->lex;
     lily_var *arg_var = NULL;
 
@@ -3356,9 +3356,9 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
         const char *lambda_body, lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
-    int args_collected = 0, tm_return = parser->tm->pos;
+    uint16_t args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
-    int flags = 0;
+    uint16_t flags = 0;
 
     lily_lexer_load(lex, et_lambda, lambda_body);
     lex->line_num = start_line;
@@ -4138,7 +4138,7 @@ static void keyword_foreach(lily_parse_state *parser)
     lily_es_push_assign_to(parser->expr, (lily_sym *)for_end);
     lily_es_push_local_var(parser->expr, for_source);
 
-    int spot = es->pile_current;
+    uint16_t spot = es->pile_current;
 
     lily_sp_insert(parser->expr_strings, "size", &parser->expr->pile_current);
     lily_es_push_text(es, tree_oo_access, lex->line_num, spot);
@@ -4507,6 +4507,8 @@ static void error_class_redeclaration(lily_parse_state *parser,
         name = variant->name;
         cls = variant->parent;
     }
+    else
+        name = "";
 
     if (cls->module == parser->symtab->prelude_module) {
         prefix = "A built-in";
