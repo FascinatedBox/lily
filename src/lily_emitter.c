@@ -3672,13 +3672,13 @@ static void setup_call_result(lily_emit_state *emit, lily_ast *ast,
 static void write_call(lily_emit_state *emit, lily_ast *ast,
         uint16_t argument_count, lily_storage *vararg_s)
 {
-    lily_ast *arg = ast->arg_start;
-    uint16_t i = 0;
+    lily_ast *arg;
+    uint16_t i;
 
     lily_u16_write_3(emit->code, ast->call_op, ast->call_source_reg,
             argument_count + (vararg_s != NULL));
 
-    for (arg = arg;
+    for (i = 0, arg = ast->arg_start;
          i < argument_count;
          i++, arg = arg->next_arg)
         lily_u16_write_1(emit->code, arg->result->reg_spot);
@@ -4285,12 +4285,11 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
     lily_ast *basic_arg_head = NULL;
     lily_ast *var_arg_head = NULL;
     int base_count = 0, va_count = 0, va_pos = INT_MAX;
-    int i;
 
     if (call_type->flags & TYPE_IS_VARARGS)
         va_pos = call_type->subtype_count - 2;
 
-    for (i = 0; arg != NULL; i++) {
+    while (arg != NULL) {
         lily_ast *real_arg = arg;
         int is_vararg = 0;
         uint16_t pos = arg->keyword_arg_pos;
