@@ -821,7 +821,7 @@ predefined Result[A, B] {
 
     ### If `self` contains a `Failure`, produces a `None`.
     ###
-    ### If `self` contains a `Success`, produces `Right(B)`.
+    ### If `self` contains a `Success`, produces `Some(B)`.
     define success: Option[B]
 }
 
