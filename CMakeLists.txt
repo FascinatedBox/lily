@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project("Lily" C)
 
+# The compiler must be at least this tall (lily_expr uses C11 anonymous unions).
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 if(MSVC)
     string(REPLACE "/W3" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
     add_definitions(/wd4201)
