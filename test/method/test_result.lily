@@ -26,4 +26,15 @@ class TestResultMethods < TestCase
         Failure(1).success().is_none() |> assert_true
         assert_equal(Success(2).success().unwrap(), 2)
     }
+
+    public define test_unwrap
+    {
+        assert_raises(
+                "ValueError: unwrap called on Failure.",
+                (|| Failure(1).@(Result[Integer, String]).unwrap() ))
+
+        var v: Result[String, Integer] = Success(1)
+
+        assert_equal(v.unwrap(), 1)
+    }
 }

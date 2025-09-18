@@ -1920,6 +1920,17 @@ void lily_prelude_Result_success(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_prelude_Result_unwrap(lily_state *s)
+{
+    if (lily_arg_is_success(s, 0)) {
+        lily_container_val *con = lily_arg_container(s, 0);
+
+        lily_return_value(s, lily_con_get(con, 0));
+    }
+    else
+        lily_ValueError(s, "unwrap called on Failure.");
+}
+
 void lily_prelude_new_RuntimeError(lily_state *s)
 {
     return_exception(s, LILY_ID_RUNTIMEERROR);

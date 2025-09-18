@@ -821,6 +821,13 @@ predefined Result[A, B] {
     ###
     ### Otherwise, this returns `None`.
     define success: Option[B]
+
+    ### If `self` is `Success`, this returns the value contained within.
+    ###
+    ### # Errors
+    ###
+    ### * `ValueError` if `self` is `Failure`.
+    define unwrap: B
 }
 
 

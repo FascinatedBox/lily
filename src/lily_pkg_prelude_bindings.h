@@ -142,11 +142,12 @@ const char *lily_prelude_info_table[] = {
     ,"m\0unwrap_or_else\0[A](Option[A],Function(=>A)): A"
     ,"V\0None\0"
     ,"V\0Some\0(A)"
-    ,"E\4Result\0[A,B]"
+    ,"E\5Result\0[A,B]"
     ,"m\0failure\0[A,B](Result[A,B]): Option[A]"
     ,"m\0is_failure\0[A,B](Result[A,B]): Boolean"
     ,"m\0is_success\0[A,B](Result[A,B]): Boolean"
     ,"m\0success\0[A,B](Result[A,B]): Option[B]"
+    ,"m\0unwrap\0[A,B](Result[A,B]): B"
     ,"V\0Failure\0(A)"
     ,"V\0Success\0(B)"
     ,"F\0calltrace\0: List[String]"
@@ -315,6 +316,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_Result_is_failure, \
     lily_prelude_Result_is_success, \
     lily_prelude_Result_success, \
+    lily_prelude_Result_unwrap, \
     NULL, \
     NULL, \
     lily_prelude__calltrace, \
