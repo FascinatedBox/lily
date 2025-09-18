@@ -800,28 +800,26 @@ predefined Option[A] {
     define unwrap_or_else(fn: Function( => A)): A
 }
 
-### `Result` is an enum that holds either a `Failure` or `Success`. This enum is
-### for situations where the function that fails has an error message to
-### deliver. Examples of that include a database query or a more humble rpn
-### calculator.
+### A `Result` is an `Option` that allows the error case to have a value,
+### typically an error message.
 predefined Result[A, B] {
     Failure(A),
     Success(B)
 
-    ### If `self` contains a `Failure`, produces a `Some(A)`.
+    ### If `self` is `Success`, returns `None`.
     ###
-    ### If `self` contains a `Right`, produces `None`.
+    ### Otherwise, this returns `Some(A)`.
     define failure: Option[A]
 
-    ### Return `true` if `self` contains a `Failure`, `false` otherwise.
+    ### Return `true` if `self` is `Failure`, `false` otherwise.
     define is_failure: Boolean
 
-    ### Return `true` if `self` contains a `Success`, `false` otherwise.
+    ### Return `true` if `self` is `Success`, `false` otherwise.
     define is_success: Boolean
 
-    ### If `self` contains a `Failure`, produces a `None`.
+    ### If `self` is `Succcess`, returns `Some(B)`.
     ###
-    ### If `self` contains a `Success`, produces `Some(B)`.
+    ### Otherwise, this returns `None`.
     define success: Option[B]
 }
 
