@@ -2123,6 +2123,19 @@ class TestBasics < TestCase
                 0 / 0
             }
         """)
+
+        # with inside match doesn't corrupt match state
+
+        assert_parse_string(t, """
+            match v: {
+                case Some(s):
+                    with v as None: {
+                        0/0
+                    }
+                case None:
+                    0/0
+            }
+        """)
     }
 
     public define test_for_list

@@ -692,7 +692,8 @@ void lily_emit_leave_block(lily_emit_state *emit)
         int x = block->code_start - lily_u16_pos(emit->code);
         lily_u16_write_2(emit->code, o_jump, (uint16_t)x);
     }
-    else if (block_type == block_match)
+    else if (block_type == block_match ||
+             block_type == block_with)
         lily_u16_set_pos(emit->match_cases, emit->block->match_case_start);
     else if (block_type == block_try)
         /* The vm expects that the last except block will have a 'next' of 0 to
