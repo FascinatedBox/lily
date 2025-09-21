@@ -99,6 +99,7 @@ typedef struct lily_parse_state_ {
     lily_config *config;
     struct lily_rewind_state_ *rs;
     struct lily_import_state_ *ims;
+    lily_var *spare_vars;
     lily_doc_stack *doc;
 } lily_parse_state;
 

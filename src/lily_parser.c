@@ -138,6 +138,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->modifiers = 0;
     parser->module_start = NULL;
     parser->module_top = NULL;
+    parser->spare_vars = NULL;
 
     /* These two are used for handling keyword arguments and paths that have
        been tried. The strings are stored next to each other in the pile, with
@@ -283,6 +284,15 @@ void lily_free_state(lily_state *vm)
         lily_free(module_iter);
 
         module_iter = module_next;
+    }
+
+    lily_var *var_iter = parser->spare_vars;
+
+    while (var_iter) {
+        lily_var *var_next = var_iter->next;
+
+        lily_free(var_iter);
+        var_iter = var_next;
     }
 
     lily_free_buffer_u16(parser->data_stack);
@@ -728,14 +738,14 @@ static void hide_block_vars(lily_parse_state *parser)
         if (var_iter->flags & VAR_IS_READONLY) {
             var_iter->next = parser->symtab->hidden_function_chain;
             parser->symtab->hidden_function_chain = var_iter;
-            count--;
         }
         else {
             lily_free(var_iter->name);
-            lily_free(var_iter);
-            count--;
+            var_iter->next = parser->spare_vars;
+            parser->spare_vars = var_iter;
         }
 
+        count--;
         var_iter = var_next;
     }
 
@@ -761,9 +771,15 @@ static uint64_t shorthash_for_name(const char *name)
 
 /* This handles the common parts of var initialization. Flags aren't set here
    because var builders have different hardcoded flags that they want. */
-static lily_var *new_var(const char *name, uint16_t line_num)
+static lily_var *new_var(lily_parse_state *parser, const char *name,
+        uint16_t line_num)
 {
-    lily_var *var = lily_malloc(sizeof(*var));
+    lily_var *var = parser->spare_vars;
+
+    if (var == NULL)
+        var = lily_malloc(sizeof(*var));
+    else
+        parser->spare_vars = var->next;
 
     var->item_kind = ITEM_VAR;
     var->name = lily_malloc((strlen(name) + 1) * sizeof(*var->name));
@@ -782,7 +798,7 @@ static lily_var *new_var(const char *name, uint16_t line_num)
 static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(name, line_num);
+    lily_var *var = new_var(parser, name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     /* Constants get their id from the literal they're assigned to. */
@@ -802,7 +818,7 @@ static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
 static lily_var *new_local_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(name, line_num);
+    lily_var *var = new_var(parser, name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     var->function_depth = parser->emit->function_depth;
@@ -828,7 +844,7 @@ static inline lily_var *new_typed_local_var(lily_parse_state *parser,
 static lily_var *new_global_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(name, line_num);
+    lily_var *var = new_var(parser, name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     var->function_depth = 1;
@@ -853,7 +869,7 @@ static lily_var *new_global_var(lily_parse_state *parser, const char *name,
 static lily_var *new_define_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
-    lily_var *var = new_var(name, line_num);
+    lily_var *var = new_var(parser, name, line_num);
     lily_module_entry *m = parser->symtab->active_module;
 
     /* Symtab sets reg_spot when the function is made. */
@@ -874,7 +890,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
 static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
         const char *name, uint16_t modifiers, uint16_t line_num)
 {
-    lily_var *var = new_var(name, line_num);
+    lily_var *var = new_var(parser, name, line_num);
 
     /* Symtab sets reg_spot when the function is made. */
     var->item_kind = ITEM_DEFINE;
