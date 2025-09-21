@@ -8,12 +8,36 @@
 #define LILY_FS_EXPORT
 #endif
 
+#define ARG_Dir(s_, i_) \
+(lily_fs_Dir *)lily_arg_generic(s_, i_)
+#define AS_Dir(v_) \
+(lily_fs_Dir *)lily_as_generic(v_)
+#define ID_Dir(s_) \
+lily_cid_at(s_, 0)
+#define INIT_Dir(s_) \
+(lily_fs_Dir *)lily_push_foreign(s_, ID_Dir(s_), (lily_destroy_func)lily_fs_destroy_Dir, sizeof(lily_fs_Dir))
+
+#define ID_DirEntry_Directory(s_) \
+(lily_cid_at(s_, 1) + 1)
+#define INIT_DirEntry_Directory(state)\
+lily_push_variant(state, (lily_cid_at(state, 1) + 1), 1)
+#define ID_DirEntry_File(s_) \
+(lily_cid_at(s_, 1) + 2)
+#define INIT_DirEntry_File(state)\
+lily_push_variant(state, (lily_cid_at(state, 1) + 2), 1)
+
 LILY_FS_EXPORT
 const char *lily_fs_info_table[] = {
-    "\0\0"
+    "\2Dir\0DirEntry\0"
+    ,"C\1Dir\0"
+    ,"m\0each_entry\0[A](Dir,A,Function(DirEntry,A)): A"
+    ,"E\2DirEntry\0"
+    ,"V\0Directory\0(String)"
+    ,"V\0File\0(String)"
     ,"F\0change_dir\0(String)"
     ,"F\0create_dir\0(String,*Integer)"
     ,"F\0current_dir\0: String"
+    ,"F\0read_dir\0(String): Result[String,Dir]"
     ,"F\0remove_dir\0(String)"
     ,"Z"
 };
@@ -21,9 +45,15 @@ const char *lily_fs_info_table[] = {
 LILY_FS_EXPORT \
 lily_call_entry_func lily_fs_call_table[] = { \
     NULL, \
+    NULL, \
+    lily_fs_Dir_each_entry, \
+    NULL, \
+    NULL, \
+    NULL, \
     lily_fs__change_dir, \
     lily_fs__create_dir, \
     lily_fs__current_dir, \
+    lily_fs__read_dir, \
     lily_fs__remove_dir, \
 };
 #endif

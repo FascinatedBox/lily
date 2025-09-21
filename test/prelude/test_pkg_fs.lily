@@ -3,10 +3,12 @@ import (Interpreter,
 
 class TestPkgFs < TestCase
 {
-    public define test_all
+    public define test_most
     {
         # These methods are tested together to make sure the filesystem is put
         # back the way it started. Also, less actions are made this way.
+        # Directory reading isn't included since it doesn't mutate.
+
         var long_name = List.repeat(15, "qwertyuiop").join("")
         var original_dir = fs.current_dir()
 
@@ -68,5 +70,95 @@ class TestPkgFs < TestCase
         }
 
         message.starts_with("Errno ") |> assert_true
+    }
+
+    public define test_read_dir
+    {
+        # Current directory should be the project directory.
+        var file_paths: List[String] = []
+        var dir_paths: List[String] = []
+        var first = fs.read_dir(".")
+        var w = [dir_paths, file_paths]
+
+        match first: {
+            case Success(su):
+                w = su.each_entry([dir_paths, file_paths], (|e, temp|
+                    match e: {
+                        case Directory(path):
+                            temp[0].push(path)
+                        case File(path):
+                            temp[1].push(path)
+                    }
+                ))
+
+                if w != [dir_paths, file_paths]: {
+                    0/0
+                }
+
+                if file_paths == [] || dir_paths == []: {
+                    0/0
+                }
+
+                if dir_paths.select(|s| s == "." || s == ".." ).size(): {
+                    0/0
+                }
+
+                if dir_paths.select(|s| s == "src").size() == 0: {
+                    0/0
+                }
+
+                if file_paths.select(|s| s == "README.md").size() == 0: {
+                    0/0
+                }
+            case Failure(message):
+                raise IOError(message)
+        }
+
+        # A Dir can't be iterated over twice.
+
+        match first: {
+            case Success(su):
+                var check_w = su.each_entry(0xdeadbeef, (|e, _| 0 / 0 ))
+
+                if check_w != 0xdeadbeef: {
+                    0/0
+                }
+            case Failure(message):
+                raise IOError(message)
+        }
+
+        try: {
+            match fs.read_dir("qwertyasdf"): {
+                case Success(_):
+                    0/0
+                case Failure(message):
+                    raise IOError(message)
+            }
+        except IOError:
+            # Assume the message is correct if it got this far.
+        }
+
+        # The rest use match and a consistent order to prevent testing oopses.
+
+        match fs.read_dir(".\/"): {
+            case Success(_):
+                # A trailing slash is ok.
+            case Failure(_):
+                0/0
+        }
+
+        match fs.read_dir(file_paths[0]): {
+            case Success(_):
+                0/0
+            case Failure(_):
+                # Using a known file fails.
+        }
+
+        match fs.read_dir(".\/*"): {
+            case Success(_):
+                0/0
+            case Failure(_):
+                # Can't have a * at the end of the path.
+        }
     }
 }

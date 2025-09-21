@@ -3,6 +3,30 @@ import manifest
 ### Functions for interacting with the underlying filesystem.
 library fs
 
+### Variants in this enum represent a path in the filesystem.
+scoped enum DirEntry
+{
+    Directory(String),
+    File(String)
+}
+
+### Provides access to paths in a directory.
+###
+### Instances of this class are created when `fs.read_dir` is successful.
+foreign static class Dir
+{
+    ### For each entry in the directory, execute `fn` with `value` as the second
+    ### argument.
+    ###
+    ### `"."` and `".."` are not included.
+    ###
+    ### This method can only be called once on a `Dir`. Subsequent attempts to
+    ### use this method will immediately return, even if there are more results.
+    ###
+    ### The result of this method is always `value`, for chaining.
+    public define each_entry[A](value: A, fn: Function(DirEntry, A)): A
+}
+
 ### Change the current working directory to `dirname`.
 ###
 ### # Errors
@@ -21,6 +45,16 @@ define create_dir(dirname: String, mode: *Integer=0c777)
 
 ### Return the current directory.
 define current_dir: String
+
+### Read the directory indicated by `path`.
+###
+### This attempts to build a cursor for entries in a directory. On success,
+### this function returns a `Success` holding the `Dir` cursor.
+###
+### Otherwise, this function returns a `Failure` containing a `String`
+### description. The `String` is suitable for raising as an `IOError`, but can
+### also be discarded.
+define read_dir(path: String): Result[String, Dir]
 
 ### Remove directory `dirname`.
 ###
