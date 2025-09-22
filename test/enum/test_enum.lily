@@ -165,11 +165,11 @@ class TestEnum < TestCase
             define f(v: Example): Integer
             {
                 match v: {
-                    case One, Four:
+                    case One, Four, Five:
                         return 1
                     case Three(s):
                         return s
-                    case Five, Two:
+                    case Two:
                         return 2
                 }
             }
@@ -182,7 +182,7 @@ class TestEnum < TestCase
                 Two       |> f,
             ]
 
-            if v != [2, 1, 1, 10, 2]: {
+            if v != [1, 1, 1, 10, 2]: {
                 0 / 0
             }
         """)

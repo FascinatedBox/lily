@@ -5173,7 +5173,54 @@ static void error_incomplete_match(lily_parse_state *parser)
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
-static lily_var *parse_match_target(lily_parse_state *parser, lily_type *type)
+static lily_class *parse_target_to_match(lily_parse_state *parser,
+        lily_class *match_cls)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_class *cls;
+
+    NEED_CURRENT_TOK(tk_word)
+
+    if (match_cls->item_kind & ITEM_IS_CLASS) {
+        cls = resolve_class_name(parser);
+
+        if (lily_class_greater_eq(match_cls, cls) == 0) {
+            lily_raise_syn(parser->raiser,
+                    "Class %s does not inherit from matching class %s.",
+                    cls->name, match_cls->name);
+        }
+
+        /* Forbid non-monomorphic types to avoid the question of what to do
+           if the match class has more generics. */
+        if (cls->generic_count != 0) {
+            lily_raise_syn(parser->raiser,
+                    "Class matching only works for types without generics.",
+                    cls->name);
+        }
+    }
+    else {
+        if (match_cls->item_kind == ITEM_ENUM_SCOPED) {
+            /* Lily v2.1 and prior required scoped enums to have their matches
+               written as `EnumName.VariantName`. This is done to prevent
+               breaking older code unnecessarily. However, it will eventually be
+               removed. */
+            if (strcmp(match_cls->name, lex->label) == 0) {
+                NEED_NEXT_TOK(tk_dot)
+                NEED_NEXT_TOK(tk_word)
+            }
+        }
+
+        cls = (lily_class *)lily_find_variant(match_cls, lex->label);
+
+        if (cls == NULL)
+            lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
+                    lex->label, match_cls->name);
+    }
+
+    return cls;
+}
+
+static lily_var *parse_decompose_var(lily_parse_state *parser, lily_type *type)
 {
     lily_lex_state *lex = parser->lex;
     lily_var *result;
@@ -5190,80 +5237,26 @@ static lily_var *parse_match_target(lily_parse_state *parser, lily_type *type)
     return result;
 }
 
-static void parse_match_class(lily_parse_state *parser)
+static void parse_match_decompositions(lily_parse_state *parser,
+        lily_class *case_cls)
 {
     lily_lex_state *lex = parser->lex;
-    lily_class *match_cls = parser->emit->block->match_type->cls;
+    uint16_t kind = case_cls->item_kind;
 
-    NEED_CURRENT_TOK(tk_word)
-
-    lily_class *cls = resolve_class_name(parser);
-
-    if (lily_class_greater_eq(match_cls, cls) == 0) {
-        lily_raise_syn(parser->raiser,
-                "Class %s does not inherit from matching class %s.", cls->name,
-                match_cls->name);
-    }
-
-    /* Forbid non-monomorphic types to avoid the question of what to do
-       if the match class has more generics. */
-    if (cls->generic_count != 0) {
-        lily_raise_syn(parser->raiser,
-                "Class matching only works for types without generics.",
-                cls->name);
-    }
-
-    if (lily_emit_try_match_switch(parser->emit, cls) == 0)
-        lily_raise_syn(parser->raiser, "Already have a case for %s.",
-                lex->label);
+    if (kind == ITEM_VARIANT_EMPTY)
+        return;
 
     NEED_NEXT_TOK(tk_left_parenth)
 
-    lily_var *var = parse_match_target(parser, cls->self_type);
+    if (kind & ITEM_IS_CLASS) {
+        lily_var *var = parse_decompose_var(parser, case_cls->self_type);
 
-    if (var)
-        lily_emit_write_class_case(parser->emit, var);
-
-    NEED_CURRENT_TOK(tk_right_parenth)
-}
-
-static void parse_match_variant(lily_parse_state *parser, uint16_t count)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_block *block = parser->emit->block;
-    lily_class *match_cls = block->match_type->cls;
-
-    NEED_CURRENT_TOK(tk_word)
-
-    if (match_cls->item_kind == ITEM_ENUM_SCOPED) {
-        /* Lily v2.1 and prior required scoped enums to have their matches
-           written as `EnumName.VariantName`. This is done to prevent breaking
-           older code unnecessarily. However, it will eventually be removed. */
-        if (strcmp(match_cls->name, lex->label) == 0) {
-            NEED_NEXT_TOK(tk_dot)
-            NEED_NEXT_TOK(tk_word)
-        }
+        if (var)
+            lily_emit_write_class_case(parser->emit, var);
     }
-
-    lily_variant_class *variant = lily_find_variant(match_cls, lex->label);
-
-    if (count &&
-        variant->item_kind == ITEM_VARIANT_FILLED)
-        lily_raise_syn(parser->raiser,
-                "Multi case match is only available to empty variants.");
-
-    if (variant == NULL)
-        lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
-                lex->label, match_cls->name);
-
-    if (lily_emit_try_match_switch(parser->emit, (lily_class *)variant) == 0)
-        lily_raise_syn(parser->raiser, "Already have a case for %s.",
-                lex->label);
-
-    if (variant->item_kind == ITEM_VARIANT_FILLED) {
-        NEED_NEXT_TOK(tk_left_parenth)
-
-        lily_type *t = lily_emit_type_for_variant(parser->emit, variant);
+    else if (kind == ITEM_VARIANT_FILLED) {
+        lily_type *t = lily_emit_type_for_variant(parser->emit,
+                (lily_variant_class *)case_cls);
 
         /* Skip [0] since it's the return and not one of the arguments. */
         lily_type **var_types = t->subtypes + 1;
@@ -5271,7 +5264,7 @@ static void parse_match_variant(lily_parse_state *parser, uint16_t count)
         uint16_t i;
 
         for (i = 0;i < stop;i++) {
-            lily_var *var = parse_match_target(parser, var_types[i]);
+            lily_var *var = parse_decompose_var(parser, var_types[i]);
 
             if (var) {
                 if (var->type->flags & TYPE_IS_INCOMPLETE) {
@@ -5288,9 +5281,57 @@ static void parse_match_variant(lily_parse_state *parser, uint16_t count)
 
             NEED_CURRENT_TOK(tk_comma)
         }
-
-        NEED_CURRENT_TOK(tk_right_parenth)
     }
+
+    NEED_CURRENT_TOK(tk_right_parenth)
+}
+
+static void parse_multi_match(lily_parse_state *parser, lily_class *match_cls)
+{
+    uint16_t count = 0;
+
+    while (1) {
+        lily_next_token(parser->lex);
+
+        lily_class *case_cls = parse_target_to_match(parser, match_cls);
+
+        if (case_cls->item_kind == ITEM_VARIANT_FILLED)
+            lily_raise_syn(parser->raiser,
+                "Multi case match is only available to empty variants.");
+
+        if (lily_emit_try_add_match_case(parser->emit, case_cls) == 0)
+            lily_raise_syn(parser->raiser, "Already have a case for %s.",
+                    parser->lex->label);
+
+        lily_emit_write_multi_match_jump(parser->emit);
+        lily_emit_write_match_switch(parser->emit, case_cls);
+        lily_next_token(parser->lex);
+        count++;
+
+        if (parser->lex->token == tk_comma)
+            continue;
+
+        break;
+    }
+
+    lily_emit_finish_multi_match(parser->emit, count);
+}
+
+static lily_class *parse_match_case(lily_parse_state *parser,
+        lily_class *match_cls)
+{
+    lily_class *case_cls = parse_target_to_match(parser, match_cls);
+
+    lily_emit_branch_switch(parser->emit);
+
+    if (lily_emit_try_add_match_case(parser->emit, case_cls) == 0)
+        lily_raise_syn(parser->raiser, "Already have a case for %s.",
+                parser->lex->label);
+
+    lily_emit_write_match_switch(parser->emit, case_cls);
+    parse_match_decompositions(parser, case_cls);
+    lily_next_token(parser->lex);
+    return case_cls;
 }
 
 static void keyword_case(lily_parse_state *parser)
@@ -5302,42 +5343,23 @@ static void keyword_case(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "case outside of match.");
 
     lily_lex_state *lex = parser->lex;
-    lily_class *match_cls = block->match_type->cls;
-    uint16_t count = 0;
 
     lily_next_token(lex);
 
-    while (1) {
-        if (block->flags & BLOCK_FINAL_BRANCH)
-            lily_raise_syn(parser->raiser, "case in exhaustive match.");
+    if (block->flags & BLOCK_FINAL_BRANCH)
+        lily_raise_syn(parser->raiser, "case in exhaustive match.");
 
-        hide_block_vars(parser);
+    hide_block_vars(parser);
 
-        if (match_cls->item_kind & ITEM_IS_ENUM)
-            parse_match_variant(parser, count);
+    lily_class *case_cls = parse_match_case(parser, block->match_type->cls);
+
+    if (lex->token == tk_comma) {
+        if (case_cls->item_kind == ITEM_VARIANT_EMPTY)
+            parse_multi_match(parser, block->match_type->cls);
         else
-            parse_match_class(parser);
-
-        lily_token token = lex->token;
-
-        lily_next_token(lex);
-
-        if (lex->token == tk_comma) {
-            if (token != tk_word)
-                lily_raise_syn(parser->raiser,
-                        "Multi case match is only available to empty variants.");
-
-            count++;
-            lily_emit_multi_match_mark(emit);
-            lily_next_token(lex);
-            continue;
-        }
-
-        break;
+            lily_raise_syn(parser->raiser,
+                "Multi case match is only available to empty variants.");
     }
-
-    if (count)
-        lily_emit_multi_match_end_group(emit, count);
 
     NEED_COLON_AND_NEXT;
 }
@@ -5369,15 +5391,7 @@ static void keyword_with(lily_parse_state *parser)
     lily_eval_match_with(parser->emit, parser->expr);
     expect_word(parser, "as");
     lily_next_token(lex);
-
-    lily_class *match_cls = parser->emit->block->match_type->cls;
-
-    if (match_cls->item_kind & ITEM_IS_ENUM)
-        parse_match_variant(parser, 0);
-    else
-        parse_match_class(parser);
-
-    lily_next_token(lex);
+    parse_match_case(parser, parser->emit->block->match_type->cls);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 }

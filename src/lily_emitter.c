@@ -1464,26 +1464,6 @@ static void eval_enforce_value(lily_emit_state *, lily_ast *, lily_type *);
     * Variants and user classes have the same layout, so o_property_get is
       written to extract variant values that the user is interested in. **/
 
-static int is_duplicate_case(lily_emit_state *emit, lily_class *cls)
-{
-    uint16_t i;
-    uint16_t stop = lily_u16_pos(emit->match_cases);
-    uint16_t cls_id = cls->id;
-    lily_buffer_u16 *cases = emit->match_cases;
-    int result = 0;
-
-    for (i = emit->block->match_case_start;i < stop;i++) {
-        uint16_t match_case = lily_u16_get(cases, i);
-
-        if (match_case == cls_id) {
-            result = 1;
-            break;
-        }
-    }
-
-    return result;
-}
-
 void lily_emit_write_class_case(lily_emit_state *emit, lily_var *var)
 {
     lily_u16_write_4(emit->code, o_assign, emit->block->match_reg,
@@ -1508,37 +1488,43 @@ lily_type *lily_emit_type_for_variant(lily_emit_state *emit,
     return result;
 }
 
-int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
+int lily_emit_try_add_match_case(lily_emit_state *emit, lily_class *cls)
 {
     lily_block *block = emit->block;
 
-    if (is_duplicate_case(emit, cls) ||
-        block->flags & BLOCK_FINAL_BRANCH)
+    if (block->flags & BLOCK_FINAL_BRANCH)
         return 0;
 
-    uint16_t match_reg = block->match_reg;
+    lily_buffer_u16 *cases = emit->match_cases;
+    uint16_t start = emit->block->match_case_start;
+    uint16_t stop = lily_u16_pos(emit->match_cases);
+    uint16_t cls_id = cls->id;
+    uint16_t i;
+    int result = 1;
 
-    if ((block->flags & BLOCK_MULTI_MATCH) == 0)
-        lily_emit_branch_switch(emit);
-    else {
-        block->flags &= ~BLOCK_MULTI_MATCH;
+    for (i = start;i < stop;i++) {
+        uint16_t match_case = lily_u16_get(cases, i);
 
-        /* This is the jump of the last o_jump_if_not_class. */
-        uint16_t patch = lily_u16_pop(emit->patches);
-        uint16_t adjust = lily_u16_get(emit->code, patch);
-
-        /* If this branch succeds, it needs to jump to the code section. Write
-           a jump to be patched later. */
-        lily_u16_write_2(emit->code, o_jump, 1);
-        lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
-
-        /* Fix the last o_jump_if_not_class to go here where the new one is. */
-        if (patch != 0)
-            lily_u16_set_at(emit->code, patch,
-                    lily_u16_pos(emit->code) + adjust - patch);
+        if (match_case == cls_id) {
+            result = 0;
+            break;
+        }
     }
 
     lily_u16_write_1(emit->match_cases, cls->id);
+
+    if ((cls->item_kind & ITEM_IS_VARIANT) == 0)
+        return result;
+
+    if ((stop - start + 1) == cls->parent->variant_size)
+        block->flags |= BLOCK_FINAL_BRANCH;
+
+    return result;
+}
+
+void lily_emit_write_match_switch(lily_emit_state *emit, lily_class *cls)
+{
+    uint16_t match_reg = emit->block->match_reg;
 
     if ((cls->item_kind & ITEM_IS_VARIANT) == 0 ||
         (cls->flags & VARIANT_HAS_VALUE) == 0) {
@@ -1560,24 +1546,25 @@ int lily_emit_try_match_switch(lily_emit_state *emit, lily_class *cls)
                 s->reg_spot, 3, *emit->lex_linenum);
         lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
     }
-
-    if (cls->item_kind & ITEM_IS_VARIANT) {
-        uint16_t total = lily_u16_pos(emit->match_cases);
-        uint16_t count = total - block->match_case_start;
-
-        if (count == cls->parent->variant_size)
-            block->flags |= BLOCK_FINAL_BRANCH;
-    }
-
-    return 1;
 }
 
-void lily_emit_multi_match_mark(lily_emit_state *emit)
+void lily_emit_write_multi_match_jump(lily_emit_state *emit)
 {
-    emit->block->flags |= BLOCK_MULTI_MATCH;
+    /* This is the jump of the last o_jump_if_not_class. */
+    uint16_t patch = lily_u16_pop(emit->patches);
+    uint16_t adjust = lily_u16_get(emit->code, patch);
+
+    /* If this branch succeds, it needs to jump to the code section. Write
+       a jump to be patched later. */
+    lily_u16_write_2(emit->code, o_jump, 1);
+    lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 1);
+
+    /* Fix the last o_jump_if_not_class to go here where the new one is. */
+    lily_u16_set_at(emit->code, patch,
+            lily_u16_pos(emit->code) + adjust - patch);
 }
 
-void lily_emit_multi_match_end_group(lily_emit_state *emit, uint16_t count)
+void lily_emit_finish_multi_match(lily_emit_state *emit, uint16_t count)
 {
     /* All cases of a multi match case have been found, so code is coming next.
        The last patch is the o_jump_if_not_class of the last case, and it needs
