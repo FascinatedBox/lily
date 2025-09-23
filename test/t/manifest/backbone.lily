@@ -36,6 +36,7 @@ class Interpreter
     # Not from spawni (for testing internal sandbox mode)
     public static define new_non_local(dirs: String): Interpreter
     public static define new_sandboxed: Interpreter
+    public static define new_with_gc(gstart: Integer): Interpreter
     public define open_math_library
 
     public define parse_expr(context: String, data: String): Option[String]

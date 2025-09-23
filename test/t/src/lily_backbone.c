@@ -416,6 +416,22 @@ void lily_backbone_Interpreter_new_sandboxed(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_backbone_Interpreter_new_with_gc(lily_state *s)
+{
+    lily_container_val *interp = lily_push_instance(s, ID_Interpreter(s), 2);
+    int64_t gc_start = lily_arg_integer(s, 0);
+
+    lily_backbone_RawInterpreter *raw = INIT_RawInterpreter(s);
+    lily_config_init(&raw->config);
+    raw->config.gc_start = (int)gc_start;
+    raw->subi = lily_new_state(&raw->config);
+    raw->sourcei = s;
+    raw->sys_dirs = NULL;
+
+    SETFS_Interpreter__raw(s, interp);
+    lily_return_top(s);
+}
+
 void lily_backbone_Interpreter_open_math_library(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);

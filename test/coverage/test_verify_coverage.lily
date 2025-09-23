@@ -797,4 +797,26 @@ SyntaxError: Expected a value, not 'end of file'.
             }
         """)
     }
+
+    public define test_coroutine_closure_does_not_leak
+    {
+        # Set the gc start low so the gc invokes frequently.
+        # This relies on the gc firing at the right time.
+        var t = backbone.Interpreter.new_with_gc(1)
+
+        # Running this under valgrind will show a leak.
+        assert_parse_string(t, """
+            import (Coroutine) coroutine
+
+            define fn: Coroutine[Integer, Unit] {
+                define fn2(co: Coroutine[Integer, Unit]) {}
+
+                return Coroutine.build(fn2)
+            }
+
+            for i in 0...2: {
+                fn()
+            }
+        """)
+    }
 }

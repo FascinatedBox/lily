@@ -1222,13 +1222,13 @@ static lily_value *make_cell_from(lily_value *value)
     return result;
 }
 
-/* This clones the data inside of 'to_copy'. */
 static lily_function_val *new_function_copy(lily_function_val *to_copy)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
 
     *f = *to_copy;
     f->refcount = 1;
+    f->gc_entry = NULL;
 
     return f;
 }
@@ -1586,6 +1586,7 @@ lily_vm_state *lily_vm_coroutine_build(lily_vm_state *vm, uint16_t id)
     if (to_copy->foreign_func != NULL)
         lily_RuntimeError(vm, "Only native functions can be coroutines.");
 
+    /* This copy stays in the Coroutine so it doesn't need a tag. */
     lily_function_val *base_func = new_function_copy(to_copy);
 
     if (to_copy->upvalues)
