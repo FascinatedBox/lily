@@ -167,6 +167,20 @@ class TestVerifyClosures < TestCase
                 }
             }
         """)
+
+        # capture variant value at end of a block
+
+        assert_parse_string(t, """
+            define g(x: Option[Integer]): Function( => Integer)
+            {
+                match x: {
+                    case Some(s):
+                        return (|| s )
+                    case None:
+                        return (|| 0 )
+                }
+            }
+        """)
     }
 
     public define test_jumps

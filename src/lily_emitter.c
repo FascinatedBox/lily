@@ -1526,6 +1526,15 @@ void lily_emit_write_match_switch(lily_emit_state *emit, lily_class *cls)
 {
     uint16_t match_reg = emit->block->match_reg;
 
+    if (emit->block->flags & BLOCK_FINAL_BRANCH) {
+        /* Class matches are only final in their else, but this is a case. This
+           is the last variant of an enum. Enums are closed sets, so don't
+           bother checking. Write a placeholder patch in case this is the last
+           case of a multi match. */
+        lily_u16_write_1(emit->patches, 0);
+        return;
+    }
+
     if ((cls->item_kind & ITEM_IS_VARIANT) == 0 ||
         (cls->flags & VARIANT_HAS_VALUE) == 0) {
         /* If this isn't the class, jump to the next branch (or exit). */
