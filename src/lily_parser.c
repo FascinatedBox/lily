@@ -1919,6 +1919,11 @@ static void dynaload_foreign(lily_parse_state *parser, lily_dyna_state *ds)
 
     lily_class *cls = lily_new_class(parser->symtab, dyna_get_name(ds), 0);
 
+    /* These can have closures, so anything holding them needs a tag. */
+    if (ds->m->flags & MODULE_IS_PREDEFINED &&
+        strcmp(dyna_get_name(ds), "Coroutine") == 0)
+        cls->flags |= CLS_GC_TAGGED;
+
     cls->item_kind = ITEM_CLASS_FOREIGN;
     cls->dyna_start = ds->index;
     collect_generics_for(parser, cls);
