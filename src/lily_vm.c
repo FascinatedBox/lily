@@ -1067,10 +1067,13 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
     lily_container_val *ival = lily_new_container_raw(variant_id, count);
     lily_value **slots = ival->values;
     uint16_t i;
+    uint32_t inner_flags = 0;
 
     for (i = 0;i < count;i++) {
         lily_value *rhs_reg = vm_regs[code[3+i]];
+
         lily_value_assign(slots[i], rhs_reg);
+        inner_flags |= rhs_reg->flags & VAL_HAS_SWEEP_FLAG;
     }
 
     lily_class *variant_cls = vm->gs->class_table[variant_id];
@@ -1083,6 +1086,8 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
         move_variant_f(0, result, ival);
         if (flags == VAL_IS_GC_TAGGED)
             lily_value_tag(vm, result);
+        else if (inner_flags)
+            result->flags |= VAL_IS_GC_SPECULATIVE;
     }
 }
 

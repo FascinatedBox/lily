@@ -819,4 +819,34 @@ SyntaxError: Expected a value, not 'end of file'.
             }
         """)
     }
+
+    public define test_gc_on_variants_with_gc_values
+    {
+        # Low gc so it crashes if incorrect.
+        var t = backbone.Interpreter.new_with_gc(1)
+
+        assert_parse_string(t, """
+            import (Coroutine) coroutine
+
+            define function(coroutine: Coroutine[Unit, Unit]) {
+                coroutine.yield(unit)
+            }
+
+            class Object {
+                private var @coroutine = Some(Coroutine.build(function))
+
+                public define step {
+                    with @coroutine as Some(coroutine): {
+                        coroutine.resume()
+                        if !coroutine.is_waiting(): {
+                            @coroutine = None
+                        }
+                    }
+                }
+            }
+
+            var objects: List[Object] = [Object(), Object()]
+            objects.map(Object.step)
+        """)
+    }
 }
