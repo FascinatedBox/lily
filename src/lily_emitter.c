@@ -1855,18 +1855,18 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
     }
 }
 
-static int can_optimize_out_assignment(lily_ast *tree)
+static int can_reroute_tree_result(lily_ast *tree)
 {
-    int can_optimize = 0;
+    int result = 0;
 
     while (tree->tree_type == tree_parenth)
         tree = tree->arg_start;
 
     /* Keep these conditions away from each other since each has a different
-       reason why optimization can't be done. */
+       reason why they can't be moved. */
 
     if (tree->tree_type == tree_local_var)
-        /* Can't skip basic assignments. */
+        /* Nothing was written to be moved. */
         ;
     else if (tree->tree_type == tree_binary) {
         uint8_t op = tree->op;
@@ -1878,23 +1878,22 @@ static int can_optimize_out_assignment(lily_ast *tree)
                  op == tk_eq_eq ||
                  op == tk_not_eq ||
                  IS_COMPARE_TOKEN(op))
-            /* These finish by writing a jump table and two writes. They can't
-               be optimized because the optimize only covers one write. */
+            /* These write in two places, and only one would be moved. */
             ;
         else
-            can_optimize = 1;
+            result = 1;
     }
     else if (tree->tree_type == tree_self ||
              tree->tree_type == tree_typecast)
-        /* These do not write any bytecode to optimize out. */
+        /* Nothing written to move. */
         ;
     else if (tree->tree_type == tree_ternary_second)
-        /* Only one of the two branches would get patched. */
+        /* These write in two places, and only one would be moved. */
         ;
     else
-        can_optimize = 1;
+        result = 1;
 
-    return can_optimize;
+    return result;
 }
 
 /* Check if the ast's result matches the expected type. This does a simple
@@ -2630,10 +2629,9 @@ static void eval_assign_local(lily_emit_state *emit, lily_ast *ast)
     else
         right_sym = eval_assign_spoof_op(emit, ast);
 
-    if (can_optimize_out_assignment(ast->right)) {
-        /* Reroute the last opcode to target the left. Offset is -2 since
-           opcodes that send a result finish with result, then line. */
-        int pos = lily_u16_pos(emit->code) - 2;
+    if (can_reroute_tree_result(ast->right)) {
+        /* These always end with a result, then a line number. */
+        uint16_t pos = lily_u16_pos(emit->code) - 2;
 
         lily_u16_set_at(emit->code, pos, left_sym->reg_spot);
     }
@@ -3286,7 +3284,7 @@ static void eval_self(lily_emit_state *emit, lily_ast *ast)
    needs to be in a storage so it can be rerouted. */
 static uint16_t ternary_branch_fixup(lily_emit_state *emit, lily_ast *ast)
 {
-    if (can_optimize_out_assignment(ast) == 0)
+    if (can_reroute_tree_result(ast) == 0)
         /* Finish it with an assignment (which can be rerouted). */
         lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot, 0,
                 ast->line_num);
