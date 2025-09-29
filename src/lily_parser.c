@@ -5374,9 +5374,17 @@ static void keyword_match(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_next_token(lex);
-    lily_emit_enter_match_block(parser->emit);
     expression(parser);
-    lily_eval_match_with(parser->emit, parser->expr);
+
+    lily_sym *target = lily_eval_for_result(parser->emit, parser->expr->root);
+    lily_class *pattern_cls = target->type->cls;
+
+    if ((pattern_cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
+        lily_raise_syn(parser->raiser,
+                "Match statement value must be a user class or enum.\n"
+                "Received: ^T", target->type);
+
+    lily_emit_enter_match_block(parser->emit, target);
     NEED_COLON_AND_BRACE;
     NEED_NEXT_TOK(tk_word)
 
@@ -5391,12 +5399,20 @@ static void keyword_with(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_next_token(lex);
-    lily_emit_enter_with_block(parser->emit);
     expression(parser);
-    lily_eval_match_with(parser->emit, parser->expr);
+
+    lily_sym *target = lily_eval_for_result(parser->emit, parser->expr->root);
+    lily_class *pattern_cls = target->type->cls;
+
+    if ((pattern_cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
+        lily_raise_syn(parser->raiser,
+                "With statement value must be a user class or enum.\n"
+                "Received: ^T", target->type);
+
+    lily_emit_enter_with_block(parser->emit, target);
     expect_word(parser, "as");
     lily_next_token(lex);
-    parse_match_case(parser, parser->emit->block->match_type->cls);
+    parse_match_case(parser, pattern_cls);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 }

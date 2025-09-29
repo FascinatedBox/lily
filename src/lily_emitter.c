@@ -639,14 +639,20 @@ void lily_emit_enter_lambda_block(lily_emit_state *emit, lily_var *var)
     emit->function_depth++;
 }
 
-void lily_emit_enter_match_block(lily_emit_state *emit)
+void lily_emit_enter_match_block(lily_emit_state *emit, lily_sym *sym)
 {
     lily_block *block = next_block(emit);
 
     block->flags |= BLOCK_ALWAYS_EXITS;
     block->block_type = block_match;
+    block->last_exit = lily_u16_pos(emit->code);
     block->match_case_start = lily_u16_pos(emit->match_cases);
+    block->match_reg = sym->reg_spot;
+    block->match_type = sym->type;
     emit->block = block;
+
+    /* Branch switching expects a patch, so write a fake one to skip over. */
+    lily_u16_write_1(emit->patches, 0);
 }
 
 void lily_emit_enter_try_block(lily_emit_state *emit, uint16_t line_num)
@@ -670,14 +676,20 @@ void lily_emit_enter_while_block(lily_emit_state *emit)
     emit->block = block;
 }
 
-void lily_emit_enter_with_block(lily_emit_state *emit)
+void lily_emit_enter_with_block(lily_emit_state *emit, lily_sym *sym)
 {
     lily_block *block = next_block(emit);
 
     block->flags |= BLOCK_ALWAYS_EXITS;
     block->block_type = block_with;
+    block->last_exit = lily_u16_pos(emit->code);
     block->match_case_start = lily_u16_pos(emit->match_cases);
+    block->match_reg = sym->reg_spot;
+    block->match_type = sym->type;
     emit->block = block;
+
+    /* Branch switching expects a patch, so write a fake one to skip over. */
+    lily_u16_write_1(emit->patches, 0);
 }
 
 void lily_emit_leave_block(lily_emit_state *emit)
@@ -1584,32 +1596,6 @@ void lily_emit_finish_multi_match(lily_emit_state *emit, uint16_t count)
 
     write_patches_since(emit, start);
     lily_u16_write_1(emit->patches, stash_patch);
-}
-
-void lily_eval_match_with(lily_emit_state *emit, lily_expr_state *es)
-{
-    lily_ast *ast = es->root;
-
-    eval_enforce_value(emit, ast, lily_question_type);
-
-    lily_type *match_type = ast->result->type;
-    lily_class *match_class = match_type->cls;
-
-    if ((match_class->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
-        lily_raise_syn(emit->raiser,
-                "Invalid expression given.\n"
-                "Expected: A user class or enum.\n"
-                "Received: ^T", match_type);
-
-    lily_block *block = emit->block;
-
-    block->match_case_start = lily_u16_pos(emit->match_cases);
-    block->last_exit = lily_u16_pos(emit->code);
-    block->match_reg = ast->result->reg_spot;
-    block->match_type = match_type;
-
-    /* Branch switching expects a patch, so write a fake one to skip over. */
-    lily_u16_write_1(emit->patches, 0);
 }
 
 /***
@@ -4609,6 +4595,18 @@ void lily_eval_expr(lily_emit_state *emit, lily_expr_state *es)
 {
     eval_tree(emit, es->root, lily_question_type);
     emit->expr_num++;
+}
+
+lily_sym *lily_eval_for_result(lily_emit_state *emit, lily_ast *ast)
+{
+    eval_tree(emit, ast, lily_question_type);
+    emit->expr_num++;
+
+    if (ast->result == NULL)
+        lily_raise_syn(emit->raiser,
+                "Expected a value, but got an assignment instead.");
+
+    return ast->result;
 }
 
 void lily_eval_optarg(lily_emit_state *emit, lily_ast *ast)
