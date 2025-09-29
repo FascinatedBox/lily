@@ -3071,8 +3071,7 @@ static void expr_keyword_arg(lily_parse_state *parser, uint16_t *state)
 static void expr_lambda(lily_parse_state *parser, uint16_t *state)
 {
     if (parser->flags & PARSER_SIMPLE_EXPR)
-        lily_raise_syn(parser->raiser,
-                "Lambdas are too complex to be a default argument.");
+        lily_raise_syn(parser->raiser, "A lambda is too complex to be here.");
 
     /* Checking for an operator allows this
 
