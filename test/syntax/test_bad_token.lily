@@ -916,7 +916,7 @@ class TestBadToken < TestCase
         # bad keyword (scoped without enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'enum', not 'asdf'.
+            SyntaxError: Expected to see 'enum' here.
 
                |
              1 | scoped asdf

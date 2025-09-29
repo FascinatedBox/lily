@@ -3945,13 +3945,10 @@ static void parse_for_expr(lily_parse_state *parser, lily_var *var)
 
 static void expect_word(lily_parse_state *parser, const char *what)
 {
-    lily_lex_state *lex = parser->lex;
+    if (parser->lex->token == tk_word && strcmp(parser->lex->label, what) == 0)
+        return;
 
-    NEED_CURRENT_TOK(tk_word)
-
-    if (strcmp(lex->label, what) != 0)
-        lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", what,
-                lex->label);
+    lily_raise_syn(parser->raiser, "Expected to see '%s' here.", what);
 }
 
 static int extra_if_word(lily_parse_state *parser, const char *what)

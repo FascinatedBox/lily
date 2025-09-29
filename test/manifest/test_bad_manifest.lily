@@ -667,7 +667,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected 'class', not 'foreign'.
+            SyntaxError: Expected to see 'class' here.
 
                |
              3 | forward foreign

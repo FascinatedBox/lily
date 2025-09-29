@@ -202,7 +202,7 @@ class TestBadSyntax < TestCase
         # bad blocks (while after do)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'while', not 'asdf'.
+            SyntaxError: Expected to see 'while' here.
 
                |
              2 | } asdf
@@ -1820,7 +1820,7 @@ class TestBadSyntax < TestCase
         # bad for range (require 'in' within for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'in', not 'asdf'.
+            SyntaxError: Expected to see 'in' here.
 
                |
              1 | for i asdf 0...10: {}
@@ -1993,7 +1993,7 @@ class TestBadSyntax < TestCase
         # Must have 1 or 2 vars.
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '['.
+            SyntaxError: Expected to see 'in' here.
 
                |
              1 | for in [1]: {}
@@ -2006,7 +2006,7 @@ class TestBadSyntax < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not ','.
+            SyntaxError: Expected to see 'in' here.
 
                |
              1 | for a, b, c in [1]: {}
