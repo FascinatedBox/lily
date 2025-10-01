@@ -5135,45 +5135,6 @@ static void keyword_scoped(lily_parse_state *parser)
         enum_method_check(parser);
 }
 
-/* This is called when a match against a class or enum is not considered
-   complete. Matches for a class need to have an else, and matches against enums
-   need all variants covered. */
-static void error_incomplete_match(lily_parse_state *parser)
-{
-    lily_block *block = parser->emit->block;
-    lily_class *match_class = block->match_type->cls;
-
-    if ((match_class->item_kind & ITEM_IS_CLASS))
-        lily_raise_syn(parser->raiser,
-                "Match against a class must have an 'else' case.");
-
-    lily_msgbuf *msgbuf = parser->raiser->aux_msgbuf;
-    lily_named_sym *sym_iter = match_class->members;
-    lily_buffer_u16 *match_cases = parser->emit->match_cases;
-    uint16_t case_start = parser->emit->block->match_case_start;
-    uint16_t case_end = lily_u16_pos(parser->emit->match_cases);
-    uint16_t i;
-
-    lily_mb_add(msgbuf,
-            "Match pattern not exhaustive. The following case(s) are missing:");
-
-    while (sym_iter) {
-        if (sym_iter->item_kind & ITEM_IS_VARIANT) {
-            for (i = case_start;i < case_end;i++) {
-                if (sym_iter->id == lily_u16_get(match_cases, i))
-                    break;
-            }
-
-            if (i == case_end)
-                lily_mb_add_fmt(msgbuf, "\n* %s", sym_iter->name);
-        }
-
-        sym_iter = sym_iter->next;
-    }
-
-    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
-}
-
 static lily_class *parse_target_to_match(lily_parse_state *parser,
         lily_class *match_cls)
 {
@@ -5798,11 +5759,14 @@ static void parse_block_exit(lily_parse_state *parser)
             lily_emit_leave_block(parser->emit);
             break;
         case block_match:
-            if ((block->flags & BLOCK_FINAL_BRANCH) == 0)
-                error_incomplete_match(parser);
-
             hide_block_vars(parser);
-            /* Fall through to default handling. */
+
+            if (lily_emit_try_leave_match_block(emit) == 0)
+                lily_raise_syn(parser->raiser,
+                        lily_mb_raw(parser->raiser->aux_msgbuf));
+
+            lily_next_token(lex);
+            break;
         default:
             lily_emit_leave_block(parser->emit);
             lily_next_token(lex);

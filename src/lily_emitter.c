@@ -841,6 +841,49 @@ void lily_emit_leave_scope_block(lily_emit_state *emit)
     emit->function_depth--;
 }
 
+int lily_emit_try_leave_match_block(lily_emit_state *emit)
+{
+    lily_block *block = emit->block;
+
+    if (block->flags & BLOCK_FINAL_BRANCH) {
+        lily_emit_leave_block(emit);
+        return 1;
+    }
+
+    lily_class *match_class = block->match_type->cls;
+    lily_msgbuf *msgbuf = lily_mb_flush(emit->raiser->aux_msgbuf);
+
+    if ((match_class->item_kind & ITEM_IS_CLASS)) {
+        lily_mb_add(msgbuf, "Match against a class must have an 'else' case.");
+        return 0;
+    }
+
+    lily_named_sym *sym_iter = match_class->members;
+    lily_buffer_u16 *match_cases = emit->match_cases;
+    uint16_t case_start = block->match_case_start;
+    uint16_t case_end = lily_u16_pos(emit->match_cases);
+    uint16_t i;
+
+    lily_mb_add(msgbuf,
+            "Match pattern not exhaustive. The following case(s) are missing:");
+
+    while (sym_iter) {
+        if (sym_iter->item_kind & ITEM_IS_VARIANT) {
+            for (i = case_start;i < case_end;i++) {
+                if (sym_iter->id == lily_u16_get(match_cases, i))
+                    break;
+            }
+
+            if (i == case_end)
+                lily_mb_add_fmt(msgbuf, "\n* %s", sym_iter->name);
+        }
+
+        sym_iter = sym_iter->next;
+    }
+
+    return 0;
+}
+
 static lily_block *find_deepest_loop(lily_emit_state *emit)
 {
     lily_block *block_iter = emit->block;

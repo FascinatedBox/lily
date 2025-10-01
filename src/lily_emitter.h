@@ -301,6 +301,7 @@ void lily_emit_leave_define_block(lily_emit_state *, uint16_t);
 void lily_emit_leave_import_block(lily_emit_state *, uint16_t, uint16_t);
 void lily_emit_leave_lambda_block(lily_emit_state *, uint16_t);
 void lily_emit_leave_scope_block(lily_emit_state *);
+int lily_emit_try_leave_match_block(lily_emit_state *);
 
 void lily_emit_activate_block_self(lily_emit_state *);
 void lily_emit_create_block_self(lily_emit_state *, lily_type *);
