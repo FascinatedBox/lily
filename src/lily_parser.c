@@ -5228,15 +5228,8 @@ static void parse_match_decompositions(lily_parse_state *parser,
         for (i = 0;i < stop;i++) {
             lily_var *var = parse_decompose_var(parser, var_types[i]);
 
-            if (var) {
-                if (var->type->flags & TYPE_IS_INCOMPLETE) {
-                    lily_raise_syn(parser->raiser,
-                            "Pattern variable '%s' has an incomplete type (^T).",
-                            var->name, var->type);
-                }
-
+            if (var)
                 lily_emit_write_variant_case(parser->emit, var, i);
-            }
 
             if (i == stop - 1)
                 break;
@@ -5326,6 +5319,20 @@ static void keyword_case(lily_parse_state *parser)
     NEED_COLON_AND_NEXT;
 }
 
+static void verify_match_with_type(lily_parse_state *parser, lily_type *t,
+        const char *what)
+{
+    if ((t->cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
+        lily_raise_syn(parser->raiser,
+                "%s statement value must be a user class or enum.\n"
+                "Received: ^T", what, t);
+
+    if (t->flags & TYPE_IS_INCOMPLETE)
+        lily_raise_syn(parser->raiser,
+                "%s statement value cannot be an incomplete type.\n"
+                "Received: ^T", what, t);
+}
+
 static void keyword_match(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5334,13 +5341,8 @@ static void keyword_match(lily_parse_state *parser)
     expression(parser);
 
     lily_sym *target = lily_eval_for_result(parser->emit, parser->expr->root);
-    lily_class *pattern_cls = target->type->cls;
 
-    if ((pattern_cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
-        lily_raise_syn(parser->raiser,
-                "Match statement value must be a user class or enum.\n"
-                "Received: ^T", target->type);
-
+    verify_match_with_type(parser, target->type, "Match");
     lily_emit_enter_match_block(parser->emit, target);
     NEED_COLON_AND_BRACE;
     NEED_NEXT_TOK(tk_word)
@@ -5361,11 +5363,7 @@ static void keyword_with(lily_parse_state *parser)
     lily_sym *target = lily_eval_for_result(parser->emit, parser->expr->root);
     lily_class *pattern_cls = target->type->cls;
 
-    if ((pattern_cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
-        lily_raise_syn(parser->raiser,
-                "With statement value must be a user class or enum.\n"
-                "Received: ^T", target->type);
-
+    verify_match_with_type(parser, target->type, "With");
     lily_emit_enter_with_block(parser->emit, target);
     expect_word(parser, "as");
     lily_next_token(lex);
