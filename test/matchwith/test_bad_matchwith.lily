@@ -1,0 +1,404 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+# match and with have many of the same pitfalls, so they're tested together.
+
+class TestBadMatchWith < TestCase
+{
+    public define test_bad_match_decompose
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: asdf has already been declared.
+
+               |
+             9 | case One(asdf, asdf):
+               |                ^
+
+                from [test]:9:
+        """,
+        """\
+            enum Test {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = Two
+
+            match v: {
+                case One(asdf, asdf):
+                case Two:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '(', not ':'.
+
+               |
+             4 | case Some:
+               |          ^
+
+                from [test]:4:
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case Some:
+                case None:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected ':', not '('.
+
+               |
+             4 | case None(a):
+               |          ^
+
+                from [test]:4:
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case None(a):
+                case Some(s):
+            }
+        """)
+    }
+
+    public define test_bad_match_case_logic
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
+            * None
+                from [test]:6:
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                case Some(s):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: case in exhaustive match.
+
+               |
+             9 | case Two(t):
+               |      ^
+
+                from [test]:9:
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                case Two(t):
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for One.
+
+               |
+             8 | case One(o):
+               |      ^
+
+                from [test]:8:
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                case One(o):
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: else in exhaustive match.
+
+               |
+             9 | else:
+               | ^
+
+                from [test]:9:
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                else:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: case in exhaustive match.
+
+               |
+             9 | case Two(t):
+               |      ^
+
+                from [test]:9:
+        """,
+        """\
+            class One {}
+            class Two < One {}
+
+            var v: One = Two()
+
+            match v: {
+                case One(o):
+                else:
+                case Two(t):
+            }
+        """)
+    }
+
+    public define test_bad_match_rule_errors
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: match must start with a case.
+
+               |
+             4 | v = Some(1)
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            var v: Option[Integer] = None
+
+            match v: {
+                v = Some(1)
+                case Some(s):
+                None:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: DoesNotExist is not a member of enum Option.
+
+               |
+             2 | case DoesNotExist:
+               |      ^
+
+                from [test]:2:
+        """,
+        """\
+            match Some(1): {
+                case DoesNotExist:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Multi case match is only available to empty variants.
+
+                |
+             10 | case One(s), Two(s):
+                |            ^
+
+                from [test]:10:
+        """,
+        """\
+            enum Example {
+                One(Integer),
+                Two(Integer),
+                Three(Integer)
+            }
+
+            var v = Three(1)
+
+            match v: {
+                case One(s), Two(s):
+                else:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Multi case match is only available to empty variants.
+
+               |
+             9 | case Two, One(s):
+               |           ^
+
+                from [test]:9:
+        """,
+        """\
+            enum Example {
+                One(Integer),
+                Two
+            }
+
+            var v = Two
+
+            match v: {
+                case Two, One(s):
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Banana is not a member of enum Example.
+
+               |
+             9 | case Banana.One:
+               |      ^
+
+                from [test]:9:
+        """,
+        """\
+            scoped enum Example {
+                One,
+                Two
+            }
+
+            var v = Example.Two
+
+            match v: {
+                case Banana.One:
+                case Example.Two:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match statement value cannot be an incomplete type.
+            Received: Multival[List[?], List[?]]
+
+               |
+             9 | match Tree([], []): {
+               |                   ^
+
+                from [test]:9:
+        """,
+        """\
+            enum Multival[A, B] {
+                Tree(A, B),
+                ignore
+            }
+
+            define f {
+                var counter = 3
+
+                match Tree([], []): {
+                    case Tree(x, y):
+                        var container: List[List[String]] = []
+
+                        while counter != 0: {
+                            counter -= 1
+                            container.push(x)
+                            container.push(y)
+
+                            x.push("x")
+                            y.push(1)
+                            continue
+                        }
+
+                        foreach c in container: {
+                            print(c[0].size())
+                        }
+                    case ignore:
+                }
+            }
+            f()
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match statement value must be a user class or enum.
+            Received: Tuple[Integer, String, Double]
+
+               |
+             1 | match <[1, "2", 3.3]>: {
+               |                      ^
+
+                from [test]:1:
+        """,
+        """\
+            match <[1, "2", 3.3]>: {
+            }
+        """)
+    }
+
+    public define test_bad_with
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: With statement value cannot be an incomplete type.
+            Received: Multival[List[?], List[?]]
+
+               |
+             9 | with Tree([], []) as Tree(x, y): {
+               |                   ^
+
+                from [test]:9:
+        """,
+        """\
+            enum Multival[A, B] {
+                Tree(A, B),
+                ignore
+            }
+
+            define f {
+                var counter = 3
+
+                with Tree([], []) as Tree(x, y): {
+                    var container: List[List[String]] = []
+
+                    while counter != 0: {
+                        counter -= 1
+                        container.push(x)
+                        container.push(y)
+
+                        x.push("x")
+                        y.push(1)
+                        continue
+                    }
+
+                    foreach c in container: {
+                        print(c[0].size())
+                    }
+                }
+            }
+            f()
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: With statement value must be a user class or enum.
+            Received: Integer
+
+               |
+             1 | with 1: {
+               |       ^
+
+                from [test]:1:
+        """,
+        """\
+            with 1: {
+                case Integer:
+                else:
+            }
+        """)
+    }
+}

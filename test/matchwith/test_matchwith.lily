@@ -1,0 +1,333 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+# match and with are tested together since they share internal logic
+
+class TestMatchWith < TestCase
+{
+    public define test_match
+    {
+        var t = Interpreter()
+
+        # Simple Option case
+
+        assert_parse_string(t, """
+            var v = Some(1)
+            var w: Option[Integer] = None
+
+            define f(a: Option[Integer]): Boolean {
+                match a: {
+                    case Some(s):
+                        return true
+                    case None:
+                        return false
+                }
+            }
+
+            if f(v) != true || f(w) != false: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # Match with an else
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum RGB {
+                Red,
+                Green,
+                Blue
+            }
+
+            var red_count = 0
+            var else_count = 0
+            var colors = [Red, Blue, Green]
+
+            for i in 0...colors.size()-1: {
+                match colors[i]: {
+                    case Red: red_count += 1
+                    else: else_count += 1
+                }
+            }
+
+            if red_count != 1 || else_count != 2: {
+               raise Exception("Failed.")
+            }
+        """)
+
+        # Multiple decompositions
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Abc[A] {
+                Def(A, A, A),
+                Ghi(A)
+            }
+
+            define f(a: Abc[Integer]): Integer {
+                match a: {
+                    case Def(b, c, d):
+                        return b + c + d
+                    case Ghi(e):
+                        return e
+                }
+            }
+
+            var v = Def(100, 200, 300)
+            var w = Ghi(400)
+
+            if f(v) != 600 || f(w) != 400: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # Skip decomposition on _
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            var v = Some(1)
+            match v: {
+                case Some(_):
+                case None:
+            }
+        """)
+
+        # Match against self in a method
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Test {
+                Left,
+                Right
+                define is_left: Boolean {
+                    match self: {
+                        case Left:
+                            return true
+                        case Right:
+                            return false
+                    }
+                }
+            }
+
+            var v = Left
+            var w = Right
+
+            if v.is_left() == false || w.is_left() == true: {
+                raise Exception("Failed.")
+            }
+        """)
+
+        # Multi match with commas
+
+        t = Interpreter()
+        assert_parse_string(t, """
+            enum Example {
+                One,
+                Two,
+                Three(Integer),
+                Four,
+                Five
+            }
+
+            define f(v: Example): Integer
+            {
+                match v: {
+                    case One, Four, Five:
+                        return 1
+                    case Three(s):
+                        return s
+                    case Two:
+                        return 2
+                }
+            }
+
+            var v = [
+                Five      |> f,
+                One       |> f,
+                Four      |> f,
+                Three(10) |> f,
+                Two       |> f,
+            ]
+
+            if v != [1, 1, 1, 10, 2]: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_with
+    {
+        var t = Interpreter()
+
+        # with using a predefined Option
+
+        assert_parse_string(t, """
+            define f(v: Option[Integer]): Integer
+            {
+                with v as Some(s): {
+                    return s
+                }
+
+                with v as None: {
+                    return 0
+                }
+
+                return 0 / 0
+            }
+
+            if f(Some(10)) != 10 ||
+               f(None) != 0: {
+                0 / 0
+            }
+        """)
+
+        # with over user-defined enums
+
+        assert_parse_string(t, """
+            enum Example {
+                One(Integer, Integer),
+                Two(String),
+                Three(List[Integer])
+            }
+
+            define f2(v: Example): Integer
+            {
+                with v as One(a, b): {
+                    return a + b
+                }
+                with v as Two(a): {
+                    return a.size()
+                }
+                with v as Three(a): {
+                    return a.push(1).size()
+                }
+
+                return 0 / 0
+            }
+
+            if f2(One(2, 4)) != 6 ||
+               f2(Two("asdf")) != 4 ||
+               f2(Three([1])) != 2: {
+                0 / 0
+            }
+        """)
+
+        # with against a class
+
+        assert_parse_string(t, """
+            class Four {}
+            class Five < Four{}
+            class Six < Four{}
+
+            define f3(a: Four): Integer
+            {
+                with a as Five(t): {
+                    return 5
+                }
+                with a as Six(t): {
+                    return 6
+                }
+
+                return 4
+            }
+
+            if f3(Four()) != 4 ||
+               f3(Five()) != 5 ||
+               f3(Six()) != 6: {
+                0 / 0
+            }
+        """)
+
+        # with using else
+
+        assert_parse_string(t, """
+            var v = Some(1)
+            var ok = false
+
+            with v as None: {
+                0 / 0
+            else:
+                ok = true
+            }
+
+            if ok == false: {
+                0 / 0
+            }
+        """)
+    }
+
+    public define test_with_inside_of_match
+    {
+        var t = Interpreter()
+
+        # with inside match doesn't corrupt match state
+
+        assert_parse_string(t, """
+            var v = Some(1)
+
+            match v: {
+                case Some(s):
+                    with v as None: {
+                        0/0
+                    }
+                case None:
+                    0/0
+            }
+        """)
+    }
+
+    public define test_match_value_variants
+    {
+        var t = Interpreter()
+
+        # value variants using match
+
+        assert_parse_string(t, """
+            scoped enum Direction > Integer {
+                North,
+                East = -2,
+                South,
+                West = 4567890
+            }
+
+            define match_direction(d: Direction): Integer
+            {
+                match d: {
+                    case East:
+                        return 0
+                    case South, West:
+                        return (d == .West).to_i() + 1
+                    else:
+                        return 3
+                }
+            }
+
+            var strictd: List[Direction] = [.North, .East, .South, .West]
+            var int_d = strictd.map(match_direction)
+
+            if int_d != [3, 0, 1, 2]: {
+                0 / 0
+            }
+        """)
+
+        # value variants using with
+
+        assert_parse_string(t, """
+            define is_south(d: Direction): Boolean
+            {
+                with d as South: {
+                    return true
+                else:
+                    return false
+                }
+            }
+
+            var base: List[Direction] = [.North, .East, .South, .West]
+            var mapped = base.map(is_south)
+
+            if mapped != [false, false, true, false]: {
+                0 / 0
+            }
+        """)
+    }
+}

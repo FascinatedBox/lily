@@ -76,23 +76,6 @@ class TestBadSyntax < TestCase
     {
         var t = Interpreter()
 
-        # bad blocks (bad match expression case)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Match statement value must be a user class or enum.
-            Received: Tuple[Integer, String, Double]
-
-               |
-             1 | match <[1, "2", 3.3]>: {
-               |                      ^
-
-                from [test]:1:
-        """,
-        """\
-            match <[1, "2", 3.3]>: {
-            }
-        """)
-
         # bad blocks (bad if expression case)
 
         assert_parse_fails(t, """\
@@ -282,25 +265,6 @@ class TestBadSyntax < TestCase
                 1
             elif 1:
                 1
-            }
-        """)
-
-        # bad blocks (with on invalid type)
-
-        assert_parse_fails(t, """\
-            SyntaxError: With statement value must be a user class or enum.
-            Received: Integer
-
-               |
-             1 | with 1: {
-               |       ^
-
-                from [test]:1:
-        """,
-        """\
-            with 1: {
-                case Integer:
-                else:
             }
         """)
     }
