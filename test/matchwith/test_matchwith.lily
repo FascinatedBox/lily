@@ -330,4 +330,267 @@ class TestMatchWith < TestCase
             }
         """)
     }
+
+    public define test_expression_match
+    {
+        var t = Interpreter()
+
+        # Some of these have already been done with statement match, but do them
+        # anyway to prevent accidental divergence.
+
+        assert_parse_string(t, """
+            define basic(a: Option[Integer], alt: Integer): Integer
+            {
+                var result = match a: {
+                    case Some(s):
+                        s
+                    case None:
+                        alt
+                }
+
+                return result
+            }
+
+            if basic(Some(1), 2) != 1 ||
+                basic(None, 3) != 3: {
+                0/0
+            }
+        """)
+
+        assert_parse_string(t, """
+            define empty_first(a: Option[Integer], alt: Integer): Integer
+            {
+                var result = match a: {
+                    case Some(s):
+                        s
+                    case None:
+                        alt
+                }
+
+                return result
+            }
+
+            if empty_first(Some(1), 2) != 1 ||
+                empty_first(None, 3) != 3: {
+                0/0
+            }
+        """)
+
+        assert_parse_string(t, """
+            var g_some = Some(1)
+            var g_none = None.@(Option[Integer])
+
+            define using_global_vars: Integer
+            {
+                var result = match g_some: {
+                    case Some(s):
+                        1
+                    case None:
+                        0
+                }
+
+                return result
+            }
+
+            if using_global_vars() != 1: {
+                0/0
+            }
+        """)
+
+        # Match return from a definition
+
+        assert_parse_string(t, """
+            define match_input(a: Option[Integer]): Integer
+            {
+                return match a: {
+                    case Some(s):
+                        1
+                    case None:
+                        0
+                }
+            }
+
+            if match_input(Some(1)) != 1 ||
+               match_input(None) != 0: {
+                0/0
+            }
+        """)
+
+        # Try it from a lambda
+
+        assert_parse_string(t, """
+            define send_lambda: Function(Option[Integer] => Integer)
+            {
+                return (|x|
+                    var result = match x: {
+                        case Some(s):
+                            s
+                        case None:
+                            0
+                    }
+
+                    result
+                )
+            }
+
+            if send_lambda()(Some(10)) != 10 ||
+               send_lambda()(None) != 0: {
+                0/0
+            }
+        """)
+
+        # Unpack multiple values
+
+        assert_parse_string(t, """
+            enum MultiValEnum {
+                MVOne(Integer, String),
+                MVTwo(String, Integer),
+            }
+
+            define multival(target: MultiValEnum): Tuple[Integer, String] {
+                return match target: {
+                    case MVOne(i, s):
+                        <[i, s]>
+                    case MVTwo(s, i):
+                        <[i, s]>
+                }
+            }
+
+            if multival(MVOne(100, "200")) != <[100, "200"]> ||
+                multival(MVTwo("300", 400)) != <[400, "300"]>: {
+                0/0
+            }
+        """)
+
+
+        # Multiple matches
+
+        assert_parse_string(t, """
+            define two_matches(first: Option[Integer], other_i: Integer,
+                               second: Option[String], other_s: String)
+                               : Tuple[Integer, String]
+            {
+                var a = match first: {
+                    case Some(s):
+                        s
+                    case None:
+                        other_i
+                }
+
+                var b = match second: {
+                    case Some(s):
+                        s
+                    case None:
+                        other_s
+                }
+
+                return <[a, b]>
+            }
+
+            var data = [
+                <[Some(1), 2, Some("a"), "b", <[1, "a"]> ]>,
+                <[Some(1), 2, None, "b",      <[1, "b"]> ]>,
+                <[None,    2, Some("a"), "b", <[2, "a"]> ]>,
+                <[None,    2, None, "b",      <[2, "b"]> ]>,
+            ]
+
+            for d in data: {
+                var tm = two_matches(d[0], d[1], d[2], d[3])
+
+                if tm != d[4]: {
+                    0/0
+                }
+            }
+        """)
+
+        # Check later cases unify result type and scoped enum matching
+
+        assert_parse_string(t, """
+            class Base {}
+            class Two < Base {}
+            class Three < Base {}
+
+            scoped enum Selection {
+                First,
+                Second,
+                Third,
+            }
+
+            var v = match Selection.First: {
+                case First:
+                    Base()
+                case Second:
+                    Two()
+                case Third:
+                    Three()
+            }
+        """)
+
+        # Yielding variant shorthand through return type inference
+
+        assert_parse_string(t, """
+            define return_selection(a: Option[Integer]): Selection {
+                return match a: {
+                    case Some(s):
+                        .First
+                    case None:
+                        .Second
+                }
+            }
+
+            if return_selection(Some(1)) != .First ||
+                return_selection(None) != .Second: {
+                0/0
+            }
+        """)
+
+        # Use enum self as a source
+
+        assert_parse_string(t, """
+            scoped enum SelfCheck {
+                First,
+                Second,
+
+                define is_first: Boolean {
+                    return match self: {
+                        case First:
+                            true
+                        case Second:
+                            false
+                    }
+                }
+            }
+
+            if SelfCheck.First.is_first() == false ||
+               SelfCheck.Second.is_first() == true: {
+                0/0
+            }
+        """)
+
+        # Assign to a class member
+
+        assert_parse_string(t, """
+            class ClassCheck(a: Option[Integer]) {
+                public var @x = a
+                public var @y = match @x: {
+                    case Some(s):
+                        s
+                    case None:
+                        0
+                }
+            }
+
+            var c = ClassCheck(Some(1))
+
+            if c.x != Some(1) || c.y != 1: {
+                0/0
+            }
+
+            c = ClassCheck(None)
+
+            if c.x != None || c.y != 0: {
+                0/0
+            }
+        """)
+    }
 }

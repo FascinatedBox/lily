@@ -275,7 +275,8 @@ lily_msgbuf *lily_mb_flush(lily_msgbuf *msgbuf)
 
 static void add_named_sym(lily_msgbuf *msgbuf, lily_named_sym *sym)
 {
-    if (sym->item_kind & (ITEM_DEFINE | ITEM_VAR | ITEM_PROPERTY)) {
+    if (sym->item_kind &
+        (ITEM_DEFINE | ITEM_MATCH_TEMP | ITEM_VAR | ITEM_PROPERTY)) {
         if (sym->parent) {
             lily_mb_add(msgbuf, sym->parent->name);
 

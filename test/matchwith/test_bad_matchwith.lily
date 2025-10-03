@@ -401,4 +401,491 @@ class TestBadMatchWith < TestCase
             }
         """)
     }
+
+    public define test_bad_expression_match_decompose
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: asdf has already been declared.
+
+               |
+             7 | case One(asdf, asdf):
+               |                ^
+
+                from [test]:7:
+        """,
+        """\
+            enum Test {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = match Two: {
+                case One(asdf, asdf):
+                case Two:
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variant Some of enum Option expects 1 parameters (0 given).
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some:
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variant Some of enum Option expects 1 parameters (2 given).
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s1, s2):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Variant None of enum Option does not take arguments.
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case None(s):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Enum Option does not have a variant named Integer.
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case Integer(i):
+                    1
+            }
+        """)
+    }
+
+    public define test_bad_expression_match_case_logic
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
+            * None
+                from [test]:4:
+        """,
+        """\
+            match Some(1): {
+                case Some(s):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for Some.
+
+               |
+             4 | case Some(s):
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            match Some(1): {
+                case Some(s):
+                    1
+                case Some(s):
+                    1
+            }
+        """)
+    }
+
+    public define test_bad_expression_match_intro
+    {
+        var t = Interpreter()
+
+        # Internal test due to how expression match is implemented.
+
+        assert_parse_fails(t, """\
+            SyntaxError: match has not been declared.
+
+               |
+             3 | var v = sys.match 5: {}
+               |             ^
+
+                from [test]:3:
+        """,
+        """\
+            import sys
+
+            var v = sys.match 5: {}
+        """)
+    }
+
+    public define test_bad_expression_match_rules
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected to see 'case' here.
+
+               |
+             1 | var v = match 5: {}
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = match 5: {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match expressions only work with enum values.
+            Received: Integer
+                from [test]:1:
+        """,
+        """\
+            var v = match 5: {
+                case Some(s):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Enum Option does not have a variant named Integer.
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case Integer(i):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: s has already been declared.
+
+               |
+             7 | case One(s, s):
+               |             ^
+
+                from [test]:7:
+        """,
+        """\
+            enum example {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = match One(1, 2): {
+                case One(s, s):
+                    1
+                case Two:
+                    2
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: s2 has not been declared.
+
+                |
+             10 | s2
+                | ^
+
+                from [test]:10:
+        """,
+        """\
+            enum example {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = match One(1, 2): {
+                case One(s1, s2):
+                    1
+                case Two:
+                    s2
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match expression value cannot be an incomplete type.
+            Received: Option[?]
+                from [test]:6:
+        """,
+        """\
+            enum example {
+                One(Integer, Integer),
+                Two
+            }
+
+            var v = match None: {
+                case Some(s):
+                    1
+                case None:
+                    2
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot nest an assignment within an expression.
+                from [test]:6:
+        """,
+        """\
+            define f: Integer {
+                var v = 10
+
+                return match Some(1): {
+                    case Some(s):
+                        v = 20
+                    case None:
+                        2
+                }
+            }
+        """)
+
+        # Demonstrate writing the name of a match var.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to s (1 for 0).
+                from [test]:4:
+        """,
+        """\
+            define f {}
+            var v = match Some(f): {
+                case Some(s):
+                    s(12)
+                case None:
+                    1
+            }
+        """)
+
+        # Can't assign to a match expression.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token '='.
+
+               |
+             7 | } = 10
+               |   ^
+
+                from [test]:7:
+        """,
+        """\
+            define f {}
+            var v = match Some(f): {
+                case Some(s):
+                    0
+                case None:
+                    1
+            } = 10
+        """)
+
+        # Redeclaration during var init
+
+        assert_parse_fails(t, """\
+            SyntaxError: v has already been declared.
+
+               |
+             2 | case Some(v):
+               |           ^
+
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(v):
+            }
+        """)
+    }
+
+    public define test_bad_expression_match_typing
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unexpected token ']'.
+
+               |
+             6 | }]
+               |  ^
+
+                from [test]:6:
+        """,
+        """\
+            var v = match Some("1"): {
+                case Some(s):
+                    s.parse_i().unwrap()
+                case None:
+                    1
+            }]
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type in expression match branch:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:3:
+        """,
+        """\
+            var v: Integer = match Some(1): {
+                case Some(s):
+                    "1"
+                case None:
+                    [1]
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type in expression match branch:
+            Expected Type: String
+            Received Type: List[Integer]
+                from [test]:5:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    "1"
+                case None:
+                    [1]
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type in expression match branch:
+            Expected Type: Integer
+            Received Type: String
+                from [test]:4:
+        """,
+        """\
+            define f: Integer {
+                return match Some(1): {
+                    case Some(s):
+                        "1"
+                    case None:
+                        [2]
+                }
+            }
+        """)
+    }
+
+    public define test_bad_expression_match_blocked
+    {
+        # Some of these restrictions are temporary.
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: A lambda is too complex to be here.
+
+               |
+             3 | (|| 1 )
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    (|| 1 )
+                case Some(s2):
+                    (|| 2 )
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use a match expression here.
+
+               |
+             2 | define f(a: *Integer=match Some(1): {}) {}
+               |                      ^
+
+                from [test]:2:
+        """,
+        """\
+            # No.
+            define f(a: *Integer=match Some(1): {}) {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use a match expression here.
+
+               |
+             1 | var v = [1, 2, 3][match Some(1)]: {
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = [1, 2, 3][match Some(1)]: {
+                case Some(s):
+                    1
+                case None:
+                    0
+            }]
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected ':', not ','.
+
+               |
+             9 | case One, Two:
+               |         ^
+
+                from [test]:9:
+        """,
+        """\
+            enum Example {
+                One,
+                Two,
+                Three(Integer),
+            }
+
+            var w = One
+            var v = match w: {
+                case One, Two:
+                    1
+                case Three(s):
+                    s
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected to see 'case' here.
+
+               |
+             4 | else:
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    1
+                else:
+                    0
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match expressions only work with enum values.
+            Received: ValueError
+                from [test]:1:
+        """,
+        """\
+            var v = match ValueError("asdf"): {
+                case ValueError(msg):
+                    msg
+                case Exception(msg):
+                    msg
+            }
+        """)
+    }
 }

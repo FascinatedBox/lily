@@ -15,6 +15,8 @@ typedef enum {
     tree_call,
     tree_defined_func,
     tree_dot_variant,
+    tree_expr_match_case,
+    tree_expr_match,
     tree_global_var,
     tree_hash,
     tree_inherited_new,
@@ -64,7 +66,10 @@ typedef struct lily_ast_ {
 
     uint16_t call_source_reg;
 
-    uint16_t args_collected;
+    union {
+        uint16_t args_collected;
+        uint16_t match_var_count;
+    };
 
     union {
         uint16_t pile_pos;
@@ -193,6 +198,8 @@ void lily_es_push_local_var(lily_expr_state *, lily_var *);
 void lily_es_push_binary_op(lily_expr_state *, lily_token);
 void lily_es_push_global_var(lily_expr_state *, lily_var *);
 void lily_es_push_defined_func(lily_expr_state *, lily_var *);
+void lily_es_push_expr_match_case(lily_expr_state *, lily_var *, uint16_t,
+        uint16_t);
 void lily_es_push_method(lily_expr_state *, lily_var *);
 void lily_es_push_static_func(lily_expr_state *, lily_var *);
 void lily_es_push_literal(lily_expr_state *, lily_type *, uint16_t);

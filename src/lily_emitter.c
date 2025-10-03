@@ -587,6 +587,14 @@ void lily_emit_enter_enum_block(lily_emit_state *emit, lily_class *cls)
     emit->function_depth++;
 }
 
+void lily_emit_enter_expr_match_block(lily_emit_state *emit)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_expr_match;
+    emit->block = block;
+}
+
 void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
 {
     lily_block *block = next_block(emit);
@@ -797,6 +805,12 @@ void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
 
     finish_block_code(emit);
     lily_emit_leave_scope_block(emit);
+}
+
+void lily_emit_leave_expr_match_block(lily_emit_state *emit)
+{
+    lily_parser_hide_match_vars(emit->parser);
+    emit->block = emit->block->prev;
 }
 
 void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
@@ -1916,8 +1930,9 @@ static int can_reroute_tree_result(lily_ast *tree)
              tree->tree_type == tree_typecast)
         /* Nothing written to move. */
         ;
-    else if (tree->tree_type == tree_ternary_second)
-        /* These write in two places, and only one would be moved. */
+    else if (tree->tree_type == tree_ternary_second ||
+             tree->tree_type == tree_expr_match)
+        /* Multiple writes, only one move. */
         ;
     else
         result = 1;
@@ -3396,6 +3411,143 @@ static void eval_ternary(lily_emit_state *emit, lily_ast *ast,
     ast->result = (lily_sym *)result;
 }
 
+static lily_variant_class *start_expr_match_case(lily_emit_state *emit,
+        lily_ast *ast, lily_type *match_type)
+{
+    const char *name = lily_sp_get(emit->expr_strings, ast->pile_pos);
+    lily_class *enum_cls = match_type->cls;
+    lily_class *cls = (lily_class *)lily_find_variant(enum_cls, name);
+
+    if (cls == NULL)
+        lily_raise_tree(emit->raiser, ast,
+                "Enum %s does not have a variant named %s.", enum_cls->name,
+                name);
+
+    lily_emit_branch_switch(emit);
+
+    if (lily_emit_try_add_match_case(emit, cls) == 0)
+        lily_raise_tree(emit->raiser, ast, "Already have a case for %s.", name);
+
+    lily_emit_write_match_switch(emit, cls);
+    return (lily_variant_class *)cls;
+}
+
+static void unpack_match_case(lily_emit_state *emit, lily_ast *ast,
+        lily_variant_class *cls)
+{
+    lily_class *enum_cls = cls->parent;
+
+    if (cls->item_kind == ITEM_VARIANT_EMPTY) {
+        if (ast->match_var_count)
+            lily_raise_tree(emit->raiser, ast,
+                    "Variant %s of enum %s does not take arguments.", cls->name,
+                    enum_cls->name);
+
+        return;
+    }
+
+    lily_type *case_type = lily_emit_type_for_variant(emit, cls);
+
+    /* The builder type is a Function that returns the enum. Drop by -1 to
+       account for the return at [0]. */
+    uint16_t end = case_type->subtype_count - 1;
+
+    if (ast->match_var_count != end) {
+        lily_raise_tree(emit->raiser, ast,
+                "Variant %s of enum %s expects %d parameters (%d given).",
+                cls->name, enum_cls->name, end, ast->match_var_count);
+    }
+
+    /* Vars are linked last -> first, so they get unpacked that way too. */
+    lily_var *var_iter = (lily_var *)ast->sym;
+    uint16_t match_reg = emit->block->match_reg;
+
+    for (;end > 0; end--, var_iter = var_iter->next) {
+        var_iter->type = case_type->subtypes[end];
+
+        lily_u16_write_5(emit->code, o_property_get, end - 1,
+                match_reg, var_iter->reg_spot, var_iter->line_num);
+    }
+}
+
+static void verify_match_case_result(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    if (result_matches_type(emit, ast, expect))
+        return;
+
+    lily_raise_tree(emit->raiser, ast,
+            "Mismatched type in expression match branch:\n"
+            "Expected Type: ^T\n"
+            "Received Type: ^T", expect, ast->result->type);
+}
+
+static void redirect_match_case_result(lily_emit_state *emit, lily_ast *ast,
+        lily_ast *arg)
+{
+    if (can_reroute_tree_result(arg)) {
+        uint16_t pos = lily_u16_pos(emit->code) - 2;
+
+        lily_u16_set_at(emit->code, pos, ast->result->reg_spot);
+    }
+    else
+        lily_u16_write_4(emit->code, o_assign, arg->result->reg_spot,
+                ast->result->reg_spot, ast->line_num);
+}
+
+static void eval_expr_match(lily_emit_state *emit, lily_ast *ast,
+        lily_type *expect)
+{
+    lily_ast *arg = ast->arg_start;
+    lily_sym *target = lily_eval_for_result(emit, arg);
+    lily_type *t = target->type;
+
+    /* Revert the bump by the above eval, just to be safe. */
+    emit->expr_num--;
+
+    /* Enums are the most useful subject to match against. Class matching is not
+       included because `case somemodule.Classxyz` would not work. */
+    if ((t->cls->item_kind & ITEM_IS_ENUM) == 0)
+        lily_raise_tree(emit->raiser, arg,
+                "Match expressions only work with enum values.\n"
+                "Received: ^T", t);
+
+    if (t->flags & TYPE_IS_INCOMPLETE)
+        lily_raise_tree(emit->raiser, arg,
+            "Match expression value cannot be an incomplete type.\n"
+            "Received: ^T", t);
+
+    lily_emit_enter_match_block(emit, target);
+    ast->result = NULL;
+
+    for (arg = arg->next_arg; arg != NULL; arg = arg->next_arg) {
+        if (arg->tree_type == tree_expr_match_case) {
+            lily_variant_class *c = start_expr_match_case(emit, arg, t);
+
+            unpack_match_case(emit, arg, c);
+        }
+        else {
+            eval_tree(emit, arg, expect);
+
+            if (expect != lily_question_type)
+                verify_match_case_result(emit, arg, expect);
+            else
+                expect = arg->result->type;
+
+            if (ast->result == NULL)
+                ast->result = (lily_sym *)get_storage(emit, expect);
+
+            redirect_match_case_result(emit, ast, arg);
+        }
+    }
+
+    if (lily_emit_try_leave_match_block(emit) == 0)
+        lily_raise_tree(emit->raiser, ast,
+                lily_mb_raw(emit->raiser->aux_msgbuf));
+
+    lily_emit_leave_expr_match_block(emit);
+}
+
 /***
  *      _     _     _             _   _           _
  *     | |   (_)___| |_     _    | | | | __ _ ___| |__
@@ -4619,6 +4771,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_dot_variant(emit, ast, expect);
     else if (ast->tree_type == tree_ternary_second)
         eval_ternary(emit, ast, expect);
+    else if (ast->tree_type == tree_expr_match)
+        eval_expr_match(emit, ast, expect);
 }
 
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,

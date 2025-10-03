@@ -418,6 +418,7 @@ typedef struct lily_proto_ {
 #define ITEM_VARIANT_EMPTY  0x0800
 #define ITEM_VARIANT_FILLED 0x1000
 #define ITEM_SELF_STORAGE   0x2000
+#define ITEM_MATCH_TEMP     0x4000
 
 
 /* These are important ids in the interpreter. */

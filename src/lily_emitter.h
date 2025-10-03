@@ -31,6 +31,7 @@ typedef enum {
     block_try            = 11,
     block_while          = 12,
     block_with           = 13,
+    block_expr_match     = 14,
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */
@@ -285,6 +286,7 @@ void lily_emit_enter_class_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_define_block(lily_emit_state *, lily_var *, uint16_t);
 void lily_emit_enter_do_while_block(lily_emit_state *);
 void lily_emit_enter_enum_block(lily_emit_state *, lily_class *);
+void lily_emit_enter_expr_match_block(lily_emit_state *);
 void lily_emit_enter_file_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_foreach_block(lily_emit_state *);
 void lily_emit_enter_for_in_block(lily_emit_state *);
@@ -298,6 +300,7 @@ void lily_emit_enter_with_block(lily_emit_state *, lily_sym *);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_leave_class_block(lily_emit_state *, uint16_t);
 void lily_emit_leave_define_block(lily_emit_state *, uint16_t);
+void lily_emit_leave_expr_match_block(lily_emit_state *);
 void lily_emit_leave_import_block(lily_emit_state *, uint16_t, uint16_t);
 void lily_emit_leave_lambda_block(lily_emit_state *, uint16_t);
 void lily_emit_leave_scope_block(lily_emit_state *);

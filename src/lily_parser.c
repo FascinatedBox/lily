@@ -936,6 +936,21 @@ static lily_var *declare_local_var(lily_parse_state *parser, lily_type *type)
     return var;
 }
 
+static lily_var *declare_match_var(lily_parse_state *parser, const char *name,
+        uint16_t line_num)
+{
+    lily_var *var = find_active_var(parser, name);
+
+    /* Vars with a NULL type here are match vars that have gone out of scope. */
+    if (var && var->type != NULL)
+        error_var_redeclaration(parser, var);
+
+    var = new_local_var(parser, name, line_num);
+    var->type = lily_question_type;
+    var->item_kind = ITEM_MATCH_TEMP;
+    return var;
+}
+
 /* This is used by the var keyword. */
 static lily_var *declare_scoped_var(lily_parse_state *parser)
 {
@@ -2646,6 +2661,17 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
                 "Cannot use a class property without a class instance.");
 }
 
+static void expr_word_as_match_var(lily_parse_state *parser, lily_var *var)
+{
+    if (var->type) {
+        lily_es_push_local_var(parser->expr, var);
+        return;
+    }
+
+    /* Match vars with a NULL type are from another branch. */
+    lily_raise_syn(parser->raiser, "%s has not been declared.", var->name);
+}
+
 static void expr_word_as_constant(lily_parse_state *parser, lily_var *var)
 {
     if ((var->flags & VAR_INLINE_CONSTANT) == 0) {
@@ -2686,6 +2712,8 @@ static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
     else
         lily_es_push_upvalue(parser->expr, var);
 }
+
+static void expr_match(lily_parse_state *, uint16_t *);
 
 /* This is called by expression when there is a word. This is complicated,
    because a word could be a lot of things. */
@@ -2747,7 +2775,12 @@ handle_module:;
             expr_word_as_class(parser, (lily_class *)sym, state);
         else if (sym->item_kind == ITEM_MODULE)
             goto handle_module;
+        else if (sym->item_kind == ITEM_MATCH_TEMP)
+            expr_word_as_match_var(parser, (lily_var *)sym);
     }
+    else if (m == symtab->prelude_module &&
+             strcmp(name, "match") == 0)
+        expr_match(parser, state);
     else
         lily_raise_syn(parser->raiser, "%s has not been declared.", name);
 }
@@ -5351,6 +5384,101 @@ static void keyword_match(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "match must start with a case.");
 
     keyword_case(parser);
+}
+
+static void parse_expr_match_case(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_expr_state *es = parser->expr;
+    uint16_t spot = parser->expr->pile_current;
+    uint16_t var_count = 0;
+
+    expect_word(parser, "case");
+    NEED_NEXT_TOK(tk_word)
+    lily_sp_insert(parser->expr_strings, lex->label,
+            &parser->expr->pile_current);
+    lily_next_token(lex);
+
+    lily_var *last_var = NULL;
+
+    if (lex->token == tk_left_parenth) {
+        while (1) {
+            NEED_NEXT_TOK(tk_word)
+
+            last_var = declare_match_var(parser, lex->label, lex->line_num);
+            lily_next_token(lex);
+            var_count++;
+
+            if (lex->token == tk_comma)
+                continue;
+            else
+                break;
+        }
+
+        NEED_CURRENT_TOK(tk_right_parenth)
+        lily_next_token(lex);
+    }
+
+    lily_es_push_expr_match_case(es, last_var, spot, var_count);
+    lily_es_collect_arg(es);
+    NEED_CURRENT_TOK(tk_colon)
+}
+
+static void hide_match_var_types(lily_parse_state *parser)
+{
+    int count = parser->emit->block->var_count;
+
+    if (count == 0)
+        return;
+
+    lily_var *var_iter = parser->symtab->active_module->var_chain;
+
+    while (count) {
+        var_iter->type = NULL;
+        var_iter = var_iter->next;
+        count--;
+    }
+}
+
+static void expr_match(lily_parse_state *parser, uint16_t *state)
+{
+    if ((parser->flags & PARSER_SIMPLE_EXPR) ||
+        parser->expr->save_depth != 0)
+        lily_raise_syn(parser->raiser, "Cannot use a match expression here.");
+
+    lily_lex_state *lex = parser->lex;
+
+    lily_es_enter_tree(parser->expr, tree_expr_match);
+
+    /* This prevents a closing token from closing this tree. */
+    parser->expr->save_depth--;
+    lily_next_token(lex);
+    simple_expression(parser);
+    lily_es_collect_arg(parser->expr);
+    NEED_COLON_AND_BRACE;
+    lily_next_token(lex);
+    lily_emit_enter_expr_match_block(parser->emit);
+
+    while (1) {
+        parse_expr_match_case(parser);
+        lily_next_token(lex);
+        simple_expression(parser);
+        hide_match_var_types(parser);
+        lily_es_collect_arg(parser->expr);
+
+        if (parser->lex->token == tk_right_curly)
+            break;
+    }
+
+    lily_next_token(parser->lex);
+    parser->expr->save_depth++;
+    lily_es_leave_tree(parser->expr);
+    *state = ST_DONE;
+}
+
+void lily_parser_hide_match_vars(lily_parse_state *parser)
+{
+    hide_block_vars(parser);
 }
 
 static void keyword_with(lily_parse_state *parser)
