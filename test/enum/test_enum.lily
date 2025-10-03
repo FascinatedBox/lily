@@ -227,7 +227,7 @@ class TestEnum < TestCase
 
         # test value variants (basic usage, numeric interpolation)
         assert_parse_string(t, """
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North,
                 East = -2,
                 South,
@@ -245,7 +245,7 @@ class TestEnum < TestCase
 
         # test value variants (flat enum too)
         assert_parse_string(t, """
-            enum FlatDirection > Integer {
+            enum FlatDirection < Integer {
                 FNorth,
                 FEast = -2,
                 FSouth,
@@ -277,7 +277,7 @@ class TestEnum < TestCase
 
         # test value variants (variance)
         assert_parse_string(t, """
-            enum LR > Integer {
+            enum LR < Integer {
                 Left = 0,
                 Right = 1
             }
@@ -317,13 +317,13 @@ class TestEnum < TestCase
                 define f {}
             }
 
-            enum ValueExample > Integer {
+            enum ValueExample < Integer {
                 First = 1,
                 Second = 2,
                 Third = 3,
             }
 
-            enum ValueExampleB > Integer {
+            enum ValueExampleB < Integer {
                 BFirst = 1,
                 BSecond = 2,
                 define f {}

@@ -510,13 +510,13 @@ class TestBadEnum < TestCase
             SyntaxError: Enums with generics are not allowed to inherit.
 
                |
-             1 | scoped enum Example[A] > Integer {
+             1 | scoped enum Example[A] < Integer {
                |                        ^
 
                 from [test]:1:
         """,
         """\
-            scoped enum Example[A] > Integer {
+            scoped enum Example[A] < Integer {
                 One,
                 Two
             }
@@ -528,13 +528,13 @@ class TestBadEnum < TestCase
             SyntaxError: Enums are only allowed to inherit from Integer.
 
                |
-             1 | scoped enum Direction > String {
+             1 | scoped enum Direction < String {
                |                         ^
 
                 from [test]:1:
         """,
         """\
-            scoped enum Direction > String {
+            scoped enum Direction < String {
                 One,
                 Two
             }
@@ -551,7 +551,7 @@ class TestBadEnum < TestCase
                 from [test]:2:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North(Integer),
             }
         """)
@@ -562,7 +562,7 @@ class TestBadEnum < TestCase
                 from [test]:3:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North
             }
         """)
@@ -578,7 +578,7 @@ class TestBadEnum < TestCase
                 from [test]:3:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North = 1,
                 East = 1
             }
@@ -595,7 +595,7 @@ class TestBadEnum < TestCase
                 from [test]:13:
         """,
         """\
-            enum LR > Integer {
+            enum LR < Integer {
                 Left,
                 Right
             }
@@ -616,7 +616,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            enum LR > Integer {
+            enum LR < Integer {
                 Left,
                 Right
             }
@@ -639,7 +639,7 @@ class TestBadEnum < TestCase
                 from [test]:4:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North,
                 East,
                 South = (1 << 2)
@@ -652,7 +652,7 @@ class TestBadEnum < TestCase
                 from [test]:8:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North,
                 East,
                 South,
@@ -668,7 +668,7 @@ class TestBadEnum < TestCase
                 from [test]:8:
         """,
         """\
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North,
                 East,
                 South,
@@ -686,7 +686,7 @@ class TestBadEnum < TestCase
                 from [test]:8:
         """,
         """\
-            enum LR > Integer {
+            enum LR < Integer {
                 Left = 0,
                 Right = 1
             }

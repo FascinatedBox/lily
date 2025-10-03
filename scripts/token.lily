@@ -282,6 +282,7 @@ define write_token_enum(f: File)
     f.write("} lily_token;\n")
 
     f.write("""\n\
+# define INHERITANCE_TOKEN tk_lt
 # define IS_ASSIGN_TOKEN(t) (lily_priority_for_token(t) == 1)
 # define IS_COMPARE_TOKEN(t) (lily_priority_for_token(t) == 4)
 

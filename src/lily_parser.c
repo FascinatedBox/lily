@@ -2106,11 +2106,11 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     enum_cls->dyna_start = ds->index;
     collect_generics_for(parser, enum_cls);
 
-    if (lex->token == tk_lt)
+    if (lex->token == INHERITANCE_TOKEN)
         /* Integer is the only valid option, so assume it's that. */
         enum_cls->parent = parser->symtab->integer_class;
 
-    int is_value_enum = (lex->token == tk_lt);
+    int is_value_enum = (lex->token == INHERITANCE_TOKEN);
 
     /* Enums are followed by methods, then variants. Flat enums will write an
        offset that goes to the first enum, whereas scoped enums skip to the next
@@ -2170,11 +2170,10 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
     uint16_t source_mods[] = {SYM_SCOPE_PRIVATE, SYM_SCOPE_PROTECTED,
             SYM_SCOPE_PUBLIC};
 
-
     cls->dyna_start = ds->index;
     collect_generics_for(parser, cls);
 
-    if (lex->token == tk_lt) {
+    if (lex->token == INHERITANCE_TOKEN) {
         lily_next_token(lex);
 
         const char *name = lex->label;
@@ -4700,7 +4699,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
-    if (lex->token == tk_lt)
+    if (lex->token == INHERITANCE_TOKEN)
         parse_super(parser, cls);
 
     /* Don't make 'self' available until the class is fully constructed. */
@@ -4980,7 +4979,7 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     collect_generics_for(parser, enum_cls);
 
     lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
-    int is_value_enum = (lex->token == tk_gt);
+    int is_value_enum = (lex->token == INHERITANCE_TOKEN);
 
     if (is_value_enum)
         parse_enum_inheritance(parser, enum_cls);

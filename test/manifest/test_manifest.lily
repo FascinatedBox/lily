@@ -234,7 +234,7 @@ class TestManifest < TestCase
             :data """\
                 import manifest
 
-                enum ValueDirection > Integer
+                enum ValueDirection < Integer
                 {
                     North,
                     East = -2,

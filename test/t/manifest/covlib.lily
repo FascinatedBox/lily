@@ -33,14 +33,14 @@ scoped enum ScopedEnum {
     ScopedThree
 }
 
-enum FlatValueDirection > Integer {
+enum FlatValueDirection < Integer {
     North,
     East = -2,
     South,
     West = 4567890
 }
 
-scoped enum ScopedValueDirection > Integer {
+scoped enum ScopedValueDirection < Integer {
     North = 4,
     East = 5,
     South = 6,

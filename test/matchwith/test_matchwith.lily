@@ -283,7 +283,7 @@ class TestMatchWith < TestCase
         # value variants using match
 
         assert_parse_string(t, """
-            scoped enum Direction > Integer {
+            scoped enum Direction < Integer {
                 North,
                 East = -2,
                 South,
