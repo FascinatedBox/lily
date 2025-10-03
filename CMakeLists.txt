@@ -12,9 +12,7 @@ if(MSVC)
     add_definitions(/wd4214)
     add_definitions(/MP)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    set(CMAKE_CTEST_COMMAND copy lily.exe ..)
 else()
-    set(CMAKE_CTEST_COMMAND cp lily ..)
     if(DEBUG)
         set(CMAKE_C_FLAGS      "${CMAKE_C_FLAGS} -g3")
     else()
@@ -53,10 +51,24 @@ else()
 endif()
 
 add_subdirectory(src)
-add_subdirectory(run)
-add_subdirectory(test)
 
-set(TEST_COMMAND cd .. && ./pre-commit-tests)
-add_custom_target(check ${CMAKE_CTEST_COMMAND}
-  COMMAND ${TEST_COMMAND}
-  DEPENDS lily VERBATIM)
+option("LILY_BUILD_EXECUTABLE" "Build the standalone Lily executable." ON)
+option("LILY_BUILD_TESTS" "Build Lily's test suite." ON)
+
+if(LILY_BUILD_EXECUTABLE)
+    add_subdirectory(run)
+endif()
+
+if(LILY_BUILD_TESTS)
+    add_subdirectory(test)
+
+    if(WIN32)
+        set(TEST_COMMAND pre-commit-tests.exe)
+    else()
+        set(TEST_COMMAND ./pre-commit-tests)
+    endif()
+
+    add_custom_target(check ${TEST_COMMAND}
+                      VERBATIM
+                      DEPENDS backbone pre-commit-tests)
+endif()
