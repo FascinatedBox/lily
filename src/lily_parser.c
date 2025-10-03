@@ -2106,11 +2106,11 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     enum_cls->dyna_start = ds->index;
     collect_generics_for(parser, enum_cls);
 
-    if (lex->token == INHERITANCE_TOKEN)
+    int is_value_enum = (lex->token == INHERITANCE_TOKEN);
+
+    if (is_value_enum)
         /* Integer is the only valid option, so assume it's that. */
         enum_cls->parent = parser->symtab->integer_class;
-
-    int is_value_enum = (lex->token == INHERITANCE_TOKEN);
 
     /* Enums are followed by methods, then variants. Flat enums will write an
        offset that goes to the first enum, whereas scoped enums skip to the next
