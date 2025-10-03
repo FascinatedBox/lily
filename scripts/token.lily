@@ -105,7 +105,7 @@ var priority_data = [
 
 define write_ch_defines(f: File)
 {
-    foreach cc in cc_names: {
+    for cc in cc_names: {
         var digit = cc_data[cc]
         var line = "# define " ++ cc ++ " " ++ digit ++ "\n"
 
@@ -117,7 +117,7 @@ define write_ch_defines(f: File)
 
 define write_string_table(f: File, table: List[String])
 {
-    foreach t in table: {
+    for t in table: {
         t |> f.write
     }
 
@@ -221,7 +221,7 @@ define write_token_name_table(f: File)
     # doesn't have.
     var line_length = 3
 
-    foreach t in token_strings: {
+    for t in token_strings: {
         var value = "\"" ++ t ++ "\""
 
         # +2 for comma and space.
@@ -259,8 +259,8 @@ define write_priority_table(f: File)
     }
 
     # The priority table is a Hash keyed by priority.
-    foreach key in priority_keys: {
-        foreach token in priority_data[key]: {
+    for key in priority_keys: {
+        for token in priority_data[key]: {
             priority_table[id_map[token]] = key
         }
     }
@@ -275,7 +275,7 @@ define write_token_enum(f: File)
 
     f.write("typedef enum {\n")
 
-    foreach t in token_names: {
+    for t in token_names: {
         f.write("    " ++ t ++ ",\n")
     }
 

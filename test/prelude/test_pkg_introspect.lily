@@ -1384,7 +1384,7 @@ class TestPkgIntrospect < TestCase
             var m = introspect.main_module()
             var functions = m.functions()
 
-            foreach func in functions: {
+            for func in functions: {
                 if func.result_type().class_id() == 0: {
                     0 / 0
                 }

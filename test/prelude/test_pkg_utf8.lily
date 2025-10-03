@@ -29,7 +29,7 @@ class TestPkgUTF8 < TestCase
 
     public define test_each_codepoint
     {
-        foreach string in ["", "abc", "café", "🙂🙁", " ​ "]: {
+        for string in ["", "abc", "café", "🙂🙁", " ​ "]: {
             var codepoints: List[Integer] = []
             utf8.each_codepoint(string, (|c| codepoints.push(c)))
             assert_equal(codepoints, utf8.as_list(string))

@@ -298,7 +298,7 @@ class Interpreter < backbone.Interpreter
 
     private define do_import_hook(want_path: String)
     {
-        foreach t in @targets: {
+        for t in @targets: {
             match t: {
                 case StringTarget(t_path, t_data):
                     if want_path == t_path: {
