@@ -298,6 +298,32 @@ class TestEnum < TestCase
 
             x2(Left.@(Integer), 0)
         """)
+
+        # Allow math with value variants
+
+        assert_parse_string(t, """
+            scoped enum Color < Integer {
+                Red,
+                Green,
+                Blue,
+            }
+
+            if 1 + Color.Red != 1: {
+                0/0
+            }
+
+            if Color.Red + Color.Green != (Color.Red + Color.Green): {
+                0/0
+            }
+
+            if 1t + Color.Green != 2: {
+                0/0
+            }
+
+            if Color.Blue * 0.5 != 1: {
+                0/0
+            }
+        """)
     }
 
     public define test_trailing_comma

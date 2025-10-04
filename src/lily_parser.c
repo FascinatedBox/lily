@@ -2111,7 +2111,7 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
     if (is_value_enum) {
         /* Integer is the only valid option, so assume it's that. */
         enum_cls->parent = parser->symtab->integer_class;
-        enum_cls->flags |= CLS_IS_HAS_VALUE;
+        enum_cls->flags |= CLS_IS_BASIC_NUMBER | CLS_IS_HAS_VALUE;
     }
 
     /* Enums are followed by methods, then variants. Flat enums will write an
@@ -4915,7 +4915,7 @@ static void parse_enum_inheritance(lily_parse_state *parser,
                 "Enums are only allowed to inherit from Integer.");
 
     enum_cls->parent = parser->symtab->integer_class;
-    enum_cls->flags |= CLS_IS_HAS_VALUE;
+    enum_cls->flags |= CLS_IS_BASIC_NUMBER | CLS_IS_HAS_VALUE;
     lily_next_token(lex);
 }
 
@@ -4956,7 +4956,7 @@ static void parse_value_variant(lily_parse_state *parser,
     variant_cls->cls_id = (last ? last->cls_id + 1 : 0);
     variant_cls->raw_value = value;
     variant_cls->backing_lit = lit->reg_spot;
-    variant_cls->flags |= CLS_IS_HAS_VALUE;
+    variant_cls->flags |= CLS_IS_HAS_VALUE | CLS_IS_BASIC_NUMBER;
 
     if (last) {
         lily_variant_class *c = lily_find_variant_with_lit(enum_cls,

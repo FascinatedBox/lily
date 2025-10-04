@@ -646,22 +646,6 @@ class TestBadEnum < TestCase
             }
         """)
 
-        # bad vv (math ops)
-        assert_parse_fails(t, """\
-            SyntaxError: Invalid operation: Direction + Integer.
-                from [test]:8:
-        """,
-        """\
-            scoped enum Direction < Integer {
-                North,
-                East,
-                South,
-                West
-            }
-
-            var v = Direction.North + 1
-        """)
-
         # bad vv (subscript by enum)
         assert_parse_fails(t, """\
             SyntaxError: List index is not an Integer or a Byte.

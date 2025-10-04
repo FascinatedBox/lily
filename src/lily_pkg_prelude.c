@@ -2673,6 +2673,10 @@ void lily_init_pkg_prelude(lily_symtab *symtab)
     symtab->optarg_class   = build_special(symtab, "*", 1, LILY_ID_OPTARG, 0);
     lily_class *unit_cls   = build_special(symtab, "Unit", 0, LILY_ID_UNIT, 1);
 
+    /* This lets emitter group these together (and value enums too). */
+    symtab->integer_class->flags |= CLS_IS_BASIC_NUMBER;
+    symtab->byte_class->flags |= CLS_IS_BASIC_NUMBER;
+
     /* The `Unit` type is readonly since it's referenced often. A class is
        created for it too so it's visible for searches. It's the only time that
        a monomorphic class isn't the self type for itself. */

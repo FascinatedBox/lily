@@ -2435,30 +2435,28 @@ static void eval_compare_op(lily_emit_state *emit, lily_ast *ast)
 
 static uint16_t arith_group_for(lily_emit_state *emit, lily_ast *ast)
 {
-    uint16_t left_id = ast->left->result->type->cls_id;
-    uint16_t right_id = ast->right->result->type->cls_id;
+    lily_type *left = ast->left->result->type;
+    lily_type *right = ast->right->result->type;
     uint16_t group = LILY_ID_NONE;
 
-    if (left_id == LILY_ID_INTEGER) {
-        if (right_id == LILY_ID_BYTE ||
-            right_id == LILY_ID_INTEGER)
+    if (left->flags & CLS_IS_BASIC_NUMBER) {
+        if (right->flags & CLS_IS_BASIC_NUMBER)
             group = LILY_ID_INTEGER;
-        else if (right_id == LILY_ID_DOUBLE) {
+        else if (right->cls_id == LILY_ID_DOUBLE) {
             promote_to_double(emit, ast->left);
             group = LILY_ID_DOUBLE;
         }
     }
-    else if (left_id == LILY_ID_DOUBLE) {
-        if (right_id == LILY_ID_DOUBLE)
+    else if (left->cls_id == LILY_ID_DOUBLE) {
+        if (right->cls_id == LILY_ID_DOUBLE)
             group = LILY_ID_DOUBLE;
-        else if (right_id == LILY_ID_INTEGER) {
+        else if (right->cls_id == LILY_ID_INTEGER) {
             promote_to_double(emit, ast->right);
             group = LILY_ID_DOUBLE;
         }
     }
-    else if (left_id == LILY_ID_BYTE) {
-        if (right_id == LILY_ID_BYTE ||
-            right_id == LILY_ID_INTEGER)
+    else if (left->cls_id == LILY_ID_BYTE) {
+        if (right->flags & CLS_IS_BASIC_NUMBER)
             group = LILY_ID_INTEGER;
     }
 

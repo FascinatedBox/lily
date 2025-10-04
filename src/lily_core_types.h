@@ -497,6 +497,10 @@ typedef struct lily_proto_ {
 /* This is an enum with value variants, or a value variant. */
 #define CLS_IS_HAS_VALUE   0x200
 
+/* This is Integer, Byte, or a value enum. Results can never have a variant for
+   their type, so variants are not included in this one. */
+#define CLS_IS_BASIC_NUMBER 0x400
+
 
 /* lily_prop_entry does not have any flags. */
 
