@@ -646,22 +646,6 @@ class TestBadEnum < TestCase
             }
         """)
 
-        # bad vv (subscript by enum)
-        assert_parse_fails(t, """\
-            SyntaxError: List index is not an Integer or a Byte.
-                from [test]:8:
-        """,
-        """\
-            scoped enum Direction < Integer {
-                North,
-                East,
-                South,
-                West
-            }
-
-            var v = [1, 2, 3, 4][Direction.North]
-        """)
-
         # bad vv (generic resolution pins on the enum)
         assert_parse_fails(t, """\
             SyntaxError: Argument #2 to x is invalid:

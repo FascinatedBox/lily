@@ -324,6 +324,29 @@ class TestEnum < TestCase
                 0/0
             }
         """)
+
+        # They can be subscript indexes too
+
+        assert_parse_string(t, """
+            scoped enum SubscriptDirection < Integer {
+                North,
+                East,
+                South,
+                West
+            }
+
+            if [1, 2, 3, 4][SubscriptDirection.East] != 2: {
+                0/0
+            }
+
+            if B"abc"[SubscriptDirection.South] != 'c': {
+                0/0
+            }
+
+            if "abc"[SubscriptDirection.North] != 'a': {
+                0/0
+            }
+        """)
     }
 
     public define test_trailing_comma

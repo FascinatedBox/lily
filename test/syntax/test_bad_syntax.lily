@@ -1016,7 +1016,8 @@ class TestBadSyntax < TestCase
         # bad subscript (invalid List subscript type)
 
         assert_parse_fails(t, """\
-            SyntaxError: List index is not an Integer or a Byte.
+            SyntaxError: List subscripts require a simple numeric index.
+            Index given: List[Integer]
                 from [test]:2:
         """,
         """\
@@ -1027,12 +1028,13 @@ class TestBadSyntax < TestCase
         # bad subscript (invalid ByteString subscript type)
 
         assert_parse_fails(t, """\
-            SyntaxError: ByteString index is not an Integer or a Byte.
+            SyntaxError: ByteString subscripts require a simple numeric index.
+            Index given: Function (String => Integer)
                 from [test]:2:
         """,
         """\
             var v = B"1"
-            v[v]
+            v[String.size]
         """)
 
         # bad subscript (invalid Hash subscript type)

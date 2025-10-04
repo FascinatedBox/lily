@@ -1780,13 +1780,13 @@ static void check_valid_subscript(lily_emit_state *emit, lily_ast *var_ast,
     int var_cls_id = var_ast->result->type->cls_id;
     if (var_cls_id == LILY_ID_LIST || var_cls_id == LILY_ID_BYTESTRING ||
         var_cls_id == LILY_ID_STRING) {
-        uint16_t index_id = index_ast->result->type->cls_id;
+        lily_type *index_type = index_ast->result->type;
 
-        if (index_id != LILY_ID_INTEGER &&
-            index_id != LILY_ID_BYTE)
+        if ((index_type->flags & CLS_IS_BASIC_NUMBER) == 0)
             lily_raise_tree(emit->raiser, var_ast,
-                    "%s index is not an Integer or a Byte.",
-                    var_ast->result->type->cls->name);
+                    "%s subscripts require a simple numeric index.\n"
+                    "Index given: ^T", var_ast->result->type->cls->name,
+                    index_ast->result->type);
     }
     else if (var_cls_id == LILY_ID_HASH) {
         lily_type *want_key = var_ast->result->type->subtypes[0];
