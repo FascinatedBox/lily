@@ -494,6 +494,9 @@ typedef struct lily_proto_ {
    gc mark/interest flag set on it. */
 #define CLS_VISITED        0x100
 
+/* This is an enum with value variants, or a value variant. */
+#define CLS_IS_HAS_VALUE   0x200
+
 
 /* lily_prop_entry does not have any flags. */
 
@@ -524,11 +527,7 @@ typedef struct lily_proto_ {
 #define VAR_IS_STATIC         0x20
 
 
-/* VARIANT_* flags are for lily_variant_class. */
-
-
-/* This is a value variant with a backing literal. */
-#define VARIANT_HAS_VALUE       0x1
+/* lily_variant_class uses the flags for lily_class. */
 
 
 /* The remaining flags apply to at least two or more groups of symbols. */

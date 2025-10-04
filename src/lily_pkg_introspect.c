@@ -933,7 +933,7 @@ void lily_introspect_VariantEntry_value(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
 
-    if ((entry->flags & VARIANT_HAS_VALUE) == 0) {
+    if ((entry->flags & CLS_IS_HAS_VALUE) == 0) {
         lily_return_string(s, "");
         return;
     }

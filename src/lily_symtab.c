@@ -76,13 +76,14 @@ void lily_free_properties(lily_class *cls)
 {
     lily_named_sym *prop_iter = cls->members;
     lily_named_sym *next_prop;
-    int is_value_enum = (cls->parent && (cls->item_kind & ITEM_IS_ENUM));
+
+    /* Value variants never have keywords to drop. */
+    int flag = (cls->flags & CLS_IS_HAS_VALUE ? 0 : ITEM_IS_VARIANT);
 
     while (prop_iter) {
         next_prop = prop_iter->next;
 
-        if (prop_iter->item_kind & ITEM_IS_VARIANT &&
-            is_value_enum == 0) {
+        if (prop_iter->item_kind & flag) {
             lily_variant_class *variant = (lily_variant_class *)prop_iter;
 
             if (variant->keywords) {

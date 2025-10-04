@@ -2108,9 +2108,11 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
 
     int is_value_enum = (lex->token == INHERITANCE_TOKEN);
 
-    if (is_value_enum)
+    if (is_value_enum) {
         /* Integer is the only valid option, so assume it's that. */
         enum_cls->parent = parser->symtab->integer_class;
+        enum_cls->flags |= CLS_IS_HAS_VALUE;
+    }
 
     /* Enums are followed by methods, then variants. Flat enums will write an
        offset that goes to the first enum, whereas scoped enums skip to the next
@@ -4913,6 +4915,7 @@ static void parse_enum_inheritance(lily_parse_state *parser,
                 "Enums are only allowed to inherit from Integer.");
 
     enum_cls->parent = parser->symtab->integer_class;
+    enum_cls->flags |= CLS_IS_HAS_VALUE;
     lily_next_token(lex);
 }
 
@@ -4953,7 +4956,7 @@ static void parse_value_variant(lily_parse_state *parser,
     variant_cls->cls_id = (last ? last->cls_id + 1 : 0);
     variant_cls->raw_value = value;
     variant_cls->backing_lit = lit->reg_spot;
-    variant_cls->flags |= VARIANT_HAS_VALUE;
+    variant_cls->flags |= CLS_IS_HAS_VALUE;
 
     if (last) {
         lily_variant_class *c = lily_find_variant_with_lit(enum_cls,

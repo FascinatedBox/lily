@@ -1604,8 +1604,7 @@ void lily_emit_write_match_switch(lily_emit_state *emit, lily_class *cls)
         return;
     }
 
-    if ((cls->item_kind & ITEM_IS_VARIANT) == 0 ||
-        (cls->flags & VARIANT_HAS_VALUE) == 0) {
+    if ((cls->flags & CLS_IS_HAS_VALUE) == 0) {
         /* If this isn't the class, jump to the next branch (or exit). */
         lily_u16_write_4(emit->code, o_jump_if_not_class, cls->id, match_reg,
                 3);
