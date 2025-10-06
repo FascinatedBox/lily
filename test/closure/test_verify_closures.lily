@@ -181,6 +181,27 @@ class TestVerifyClosures < TestCase
                 }
             }
         """)
+
+        # capture within a class constructor, then another capture
+
+        assert_parse_string(t, """
+            class Example {
+                public var @x = [
+                    [1, 1, 1],
+                    [2],
+                    [3, 3]
+                ].map(|m| m.map(|m2| m.size() ))
+                public var @y = 1
+
+                public define increase_y {
+                    var w = (|| @y += 1 )
+                }
+            }
+
+            if Example().x != [[3, 3, 3], [1], [2, 2]]: {
+                0/0
+            }
+        """)
     }
 
     public define test_jumps
