@@ -9,22 +9,30 @@ target_compile_definitions(liblily_obj
     LILY_MAJOR="${LILY_MAJOR}"
     LILY_MINOR="${LILY_MINOR}")
 
-if(WIN32)
-    # C extensions that use interpreter functions need to have their own copy of
-    # interpreter functions due to how DLLs work. This builds that.
-    add_library(liblily STATIC $<TARGET_OBJECTS:liblily_obj>)
-else()
-    add_library(liblily SHARED $<TARGET_OBJECTS:liblily_obj>)
+# This is needed for Lily to work properly as a shared library. (This probably
+# doesn't do anything on MSVC, but there's no harm in setting it anyway.)
+set_target_properties(liblily_obj PROPERTIES
+                      POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
-    if(LILY_NEED_DL)
-        target_link_libraries(liblily dl)
-    endif()
+# This is required on Windows for C extensions that use interpreter functions,
+# if we're building as a shared library. Said functions aren't marked with
+# __declspec(dllimport); an import library won't even be created if we don't do
+# this, preventing extensions from linking to Lily at all!
+#
+# (This has to be done before the liblily target is created to apply to it.)
+if(WIN32 AND BUILD_SHARED_LIBS)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
 
-    # -fPIC is needed for it to work properly as a shared library.
-    set_target_properties(liblily_obj PROPERTIES COMPILE_FLAGS "-fPIC")
+add_library(liblily $<TARGET_OBJECTS:liblily_obj>)
 
-    # This prevents the shared library being named libliblily
+if(NOT WIN32)
+    # This prevents the library being named libliblily.
     set_target_properties(liblily PROPERTIES PREFIX "")
+endif()
+
+if(LILY_NEED_DL)
+    target_link_libraries(liblily dl)
 endif()
 
 if(LILY_NEED_M)
@@ -34,6 +42,7 @@ endif()
 install(TARGETS liblily
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
         COMPONENT library)
 
 install(FILES lily.h
