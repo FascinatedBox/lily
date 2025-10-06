@@ -1382,32 +1382,33 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
     return lv;
 }
 
-/* This is called to catch an exception raised by vm_error. This builds a new
-   value to store the error message and newly-made traceback. */
-static void make_proper_exception_val(lily_vm_state *vm,
-        lily_class *raised_cls, lily_value *result)
+static void store_exception_into(lily_vm_state *vm, lily_value *result)
 {
-    const char *raw_message = lily_mb_raw(vm->vm_buffer);
-    lily_container_val *ival = lily_new_container_raw(raised_cls->id, 2);
+    /* What's the source of this exception? */
+    if (vm->exception_value) {
+        /* A value was given to raise. Move that over. */
+        lily_value_assign(result, vm->exception_value);
+        lily_container_val *raw_trace = build_traceback_raw(vm);
+        lily_container_val *iv = result->value.container;
 
-    lily_string_val *sv = lily_new_string_raw(raw_message);
-    move_string(ival->values[0], sv);
+        move_list_f(VAL_IS_GC_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
+    }
+    else {
+        /* Internal vm errors don't have a value, so make one. */
+        lily_class *cls = vm->exception_cls;
 
-    move_list_f(0, ival->values[1], build_traceback_raw(vm));
+        /* The vm won't execute code between an exception being raised and being
+           processed. The message should therefore always be here. */
+        const char *raw_message = lily_mb_raw(vm->vm_buffer);
 
-    move_instance_f(VAL_IS_GC_SPECULATIVE, result, ival);
-}
+        /* Need space for 2 fields (message and traceback). */
+        lily_container_val *ival = lily_new_container_raw(cls->id, 2);
+        lily_string_val *sv = lily_new_string_raw(raw_message);
 
-/* This is called when 'raise' raises an error. The traceback property is
-   assigned to freshly-made traceback. The other fields of the value are left
-   intact, however. */
-static void fixup_exception_val(lily_vm_state *vm, lily_value *result)
-{
-    lily_value_assign(result, vm->exception_value);
-    lily_container_val *raw_trace = build_traceback_raw(vm);
-    lily_container_val *iv = result->value.container;
-
-    move_list_f(VAL_IS_GC_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
+        move_string(ival->values[0], sv);
+        move_list_f(0, ival->values[1], build_traceback_raw(vm));
+        move_instance_f(VAL_IS_GC_SPECULATIVE, result, ival);
+    }
 }
 
 /* This is called when the vm has raised an exception. This changes control to
@@ -1471,15 +1472,7 @@ static void dispatch_exception(lily_vm_state *vm)
         if (*code == o_exception_store) {
             lily_value *catch_reg = catch_iter->call_frame->start[code[1]];
 
-            /* There is a var that the exception needs to be dropped into. If
-               this exception was triggered by raise, then use that (after
-               dumping traceback into it). If not, create a new instance to
-               hold the info. */
-            if (vm->exception_value)
-                fixup_exception_val(vm, catch_reg);
-            else
-                make_proper_exception_val(vm, raised_cls, catch_reg);
-
+            store_exception_into(vm, catch_reg);
             code += 2;
         }
 
