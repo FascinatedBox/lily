@@ -50,6 +50,7 @@ else()
     set(LILY_NEED_M 1)
 endif()
 
+option("BUILD_SHARED_LIBS" "Build Lily as a shared library." ON)
 add_subdirectory(src)
 
 option("LILY_BUILD_EXECUTABLE" "Build the standalone Lily executable." ON)
