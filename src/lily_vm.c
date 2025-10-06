@@ -1384,31 +1384,32 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
 
 static void store_exception_into(lily_vm_state *vm, lily_value *result)
 {
+    lily_container_val *ival;
+
     /* What's the source of this exception? */
     if (vm->exception_value) {
         /* A value was given to raise. Move that over. */
         lily_value_assign(result, vm->exception_value);
-        lily_container_val *raw_trace = build_traceback_raw(vm);
-        lily_container_val *iv = result->value.container;
 
-        move_list_f(VAL_IS_GC_SPECULATIVE, lily_con_get(iv, 1), raw_trace);
+        ival = result->value.container;
     }
     else {
         /* Internal vm errors don't have a value, so make one. */
         lily_class *cls = vm->exception_cls;
 
-        /* The vm won't execute code between an exception being raised and being
-           processed. The message should therefore always be here. */
+        /* Internal errors store a message here. Code doesn't run before an
+           exception is processed, so it should be here. */
         const char *raw_message = lily_mb_raw(vm->vm_buffer);
-
-        /* Need space for 2 fields (message and traceback). */
-        lily_container_val *ival = lily_new_container_raw(cls->id, 2);
         lily_string_val *sv = lily_new_string_raw(raw_message);
 
+        /* Need space for 2 fields (message and traceback). */
+        ival = lily_new_container_raw(cls->id, 2);
+
+        move_instance_f(0, result, ival);
         move_string(ival->values[0], sv);
-        move_list_f(0, ival->values[1], build_traceback_raw(vm));
-        move_instance_f(VAL_IS_GC_SPECULATIVE, result, ival);
     }
+
+    move_list_f(0, ival->values[1], build_traceback_raw(vm));
 }
 
 /* This is called when the vm has raised an exception. This changes control to
