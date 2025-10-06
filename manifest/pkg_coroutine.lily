@@ -38,6 +38,12 @@ foreign static class Coroutine[A, B] {
     public static define build_with_value[C](fn: Function(Coroutine[A, B], C),
                                              value: C): Coroutine[A, B]
 
+    ### If the last resumption of the `Coroutine` provided raised an error, this
+    ### returns a `Some` of that error.
+    ###
+    ### Otherwise, this returns `None`.
+    public define error: Option[Exception]
+
     ### Returns `true` if the `Coroutine` has returned a value instead of
     ### yielding, `false` otherwise.
     public define is_done: Boolean

@@ -129,6 +129,7 @@ void lily_free_vm(lily_vm_state *);
 
 lily_vm_state *lily_vm_coroutine_build(lily_vm_state *, uint16_t);
 void lily_vm_coroutine_call_prep(lily_vm_state *, uint16_t);
+void lily_vm_coroutine_error(lily_vm_state *, lily_coroutine_val *);
 void lily_vm_coroutine_resume(lily_vm_state *, lily_coroutine_val *,
         lily_value *);
 

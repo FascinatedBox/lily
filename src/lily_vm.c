@@ -1576,6 +1576,18 @@ void lily_vm_coroutine_call_prep(lily_vm_state *vm, uint16_t count)
     vm->call_chain = target_frame;
 }
 
+void lily_vm_coroutine_error(lily_vm_state *origin, lily_coroutine_val *co_val)
+{
+    if (co_val->status != co_failed) {
+        lily_push_none(origin);
+        return;
+    }
+
+    lily_container_val *con = lily_push_some(origin);
+
+    store_exception_into(co_val->vm, con->values[0]);
+}
+
 lily_vm_state *lily_vm_coroutine_build(lily_vm_state *vm, uint16_t id)
 {
     lily_function_val *to_copy = lily_arg_function(vm, 0);

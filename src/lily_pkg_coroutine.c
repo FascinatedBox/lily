@@ -23,6 +23,13 @@ void lily_coroutine_Coroutine_build_with_value(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_coroutine_Coroutine_error(lily_state *s)
+{
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
+    lily_vm_coroutine_error(s, co_val);
+    lily_return_top(s);
+}
+
 void lily_coroutine_Coroutine_is_failed(lily_state *s)
 {
     lily_coroutine_val *co_val = ARG_Coroutine(s, 0);

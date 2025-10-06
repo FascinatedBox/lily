@@ -20,9 +20,10 @@ lily_cid_at(s_, 0)
 LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
     "\1Coroutine\0"
-    ,"C\12Coroutine\0[A,B]"
+    ,"C\13Coroutine\0[A,B]"
     ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
     ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
+    ,"m\0error\0[A,B](Coroutine[A,B]): Option[Exception]"
     ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_running\0[A,B](Coroutine[A,B]): Boolean"
@@ -40,6 +41,7 @@ lily_call_entry_func lily_coroutine_call_table[] = { \
     NULL, \
     lily_coroutine_Coroutine_build, \
     lily_coroutine_Coroutine_build_with_value, \
+    lily_coroutine_Coroutine_error, \
     lily_coroutine_Coroutine_is_done, \
     lily_coroutine_Coroutine_is_failed, \
     lily_coroutine_Coroutine_is_running, \

@@ -424,4 +424,244 @@ class TestPkgCoroutine < TestCase
             }
         """)
     }
+
+    public define test_error_capture_states
+    {
+        var t = Interpreter()
+
+        # Coroutine errors use vm error machinery, so these tests do not go into
+        # detail checking exception values, only that they are reasonable.
+        # Capture internal vm error (not from raise)
+
+        assert_parse_string(t, """
+            import (Coroutine) coroutine
+
+            define cap_int_error(co: Coroutine[Integer, Unit]): Integer {
+                return 0 / 0
+            }
+
+            {
+                var co = Coroutine.build(cap_int_error)
+                var ok = false
+
+                co.resume()
+
+                with co.error() as Some(s): {
+                    with s as DivisionByZeroError(e): {
+                        if e.traceback.size() == 1 &&
+                            e.message.size() > 1: {
+                            ok = true
+                        }
+                    }
+                }
+
+                if ok == false: {
+                    0/0
+                }
+            }
+        """)
+
+        # Capture raised error
+
+        assert_parse_string(t, """
+            define cap_raise_error(co: Coroutine[Integer, Unit]): Integer {
+                raise ValueError("test")
+            }
+
+            {
+                var co = Coroutine.build(cap_raise_error)
+                var ok = false
+
+                co.resume()
+
+                with co.error() as Some(s): {
+                    with s as ValueError(e): {
+                        if e.traceback.size() == 1 &&
+                            e.message == "test": {
+                            ok = true
+                        }
+                    }
+                }
+
+                if ok == false: {
+                    0/0
+                }
+            }
+        """)
+
+        # Check nested error and no error clear on (attempted) resumption
+
+        assert_parse_string(t, """
+            define run_three
+            {
+                raise IndexError("oops")
+            }
+
+            define run_two
+            {
+                run_three()
+            }
+
+            define cap_nested_raise(co: Coroutine[Integer, Unit]): Integer {
+                run_two()
+                return 1
+            }
+
+            {
+                var co = Coroutine.build(cap_nested_raise)
+
+                for i in 0...3: {
+                    var ok = false
+
+                    co.resume()
+
+                    with co.error() as Some(s): {
+                        with s as IndexError(e): {
+                            if e.message == "oops" &&
+                                e.traceback.size() == 3: {
+                                ok = true
+                            }
+                        }
+                    }
+
+                    if ok == false: {
+                        0/0
+                    }
+                }
+            }
+        """)
+
+        # Coroutine that captured the error and continued
+
+        assert_parse_string(t, """
+            define cap_caught_error(co: Coroutine[Integer, Unit]): Integer {
+                try: {
+                    0/0
+                except DivisionByZeroError:
+                    0
+                }
+
+                co.yield(1)
+                return 2
+            }
+
+            {
+                var co = Coroutine.build(cap_caught_error)
+
+                co.resume()
+
+                if co.error().is_some(): {
+                    0/0
+                }
+
+                co.resume()
+
+                if co.error().is_some(): {
+                    0/0
+                }
+            }
+        """)
+
+        # Coroutine caught the wrong error
+
+        assert_parse_string(t, """
+            define wrong_2
+            {
+                try: {
+                    0/0
+                except IndexError:
+                    0
+                }
+            }
+
+            define cap_wrong_error(co: Coroutine[Integer, Unit]): Integer {
+                wrong_2()
+
+                return 1
+            }
+
+            {
+                var co = Coroutine.build(cap_wrong_error)
+                var ok = false
+
+                co.resume()
+
+                with co.error() as Some(s): {
+                    with s as DivisionByZeroError(e): {
+                        if e.message.size() != 0 &&
+                            e.traceback.size() == 2: {
+                            ok = true
+                        }
+                    }
+                }
+
+                if ok == false: {
+                    0/0
+                }
+            }
+        """)
+    }
+
+    public define test_error_capture_with_no_error
+    {
+        var t = Interpreter()
+
+        # Check error on done Coroutine that never failed
+
+        assert_parse_string(t, """
+            import (Coroutine) coroutine
+
+            define done_fn(co: Coroutine[Integer, Unit]): Integer {
+                return 1
+            }
+
+            {
+                var co = Coroutine.build(done_fn)
+
+                co.resume()
+
+                if co.error().is_some(): {
+                    0/0
+                }
+            }
+        """)
+
+        # Error on a running Coroutine that never failed
+
+        assert_parse_string(t, """
+            define running_fn(co: Coroutine[Integer, Unit]): Integer {
+                co.yield(co.error().is_some().to_i())
+                return 0
+            }
+
+            {
+                var co = Coroutine.build(running_fn)
+                var ok = false
+
+                if co.resume().unwrap() != 0: {
+                    0/0
+                }
+            }
+        """)
+
+        # Error on a waiting Coroutine that never failed
+
+        assert_parse_string(t, """
+            define waiting_fn(co: Coroutine[Integer, Unit]): Integer {
+                co.yield(1)
+                return 0
+            }
+
+            {
+                var co = Coroutine.build(waiting_fn)
+                var ok = false
+
+                co.resume()
+
+                if co.error().is_some(): {
+                    0/0
+                }
+            }
+        """)
+    }
 }
