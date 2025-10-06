@@ -1421,8 +1421,6 @@ static void dispatch_exception(lily_vm_state *vm)
     uint16_t jump_location = 0;
     uint16_t *code = NULL;
 
-    vm->exception_cls = raised_cls;
-
     while (catch_iter != NULL) {
         /* Foreign functions register callbacks so they can fix values when
            there is an error. Put the state where it was when the callback was
