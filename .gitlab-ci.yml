@@ -18,6 +18,7 @@ test:
                                   "${PWD}/test/*" \
                                   "${PWD}/src/csiphash.c" \
                                   "${PWD}/src/lily_alloc.c" \
+                                  "${PWD}/src/lily_pkg_core.c" \
            --output-file coverage.info
     - genhtml -o .public coverage.info
     - lcov --list coverage.info
