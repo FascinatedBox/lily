@@ -3429,6 +3429,14 @@ static lily_variant_class *start_expr_match_case(lily_emit_state *emit,
     return (lily_variant_class *)cls;
 }
 
+static void expr_branch_else(lily_emit_state *emit, lily_ast *ast)
+{
+    if (emit->block->flags & BLOCK_FINAL_BRANCH)
+        lily_raise_tree(emit->raiser, ast, "else in exhaustive match.");
+
+    lily_emit_branch_finalize(emit);
+}
+
 static void unpack_match_case(lily_emit_state *emit, lily_ast *ast,
         lily_variant_class *cls)
 {
@@ -3517,25 +3525,28 @@ static void eval_expr_match(lily_emit_state *emit, lily_ast *ast,
     lily_emit_enter_match_block(emit, target);
     ast->result = NULL;
 
+    /* Match is collected as pairs of a branch kind (case or else), and expr. */
     for (arg = arg->next_arg; arg != NULL; arg = arg->next_arg) {
         if (arg->tree_type == tree_expr_match_case) {
             lily_variant_class *c = start_expr_match_case(emit, arg, t);
 
             unpack_match_case(emit, arg, c);
         }
-        else {
-            eval_tree(emit, arg, expect);
+        else
+            expr_branch_else(emit, arg);
 
-            if (expect != lily_question_type)
-                verify_match_case_result(emit, arg, expect);
-            else
-                expect = arg->result->type;
+        arg = arg->next_arg;
+        eval_tree(emit, arg, expect);
 
-            if (ast->result == NULL)
-                ast->result = (lily_sym *)get_storage(emit, expect);
+        if (expect != lily_question_type)
+            verify_match_case_result(emit, arg, expect);
+        else
+            expect = arg->result->type;
 
-            redirect_match_case_result(emit, ast, arg);
-        }
+        if (ast->result == NULL)
+            ast->result = (lily_sym *)get_storage(emit, expect);
+
+        redirect_match_case_result(emit, ast, arg);
     }
 
     if (lily_emit_try_leave_match_block(emit) == 0)

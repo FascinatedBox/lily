@@ -5395,7 +5395,6 @@ static void parse_expr_match_case(lily_parse_state *parser)
     uint16_t spot = parser->expr->pile_current;
     uint16_t var_count = 0;
 
-    expect_word(parser, "case");
     NEED_NEXT_TOK(tk_word)
     lily_sp_insert(parser->expr_strings, lex->label,
             &parser->expr->pile_current);
@@ -5424,6 +5423,15 @@ static void parse_expr_match_case(lily_parse_state *parser)
     lily_es_push_expr_match_case(es, last_var, spot, var_count);
     lily_es_collect_arg(es);
     NEED_CURRENT_TOK(tk_colon)
+}
+
+static void parse_expr_branch_else(lily_parse_state *parser)
+{
+    lily_lex_state *lex = parser->lex;
+
+    NEED_NEXT_TOK(tk_colon)
+    lily_es_push_expr_branch_else(parser->expr);
+    lily_es_collect_arg(parser->expr);
 }
 
 static void hide_match_var_types(lily_parse_state *parser)
@@ -5461,14 +5469,34 @@ static void expr_match(lily_parse_state *parser, uint16_t *state)
     lily_next_token(lex);
     lily_emit_enter_expr_match_block(parser->emit);
 
+    if (lex->token != tk_word || strcmp(lex->label, "case") != 0)
+        lily_raise_syn(parser->raiser, "Match must start with a case.");
+
+    goto first_case;
+
     while (1) {
-        parse_expr_match_case(parser);
+        do {
+            if (lex->token == tk_word) {
+                if (strcmp(lex->label, "case") == 0) {
+first_case:
+                    parse_expr_match_case(parser);
+                    break;
+                }
+                else if (strcmp(lex->label, "else") == 0) {
+                    parse_expr_branch_else(parser);
+                    break;
+                }
+            }
+
+            lily_raise_syn(parser->raiser, "Expected 'case' or 'else' here.");
+        } while (0);
+
         lily_next_token(lex);
         simple_expression(parser);
         hide_match_var_types(parser);
         lily_es_collect_arg(parser->expr);
 
-        if (parser->lex->token == tk_right_curly)
+        if (lex->token == tk_right_curly)
             break;
     }
 

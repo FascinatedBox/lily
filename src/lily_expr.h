@@ -15,6 +15,7 @@ typedef enum {
     tree_call,
     tree_defined_func,
     tree_dot_variant,
+    tree_expr_branch_else,
     tree_expr_match_case,
     tree_expr_match,
     tree_global_var,
@@ -198,6 +199,7 @@ void lily_es_push_local_var(lily_expr_state *, lily_var *);
 void lily_es_push_binary_op(lily_expr_state *, lily_token);
 void lily_es_push_global_var(lily_expr_state *, lily_var *);
 void lily_es_push_defined_func(lily_expr_state *, lily_var *);
+void lily_es_push_expr_branch_else(lily_expr_state *);
 void lily_es_push_expr_match_case(lily_expr_state *, lily_var *, uint16_t,
         uint16_t);
 void lily_es_push_method(lily_expr_state *, lily_var *);

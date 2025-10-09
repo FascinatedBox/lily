@@ -439,6 +439,24 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
+            SyntaxError: Expected ':', not '('.
+
+               |
+             4 | else(s):
+               |     ^
+
+                from [test]:4:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    1
+                else(s):
+                    2
+            }
+        """)
+
+        assert_parse_fails(t, """\
             SyntaxError: Variant Some of enum Option expects 1 parameters (2 given).
                 from [test]:2:
         """,
@@ -470,6 +488,22 @@ class TestBadMatchWith < TestCase
                     1
             }
         """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match must start with a case.
+
+               |
+             2 | else:
+               | ^
+
+                from [test]:2:
+        """,
+        """\
+            var v = match Some(1): {
+                else:
+                    1
+            }
+        """)
     }
 
     public define test_bad_expression_match_case_logic
@@ -479,10 +513,10 @@ class TestBadMatchWith < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Match pattern not exhaustive. The following case(s) are missing:
             * None
-                from [test]:4:
+                from [test]:1:
         """,
         """\
-            match Some(1): {
+            var v = match Some(1): {
                 case Some(s):
                     1
             }
@@ -490,18 +524,43 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Already have a case for Some.
-
-               |
-             4 | case Some(s):
-               |      ^
-
                 from [test]:4:
         """,
         """\
-            match Some(1): {
+            var v = match Some(1): {
                 case Some(s):
                     1
                 case Some(s):
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: else in exhaustive match.
+                from [test]:6:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    1
+                else:
+                    1
+                else:
+                    1
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for None.
+                from [test]:6:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(s):
+                    1
+                else:
+                    1
+                case None:
                     1
             }
         """)
@@ -534,7 +593,7 @@ class TestBadMatchWith < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'case' here.
+            SyntaxError: Match must start with a case.
 
                |
              1 | var v = match 5: {}
@@ -853,24 +912,6 @@ class TestBadMatchWith < TestCase
                     1
                 case Three(s):
                     s
-            }
-        """)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'case' here.
-
-               |
-             4 | else:
-               | ^
-
-                from [test]:4:
-        """,
-        """\
-            var v = match Some(1): {
-                case Some(s):
-                    1
-                else:
-                    0
             }
         """)
 

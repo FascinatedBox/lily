@@ -593,4 +593,63 @@ class TestMatchWith < TestCase
             }
         """)
     }
+
+    public define test_expression_match_else
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            {
+                var v = match Some(1): {
+                    case Some(s):
+                        1
+                    else:
+                        0
+                }
+
+                if v != 1: {
+                    0/0
+                }
+            }
+        """)
+
+        assert_parse_string(t, """
+            {
+                var v = match None.@(Option[Integer]): {
+                    case Some(s):
+                        1
+                    else:
+                        0
+                }
+
+                if v != 0: {
+                    0/0
+                }
+            }
+        """)
+
+        assert_parse_string(t, """
+            enum RGB {
+                Red,
+                Green,
+                Blue,
+
+                define is_green: Boolean
+                {
+                    return match self: {
+                        case Green:
+                            true
+                        else:
+                            false
+                    }
+                }
+            }
+
+            if Green.is_green() == false ||
+                Red.is_green() == true ||
+                Blue.is_green() == true: {
+                0/0
+            }
+        """)
+    }
 }

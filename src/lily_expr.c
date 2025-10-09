@@ -576,6 +576,13 @@ void lily_es_push_defined_func(lily_expr_state *es, lily_var *func)
     merge_value(es, a);
 }
 
+void lily_es_push_expr_branch_else(lily_expr_state *es)
+{
+    AST_COMMON_INIT(a, tree_expr_branch_else);
+
+    merge_value(es, a);
+}
+
 void lily_es_push_expr_match_case(lily_expr_state *es, lily_var *first_var,
         uint16_t pile_pos, uint16_t var_count)
 {
