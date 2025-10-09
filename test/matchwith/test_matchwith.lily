@@ -594,6 +594,50 @@ class TestMatchWith < TestCase
         """)
     }
 
+    public define test_expression_skipping
+    {
+        var t = Interpreter()
+
+        # Skip the middle
+
+        assert_parse_string(t, """
+            enum Multi {
+                One(Integer, String, Integer),
+                Two
+            }
+
+            {
+                var v = match One(1, "2", 3): {
+                    case One(a, _, c):
+                        a + c
+                    case Two:
+                        0/0
+                }
+
+                if v != 4: {
+                    0/0
+                }
+            }
+        """)
+
+        # Skip the ends
+
+        assert_parse_string(t, """
+            {
+                var v = match One(1, "2", 3): {
+                    case One(_, b, _):
+                        b ++ b
+                    case Two:
+                        (0/0).to_s()
+                }
+
+                if v != "22": {
+                    0/0
+                }
+            }
+        """)
+    }
+
     public define test_expression_match_else
     {
         var t = Interpreter()

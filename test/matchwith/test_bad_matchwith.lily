@@ -763,6 +763,26 @@ class TestBadMatchWith < TestCase
                 case Some(v):
             }
         """)
+
+        # Can't use a skipped value
+
+        assert_parse_fails(t, """\
+            SyntaxError: _ has not been declared.
+
+               |
+             3 | print(_)
+               |       ^
+
+                from [test]:3:
+        """,
+        """\
+            var v = match Some(1): {
+                case Some(_):
+                    print(_)
+                case None:
+                    unit
+            }
+        """)
     }
 
     public define test_bad_expression_match_typing

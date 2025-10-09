@@ -944,6 +944,9 @@ static lily_var *declare_match_var(lily_parse_state *parser, const char *name,
     /* Vars with a NULL type here are match vars that have gone out of scope. */
     if (var && var->type != NULL)
         error_var_redeclaration(parser, var);
+    else if (strcmp(name, "_") == 0)
+        /* Prevent parser from trying to use this skipped var name. */
+        name = "\0";
 
     var = new_local_var(parser, name, line_num);
     var->type = lily_question_type;

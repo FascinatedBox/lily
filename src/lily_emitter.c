@@ -3468,6 +3468,11 @@ static void unpack_match_case(lily_emit_state *emit, lily_ast *ast,
     uint16_t match_reg = emit->block->match_reg;
 
     for (;end > 0; end--, var_iter = var_iter->next) {
+        /* Vars to be skipped ("_") are saved in parser as blank names, to
+           prevent them from being referenced. */
+        if (var_iter->name[0] == '\0')
+            continue;
+
         var_iter->type = case_type->subtypes[end];
 
         lily_u16_write_5(emit->code, o_property_get, end - 1,
