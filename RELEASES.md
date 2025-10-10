@@ -1,3 +1,97 @@
+Version 2.2 (2025-10-10)
+========================
+
+This release adds several nice new features to the interpreter.
+
+Highlights:
+
+* Match expressions (#590): The interpreter now allows `match` inside of an
+  expression. Each arm of a match expression must yield a result. Match
+  expressions can be used to initialize a value, or be a return from a
+  definition. The current implementation will be refined in the next release of
+  the interpreter.
+
+* Better numerics (#584): Math operations now allow Byte and Integer, as well as
+  Integer and Double. Byte now autopromotes to Integer. Integer and Double can
+  now be compared.
+
+* `import` now has access to system directories (#569). This is disabled by
+  default for embedders, but enabled by default for the Lily executable.
+
+* Value enums and value variants (#581): If an enum is declared like this:
+  `enum MyEnum < Integer`, each variant is allowed to have a single Integer
+  literal as a value. Each variant must be unique to other variants. These were
+  added with foreign libraries in mind. With these, foreign libraries can have
+  the benefits of enums but without their hassles. These behave as Integer
+  values in math (#598).
+
+* Variant shorthand (#575): If an expression is expected to yield an enum,
+  `.variant` can be used to refer to one of the variants.
+
+```
+import somemodule
+# Assume this contains `scoped enum Speed { Fast, Medium, Slow }`
+
+define example(a: somemodule.MyEnum) { ... }
+
+# Before:
+example(somemodule.Speed.First)
+
+# Now:
+example(.First) # Inference
+```
+
+* Keyword argument shorthand (#580): Definitions can now use `:_` to indicate
+  that the keyword argument for a parameter has the same name as the parameter.
+
+```
+# Before:
+define calc(:min min: Integer, :max max: Integer) { ... }
+
+# Now:
+define calc(:_ min: Integer, :_ max: Integer) { ... }
+```
+
+New:
+
+* #574: The interpreter can now access files through `fs.read_dir`.
+
+* #572: The Lily executable now contains a basic repl.
+
+* `for` can now operate over a list (#571): `for element in list` as well as
+  `for index, element in list`. It retains the range capability it had before.
+  This makes `foreach` obsolete.
+
+* New methods: `Random.double`, `Random.double_between`, `Result.unwrap`,
+  `Option.map_or`. The first two were thanks to @python-b5.
+
+* #582: Direct imports (`import (symbol) module`) now allow module imports.
+
+* New `utf8` prelude module for dealing with codepoints. Thanks to @python-b5.
+
+* #573: Class constructors can now declare local vars.
+
+* #578: Add C-style ternary: `(condition ? truthy : falsey)`. These require
+  parentheses around them.
+
+Changes:
+
+* Matching against a scoped enum no longer requires `EnumName.` before the
+  variant name. All enum matches now use just the variant names.
+
+* #589: Enum variant declaration now allows for trailing commas.
+
+Fixes:
+
+* #592: A `match` containing a `with` operating over the same kind of type was
+  causing misleading reports about exhaustiveness.
+
+* #595: In some cases, usage of an `Option[Coroutine]` could crash, due to the
+  Some not allowing the gc to walk the inner Coroutine.
+
+* Coroutines that took a closure could result in a memory leak. This was thought
+  to be the fix to the above issue, so it does not have an issue number itself.
+
 Version 2.1 (2025-7-10)
 =======================
 
