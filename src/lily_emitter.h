@@ -23,15 +23,14 @@ typedef enum {
     block_do_while       = 3,
     block_enum           = 4 | SCOPE_ENUM,
     block_file           = 5 | SCOPE_FILE,
-    block_foreach        = 6,
-    block_for_in         = 7,
-    block_if             = 8,
-    block_lambda         = 9 | SCOPE_LAMBDA,
-    block_match          = 10,
-    block_try            = 11,
-    block_while          = 12,
-    block_with           = 13,
-    block_expr_match     = 14,
+    block_for_in         = 6,
+    block_if             = 7,
+    block_lambda         = 8 | SCOPE_LAMBDA,
+    block_match          = 9,
+    block_try            = 10,
+    block_while          = 11,
+    block_with           = 12,
+    block_expr_match     = 13,
 } lily_block_type;
 
 /* This block uses upvalues and thus needs a closure made. */
@@ -263,7 +262,6 @@ void lily_eval_for_list(lily_emit_state *, lily_expr_state *, lily_var *,
         lily_var *);
 lily_sym *lily_eval_for_result(lily_emit_state *, lily_ast *);
 void lily_eval_to_loop_var(lily_emit_state *, lily_expr_state *, lily_var *);
-void lily_eval_to_foreach_var(lily_emit_state *, lily_expr_state *, lily_var *);
 void lily_eval_expr(lily_emit_state *, lily_expr_state *);
 lily_type *lily_eval_lambda_result(lily_emit_state *, lily_expr_state *);
 void lily_eval_lambda_exit(lily_emit_state *, uint16_t);
@@ -288,7 +286,6 @@ void lily_emit_enter_do_while_block(lily_emit_state *);
 void lily_emit_enter_enum_block(lily_emit_state *, lily_class *);
 void lily_emit_enter_expr_match_block(lily_emit_state *);
 void lily_emit_enter_file_block(lily_emit_state *, lily_var *);
-void lily_emit_enter_foreach_block(lily_emit_state *);
 void lily_emit_enter_for_in_block(lily_emit_state *);
 void lily_emit_enter_if_block(lily_emit_state *);
 void lily_emit_enter_lambda_block(lily_emit_state *, lily_var *);

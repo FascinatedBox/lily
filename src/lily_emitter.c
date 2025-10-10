@@ -606,14 +606,6 @@ void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
     /* Don't bump depth so these vars are seen as global vars. */
 }
 
-void lily_emit_enter_foreach_block(lily_emit_state *emit)
-{
-    lily_block *block = next_block(emit);
-
-    block->block_type = block_foreach;
-    emit->block = block;
-}
-
 void lily_emit_enter_for_in_block(lily_emit_state *emit)
 {
     lily_block *block = next_block(emit);
@@ -707,7 +699,6 @@ void lily_emit_leave_block(lily_emit_state *emit)
 
     /* These blocks need to jump back up when the bottom is hit. */
     if (block_type == block_while ||
-        block_type == block_foreach ||
         block_type == block_for_in) {
         int x = block->code_start - lily_u16_pos(emit->code);
         lily_u16_write_2(emit->code, o_jump, (uint16_t)x);
@@ -907,8 +898,7 @@ static lily_block *find_deepest_loop(lily_emit_state *emit)
     for (;block_iter != stop_block;block_iter = block_iter->prev) {
         if (block_iter->block_type == block_while ||
             block_iter->block_type == block_do_while ||
-            block_iter->block_type == block_for_in ||
-            block_iter->block_type == block_foreach) {
+            block_iter->block_type == block_for_in) {
             result = block_iter;
             break;
         }
@@ -4836,24 +4826,6 @@ void lily_eval_optarg(lily_emit_state *emit, lily_ast *ast)
 
     /* If this optional argument was initialized, jump to now. */
     lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 2);
-}
-
-void lily_eval_to_foreach_var(lily_emit_state *emit, lily_expr_state *es,
-        lily_var *var)
-{
-    lily_ast *ast = es->root;
-
-    eval_tree(emit, ast, lily_question_type);
-    emit->expr_num++;
-
-    lily_type *t = ast->result->type;
-
-    if (t->cls_id != LILY_ID_LIST)
-        lily_raise_syn(emit->raiser, "Foreach expects a List to iterate over, but was given type '^T'.", t);
-
-    lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot, var->reg_spot,
-            ast->line_num);
-    var->type = t;
 }
 
 void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
