@@ -11,6 +11,7 @@ typedef enum {
     tk_left_bracket,
     tk_colon,
     tk_tilde,
+    tk_question,
     tk_bitwise_xor,
     tk_bitwise_xor_eq,
     tk_not,
@@ -62,10 +63,8 @@ typedef enum {
     tk_three_dots,
     tk_func_pipe,
     tk_scoop,
-    tk_question,
     tk_invalid,
     tk_end_lambda,
-    tk_end_tag,
     tk_eof,
 } lily_token;
 

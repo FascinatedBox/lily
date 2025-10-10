@@ -94,11 +94,6 @@ typedef struct lily_rewind_state_
 
 void lily_init_pkg_prelude(lily_symtab *);
 
-static void wrap_fputs(const char *message, void *data)
-{
-    (void)fputs(message, (FILE *)data);
-}
-
 void lily_config_init(lily_config *conf)
 {
     conf->argc = 0;
@@ -113,8 +108,6 @@ void lily_config_init(lily_config *conf)
     memcpy(conf->sipkey, key, sizeof(key));
 
     conf->import_func = lily_default_import_func;
-    conf->render_func = (lily_render_func)wrap_fputs;
-    conf->render_data = stdout;
     conf->data = NULL;
     conf->extra_info = 0;
     conf->sandbox = 0;
@@ -3669,7 +3662,6 @@ static void error_forward_decl_pending(lily_parse_state *parser)
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     const char *what = "";
 
-    /* Don't say 'file', because the close tag `?>` checks for this. */
     if (parser->emit->block->block_type == block_file)
         what = "module";
     else
@@ -3789,7 +3781,6 @@ static int code_is_after_exit(lily_parse_state *parser)
     /* It's not dead if this block is being exited. */
     if (token == tk_right_curly ||
         token == tk_eof ||
-        token == tk_end_tag ||
         token == tk_end_lambda)
         return 0;
 
@@ -5805,42 +5796,6 @@ static void maybe_fix_print(lily_parse_state *parser)
     print_func->foreign_func = lily_stdout_print;
 }
 
-static void verify_template_target_open(lily_parse_state *parser)
-{
-    lily_vm_state *vm = parser->vm;
-    lily_global_state *gs = vm->gs;
-
-    if (gs->stdout_reg_spot == UINT16_MAX)
-        return;
-
-    if (parser->config->render_data != stdout)
-        return;
-
-    lily_value *stdout_value = vm->gs->regs_from_main[gs->stdout_reg_spot];
-    lily_file_val *fv = lily_as_file(stdout_value);
-
-    if (fv->close_func == NULL ||
-        fv->write_ok == 0) {
-        lily_raise_syn(parser->raiser,
-                "Cannot write template output to stdout.");
-    }
-}
-
-static void template_read_loop(lily_parse_state *parser, lily_lex_state *lex)
-{
-    verify_template_target_open(parser);
-
-    lily_config *config = parser->config;
-    int has_more = 0;
-
-    do {
-        char *buffer = lily_read_template_content(lex, &has_more);
-
-        if (*buffer)
-            config->render_func(buffer, config->render_data);
-    } while (has_more);
-}
-
 static void main_func_setup(lily_parse_state *parser)
 {
     lily_register_classes(parser->symtab, parser->vm);
@@ -6024,8 +5979,7 @@ static void parser_loop(lily_parse_state *parser)
         else if (lex->token == tk_eof) {
             lily_block *b = parser->emit->block;
 
-            if (b->block_type != block_file ||
-                (parser->flags & PARSER_IS_RENDERING && b->prev == NULL))
+            if (b->block_type != block_file)
                 lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
                         tokname(tk_eof));
             else if (b->forward_count)
@@ -6037,19 +5991,6 @@ static void parser_loop(lily_parse_state *parser)
                 finish_import(parser);
             else
                 break;
-        }
-        else if (lex->token == tk_end_tag) {
-            lily_block *b = parser->emit->block;
-
-            if ((parser->flags & PARSER_IS_RENDERING) == 0 ||
-                b->prev != NULL)
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(tk_end_tag));
-
-            if (parser->emit->block->forward_count)
-                error_forward_decl_pending(parser);
-
-            break;
         }
         else if (lex->token == tk_docblock)
             process_docblock(parser);
@@ -6533,9 +6474,8 @@ static int open_first_content(lily_state *s, const char *filename,
             load_content = load_file_to_parse(parser, filename);
         }
         else {
-            /* Strings sent to be parsed/rendered are expected to be on a
-               caller's stack somewhere. There shouldn't be a need to copy this
-               string. */
+            /* Strings sent to be parsed are expected to be on a caller's stack
+               somewhere. There shouldn't be a need to copy this string. */
             load_type = et_shallow_string;
             load_content = content;
         }
@@ -6681,56 +6621,6 @@ int lily_validate_content(lily_state *s)
            running introspection after validation. */
         lily_clear_main(parser->emit);
 
-        return 1;
-    }
-    else
-        parser->rs->pending = 1;
-
-    return 0;
-}
-
-static void expect_template_header(lily_parse_state *parser)
-{
-    /* Templates have to start with `<?lily` to prevent "rendering" files that
-       are intended to be run in code mode. It has the nice bonus that execution
-       always starts in code mode. */
-    if (lily_read_template_header(parser->lex) == 0)
-        lily_raise_syn(parser->raiser,
-                "Files in template mode must start with '<?lily'.");
-}
-
-int lily_render_content(lily_state *s)
-{
-    lily_parse_state *parser = s->gs->parser;
-
-    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
-        return 0;
-
-    parser->flags = PARSER_IS_RENDERING;
-
-    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
-        lily_lex_state *lex = parser->lex;
-
-        expect_template_header(parser);
-
-        while (1) {
-            /* Parse and execute the code block. */
-            parser_loop(parser);
-
-            main_func_setup(parser);
-            lily_call(parser->vm, 0);
-            main_func_teardown(parser);
-
-            /* Read through what needs to be rendered. */
-            if (lex->token == tk_end_tag)
-                template_read_loop(parser, lex);
-
-            if (lex->token == tk_eof)
-                break;
-        }
-
-        lily_pop_lex_entry(parser->lex);
-        lily_mb_flush(parser->msgbuf);
         return 1;
     }
     else

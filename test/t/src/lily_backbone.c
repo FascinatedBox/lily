@@ -474,60 +474,6 @@ void lily_backbone_Interpreter_parse_file(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-void render_func(const char *to_render, void *data)
-{
-    lily_mb_add((lily_msgbuf *)data, to_render);
-}
-
-void lily_backbone_Interpreter_render_file(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    lily_msgbuf *msgbuf = lily_new_msgbuf(64);
-    lily_config *config = lily_config_get(raw->subi);
-
-    config->render_data = msgbuf;
-    config->render_func = render_func;
-
-    char *filename = lily_arg_string_raw(s, 1);
-    int result = lily_load_file(raw->subi, filename) &&
-                 lily_render_content(raw->subi);
-
-    if (result)
-        lily_push_string(s, lily_mb_raw(msgbuf));
-
-    lily_free_msgbuf(msgbuf);
-
-    if (result)
-        lily_return_some_of_top(s);
-    else
-        lily_return_none(s);
-}
-
-void lily_backbone_Interpreter_render_string(lily_state *s)
-{
-    lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
-    lily_msgbuf *msgbuf = lily_new_msgbuf(64);
-    lily_config *config = lily_config_get(raw->subi);
-
-    config->render_data = msgbuf;
-    config->render_func = render_func;
-
-    char *context = lily_arg_string_raw(s, 1);
-    char *text = lily_arg_string_raw(s, 2);
-    int result = lily_load_string(raw->subi, context, text) &&
-                 lily_render_content(raw->subi);
-
-    if (result)
-        lily_push_string(s, lily_mb_raw(msgbuf));
-
-    lily_free_msgbuf(msgbuf);
-
-    if (result)
-        lily_return_some_of_top(s);
-    else
-        lily_return_none(s);
-}
-
 void lily_backbone_Interpreter_parse_manifest_file(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);

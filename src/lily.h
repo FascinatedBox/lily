@@ -55,8 +55,6 @@ typedef void (*lily_destroy_func)(lily_generic_val *);
 
 typedef void (*lily_import_func)(lily_state *s, const char *target);
 
-typedef void (*lily_render_func)(const char *content, void *data);
-
 typedef int (*lily_sys_dir_func)(lily_state *s, const char *target);
 
 typedef void (*lily_call_entry_func)(lily_state *);
@@ -102,17 +100,13 @@ typedef void (*lily_call_entry_func)(lily_state *);
 //     import_func   - (Default: lily_default_import_func)
 //                     What function should be called to handle imports?
 //
-//     render_func   - (Default: fputs)
-//                     What function should be called if there is template
-//                     content to be rendered?
+//     render_func   - Unused (template mode has been removed)
 //
 //     sipkey        - (Default: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 //                     The sipkey is an array of 16 char values that helps to
 //                     prevent collisions in Lily's Hash class.
 //
-//     render_data   - (Default: stdin)
-//                     This will later be sent as the data part of the
-//                     import_func hook.
+//     render_data   - Unused (template mode has been removed)
 //
 //     data          - (Default: NULL)
 //                     Space for the embedder to attach miscellaneous data to
@@ -154,7 +148,7 @@ typedef struct lily_config_ {
     int gc_multiplier;
     int gc_start;
     lily_import_func import_func;
-    lily_render_func render_func;
+    void *render_func;
     char sipkey[16];
     void *render_data;
     void *data;
@@ -200,10 +194,10 @@ lily_state *lily_new_state(lily_config *config);
 // Destroy an interpreter and any values it holds.
 void lily_free_state(lily_state *s);
 
-/////////////////////////////
-// Section: Parsing/Rendering
-/////////////////////////////
-// Parse or render some input.
+///////////////////
+// Section: Parsing
+///////////////////
+// Parse some input.
 //
 // These functions must **not** be called while the interpreter is either
 // executing or within an import hook.
@@ -211,16 +205,16 @@ void lily_free_state(lily_state *s);
 // The lily_load_* functions prepare content for the interpreter. The other
 // functions detailed in this sections consume the content.
 //
-// Attempting to parse or render an interpreter without content ready will do
-// nothing. Similarly, attempting to load when content has already been loaded
-// will do nothing.
+// Attempting to parse an interpreter without content ready will do nothing.
+// Similarly, attempting to load when content has already been loaded will do
+// nothing.
 //
 // If any functions detailed here fail, the embedder can use the `lily_error_*`
 // set of functions to determine what went wrong (except for the two cases that
 // are ignored above).
 //
 // If necessary, the interpreter's rewind is invoked when there is a successful
-// `lily_load_*` call after the failed parse or render.
+// `lily_load_*` call after the failed parse.
 
 // Function: lily_load_file
 // Prepare a file for the interpreter.
@@ -240,7 +234,7 @@ int lily_load_file(lily_state *s, const char *path);
 // Prepare a string for the interpreter.
 //
 // The interpreter assumes that the string data passed will not be modified
-// during the interpreter's upcoming parse/render cycle.
+// during the interpreter's upcoming parse cycle.
 //
 // The context passed does not require '.lily' as a suffix. The context provided
 // is exactly the one that is used for the filename.
@@ -281,19 +275,6 @@ int lily_parse_content(lily_state *s);
 // Returns 1 on success, 0 on failure.
 int lily_parse_manifest(lily_state *s);
 
-// Function: lily_render_content
-// Parse content prepared for the interpreter.
-//
-// This parses the content provided in template mode. The content is consumed
-// regardless of this function's result.
-//
-// Prior to parsing, the content is checked to make sure it begins with the
-// `<?lily` header at the very top of the file. If it does not, no parsing is
-// performed.
-//
-// Returns 1 on success, 0 on failure.
-int lily_render_content(lily_state *s);
-
 // Function: lily_parse_expr
 // Parse an expression prepared for the interpreter.
 //
@@ -301,7 +282,7 @@ int lily_render_content(lily_state *s);
 // regardless of the function's result.
 //
 // If this function succeeds, output is set to a string describing the value.
-// The string will remain valid until the next parse or render call.
+// The string will remain valid until the next parse call.
 //
 // Parameters:
 //     s      - The interpreter.
@@ -329,45 +310,32 @@ int lily_validate_content(lily_state *s);
 /////////////////////////
 // Section: Error Capture
 /////////////////////////
-// Capture error information after a failed parse/render.
+// Capture error information after a failed parse.
 //
-// These functions capture the error that is raised when a parse or render
-// function fails. Error information from a failed parse or render exists until
-// the next of either is called.
+// These functions capture the error that is raised when a parse function fails.
+// Error information from a failed parse exists until the next parse.
 //
 // Capture functions must not be called multiple times.
 
 // Function: lily_error_message
-// Fetch the message and traceback of the last failed parse/render.
+// Fetch the message and traceback of the last failed parse.
 //
 // The output of this function is exactly what the 'lily' executable returns
 // when there is an error (the kind of error, error message, then traceback).
 //
 // The result of this is a pointer to a msgbuf inside of the interpeter. The
-// pointer is valid until the next parse/render step.
+// pointer is valid until the next parse step.
 const char *lily_error_message(lily_state *s);
 
 // Function: lily_error_message_no_trace
-// Fetch only the message of the last failed parse/render.
+// Fetch only the message of the last failed parse.
 //
 // This returns the kind of error raised and the error message. Traceback is
 // omitted. This function is used by the repl.
 //
 // The result of this is a pointer to a msgbuf inside of the interpeter. The
-// pointer is valid until the next parse/render step.
+// pointer is valid until the next parse step.
 const char *lily_error_message_no_trace(lily_state *s);
-
-//////////////////////////////
-// Section: Configuring render
-//////////////////////////////
-// Render hook and related functions.
-
-// Typedef: lily_render_func
-// Invoked when template mode needs to render content.
-//
-// Parameters:
-//     content - The text to be rendered.
-//     data    - This is the 'data' member of the interpreter's config.
 
 //////////////////////////////
 // Section: Configuring import
@@ -1413,7 +1381,7 @@ char *               lily_as_string_raw(lily_value *value);
 // Functions for calling back into the interpreter.
 //
 // These functions should only be called when the interpreter is inside a
-// foreign function, or outside of a parse/render call. Do not invoke these
+// foreign function, or outside of a parse call. Do not invoke these
 // functions from a dynaload loader or a hook.
 
 // Function: lily_call

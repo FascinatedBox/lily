@@ -44,8 +44,6 @@ class Interpreter
     public define parse_manifest_file(filename: String): Boolean
     public define parse_manifest_string(context: String, data: String): Boolean
     public define parse_string(context: String, data: String): Boolean
-    public define render_file(filename: String): Option[String]
-    public define render_string(context: String, data: String): Option[String]
     public define set_hook(fn: Function(Interpreter, String))
     public define validate_file(filename: String): Boolean
     public define validate_string(context: String, data: String): Boolean

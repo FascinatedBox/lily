@@ -1359,6 +1359,7 @@ word_case: ;
         case tk_right_curly:
         case tk_right_parenth:
         case tk_tilde:
+        case tk_question:
             ch++;
             break;
         case CC_SHARP:
@@ -1529,13 +1530,6 @@ word_case: ;
             else
                 token = tk_invalid;
             break;
-        case CC_QUESTION:
-            ch++;
-            if (*ch == '>')
-                move_set_token(tk_end_tag)
-            else
-                token = tk_question;
-            break;
         case CC_CASH:
             ch++;
             if (*ch == '1')
@@ -1562,92 +1556,13 @@ int lily_read_manifest_header(lily_lex_state *lex)
 
     /* Parser hasn't pulled a token yet to make sure the header check is at the
        absolute start of the file. Skip the line, but let parser call up the
-       token to be consistent with template header reading below. */
+       token. */
     if (result)
         read_line(lex);
     else
         lex->token_start = lex->source;
 
     return result;
-}
-
-int lily_read_template_header(lily_lex_state *lex)
-{
-    /* This cursor will either be in bounds or an exception will be raised. */
-    lex->read_cursor += 6;
-
-    /* Prevent line context from going too far if this fails. */
-    lex->token_start = lex->source;
-    return strncmp(lex->source, "<?lily", 6) == 0;
-}
-
-/* This function loads content outside of the `<?lily ... ?>` tags. This returns
-   1 if there is more content, or 0 if the content is done. If 0, the token is
-   either a non-EOF value (if there is now Lily code to read), or EOF if the
-   source has been exhausted.
-   Regardless of the result, *out_buffer is set to the buffer that the lexer
-   stored the content into. */
-char *lily_read_template_content(lily_lex_state *lex, int *has_more)
-{
-    char *ch = lex->read_cursor;
-    char *buffer = lex->label;
-    char *buffer_stop = buffer + lex->label_size - 1;
-
-    if (*ch == '\n' && *has_more == 0) {
-        if (read_line(lex)) {
-            ch = lex->read_cursor;
-            buffer = lex->label;
-            buffer_stop = buffer + lex->label_size - 1;
-        }
-        else {
-            lex->token = tk_eof;
-            *buffer = '\0';
-            *has_more = 0;
-            return lex->label;
-        }
-    }
-
-    while (1) {
-        *buffer = *ch;
-
-        if (*ch == '<') {
-            if (strncmp(ch, "<?lily", 6) == 0) {
-                lex->read_cursor = ch + 6;
-                *buffer = '\0';
-                *has_more = 0;
-                break;
-            }
-        }
-        else if (*ch == '\n') {
-            ptrdiff_t offset = buffer - lex->label;
-
-            if (read_line(lex)) {
-                ch = lex->read_cursor - 1;
-                buffer = lex->label + offset;
-                buffer_stop = buffer + lex->label_size - offset - 1;
-            }
-            else {
-                lex->token = tk_eof;
-
-                *buffer = '\0';
-                *has_more = 0;
-
-                break;
-            }
-        }
-
-        ch++;
-        buffer++;
-
-        if (buffer == buffer_stop) {
-            lex->read_cursor = ch;
-            *buffer = '\0';
-            *has_more = 1;
-            break;
-        }
-    }
-
-    return lex->label;
 }
 
 const char *tokname(lily_token t)

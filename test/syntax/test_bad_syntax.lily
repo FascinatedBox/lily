@@ -1576,21 +1576,6 @@ class TestBadSyntax < TestCase
     {
         var t = Interpreter()
 
-        # verify misc (end tag in code-only file)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?>'.
-
-               |
-             1 | ?>
-               | ^
-
-                from [test]:1:
-        """,
-        """\
-            ?>
-        """)
-
         # verify misc (wrong type for return)
 
         assert_parse_fails(t, """\

@@ -126,6 +126,7 @@ static expr_handler *expr_handlers[] =
     [tk_left_bracket] = expr_left_bracket,
     [tk_colon] = expr_close_token,
     [tk_tilde] = expr_unary,
+    [tk_question] = expr_question,
     [tk_bitwise_xor] = expr_binary,
     [tk_bitwise_xor_eq] = expr_binary,
     [tk_not] = expr_unary,
@@ -177,10 +178,8 @@ static expr_handler *expr_handlers[] =
     [tk_three_dots] = expr_close_token,
     [tk_func_pipe] = expr_binary,
     [tk_scoop] = expr_invalid,
-    [tk_question] = expr_question,
     [tk_invalid] = expr_invalid,
     [tk_end_lambda] = expr_close_token,
-    [tk_end_tag] = expr_close_token,
     [tk_eof] = expr_close_token,
 };
 

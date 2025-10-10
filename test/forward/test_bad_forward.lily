@@ -289,24 +289,6 @@ class TestBadForward < TestCase
             import unresolved_target
         """)
 
-        # unresolved at end (template not complete)
-
-        t = Interpreter()
-
-        assert_render_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward(s):
-            * f at line 1
-
-               |
-             1 | <?lily forward define f(String): String { ... } ?>
-               |                                                 ^
-
-                from [test]:1:
-        """,
-        """\
-            <?lily forward define f(String): String { ... } ?>
-        """)
-
         # unresolved at end (forward class)
 
         assert_parse_fails(t, """\

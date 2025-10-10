@@ -13,7 +13,6 @@ static void usage()
           "Usage: lily [options] [script [arguments]]\n"
           "\n"
           "Available options are:\n"
-          "  -t            execute code between <?lily ... ?> tags\n"
           "  -s cmd        execute string 'cmd' instead of a script\n"
           "  -l            local imports only (don't use system dirs)\n"
           "  -gstart N     # of values to allow before a gc sweep\n"
@@ -24,7 +23,6 @@ static void usage()
 }
 
 int is_file;
-int do_tags = 0;
 int gc_start = -1;
 int gc_multiplier = -1;
 int use_sys_dirs = 1;
@@ -37,8 +35,6 @@ static void process_args(int argc, char **argv, int *argc_offset)
         char *arg = argv[i];
         if (strcmp("-h", arg) == 0)
             usage();
-        else if (strcmp("-t", arg) == 0)
-            do_tags = 1;
         else if (strcmp("-gstart", arg) == 0) {
             i++;
             if (i + 1 == argc)
@@ -103,12 +99,8 @@ int main(int argc, char **argv)
     else
         result = lily_load_string(state, "[cli]", to_process);
 
-    if (result) {
-        if (do_tags == 0)
-            result = lily_parse_content(state);
-        else
-            result = lily_render_content(state);
-    }
+    if (result)
+        result = lily_parse_content(state);
 
     if (result == 0)
         fputs(lily_error_message(state), stderr);

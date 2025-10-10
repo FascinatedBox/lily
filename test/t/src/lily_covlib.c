@@ -310,12 +310,6 @@ void lily_covlib__scoop_narrow_with_args(lily_state *s)
     lily_return_unit(s);
 }
 
-static void ignore_render(const char *to_render, void *data)
-{
-    (void)data;
-    (void)to_render;
-}
-
 static void misc_dup_import_hook(lily_state *s, const char *target)
 {
     (void)target;
@@ -356,7 +350,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
 
     lily_config config;
     lily_config_init(&config);
-    config.render_func = ignore_render;
 
     {
         /* The repl likes this because it doesn't have to probe where traceback
@@ -450,38 +443,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
         lily_config config2;
         lily_config_init(&config2);
 
-        lily_state *subinterp = lily_new_state(&config2);
-
-        lily_load_string(subinterp, "[test]", "<?lily stdout.close()\n?>\n");
-        lily_render_content(subinterp);
-
-        const char *message = lily_error_message_no_trace(subinterp);
-
-        if (strcmp(message, "Cannot write template output to stdout.") != 0)
-            lily_RuntimeError(s,
-                    "Template write when closed failed incorrectly (%s).",
-                    message);
-
-        lily_load_string(subinterp, "[test]",
-                "<?lily stdout = stdin \n?>\nasdf\n");
-        lily_render_content(subinterp);
-
-        message = lily_error_message_no_trace(subinterp);
-
-        if (strcmp(message, "Cannot write template output to stdout.") != 0)
-            lily_RuntimeError(s,
-                    "Template write when read failed incorrectly (%s).",
-                    message);
-
-        lily_free_state(subinterp);
-
-        if (lily_is_valid_utf8("\255\255\255"))
-            lily_RuntimeError(s, "utf8 check failed.");
-    }
-    {
-        lily_config config2;
-        lily_config_init(&config2);
-
         char *config_argv[] = {"a"};
 
         config2.argc = 1;
@@ -527,7 +488,6 @@ void lily_covlib__cover_misc_api(lily_state *s)
 
         /* Running without content should return 0. */
         failed = failed || lily_parse_expr(subinterp, NULL);
-        failed = failed || lily_render_content(subinterp);
         failed = failed || lily_validate_content(subinterp);
         failed = failed || lily_parse_content(subinterp);
         failed = failed || lily_parse_manifest(subinterp);

@@ -60,7 +60,7 @@ lily_push_super(s_, ID_TestCaseBase(s_), 3)
 LILY_BACKBONE_EXPORT
 const char *lily_backbone_info_table[] = {
     "\3Interpreter\0RawInterpreter\0TestCaseBase\0"
-    ,"N\36Interpreter\0"
+    ,"N\34Interpreter\0"
     ,"m\0<new>\0: Interpreter"
     ,"m\0config_set_extra_info\0(Interpreter,Boolean): Interpreter"
     ,"m\0error\0(Interpreter): String"
@@ -84,8 +84,6 @@ const char *lily_backbone_info_table[] = {
     ,"m\0parse_manifest_file\0(Interpreter,String): Boolean"
     ,"m\0parse_manifest_string\0(Interpreter,String,String): Boolean"
     ,"m\0parse_string\0(Interpreter,String,String): Boolean"
-    ,"m\0render_file\0(Interpreter,String): Option[String]"
-    ,"m\0render_string\0(Interpreter,String,String): Option[String]"
     ,"m\0set_hook\0(Interpreter,Function(Interpreter,String))"
     ,"m\0validate_file\0(Interpreter,String): Boolean"
     ,"m\0validate_string\0(Interpreter,String,String): Boolean"
@@ -128,8 +126,6 @@ lily_call_entry_func lily_backbone_call_table[] = { \
     lily_backbone_Interpreter_parse_manifest_file, \
     lily_backbone_Interpreter_parse_manifest_string, \
     lily_backbone_Interpreter_parse_string, \
-    lily_backbone_Interpreter_render_file, \
-    lily_backbone_Interpreter_render_string, \
     lily_backbone_Interpreter_set_hook, \
     lily_backbone_Interpreter_validate_file, \
     lily_backbone_Interpreter_validate_string, \

@@ -24,27 +24,24 @@
    to them (unlikely but possible). Otherwise, the symbols are dropped. */
 #define PARSER_IS_EXECUTING 0x04
 
-/* This is used to make sure the end token is correct. */
-#define PARSER_IS_RENDERING 0x08
-
 /* Don't allow complex expressions (currently only blocks lambdas). */
-#define PARSER_SIMPLE_EXPR  0x10
+#define PARSER_SIMPLE_EXPR  0x08
 
 /* Consider `class Error(message: String) < Exception(message) { ... }`. A
    typical expression call would allow calls or subscripts against the
    `Exception` call. This tells expression to not allow that. */
-#define PARSER_SUPER_EXPR   0x20
+#define PARSER_SUPER_EXPR   0x10
 
 /* This is set when parser has a docblock to store when writing the doc section
    for a symbol. */
-#define PARSER_HAS_DOCBLOCK 0x40
+#define PARSER_HAS_DOCBLOCK 0x20
 
 /* This is set when parser is processing a manifest, or if a parse starts with
    the config struct's extra_info set to 1. If set, parser will store docblocks,
    parameter names, and other useful information for introspection. By default,
    the information is not saved, resulting in some introspection functions
    returning empty strings. */
-#define PARSER_EXTRA_INFO   0x80
+#define PARSER_EXTRA_INFO   0x40
 
 struct lily_rewind_state_;
 struct lily_import_state_;

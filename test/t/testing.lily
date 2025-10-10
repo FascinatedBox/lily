@@ -163,38 +163,6 @@ class TestCase < backbone.TestCaseBase
         check_fail_assert(result, interp, "manifest fails", expect)
     }
 
-    public define assert_render_fails(interp: backbone.Interpreter,
-                                      expect: String,
-                                      data: String)
-    {
-        var result = interp.render_string("[test]", data).is_some()
-
-        check_fail_assert(result, interp, "render fails", expect)
-    }
-
-    public define expect_render_string(interp: backbone.Interpreter,
-                                       data: String,
-                                       expect: String)
-    {
-        var result = interp.render_string("[test]", data)
-
-        if result.is_none(): {
-            send_assert_direct("Assertion (render string) failed.\n" ++
-                    interp.error())
-        else:
-            var given = result.unwrap()
-
-            if expect != given: {
-                send_assert_direct("""\
-                    Assertion (render string) rendered incorrectly.\n\
-                    (expected)`{}`\n\
-                    (received)`{}`""".format(expect, given))
-            else:
-                @pass_count += 1
-            }
-        }
-    }
-
     private define error_header(ex: Exception): String {
         var ex_name = (ex ++ "").lstrip("<").split(" ")[0]
         var ex_message = ex_name ++ ": " ++ ex.message

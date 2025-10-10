@@ -113,7 +113,6 @@ var expression_group_data = [
         "tk_colon",
         "tk_docblock",
         "tk_end_lambda",
-        "tk_end_tag",
         "tk_eof",
         "tk_left_curly",
         "tk_right_bracket",

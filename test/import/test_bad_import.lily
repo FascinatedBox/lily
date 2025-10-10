@@ -12,12 +12,6 @@ class TestBadImport < TestCase
             :data "}"
         )
 
-    private var @t_tag_at_end =
-        StringTarget(
-            :path "tag_at_end",
-            :data "?>"
-        )
-
     private var @t_invalid_token =
         StringTarget(
             :path "invalid_token",
@@ -372,43 +366,6 @@ class TestBadImport < TestCase
         """,
         """
             import brace_at_end
-        """)
-
-        # bad imported file (end tag)
-
-        t = Interpreter.with_targets(
-            @t_tag_at_end
-        )
-
-        assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?>'.
-
-               |
-             1 | ?>
-               | ^
-
-                from tag_at_end.lily:1:
-        """,
-        """
-            import tag_at_end
-        """)
-
-        # bad imported file (end tag from render origin)
-
-        t = Interpreter.with_targets(
-            @t_tag_at_end
-        )
-
-        assert_render_fails(t, """\
-            SyntaxError: Unexpected token '?>'.
-
-               |
-             1 | ?>
-               | ^
-
-                from tag_at_end.lily:1:
-        """,
-        """<?lily import tag_at_end
         """)
 
         # bad imported file (invalid)

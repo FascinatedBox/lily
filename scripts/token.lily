@@ -31,7 +31,6 @@ var cc_names = [
     "CC_CASH",
     "CC_DIGIT",
     "CC_NEWLINE",
-    "CC_QUESTION",
     "CC_SHARP",
 ]
 var token_data_size = 1 + token_data.size()
@@ -172,7 +171,6 @@ define write_ch_table(f: File)
     ch_table['B']  = cc_data["CC_B"]
     ch_table['$']  = cc_data["CC_CASH"]
     ch_table['\n'] = cc_data["CC_NEWLINE"]
-    ch_table['?']  = cc_data["CC_QUESTION"]
     ch_table['#']  = cc_data["CC_SHARP"]
     ch_table['_']  = word_id
 

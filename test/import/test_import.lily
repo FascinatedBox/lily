@@ -226,14 +226,6 @@ class TestImport < TestCase
             """
         )
 
-    private var @t_template_check =
-        StringTarget(
-            :path "template_check",
-            :data """\
-                <?lily 0 / 0 ?>
-            """
-        )
-
     private var @t_numeric_start =
         StringTarget(
             :path "0asdf",
@@ -535,37 +527,6 @@ class TestImport < TestCase
 
         assert_parse_string(t, """
             import deep_access
-        """)
-    }
-
-    public define test_verify_template_import
-    {
-        var t = Interpreter.with_targets(
-            @t_var_exporter
-        )
-
-        expect_render_string(t, """\
-            <?lily ?>
-
-            <?lily import var_exporter ?>
-        """, "\n                    ")
-
-        t = Interpreter.with_targets(
-            @t_template_check
-        )
-        assert_render_fails(t, """\
-            SyntaxError: Unexpected token '<'.
-
-               |
-             1 | <?lily 0 / 0 ?>
-               | ^
-
-                from template_check.lily:1:
-        """,
-        """\
-            <?lily ?>
-
-            <?lily import template_check ?>
         """)
     }
 

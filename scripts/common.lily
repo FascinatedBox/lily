@@ -17,6 +17,7 @@ var token_data = [
     <['[',  "[",                "tk_left_bracket"]>,
     <[':',  ":",                "tk_colon"]>,
     <['~',  "~",                "tk_tilde"]>,
+    <['?',  "?",                "tk_question"]>,
 
     # These five have their eq at +1 from their base.
     <['^',  "^",                "tk_bitwise_xor"]>,
@@ -71,10 +72,8 @@ var token_data = [
     <[' ',  "...",              "tk_three_dots"]>,
     <[' ',  "|>",               "tk_func_pipe"]>,
     <[' ',  "$1",               "tk_scoop"]>,
-    <['?',  "?",                "tk_question"]>,
     <[' ',  "invalid token",    "tk_invalid"]>,
     <[' ',  "end of lambda",    "tk_end_lambda"]>,
-    <[' ',  "?>",               "tk_end_tag"]>,
     <[' ',  "end of file",      "tk_eof"]>,
 ]
 
