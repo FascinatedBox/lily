@@ -154,12 +154,12 @@ static lily_storage *get_storage(lily_emit_state *, lily_type *);
 static lily_block *find_deepest_loop(lily_emit_state *);
 static void eval_tree(lily_emit_state *, lily_ast *, lily_type *);
 
-void lily_emit_write_class_init(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_write_class_init(lily_emit_state *emit)
 {
     lily_storage *self = emit->scope_block->self;
 
     lily_u16_write_4(emit->code, o_instance_new, self->type->cls_id,
-            self->reg_spot, line_num);
+            self->reg_spot, *emit->lex_linenum);
 }
 
 void lily_emit_write_shorthand_ctor(lily_emit_state *emit, lily_class *cls,
@@ -655,7 +655,7 @@ void lily_emit_enter_match_block(lily_emit_state *emit, lily_sym *sym)
     lily_u16_write_1(emit->patches, 0);
 }
 
-void lily_emit_enter_try_block(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_enter_try_block(lily_emit_state *emit)
 {
     lily_block *block = next_block(emit);
 
@@ -664,7 +664,7 @@ void lily_emit_enter_try_block(lily_emit_state *emit, uint16_t line_num)
     emit->block = block;
 
     /* Each branch of a try block contains a jump to the next branch. */
-    lily_u16_write_3(emit->code, o_catch_push, 1, line_num);
+    lily_u16_write_3(emit->code, o_catch_push, 1, *emit->lex_linenum);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 }
 
@@ -775,22 +775,22 @@ static int try_write_define_exit(lily_emit_state *emit, lily_type *type,
     return result;
 }
 
-void lily_emit_leave_class_block(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_leave_class_block(lily_emit_state *emit)
 {
     uint16_t self_reg = emit->block->self->reg_spot;
 
-    lily_u16_write_3(emit->code, o_return_value, self_reg, line_num);
+    lily_u16_write_3(emit->code, o_return_value, self_reg, *emit->lex_linenum);
     finish_block_code(emit);
     lily_emit_leave_scope_block(emit);
 }
 
-void lily_emit_leave_define_block(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_leave_define_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
     lily_type *type = block->scope_var->type->subtypes[0];
 
     if (block->last_exit != lily_u16_pos(emit->code) &&
-        try_write_define_exit(emit, type, line_num) == 0)
+        try_write_define_exit(emit, type, *emit->lex_linenum) == 0)
         lily_raise_syn(emit->raiser,
                 "Missing return statement at end of function.");
 
@@ -804,8 +804,7 @@ void lily_emit_leave_expr_match_block(lily_emit_state *emit)
     emit->block = emit->block->prev;
 }
 
-void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
-        uint16_t last_line)
+void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t last_line)
 {
     lily_var *var = emit->scope_block->scope_var;
 
@@ -820,13 +819,13 @@ void lily_emit_leave_import_block(lily_emit_state *emit, uint16_t line_num,
     lily_storage *s = get_storage(emit, lily_unit_type);
 
     lily_u16_write_5(emit->code, o_call_native, var->reg_spot, 0, s->reg_spot,
-            line_num);
+            *emit->lex_linenum);
 }
 
-void lily_emit_leave_lambda_block(lily_emit_state *emit, uint16_t line_num)
+void lily_emit_leave_lambda_block(lily_emit_state *emit)
 {
     if (emit->block->last_exit != lily_u16_pos(emit->code))
-        lily_u16_write_2(emit->code, o_return_unit, line_num);
+        lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
 
     finish_block_code(emit);
     lily_emit_leave_scope_block(emit);
@@ -947,7 +946,7 @@ void lily_emit_branch_finalize(lily_emit_state *emit)
 }
 
 void lily_emit_except_switch(lily_emit_state *emit, lily_class *except_cls,
-        lily_var *except_var, uint16_t line_num)
+        lily_var *except_var)
 {
     if (except_cls->id != LILY_ID_EXCEPTION)
         lily_emit_branch_switch(emit);
@@ -955,7 +954,7 @@ void lily_emit_except_switch(lily_emit_state *emit, lily_class *except_cls,
         lily_emit_branch_finalize(emit);
 
     lily_u16_write_4(emit->code, o_exception_catch, except_cls->id, 2,
-            line_num);
+            *emit->lex_linenum);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 
     if (except_var)
@@ -4966,7 +4965,7 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
             (uint16_t)-location);
 }
 
-void lily_eval_lambda_exit(lily_emit_state *emit, uint16_t line_num)
+void lily_eval_lambda_exit(lily_emit_state *emit)
 {
     if (emit->block->last_exit == lily_u16_pos(emit->code))
         /* Unreachable, so nothing more to do. */
@@ -4982,7 +4981,7 @@ void lily_eval_lambda_exit(lily_emit_state *emit, uint16_t line_num)
     if (expect == lily_unset_type ||
         expect == lily_question_type ||
         expect == lily_unit_type) {
-        lily_u16_write_2(emit->code, o_return_unit, line_num);
+        lily_u16_write_2(emit->code, o_return_unit, *emit->lex_linenum);
         emit->block->last_exit = lily_u16_pos(emit->code);
         return;
     }

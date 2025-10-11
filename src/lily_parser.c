@@ -3322,7 +3322,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
             }
         }
         else if (parser->emit->block->block_type == block_lambda) {
-            lily_eval_lambda_exit(parser->emit, lex->line_num);
+            lily_eval_lambda_exit(parser->emit);
             break;
         }
         else
@@ -3444,7 +3444,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
             parser->symtab->function_class, args_collected + 1);
 
     hide_block_vars(parser);
-    lily_emit_leave_lambda_block(parser->emit, lex->line_num);
+    lily_emit_leave_lambda_block(parser->emit);
     lily_pop_lex_entry(lex);
 
     return lambda_var;
@@ -4358,7 +4358,7 @@ static void finish_import(lily_parse_state *parser)
 
     /* Since this writes the call to the `__module__` function in the
        importer, it has to come after the lex entry is gone. */
-    lily_emit_leave_import_block(parser->emit, lex->line_num, last_line);
+    lily_emit_leave_import_block(parser->emit, last_line);
 
     m->flags &= ~MODULE_IN_EXECUTION;
 
@@ -4391,7 +4391,7 @@ static void keyword_try(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_next_token(lex);
-    lily_emit_enter_try_block(parser->emit, lex->line_num);
+    lily_emit_enter_try_block(parser->emit);
     NEED_COLON_AND_BRACE;
     lily_next_token(lex);
 }
@@ -4428,7 +4428,7 @@ static void keyword_except(lily_parse_state *parser)
         exception_var = declare_local_var(parser, except_cls->self_type);
     }
 
-    lily_emit_except_switch(emit, except_cls, exception_var, lex->line_num);
+    lily_emit_except_switch(emit, except_cls, exception_var);
     NEED_COLON_AND_NEXT;
 }
 
@@ -4612,7 +4612,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     /* Don't make 'self' available until the class is fully constructed. */
     lily_emit_create_block_self(parser->emit, cls->self_type);
-    lily_emit_write_class_init(parser->emit, lex->line_num);
+    lily_emit_write_class_init(parser->emit);
     finish_define_init(parser, call_var);
 
     if (cls->members->item_kind == ITEM_PROPERTY)
@@ -5747,7 +5747,7 @@ static void parse_block_exit(lily_parse_state *parser)
     switch (block->block_type) {
         case block_define: {
             lily_gp_restore(parser->generics, block->generic_start);
-            lily_emit_leave_define_block(emit, lex->line_num);
+            lily_emit_leave_define_block(emit);
             lily_next_token(lex);
 
             if (emit->block->block_type == block_enum)
@@ -5762,7 +5762,7 @@ static void parse_block_exit(lily_parse_state *parser)
             determine_class_gc_flag(parser->current_class);
             parser->current_class = NULL;
             lily_gp_restore(parser->generics, 0);
-            lily_emit_leave_class_block(emit, lex->line_num);
+            lily_emit_leave_class_block(emit);
             lily_next_token(lex);
             break;
         case block_enum:

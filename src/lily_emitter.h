@@ -264,7 +264,7 @@ lily_sym *lily_eval_for_result(lily_emit_state *, lily_ast *);
 void lily_eval_to_loop_var(lily_emit_state *, lily_expr_state *, lily_var *);
 void lily_eval_expr(lily_emit_state *, lily_expr_state *);
 lily_type *lily_eval_lambda_result(lily_emit_state *, lily_expr_state *);
-void lily_eval_lambda_exit(lily_emit_state *, uint16_t);
+void lily_eval_lambda_exit(lily_emit_state *);
 void lily_eval_optarg(lily_emit_state *, lily_ast *);
 void lily_eval_return(lily_emit_state *, lily_expr_state *, lily_type *);
 void lily_eval_raise(lily_emit_state *, lily_expr_state *);
@@ -272,8 +272,7 @@ void lily_eval_unit_return(lily_emit_state *);
 
 void lily_emit_branch_switch(lily_emit_state *);
 void lily_emit_branch_finalize(lily_emit_state *);
-void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *,
-        uint16_t);
+void lily_emit_except_switch(lily_emit_state *, lily_class *, lily_var *);
 void lily_emit_finish_multi_match(lily_emit_state *, uint16_t);
 int lily_emit_try_add_match_case(lily_emit_state *, lily_class *);
 void lily_emit_write_match_switch(lily_emit_state *, lily_class *);
@@ -290,16 +289,16 @@ void lily_emit_enter_for_in_block(lily_emit_state *);
 void lily_emit_enter_if_block(lily_emit_state *);
 void lily_emit_enter_lambda_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_match_block(lily_emit_state *, lily_sym *);
-void lily_emit_enter_try_block(lily_emit_state *, uint16_t);
+void lily_emit_enter_try_block(lily_emit_state *);
 void lily_emit_enter_while_block(lily_emit_state *);
 void lily_emit_enter_with_block(lily_emit_state *, lily_sym *);
 
 void lily_emit_leave_block(lily_emit_state *);
-void lily_emit_leave_class_block(lily_emit_state *, uint16_t);
-void lily_emit_leave_define_block(lily_emit_state *, uint16_t);
+void lily_emit_leave_class_block(lily_emit_state *);
+void lily_emit_leave_define_block(lily_emit_state *);
 void lily_emit_leave_expr_match_block(lily_emit_state *);
-void lily_emit_leave_import_block(lily_emit_state *, uint16_t, uint16_t);
-void lily_emit_leave_lambda_block(lily_emit_state *, uint16_t);
+void lily_emit_leave_import_block(lily_emit_state *, uint16_t);
+void lily_emit_leave_lambda_block(lily_emit_state *);
 void lily_emit_leave_scope_block(lily_emit_state *);
 int lily_emit_try_leave_match_block(lily_emit_state *);
 
@@ -307,7 +306,7 @@ void lily_emit_activate_block_self(lily_emit_state *);
 void lily_emit_create_block_self(lily_emit_state *, lily_type *);
 int lily_emit_can_use_self(lily_emit_state *, uint16_t);
 
-void lily_emit_write_class_init(lily_emit_state *, uint16_t);
+void lily_emit_write_class_init(lily_emit_state *);
 void lily_emit_write_for_header(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, uint16_t);
 void lily_emit_write_for_list(lily_emit_state *, lily_var *, lily_var *,
