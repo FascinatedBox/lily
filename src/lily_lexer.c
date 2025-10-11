@@ -1174,12 +1174,17 @@ void lily_pop_lex_entry(lily_lex_state *lex)
     lex->read_cursor = lex->source + entry->cursor_offset;
     lex->token_start = lex->source + entry->token_start_offset;
 
+    /* Restore the calling module's token. If restoring from an import, the
+       caller always has a word. If restoring from a dynaload, the restored
+       token can be any token that can complete an expression.
+       This does not need to account for lambdas, because they always apply to
+       any value. Keyword arguments do not need to be accounted for here either,
+       because a keyarg at the end of an expression is not allowed. */
+
     switch (entry->token) {
         case tk_word:
         case tk_prop_word:
-        case tk_keyword_arg:
         case tk_double_quote:
-        case tk_lambda:
         {
             lex->string_length = entry->ident_length;
 
@@ -1228,10 +1233,8 @@ static void save_lex_state(lily_lex_state *lex)
 
     switch (target->token) {
         case tk_word:
-        case tk_keyword_arg:
         case tk_prop_word:
         case tk_double_quote:
-        case tk_lambda:
             lily_sp_insert(lex->string_pile, lex->label, &next_start);
             target->ident_length = next_start - ident_start;
             break;
