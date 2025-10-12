@@ -101,8 +101,9 @@ typedef struct lily_parse_state_ {
 } lily_parse_state;
 
 void lily_parser_hide_match_vars(lily_parse_state *);
-lily_var *lily_parser_lambda_eval(lily_parse_state *, uint16_t, const char *,
-        lily_type *);
+void lily_parser_lambda_init(lily_parse_state *, const char *, uint16_t,
+      uint16_t);
+lily_sym *lily_parser_lambda_eval(lily_parse_state *, lily_type *);
 lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *,
         const char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);

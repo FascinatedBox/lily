@@ -31,6 +31,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot use a class property here.
+
+               |
+             3 | public var @b = (|| @a += 1 )
+               |                     ^
+
                 from [test]:3:
         """,
         """\
@@ -44,6 +49,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class constructors cannot call non-static methods.
+
+               |
+             3 | public var @b = (|| f() )
+               |                     ^
+
                 from [test]:3:
         """,
         """\

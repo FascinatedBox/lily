@@ -1123,6 +1123,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected either ',' or '|', not '+'.
+
+               |
+             1 | var v: Function(Integer) = (|a + return )
+               |                                ^
+
                 from [test]:1:
         """,
         """\

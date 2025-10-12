@@ -69,6 +69,7 @@ typedef struct lily_ast_ {
 
     union {
         uint16_t args_collected;
+        uint16_t lambda_offset;
         uint16_t match_var_count;
     };
 
@@ -210,6 +211,7 @@ void lily_es_push_property(lily_expr_state *, lily_prop_entry *);
 void lily_es_push_variant(lily_expr_state *, lily_variant_class *);
 void lily_es_push_text(lily_expr_state *, lily_tree_type, uint16_t, uint16_t);
 void lily_es_push_inherited_new(lily_expr_state *, lily_var *);
+void lily_es_push_lambda(lily_expr_state *, uint16_t, uint16_t, uint16_t);
 void lily_es_push_self(lily_expr_state *);
 void lily_es_push_upvalue(lily_expr_state *, lily_var *);
 void lily_es_push_integer(lily_expr_state *, int16_t);

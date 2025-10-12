@@ -11,6 +11,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'break' used outside of a loop.
+
+               |
+             2 | var v = (|| break )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -23,6 +28,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'break' used outside of a loop.
+
+               |
+             2 | var v = (|| break )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -35,6 +45,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'break' used outside of a loop.
+
+               |
+             2 | var v = (|| break )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -52,6 +67,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'continue' used outside of a loop.
+
+               |
+             2 | var v = (|| continue )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -64,6 +84,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'continue' used outside of a loop.
+
+               |
+             2 | var v = (|| continue )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -76,6 +101,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'continue' used outside of a loop.
+
+               |
+             2 | var v = (|| continue )
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -131,6 +161,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but none given.
+
+               |
+             3 | f(1, (|| var a = 11 )
+               |                     ^
+
                 from [test]:3:
         """,
         """\
@@ -143,6 +178,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but none given.
+
+               |
+             3 | f((|| if 1: {} )
+               |                ^
+
                 from [test]:3:
         """,
         """\
@@ -155,6 +195,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but none given.
+
+               |
+             3 | f(1, (|| if 1: {} )
+               |                   ^
+
                 from [test]:3:
         """,
         """\
@@ -216,6 +261,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'return' inside of a lambda requires inference, but none given.
+
+               |
+             3 | return 10
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -235,6 +285,11 @@ class TestBadLambda < TestCase
         # Blocked because this makes the type system MUCH more difficult.
         assert_parse_fails(t, """\
             SyntaxError: 'a' has an incomplete inferred type (?).
+
+               |
+             5 | f((|a| a)
+               |      ^
+
                 from [test]:5:
         """,
         """\
@@ -249,6 +304,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'a' has an incomplete inferred type (List[?]).
+
+               |
+             5 | f((|a| a)
+               |      ^
+
                 from [test]:5:
         """,
         """\
@@ -263,6 +323,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda does not have a value.
+
+               |
+             1 | var v = (|| )
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -273,6 +338,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: End of lambda while inside a block.
+
+               |
+             1 | var v = (|| if 1: { )
+               |                     ^
+
                 from [test]:1:
         """,
         """\
@@ -283,6 +353,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: '}' outside of a block.
+
+               |
+             1 | var v = (|| } 1 )
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -350,6 +425,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'b_' has an incomplete inferred type (?).
+
+               |
+             3 | f([1 => 2], (|a_, b_|)
+               |                     ^
+
                 from [test]:3:
         """,
         """\

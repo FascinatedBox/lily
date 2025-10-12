@@ -51,6 +51,11 @@ class TestBadOptargs < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Expected 'a label', not '*'.
+
+               |
+             1 | var v = (|a: *Integer=10| a )
+               |              ^
+
                 from [test]:1:
         """,
         """\

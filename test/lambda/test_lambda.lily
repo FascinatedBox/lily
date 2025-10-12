@@ -315,6 +315,11 @@ class TestLambdas < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v has not been declared.
+
+               |
+             1 | var a = (|| v a r w = 10 )
+               |             ^
+
                 from [test]:1:
         """,
         """\

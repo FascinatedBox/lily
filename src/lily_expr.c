@@ -621,6 +621,18 @@ void lily_es_push_inherited_new(lily_expr_state *es, lily_var *func)
     merge_value(es, a);
 }
 
+void lily_es_push_lambda(lily_expr_state *es, uint16_t start, uint16_t pos,
+        uint16_t offset)
+{
+    AST_COMMON_INIT(a, tree_lambda)
+
+    a->line_num = start;
+    a->pile_pos = pos;
+    a->lambda_offset = offset;
+
+    merge_value(es, a);
+}
+
 void lily_es_push_literal(lily_expr_state *es, lily_type *t, uint16_t reg_spot)
 {
     AST_COMMON_INIT(a, tree_literal);

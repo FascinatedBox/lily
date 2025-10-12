@@ -2932,8 +2932,12 @@ static void eval_lambda_to_parse(lily_emit_state *emit, lily_ast *ast,
                 "Lambda given where non-Function value expected (^T).",
                 expect);
 
-    lily_sym *lambda_result = (lily_sym *)lily_parser_lambda_eval(emit->parser,
-            ast->line_num, lambda_body, expect);
+    /* Enter the lambda and adjust the starting position. Emitter should not
+       interact with lexer. Have parser do that. */
+    lily_parser_lambda_init(emit->parser, lambda_body, ast->line_num,
+            ast->lambda_offset);
+
+    lily_sym *lambda_result = lily_parser_lambda_eval(emit->parser, expect);
 
     /* Lambdas may run 1+ expressions. Restoring the expression count to what it
        was prevents grabbing expressions that are currently in use. */

@@ -71,6 +71,8 @@ typedef struct {
     /* For tokens that can span multiple lines, this is their starting line. */
     uint16_t expand_start_line;
     union {
+        /* Where on the first line that lambda content begins. */
+        uint16_t lambda_offset;
         /* How many bytes are in the String/ByteString literal. */
         uint16_t string_length;
         /* If the last digit scanned had a sign, then that sign is at source
@@ -100,8 +102,8 @@ void lily_pop_lex_entry(lily_lex_state *);
 void lily_next_token(lily_lex_state *);
 
 int lily_read_manifest_header(lily_lex_state *);
-
 int lily_lexer_digit_rescan(lily_lex_state *);
+void lily_lexer_setup_lambda(lily_lex_state *, uint16_t, uint16_t);
 void lily_lexer_verify_path_string(lily_lex_state *);
 
 int64_t lily_scan_number(char *, int *);

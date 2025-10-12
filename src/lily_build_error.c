@@ -57,11 +57,6 @@ static int can_show_context(lily_parse_state *parser, lily_error_source es,
 
     if (lex->line_num != line_num)
         return 0;
-    else if (parser->emit->scope_block->block_type == block_lambda)
-        /* Lexer scans lambdas as a large token so parser can jump back in when
-           emitter has type information. It's possible to get trace for these,
-           but it's tricky. Eventually, but not yet. */
-        return 0;
 
     return 1;
 }
@@ -108,6 +103,22 @@ static int is_source_useful(char *source)
     return result;
 }
 
+static void patch_line_end(lily_lex_state *lex)
+{
+    /* Lexer lines always have at least a newline included (never 0). */
+    size_t len = strlen(lex->source);
+    char *end = lex->source + len - 1;
+
+    if (lex->entry->entry_type != et_lambda ||
+        *lex->entry->entry_cursor != '\0')
+        /* Patch this off so the format builder can add it for both cases. */
+        *end = '\0';
+    else
+        /* Lambdas have \0 at their end as a convenience for parser. Patch that
+           into the ending parenth. */
+        *end = ')';
+}
+
 static void add_context(lily_msgbuf *msgbuf,
         lily_parse_state *parser, uint16_t line_num)
 {
@@ -122,6 +133,8 @@ static void add_context(lily_msgbuf *msgbuf,
 
     if (is_source_useful(line) == 0)
         return;
+
+    patch_line_end(lex);
 
     char *source_end = lex->token_start;
 
@@ -140,7 +153,7 @@ static void add_context(lily_msgbuf *msgbuf,
 
     lily_mb_add_fmt(msgbuf, "\n"
                             "%s |\n"
-                            " %d | %s"
+                            " %d | %s\n"
                             "%s |", pipe_space, line_num, line, pipe_space);
     lily_mb_repeat_n(msgbuf, ' ', (int)(source_end - line + 1));
     lily_mb_add(msgbuf, "^\n\n");

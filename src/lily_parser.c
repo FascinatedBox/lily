@@ -3121,7 +3121,7 @@ static void expr_lambda(lily_parse_state *parser, uint16_t *state)
         lily_es_enter_tree(es, tree_call);
 
     lily_sp_insert(parser->expr_strings, lex->label, &es->pile_current);
-    lily_es_push_text(es, tree_lambda, lex->expand_start_line, spot);
+    lily_es_push_lambda(es, lex->expand_start_line, spot, lex->lambda_offset);
 
     if (*state == ST_WANT_OPERATOR)
         lily_es_leave_tree(es);
@@ -3397,24 +3397,25 @@ static uint16_t collect_lambda_args(lily_parse_state *parser,
     return num_args - 1;
 }
 
-/* This is the main workhorse of lambda handling. It takes the lambda body and
-   works through it. This is fairly complicated, because this happens during
-   tree eval. As such, the current state has to be saved and a lambda has to be
-   made too. When this is done, it has to build the resulting type of the lambda
-   as well. */
-lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
-        const char *lambda_body, lily_type *expect_type)
+void lily_parser_lambda_init(lily_parse_state *parser, const char *lambda_body,
+        uint16_t start_line, uint16_t lambda_offset)
+{
+    lily_lexer_load(parser->lex, et_lambda, lambda_body);
+    lily_lexer_setup_lambda(parser->lex, start_line, lambda_offset);
+}
+
+/* Emitter calls this when tree eval has reached a lambda. Lexer collects
+   lambdas as blocks of text, since the types are unknown during collection. Now
+   that the types are known, eval the lambda and yield the definition. */
+lily_sym *lily_parser_lambda_eval(lily_parse_state *parser,
+        lily_type *expect_type)
 {
     lily_lex_state *lex = parser->lex;
     uint16_t args_collected = 0, tm_return = parser->tm->pos;
     lily_type *root_result;
     uint16_t flags = 0;
 
-    lily_lexer_load(lex, et_lambda, lambda_body);
-    lex->line_num = start_line;
-
-    lily_var *lambda_var = new_define_var(parser, "(lambda)",
-            start_line);
+    lily_var *lambda_var = new_define_var(parser, "(lambda)", lex->line_num);
 
     if (expect_type->cls_id == LILY_ID_FUNCTION)
         lambda_var->type = expect_type->subtypes[0];
@@ -3447,7 +3448,7 @@ lily_var *lily_parser_lambda_eval(lily_parse_state *parser, uint16_t start_line,
     lily_emit_leave_lambda_block(parser->emit);
     lily_pop_lex_entry(lex);
 
-    return lambda_var;
+    return (lily_sym *)lambda_var;
 }
 
 /***

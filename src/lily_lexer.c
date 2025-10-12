@@ -980,8 +980,14 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
     char *label = lex->label;
     char *ch = *source_ch;
     int depth = 1;
-    int i = 0;
+    int i = ch  - lex->source;
     uint16_t start_line = lex->line_num;
+
+    /* Include the part of the line before the lambda. When the lambda is
+       entered, it will start at this offset. Doing this allows error context
+       reporting to use a lambda source the same as any other kind of source. */
+    strncpy(label, lex->source, i);
+    lex->lambda_offset = (uint16_t)i;
 
     while (1) {
         if (*ch == '\n' ||
@@ -1064,6 +1070,13 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
 
     if (lex->expand_start_line != lex->line_num)
         lex->token_start = lex->source;
+}
+
+void lily_lexer_setup_lambda(lily_lex_state *lex, uint16_t start_line,
+        uint16_t offset)
+{
+    lex->line_num = start_line;
+    lex->read_cursor += offset;
 }
 
 /* Walk the string literal that 'import' was given to make sure that it's
