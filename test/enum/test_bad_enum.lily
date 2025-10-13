@@ -149,7 +149,7 @@ class TestBadEnum < TestCase
         # non-identifier on first variant
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not 'a string'.
+            SyntaxError: Expected a variant name here.
 
                |
              2 | "One",
@@ -236,7 +236,7 @@ class TestBadEnum < TestCase
         # enum rules (no toplevel code in enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'define' or '}', not this (did you forget a comma?)
+            SyntaxError: Expected either 'define' or '}' (did you forget a comma?)
 
                |
              8 | var @v = 10

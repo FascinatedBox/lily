@@ -34,7 +34,7 @@ class TestBadManifest < TestCase
         var t = Interpreter()
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected a keyword after docblock, but got end of file.
+            SyntaxError: Docblocks must be followed by a declaration keyword.
                 from [test]:4:
         """,
         """\
@@ -44,7 +44,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Unexpected token '!'.
+            SyntaxError: Expected a keyword, '}', or end of file here.
 
                |
              3 | !
@@ -74,7 +74,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.
+            SyntaxError: Reached end of file while still inside a block.
                 from [test]:4:
         """,
         """\
@@ -481,7 +481,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected 'a label', not 'a property name'.
+            SyntaxError: Expected a name for a constant here.
 
                |
              3 | constant @x: Integer
@@ -667,7 +667,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected to see 'class' here.
+            SyntaxError: Expected 'class' here.
 
                |
              3 | forward foreign
@@ -699,7 +699,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected '...', not 'end of file'.
+            SyntaxError: Expected '...' here.
                 from [test]:4:
         """,
         """\
@@ -709,7 +709,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected '}', not 'end of file'.
+            SyntaxError: Expected '}' here.
                 from [test]:4:
         """,
         """\

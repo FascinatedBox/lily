@@ -50,7 +50,7 @@ class TestBadOptargs < TestCase
         # optarg rules (no default arguments for lambdas)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '*'.
+            SyntaxError: Expected a class name here.
 
                |
              1 | var v = (|a: *Integer=10| a )
@@ -167,7 +167,7 @@ class TestBadOptargs < TestCase
         # optarg rules (no default value given)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | define f(a: *Integer=) { }

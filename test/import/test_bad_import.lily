@@ -120,7 +120,7 @@ class TestBadImport < TestCase
         # bad direct import (trailing comma)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not ')'.
+            SyntaxError: Expected a symbol name (module, class, etc.) here.
 
                |
              2 | import (ref_var,) var_exporter
@@ -212,7 +212,7 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not ')'.
+            SyntaxError: Expected a symbol name (module, class, etc.) here.
 
                |
              2 | import () var_exporter
@@ -232,7 +232,7 @@ class TestBadImport < TestCase
         # bad import path (invalid token)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'import' expected a path (identifier or string), not ?.
+            SyntaxError: 'import' expected a path (identifier or string) here.
 
                |
              1 | import ?
@@ -375,7 +375,7 @@ class TestBadImport < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | ;
@@ -446,7 +446,7 @@ class TestBadImport < TestCase
         # import rules (wrong symbol in direct import)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '+'.
+            SyntaxError: Expected either ',' or ')' here.
 
                |
              2 | import (v +) var_exporter

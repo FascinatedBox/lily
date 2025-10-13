@@ -185,7 +185,7 @@ class TestBadSyntax < TestCase
         # bad blocks (while after do)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'while' here.
+            SyntaxError: Expected 'while' here.
 
                |
              2 | } asdf
@@ -219,7 +219,7 @@ class TestBadSyntax < TestCase
         # bad blocks (unterminated if)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.
+            SyntaxError: Reached end of file while still inside a block.
                 from [test]:2:
         """,
         """\
@@ -1329,7 +1329,7 @@ class TestBadSyntax < TestCase
         # define rules (forbid scoop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '$1'.
+            SyntaxError: Expected a class name here.
 
                |
              1 | define test: $1 {}
@@ -1564,7 +1564,7 @@ class TestBadSyntax < TestCase
         # var rules (init expression required)
 
         assert_parse_fails(t, """\
-            SyntaxError: An initialization expression is required here.
+            SyntaxError: Expected '=' <expression> here.
                 from [test]:2:
         """,
         """\
@@ -1617,7 +1617,7 @@ class TestBadSyntax < TestCase
         # ternary (? without value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = (? 1 : 2)
@@ -1707,7 +1707,7 @@ class TestBadSyntax < TestCase
         # ternary (empty falsey part)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | var v = (1 ? 2 : )
@@ -1756,7 +1756,7 @@ class TestBadSyntax < TestCase
         # bad for range (require 'by' in for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'by', not 'asdf'.
+            SyntaxError: Expected 'by' here.
 
                |
              1 | for i in 0...10 asdf
@@ -1771,7 +1771,7 @@ class TestBadSyntax < TestCase
         # bad for range (require 'in' within for loop)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'in' here.
+            SyntaxError: Expected 'in' here.
 
                |
              1 | for i asdf 0...10: {}
@@ -1944,7 +1944,7 @@ class TestBadSyntax < TestCase
         # Must have 1 or 2 vars.
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'in' here.
+            SyntaxError: Expected 'in' here.
 
                |
              1 | for in [1]: {}
@@ -1957,7 +1957,7 @@ class TestBadSyntax < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'in' here.
+            SyntaxError: Expected 'in' here.
 
                |
              1 | for a, b, c in [1]: {}

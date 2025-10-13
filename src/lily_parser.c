@@ -14,16 +14,23 @@
 #include "lily_string_pile.h"
 #include "lily_value.h"
 
+#define NEED_IDENT(message) \
+if (lex->token != tk_word) \
+    lily_raise_syn(parser->raiser, message);
+
+#define NEED_NEXT_IDENT(message) \
+lily_next_token(lex); \
+if (lex->token != tk_word) \
+    lily_raise_syn(parser->raiser, message);
+
 #define NEED_NEXT_TOK(expected) \
 lily_next_token(lex); \
 if (lex->token != expected) \
-    lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", \
-               tokname(expected), tokname(lex->token));
+    lily_raise_syn(parser->raiser, "Expected '%s' here.", tokname(expected));
 
 #define NEED_CURRENT_TOK(expected) \
 if (lex->token != expected) \
-    lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", \
-               tokname(expected), tokname(lex->token));
+    lily_raise_syn(parser->raiser, "Expected '%s' here.", tokname(expected));
 
 #define NEED_COLON_AND_BRACE \
 NEED_CURRENT_TOK(tk_colon) \
@@ -1163,7 +1170,7 @@ static lily_type *get_define_arg(lily_parse_state *parser, int *flags)
 {
     lily_lex_state *lex = parser->lex;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_IDENT("Expected a definition name here.")
 
     lily_var *var = declare_local_var(parser, NULL);
 
@@ -1193,7 +1200,7 @@ static lily_type *get_class_arg(lily_parse_state *parser, int *flags)
     lily_var *var;
     uint16_t modifiers = 0;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_IDENT("Expected an argument name here.")
 
     if (lex->label[0] == 'p') {
         int keyword = keyword_by_name(lex->label);
@@ -1279,7 +1286,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
     else if ((flags & F_SCOOP_OK) && lex->token == tk_scoop)
         cls = lily_scoop_class;
     else {
-        NEED_CURRENT_TOK(tk_word)
+        NEED_IDENT("Expected a class name here.")
     }
 
     if (cls->item_kind & ITEM_IS_VARIANT)
@@ -1302,7 +1309,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
                 break;
             else
                 lily_raise_syn(parser->raiser,
-                        "Expected ',' <type> or ']' here.");
+                        "Expected either ',' <type> or ']' here.");
         }
 
         result = lily_tm_make(parser->tm, cls, i);
@@ -1368,7 +1375,7 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
     char name[] = {ch, '\0'};
 
     while (1) {
-        NEED_NEXT_TOK(tk_word)
+        NEED_NEXT_IDENT("Expected a name for a generic here.")
 
         if (lex->label[0] != ch || lex->label[1] != '\0') {
             if (ch == 'Z' + 1)
@@ -1561,8 +1568,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
             }
             else
                 lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ')', not '%s'.",
-                        tokname(lex->token));
+                        "Expected either ',' or ')' here.");
         }
     }
 
@@ -1733,7 +1739,7 @@ static lily_module_entry *resolve_module(lily_parse_state *parser,
 
     while (1) {
         NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_TOK(tk_word)
+        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
         m = lily_find_module(m, lex->label);
         if (m == NULL)
             break;
@@ -1773,7 +1779,7 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
 
     while (m) {
         NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_TOK(tk_word)
+        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
         name = lex->label;
 
         result = find_dl_class_in(parser, m, name);
@@ -2636,7 +2642,7 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
         return;
     }
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a class member name here.")
 
     lily_item *item = (lily_item *)lily_find_member_in_class(cls, lex->label);
 
@@ -2861,8 +2867,8 @@ static void expr_close_token(lily_parse_state *parser, uint16_t *state)
     lily_token token = parser->lex->token;
 
     if (*state == ST_DEMAND_VALUE)
-        lily_raise_syn(parser->raiser, "Expected a value, not '%s'.",
-                tokname(token));
+        lily_raise_syn(parser->raiser,
+                "Expected a value (var, literal, lambda, etc.) here.");
     else if (depth == 0) {
         *state = (*state == ST_WANT_OPERATOR);
         return;
@@ -2997,9 +3003,7 @@ static void expr_dot(lily_parse_state *parser, uint16_t *state)
     }
     else
         lily_raise_syn(parser->raiser,
-                "Expected either '%s' or '%s', not '%s'.",
-                tokname(tk_word), tokname(tk_typecast_parenth),
-                tokname(lex->token));
+                "Expected a property name or '@(' here.");
 }
 
 static void expr_double(lily_parse_state *parser, uint16_t *state)
@@ -3239,8 +3243,8 @@ static void expression_raw(lily_parse_state *parser)
         if (state == ST_DONE)
             break;
         else if (state == ST_BAD_TOKEN)
-            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                    tokname(lex->token));
+            lily_raise_syn(parser->raiser,
+                    "Unexpected token within an expression.");
         else if (state & ST_FORWARD)
             state &= ~ST_FORWARD;
         else
@@ -3292,8 +3296,7 @@ static lily_type *parse_lambda_body(lily_parse_state *parser)
     lily_next_token(parser->lex);
 
     if (lex->token == tk_end_lambda)
-        lily_raise_syn(parser->raiser, "Lambda does not have a value.",
-                tokname(tk_end_lambda));
+        lily_raise_syn(parser->raiser, "Lambda does not have a value.");
 
     while (1) {
         int key_id = KEY_BAD_ID;
@@ -3346,7 +3349,7 @@ static uint16_t collect_lambda_args(lily_parse_state *parser,
     lily_var *arg_var = NULL;
 
     while (1) {
-        NEED_NEXT_TOK(tk_word)
+        NEED_NEXT_IDENT("Expected a variable name here.")
         arg_var = declare_local_var(parser, NULL);
         lily_type *arg_type;
 
@@ -3379,9 +3382,7 @@ static uint16_t collect_lambda_args(lily_parse_state *parser,
         else if (lex->token == tk_bitwise_or)
             break;
         else
-            lily_raise_syn(parser->raiser,
-                    "Expected either ',' or '|', not '%s'.",
-                    tokname(lex->token));
+            lily_raise_syn(parser->raiser, "Expected either ',' or '|' here.");
     }
 
     /* Only mark the lambda as varargs if it can do that. */
@@ -3620,10 +3621,8 @@ static void keyword_var(lily_parse_state *parser)
             sym->type = get_type(parser);
         }
 
-        if (lex->token != tk_equal) {
-            lily_raise_syn(parser->raiser,
-                    "An initialization expression is required here.");
-        }
+        if (lex->token != tk_equal)
+            lily_raise_syn(parser->raiser, "Expected '=' <expression> here.");
 
         lily_es_push_assign_to(parser->expr, sym);
         lily_next_token(lex);
@@ -3874,7 +3873,7 @@ static void parse_one_constant(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_IDENT("Expected a name for a constant here.")
 
     lily_var *var = declare_constant(parser);
 
@@ -3911,8 +3910,7 @@ static void parse_one_constant(lily_parse_state *parser)
         /* Silence a warning about uninitialized use. */
         lit = NULL;
         lily_raise_syn(parser->raiser,
-                "Constant initialization expects a primitive value, not '%s'.",
-                tokname(lex->token));
+                "Constant initialization expects a primitive value (ex: 1 or \"abc\").");
     }
 
     var->type = t;
@@ -3977,7 +3975,7 @@ static void expect_word(lily_parse_state *parser, const char *what)
     if (parser->lex->token == tk_word && strcmp(parser->lex->label, what) == 0)
         return;
 
-    lily_raise_syn(parser->raiser, "Expected to see '%s' here.", what);
+    lily_raise_syn(parser->raiser, "Expected '%s' here.", what);
 }
 
 static int extra_if_word(lily_parse_state *parser, const char *what)
@@ -3987,8 +3985,7 @@ static int extra_if_word(lily_parse_state *parser, const char *what)
 
     if (lex->token == tk_word) {
         if (strcmp(lex->label, what) != 0)
-            lily_raise_syn(parser->raiser, "Expected '%s', not '%s'.", what,
-                    lex->label);
+            lily_raise_syn(parser->raiser, "Expected '%s' here.", what);
 
         result = 1;
     }
@@ -4000,7 +3997,7 @@ static lily_var *parse_for_var(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a variable name here.")
 
     lily_var *result = find_active_var(parser, lex->label);
 
@@ -4121,7 +4118,7 @@ static void keyword_for(lily_parse_state *parser)
     else if (lex->token == tk_three_dots)
         parse_for_range(parser, first_var, second_var);
     else
-        lily_raise_syn(parser->raiser, "Expected ':' or '...' here.");
+        lily_raise_syn(parser->raiser, "Expected either ':' or '...' here.");
 
     /* For list handling fixes the second var, if that's necessary. */
     first_var->flags &= ~SYM_NOT_INITIALIZED;
@@ -4192,7 +4189,8 @@ static void parse_import_refs(lily_parse_state *parser)
         lily_u16_write_1(parser->data_stack, parser->data_string_pos);
 
         while (1) {
-            NEED_NEXT_TOK(tk_word)
+            NEED_NEXT_IDENT(
+                    "Expected a symbol name (module, class, etc.) here.")
             lily_pa_add_data_string(parser, lex->label);
             count++;
 
@@ -4202,8 +4200,7 @@ static void parse_import_refs(lily_parse_state *parser)
                 break;
             else if (lex->token != tk_comma)
                 lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ')', not '%s'.",
-                        tokname(lex->token));
+                        "Expected either ',' or ')' here.");
         }
 
         lily_next_token(lex);
@@ -4240,8 +4237,7 @@ static void parse_import_path_into_ims(lily_parse_state *parser)
     }
     else
         lily_raise_syn(parser->raiser,
-                "'import' expected a path (identifier or string), not %s.",
-                tokname(lex->token));
+                "'import' expected a path (identifier or string) here.");
 
     ims->source_module = parser->symtab->active_module;
     ims->last_import = NULL;
@@ -4277,7 +4273,7 @@ static void parse_import_link(lily_parse_state *parser, lily_module_entry *m)
         char *name = NULL;
 
         if (lex->token == tk_word && strcmp(lex->label, "as") == 0) {
-            NEED_NEXT_TOK(tk_word)
+            NEED_NEXT_IDENT("Expected a name for the module here.")
             name = lex->label;
         }
 
@@ -4425,7 +4421,7 @@ static void keyword_except(lily_parse_state *parser)
     hide_block_vars(parser);
 
     if (extra_if_word(parser, "as")) {
-        NEED_NEXT_TOK(tk_word)
+        NEED_NEXT_IDENT("Expected a variable name here.")
         exception_var = declare_local_var(parser, except_cls->self_type);
     }
 
@@ -4508,7 +4504,8 @@ static lily_item *search_for_valid_classlike(lily_parse_state *parser,
 static void parse_super(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
-    NEED_NEXT_TOK(tk_word)
+
+    NEED_NEXT_IDENT("Expected the name of a parent class here.")
 
     lily_class *super_class = resolve_class_name(parser);
 
@@ -4757,7 +4754,7 @@ static void keyword_class(lily_parse_state *parser)
 
     lily_lex_state *lex = parser->lex;
 
-    NEED_NEXT_TOK(tk_word);
+    NEED_NEXT_IDENT("Expected a name for the class here.")
 
     lily_class *search_cls = (lily_class *)search_for_valid_classlike(parser,
                 lex->label);
@@ -4895,7 +4892,7 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
         parse_enum_inheritance(parser, enum_cls);
 
     NEED_CURRENT_TOK(tk_left_curly)
-    NEED_NEXT_TOK(tk_word);
+    NEED_NEXT_IDENT("Expected a variant name here.")
 
     while (1) {
         lily_variant_class *variant_cls = lily_find_variant(enum_cls,
@@ -4977,7 +4974,7 @@ static void enum_method_check(lily_parse_state *parser)
     }
 
     lily_raise_syn(parser->raiser,
-            "Expected 'define' or '}', not this (did you forget a comma?)");
+            "Expected either 'define' or '}' (did you forget a comma?)");
 }
 
 static void determine_enum_gc_flag(lily_class *enum_cls)
@@ -5033,7 +5030,7 @@ static void keyword_enum(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Cannot declare an enum while inside a block.");
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a name for the enum here.")
 
     lily_item *search_item = search_for_valid_classlike(parser, lex->label);
 
@@ -5058,9 +5055,9 @@ static void keyword_scoped(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
             "Cannot declare an enum while inside a block.");
 
-    NEED_NEXT_TOK(tk_word)
+    lily_next_token(lex);
     expect_word(parser, "enum");
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected an enum name here.")
 
     lily_item *search_item = search_for_valid_classlike(parser, lex->label);
 
@@ -5083,7 +5080,7 @@ static lily_class *parse_target_to_match(lily_parse_state *parser,
     lily_lex_state *lex = parser->lex;
     lily_class *cls;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_IDENT("Expected a name to match here.")
 
     if (match_cls->item_kind & ITEM_IS_CLASS) {
         cls = resolve_class_name(parser);
@@ -5129,7 +5126,7 @@ static lily_var *parse_decompose_var(lily_parse_state *parser, lily_type *type)
     lily_lex_state *lex = parser->lex;
     lily_var *result;
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a name here (or _ to ignore the value).")
 
     if (strcmp(lex->label, "_") != 0)
         result = declare_local_var(parser, type);
@@ -5287,10 +5284,10 @@ static void keyword_match(lily_parse_state *parser)
     verify_match_with_type(parser, target->type, "Match");
     lily_emit_enter_match_block(parser->emit, target);
     NEED_COLON_AND_BRACE;
-    NEED_NEXT_TOK(tk_word)
+    lily_next_token(lex);
 
-    if (keyword_by_name(lex->label) != KEY_CASE)
-        lily_raise_syn(parser->raiser, "match must start with a case.");
+    if (lex->token != tk_word || strcmp(lex->label, "case") != 0)
+        lily_raise_syn(parser->raiser, "Match must start with a case.");
 
     keyword_case(parser);
 }
@@ -5302,7 +5299,7 @@ static void parse_expr_match_case(lily_parse_state *parser)
     uint16_t spot = parser->expr->pile_current;
     uint16_t var_count = 0;
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a variant name to match here.")
     lily_sp_insert(parser->expr_strings, lex->label,
             &parser->expr->pile_current);
     lily_next_token(lex);
@@ -5311,7 +5308,8 @@ static void parse_expr_match_case(lily_parse_state *parser)
 
     if (lex->token == tk_left_parenth) {
         while (1) {
-            NEED_NEXT_TOK(tk_word)
+            NEED_NEXT_IDENT(
+                    "Expected a name here (or _ to ignore the value).")
 
             last_var = declare_match_var(parser, lex->label, lex->line_num);
             lily_next_token(lex);
@@ -5395,7 +5393,8 @@ first_case:
                 }
             }
 
-            lily_raise_syn(parser->raiser, "Expected 'case' or 'else' here.");
+            lily_raise_syn(parser->raiser,
+                    "Expected either 'case' or 'else' here.");
         } while (0);
 
         lily_next_token(lex);
@@ -5516,7 +5515,7 @@ static void keyword_define(lily_parse_state *parser)
     if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
         parent = parser->current_class;
 
-    NEED_CURRENT_TOK(tk_word)
+    NEED_IDENT("Expected a definition name here.")
 
     lily_var *define_var = parse_new_define(parser, parent, modifiers);
 
@@ -5553,28 +5552,31 @@ static void verify_static_modifier(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
 
-    NEED_NEXT_TOK(tk_word)
+    lily_next_token(lex);
 
-    if (keyword_by_name(lex->label) != KEY_DEFINE)
-        lily_raise_syn(parser->raiser,
-                "'static' must be followed by 'define', not '%s'.",
-                lex->label);
+    if (lex->token == tk_word && strcmp(lex->label, "define") == 0)
+        return;
+
+    lily_raise_syn(parser->raiser, "'static' must be followed by 'define'.");
 }
 
 static void parse_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
     uint16_t modifiers = 0;
+    int in_class = (parser->emit->block->block_type == block_class);
 
     if (key == KEY_FORWARD) {
         lily_block_type block_type = parser->emit->block->block_type;
         if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
             lily_raise_syn(parser->raiser,
-                    "'forward' qualifier not allowed in this scope.");
+                    "'forward' must be outside of a block or in a class.");
 
         modifiers |= SYM_IS_FORWARD;
-        NEED_NEXT_TOK(tk_word)
-        key = keyword_by_name(lex->label);
+        lily_next_token(lex);
+
+        if (lex->token == tk_word)
+            key = keyword_by_name(lex->label);
     }
 
     if (key == KEY_PUBLIC ||
@@ -5587,17 +5589,18 @@ static void parse_modifier(lily_parse_state *parser, int key)
         else
             modifiers |= SYM_SCOPE_PRIVATE;
 
-        if (parser->emit->block->block_type != block_class)
-            lily_raise_syn(parser->raiser, "'%s' is not allowed here.",
-                    scope_to_str(modifiers));
+        if (in_class == 0)
+            lily_raise_syn(parser->raiser,
+                "Class method scope must be within a class block.");
 
-        NEED_NEXT_TOK(tk_word)
-        key = keyword_by_name(lex->label);
+        lily_next_token(lex);
+
+        if (lex->token == tk_word)
+            key = keyword_by_name(lex->label);
     }
-    else if (modifiers & SYM_IS_FORWARD &&
-             parser->emit->block->block_type == block_class) {
+    else if (modifiers & SYM_IS_FORWARD && in_class) {
         lily_raise_syn(parser->raiser,
-                "'forward' must be followed by a class scope here.");
+                "Expected a scope here after 'forward'.");
     }
 
     if (key == KEY_STATIC) {
@@ -5624,8 +5627,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
         if (modifiers & SYM_IS_FORWARD)
             what = "'class' or 'define'";
 
-        lily_raise_syn(parser->raiser, "Expected %s, but got '%s'.", what,
-                lex->label);
+        lily_raise_syn(parser->raiser, "Expected %s here.", what);
     }
 
     parser->modifiers = 0;
@@ -5893,8 +5895,8 @@ static void parser_loop(lily_parse_state *parser)
             lily_block *b = parser->emit->block;
 
             if (b->block_type != block_file)
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(tk_eof));
+                lily_raise_syn(parser->raiser,
+                        "Reached end of file while still inside a block.");
             else if (b->forward_count)
                 error_forward_decl_pending(parser);
             else if (b->forward_class_count)
@@ -5986,7 +5988,7 @@ static void manifest_constant(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "Cannot declare a constant inside a class or enum.");
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a name for a constant here.")
 
     lily_var *var = declare_constant(parser);
 
@@ -6065,7 +6067,7 @@ static void manifest_modifier(lily_parse_state *parser, int key)
     else if (key == KEY_PRIVATE)
         modifiers |= SYM_SCOPE_PRIVATE;
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected either 'static' or 'define' here.")
     key = keyword_by_name(lex->label);
 
     if (key == KEY_STATIC) {
@@ -6134,7 +6136,7 @@ static void manifest_library(lily_parse_state *parser)
     /* This keyword takes an identifier to use in place of the loadname. The
        manifest files for predefined modules need this so they can export the
        right name for tooling. */
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Expected a library name here.")
 
     if (strcmp(lex->label, "prelude") == 0) {
         manifest_override_prelude(parser);
@@ -6205,7 +6207,7 @@ static void manifest_predefined(lily_parse_state *parser)
         lily_raise_syn(parser->raiser,
                 "'predefined' only available to the prelude module.");
 
-    NEED_NEXT_TOK(tk_word)
+    NEED_NEXT_IDENT("Predefined symbol name expected here.")
 
     lily_class *cls = find_or_dl_class(parser, prelude, lex->label);
 
@@ -6257,8 +6259,7 @@ static void manifest_loop(lily_parse_state *parser)
 
             if (lex->token != tk_word)
                 lily_raise_syn(parser->raiser,
-                        "Expected a keyword after docblock, but got %s.",
-                        tokname(lex->token));
+                        "Docblocks must be followed by a declaration keyword.");
         }
 
         if (lex->token == tk_word) {
@@ -6299,8 +6300,8 @@ static void manifest_loop(lily_parse_state *parser)
             lily_block *b = parser->emit->block;
 
             if (b->block_type != block_file)
-                lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                        tokname(tk_eof));
+                lily_raise_syn(parser->raiser,
+                        "Reached end of file while still inside a block.");
 
             if (b->forward_class_count)
                 error_forward_classes_pending(parser);
@@ -6311,8 +6312,8 @@ static void manifest_loop(lily_parse_state *parser)
                 break;
         }
         else
-            lily_raise_syn(parser->raiser, "Unexpected token '%s'.",
-                    tokname(lex->token));
+            lily_raise_syn(parser->raiser,
+                    "Expected a keyword, '}', or end of file here.");
     }
 }
 

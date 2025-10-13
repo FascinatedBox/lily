@@ -33,7 +33,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '(', not ':'.
+            SyntaxError: Expected '(' here.
 
                |
              4 | case Some:
@@ -51,7 +51,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ':', not '('.
+            SyntaxError: Expected ':' here.
 
                |
              4 | case None(a):
@@ -180,7 +180,7 @@ class TestBadMatchWith < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: match must start with a case.
+            SyntaxError: Match must start with a case.
 
                |
              4 | v = Some(1)
@@ -439,7 +439,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ':', not '('.
+            SyntaxError: Expected ':' here.
 
                |
              4 | else(s):
@@ -729,7 +729,7 @@ class TestBadMatchWith < TestCase
         # Can't assign to a match expression.
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '='.
+            SyntaxError: Unexpected token within an expression.
 
                |
              7 | } = 10
@@ -790,7 +790,7 @@ class TestBadMatchWith < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token ']'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              6 | }]
@@ -911,7 +911,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ':', not ','.
+            SyntaxError: Expected ':' here.
 
                |
              9 | case One, Two:

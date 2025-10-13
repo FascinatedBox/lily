@@ -480,7 +480,7 @@ class TestVerifyCoverage < TestCase
 
         t.parse_expr("[test]", "10 +").is_none() |> assert_true
         assert_equal(t.error(), """\
-SyntaxError: Expected a value, not 'end of file'.
+SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
    |
  1 | 10 +

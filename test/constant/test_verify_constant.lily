@@ -135,7 +135,7 @@ class TestVerifyConstant < TestCase
         # failure (init by another constant)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constant initialization expects a primitive value, not 'a label'.
+            SyntaxError: Constant initialization expects a primitive value (ex: 1 or "abc").
 
                |
              2 | constant b = a
@@ -151,7 +151,7 @@ class TestVerifyConstant < TestCase
         # failure (bad value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Constant initialization expects a primitive value, not 'a lambda'.
+            SyntaxError: Constant initialization expects a primitive value (ex: 1 or "abc").
 
                |
              1 | constant a = (|b: Integer| b + b )

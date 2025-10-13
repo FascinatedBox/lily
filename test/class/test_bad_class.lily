@@ -1208,7 +1208,7 @@ class TestBadClass < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: 'public' is not allowed here.
+            SyntaxError: Class method scope must be within a class block.
 
                |
              1 | public class Test {}
@@ -1389,7 +1389,7 @@ class TestBadClass < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not 'a string'.
+            SyntaxError: Expected a class name here.
 
                |
              3 | public define f: "self" {}

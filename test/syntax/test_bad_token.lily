@@ -25,7 +25,7 @@ class TestBadToken < TestCase
         # class (decl with wrong token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '>='.
+            SyntaxError: Expected either ',' or ')' here.
 
                |
              1 | class Example(a: Integer >=
@@ -72,7 +72,7 @@ class TestBadToken < TestCase
         # class (using @prop outside a class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either 'a label' or '@(', not 'a property name'.
+            SyntaxError: Expected a property name or '@(' here.
 
                |
              5 | var v = Test("abc").@name
@@ -106,7 +106,7 @@ class TestBadToken < TestCase
         # class (wrong token after qualifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'a label', not '+'.
+            SyntaxError: Expected 'class', 'var', or 'define' here.
 
                |
              2 | public + f {}
@@ -128,7 +128,7 @@ class TestBadToken < TestCase
         # bad define (wrong token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '!'.
+            SyntaxError: Expected either ',' or ')' here.
 
                |
              1 | define f(a: Integer !
@@ -178,7 +178,7 @@ class TestBadToken < TestCase
         # bad enum (filled variant wrong arg token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or ')', not '+'.
+            SyntaxError: Expected either ',' or ')' here.
 
                |
              2 | One(Integer +
@@ -194,7 +194,7 @@ class TestBadToken < TestCase
         # bad enum (variant next to variant in call)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a label'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              6 | ObjList(ObjList() ObjList())
@@ -219,7 +219,7 @@ class TestBadToken < TestCase
         # bad exception (expect as after exception class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'as', not 'asdf'.
+            SyntaxError: Expected 'as' here.
 
                |
              3 | except Exception asdf:
@@ -273,7 +273,7 @@ class TestBadToken < TestCase
         # bad expression (comma at end of file)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token ','.
+            SyntaxError: Unexpected token within an expression.
 
                |
              2 | a = 10,
@@ -289,7 +289,7 @@ class TestBadToken < TestCase
         # bad expression (right brace at end)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token ']'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              3 | ]
@@ -316,7 +316,7 @@ class TestBadToken < TestCase
         # bad expression (unary op when expecting binary)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '!'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = 1 !
@@ -331,7 +331,7 @@ class TestBadToken < TestCase
         # bad expression (binary op when needing a value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '-='.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = ! -=
@@ -383,7 +383,7 @@ class TestBadToken < TestCase
         # bad expression (typecast wrong close token)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected ')', not '+'.
+            SyntaxError: Expected ')' here.
 
                |
              1 | var a = 10.@(Integer+
@@ -428,7 +428,7 @@ class TestBadToken < TestCase
         # bad expression (cast for binary op)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '@('.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var a = 10 + .@(Integer)
@@ -443,7 +443,7 @@ class TestBadToken < TestCase
         # bad expression (cast for list)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '@('.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var a = [1, .@(Integer)]
@@ -458,7 +458,7 @@ class TestBadToken < TestCase
         # bad expression (cast for toplevel)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '@('.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | .@(Integer)
@@ -473,7 +473,7 @@ class TestBadToken < TestCase
         # bad expression (toplevel comma)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token ','.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | ,
@@ -488,7 +488,7 @@ class TestBadToken < TestCase
         # bad expression (toplevel arrow)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '=>'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | =>
@@ -508,7 +508,7 @@ class TestBadToken < TestCase
         # bad expression value (byte)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a byte'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 '1'
@@ -523,7 +523,7 @@ class TestBadToken < TestCase
         # bad expression value (bytestring)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a bytestring'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 B"1"
@@ -538,7 +538,7 @@ class TestBadToken < TestCase
         # bad expression value (double)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a double'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 1.0
@@ -553,7 +553,7 @@ class TestBadToken < TestCase
         # bad expression value (false)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a label'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 false
@@ -568,7 +568,7 @@ class TestBadToken < TestCase
         # bad expression value (identifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a label'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 print
@@ -583,7 +583,7 @@ class TestBadToken < TestCase
         # bad expression value (integer)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'an integer'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 1
@@ -598,7 +598,7 @@ class TestBadToken < TestCase
         # bad expression value (property)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a property name'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              4 | public var @b = ((1 @a
@@ -618,7 +618,7 @@ class TestBadToken < TestCase
         # bad expression value (string)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a string'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 "1"
@@ -633,7 +633,7 @@ class TestBadToken < TestCase
         # bad expression value (true)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a label'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 true
@@ -648,7 +648,7 @@ class TestBadToken < TestCase
         # bad expression value (tuple)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '<['.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | (1 <[]>]>
@@ -668,7 +668,7 @@ class TestBadToken < TestCase
         # bad forward (expect ... in body)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '...', not '+'.
+            SyntaxError: Expected '...' here.
 
                |
              1 | forward define f { + }
@@ -683,7 +683,7 @@ class TestBadToken < TestCase
         # bad forward (expect + after ...)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected '}', not '+'.
+            SyntaxError: Expected '}' here.
 
                |
              1 | forward define f { ... +
@@ -738,7 +738,7 @@ class TestBadToken < TestCase
         # bad keyargs (in a static list)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              3 | var v = [:a 5]
@@ -755,7 +755,7 @@ class TestBadToken < TestCase
         # bad keyargs (in parenth)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = (:a 5)
@@ -770,7 +770,7 @@ class TestBadToken < TestCase
         # bad keyargs (in a tuple)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = <[:a 5]>
@@ -785,7 +785,7 @@ class TestBadToken < TestCase
         # bad keyargs (after binary op)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = 1 + :a 5
@@ -800,7 +800,7 @@ class TestBadToken < TestCase
         # bad keyargs (keyarg after value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              3 | f(0 :a 5)
@@ -817,7 +817,7 @@ class TestBadToken < TestCase
         # bad keyargs (outside anything)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = :a 5
@@ -832,7 +832,7 @@ class TestBadToken < TestCase
         # bad keyargs (toplevel expression)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              2 | :a 1
@@ -849,7 +849,7 @@ class TestBadToken < TestCase
         # bad keyargs (key after key)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a named argument'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              3 | f(:a :a 1)
@@ -871,7 +871,7 @@ class TestBadToken < TestCase
         # bad keyword (public outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'public' is not allowed here.
+            SyntaxError: Class method scope must be within a class block.
 
                |
              1 | public define f {}
@@ -886,7 +886,7 @@ class TestBadToken < TestCase
         # bad keyword (protected outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'protected' is not allowed here.
+            SyntaxError: Class method scope must be within a class block.
 
                |
              1 | protected define f {}
@@ -901,7 +901,7 @@ class TestBadToken < TestCase
         # bad keyword (private outside class)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'private' is not allowed here.
+            SyntaxError: Class method scope must be within a class block.
 
                |
              1 | private define f {}
@@ -916,7 +916,7 @@ class TestBadToken < TestCase
         # bad keyword (scoped without enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected to see 'enum' here.
+            SyntaxError: Expected 'enum' here.
 
                |
              1 | scoped asdf
@@ -961,7 +961,7 @@ class TestBadToken < TestCase
         # bad keyword (forward with nested define)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'forward' qualifier not allowed in this scope.
+            SyntaxError: 'forward' must be outside of a block or in a class.
 
                |
              2 | forward define g {
@@ -996,7 +996,7 @@ class TestBadToken < TestCase
         # bad keyword (forward with unknown identifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'class' or 'define', but got 'xyz'.
+            SyntaxError: Expected 'class' or 'define' here.
 
                |
              1 | forward xyz
@@ -1100,7 +1100,7 @@ class TestBadToken < TestCase
         # bad keyword (wrong keyword after scope qualifier)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected 'class', 'var', or 'define', but got 'asdf'.
+            SyntaxError: Expected 'class', 'var', or 'define' here.
 
                |
              2 | public asdf
@@ -1122,7 +1122,7 @@ class TestBadToken < TestCase
         # bad lambdas (args not finished with '|')
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected either ',' or '|', not '+'.
+            SyntaxError: Expected either ',' or '|' here.
 
                |
              1 | var v: Function(Integer) = (|a + return )
@@ -1142,7 +1142,7 @@ class TestBadToken < TestCase
         # bad list hash (comma between List values)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'a string'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var s = ["1" "2"]
@@ -1203,7 +1203,7 @@ class TestBadToken < TestCase
         # bad list hash (arrow in List)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '=>'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = [1, 2 => 3]
@@ -1218,7 +1218,7 @@ class TestBadToken < TestCase
         # bad list hash (arrow in wrong place in Hash)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '=>'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = [1 => 2 => 3]
@@ -1297,7 +1297,7 @@ class TestBadToken < TestCase
         # bad syntax (left parenth when expecting value)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | var v = !)
@@ -1332,7 +1332,7 @@ class TestBadToken < TestCase
         # invalid token (semicolon)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | ;
@@ -1347,7 +1347,7 @@ class TestBadToken < TestCase
         # invalid token (at with number)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | @1
@@ -1362,7 +1362,7 @@ class TestBadToken < TestCase
         # invalid token (dollar sign)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'invalid token'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | var v = $

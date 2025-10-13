@@ -9,7 +9,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | 1-
@@ -22,7 +22,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | 1-
@@ -47,7 +47,7 @@ class TestVerifyRewind < TestCase
         )
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              2 | ?
@@ -60,7 +60,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '?'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              2 | ?
@@ -144,7 +144,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | var v = ((((((((1 + ) + 2) + 3)
@@ -157,7 +157,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | var v = ((((((((1 + ) + 2) + 3)
@@ -320,7 +320,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | define f(:a a: Integer) { + }
@@ -348,7 +348,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.
+            SyntaxError: Reached end of file while still inside a block.
                 from [test]:2:
         """,
         """\
@@ -356,7 +356,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token 'end of file'.
+            SyntaxError: Reached end of file while still inside a block.
                 from [test]:2:
         """,
         """\
@@ -369,7 +369,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | define f(a: *Integer=(10 + 20 + )
@@ -382,7 +382,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not ')'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
                |
              1 | define f(a: *Integer=(10 + 20 + )
@@ -400,7 +400,7 @@ class TestVerifyRewind < TestCase
         var t = Interpreter()
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              3 | public var @b = +
@@ -462,7 +462,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | class Two < One {} +
@@ -475,7 +475,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Unexpected token '+'.
+            SyntaxError: Unexpected token within an expression.
 
                |
              1 | class Two < One {} +
@@ -497,7 +497,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
                 from [test]:3:
         """,
         """\
@@ -506,7 +506,7 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Expected a value, not 'end of file'.
+            SyntaxError: Expected a value (var, literal, lambda, etc.) here.
                 from [test]:3:
         """,
         """\
