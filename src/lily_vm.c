@@ -2119,7 +2119,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
 
                 prep_registers(current_frame, code);
-                vm_regs = next_frame->start;
                 vm->call_chain = next_frame;
                 vm->call_depth++;
 
