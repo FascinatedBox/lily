@@ -111,6 +111,11 @@ static void grow_source_buffer(lily_lex_state *lex)
 {
     uint32_t new_size = lex->source_size * 2;
 
+    if (new_size >= UINT16_MAX) {
+        lex->token_start = NULL;
+        lily_raise_lex(lex->raiser, "Line is too large to read.");
+    }
+
     /* Make sure the identifier buffer is always at least the size of the
        source buffer. This allows single-line strings and identifiers of all
        sorts to copy into the identifier buffer without doing size checks. */
@@ -649,6 +654,11 @@ static void check_label_size(lily_lex_state *lex, uint32_t at_least)
 
     while (new_size < at_least)
         new_size *= 2;
+
+    if (new_size >= UINT16_MAX) {
+        lex->token_start = NULL;
+        lily_raise_lex(lex->raiser, "Read buffer input limit reached.");
+    }
 
     char *new_label = lily_realloc(lex->label, new_size * sizeof(*new_label));
 
