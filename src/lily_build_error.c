@@ -45,7 +45,7 @@ static int can_show_context(lily_parse_state *parser, lily_error_source es,
     if (es == err_from_lex) {
         /* Caller says don't bother with context, it won't be useful here. Lexer
            does this for unterminated tokens. */
-        if (parser->lex->token_start == NULL)
+        if (parser->lex->token_start == UINT16_MAX)
             return 0;
     }
 
@@ -75,6 +75,7 @@ static void fill_line_info(char *line_num_str, char *pipe_space,
 static char *find_source_start(lily_lex_state *lex)
 {
     char *source = lex->source;
+    char *start = lex->source + lex->token_start;
 
     /* Leading whitespace isn't interesting, so skip past it. */
     while (*source == ' ' || *source == '\t')
@@ -82,8 +83,8 @@ static char *find_source_start(lily_lex_state *lex)
 
     /* This can happen if a header scan (ex: 'import manifest') fails because of
        space at the front. */
-    if (source > lex->token_start)
-        source = lex->token_start;
+    if (source > start)
+        source = start;
 
     return source;
 }
@@ -136,7 +137,7 @@ static void add_context(lily_msgbuf *msgbuf,
 
     patch_line_end(lex);
 
-    char *source_end = lex->token_start;
+    char *source_end = lex->source + lex->token_start;
 
     /* The context should look like this:
 

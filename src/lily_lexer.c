@@ -41,7 +41,7 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->entry = entry;
     lex->string_pile = lily_new_string_pile();
     lex->raiser = raiser;
-    lex->token_start = lex->source;
+    lex->token_start = 0;
 
     return lex;
 }
@@ -112,7 +112,7 @@ static void grow_source_buffer(lily_lex_state *lex)
     uint32_t new_size = lex->source_size * 2;
 
     if (new_size >= UINT16_MAX) {
-        lex->token_start = NULL;
+        lex->token_start = UINT16_MAX;
         lily_raise_lex(lex->raiser, "Line is too large to read.");
     }
 
@@ -632,7 +632,7 @@ static void scan_multiline_comment(lily_lex_state *lex, char **source_ch)
                 continue;
             }
             else {
-                lex->token_start = NULL;
+                lex->token_start = UINT16_MAX;
                 lily_raise_lex(lex->raiser,
                         "Unterminated multi-line comment (started at line %d).",
                         lex->expand_start_line);
@@ -656,7 +656,7 @@ static void check_label_size(lily_lex_state *lex, uint32_t at_least)
         new_size *= 2;
 
     if (new_size >= UINT16_MAX) {
-        lex->token_start = NULL;
+        lex->token_start = UINT16_MAX;
         lily_raise_lex(lex->raiser, "Read buffer input limit reached.");
     }
 
@@ -682,7 +682,7 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             i++;
         }
 
-        lex->token_start = ch;
+        lex->token_start = (uint16_t)(ch - lex->source);
 
         if (*ch != '#') {
             if (lex->line_num == start_line)
@@ -792,7 +792,7 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
 
             int line_length = read_line(lex);
             if (line_length == 0) {
-                lex->token_start = NULL;
+                lex->token_start = UINT16_MAX;
                 lily_raise_lex(lex->raiser,
                            "Unterminated string (started at line %d).",
                            lex->expand_start_line);
@@ -843,7 +843,7 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
     *source_ch = ch;
 
     if (lex->expand_start_line != lex->line_num)
-        lex->token_start = lex->source;
+        lex->token_start = 0;
 }
 
 static void scan_single_quote(lily_lex_state *lex, char **source_ch)
@@ -917,12 +917,12 @@ static void scan_string_for_lambda(lily_lex_state *lex, char **source_ch,
             if (is_multiline || backslash_before)
                 backslash_before = 0;
             else {
-                lex->token_start = *source_ch;
+                lex->token_start = (uint16_t)(*source_ch - lex->source);
                 lily_raise_lex(lex->raiser, "Newline in single-line string.");
             }
 
             if (read_line_for_buffer(lex, &label, i) == 0) {
-                lex->token_start = NULL;
+                lex->token_start = UINT16_MAX;
                 lily_raise_lex(lex->raiser,
                         "Unterminated string (started at line %d).",
                         start_line);
@@ -1005,7 +1005,7 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
              *(ch + 1) != '[')) {
             int length = read_line_for_buffer(lex, &label, i);
             if (length == 0) {
-                lex->token_start = NULL;
+                lex->token_start = UINT16_MAX;
                 lily_raise_lex(lex->raiser,
                         "Unterminated lambda (started at line %d).",
                         start_line);
@@ -1079,7 +1079,7 @@ static void scan_lambda(lily_lex_state *lex, char **source_ch)
     *source_ch = ch + 1;
 
     if (lex->expand_start_line != lex->line_num)
-        lex->token_start = lex->source;
+        lex->token_start = 0;
 }
 
 void lily_lexer_setup_lambda(lily_lex_state *lex, uint16_t start_line,
@@ -1195,7 +1195,7 @@ void lily_pop_lex_entry(lily_lex_state *lex)
 
     strcpy(lex->source, saved_source);
     lex->read_cursor = lex->source + entry->cursor_offset;
-    lex->token_start = lex->source + entry->token_start_offset;
+    lex->token_start = entry->token_start_offset;
 
     /* Restore the calling module's token. If restoring from an import, the
        caller always has a word. If restoring from a dynaload, the restored
@@ -1242,8 +1242,7 @@ static void save_lex_state(lily_lex_state *lex)
     target->line_num = lex->line_num;
     target->n = lex->n;
     target->cursor_offset = (uint16_t)(lex->read_cursor - lex->source);
-    target->token_start_offset =
-            (uint16_t)(lex->token_start - lex->source);
+    target->token_start_offset = lex->token_start;
 
     uint16_t pile_start = target->pile_start;
     uint16_t ident_start = pile_start;
@@ -1358,7 +1357,7 @@ start: ;
          These fake token values will never be returned by this function. */
     uint8_t token = ch_table[(unsigned char)*ch];
 
-    lex->token_start = ch;
+    lex->token_start = ch - lex->source;
 
     switch (token) {
         case tk_word: {
@@ -1586,7 +1585,7 @@ int lily_read_manifest_header(lily_lex_state *lex)
     if (result)
         read_line(lex);
     else
-        lex->token_start = lex->source;
+        lex->token_start = 0;
 
     return result;
 }

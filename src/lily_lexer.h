@@ -60,13 +60,17 @@ typedef struct {
        always at least the size of the source, so that identifier reading
        doesn't need to do buffer size checks when copying over. */
     char *label;
-    char *token_start;
 
     lily_token token: 16;
     uint16_t line_num;
     uint16_t source_size;
     uint16_t label_size;
-    uint32_t pad;
+
+    /* For error reporting. By default, source + token_start is the point to
+       highlight. If error context would not help (ex: unterminated lambda),
+       this is set to UINT16_MAX. */
+    uint16_t token_start;
+    uint16_t pad;
 
     /* For tokens that can span multiple lines, this is their starting line. */
     uint16_t expand_start_line;
