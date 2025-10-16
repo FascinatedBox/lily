@@ -62,14 +62,15 @@ typedef struct {
     char *label;
     char *token_start;
 
-    uint32_t source_size;
-    uint32_t label_size;
-
-    lily_token token: 8;
-    uint8_t pad;
+    lily_token token: 16;
     uint16_t line_num;
+    uint16_t source_size;
+    uint16_t label_size;
+    uint32_t pad;
+
     /* For tokens that can span multiple lines, this is their starting line. */
     uint16_t expand_start_line;
+
     union {
         /* Where on the first line that lambda content begins. */
         uint16_t lambda_offset;
