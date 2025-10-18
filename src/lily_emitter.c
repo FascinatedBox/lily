@@ -2565,40 +2565,6 @@ static void eval_binary_op(lily_emit_state *emit, lily_ast *ast,
     }
 }
 
-/* This takes a tree and will change the op from an 'X Y= Z' to 'X Y Z'. The
-   tree is run as a binary op, then fixed back. This is how compound operations
-   are broken down.
-
-   emit_binary_op assumes that the left and right have already been evaluated,
-   so this won't double-eval. */
-static void set_compound_spoof_op(lily_ast *ast)
-{
-    lily_token spoof_op;
-
-    if (ast->op == tk_divide_eq)
-        spoof_op = tk_divide;
-    else if (ast->op == tk_multiply_eq)
-        spoof_op = tk_multiply;
-    else if (ast->op == tk_modulo_eq)
-        spoof_op = tk_modulo;
-    else if (ast->op == tk_plus_eq)
-        spoof_op = tk_plus;
-    else if (ast->op == tk_minus_eq)
-        spoof_op = tk_minus;
-    else if (ast->op == tk_left_shift_eq)
-        spoof_op = tk_left_shift;
-    else if (ast->op == tk_right_shift_eq)
-        spoof_op = tk_right_shift;
-    else if (ast->op == tk_bitwise_and_eq)
-        spoof_op = tk_bitwise_and;
-    else if (ast->op == tk_bitwise_or_eq)
-        spoof_op = tk_bitwise_or;
-    else
-        spoof_op = tk_bitwise_xor;
-
-    ast->op = spoof_op;
-}
-
 static void verify_assign_types(lily_emit_state *emit, lily_ast *ast,
         lily_type *left, lily_type *right)
 {
@@ -2619,7 +2585,9 @@ static lily_sym *eval_assign_spoof_op(lily_emit_state *emit, lily_ast *ast)
     lily_token save_op = ast->op;
     lily_sym *save_left = ast->left->result;
 
-    set_compound_spoof_op(ast);
+    /* This converts the tree from X Y= Z to X Y Z. Token generation documents
+       that any Y= *must* be one step away from Y. This makes use of that. */
+    ast->op--;
     eval_arith_op(emit, ast);
     ast->op = save_op;
 

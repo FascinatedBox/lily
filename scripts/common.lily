@@ -19,7 +19,7 @@ var token_data = [
     <['~',  "~",                "tk_tilde"]>,
     <['?',  "?",                "tk_question"]>,
 
-    # These five have their eq at +1 from their base.
+    # Any _x with an _x_eq should have the latter one space away.
     <['^',  "^",                "tk_bitwise_xor"]>,
     <[' ',  "^=",               "tk_bitwise_xor_eq"]>,
     <['!',  "!",                "tk_not"]>,
@@ -30,10 +30,11 @@ var token_data = [
     <[' ',  "*=",               "tk_multiply_eq"]>,
     <['/',  "/",                "tk_divide"]>,
     <[' ',  "/=",               "tk_divide_eq"]>,
-
     <['+',  "+",                "tk_plus"]>,
-    <[' ',  "++",               "tk_plus_plus"]>,
     <[' ',  "+=",               "tk_plus_eq"]>,
+
+    # It's fine to not have an eq, as long as the eq's are aligned.
+    <[' ',  "++",               "tk_plus_plus"]>,
     <['-',  "-",                "tk_minus"]>,
     <[' ',  "-=",               "tk_minus_eq"]>,
     <['<',  "<",                "tk_lt"]>,
