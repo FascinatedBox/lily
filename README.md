@@ -58,14 +58,13 @@ that of languages using an interpreter as their reference.
 
 ## Building
 
-You need a C compiler and CMake (3.0.0 +). There are no external dependencies.
+You need a C compiler (C11+) and CMake (3.10+). There are no external dependencies.
 
 To build Lily, execute the following in a terminal:
 
 ```
 cmake .
-
-make
+cmake --build .
 ```
 
 Note: Windows users may need to add `-G"Unix Makefiles"` to the end of the cmake
