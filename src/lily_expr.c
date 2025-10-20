@@ -14,6 +14,7 @@ a->op = 0; \
 a->tree_type = tt; \
 a->next_arg = NULL; \
 a->line_num = *es->lex_linenum; \
+a->token_start = *es->lex_tokstart; \
 a->parent = NULL;
 
 #define AST_ENTERABLE_INIT(a, tt) \

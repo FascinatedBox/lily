@@ -197,8 +197,9 @@ lily_state *lily_new_state(lily_config *config)
     /* Emitter's parser is used for dynaloads and lambda parsing. */
     parser->emit->parser = parser;
 
-    /* These need the line number frequently, so have them store it. */
+    /* Cache the parts of lexer that are used frequently. */
     parser->expr->lex_linenum = &parser->lex->line_num;
+    parser->expr->lex_tokstart = &parser->lex->token_start;
     parser->emit->lex_linenum = &parser->lex->line_num;
 
     /* Build the module that will hold `__main__`. */

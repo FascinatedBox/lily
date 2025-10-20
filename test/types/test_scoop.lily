@@ -95,6 +95,11 @@ class TestScoop < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: List.zip must be called, since it uses type $1.
+
+               |
+             1 | var v = (|| List.zip )
+               |                  ^
+
                 from [test]:1:
         """,
         """\

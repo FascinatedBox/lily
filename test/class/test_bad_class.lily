@@ -426,6 +426,11 @@ class TestBadClass < TestCase
             SyntaxError: Argument #1 to First is invalid:
             Expected Type: A
             Received Type: B
+
+               |
+             3 | class Second[A, B](v1: A, v2: B) < First(v2) {  }
+               |                                          ^
+
                 from [test]:3:
         """,
         """\

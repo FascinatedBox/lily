@@ -82,7 +82,7 @@ typedef struct lily_ast_ {
         uint16_t literal_reg_spot;
     };
 
-    uint16_t pad;
+    uint16_t token_start;
 
     union {
         lily_item *item;
@@ -179,6 +179,7 @@ typedef struct lily_expr_state_ {
     uint32_t checkpoint_size;
 
     uint16_t *lex_linenum;
+    uint16_t *lex_tokstart;
 } lily_expr_state;
 
 lily_expr_state *lily_new_expr_state(void);

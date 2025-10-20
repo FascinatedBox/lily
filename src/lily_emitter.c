@@ -2024,7 +2024,7 @@ static void incomplete_type_assign_error(lily_emit_state *emit, lily_ast *ast,
    This assumes 'index' is 0-based (argument 0 being the first argument to the
    function given. If 'index' exceeds the number of types available, it's
    assumed that the source is varargs and the last type is used for display. */
-static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
+static void error_bad_arg(lily_emit_state *emit, lily_ast *ast, lily_ast *arg,
         lily_type *call_type, int index, lily_type *got)
 {
     lily_type *expected;
@@ -2049,7 +2049,7 @@ static void error_bad_arg(lily_emit_state *emit, lily_ast *ast,
             "Expected Type: ^T\n"
             "Received Type: ^T", index + 1, ast->item, expected, got);
 
-    lily_raise_tree(emit->raiser, ast, lily_mb_raw(msgbuf));
+    lily_raise_tree(emit->raiser, arg, lily_mb_raw(msgbuf));
 }
 
 /* This is called when the tree given doesn't have enough arguments.
@@ -2756,7 +2756,7 @@ static void eval_assign_upvalue(lily_emit_state *emit, lily_ast *ast)
     lily_sym *right_sym = ast->right->result;
 
     if (spot == UINT16_MAX)
-        spot = checked_close_over_var(emit, ast, left_var);
+        spot = checked_close_over_var(emit, ast->left, left_var);
 
     if (ast->op == tk_equal)
         verify_assign_types(emit, ast, left_var->type, right_sym->type);
@@ -3634,7 +3634,7 @@ static void eval_build_hash(lily_emit_state *emit, lily_ast *ast,
         if (key_type != key_result) {
             if (tree_iter == ast->arg_start) {
                 key_type = key_result;
-                ensure_valid_key_type(emit, ast, key_type);
+                ensure_valid_key_type(emit, key_tree, key_type);
             }
             else
                 inconsistent_type_error(emit, key_tree, key_type, "Hash keys");
@@ -3992,7 +3992,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
 
     for (i = 0; i < stop; i++, arg = arg->next_arg) {
         if (eval_call_arg(emit, arg, arg_types[i + 1]) == 0)
-            error_bad_arg(emit, ast, call_type, i, arg->result->type);
+            error_bad_arg(emit, ast, arg, call_type, i, arg->result->type);
     }
 
     lily_storage *vararg_s = NULL;
@@ -4026,7 +4026,7 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
              arg != NULL;
              arg = arg->next_arg, vararg_i++) {
             if (eval_call_arg(emit, arg, vararg_type) == 0)
-                error_bad_arg(emit, ast, call_type, vararg_i,
+                error_bad_arg(emit, ast, arg, call_type, vararg_i,
                         arg->result->type);
         }
 
@@ -4454,7 +4454,8 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         }
 
         if (eval_call_arg(emit, real_arg, arg_type) == 0)
-            error_bad_arg(emit, ast, call_type, pos, real_arg->result->type);
+            error_bad_arg(emit, ast, arg, call_type, pos,
+                    real_arg->result->type);
 
         /* For keyargs, this lifts the result into the proper tree. */
         arg->result = real_arg->result;

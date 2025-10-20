@@ -123,6 +123,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but got type 'String'.
+
+               |
+             3 | f((|| "x" )
+               |       ^
+
                 from [test]:3:
         """,
         """\
@@ -135,6 +140,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but got type 'String'.
+
+               |
+             3 | f(1, (|| "1" )
+               |          ^
+
                 from [test]:3:
         """,
         """\
@@ -147,6 +157,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda result should be type 'Integer', but got type 'Unit'.
+
+               |
+             5 | f((|| a = 11 )
+               |         ^
+
                 from [test]:5:
         """,
         """\

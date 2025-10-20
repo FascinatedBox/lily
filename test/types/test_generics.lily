@@ -87,6 +87,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+
+               |
+             3 | var v = (|| a = b )
+               |             ^
+
                 from [test]:3:
         """,
         """\

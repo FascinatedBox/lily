@@ -42,23 +42,16 @@ static void add_error_header(lily_msgbuf *msgbuf, lily_raiser *raiser)
 static int can_show_context(lily_parse_state *parser, lily_error_source es,
         uint16_t line_num)
 {
+    lily_lex_state *lex = parser->lex;
+
     if (es == err_from_lex) {
-        /* Caller says don't bother with context, it won't be useful here. Lexer
-           does this for unterminated tokens. */
-        if (parser->lex->token_start == UINT16_MAX)
+        /* Lexer says context won't be useful (usually unterminated tokens). */
+        if (lex->token_start == UINT16_MAX)
             return 0;
     }
 
-    if (es != err_from_lex &&
-        es != err_from_parse)
-        return 0;
-
-    lily_lex_state *lex = parser->lex;
-
-    if (lex->line_num != line_num)
-        return 0;
-
-    return 1;
+    /* It's fine as long as the line is there to show. */
+    return lex->line_num == line_num;
 }
 
 static void fill_line_info(char *line_num_str, char *pipe_space,
@@ -165,8 +158,12 @@ static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
     uint16_t line_num = parser->lex->line_num;
     lily_error_source es = parser->raiser->source;
 
-    if (es == err_from_emit)
-        line_num = parser->raiser->error_ast->line_num;
+    if (es == err_from_emit) {
+        lily_ast *ast = parser->raiser->error_ast;
+
+        line_num = ast->line_num;
+        parser->lex->token_start = ast->token_start;
+    }
 
     if (can_show_context(parser, es, line_num))
         add_context(msgbuf, parser, line_num);

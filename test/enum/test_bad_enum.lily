@@ -613,6 +613,11 @@ class TestBadEnum < TestCase
         # bad vv (Definitions cannot send Integer if expecting a value enum)
         assert_parse_fails(t, """\
             SyntaxError: return expected type 'LR' but got type 'Integer'.
+
+               |
+             6 | define f: LR { return 1 }
+               |                       ^
+
                 from [test]:6:
         """,
         """\

@@ -80,6 +80,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Tuple[Integer, String] is not a valid condition type.
+
+               |
+             1 | if <[1, "2"]>: {
+               |    ^
+
                 from [test]:1:
         """,
         """\
@@ -91,6 +96,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unit is not a valid condition type.
+
+               |
+             1 | if unit || 1: {
+               |    ^
+
                 from [test]:1:
         """,
         """\
@@ -102,6 +112,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unit is not a valid condition type.
+
+               |
+             1 | if 1 || unit: {
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -113,6 +128,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unit is not a valid condition type.
+
+               |
+             1 | if 1 || unit && 1: {
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -124,6 +144,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Unit is not a valid condition type.
+
+               |
+             1 | if 1 || unit || 1: {
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -1457,6 +1482,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Type 'A' is not a valid key for Hash.
+
+               |
+             1 | define f[A, B](a: A, b: B): Hash[A, B] { return [a => b] }
+               |                                                  ^
+
                 from [test]:1:
         """,
         """\
