@@ -174,10 +174,10 @@ typedef struct lily_generic_val_ {
 } lily_generic_val;
 
 typedef enum {
-    co_failed,
     co_done,
+    co_failed,
     co_running,
-    co_waiting
+    co_waiting,
 } lily_coroutine_status;
 
 typedef struct lily_coroutine_val_ {
