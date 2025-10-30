@@ -78,6 +78,17 @@ void lily_coroutine_Coroutine_resume_with(lily_state *s)
     lily_return_top(s);
 }
 
+void lily_coroutine_Coroutine_status(lily_state *s)
+{
+    lily_coroutine_val *co_val = ARG_Coroutine(s, 0);
+
+    /* This works because C enums start at 0 and Lily gives ids to variants in
+       the order they're declared in. This is *not* implemented as a value
+       variant so that printing it is useful. */
+    lily_push_empty_variant(s, ID_CoStatus_Done(s) + co_val->status);
+    lily_return_top(s);
+}
+
 void lily_coroutine_Coroutine_yield(lily_state *s)
 {
     lily_coroutine_val *co_target = ARG_Coroutine(s, 0);

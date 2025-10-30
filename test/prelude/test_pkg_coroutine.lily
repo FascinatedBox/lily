@@ -329,14 +329,16 @@ class TestPkgCoroutine < TestCase
         # Coroutines begin in waiting, and are waiting after yield.
 
         assert_parse_string(t, """
-            import (Coroutine) coroutine
+            import (Coroutine, CoStatus) coroutine
 
             define check_is(co: Coroutine[Integer, Unit],
+                            :_ status: CoStatus,
                             :_ done: *Boolean=false,
                             :_ failed: *Boolean=false,
                             :_ running: *Boolean=false,
                             :_ waiting: *Boolean=false)
             {
+                if status != co.status(): { 0/0 }
                 if co.is_done() != done: { 0/0 }
                 if co.is_failed() != failed: { 0/0 }
                 if co.is_running() != running: { 0/0 }
@@ -352,9 +354,9 @@ class TestPkgCoroutine < TestCase
 
                 var co = Coroutine.build(fn)
 
-                check_is(co, :waiting true)
+                check_is(co, .Waiting, :waiting true)
                 co.resume()
-                check_is(co, :waiting true)
+                check_is(co, .Waiting, :waiting true)
             }
         """)
 
@@ -371,7 +373,7 @@ class TestPkgCoroutine < TestCase
                 var co = Coroutine.build(fn)
 
                 co.resume()
-                check_is(co, :failed true)
+                check_is(co, .Failed, :failed true)
             }
         """)
 
@@ -381,7 +383,7 @@ class TestPkgCoroutine < TestCase
             {
                 define fn(co: Coroutine[Integer, Unit]): Integer
                 {
-                    check_is(co, :running true)
+                    check_is(co, .Running, :running true)
                     co.yield(1)
                     return 1
                 }
@@ -389,7 +391,7 @@ class TestPkgCoroutine < TestCase
                 var co = Coroutine.build(fn)
 
                 co.resume()
-                check_is(co, :waiting true)
+                check_is(co, .Waiting, :waiting true)
             }
         """)
 
@@ -405,7 +407,28 @@ class TestPkgCoroutine < TestCase
                 var co = Coroutine.build(fn)
 
                 co.resume()
-                check_is(co, :done true)
+                check_is(co, .Done, :done true)
+            }
+        """)
+
+        # Status should only have four variants.
+
+        assert_parse_string(t, """
+            {
+                define fn(co: Coroutine[Integer, Unit]): Integer
+                {
+                    return 1
+                }
+
+                var co = Coroutine.build(fn)
+
+                match co.status(): {
+                    case Waiting:
+                    case Done, Failed, Running:
+                        0/0
+                }
+
+                if (co.status() ++ "") != "CoStatus.Waiting": { 0/0 }
             }
         """)
     }

@@ -17,10 +17,27 @@ lily_cid_at(s_, 0)
 #define INIT_Coroutine(s_) \
 (lily_coroutine_Coroutine *)lily_push_foreign(s_, ID_Coroutine(s_), (lily_destroy_func)lily_coroutine_destroy_Coroutine, sizeof(lily_coroutine_Coroutine))
 
+#define ID_CoStatus_Done(s_) \
+(lily_cid_at(s_, 1) + 1)
+#define PUSH_CoStatus_Done(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 1)
+#define ID_CoStatus_Failed(s_) \
+(lily_cid_at(s_, 1) + 2)
+#define PUSH_CoStatus_Failed(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 2)
+#define ID_CoStatus_Running(s_) \
+(lily_cid_at(s_, 1) + 3)
+#define PUSH_CoStatus_Running(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 3)
+#define ID_CoStatus_Waiting(s_) \
+(lily_cid_at(s_, 1) + 4)
+#define PUSH_CoStatus_Waiting(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 1) + 4)
+
 LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
-    "\1Coroutine\0"
-    ,"C\13Coroutine\0[A,B]"
+    "\2Coroutine\0CoStatus\0"
+    ,"C\14Coroutine\0[A,B]"
     ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
     ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
     ,"m\0error\0[A,B](Coroutine[A,B]): Option[Exception]"
@@ -31,7 +48,13 @@ const char *lily_coroutine_info_table[] = {
     ,"m\0receive\0[A,B](Coroutine[A,B]): B"
     ,"m\0resume\0[A,B](Coroutine[A,Unit]): Option[A]"
     ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Option[A]"
+    ,"m\0status\0[A,B](Coroutine[A,B]): CoStatus"
     ,"m\0yield\0[A,B](Coroutine[A,B],A)"
+    ,"E\4CoStatus\0"
+    ,"V\0Done\0"
+    ,"V\0Failed\0"
+    ,"V\0Running\0"
+    ,"V\0Waiting\0"
     ,"Z"
 };
 #define LILY_DECLARE_COROUTINE_CALL_TABLE \
@@ -49,6 +72,12 @@ lily_call_entry_func lily_coroutine_call_table[] = { \
     lily_coroutine_Coroutine_receive, \
     lily_coroutine_Coroutine_resume, \
     lily_coroutine_Coroutine_resume_with, \
+    lily_coroutine_Coroutine_status, \
     lily_coroutine_Coroutine_yield, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
+    NULL, \
 };
 #endif

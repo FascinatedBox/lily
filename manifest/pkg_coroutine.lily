@@ -3,6 +3,19 @@ import manifest
 ### The coroutine package provides a suspendable `Function`.
 library coroutine
 
+### This enum describes the state of a `Coroutine`.
+###
+### A `Coroutine` is done if the function it wraps has returned. It's failed if
+### an exception has been raised. A `Coroutine` that is running is executing.
+### Finally, a `Coroutine` that is waiting is ready to be resumed. A `Coroutine`
+### that has just been made, or has yielded is waiting.
+scoped enum CoStatus {
+    Done,
+    Failed,
+    Running,
+    Waiting,
+}
+
 ### A `Coroutine` is similar to a `Function`, except that it can also yield
 ### values at different points along its lifetime. Every `Coroutine` has a
 ### callstack that belongs to it, as well as an exception state. A `Coroutine`'s
@@ -100,6 +113,9 @@ foreign static class Coroutine[A, B] {
     ###
     ### Otherwise, this returns `None`.
     public define resume_with(value: B): Option[A]
+
+    ### Return the current state of the `Coroutine`.
+    public define status: CoStatus
 
     ### Yield 'value' from the `Coroutine` given. Control returns to whatever
     ### invoked 'self'.
