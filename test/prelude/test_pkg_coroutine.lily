@@ -326,101 +326,86 @@ class TestPkgCoroutine < TestCase
     {
         var t = Interpreter()
 
-        # status (.is_done on all states)
+        # Coroutines begin in waiting, and are waiting after yield.
 
         assert_parse_string(t, """
             import (Coroutine) coroutine
 
-            define fn: Coroutine[Integer, Unit] {
-                define fn2(co: Coroutine[Integer, Unit]): Integer {
+            define check_is(co: Coroutine[Integer, Unit],
+                            :_ done: *Boolean=false,
+                            :_ failed: *Boolean=false,
+                            :_ running: *Boolean=false,
+                            :_ waiting: *Boolean=false)
+            {
+                if co.is_done() != done: { 0/0 }
+                if co.is_failed() != failed: { 0/0 }
+                if co.is_running() != running: { 0/0 }
+                if co.is_waiting() != waiting: { 0/0 }
+            }
+
+            {
+                define fn(co: Coroutine[Integer, Unit]): Integer
+                {
+                    co.yield(1)
                     return 1
                 }
 
-                var co = Coroutine.build(fn2)
+                var co = Coroutine.build(fn)
+
+                check_is(co, :waiting true)
                 co.resume()
-
-                return co
-            }
-
-            var co = fn()
-            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
-
-            if lst != [true, false, false, false]: {
-                raise Exception("Failed.")
+                check_is(co, :waiting true)
             }
         """)
 
-        # status (.is_failed on all states)
+        # A Coroutine that raises an error has failed.
 
-        t = Interpreter()
         assert_parse_string(t, """
-            import (Coroutine) coroutine
-
-            define fn: Coroutine[Integer, Unit] {
-                define fn2(co: Coroutine[Integer, Unit]): Integer {
-                    return 0 / 0
-                }
-
-                var co = Coroutine.build(fn2)
-                co.resume()
-
-                return co
-            }
-
-            var co = fn()
-            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
-
-            if lst != [false, true, false, false]: {
-                raise Exception("Failed.")
-            }
-        """)
-
-        # status (.is_running on all states)
-
-        t = Interpreter()
-        assert_parse_string(t, """
-            import (Coroutine) coroutine
-
-            define fn: List[Boolean] {
-                var out: List[Boolean] = []
-
-                define fn2(co: Coroutine[Integer, Unit]): Integer {
-                    out = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
-                    return 0 / 0
-                }
-
-                var co = Coroutine.build(fn2)
-                co.resume()
-
-                return out
-            }
-
-            if fn() != [false, false, true, false]: {
-                raise Exception("Failed.")
-            }
-        """)
-
-        # status (.is_waiting on all states)
-
-        t = Interpreter()
-        assert_parse_string(t, """
-            import (Coroutine) coroutine
-
-            define fn: Coroutine[Integer, Unit] {
-                define fn2(co: Coroutine[Integer, Unit]): Integer {
+            {
+                define fn(co: Coroutine[Integer, Unit]): Integer
+                {
+                    0 / 0
                     return 1
                 }
 
-                var co = Coroutine.build(fn2)
+                var co = Coroutine.build(fn)
 
-                return co
+                co.resume()
+                check_is(co, :failed true)
             }
+        """)
 
-            var co = fn()
-            var lst = [co.is_done(), co.is_failed(), co.is_running(), co.is_waiting()]
+        # Check a Coroutine in progress.
 
-            if lst != [false, false, false, true]: {
-                raise Exception("Failed.")
+        assert_parse_string(t, """
+            {
+                define fn(co: Coroutine[Integer, Unit]): Integer
+                {
+                    check_is(co, :running true)
+                    co.yield(1)
+                    return 1
+                }
+
+                var co = Coroutine.build(fn)
+
+                co.resume()
+                check_is(co, :waiting true)
+            }
+        """)
+
+        # A returned Coroutine should be done.
+
+        assert_parse_string(t, """
+            {
+                define fn(co: Coroutine[Integer, Unit]): Integer
+                {
+                    return 1
+                }
+
+                var co = Coroutine.build(fn)
+
+                co.resume()
+                check_is(co, :done true)
             }
         """)
     }
