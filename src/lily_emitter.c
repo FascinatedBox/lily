@@ -3872,8 +3872,6 @@ static void write_call_keyopt(lily_emit_state *emit, lily_ast *ast,
                 lily_u16_write_1(emit->code, unset_reg_spot);
                 args_written++;
             }
-
-            args_written = pos;
         }
 
         args_written++;
