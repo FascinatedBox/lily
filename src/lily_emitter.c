@@ -4398,6 +4398,31 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
         error_keyarg_missing_params(emit, ast, call_type, keywords);
 }
 
+static void verify_keyopt_call(lily_emit_state *emit, lily_ast *ast,
+        lily_type *call_type, uint16_t min)
+{
+    if (min == 0)
+        return;
+
+    /* The call has at least 'min' args in total. For keyopt, make sure it has
+       at least 'min' *required* arguments. Eval has linked them and has tagged
+       each with an argument position. */
+    lily_ast *arg_iter = ast->arg_start;
+
+    for (uint16_t i = 0;i < min;i++) {
+        /* The interpreter defaults to not storing argument names, so reference
+           the position instead. */
+        if (arg_iter->keyword_arg_pos != i) {
+            lily_raise_tree(emit->raiser, ast,
+                    "Call to ^I is missing parameters:\n"
+                    "* Parameter #%d (^T)", ast->item, i + 1,
+                    call_type->subtypes[i + 1]);
+        }
+
+        arg_iter = arg_iter->next_arg;
+    }
+}
+
 static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         lily_type *call_type)
 {
@@ -4530,8 +4555,10 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
 
     if ((call_type->flags & TYPE_HAS_OPTARGS) == 0)
         write_call(emit, ast, base_count, vararg_s);
-    else
+    else {
+        verify_keyopt_call(emit, ast, call_type, min);
         write_call_keyopt(emit, ast, call_type, vararg_s);
+    }
 }
 
 static void eval_named_call(lily_emit_state *emit, lily_ast *ast,

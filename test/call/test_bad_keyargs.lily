@@ -217,4 +217,137 @@ class TestBadKeyarg < TestCase
             f(:_ 1)
         """)
     }
+
+    public define test_required_arg_holes
+    {
+        var t = Interpreter()
+
+        # Missing only required argument
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #1 (String)
+                from [test]:6:
+        """,
+        """\
+            define check(a: String, :_ x: *Integer=0): Integer
+            {
+                return a.size()
+            }
+
+            check(:x 1)
+        """)
+
+        # Missing only argument, two keyargs given
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #1 (String)
+                from [test]:8:
+        """,
+        """\
+            define check(a: String,
+                         :_ x: *Integer=0,
+                         :_ y: *Integer=0): Integer
+            {
+                return a.size()
+            }
+
+            check(:y 1, :x 1)
+        """)
+
+        # Missing only argument with 2 varargs given
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #1 (String)
+                from [test]:8:
+        """,
+        """\
+            define check(a: String,
+                         :_ x: *Integer=0,
+                         :_ va: *Integer...=[]): Integer
+            {
+                return a.size()
+            }
+
+            check(:va 1, :va 2, :x 1)
+        """)
+
+        # Missing first required argument
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #2 (String)
+                from [test]:8:
+        """,
+        """\
+            define check(a: String,
+                         b: String,
+                         :_ x: *Integer=0): Integer
+            {
+                return b.size()
+            }
+
+            check("1", :x 1)
+        """)
+
+        # Missing middle argument
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #2 (String)
+                from [test]:10:
+        """,
+        """\
+            define check(a: String,
+                         b: String,
+                         :_ c: String,
+                         :_ x: *Integer=0,
+                         :_ y: *Integer=0): Integer
+            {
+                return b.size()
+            }
+
+            check("a", :c "1", :x 1, :y 1)
+        """)
+
+        # Missing last argument
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #3 (String)
+                from [test]:10:
+        """,
+        """\
+            define check(a: String,
+                         :_ b: String,
+                         c: String,
+                         :_ x: *Integer=0,
+                         :_ y: *Integer=0): Integer
+            {
+                return b.size()
+            }
+
+            check("a", :b "1", :x 1, :y 1)
+        """)
+
+        # Missing argument given to varargs
+
+        assert_parse_fails(t, """\
+            SyntaxError: Call to check is missing parameters:
+            * Parameter #2 of type String.
+                from [test]:8:
+        """,
+        """\
+            define check(a: String,
+                         b: String,
+                         :_ va: Integer...): Integer
+            {
+                return b.size()
+            }
+
+            check("a", :va 1, :va 2)
+        """)
+    }
 }
