@@ -1412,93 +1412,85 @@ static void store_exception_into(lily_vm_state *vm, lily_value *result)
     move_list_f(0, ival->values[1], build_traceback_raw(vm));
 }
 
-/* This is called when the vm has raised an exception. This changes control to
-   a jump that handles the error (some `except` clause), or parser. */
+static void restore_from_exception(lily_vm_state *vm,
+        lily_vm_catch_entry *entry, uint16_t *code)
+{
+    lily_call_frame *frame = entry->call_frame;
+
+    if (*code == o_exception_store) {
+        lily_value *catch_reg = frame->start[code[1]];
+
+        store_exception_into(vm, catch_reg);
+        code += 2;
+    }
+
+    /* Make sure any exception value that was held is gone. No ref/deref is
+       necessary, because the value was saved somewhere in a register. */
+    vm->exception_value = NULL;
+    vm->exception_cls = NULL;
+    vm->call_chain = frame;
+    vm->call_depth = entry->call_frame_depth;
+    vm->call_chain->code = code;
+    vm->catch_chain = entry;
+    vm->raiser->all_jumps = entry->jump_entry;
+
+    longjmp(entry->jump_entry->jump, 1);
+}
+
+/* An exception has been raised. Figure out what will catch it, or bail. */
 static void dispatch_exception(lily_vm_state *vm)
 {
-    lily_raiser *raiser = vm->raiser;
     lily_class *raised_cls = vm->exception_cls;
     lily_vm_catch_entry *catch_iter = vm->catch_chain->prev;
-    int match = 0;
-    uint16_t jump_location = 0;
-    uint16_t *code = NULL;
 
     while (catch_iter != NULL) {
-        /* Foreign functions register callbacks so they can fix values when
-           there is an error. Put the state where it was when the callback was
-           registered and go back. The callback shouldn't execute code. */
-        if (catch_iter->catch_kind == catch_callback) {
+        if (catch_iter->catch_kind == catch_native) {
+            lily_call_frame *call_frame = catch_iter->call_frame;
+            uint16_t *code = call_frame->function->code;
+
+            /* The code position is at the end of the try block. Go there, then
+               follow that jump to get to the first except. */
+            uint16_t jump_location =
+                    catch_iter->code_pos + code[catch_iter->code_pos] - 1;
+
+            /* The last except block will set this to 0. */
+            uint16_t move_by = 1;
+
+            do {
+                lily_class *catch_class =
+                        vm->gs->class_table[code[jump_location + 1]];
+
+                if (lily_class_greater_eq(catch_class, raised_cls) == 0) {
+                    move_by = code[jump_location + 2];
+                    jump_location += move_by;
+                }
+                else {
+                    /* Caught it. Add +4 to begin in the except block. */
+                    code += jump_location + 4;
+
+                    /* Won't return from here. */
+                    restore_from_exception(vm, catch_iter, code);
+                }
+            } while (move_by);
+        }
+        else {
+            /* This is a callback registered by a foreign function. Fix the vm
+               so that the callback can use the foreign function's values. */
             vm->call_chain = catch_iter->call_frame;
             vm->call_depth = catch_iter->call_frame_depth;
             catch_iter->callback_func(vm);
-            catch_iter = catch_iter->prev;
-            continue;
         }
-
-        lily_call_frame *call_frame = catch_iter->call_frame;
-        code = call_frame->function->code;
-        /* A try block is done when the next jump is at 0 (because 0 would
-           always be going back, which is illogical otherwise). */
-        jump_location = catch_iter->code_pos + code[catch_iter->code_pos] - 1;
-
-        while (1) {
-            lily_class *catch_class =
-                    vm->gs->class_table[code[jump_location + 1]];
-
-            if (lily_class_greater_eq(catch_class, raised_cls)) {
-                /* ...So that execution resumes from within the except block. */
-                jump_location += 4;
-                match = 1;
-                break;
-            }
-            else {
-                uint16_t move_by = code[jump_location + 2];
-                if (move_by == 0)
-                    break;
-
-                jump_location += move_by;
-            }
-        }
-
-        if (match)
-            break;
 
         catch_iter = catch_iter->prev;
     }
 
-    lily_jump_link *jump_stop;
+    lily_raiser *raiser = vm->raiser;
+    lily_jump_link *jump_iter = raiser->all_jumps;
 
-    if (match) {
-        code += jump_location;
-        if (*code == o_exception_store) {
-            lily_value *catch_reg = catch_iter->call_frame->start[code[1]];
+    while (jump_iter->prev)
+        jump_iter = jump_iter->prev;
 
-            store_exception_into(vm, catch_reg);
-            code += 2;
-        }
-
-        /* Make sure any exception value that was held is gone. No ref/deref is
-           necessary, because the value was saved somewhere in a register. */
-        vm->exception_value = NULL;
-        vm->exception_cls = NULL;
-        vm->call_chain = catch_iter->call_frame;
-        vm->call_depth = catch_iter->call_frame_depth;
-        vm->call_chain->code = code;
-        /* Each try block can only successfully handle one exception, so use
-           ->prev to prevent using the same block again. */
-        vm->catch_chain = catch_iter;
-
-        jump_stop = catch_iter->jump_entry->prev;
-
-        while (raiser->all_jumps->prev != jump_stop)
-            raiser->all_jumps = raiser->all_jumps->prev;
-
-        longjmp(raiser->all_jumps->jump, 1);
-    }
-
-    while (raiser->all_jumps->prev != NULL)
-        raiser->all_jumps = raiser->all_jumps->prev;
-
+    raiser->all_jumps = jump_iter;
     lily_raise_class(vm->raiser, vm->exception_cls, lily_mb_raw(vm->vm_buffer));
 }
 
