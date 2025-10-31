@@ -62,7 +62,7 @@ void lily_sys__set_recursion_limit(lily_state *s)
     if (limit < 1 || limit > INT32_MAX)
         lily_ValueError(s, "Limit value (%ld) is not reasonable.", limit);
 
-    if (limit < s->call_depth)
+    if (limit < s->call_chain->depth)
         lily_ValueError(s,
             "Limit value (%ld) is lower than the current recursion depth.",
             limit);

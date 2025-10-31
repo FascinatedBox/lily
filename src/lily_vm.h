@@ -26,6 +26,10 @@ typedef struct lily_call_frame_ {
     lily_function_val *function;
     /* A value from the previous frame to return back into. */
     lily_value *return_target;
+    /* Call depth of this frame (global toplevel is 0, __main__ is 1). */
+    uint16_t depth;
+    uint16_t pad1;
+    uint32_t pad2;
 
     struct lily_call_frame_ *prev;
     struct lily_call_frame_ *next;
@@ -38,9 +42,9 @@ typedef enum {
 
 typedef struct lily_vm_catch_entry_ {
     lily_call_frame *call_frame;
-    uint32_t call_frame_depth;
     uint16_t code_pos;
     lily_catch_kind catch_kind : 16;
+    uint32_t pad;
 
     union {
         lily_jump_link *jump_entry;
@@ -99,9 +103,8 @@ typedef struct lily_global_state_ {
 typedef struct lily_vm_state_ {
     lily_value **register_root;
 
-    uint32_t call_depth;
-
     uint32_t depth_max;
+    uint32_t pad;
 
     lily_call_frame *call_chain;
 

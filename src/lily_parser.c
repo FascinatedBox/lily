@@ -5733,7 +5733,6 @@ static void main_func_setup(lily_parse_state *parser)
 static void main_func_teardown(lily_parse_state *parser)
 {
     parser->vm->call_chain = parser->vm->call_chain->prev;
-    parser->vm->call_depth--;
     parser->flags &= ~PARSER_IS_EXECUTING;
 }
 

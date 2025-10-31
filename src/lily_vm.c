@@ -68,6 +68,7 @@ static lily_vm_state *new_vm_state(lily_raiser *raiser, int count)
     toplevel_frame->register_end = register_end;
     toplevel_frame->code = NULL;
     toplevel_frame->return_target = NULL;
+    toplevel_frame->depth = 0;
     toplevel_frame->prev = NULL;
     toplevel_frame->next = first_frame;
     first_frame->start = register_base;
@@ -76,12 +77,12 @@ static lily_vm_state *new_vm_state(lily_raiser *raiser, int count)
     first_frame->code = NULL;
     first_frame->function = NULL;
     first_frame->return_target = register_base[0];
+    first_frame->depth = 1;
     first_frame->prev = toplevel_frame;
     first_frame->next = NULL;
 
     lily_vm_state *vm = lily_malloc(sizeof(*vm));
 
-    vm->call_depth = 0;
     vm->depth_max = 100;
     vm->raiser = raiser;
     vm->catch_chain = NULL;
@@ -222,7 +223,6 @@ void lily_rewind_vm(lily_vm_state *vm)
     vm->exception_value = NULL;
     vm->exception_cls = NULL;
     vm->call_chain = call_iter;
-    vm->call_depth = 0;
 }
 
 void lily_free_vm(lily_vm_state *vm)
@@ -575,7 +575,7 @@ static void vm_setup_before_call(lily_vm_state *vm, uint16_t *code)
 {
     lily_call_frame *current_frame = vm->call_chain;
     if (current_frame->next == NULL) {
-        if (vm->call_depth > vm->depth_max) {
+        if (current_frame->depth > vm->depth_max) {
             SAVE_LINE(code[2] + 5);
             vm_error(vm, LILY_ID_RUNTIMEERROR,
                     "Function call recursion limit reached.");
@@ -723,6 +723,7 @@ static void add_call_frame(lily_vm_state *vm)
     /* The toplevel and __main__ frames are allocated directly, so there's
        always a next and a register end set. */
     new_frame->register_end = vm->call_chain->register_end;
+    new_frame->depth = vm->call_chain->depth + 1;
 
     vm->call_chain->next = new_frame;
     vm->call_chain = new_frame;
@@ -853,12 +854,10 @@ static lily_container_val *build_traceback_raw(lily_vm_state *);
 void lily_prelude__calltrace(lily_vm_state *vm)
 {
     /* Omit calltrace from the call stack since it's useless info. */
-    vm->call_depth--;
     vm->call_chain = vm->call_chain->prev;
 
     lily_container_val *trace = build_traceback_raw(vm);
 
-    vm->call_depth++;
     vm->call_chain = vm->call_chain->next;
 
     move_list_f(0, vm->call_chain->return_target, trace);
@@ -1353,7 +1352,7 @@ static void do_o_closure_function(lily_vm_state *vm, uint16_t *code)
 static lily_container_val *build_traceback_raw(lily_vm_state *vm)
 {
     lily_call_frame *frame_iter = vm->call_chain;
-    int depth = vm->call_depth;
+    int depth = frame_iter->depth;
     int i;
 
     lily_msgbuf *msgbuf = lily_msgbuf_get(vm);
@@ -1429,7 +1428,6 @@ static void restore_from_exception(lily_vm_state *vm,
     vm->exception_value = NULL;
     vm->exception_cls = NULL;
     vm->call_chain = frame;
-    vm->call_depth = entry->call_frame_depth;
     vm->call_chain->code = code;
     vm->catch_chain = entry;
     vm->raiser->all_jumps = entry->jump_entry;
@@ -1477,7 +1475,6 @@ static void dispatch_exception(lily_vm_state *vm)
             /* This is a callback registered by a foreign function. Fix the vm
                so that the callback can use the foreign function's values. */
             vm->call_chain = catch_iter->call_frame;
-            vm->call_depth = catch_iter->call_frame_depth;
             catch_iter->callback_func(vm);
         }
 
@@ -1561,8 +1558,6 @@ void lily_vm_coroutine_call_prep(lily_vm_state *vm, uint16_t count)
     target_frame->top = source_frame->top;
     source_frame->top -= count;
     target_frame->start = source_frame->top;
-
-    vm->call_depth++;
 
     target_frame->top += target_frame->function->reg_count - count;
     vm->call_chain = target_frame;
@@ -1663,7 +1658,6 @@ void lily_vm_coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
         /* Since the Coroutine jumped back instead of exiting through the main
            loop, the call state needs to be fixed. */
         target->call_chain = target->call_chain->prev;
-        target->call_depth--;
     }
     else
         /* An exception was raised, so there's nothing to return. */
@@ -1761,13 +1755,11 @@ void lily_call(lily_vm_state *vm, uint16_t count)
 
     final_setup_before_call(vm, count);
     vm->call_chain = target_frame;
-    vm->call_depth++;
 
     if (target_fn->code == NULL) {
         target_fn->foreign_func(vm);
 
         vm->call_chain = target_frame->prev;
-        vm->call_depth--;
     }
     else {
         /* lily_vm_execute determines the starting code position by tapping the
@@ -1794,7 +1786,6 @@ void lily_error_callback_push(lily_state *s, lily_error_callback_func func)
 
     lily_vm_catch_entry *catch_entry = s->catch_chain;
     catch_entry->call_frame = s->call_chain;
-    catch_entry->call_frame_depth = s->call_depth;
     catch_entry->callback_func = func;
     catch_entry->catch_kind = catch_callback;
 
@@ -2112,11 +2103,9 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 prep_registers(current_frame, code);
                 vm->call_chain = next_frame;
-                vm->call_depth++;
 
                 fval->foreign_func(vm);
 
-                vm->call_depth--;
                 vm->call_chain = current_frame;
                 vm_regs = current_frame->start;
                 code = current_frame->code;
@@ -2140,7 +2129,6 @@ void lily_vm_execute(lily_vm_state *vm)
                 prep_registers(current_frame, code);
                 current_frame = current_frame->next;
                 vm->call_chain = current_frame;
-                vm->call_depth++;
 
                 vm_regs = current_frame->start;
                 code = fval->code;
@@ -2203,7 +2191,6 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 current_frame = current_frame->prev;
                 vm->call_chain = current_frame;
-                vm->call_depth--;
 
                 vm_regs = current_frame->start;
                 upvalues = current_frame->function->upvalues;
@@ -2343,7 +2330,6 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 lily_vm_catch_entry *catch_entry = vm->catch_chain;
                 catch_entry->call_frame = current_frame;
-                catch_entry->call_frame_depth = vm->call_depth;
                 catch_entry->code_pos = 1 +
                         (uint16_t)(code - current_frame->function->code);
                 catch_entry->jump_entry = vm->raiser->all_jumps;
