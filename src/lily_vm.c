@@ -1474,8 +1474,11 @@ static void dispatch_exception(lily_vm_state *vm)
         else {
             /* This is a callback registered by a foreign function. Fix the vm
                so that the callback can use the foreign function's values. */
+            lily_call_frame *save_frame = vm->call_chain;
+
             vm->call_chain = catch_iter->call_frame;
             catch_iter->callback_func(vm);
+            vm->call_chain = save_frame;
         }
 
         catch_iter = catch_iter->prev;

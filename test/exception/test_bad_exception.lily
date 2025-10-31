@@ -289,4 +289,32 @@ class TestBadException < TestCase
             1 % 0
         """)
     }
+
+    public define test_hash_value_map_traceback
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            DivisionByZeroError: Attempt to divide by zero.
+            Traceback:
+                from [test]:2: in g
+                from [test]:7: in f
+                from [prelude]: in Hash.map_values
+                from [test]:12: in __main__
+        """,
+        """\
+            define g(a: String): String {
+                0/0
+                return ":"
+            }
+
+            define f(a: String): String {
+                return g(a)
+            }
+
+            var h = ["1" => "2"]
+
+            h.map_values(f)
+        """)
+    }
 }
