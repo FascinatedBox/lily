@@ -82,4 +82,26 @@ class TestPkgRandom < TestCase
         assert_raises("ValueError: Interval range is reversed.",
             (|| random.Random().double_between(10.0, 0.0) ))
     }
+
+    public define test_Random_using_seed
+    {
+        var r = random.Random(12345)
+        var first_value = r.between(0, 1000)
+        var next_seed = first_value
+
+        # At least one generator should have a different first value.
+        for i in 0...10: {
+            var r2 = random.Random(next_seed)
+            var check = r2.between(0, 1000)
+
+            if check != first_value: {
+                return
+            }
+
+            next_seed = r.between(0, 1000)
+        }
+
+        # Assume the seeds are being ignored.
+        0/0
+    }
 }
