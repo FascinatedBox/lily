@@ -809,7 +809,7 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             import (Coroutine) coroutine
 
             define fn: Coroutine[Integer, Unit] {
-                define fn2(co: Coroutine[Integer, Unit]) {}
+                define fn2(co: Coroutine[Integer, Unit]): Integer { return 0 }
 
                 return Coroutine.build(fn2)
             }

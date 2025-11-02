@@ -28,9 +28,10 @@ class TestPkgCoroutine < TestCase
         assert_parse_string(t, """
             import (Coroutine) coroutine
 
-            define f(co: Coroutine[Integer, Unit]) {
+            define f(co: Coroutine[Integer, Unit]): Integer {
                 co.yield(1)
                 co.yield(2)
+                return 3
             }
 
             var c = Coroutine.build(f)
@@ -70,8 +71,9 @@ class TestPkgCoroutine < TestCase
         assert_parse_string(t, """
             import (Coroutine) coroutine
 
-            define fn(co: Coroutine[List[String], Unit]) {
+            define fn(co: Coroutine[List[String], Unit]): List[String] {
                 co.yield(calltrace())
+                return []
             }
 
             var expect = ["[test]:5: in fn"]
@@ -234,14 +236,15 @@ class TestPkgCoroutine < TestCase
         assert_parse_string(t, """
             import (Coroutine) coroutine
 
-            define done(co: Coroutine[Integer, Unit]) {
+            define done(co: Coroutine[Integer, Unit]): Integer {
                 co.yield(1)
+                return 2
             }
 
             var co = Coroutine.build(done)
-            var lst = [co.resume(), co.resume()]
+            var lst = [co.resume(), co.resume(), co.resume()]
 
-            if lst != [Some(1), None]: {
+            if lst != [Some(1), Some(2), None]: {
                 raise Exception("Failed.")
             }
         """)

@@ -155,21 +155,22 @@ class TestVerifySandbox < TestCase
 
             import (Coroutine) coroutine
 
-            define factorial_co(co: Coroutine[Integer, Unit], num: Integer) {
+            define factorial_co(co: Coroutine[Integer, Unit], num: Integer): Integer {
                 var f = 1
-                for i in 2...num + 1: {
+
+                for i in 2...num: {
                     co.yield(f)
                     f *= i
                 }
+
+                return f
             }
 
             define create_tasks(source: List[Integer]): List[Coroutine[Integer, Unit]]
             {
                 content.push("Creating {0} tasks:".format(source.size()))
 
-                for i in 0...source.size() - 1: {
-                    var s = source[i]
-
+                for i, s in source: {
                     content.push("Task {0} will last {1} rounds.".format(i, s))
                 }
 
@@ -178,19 +179,19 @@ class TestVerifySandbox < TestCase
                 return result
             }
 
-            var task_list = [
+            var task_list = create_tasks([
                 2,
                 4,
                 1,
                 3,
-            ] |> create_tasks
+            ])
             var total = task_list.size()
             var round = 1
 
             while 1: {
                 var results = task_list.map(Coroutine.resume)
-                var remaining = task_list.select(Coroutine.is_waiting)
-                                         .size()
+                var remaining = results.select(Option.is_some)
+                                       .size()
 
                 if remaining == 0: {
                     break
@@ -198,13 +199,9 @@ class TestVerifySandbox < TestCase
 
                 content.push("\\nRound {0} with {1} tasks.".format(round, remaining))
 
-                for i in 0...results.size() - 1: {
-                    var r = results[i]
-
-                    match r: {
-                        case Some(s):
-                            content.push("Task {0}: factorial({1}) = {2}".format(i, round, s))
-                        case None:
+                for i, r in results: {
+                    with r as Some(s): {
+                        content.push("Task {0}: factorial({1}) = {2}".format(i, round, s))
                     }
                 }
 

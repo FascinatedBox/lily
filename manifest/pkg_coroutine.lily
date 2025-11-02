@@ -37,7 +37,7 @@ foreign static class Coroutine[A, B] {
     ### # Errors
     ###
     ### * `RuntimeError`: If 'fn' is not a native function.
-    public static define build(fn: Function(Coroutine[A, B])): Coroutine[A, B]
+    public static define build(fn: Function(Coroutine[A, B] => A)): Coroutine[A, B]
 
     ### Build a new Coroutine that wraps over the `Function` provided. The base
     ### `Function` has the second argument set to 'value' exactly once before
@@ -48,7 +48,7 @@ foreign static class Coroutine[A, B] {
     ### # Errors
     ###
     ### * `RuntimeError`: If 'fn' is not a native function.
-    public static define build_with_value[C](fn: Function(Coroutine[A, B], C),
+    public static define build_with_value[C](fn: Function(Coroutine[A, B], C => A),
                                              value: C): Coroutine[A, B]
 
     ### If the last resumption of the `Coroutine` provided raised an error, this

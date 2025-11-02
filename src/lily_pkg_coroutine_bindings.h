@@ -38,8 +38,8 @@ LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
     "\2Coroutine\0CoStatus\0"
     ,"C\14Coroutine\0[A,B]"
-    ,"m\0build\0[A,B](Function(Coroutine[A,B])): Coroutine[A,B]"
-    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C),C): Coroutine[A,B]"
+    ,"m\0build\0[A,B](Function(Coroutine[A,B]=>A)): Coroutine[A,B]"
+    ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C=>A),C): Coroutine[A,B]"
     ,"m\0error\0[A,B](Coroutine[A,B]): Option[Exception]"
     ,"m\0is_done\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_failed\0[A,B](Coroutine[A,B]): Boolean"

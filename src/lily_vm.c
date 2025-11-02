@@ -1650,6 +1650,9 @@ void lily_vm_coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
            vm raises or yields, one of the other cases will be reached. */
         lily_vm_execute(target);
 
+        /* Execution was successful, so the frame was dropped. Find out where
+           the dropped frame put the return value. */
+        result = target->call_chain->next->return_target;
         new_status = co_done;
     }
     else if (target->exception_cls == NULL) {
