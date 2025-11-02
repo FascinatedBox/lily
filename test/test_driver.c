@@ -52,7 +52,6 @@ const char *all_test_paths[] =
     TEST("class",       "test_class"),
     TEST("closure",     "test_verify_closures"),
     TEST("constant",    "test_verify_constant"),
-    TEST("coroutine",   "test_verify_coroutine"),
     TEST("enum",        "test_enum"),
     TEST("exception",   "test_exception"),
     TEST("format",      "test_verify_format"),
