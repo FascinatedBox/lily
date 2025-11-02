@@ -38,11 +38,8 @@ static void lily_random_destroy_Random(lily_random_Random *r)
 void lily_random_new_Random(lily_state *s)
 {
     lily_random_Random* mt = INIT_Random(s);
-    int64_t seed = 0;
+    int64_t seed = lily_optional_integer(s, 0, 0);
     int i;
-
-    if (lily_arg_count(s) == 2)
-        seed = lily_arg_integer(s, 1);
 
     if (seed <= 0)
         seed = (int64_t)time(NULL);
