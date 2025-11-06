@@ -1711,6 +1711,9 @@ void lily_call_prepare(lily_vm_state *vm, lily_function_val *func)
         vm->call_chain = caller_frame;
     }
 
+    if (caller_frame->top == caller_frame->register_end)
+        lily_vm_grow_registers(vm, 1);
+
     lily_call_frame *target_frame = caller_frame->next;
     target_frame->code = func->code;
     target_frame->function = func;
