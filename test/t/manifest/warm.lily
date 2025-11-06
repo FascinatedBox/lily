@@ -1,0 +1,7 @@
+import manifest
+
+library warm
+
+scoped enum Color < Integer {
+    Red, Yellow, Orange
+}

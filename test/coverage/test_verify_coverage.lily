@@ -862,4 +862,26 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
                 p = 0
         """)
     }
+
+    public define test_nested_foreign_variants
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            var w = covlib.warm.Color.Yellow
+            var c = covlib.cool.Color.Green
+
+            var c1 = covlib.Color.Warm(w)
+            var c2 = covlib.Color.Cool(c)
+
+            var ce = covlib.CoolExample()
+
+            if ce.cool_to_i(c) != 1: { 0/0 }
+            if covlib.warm_to_i(w) != 1: { 0/0 }
+        """)
+    }
 }

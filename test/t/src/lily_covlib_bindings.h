@@ -30,12 +30,17 @@ lily_cid_at(s_, 1)
 #define SUPER_Container(s_) \
 lily_push_super(s_, ID_Container(s_), 1)
 
+#define ID_CoolExample(s_) \
+lily_cid_at(s_, 2)
+#define SUPER_CoolExample(s_) \
+lily_push_super(s_, ID_CoolExample(s_), 0)
+
 #define ARG_Foreign(s_, i_) \
 (lily_covlib_Foreign *)lily_arg_generic(s_, i_)
 #define AS_Foreign(v_) \
 (lily_covlib_Foreign *)lily_as_generic(v_)
 #define ID_Foreign(s_) \
-lily_cid_at(s_, 2)
+lily_cid_at(s_, 3)
 #define INIT_Foreign(s_) \
 (lily_covlib_Foreign *)lily_push_foreign(s_, ID_Foreign(s_), (lily_destroy_func)lily_covlib_destroy_Foreign, sizeof(lily_covlib_Foreign))
 
@@ -44,22 +49,31 @@ lily_cid_at(s_, 2)
 #define AS_ForeignGeneric(v_) \
 (lily_covlib_ForeignGeneric *)lily_as_generic(v_)
 #define ID_ForeignGeneric(s_) \
-lily_cid_at(s_, 3)
+lily_cid_at(s_, 4)
 #define INIT_ForeignGeneric(s_) \
 (lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)lily_covlib_destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
 
+#define ID_Color_Cool(s_) \
+(lily_cid_at(s_, 5) + 1)
+#define INIT_Color_Cool(state)\
+lily_push_variant(state, (lily_cid_at(state, 5) + 1), 1)
+#define ID_Color_Warm(s_) \
+(lily_cid_at(s_, 5) + 2)
+#define INIT_Color_Warm(state)\
+lily_push_variant(state, (lily_cid_at(state, 5) + 2), 1)
+
 #define ID_FlatOne(s_) \
-(lily_cid_at(s_, 4) + 1)
+(lily_cid_at(s_, 6) + 1)
 #define PUSH_FlatOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 1)
 #define ID_FlatThree(s_) \
-(lily_cid_at(s_, 4) + 2)
+(lily_cid_at(s_, 6) + 2)
 #define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 2)
 #define ID_FlatTwo(s_) \
-(lily_cid_at(s_, 4) + 3)
+(lily_cid_at(s_, 6) + 3)
 #define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 6) + 3)
 
 #define East_VALUE -2
 #define North_VALUE 0
@@ -67,30 +81,38 @@ lily_push_empty_variant(state, lily_cid_at(state, 4) + 3)
 #define West_VALUE 4567890
 
 #define ID_ScopedEnum_ScopedOne(s_) \
-(lily_cid_at(s_, 6) + 1)
+(lily_cid_at(s_, 8) + 1)
 #define PUSH_ScopedEnum_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 8) + 1)
 #define ID_ScopedEnum_ScopedThree(s_) \
-(lily_cid_at(s_, 6) + 2)
+(lily_cid_at(s_, 8) + 2)
 #define PUSH_ScopedEnum_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 8) + 2)
 #define ID_ScopedEnum_ScopedTwo(s_) \
-(lily_cid_at(s_, 6) + 3)
+(lily_cid_at(s_, 8) + 3)
 #define PUSH_ScopedEnum_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 8) + 3)
 
 #define ScopedValueDirection_East_VALUE 5
 #define ScopedValueDirection_North_VALUE 4
 #define ScopedValueDirection_South_VALUE 6
 #define ScopedValueDirection_West_VALUE 7
 
+extern LILY_COVLIB_EXPORT const char *lily_cool_info_table[];
+extern LILY_COVLIB_EXPORT lily_call_entry_func lily_cool_call_table[];
+void lily_covlib_module_cool(lily_state *s) { lily_import_library_data(s, "[covlib.cool]", lily_cool_info_table, lily_cool_call_table); }
+
 extern LILY_COVLIB_EXPORT const char *lily_farm_info_table[];
 extern LILY_COVLIB_EXPORT lily_call_entry_func lily_farm_call_table[];
 void lily_covlib_module_farm(lily_state *s) { lily_import_library_data(s, "[covlib.farm]", lily_farm_info_table, lily_farm_call_table); }
 
+extern LILY_COVLIB_EXPORT const char *lily_warm_info_table[];
+extern LILY_COVLIB_EXPORT lily_call_entry_func lily_warm_call_table[];
+void lily_covlib_module_warm(lily_state *s) { lily_import_library_data(s, "[covlib.warm]", lily_warm_info_table, lily_warm_call_table); }
+
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
-    "\10C2\0Container\0Foreign\0ForeignGeneric\0FlatEnum\0FlatValueDirection\0ScopedEnum\0ScopedValueDirection\0"
+    "\12C2\0Container\0CoolExample\0Foreign\0ForeignGeneric\0Color\0FlatEnum\0FlatValueDirection\0ScopedEnum\0ScopedValueDirection\0"
     ,"N\3C2\0< Container"
     ,"m\0<new>\0(String,Integer): C2"
     ,"m\0check\0(C2): Integer"
@@ -101,9 +123,15 @@ const char *lily_covlib_info_table[] = {
     ,"m\0nothing\0(Container): self"
     ,"m\0update\0(Container,String)"
     ,"1\0value\0String"
+    ,"N\2CoolExample\0"
+    ,"m\0<new>\0: CoolExample"
+    ,"m\0cool_to_i\0(CoolExample,cool.Color): Integer"
     ,"C\1Foreign\0"
     ,"m\0<new>\0: Foreign"
     ,"C\0ForeignGeneric\0[A,B]"
+    ,"E\2Color\0"
+    ,"V\0Cool\0(cool.Color)"
+    ,"V\0Warm\0(warm.Color)"
     ,"E\0FlatEnum\0"
     ,"V\0FlatOne\0"
     ,"V\0FlatThree\0"
@@ -145,7 +173,10 @@ const char *lily_covlib_info_table[] = {
     ,"F\0raise_keyerror\0"
     ,"F\0scoop_narrow\0(Function($1))"
     ,"F\0scoop_narrow_with_args\0(Function(Integer,String,$1=>Boolean))"
+    ,"F\0warm_to_i\0(warm.Color): Integer"
+    ,"M\0cool"
     ,"M\0farm"
+    ,"M\0warm"
     ,"Z"
 };
 #define LILY_DECLARE_COVLIB_CALL_TABLE \
@@ -163,7 +194,13 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib_Container_update, \
     NULL, \
     NULL, \
+    lily_covlib_new_CoolExample, \
+    lily_covlib_CoolExample_cool_to_i, \
+    NULL, \
     lily_covlib_new_Foreign, \
+    NULL, \
+    NULL, \
+    NULL, \
     NULL, \
     NULL, \
     NULL, \
@@ -206,7 +243,10 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__raise_keyerror, \
     lily_covlib__scoop_narrow, \
     lily_covlib__scoop_narrow_with_args, \
+    lily_covlib__warm_to_i, \
+    lily_covlib_module_cool, \
     lily_covlib_module_farm, \
+    lily_covlib_module_warm, \
     lily_v21_plus_required, \
 };
 #endif

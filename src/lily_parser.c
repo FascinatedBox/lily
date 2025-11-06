@@ -1776,7 +1776,7 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     if (result)
         return result;
 
-    m = lily_find_module(m, name);
+    m = find_dl_module_in(parser, m, name);
 
     while (m) {
         NEED_NEXT_TOK(tk_dot)

@@ -3,6 +3,8 @@
 #include "lily.h"
 #include "lily_code_iter.h"
 #include "lily_covlib_bindings.h"
+#include "lily_cool_bindings.h"
+#include "lily_warm_bindings.h"
 
 LILY_COVLIB_EXPORT
 lily_call_entry_func lily_covlib_call_table[];
@@ -595,4 +597,22 @@ void lily_covlib__optcount(lily_state *s)
     lily_return_integer(s, total);
 }
 
+void lily_covlib__warm_to_i(lily_state *s)
+{
+    return lily_return_integer(s, lily_arg_integer(s, 0));
+}
+
+void lily_covlib_CoolExample_cool_to_i(lily_state *s)
+{
+    return lily_return_integer(s, lily_arg_integer(s, 1));
+}
+
+void lily_covlib_new_CoolExample(lily_state *s)
+{
+    (void) SUPER_CoolExample(s);
+    lily_return_super(s);
+}
+
+LILY_DECLARE_WARM_CALL_TABLE
+LILY_DECLARE_COOL_CALL_TABLE
 LILY_DECLARE_COVLIB_CALL_TABLE
