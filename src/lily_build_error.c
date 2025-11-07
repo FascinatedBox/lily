@@ -181,7 +181,7 @@ static void add_vm_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
     while (frame->prev) {
         lily_proto *proto = frame->function->proto;
 
-        if (frame->function->code == NULL)
+        if (proto->code == NULL)
             lily_mb_add_fmt(msgbuf, "    from %s: in %s\n", proto->module_path,
                     proto->name);
         else

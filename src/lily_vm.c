@@ -1364,18 +1364,17 @@ static lily_container_val *build_traceback_raw(lily_vm_state *vm)
     for (i = depth;
          i >= 1;
          i--, frame_iter = frame_iter->prev) {
-        lily_function_val *func_val = frame_iter->function;
-        lily_proto *proto = func_val->proto;
-        const char *path = proto->module_path;
-        char line[16] = "";
-        if (func_val->code)
-            sprintf(line, "%d:", frame_iter->code[-1]);
+        lily_proto *proto = frame_iter->function->proto;
+        const char *str;
 
-        const char *str = lily_mb_sprintf(msgbuf, "%s:%s in %s", path,
-                line, proto->name);
+        if (proto->code == NULL)
+            str = lily_mb_sprintf(msgbuf, "%s: in %s", proto->module_path,
+                    proto->name);
+        else
+            str = lily_mb_sprintf(msgbuf, "%s:%d: in %s", proto->module_path,
+                    frame_iter->code[-1], proto->name);
 
-        lily_string_val *sv = lily_new_string_raw(str);
-        move_string(lv->values[i - 1], sv);
+        move_string(lv->values[i - 1], lily_new_string_raw(str));
     }
 
     return lv;
