@@ -77,18 +77,12 @@ void lily_release_jump(lily_raiser *raiser)
     raiser->all_jumps = raiser->all_jumps->prev;
 }
 
-void lily_raise_class(lily_raiser *raiser, struct lily_class_ *error_class,
-                      const char *message)
+void lily_raise_class(lily_raiser *raiser, struct lily_class_ *error_class)
 {
     raiser->source = err_from_vm;
     raiser->error_class = error_class;
 
-    /* This function doesn't need multiple arguments because it's copying over
-       the message that the vm already processed. */
-
-    lily_mb_flush(raiser->msgbuf);
-    lily_mb_add(raiser->msgbuf, message);
-
+    /* No buffer to copy since all vm errors use raiser's msgbuf. */
     longjmp(raiser->all_jumps->jump, 1);
 }
 

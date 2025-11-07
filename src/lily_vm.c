@@ -788,7 +788,7 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 {
     load_exception(vm, id);
 
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
     lily_mb_add(msgbuf, message);
 
     dispatch_exception(vm);
@@ -797,7 +797,7 @@ static void vm_error(lily_vm_state *vm, uint8_t id, const char *message)
 #define LILY_ERROR(err, id) \
 void lily_##err##Error(lily_vm_state *vm, const char *fmt, ...) \
 { \
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer); \
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf); \
  \
     va_list var_args; \
     va_start(var_args, fmt); \
@@ -818,7 +818,7 @@ LILY_ERROR(Value,          LILY_ID_VALUEERROR)
 /* Raise KeyError with 'key' as the value of the message. */
 static void key_error(lily_vm_state *vm, lily_value *key)
 {
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
 
     if (key->flags & V_STRING_FLAG)
         lily_mb_escape_add_str(msgbuf, key->value.string->string);
@@ -832,7 +832,7 @@ static void key_error(lily_vm_state *vm, lily_value *key)
 /* Raise IndexError, noting that 'bad_index' is, well, bad. */
 static void boundary_error(lily_vm_state *vm, int64_t bad_index)
 {
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
     lily_mb_add_fmt(msgbuf, "Subscript index %ld is out of range.",
             bad_index);
 
@@ -1106,7 +1106,7 @@ static void do_o_exception_raise(lily_vm_state *vm, lily_value *exception_val)
     vm->exception_value = exception_val;
     vm->exception_cls = raise_cls;
 
-    lily_msgbuf *msgbuf = lily_mb_flush(vm->vm_buffer);
+    lily_msgbuf *msgbuf = lily_mb_flush(vm->raiser->msgbuf);
     lily_mb_add(msgbuf, message);
 
     dispatch_exception(vm);
@@ -1397,7 +1397,7 @@ static void store_exception_into(lily_vm_state *vm, lily_value *result)
 
         /* Internal errors store a message here. Code doesn't run before an
            exception is processed, so it should be here. */
-        const char *raw_message = lily_mb_raw(vm->vm_buffer);
+        const char *raw_message = lily_mb_raw(vm->raiser->msgbuf);
         lily_string_val *sv = lily_new_string_raw(raw_message);
 
         /* Need space for 2 fields (message and traceback). */
@@ -1490,7 +1490,7 @@ static void dispatch_exception(lily_vm_state *vm)
         jump_iter = jump_iter->prev;
 
     raiser->all_jumps = jump_iter;
-    lily_raise_class(vm->raiser, vm->exception_cls, lily_mb_raw(vm->vm_buffer));
+    lily_raise_class(vm->raiser, vm->exception_cls);
 }
 
 /***
