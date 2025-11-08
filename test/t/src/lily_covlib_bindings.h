@@ -165,6 +165,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_push_boolean\0: Boolean"
     ,"F\0cover_value_as\0(Byte,ByteString,Exception,Double,File,Function(Integer),Foreign,Hash[Integer,Integer],Integer,String)"
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
+    ,"F\0ec_error_passthru\0(Function())"
     ,"F\0make_flat_n\0(Integer): FlatEnum"
     ,"F\0make_scoped_n\0(Integer): ScopedEnum"
     ,"F\0optcount\0(:a *Integer,:b *Integer,:c *Integer,:d *Integer,:e *Integer,:f *Integer,:g *Integer,:h *Integer,:i *Integer,:j *Integer,:k *Integer,:l *Integer,:m *Integer,:n *Integer,:o *Integer,:p *Integer): Integer"
@@ -235,6 +236,7 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_push_boolean, \
     lily_covlib__cover_value_as, \
     lily_covlib__cover_value_group, \
+    lily_covlib__ec_error_passthru, \
     lily_covlib__make_flat_n, \
     lily_covlib__make_scoped_n, \
     lily_covlib__optcount, \

@@ -1475,7 +1475,12 @@ static void dispatch_exception(lily_vm_state *vm)
                so that the callback can use the foreign function's values. */
             lily_call_frame *save_frame = vm->call_chain;
 
+            /* Restore locals to their original state. */
             vm->call_chain = catch_iter->call_frame;
+
+            /* lily_ec_exception_message uses these for traceback. */
+            catch_iter->call_frame = save_frame;
+            vm->catch_chain = catch_iter;
             catch_iter->callback_func(vm);
             vm->call_chain = save_frame;
         }

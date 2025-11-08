@@ -884,4 +884,50 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             if covlib.warm_to_i(w) != 1: { 0/0 }
         """)
     }
+
+    public define test_ec_error_message
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_string(t, """
+            import covlib
+
+            define h(a: List[Integer]): Integer { return a[5] }
+            define g { h([1]) }
+            define f { g() }
+            define k {}
+
+            define fn
+            {
+                var v = 10
+                var w = "2"
+
+                try: {
+                    covlib.ec_error_passthru(f)
+                except IndexError as e:
+                    # Make sure the exception was constructed properly.
+                    if e.message == "" ||
+                       e.traceback.size() != 6: {
+                        0/0
+                    }
+                }
+
+                # Use local vars to test stack restoration.
+
+                if v + w.parse_i().unwrap() != 12: {
+                    0/0
+                }
+
+                covlib.ec_error_passthru(k)
+
+                if v + w.parse_i().unwrap() != 12: {
+                    0/0
+                }
+            }
+
+            fn()
+        """)
+    }
 }

@@ -172,10 +172,8 @@ static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
             parser->symtab->active_module->path, line_num);
 }
 
-static void add_vm_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
+static void add_vm_trace(lily_msgbuf *msgbuf, lily_call_frame *frame)
 {
-    lily_call_frame *frame = parser->vm->call_chain;
-
     lily_mb_add(msgbuf, "Traceback:\n");
 
     while (frame->prev) {
@@ -214,13 +212,30 @@ static void build_error(lily_parse_state *parser)
             add_frontend_trace(msgbuf, parser);
             break;
         case err_from_vm:
-            add_vm_trace(msgbuf, parser);
+            add_vm_trace(msgbuf, parser->vm->call_chain);
             break;
         default:
             /* For raw errors (ex: First file failed to open), just show the
                message. */
             break;
     }
+}
+
+const char *lily_ec_exception_message(lily_state *s)
+{
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+    lily_raiser *raiser = s->raiser;
+
+    /* Give the raiser vm's error info. This isn't cleared at the end, because
+       exception dispatch will fix it or overwrite it. */
+    raiser->source = err_from_vm;
+    raiser->error_class = s->exception_cls;
+    add_error_header(msgbuf, raiser);
+
+    /* Error callbacks execute in the frame their callback was pushed in. This
+       is where the vm actually is. */
+    add_vm_trace(msgbuf, s->catch_chain->call_frame);
+    return lily_mb_raw(msgbuf);
 }
 
 /* Return a string describing the last error encountered by the interpreter.

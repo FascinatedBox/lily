@@ -1486,6 +1486,16 @@ void lily_ValueError(lily_state *s, const char *format, ...);
 // being iterated over cannot be altered.
 typedef void (*lily_error_callback_func)(lily_state *s);
 
+// Function: lily_ec_exception_message
+// Capture the current error message and trace.
+//
+// This function is for error callbacks only. This renders the vm's error into
+// the vm's msgbuf, then returns the underlying buffer (`lily_mb_raw`).
+//
+// Error callbacks cannot use `lily_error_message`, because they execute in the
+// same frame they were pushed in. The stack traceback would be wrong.
+const char *lily_ec_exception_message(lily_state *s);
+
 // Function: lily_error_callback_push
 // Push an error callback for the current foreign function.
 void lily_error_callback_push(lily_state *s, lily_error_callback_func callback_fn);

@@ -613,6 +613,29 @@ void lily_covlib_new_CoolExample(lily_state *s)
     lily_return_super(s);
 }
 
+static void ec_error_callback(lily_state *s)
+{
+    const char *message = lily_ec_exception_message(s);
+    const char *expect = "IndexError: Subscript index 5 is out of range.\n"
+                         "Traceback:\n"
+                         "    from [test]";
+
+    if (strncmp(message, expect, strlen(expect)) == 0)
+        return;
+
+    /* Error callbacks shouldn't raise or execute. Crash for attention. */
+    lily_call(NULL, 0);
+}
+
+void lily_covlib__ec_error_passthru(lily_state *s)
+{
+    lily_error_callback_push(s, ec_error_callback);
+    lily_call_prepare(s, lily_arg_function(s, 0));
+    lily_call(s, 0);
+    lily_error_callback_pop(s);
+    lily_return_unit(s);
+}
+
 LILY_DECLARE_WARM_CALL_TABLE
 LILY_DECLARE_COOL_CALL_TABLE
 LILY_DECLARE_COVLIB_CALL_TABLE

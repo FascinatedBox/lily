@@ -149,3 +149,5 @@ define warm_to_i(c: warm.Color): Integer
 class CoolExample {
     public define cool_to_i(c: cool.Color): Integer
 }
+
+define ec_error_passthru(fn: Function())
