@@ -1611,7 +1611,9 @@ void lily_mb_repeat_n(lily_msgbuf *msgbuf, char ch, int count);
 const char *lily_mb_sprintf(lily_msgbuf *msgbuf, const char *format, ...);
 
 // Function: lily_msgbuf_get
-// Return the common msgbuf of the interpreter.
+// Flush and return the vm's msgbuf.
+//
+// Foreign functions may use this buffer to build messages as they see fit.
 lily_msgbuf *lily_msgbuf_get(lily_state *);
 
 ////////////////////////
