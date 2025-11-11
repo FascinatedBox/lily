@@ -14,6 +14,8 @@ const char *lily_utf8_info_table[] = {
     ,"F\0as_list\0(String): List[Integer]"
     ,"F\0compare\0(String,String): Integer"
     ,"F\0each_codepoint\0(String,Function(Integer))"
+    ,"F\0encode\0(Integer): Option[String]"
+    ,"F\0encode_list\0(List[Integer]): Option[String]"
     ,"F\0get\0(String,Integer): Integer"
     ,"F\0length\0(String): Integer"
     ,"F\0slice\0(String,*Integer,*Integer): String"
@@ -26,6 +28,8 @@ lily_call_entry_func lily_utf8_call_table[] = { \
     lily_utf8__as_list, \
     lily_utf8__compare, \
     lily_utf8__each_codepoint, \
+    lily_utf8__encode, \
+    lily_utf8__encode_list, \
     lily_utf8__get, \
     lily_utf8__length, \
     lily_utf8__slice, \
