@@ -606,9 +606,6 @@ lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
 
         result = lily_find_class(prelude, name);
 
-        if (result == NULL && name[1] == '\0')
-            result = (lily_class *)lily_gp_find(parser->generics, name);
-
         if (result == NULL)
             result = find_run_class_dynaload(parser, prelude, name);
     }
