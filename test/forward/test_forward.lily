@@ -134,4 +134,31 @@ class TestForward < TestCase
             }
         """)
     }
+
+    public define test_forward_class_leak
+    {
+        var t = Interpreter()
+
+        # Valgrind should not report a leak from this.
+
+        assert_parse_string(t, """
+            forward class One { ... }
+
+            class Two(o: One) {
+                public var @o = o
+            }
+
+            class One {
+                public var @two_list: List[Two] = []
+
+                public define load_twos {
+                    @two_list.push(Two(self))
+                }
+            }
+
+            var o = One()
+
+            o.load_twos()
+        """)
+    }
 }

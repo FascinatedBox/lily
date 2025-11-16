@@ -4635,13 +4635,20 @@ static uint16_t get_gc_flags_for(lily_type *target)
 
     if (result_flag & (CLS_GC_TAGGED | CLS_VISITED))
         result_flag = CLS_GC_TAGGED;
-    else {
+    else if ((result_flag & SYM_IS_FORWARD) == 0) {
         result_flag &= CLS_GC_SPECULATIVE;
 
         if (target->subtype_count) {
             for (uint16_t i = 0;i < target->subtype_count;i++)
                 result_flag |= get_gc_flags_for(target->subtypes[i]);
         }
+    }
+    else {
+        /* Forward classes could have anything. Tag both ends. */
+        result_flag = CLS_GC_TAGGED;
+
+        /* This type might be polymorphic, so use the class. */
+        target->cls->flags |= CLS_GC_TAGGED;
     }
 
     return result_flag;
@@ -4654,6 +4661,11 @@ static void determine_class_gc_flag(lily_class *target)
 {
     lily_class *parent_iter = target->parent;
     uint16_t mark = 0;
+
+    if (target->flags & CLS_GC_TAGGED)
+        /* This is a forward class that was used before declaration. For safety,
+           tag both ends. */
+        return;
 
     if (parent_iter) {
         /* Start with this, just in case the child has no properties. */
