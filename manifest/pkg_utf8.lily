@@ -28,6 +28,18 @@ define compare(a: String, b: String): Integer
 ### Call `fn` for each codepoint within `string`.
 define each_codepoint(string: String, fn: Function(Integer))
 
+### Attempt to encode `codepoint` as UTF-8.
+###
+### On success, the encoded character is returned as a `String` inside a `Some`.
+### Otherwise, `None` is returned.
+define encode(codepoint: Integer): Option[String]
+
+### Attempt to encode all codepoints in `codepoints` as UTF-8.
+###
+### On success, the encoded characters are joined into a `String`, which is then
+### returned inside a `Some`. Otherwise, `None` is returned.
+define encode_list(codepoints: List[Integer]): Option[String]
+
 ### Return the codepoint at `index` in `string`.
 ###
 ### If a negative index is given, it is treated as an offset from the end of

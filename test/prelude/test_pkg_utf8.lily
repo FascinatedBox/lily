@@ -36,6 +36,33 @@ class TestPkgUTF8 < TestCase
         }
     }
 
+    public define test_encode
+    {
+        for string in ["", "abc", "café", "🙂🙁", " <200b> "]: {
+            assert_equal(utf8
+                         .as_list(string)
+                         .map(utf8.encode)
+                         .map(Option.unwrap)
+                         .join(), string)
+        }
+
+        assert_equal(utf8.encode(-1), None)
+        assert_equal(utf8.encode(1114112), None)
+    }
+
+    public define test_encode_list
+    {
+        for string in ["", "abc", "café", "🙂🙁", " <200b> "]: {
+            assert_equal(string
+                         |> utf8.as_list
+                         |> utf8.encode_list
+                         |> Option.unwrap, string)
+        }
+
+        assert_equal(utf8.encode_list(['A', 'B', 'C', -1]), None)
+        assert_equal(utf8.encode_list([1114112, 'A', 'B', 'C']), None)
+    }
+
     public define test_get
     {
         assert_equal(utf8.get("abc", 1), 98)

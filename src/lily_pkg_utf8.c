@@ -81,6 +81,41 @@ static const char *advance_to_codepoint(lily_state *s, const char *input,
     }
 }
 
+static int codepoint_to_utf8(int64_t codepoint, char result[5])
+{
+    /* The main conditional chain assumes the codepoint is non-negative, but we
+       need to reject negative codepoints as well. */
+    if (codepoint < 0)
+        return 0;
+
+    if (codepoint <= 0x7f) {
+        result[0] = (char) codepoint;
+        result[1] = '\0';
+    }
+    else if (codepoint <= 0x07ff) {
+        result[0] = (codepoint >> 6 & 0x1f) | 0xc0;
+        result[1] = (codepoint      & 0x3f) | 0x80;
+        result[2] = '\0';
+    }
+    else if (codepoint <= 0xffff) {
+        result[0] = (codepoint >> 12 & 0x0f) | 0xe0;
+        result[1] = (codepoint >> 6  & 0x3f) | 0x80;
+        result[2] = (codepoint       & 0x3f) | 0x80;
+        result[3] = '\0';
+    }
+    else if (codepoint <= 0x10ffff) {
+        result[0] = (codepoint >> 18 & 0x07) | 0xf0;
+        result[1] = (codepoint >> 12 & 0x3f) | 0x80;
+        result[2] = (codepoint >> 6  & 0x3f) | 0x80;
+        result[3] = (codepoint       & 0x3f) | 0x80;
+        result[4] = '\0';
+    }
+    else
+        return 0;
+
+    return 1;
+}
+
 void lily_utf8__as_list(lily_state *s)
 {
     const char *input = lily_arg_string_raw(s, 0);
@@ -146,6 +181,42 @@ void lily_utf8__each_codepoint(lily_state *s)
     }
 
     lily_return_unit(s);
+}
+
+void lily_utf8__encode(lily_state *s)
+{
+    int64_t codepoint = lily_arg_integer(s, 0);
+    char result[5];
+
+    if (!codepoint_to_utf8(codepoint, result)) {
+        lily_return_none(s);
+        return;
+    }
+
+    lily_push_string(s, result);
+    lily_return_some_of_top(s);
+}
+
+void lily_utf8__encode_list(lily_state *s)
+{
+    lily_container_val *codepoints = lily_arg_container(s, 0);
+    uint32_t size = lily_con_size(codepoints);
+
+    lily_msgbuf *msgbuf = lily_msgbuf_get(s);
+    char result[5];
+
+    for (uint32_t i = 0; i < size; i++) {
+        if (!codepoint_to_utf8(lily_as_integer(lily_con_get(codepoints, i)),
+                               result)) {
+            lily_return_none(s);
+            return;
+        }
+
+        lily_mb_add(msgbuf, result);
+    }
+
+    lily_push_string(s, lily_mb_raw(msgbuf));
+    lily_return_some_of_top(s);
 }
 
 void lily_utf8__get(lily_state *s)
