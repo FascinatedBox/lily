@@ -2178,11 +2178,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
     if (lex->token == INHERITANCE_TOKEN) {
         lily_next_token(lex);
 
-        const char *name = lex->label;
-        lily_class *parent = lily_find_class(ds->m, name);
-
-        if (parent == NULL)
-            parent = (lily_class *)try_toplevel_dynaload(parser, ds->m, name);
+        lily_class *parent = find_or_dl_class(parser, ds->m, lex->label);
 
         cls->parent = parent;
         cls->prop_count = parent->prop_count;
