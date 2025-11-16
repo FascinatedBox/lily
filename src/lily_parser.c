@@ -4631,16 +4631,15 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
    any gc information to hold. */
 static uint16_t get_gc_flags_for(lily_type *target)
 {
-    uint16_t result_flag = 0;
+    uint16_t result_flag = target->cls->flags;
 
-    if (target->cls->flags & (CLS_GC_TAGGED | CLS_VISITED))
+    if (result_flag & (CLS_GC_TAGGED | CLS_VISITED))
         result_flag = CLS_GC_TAGGED;
     else {
-        result_flag = target->cls->flags & (CLS_GC_TAGGED | CLS_GC_SPECULATIVE);
+        result_flag &= CLS_GC_SPECULATIVE;
 
         if (target->subtype_count) {
-            uint16_t i;
-            for (i = 0;i < target->subtype_count;i++)
+            for (uint16_t i = 0;i < target->subtype_count;i++)
                 result_flag |= get_gc_flags_for(target->subtypes[i]);
         }
     }
