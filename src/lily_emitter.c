@@ -600,6 +600,7 @@ void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
     lily_block *block = next_block(emit);
 
     block->forward_class_count = 0;
+    block->generic_start = 0;
     block->block_type = block_file;
     block->scope_var = var;
     setup_scope_block(emit, block);

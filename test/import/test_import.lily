@@ -259,6 +259,16 @@ class TestImport < TestCase
             """
         )
 
+    private var @t_import_forward_gen =
+        StringTarget(
+            :path "asdf",
+            :data """\
+                forward class Example[A] { ... }
+                class Example[A](a: A) {}
+                define f[A] {}
+            """
+        )
+
     public define test_import_as
     {
         var t = Interpreter.with_targets(
@@ -558,6 +568,19 @@ class TestImport < TestCase
                 direct_b.y != 20: {
                 0/0
             }
+        """)
+    }
+
+    public define test_import_forward_generic_class
+    {
+        var t = Interpreter.with_targets(
+            @t_import_forward_gen
+        )
+
+        # This import was causing valgrind warnings.
+
+        assert_parse_string(t, """
+            import asdf
         """)
     }
 }
