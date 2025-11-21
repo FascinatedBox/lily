@@ -18,7 +18,7 @@ define rpn(input: String): Result[String, List[Integer]]
     var values = input.split(" ")
     var stack: List[Integer] = []
     
-    foreach v in values: {
+    for v in values: {
         with v.parse_i() as Some(s): {
             s |> stack.push
         else:
@@ -52,6 +52,6 @@ var lines = [
     "1 2 ?"
     ]
 
-foreach l in lines: {
+for l in lines: {
     print("{}: {}".format(l, rpn(l)))
 }
