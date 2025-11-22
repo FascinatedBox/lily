@@ -16,6 +16,18 @@ scoped enum CoStatus {
     Waiting,
 }
 
+### A subclass of `Exception` used by `Coroutine` resumption.
+###
+### If a `Coroutine` fails during resumption, the exception has the trace of the
+### `Coroutine` vm.
+###
+### If, however, the `Coroutine` cannot be resumed, an instance of this error
+### is returned. When resumption raises this error, the trace will be of the
+### calling vm.
+###
+### This is not meant for use outside of `Coroutine` resumption.
+class CoError(message: String) < Exception(message) {}
+
 ### A `Coroutine` is similar to a `Function`, except that it can also yield
 ### values at different points along its lifetime. Every `Coroutine` has a
 ### callstack that belongs to it, as well as an exception state. A `Coroutine`'s
@@ -86,20 +98,21 @@ foreign static class Coroutine[A, B] {
     ### * `RuntimeError`: If 'self' is not the current `Coroutine`.
     public define receive: B
 
-    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
-    ### only if it is currently in the 'waiting' state.
+    ### Attempt to resume the `Coroutine` provided. A `Coroutine` can only be
+    ### resumed if it is currently in the 'waiting' state.
     ###
     ### This function does not send a value to the `Coroutine` which is why it
     ### requires the second parameter to be `Unit`.
     ###
-    ### If the `Coroutine` is suspended and yields a value, the result is a
-    ### `Some` of that value.
+    ### If the `Coroutine` is yields or returns a value, the result is a
+    ### `Success` of that value.
     ###
-    ### Otherwise, this returns `None`.
+    ### If the `Coroutine` cannot be resumed, the result is a `CoError` with the
+    ### caller's traceback.
     ###
-    ### Note that if a `Coroutine` returns a value instead of yielding, the
-    ### value is ignored and the result is `None`.
-    public static define resume(self: Coroutine[A, Unit]): Option[A]
+    ### If the `Coroutine` fails, the result is the error raised that contains
+    ### the traceback of the `Coroutine` vm.
+    public static define resume(self: Coroutine[A, Unit]): Result[Exception, A]
 
     ### Attempt to resume the `Coroutine` provided. A `Coroutine` can be resumed
     ### only if it is currently in the 'waiting' state.
@@ -108,11 +121,15 @@ foreign static class Coroutine[A, B] {
     ### is stored only if the `Coroutine` is resumed. If stored, the old value
     ### is ejected from the `Coroutine` provided.
     ###
-    ### If the `Coroutine` is suspended and yields (or returns) a value, the
-    ### result is a `Some` of that value.
+    ### If the `Coroutine` is yields or returns a value, the result is a
+    ### `Success` of that value.
     ###
-    ### Otherwise, this returns `None`.
-    public define resume_with(value: B): Option[A]
+    ### If the `Coroutine` cannot be resumed, the result is a `CoError` with the
+    ### caller's traceback.
+    ###
+    ### If the `Coroutine` fails, the result is the error raised that contains
+    ### the traceback of the `Coroutine` vm.
+    public define resume_with(value: B): Result[Exception, A]
 
     ### Return the current state of the `Coroutine`.
     public define status: CoStatus

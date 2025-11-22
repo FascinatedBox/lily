@@ -6,6 +6,16 @@
 
 typedef lily_coroutine_val lily_coroutine_Coroutine;
 
+void lily_coroutine_new_CoError(lily_state *s)
+{
+    lily_container_val *result = SUPER_CoError(s);
+
+    lily_con_set(result, 0, lily_arg_value(s, 0));
+    lily_push_list(s, 0);
+    lily_con_set_from_stack(s, result, 1);
+    lily_return_super(s);
+}
+
 void lily_coroutine_Coroutine_build(lily_state *s)
 {
     lily_vm_state *base_vm = lily_vm_coroutine_build(s, ID_Coroutine(s));

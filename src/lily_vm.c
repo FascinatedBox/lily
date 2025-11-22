@@ -1626,12 +1626,47 @@ lily_vm_state *lily_vm_coroutine_build(lily_vm_state *vm, uint16_t id)
     return base_vm;
 }
 
+static const char *status_for_co(lily_coroutine_val *co_val)
+{
+    switch (co_val->status) {
+        case co_done:
+            return "done";
+        case co_failed:
+            return "failed";
+        /* This defaults because co_waiting isn't possible here. */
+        default:
+            return "running";
+    }
+}
+
+static void resumption_failed(lily_vm_state *origin, lily_coroutine_val *co_val)
+{
+    /* Since resumption returns a Result, it shouldn't raise. This should,
+       therefore, send back an error. The traceback should be of the calling vm,
+       since the Coroutine vm didn't do anything.
+       Dynaload ensures that CoError is loaded when Coroutine is loaded. As long
+       as Coroutine's bindings aren't changed, CoError's cid will be 0. */
+    uint16_t coerror_id = lily_cid_at(origin, 0);
+    lily_class *coerror_cls = origin->gs->class_table[coerror_id];
+
+    lily_container_val *con = lily_push_failure(origin);
+    lily_msgbuf *msgbuf = lily_mb_flush(origin->raiser->msgbuf);
+
+    lily_mb_add_fmt(msgbuf, "Cannot resume a Coroutine that is %s.",
+            status_for_co(co_val));
+
+    /* Fake an error to use exception machinery. */
+    origin->exception_cls = coerror_cls;
+    store_exception_into(origin, con->values[0]);
+    origin->exception_cls = NULL;
+}
+
 void lily_vm_coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
         lily_value *to_send)
 {
     /* Don't resume Coroutines that are already running, done, or broken. */
     if (co_val->status != co_waiting) {
-        lily_push_none(origin);
+        resumption_failed(origin, co_val);
         return;
     }
 
@@ -1676,12 +1711,15 @@ void lily_vm_coroutine_resume(lily_vm_state *origin, lily_coroutine_val *co_val,
     co_val->status = new_status;
 
     if (result) {
-        lily_container_val *con = lily_push_some(origin);
+        lily_container_val *con = lily_push_success(origin);
         lily_push_value(origin, result);
         lily_con_set_from_stack(origin, con, 0);
     }
-    else
-        lily_push_none(origin);
+    else {
+        lily_container_val *con = lily_push_failure(origin);
+
+        store_exception_into(co_val->vm, con->values[0]);
+    }
 }
 
 /***

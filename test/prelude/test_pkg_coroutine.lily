@@ -60,7 +60,7 @@ class TestPkgCoroutine < TestCase
             var co = Coroutine.build_with_value(f, input)
             var output = input.map(|l| co.resume().unwrap() )
 
-            if input != output || co.resume().is_some(): {
+            if input != output || co.resume().is_success(): {
                raise Exception("Failed.")
             }
         """)
@@ -157,9 +157,9 @@ class TestPkgCoroutine < TestCase
 
                 while 1: {
                     match co.resume(): {
-                        case Some(s):
+                        case Success(s):
                             result.push(s)
-                        case None:
+                        case Failure(_):
                             break
                     }
                 }
@@ -189,7 +189,7 @@ class TestPkgCoroutine < TestCase
                 return 0
             }
 
-            if Coroutine.build(f).resume().is_some(): {
+            if Coroutine.build(f).resume().is_success(): {
                raise Exception("Failed.")
             }
         """)
@@ -217,15 +217,17 @@ class TestPkgCoroutine < TestCase
 
         assert_parse_string(t, """
             import (Coroutine) coroutine
+            import (class_name) introspect
 
             define broken(co: Coroutine[Integer, Unit]): Integer {
                 return 1 / 0
             }
 
             var co = Coroutine.build(broken)
-            var lst = [co.resume(), co.resume()]
+            var lst = [co.resume().failure().unwrap() |> class_name,
+                       co.resume().failure().unwrap() |> class_name]
 
-            if lst != [None, None]: {
+            if lst != ["DivisionByZeroError", "CoError"]: {
                raise Exception("Failed.")
             }
         """)
@@ -242,11 +244,10 @@ class TestPkgCoroutine < TestCase
             }
 
             var co = Coroutine.build(done)
-            var lst = [co.resume(), co.resume(), co.resume()]
 
-            if lst != [Some(1), Some(2), None]: {
-                raise Exception("Failed.")
-            }
+            if co.resume() != Success(1): { 0/0 }
+            if co.resume() != Success(2): { 0/0 }
+            if co.resume().is_failure() == false: { 0/0 }
         """)
 
         # incorrect (resume running coroutine)
@@ -255,7 +256,7 @@ class TestPkgCoroutine < TestCase
         assert_parse_string(t, """
             import (Coroutine) coroutine
 
-            var v: Option[Integer] = None
+            var v: Result[Exception, Integer] = Success(1)
 
             define running(co: Coroutine[Integer, Unit]): Integer {
                 v = co.resume()
@@ -264,7 +265,7 @@ class TestPkgCoroutine < TestCase
 
             var co = Coroutine.build(running).resume()
 
-            if v != None: {
+            if v.is_success(): {
                 raise Exception("Failed.")
             }
         """)
@@ -319,7 +320,7 @@ class TestPkgCoroutine < TestCase
                 return 1
             }
 
-            if Coroutine.build(yield_foreign).resume().is_some(): {
+            if Coroutine.build(yield_foreign).resume().is_success(): {
                 raise Exception("Failed.")
             }
         """)
@@ -673,6 +674,38 @@ class TestPkgCoroutine < TestCase
                     0/0
                 }
             }
+        """)
+    }
+
+
+    public define test_coerror_stack
+    {
+        var t = Interpreter()
+
+        # Check error on done Coroutine that never failed
+
+        assert_parse_string(t, """
+            import (Coroutine) coroutine
+
+            define done_fn(co: Coroutine[Integer, Unit]): Integer {
+                return 1
+            }
+
+            define g {
+                var co = Coroutine.build(done_fn)
+
+                co.resume()
+
+                if co.resume().failure().unwrap().traceback.size() != 4: {
+                    0/0
+                }
+            }
+
+            define f {
+                g()
+            }
+
+            f()
         """)
     }
 }

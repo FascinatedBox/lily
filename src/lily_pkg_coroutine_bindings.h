@@ -8,35 +8,42 @@
 #define LILY_COROUTINE_EXPORT
 #endif
 
+#define ID_CoError(s_) \
+lily_cid_at(s_, 0)
+#define SUPER_CoError(s_) \
+lily_push_super(s_, ID_CoError(s_), 2)
+
 #define ARG_Coroutine(s_, i_) \
 (lily_coroutine_Coroutine *)lily_arg_generic(s_, i_)
 #define AS_Coroutine(v_) \
 (lily_coroutine_Coroutine *)lily_as_generic(v_)
 #define ID_Coroutine(s_) \
-lily_cid_at(s_, 0)
+lily_cid_at(s_, 1)
 #define INIT_Coroutine(s_) \
 (lily_coroutine_Coroutine *)lily_push_foreign(s_, ID_Coroutine(s_), (lily_destroy_func)lily_coroutine_destroy_Coroutine, sizeof(lily_coroutine_Coroutine))
 
 #define ID_CoStatus_Done(s_) \
-(lily_cid_at(s_, 1) + 1)
+(lily_cid_at(s_, 2) + 1)
 #define PUSH_CoStatus_Done(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 1)
 #define ID_CoStatus_Failed(s_) \
-(lily_cid_at(s_, 1) + 2)
+(lily_cid_at(s_, 2) + 2)
 #define PUSH_CoStatus_Failed(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 2)
 #define ID_CoStatus_Running(s_) \
-(lily_cid_at(s_, 1) + 3)
+(lily_cid_at(s_, 2) + 3)
 #define PUSH_CoStatus_Running(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 3)
 #define ID_CoStatus_Waiting(s_) \
-(lily_cid_at(s_, 1) + 4)
+(lily_cid_at(s_, 2) + 4)
 #define PUSH_CoStatus_Waiting(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 1) + 4)
+lily_push_empty_variant(state, lily_cid_at(state, 2) + 4)
 
 LILY_COROUTINE_EXPORT
 const char *lily_coroutine_info_table[] = {
-    "\2Coroutine\0CoStatus\0"
+    "\3CoError\0Coroutine\0CoStatus\0"
+    ,"N\1CoError\0< Exception"
+    ,"m\0<new>\0(String): CoError"
     ,"C\14Coroutine\0[A,B]"
     ,"m\0build\0[A,B](Function(Coroutine[A,B]=>A)): Coroutine[A,B]"
     ,"m\0build_with_value\0[A,B,C](Function(Coroutine[A,B],C=>A),C): Coroutine[A,B]"
@@ -46,8 +53,8 @@ const char *lily_coroutine_info_table[] = {
     ,"m\0is_running\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0is_waiting\0[A,B](Coroutine[A,B]): Boolean"
     ,"m\0receive\0[A,B](Coroutine[A,B]): B"
-    ,"m\0resume\0[A,B](Coroutine[A,Unit]): Option[A]"
-    ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Option[A]"
+    ,"m\0resume\0[A,B](Coroutine[A,Unit]): Result[Exception,A]"
+    ,"m\0resume_with\0[A,B](Coroutine[A,B],B): Result[Exception,A]"
     ,"m\0status\0[A,B](Coroutine[A,B]): CoStatus"
     ,"m\0yield\0[A,B](Coroutine[A,B],A)"
     ,"E\4CoStatus\0"
@@ -61,6 +68,8 @@ const char *lily_coroutine_info_table[] = {
 LILY_COROUTINE_EXPORT \
 lily_call_entry_func lily_coroutine_call_table[] = { \
     NULL, \
+    NULL, \
+    lily_coroutine_new_CoError, \
     NULL, \
     lily_coroutine_Coroutine_build, \
     lily_coroutine_Coroutine_build_with_value, \

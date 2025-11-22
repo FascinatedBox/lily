@@ -168,10 +168,10 @@ class TestVerifySandbox < TestCase
 
             define create_tasks(source: List[Integer]): List[Coroutine[Integer, Unit]]
             {
-                content.push("Creating {0} tasks:".format(source.size()))
+                content.push("Creating {} tasks:".format(source.size()))
 
                 for i, s in source: {
-                    content.push("Task {0} will last {1} rounds.".format(i, s))
+                    content.push("Task {} will last {} rounds.".format(i, s))
                 }
 
                 var result = source.map(|m| Coroutine.build_with_value(factorial_co, m))
@@ -190,18 +190,18 @@ class TestVerifySandbox < TestCase
 
             while 1: {
                 var results = task_list.map(Coroutine.resume)
-                var remaining = results.select(Option.is_some)
+                var remaining = results.select(Result.is_success)
                                        .size()
 
                 if remaining == 0: {
                     break
                 }
 
-                content.push("\\nRound {0} with {1} tasks.".format(round, remaining))
+                content.push("\\nRound {} with {} tasks.".format(round, remaining))
 
                 for i, r in results: {
-                    with r as Some(s): {
-                        content.push("Task {0}: factorial({1}) = {2}".format(i, round, s))
+                    with r as Success(s): {
+                        content.push("Task {}: factorial({}) = {}".format(i, round, s))
                     }
                 }
 
