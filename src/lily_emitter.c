@@ -707,11 +707,16 @@ void lily_emit_leave_block(lily_emit_state *emit)
     else if (block_type == block_match ||
              block_type == block_with)
         lily_u16_set_pos(emit->match_cases, emit->block->match_case_start);
-    else if (block_type == block_try)
+    else if (block_type == block_try) {
+        if ((block->flags & BLOCK_HAS_BRANCH) == 0)
+            lily_raise_syn(emit->raiser,
+                    "try blocks must have at least one except.");
+
         /* The vm expects that the last except block will have a 'next' of 0 to
            indicate the end of the 'except' chain. Remove the patch that the
            last except block installed so it doesn't get patched. */
         lily_u16_set_at(emit->code, lily_u16_pop(emit->patches), 0);
+    }
 
     if ((block->flags & BLOCK_ALWAYS_EXITS) &&
         (block->flags & BLOCK_FINAL_BRANCH) &&

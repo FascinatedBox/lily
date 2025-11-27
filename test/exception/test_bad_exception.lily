@@ -317,4 +317,20 @@ class TestBadException < TestCase
             h.map_values(f)
         """)
     }
+
+    public define test_try_without_except
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: try blocks must have at least one except.
+                from [test]:4:
+        """,
+        """\
+            try: {
+                0/0
+                print(1)
+            }
+        """)
+    }
 }
