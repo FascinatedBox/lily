@@ -36,6 +36,19 @@ class TestPkgUTF8 < TestCase
         }
     }
 
+    public define test_each_codepoint_with_index
+    {
+        for string in ["", "abc", "café", "🙂🙁", " ​ "]: {
+            var codepoints_with_indices: List[Tuple[Integer, Integer]] = []
+
+            utf8.each_codepoint_with_index(string,
+                    (|c, i| codepoints_with_indices.push(<[c, i]>) ))
+
+            assert_equal(codepoints_with_indices,
+                    utf8.as_list(string).map_with_index(|c, i| <[c, i]>))
+        }
+    }
+
     public define test_encode
     {
         for string in ["", "abc", "café", "🙂🙁", " <200b> "]: {

@@ -183,6 +183,24 @@ void lily_utf8__each_codepoint(lily_state *s)
     lily_return_unit(s);
 }
 
+void lily_utf8__each_codepoint_with_index(lily_state *s)
+{
+    const char *input = lily_arg_string_raw(s, 0);
+    lily_call_prepare(s, lily_arg_function(s, 1));
+    uint32_t bytes_read;
+
+    for (int64_t index = 0; *input; index++) {
+        uint32_t codepoint = read_codepoint(input, &bytes_read);
+        lily_push_integer(s, (int64_t)codepoint);
+        lily_push_integer(s, index);
+        lily_call(s, 2);
+
+        input += bytes_read;
+    }
+
+    lily_return_unit(s);
+}
+
 void lily_utf8__encode(lily_state *s)
 {
     int64_t codepoint = lily_arg_integer(s, 0);
