@@ -2037,8 +2037,8 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: For list element type is not compatible:
-            Received: Integer
             Expected (by elem): String
+            Received: Integer
 
                |
              4 | for i, elem in [1]: {}
@@ -2084,8 +2084,8 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: For list element type is not compatible:
-            Received: One
             Expected (by elem): Two
+            Received: One
 
                |
              7 | for i, elem in [One()]: {}

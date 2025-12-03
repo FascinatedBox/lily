@@ -4862,9 +4862,9 @@ void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
     else if (lily_ts_type_greater_eq(emit->ts, elem_var->type, t) == 0)
         lily_raise_syn(emit->raiser,
             "For list element type is not compatible:\n"
-            "Received: ^T\n"
-            "Expected (by %s): ^T",
-            t, elem_var->name, elem_var->type);
+            "Expected (by %s): ^T\n"
+            "Received: ^T",
+            elem_var->name, elem_var->type, t);
 
     lily_u16_write_4(emit->code, o_assign, ast->result->reg_spot,
             for_source->reg_spot, ast->line_num);
