@@ -85,6 +85,21 @@ class TestVerifyFormat < TestCase
             "{0}".format(unit),
             "unit"
         )
+
+        assert_equal(
+            "'{}'".format(B"asdf"),
+            "'asdf'"
+        )
+
+        assert_equal(
+            "{}_{}_{}".format(B"1234", B"asdf", "hjkl"),
+            "1234_asdf_hjkl"
+        )
+
+        assert_equal(
+            "{0}{1}{0}".format(B"1234", B"asdf"),
+            "1234asdf1234"
+        )
     }
 
     public define test_enums

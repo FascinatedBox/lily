@@ -137,8 +137,12 @@ static void add_escaped_raw(lily_msgbuf *msgbuf, int is_bytestring,
         lily_mb_add_slice(msgbuf, str, start, i);
 
     /* Add a terminating \0 so that the msgbuf is always \0 terminated. */
-    if (is_bytestring)
+    if (is_bytestring) {
         lily_mb_add_char(msgbuf, '\0');
+
+        /* Pull the cursor back in case there's more content. */
+        msgbuf->pos--;
+    }
 }
 
 void lily_free_msgbuf(lily_msgbuf *msgbuf)
