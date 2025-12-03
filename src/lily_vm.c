@@ -2345,6 +2345,22 @@ void lily_vm_execute(lily_vm_state *vm)
                     code += code[4];
 
                 break;
+            case o_for_text_step:
+                rhs_reg = vm_regs[code[1]]; /* Source */
+                loop_reg = vm_regs[code[2]]; /* Index */
+                lhs_reg = vm_regs[code[3]]; /* Element */
+
+                loop_reg->value.integer++;
+                for_temp = loop_reg->value.integer;
+
+                if (for_temp < rhs_reg->value.string->size) {
+                    move_byte(lhs_reg, rhs_reg->value.string->string[for_temp]);
+                    code += 6;
+                }
+                else
+                    code += code[4];
+
+                break;
             case o_for_integer:
                 /* loop_reg is an internal counter, while lhs_reg is an external
                    counter. rhs_reg is the stopping point. */

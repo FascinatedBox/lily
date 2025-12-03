@@ -258,7 +258,7 @@ void lily_free_emit_state(lily_emit_state *);
 
 void lily_eval_entry_condition(lily_emit_state *, lily_expr_state *);
 void lily_eval_exit_condition(lily_emit_state *, lily_expr_state *);
-void lily_eval_for_list(lily_emit_state *, lily_expr_state *, lily_var *,
+void lily_eval_for_of(lily_emit_state *, lily_expr_state *, lily_var *,
         lily_var *);
 lily_sym *lily_eval_for_result(lily_emit_state *, lily_ast *);
 void lily_eval_to_loop_var(lily_emit_state *, lily_expr_state *, lily_var *);
@@ -309,7 +309,7 @@ int lily_emit_can_use_self(lily_emit_state *, uint16_t);
 void lily_emit_write_class_init(lily_emit_state *);
 void lily_emit_write_for_header(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, uint16_t);
-void lily_emit_write_for_list(lily_emit_state *, lily_var *, lily_var *,
+void lily_emit_write_for_of(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *,
         lily_var *);

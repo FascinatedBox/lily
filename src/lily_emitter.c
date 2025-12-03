@@ -225,9 +225,16 @@ void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
     }
 }
 
-void lily_emit_write_for_list(lily_emit_state *emit, lily_var *for_source,
+void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
         lily_var *for_index, lily_var *for_elem, uint16_t line_num)
 {
+    uint16_t opcode;
+
+    if (for_source->type->cls_id == LILY_ID_LIST)
+        opcode = o_for_list_step;
+    else
+        opcode = o_for_text_step;
+
     /* This needs to do a negative step like o_for_integer. However, since the
        first index is always 0 and the step is always 1, just start at -1. */
     lily_u16_write_4(emit->code, o_load_integer, (uint16_t)-1,
@@ -237,7 +244,7 @@ void lily_emit_write_for_list(lily_emit_state *emit, lily_var *for_source,
     emit->block->code_start = lily_u16_pos(emit->code);
 
     /* The patched jump will need 4 spaces of adjustment. */
-    lily_u16_write_6(emit->code, o_for_list_step, for_source->reg_spot,
+    lily_u16_write_6(emit->code, opcode, for_source->reg_spot,
             for_index->reg_spot, for_elem->reg_spot, 4, line_num);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 }
@@ -4831,7 +4838,26 @@ void lily_eval_optarg(lily_emit_state *emit, lily_ast *ast)
     lily_u16_set_at(emit->code, patch, lily_u16_pos(emit->code) - patch + 2);
 }
 
-void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
+static void verify_for_expr_source_type(lily_emit_state *emit, lily_type *t)
+{
+    if (t->flags & TYPE_IS_INCOMPLETE)
+        lily_raise_syn(emit->raiser,
+                "For expression has incomplete type ^T.", t);
+
+    uint16_t cls_id = t->cls_id;
+
+    if (cls_id == LILY_ID_LIST ||
+        cls_id == LILY_ID_BYTESTRING ||
+        cls_id == LILY_ID_STRING)
+        return;
+
+    lily_raise_syn(emit->raiser,
+            "For expression is not iterable:\n"
+            "Expected: ByteString, List, or String\n"
+            "Received: ^T", t);
+}
+
+void lily_eval_for_of(lily_emit_state *emit, lily_expr_state *es,
         lily_var *for_source, lily_var *elem_var)
 {
     lily_ast *ast = es->root;
@@ -4839,7 +4865,7 @@ void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
     if (ast->tree_type == tree_binary &&
         IS_ASSIGN_TOKEN(ast->op)) {
         lily_raise_syn(emit->raiser,
-                   "For list expression contains an assignment.");
+                   "For expression contains an assignment.");
     }
 
     eval_tree(emit, ast, lily_question_type);
@@ -4847,14 +4873,15 @@ void lily_eval_for_list(lily_emit_state *emit, lily_expr_state *es,
 
     lily_type *t = ast->result->type;
 
-    if (t->cls->id != LILY_ID_LIST)
-        lily_raise_syn(emit->raiser,
-                "For list expression expected a List but got ^T.", t);
-    else if (t->flags & TYPE_IS_INCOMPLETE)
-        lily_raise_syn(emit->raiser,
-                "For list expression has incomplete type ^T.", t);
+    verify_for_expr_source_type(emit, t);
 
-    t = t->subtypes[0];
+    /* Opcode writing uses this to determine which one to write. */
+    for_source->type = t;
+
+    if (t->cls_id == LILY_ID_LIST)
+        t = t->subtypes[0];
+    else
+        t = (lily_type *)emit->symtab->byte_class;
 
     if (elem_var->type == lily_question_type)
         /* Fix parser's placeholder type. */

@@ -211,6 +211,7 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 2;
             break;
         case o_for_list_step:
+        case o_for_text_step:
             iter->inputs_3 = 1;
             iter->outputs_4 = 2;
             iter->jumps_5 = 1;

@@ -4056,8 +4056,8 @@ static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
     /* Emitter will fix this type in eval. */
     lily_var *source = new_typed_local_var(parser, lily_question_type, "", 0);
 
-    lily_eval_for_list(parser->emit, parser->expr, source, second_var);
-    lily_emit_write_for_list(parser->emit, source, first_var, second_var,
+    lily_eval_for_of(parser->emit, parser->expr, source, second_var);
+    lily_emit_write_for_of(parser->emit, source, first_var, second_var,
             parser->lex->line_num);
 
     /* Caller fixes the other var. */

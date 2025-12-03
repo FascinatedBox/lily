@@ -1822,7 +1822,7 @@ class TestBasics < TestCase
         """)
     }
 
-    public define test_for_list
+    public define test_for_of
     {
         var t = Interpreter()
 
@@ -1901,6 +1901,73 @@ class TestBasics < TestCase
                 if i != 1: {
                     0/0
                 }
+            }
+        """)
+
+        # Using a String as a source.
+
+        assert_parse_string(t, """
+            var bytes: List[Byte] = []
+            var expect_bytes = ['a', 'b', 'c']
+            var check = 0
+
+            a = []
+
+            for i, elem in "abc": {
+                a.push(i)
+                bytes.push(elem)
+            }
+
+            if bytes != expect_bytes: {
+                0/0
+            }
+
+            for c in " ": {
+                check += c.to_i()
+                bytes = []
+            }
+
+            for elem in "abc": {
+                bytes.push(elem)
+            }
+
+            if bytes != expect_bytes ||
+               a != [0, 1, 2] ||
+               check != 32: {
+                0/0
+            }
+        """)
+
+        # ByteString source instead of String.
+
+        assert_parse_string(t, """
+            a = []
+            bytes = []
+            expect_bytes = ['d', 'e', 'f']
+            check = 0
+
+            for i, elem in B"def": {
+                a.push(i)
+                bytes.push(elem)
+            }
+
+            if bytes != expect_bytes: {
+                0/0
+            }
+
+            for c in B" ": {
+                check += c.to_i()
+                bytes = []
+            }
+
+            for elem in B"def": {
+                bytes.push(elem)
+            }
+
+            if bytes != expect_bytes ||
+               a != [0, 1, 2] ||
+               check != 32: {
+                0/0
             }
         """)
     }

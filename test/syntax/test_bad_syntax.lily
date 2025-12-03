@@ -2002,7 +2002,7 @@ class TestBadSyntax < TestCase
         # No assignments
 
         assert_parse_fails(t, """\
-            SyntaxError: For list expression contains an assignment.
+            SyntaxError: For expression contains an assignment.
 
                |
              3 | for a, b in x = []: {}
@@ -2055,20 +2055,22 @@ class TestBadSyntax < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: For list expression expected a List but got String.
+            SyntaxError: For expression is not iterable:
+            Expected: ByteString, List, or String
+            Received: Option[Integer]
 
                |
-             1 | for i, elem in "": {}
-               |                  ^
+             1 | for i, elem in Some(10): {}
+               |                        ^
 
                 from [test]:1:
         """,
         """\
-            for i, elem in "": {}
+            for i, elem in Some(10): {}
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: For list expression has incomplete type List[Option[?]].
+            SyntaxError: For expression has incomplete type List[Option[?]].
 
                |
              1 | for i, elem in [None]: {}
