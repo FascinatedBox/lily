@@ -418,7 +418,7 @@ predefined List[A] {
     ###
     ### The result of this function is the result of doing an accumulation on
     ### each element within `self`.
-    public define fold(start: A, fn: Function(A, A => A)): A
+    public define fold[B](start: B, fn: Function(B, A => B)): B
 
     ### Attempt to find `index` within `self`.
     ###
