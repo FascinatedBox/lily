@@ -195,8 +195,10 @@ class TestListMethods < TestCase
         assert_equal([1, 2, 3].fold(0, (|a, b| a + b)), 6)
 
         var v = [1, 2, 3]
-
         assert_equal(v.fold(4, (|a, b| v.clear() a + b)), 5)
+
+        assert_equal([1, 2, 3].fold("", (|a, b| a ++ b)), "123")
+        assert_equal(["one", "two", "three"].fold(0, (|a, b| a + b.size())), 11)
     }
 
     public define test_get
