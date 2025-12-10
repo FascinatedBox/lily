@@ -141,7 +141,7 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot find symbol 'direct_left' inside of module 'direct_mid'.
-                from [test]:3:
+                from [test]:2:
         """,
         """
             import (direct_left) direct_mid
@@ -155,7 +155,7 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot find symbol 'missing' inside of module 'var_exporter'.
-                from [test]:3:
+                from [test]:2:
         """,
         """
             import (missing) var_exporter
@@ -166,7 +166,7 @@ class TestBadImport < TestCase
         t = Interpreter()
         assert_parse_fails(t, """\
             SyntaxError: Cannot find symbol 'missing' inside of module 'sys'.
-                from [test]:2:
+                from [test]:1:
         """,
         """\
             import (missing) sys
@@ -180,7 +180,7 @@ class TestBadImport < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'v' has already been declared.
-                from [test]:3:
+                from [test]:2:
         """,
         """
             import (v, v) var_exporter
@@ -668,5 +668,41 @@ class TestBadImport < TestCase
             
                 from [test]:1:
         """, t.error())
+    }
+
+    public define test_missing_symbol_context
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'missing' inside of module 'math'.
+                from [test]:1:
+        """,
+        """\
+            import (missing) math
+            print(1)
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'bcos' inside of module 'math'.
+                from [test]:3:
+        """,
+        """\
+            import (abs,
+                    acos,
+                    bcos) math
+            print(1)
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'ccos' inside of module 'math'.
+                from [test]:2:
+        """,
+        """\
+            import (abs,
+                    ccos,
+                    acos) math
+            print(1)
+        """)
     }
 }

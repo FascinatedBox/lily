@@ -4143,34 +4143,40 @@ static void link_import_syms(lily_parse_state *parser,
     lily_symtab *symtab = parser->symtab;
     lily_module_entry *active = symtab->active_module;
     lily_buffer_u16 *buffer = parser->data_stack;
-    uint16_t start = lily_u16_pos(buffer) - count;
+    uint16_t start = lily_u16_pos(buffer) - (count * 2);
     uint16_t iter = start, restore_to = start;
 
     do {
-        uint16_t search_pos = lily_u16_get(buffer, iter);
+        uint16_t search_pos = lily_u16_get(buffer, iter + 1);
         char *name = lily_sp_get(parser->data_strings, search_pos);
         lily_sym *sym = find_existing_sym(active, name);
 
-        if (sym)
-            lily_raise_syn(parser->raiser, "'%s' has already been declared.",
-                    name);
+        if (sym) {
+            uint16_t line = lily_u16_get(buffer, iter);
+
+            lily_raise_syn_at(parser->raiser, line,
+                    "'%s' has already been declared.", name);
+        }
 
         sym = find_existing_sym(source, name);
 
         if (sym == NULL)
             sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
 
-        if (sym == NULL)
-            lily_raise_syn(parser->raiser,
+        if (sym == NULL) {
+            uint16_t line = lily_u16_get(buffer, iter);
+
+            lily_raise_syn_at(parser->raiser, line,
                     "Cannot find symbol '%s' inside of module '%s'.",
                     name, source->loadname);
+        }
 
         if (sym->item_kind != ITEM_MODULE)
             lily_add_symbol_ref(active, sym);
         else
             lily_ims_link_module_to(active, (lily_module_entry *)sym, name);
 
-        iter++;
+        iter += 2;
         count--;
     } while (count);
 
@@ -4190,6 +4196,8 @@ static void parse_import_refs(lily_parse_state *parser)
         while (1) {
             NEED_NEXT_IDENT(
                     "Expected a symbol name (module, class, etc.) here.")
+
+            lily_u16_write_1(parser->data_stack, lex->line_num);
             lily_pa_add_data_string(parser, lex->label);
             count++;
 

@@ -46,6 +46,12 @@ typedef struct lily_raiser_ {
     uint32_t pad;
 } lily_raiser;
 
+#define lily_raise_syn_at(raiser, line, message, ...) \
+{ \
+    raiser->override_line_num = line; \
+    lily_raise_syn(raiser, message, __VA_ARGS__); \
+}
+
 lily_raiser *lily_new_raiser(void);
 void lily_rewind_raiser(lily_raiser *);
 void lily_free_raiser(lily_raiser *);
