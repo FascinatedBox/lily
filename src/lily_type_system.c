@@ -157,6 +157,10 @@ static void unify_call(lily_type_system *ts, lily_type *left,
     lily_class *cls = left->cls;
     uint16_t flags = (left->flags & TYPE_IS_VARARGS) &
                      (right->flags & TYPE_IS_VARARGS);
+    lily_type *result_type = lily_tm_pop(ts->tm);
+    uint16_t pos = lily_tm_pos(ts->tm) - num_subtypes;
+
+    lily_tm_insert(ts->tm, pos, result_type);
     lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, cls, num_subtypes));
 }
 
@@ -202,21 +206,19 @@ static int check_generic(lily_type_system *ts, lily_type *left,
     return ret;
 }
 
-static int check_function(lily_type_system *ts, lily_type *left,
+static int check_func_return(lily_type_system *ts, lily_type *left,
         lily_type *right, int flags)
 {
     int ret = 1;
     uint16_t tm_start = lily_tm_pos(ts->tm);
+
     /* The return type is at [0] and always exists. */
     lily_type *left_type = left->subtypes[0];
     lily_type *right_type = right->subtypes[0];
 
-    flags &= T_DONT_SOLVE | T_UNIFY;
-
     if (check_raw(ts, left_type, right_type, flags | T_COVARIANT) == 0) {
-        /* If the goal is to unify, then any two mismatched types can always
-           narrow down to `Unit`. */
         if (flags & T_UNIFY) {
+            /* Unify can always narrow miskatched types to Unit. */
             lily_tm_restore(ts->tm, tm_start);
             lily_tm_add(ts->tm, lily_unit_type);
         }
@@ -229,8 +231,20 @@ static int check_function(lily_type_system *ts, lily_type *left,
             ret = 0;
     }
 
+    return ret;
+}
+
+static int check_function(lily_type_system *ts, lily_type *left,
+        lily_type *right, int flags)
+{
+    flags &= T_DONT_SOLVE | T_UNIFY;
+
+    if (flags & T_UNIFY)
+        lily_tm_add(ts->tm, lily_unit_type);
+
     int i;
     int count = left->subtype_count;
+    int ret = 1;
 
     if (count > right->subtype_count) {
         /* Not enough types. This is fine if the unmatched type is scoop (which
@@ -256,8 +270,8 @@ static int check_function(lily_type_system *ts, lily_type *left,
     flags |= T_CONTRAVARIANT;
 
     for (i = 1;i < count;i++) {
-        left_type = left->subtypes[i];
-        right_type = right->subtypes[i];
+        lily_type *left_type = left->subtypes[i];
+        lily_type *right_type = right->subtypes[i];
 
         if (right_type->cls_id == LILY_ID_OPTARG &&
             left_type->cls_id != LILY_ID_OPTARG) {
@@ -269,6 +283,9 @@ static int check_function(lily_type_system *ts, lily_type *left,
             break;
         }
     }
+
+    if (ret)
+        ret = check_func_return(ts, left, right, flags);
 
     /* Can't disagree on varargs. */
     if ((left->flags ^ right->flags) & TYPE_IS_VARARGS)

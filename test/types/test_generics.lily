@@ -236,4 +236,35 @@ class TestGenerics < TestCase
             v.x = 1
         """)
     }
+
+    public define test_coroutine_error_message
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to Coroutine.build is invalid:
+            Expected Type: Function (Coroutine[Integer, Unit] => Integer)
+            Received Type: Function (Coroutine[Integer, Unit])
+                from [test]:4:
+        """,
+        """\
+            import (Coroutine) coroutine
+
+            define f(a: Coroutine[Integer, Unit]) {}
+            var v = Coroutine.build(f)
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to Coroutine.build_with_value is invalid:
+            Expected Type: Function (Coroutine[Integer, String], ? => Integer)
+            Received Type: Function (Coroutine[Integer, String])
+                from [test]:4:
+        """,
+        """\
+            import (Coroutine) coroutine
+
+            define f(a: Coroutine[Integer, String]) {}
+            var v = Coroutine.build_with_value(f, "asdf")
+        """)
+    }
 }
