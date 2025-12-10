@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "lily_alloc.h"
+#include "lily_expr.h"
 #include "lily_raiser.h"
 
 #define HANDLE_VARARGS \
@@ -32,6 +33,7 @@ void lily_rewind_raiser(lily_raiser *raiser)
     lily_mb_flush(raiser->msgbuf);
     lily_mb_flush(raiser->aux_msgbuf);
     raiser->source = err_from_none;
+    raiser->override_line_num = 0;
 }
 
 void lily_free_raiser(lily_raiser *raiser)
@@ -118,6 +120,7 @@ void lily_raise_tree(lily_raiser *raiser, struct lily_ast_ *error_ast,
 {
     raiser->source = err_from_emit;
     raiser->error_ast = error_ast;
+    raiser->override_line_num = error_ast->line_num;
 
     HANDLE_VARARGS
 

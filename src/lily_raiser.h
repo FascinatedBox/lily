@@ -39,7 +39,11 @@ typedef struct lily_raiser_ {
         struct lily_ast_ *error_ast;
     };
 
-    lily_error_source source;
+    lily_error_source source: 16;
+
+    /* For non-vm errors: If 0, use lexer's line number. Otherwise, use this. */
+    uint16_t override_line_num;
+    uint32_t pad;
 } lily_raiser;
 
 lily_raiser *lily_new_raiser(void);

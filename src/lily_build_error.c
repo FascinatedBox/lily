@@ -155,11 +155,17 @@ static void add_context(lily_msgbuf *msgbuf,
 
 static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
 {
-    uint16_t line_num = parser->lex->line_num;
-    lily_error_source es = parser->raiser->source;
+    lily_raiser *raiser = parser->raiser;
+    lily_error_source es = raiser->source;
+    uint16_t line_num;
+
+    if (raiser->override_line_num == 0)
+        line_num = parser->lex->line_num;
+    else
+        line_num = raiser->override_line_num;
 
     if (es == err_from_emit) {
-        lily_ast *ast = parser->raiser->error_ast;
+        lily_ast *ast = raiser->error_ast;
 
         line_num = ast->line_num;
         parser->lex->token_start = ast->token_start;
