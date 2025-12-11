@@ -226,7 +226,8 @@ void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
 }
 
 void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
-        lily_var *for_index, lily_var *for_elem, uint16_t line_num)
+        lily_var *for_backing, lily_var *for_index, lily_var *for_elem,
+        uint16_t line_num)
 {
     uint16_t opcode;
 
@@ -238,15 +239,20 @@ void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
     /* This needs to do a negative step like o_for_integer. However, since the
        first index is always 0 and the step is always 1, just start at -1. */
     lily_u16_write_4(emit->code, o_load_integer, (uint16_t)-1,
-            for_index->reg_spot, line_num);
+            for_backing->reg_spot, line_num);
 
     /* Fix the start so the continue doesn't reinitialize loop vars. */
     emit->block->code_start = lily_u16_pos(emit->code);
 
     /* The patched jump will need 4 spaces of adjustment. */
     lily_u16_write_6(emit->code, opcode, for_source->reg_spot,
-            for_index->reg_spot, for_elem->reg_spot, 4, line_num);
+            for_backing->reg_spot, for_elem->reg_spot, 4, line_num);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
+
+    if (for_index != for_backing) {
+        lily_u16_write_4(emit->code, o_assign_noref, for_backing->reg_spot,
+                for_index->reg_spot, line_num);
+    }
 }
 
 /* This is called before 'continue', 'break', or 'return' is written. It writes

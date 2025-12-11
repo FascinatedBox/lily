@@ -4038,6 +4038,8 @@ static void ensure_valid_for_loop_index(lily_parse_state *parser,
 static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
         lily_var *second_var)
 {
+    lily_var *backing;
+
     if (second_var == NULL) {
         /* Make it so the second spot is always the element. The first spot
            needs to be filled, because for loops need a counter. */
@@ -4045,9 +4047,14 @@ static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
 
         second_var = first_var;
         first_var = new_typed_local_var(parser, integer_type, "", 0);
+
+        /* No loop var so no need for a backing var. */
+        backing = first_var;
     }
-    else
+    else {
         ensure_valid_for_loop_index(parser, first_var);
+        backing = new_typed_local_var(parser, lily_question_type, "", 0);
+    }
 
     /* This is blocked because it's not worth the trouble of implementing. */
     if ((first_var->flags | second_var->flags) & VAR_IS_GLOBAL)
@@ -4057,7 +4064,7 @@ static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
     lily_var *source = new_typed_local_var(parser, lily_question_type, "", 0);
 
     lily_eval_for_of(parser->emit, parser->expr, source, second_var);
-    lily_emit_write_for_of(parser->emit, source, first_var, second_var,
+    lily_emit_write_for_of(parser->emit, source, backing, first_var, second_var,
             parser->lex->line_num);
 
     /* Caller fixes the other var. */

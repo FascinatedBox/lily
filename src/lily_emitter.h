@@ -310,7 +310,7 @@ void lily_emit_write_class_init(lily_emit_state *);
 void lily_emit_write_for_header(lily_emit_state *, lily_var *, lily_var *,
         lily_var *, lily_var *, uint16_t);
 void lily_emit_write_for_of(lily_emit_state *, lily_var *, lily_var *,
-        lily_var *, uint16_t);
+        lily_var *, lily_var *, uint16_t);
 void lily_emit_write_shorthand_ctor(lily_emit_state *, lily_class *,
         lily_var *);
 

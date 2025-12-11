@@ -1970,6 +1970,30 @@ class TestBasics < TestCase
                 0/0
             }
         """)
+
+        # Index mutation is ignored on subsequent passes (matching for range)
+
+        assert_parse_string(t, """
+            a = []
+            bytes = []
+
+            define mutation_check {
+                for i, byte in "abc": {
+                    a.push(i)
+                    bytes.push(byte)
+
+                    if i == 1: {
+                        i += 1
+                    }
+                }
+
+                if a != [0, 1, 2] || bytes != ['a', 'b', 'c']: {
+                    0/0
+                }
+            }
+
+            mutation_check()
+        """)
     }
 
     public define test_math_and_compare_ops
