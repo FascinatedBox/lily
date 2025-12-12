@@ -5007,12 +5007,6 @@ void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
 
-    if (is_false_tree(ast)) {
-        uint16_t location = lily_u16_pos(emit->code) - emit->block->code_start;
-        lily_u16_write_2(emit->code, o_jump, (uint16_t)-location);
-        return;
-    }
-
     eval_enforce_value(emit, ast, lily_question_type);
     ensure_valid_condition_type(emit, ast);
 
