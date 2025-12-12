@@ -4000,10 +4000,16 @@ static lily_var *parse_for_var(lily_parse_state *parser)
 
     lily_var *result = find_active_var(parser, lex->label);
 
-    if (result == NULL)
+    if (result == NULL) {
+        /* For loop variables must have a suitable scope. */
+        if (parser->emit->function_depth != 1)
+            result = new_local_var(parser, lex->label, lex->line_num);
+        else
+            result = new_global_var(parser, lex->label, lex->line_num);
+
         /* Could be the index or the element. Use ? for now, fix it later. */
-        result = new_typed_local_var(parser, lily_question_type, lex->label,
-                lex->line_num);
+        result->type = lily_question_type;
+    }
     else if (parser->emit->function_depth != result->function_depth &&
             (result->flags & VAR_IS_GLOBAL) == 0)
         /* Blocked because closures and for loop vars tend to mix poorly. */
@@ -4055,10 +4061,6 @@ static void parse_for_list(lily_parse_state *parser, lily_var *first_var,
         ensure_valid_for_loop_index(parser, first_var);
         backing = new_typed_local_var(parser, lily_question_type, "", 0);
     }
-
-    /* This is blocked because it's not worth the trouble of implementing. */
-    if ((first_var->flags | second_var->flags) & VAR_IS_GLOBAL)
-        lily_raise_syn(parser->raiser, "For list variables cannot be global.");
 
     /* Emitter will fix this type in eval. */
     lily_var *source = new_typed_local_var(parser, lily_question_type, "", 0);

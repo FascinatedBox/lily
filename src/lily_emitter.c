@@ -236,6 +236,14 @@ void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
     else
         opcode = o_for_text_step;
 
+    int sync_elem = (for_elem->flags & VAR_IS_GLOBAL);
+    lily_sym *elem_sym;
+
+    if (sync_elem)
+        elem_sym = (lily_sym *)get_storage(emit, for_elem->type);
+    else
+        elem_sym = (lily_sym *)for_elem;
+
     /* This needs to do a negative step like o_for_integer. However, since the
        first index is always 0 and the step is always 1, just start at -1. */
     lily_u16_write_4(emit->code, o_load_integer, (uint16_t)-1,
@@ -246,13 +254,24 @@ void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
 
     /* The patched jump will need 4 spaces of adjustment. */
     lily_u16_write_6(emit->code, opcode, for_source->reg_spot,
-            for_backing->reg_spot, for_elem->reg_spot, 4, line_num);
+            for_backing->reg_spot, elem_sym->reg_spot, 4, line_num);
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 
+    /* Indexes are copied to prevent mutation, matching range for behavior. */
     if (for_index != for_backing) {
-        lily_u16_write_4(emit->code, o_assign_noref, for_backing->reg_spot,
+        if ((for_index->flags & VAR_IS_GLOBAL) == 0)
+            opcode = o_assign_noref;
+        else
+            opcode = o_global_set;
+
+        lily_u16_write_4(emit->code, opcode, for_backing->reg_spot,
                 for_index->reg_spot, line_num);
     }
+
+    /* Element mutations are harmless to the loop. Only sync if global. */
+    if (sync_elem)
+        lily_u16_write_4(emit->code, o_global_set, elem_sym->reg_spot,
+                for_elem->reg_spot, line_num);
 }
 
 /* This is called before 'continue', 'break', or 'return' is written. It writes

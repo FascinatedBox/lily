@@ -1901,38 +1901,6 @@ class TestBadSyntax < TestCase
         # This one handles `for x(, y) in z` loops.
         var t = Interpreter()
 
-        # Index and/or element can't be global.
-
-        assert_parse_fails(t, """\
-            SyntaxError: For list variables cannot be global.
-
-               |
-             3 | for i in [1]: {}
-               |             ^
-
-                from [test]:3:
-        """,
-        """\
-            var i = 1
-
-            for i in [1]: {}
-        """)
-
-        assert_parse_fails(t, """\
-            SyntaxError: For list variables cannot be global.
-
-               |
-             3 | for i, elem in [1]: {}
-               |                   ^
-
-                from [test]:3:
-        """,
-        """\
-            var elem = 1
-
-            for i, elem in [1]: {}
-        """)
-
         # Index/elem can't be upvalues either.
 
         assert_parse_fails(t, """\

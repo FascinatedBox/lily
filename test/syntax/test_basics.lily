@@ -881,6 +881,27 @@ class TestBasics < TestCase
 
             if v != [[1, 1, 1], [1, 1, 1], [1, 1, 1]]: { 0 / 0 }
         """)
+
+        # Capture of global variables
+
+        assert_parse_string(t, """
+            var lists = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+            var total = 0
+
+            for global_i in 0...lists.size() - 1: {
+                var list = lists[global_i]
+
+                list.each(|value_1|
+                    for value_2 in list: {
+                        total += global_i
+                    }
+                )
+            }
+
+            if total != (9 * 3): {
+                0/0
+            }
+        """)
     }
 
     public define test_for_loops
@@ -1993,6 +2014,73 @@ class TestBasics < TestCase
             }
 
             mutation_check()
+        """)
+
+        # Global vars for index and element
+
+        assert_parse_string(t, """
+            var g_index = 0
+            var g_elem = 'a'
+            a = []
+            bytes = []
+
+            for g_elem in B"abc": {
+                bytes.push(g_elem)
+            }
+
+            if bytes != ['a', 'b', 'c']: {
+                0/0
+            }
+
+            bytes = []
+
+            for g_index, g_elem in B"abc": {
+                a.push(g_index)
+            }
+
+            if a != [0, 1, 2]: {
+                0/0
+            }
+        """)
+
+        # Capture global element
+
+        assert_parse_string(t, """
+            var lists = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+            var total = 0
+
+            for list in lists: {
+                list.each(|value_1|
+                    for value_2 in list: {
+                        total += value_2
+                    }
+                )
+            }
+
+            if total != (45 * 3): {
+                0/0
+            }
+        """)
+
+        # Capture global index
+
+        assert_parse_string(t, """
+            total = 0
+            var global_i = 0
+
+            for global_i, elem in lists: {
+                var list = lists[global_i]
+
+                list.each(|value_1|
+                    for value_2 in list: {
+                        total += global_i
+                    }
+                )
+            }
+
+            if total != (9 * 3): {
+                0/0
+            }
         """)
     }
 
