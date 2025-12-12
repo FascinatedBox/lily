@@ -5810,7 +5810,7 @@ static void parse_block_exit(lily_parse_state *parser)
                skipped over. Hide them so they don't turn up in expression. */
             hide_block_vars(parser);
             expression(parser);
-            lily_eval_exit_condition(parser->emit, parser->expr);
+            lily_eval_do_while_condition(parser->emit, parser->expr);
             lily_emit_leave_block(parser->emit);
             break;
         case block_match:

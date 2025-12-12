@@ -256,8 +256,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *, lily_raiser *);
 void lily_rewind_emit_state(lily_emit_state *);
 void lily_free_emit_state(lily_emit_state *);
 
+void lily_eval_do_while_condition(lily_emit_state *, lily_expr_state *);
 void lily_eval_entry_condition(lily_emit_state *, lily_expr_state *);
-void lily_eval_exit_condition(lily_emit_state *, lily_expr_state *);
 void lily_eval_for_of(lily_emit_state *, lily_expr_state *, lily_var *,
         lily_var *);
 lily_sym *lily_eval_for_result(lily_emit_state *, lily_ast *);

@@ -299,17 +299,8 @@ static void write_pop_try_blocks_up_to(lily_emit_state *emit,
     }
 }
 
-/* The parser has a 'break' and wants the emitter to write the code. */
-int lily_emit_try_write_break(lily_emit_state *emit)
+static void write_loop_patch(lily_emit_state *emit, lily_block *block)
 {
-    lily_block *block = find_deepest_loop(emit);
-
-    if (block == NULL)
-        return 0;
-
-    write_pop_try_blocks_up_to(emit, block);
-    lily_u16_write_2(emit->code, o_jump, 1);
-
     uint16_t patch = lily_u16_pos(emit->code) - 1;
 
     if (emit->block == block)
@@ -322,22 +313,47 @@ int lily_emit_try_write_break(lily_emit_state *emit)
         for (block = block->next; block; block = block->next)
             block->patch_start++;
     }
+}
 
+/* The parser has a 'break' and wants the emitter to write the code. */
+int lily_emit_try_write_break(lily_emit_state *emit)
+{
+    lily_block *block = find_deepest_loop(emit);
+
+    if (block == NULL)
+        return 0;
+
+    write_pop_try_blocks_up_to(emit, block);
+    lily_u16_write_2(emit->code, o_jump, 1);
+    write_loop_patch(emit, block);
     return 1;
 }
 
 /* The parser has a 'continue' and wants the emitter to write the code. */
 int lily_emit_try_write_continue(lily_emit_state *emit)
 {
-    lily_block *loop_block = find_deepest_loop(emit);
+    lily_block *block = find_deepest_loop(emit);
 
-    if (loop_block == NULL)
+    if (block == NULL)
         return 0;
 
-    write_pop_try_blocks_up_to(emit, loop_block);
+    write_pop_try_blocks_up_to(emit, block);
 
-    uint16_t where = loop_block->code_start - lily_u16_pos(emit->code);
-    lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
+    if (block->block_type != block_do_while) {
+        uint16_t where = block->code_start - lily_u16_pos(emit->code);
+
+        lily_u16_write_2(emit->code, o_jump, (uint16_t)where);
+    }
+    else {
+        /* Both the continue and break of a do-while need to jump ahead. To
+           differentiate them, breaks write an adjust of 1, while continues
+           write an adjust of 0. The continues will be patched when the exit
+           condition is evaluated.
+           If the above wasn't necessary, the jump's adjust would be 1. */
+        lily_u16_write_2(emit->code, o_jump, 0);
+        write_loop_patch(emit, block);
+    }
+
     return 1;
 }
 
@@ -5002,11 +5018,31 @@ void lily_eval_entry_condition(lily_emit_state *emit, lily_expr_state *es)
     emit_jump_if(emit, ast, 0);
 }
 
-/* Evaluate an expression that exits if truthy, or jumps back up if falsey. */
-void lily_eval_exit_condition(lily_emit_state *emit, lily_expr_state *es)
+static void write_do_while_continues(lily_emit_state *emit, uint16_t start)
+{
+    uint16_t pos = lily_u16_pos(emit->code);
+    uint16_t stop = lily_u16_pos(emit->patches);
+    uint16_t iter;
+
+    for (iter = start;iter != stop;iter++) {
+        uint16_t patch = lily_u16_get(emit->patches, iter);
+        uint16_t adjust = lily_u16_get(emit->code, patch);
+
+        /* Only fix the continues (where adjust is 0). */
+        if (adjust == 0) {
+            lily_u16_set_at(emit->code, patch, pos + 1 - patch);
+
+            /* Prevent block exit from patching this again. */
+            lily_u16_set_at(emit->patches, iter, 0);
+        }
+    }
+}
+
+void lily_eval_do_while_condition(lily_emit_state *emit, lily_expr_state *es)
 {
     lily_ast *ast = es->root;
 
+    write_do_while_continues(emit, emit->block->patch_start);
     eval_enforce_value(emit, ast, lily_question_type);
     ensure_valid_condition_type(emit, ast);
 

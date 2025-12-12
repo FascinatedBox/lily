@@ -510,6 +510,21 @@ class TestBasics < TestCase
 
             if i != 2: { 0 / 0 }
         """)
+
+        # do while continue jump check
+
+        assert_parse_string(t, """
+            i = 0
+
+            do: {
+                i += 1
+
+                if i == 5: { continue }
+                if i == 6: { break }
+            } while i != 5
+
+            if i != 5: { 0 / 0 }
+        """)
     }
 
     public define test_docblocks
