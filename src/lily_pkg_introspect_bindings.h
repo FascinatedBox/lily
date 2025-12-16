@@ -150,15 +150,16 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(EnumEntry): String"
     ,"m\0parent\0(EnumEntry): Option[ClassEntry]"
     ,"m\0variants\0(EnumEntry): List[VariantEntry]"
-    ,"C\7FunctionEntry\0"
+    ,"C\10FunctionEntry\0"
     ,"m\0doc\0(FunctionEntry): String"
     ,"m\0generics\0(FunctionEntry): List[TypeEntry]"
+    ,"m\0is_varargs\0(FunctionEntry): Boolean"
     ,"m\0line_number\0(FunctionEntry): Integer"
     ,"m\0name\0(FunctionEntry): String"
     ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0result_type\0(FunctionEntry): TypeEntry"
     ,"m\0type\0(FunctionEntry): TypeEntry"
-    ,"C\13MethodEntry\0"
+    ,"C\14MethodEntry\0"
     ,"m\0doc\0(MethodEntry): String"
     ,"m\0function_name\0(MethodEntry): String"
     ,"m\0generics\0(MethodEntry): List[TypeEntry]"
@@ -166,6 +167,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0is_protected\0(MethodEntry): Boolean"
     ,"m\0is_public\0(MethodEntry): Boolean"
     ,"m\0is_static\0(MethodEntry): Boolean"
+    ,"m\0is_varargs\0(MethodEntry): Boolean"
     ,"m\0line_number\0(MethodEntry): Integer"
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
@@ -257,6 +259,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     lily_introspect_FunctionEntry_doc, \
     lily_introspect_FunctionEntry_generics, \
+    lily_introspect_FunctionEntry_is_varargs, \
     lily_introspect_FunctionEntry_line_number, \
     lily_introspect_FunctionEntry_name, \
     lily_introspect_FunctionEntry_parameters, \
@@ -270,6 +273,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_is_protected, \
     lily_introspect_MethodEntry_is_public, \
     lily_introspect_MethodEntry_is_static, \
+    lily_introspect_MethodEntry_is_varargs, \
     lily_introspect_MethodEntry_line_number, \
     lily_introspect_MethodEntry_parameters, \
     lily_introspect_MethodEntry_result_type, \

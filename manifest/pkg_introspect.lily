@@ -112,6 +112,9 @@ foreign static class FunctionEntry
     ### outside of manifest mode will always return `[]`.
     public define generics: List[TypeEntry]
 
+    ### Returns `true` if the function takes varargs, `false` otherwise.
+    public define is_varargs: Boolean
+
     ### Return the line number that this function was declared on.
     public define line_number: Integer
 
@@ -155,6 +158,9 @@ foreign static class MethodEntry
 
     ### Return `true` if the method is static, `false` otherwise.
     public define is_static: Boolean
+
+    ### Returns `true` if the method takes varargs, `false` otherwise.
+    public define is_varargs: Boolean
 
     ### Return the line number that this method was declared on.
     public define line_number: Integer

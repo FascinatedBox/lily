@@ -13,7 +13,7 @@ class TestPkgIntrospect < TestCase
                 class Base
                 {
                     ### Public method
-                    public define pub(a: Integer): String { return "" }
+                    public define pub(a: Integer...): String { return "" }
 
                     ### Public property
                     public var @pub_prop = 1
@@ -55,6 +55,8 @@ class TestPkgIntrospect < TestCase
                 define h(b: Double...) {}
 
                 define i(c: *String="") {}
+
+                define j(l: *Integer...=[]) {}
             """
         )
 
@@ -154,7 +156,8 @@ class TestPkgIntrospect < TestCase
                 :protected pro:       Boolean,
                 :public    pub:       Boolean,
                 :result    result:    String,
-                :type      type:      String
+                :type      type:      String,
+                :is_va     is_va:     Boolean
             )
             {
                 var input = <[
@@ -168,7 +171,8 @@ class TestPkgIntrospect < TestCase
                     m.is_protected(),
                     m.is_public(),
                     m.result_type().as_string(),
-                    m.type().as_string()
+                    m.type().as_string(),
+                    m.is_varargs()
                 ]>
                 var expect = <[
                     doc,
@@ -181,7 +185,8 @@ class TestPkgIntrospect < TestCase
                     pro,
                     pub,
                     result,
-                    type
+                    type,
+                    is_va
                 ]>
 
                 if input != expect: {
@@ -291,7 +296,8 @@ class TestPkgIntrospect < TestCase
                     :protected false,
                     :public    true,
                     :result    "Base",
-                    :type      "Function ( => Base)"
+                    :type      "Function ( => Base)",
+                    :is_va     false
                 )
 
                 check_method(
@@ -301,12 +307,13 @@ class TestPkgIntrospect < TestCase
                     :is_static false,
                     :line      5,
                     :name      "pub",
-                    :params    "(,Base,)(a,Integer,)",
+                    :params    "(,Base,)(a,List[Integer],)",
                     :private   false,
                     :protected false,
                     :public    true,
                     :result    "String",
-                    :type      "Function (Base, Integer => String)"
+                    :type      "Function (Base, Integer... => String)",
+                    :is_va     true
                 )
 
                 check_property(
@@ -372,7 +379,8 @@ class TestPkgIntrospect < TestCase
                     :protected false,
                     :public    true,
                     :result    "GenericClass[A, B]",
-                    :type      "Function (String => GenericClass[A, B])"
+                    :type      "Function (String => GenericClass[A, B])",
+                    :is_va     false
                 )
 
                 check_method(
@@ -387,7 +395,8 @@ class TestPkgIntrospect < TestCase
                     :protected false,
                     :public    true,
                     :result    "Unit",
-                    :type      "Function (GenericClass[A, B], C)"
+                    :type      "Function (GenericClass[A, B], C)",
+                    :is_va     false
                 )
 
                 check_property(
@@ -907,7 +916,8 @@ class TestPkgIntrospect < TestCase
                 :name      name:     String,
                 :params    params:   String,
                 :result    result:   String,
-                :type      type:     String
+                :type      type:     String,
+                :is_va     is_va:    Boolean
             )
             {
                 var input = <[
@@ -917,7 +927,8 @@ class TestPkgIntrospect < TestCase
                     f.name(),
                     stringify_parameters(f.parameters()),
                     f.result_type().as_string(),
-                    f.type().as_string()
+                    f.type().as_string(),
+                    f.is_varargs()
                 ]>
                 var expect = <[
                     doc,
@@ -926,7 +937,8 @@ class TestPkgIntrospect < TestCase
                     name,
                     params,
                     result,
-                    type
+                    type,
+                    is_va
                 ]>
 
                 if input != expect: {
@@ -950,7 +962,8 @@ class TestPkgIntrospect < TestCase
                 :name       "f",
                 :params     "",
                 :result     "Unit",
-                :type       "Function ()"
+                :type       "Function ()",
+                :is_va      false
             )
 
             check_define(
@@ -961,7 +974,8 @@ class TestPkgIntrospect < TestCase
                 :name       "g",
                 :params     "(a,Integer,)",
                 :result     "String",
-                :type       "Function (Integer => String)"
+                :type       "Function (Integer => String)",
+                :is_va      false
             )
 
             check_define(
@@ -972,7 +986,8 @@ class TestPkgIntrospect < TestCase
                 :name       "h",
                 :params     "(b,List[Double],)",
                 :result     "Unit",
-                :type       "Function (Double...)"
+                :type       "Function (Double...)",
+                :is_va      true
             )
 
             check_define(
@@ -983,10 +998,23 @@ class TestPkgIntrospect < TestCase
                 :name       "i",
                 :params     "(c,*String,)",
                 :result     "Unit",
-                :type       "Function (*String)"
+                :type       "Function (*String)",
+                :is_va      false
             )
 
-            if defines.size() != 4: {
+            check_define(
+                defines[-5],
+                :doc        "",
+                :generics   "",
+                :line       10,
+                :name       "j",
+                :params     "(l,*List[Integer],)",
+                :result     "Unit",
+                :type       "Function (*Integer...)",
+                :is_va      true
+            )
+
+            if defines.size() != 5: {
                 0 / 0
             }
 
@@ -1000,7 +1028,8 @@ class TestPkgIntrospect < TestCase
                 :name       "g",
                 :params     "(a,Integer,)",
                 :result     "String",
-                :type       "Function (Integer => String)"
+                :type       "Function (Integer => String)",
+                :is_va      false
             )
 
             if defines.size() != 1: {

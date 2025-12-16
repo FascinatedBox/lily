@@ -626,6 +626,12 @@ void lily_introspect_FunctionEntry_generics(lily_state *s)
     return_generics(s, get_var_generics(s, entry));
 }
 
+void lily_introspect_FunctionEntry_is_varargs(lily_state *s)
+{
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+    lily_return_boolean(s, !!(entry->type->flags & TYPE_IS_VARARGS));
+}
+
 void lily_introspect_FunctionEntry_name(lily_state *s)
 {
     FETCH_FIELD(FunctionEntry, lily_var, const char *, name, lily_push_string);
@@ -745,6 +751,11 @@ void lily_introspect_MethodEntry_is_static(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, !!(entry->flags & VAR_IS_STATIC));
+}
+
+void lily_introspect_MethodEntry_is_varargs(lily_state *s)
+{
+    lily_introspect_FunctionEntry_is_varargs(s);
 }
 
 void lily_introspect_MethodEntry_parameters(lily_state *s)
