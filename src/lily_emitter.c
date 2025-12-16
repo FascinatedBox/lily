@@ -4082,9 +4082,6 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
                         arg->result->type);
         }
 
-        if (vararg_type->flags & TYPE_IS_UNRESOLVED)
-            vararg_type = lily_ts_resolve(emit->ts, vararg_type);
-
         if (vararg_i != i || is_optarg == 0) {
             vararg_s = get_storage(emit, original_vararg);
             lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
@@ -4590,9 +4587,6 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
         if (var_arg_head ||
             va_type->cls_id != LILY_ID_OPTARG) {
             lily_type *va_list_type = get_va_type(call_type);
-
-            if (va_list_type->flags & TYPE_IS_UNRESOLVED)
-                va_list_type = lily_ts_resolve(emit->ts, va_list_type);
 
             vararg_s = get_storage(emit, va_list_type);
             lily_u16_write_2(emit->code, o_build_list, va_count);
