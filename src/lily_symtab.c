@@ -829,7 +829,7 @@ lily_generic_class *lily_new_generic_class(const char *name)
 
     strcpy(name_copy, name);
 
-    new_class->item_kind = ITEM_CLASS_NATIVE;
+    new_class->item_kind = ITEM_CLASS_FOREIGN;
     new_class->flags = TYPE_IS_UNRESOLVED | CLS_GC_SPECULATIVE;
     new_class->generic_pos = 0;
     new_class->self_type = (lily_type *)new_class;

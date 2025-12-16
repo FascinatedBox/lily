@@ -4527,8 +4527,7 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
 
     if (super_class == cls)
         lily_raise_syn(parser->raiser, "A class cannot inherit from itself!");
-    else if (super_class->item_kind != ITEM_CLASS_NATIVE ||
-             super_class->id == LILY_ID_GENERIC)
+    else if (super_class->item_kind != ITEM_CLASS_NATIVE)
         lily_raise_syn(parser->raiser, "'%s' cannot be inherited from.",
                 lex->label);
     else if (super_class->flags & SYM_IS_FORWARD)
