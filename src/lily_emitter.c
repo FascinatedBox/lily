@@ -4019,6 +4019,16 @@ static int eval_call_arg(lily_emit_state *emit, lily_ast *arg,
         return 0;
 }
 
+static lily_type *get_va_type(lily_type *call_type)
+{
+    lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
+
+    if (va_type->cls_id == LILY_ID_OPTARG)
+        va_type = va_type->subtypes[0];
+
+    return va_type;
+}
+
 /* This is the main body of argument handling. This begins after ts has had
    generics set aside for this function. This function verifies the argument
    count, sets the result up, and does the call to write values out. */
@@ -4054,36 +4064,21 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
     if (call_type->flags & TYPE_IS_VARARGS &&
         (num_args + 2) >= call_type->subtype_count) {
 
-        /* Don't solve this yet, because eval_call_arg solves it (and double
-           solving is bad). */
-        lily_type *vararg_type = arg_types[i + 1];
-        lily_type *original_vararg = vararg_type;
-        int is_optarg = 0;
-
-        /* Varargs are presented as a `List` of their inner values, so use
-           subtypes[0] to get the real type. If this vararg is optional, then do
-           a double unwrap. */
-        if (vararg_type->cls_id == LILY_ID_OPTARG) {
-            is_optarg = 1;
-            original_vararg = original_vararg->subtypes[0];
-            vararg_type = original_vararg->subtypes[0];
-        }
-        else
-            vararg_type = vararg_type->subtypes[0];
-
+        lily_type *va_list_type = get_va_type(call_type);
+        lily_type *va_elem_type = va_list_type->subtypes[0];
         lily_ast *vararg_iter = arg;
         uint16_t vararg_i;
 
         for (vararg_i = i;
              arg != NULL;
              arg = arg->next_arg, vararg_i++) {
-            if (eval_call_arg(emit, arg, vararg_type) == 0)
+            if (eval_call_arg(emit, arg, va_elem_type) == 0)
                 error_bad_arg(emit, ast, arg, call_type, vararg_i,
                         arg->result->type);
         }
 
-        if (vararg_i != i || is_optarg == 0) {
-            vararg_s = get_storage(emit, original_vararg);
+        if (vararg_i != i || (call_type->flags & TYPE_HAS_OPTARGS) == 0) {
+            vararg_s = get_storage(emit, va_list_type);
             lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
             for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
                 lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
@@ -4314,16 +4309,6 @@ static uint16_t keyarg_to_pos(char **keywords, const char *to_find)
     }
 
     return i;
-}
-
-static lily_type *get_va_type(lily_type *call_type)
-{
-    lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
-
-    if (va_type->cls_id == LILY_ID_OPTARG)
-        va_type = va_type->subtypes[0];
-
-    return va_type;
 }
 
 /* This is called when receiving a keyword argument that isn't varargs. This
