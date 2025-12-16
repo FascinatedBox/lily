@@ -4581,21 +4581,19 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
 
     lily_storage *vararg_s = NULL;
 
-    if (va_pos != UINT16_MAX) {
-        lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
+    /* The second case is because optargs flow from right to left. */
+    if (var_arg_head ||
+        (call_type->flags & (TYPE_IS_VARARGS | TYPE_HAS_OPTARGS))
+            == TYPE_IS_VARARGS) {
+        lily_type *va_list_type = get_va_type(call_type);
 
-        if (var_arg_head ||
-            va_type->cls_id != LILY_ID_OPTARG) {
-            lily_type *va_list_type = get_va_type(call_type);
+        vararg_s = get_storage(emit, va_list_type);
+        lily_u16_write_2(emit->code, o_build_list, va_count);
 
-            vararg_s = get_storage(emit, va_list_type);
-            lily_u16_write_2(emit->code, o_build_list, va_count);
+        for (;var_arg_head;var_arg_head = var_arg_head->next_arg)
+            lily_u16_write_1(emit->code, var_arg_head->result->reg_spot);
 
-            for (;var_arg_head;var_arg_head = var_arg_head->next_arg)
-                lily_u16_write_1(emit->code, var_arg_head->result->reg_spot);
-
-            lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
-        }
+        lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
     }
 
     ast->arg_start = basic_arg_head;
