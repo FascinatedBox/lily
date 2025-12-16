@@ -3158,12 +3158,12 @@ static void expr_left_parenth(lily_parse_state *parser, uint16_t *state)
 
 static void expr_minus(lily_parse_state *parser, uint16_t *state)
 {
-    if (*state == ST_WANT_OPERATOR) {
+    if (*state == ST_WANT_OPERATOR)
         lily_es_push_binary_op(parser->expr, tk_minus);
-        *state = ST_DEMAND_VALUE;
-    }
     else
-        expr_unary(parser, state);
+        lily_es_push_unary_op(parser->expr, parser->lex->token);
+
+    *state = ST_DEMAND_VALUE;
 }
 
 /* This is called to handle `@<prop>` accesses. */
