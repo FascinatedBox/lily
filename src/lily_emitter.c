@@ -4318,18 +4318,10 @@ static uint16_t keyarg_to_pos(char **keywords, const char *to_find)
 
 static lily_type *get_va_type(lily_type *call_type)
 {
-    lily_type *va_type;
+    lily_type *va_type = call_type->subtypes[call_type->subtype_count - 1];
 
-    if (call_type->flags & TYPE_IS_VARARGS) {
-        va_type = call_type->subtypes[call_type->subtype_count - 1];
-
-        if (va_type->cls_id == LILY_ID_OPTARG)
-            va_type = va_type->subtypes[0];
-    }
-    else
-        /* The type won't be used if there aren't varargs to use it. Returning
-           this allows safely grabbing the contents. */
-        va_type = call_type;
+    if (va_type->cls_id == LILY_ID_OPTARG)
+        va_type = va_type->subtypes[0];
 
     return va_type;
 }
@@ -4500,15 +4492,17 @@ static void run_named_call(lily_emit_state *emit, lily_ast *ast,
        with positional args/values in mind don't need to be altered. */
 
     lily_type **arg_types = call_type->subtypes;
-    lily_type *va_elem_type = get_va_type(call_type)->subtypes[0];
+    lily_type *va_elem_type = NULL;
     lily_ast *arg = ast->arg_start;
     lily_ast *next_arg = arg->next_arg;
     lily_ast *basic_arg_head = NULL;
     lily_ast *var_arg_head = NULL;
     uint16_t base_count = 0, va_count = 0, va_pos = UINT16_MAX;
 
-    if (call_type->flags & TYPE_IS_VARARGS)
+    if (call_type->flags & TYPE_IS_VARARGS) {
         va_pos = call_type->subtype_count - 2;
+        va_elem_type = get_va_type(call_type)->subtypes[0];
+    }
 
     while (arg != NULL) {
         lily_ast *real_arg = arg;
