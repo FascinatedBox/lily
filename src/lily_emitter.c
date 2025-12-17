@@ -4027,6 +4027,35 @@ static lily_type *get_va_type(lily_type *call_type)
     return va_type;
 }
 
+static lily_storage *run_varargs_of_call(lily_emit_state *emit, lily_ast *ast,
+        lily_ast *arg, lily_type *call_type, uint16_t i)
+{
+    lily_storage *result = NULL;
+    lily_type *va_list_type = get_va_type(call_type);
+    lily_type *va_elem_type = va_list_type->subtypes[0];
+    lily_ast *vararg_iter = arg;
+    uint16_t vararg_i;
+
+    for (vararg_i = i;
+         arg != NULL;
+         arg = arg->next_arg, vararg_i++) {
+        if (eval_call_arg(emit, arg, va_elem_type) == 0)
+            error_bad_arg(emit, ast, arg, call_type, vararg_i,
+                    arg->result->type);
+    }
+
+    if (vararg_i != i || (call_type->flags & TYPE_HAS_OPTARGS) == 0) {
+        result = get_storage(emit, va_list_type);
+        lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
+        for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
+            lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
+
+        lily_u16_write_2(emit->code, result->reg_spot, ast->line_num);
+    }
+
+    return result;
+}
+
 /* This is the main body of argument handling. This begins after ts has had
    generics set aside for this function. This function verifies the argument
    count, sets the result up, and does the call to write values out. */
@@ -4060,30 +4089,8 @@ static void run_call(lily_emit_state *emit, lily_ast *ast, lily_type *call_type)
     /* The second check prevents running varargs when there are unfilled
        optional arguments that come before the varargs. */
     if (call_type->flags & TYPE_IS_VARARGS &&
-        (num_args + 2) >= call_type->subtype_count) {
-
-        lily_type *va_list_type = get_va_type(call_type);
-        lily_type *va_elem_type = va_list_type->subtypes[0];
-        lily_ast *vararg_iter = arg;
-        uint16_t vararg_i;
-
-        for (vararg_i = i;
-             arg != NULL;
-             arg = arg->next_arg, vararg_i++) {
-            if (eval_call_arg(emit, arg, va_elem_type) == 0)
-                error_bad_arg(emit, ast, arg, call_type, vararg_i,
-                        arg->result->type);
-        }
-
-        if (vararg_i != i || (call_type->flags & TYPE_HAS_OPTARGS) == 0) {
-            vararg_s = get_storage(emit, va_list_type);
-            lily_u16_write_2(emit->code, o_build_list, vararg_i - i);
-            for (;vararg_iter;vararg_iter = vararg_iter->next_arg)
-                lily_u16_write_1(emit->code, vararg_iter->result->reg_spot);
-
-            lily_u16_write_2(emit->code, vararg_s->reg_spot, ast->line_num);
-        }
-    }
+        (num_args + 2) >= call_type->subtype_count)
+        vararg_s = run_varargs_of_call(emit, ast, arg, call_type, i);
 
     setup_call_result(emit, ast, arg_types[0]);
     write_call(emit, ast, stop, vararg_s);
