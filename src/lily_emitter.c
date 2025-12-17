@@ -3098,20 +3098,18 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
 
     lily_token op = ast->op;
 
-    if (lhs_id == LILY_ID_BOOLEAN) {
-        if (op == tk_not)
+    if (op == tk_not) {
+        if (lhs_id == LILY_ID_BOOLEAN ||
+            lhs_id == LILY_ID_INTEGER)
             opcode = o_unary_not;
     }
-    else if (lhs_id == LILY_ID_INTEGER) {
-        if (op == tk_minus)
-            opcode = o_unary_minus;
-        else if (op == tk_not)
-            opcode = o_unary_not;
-        else if (op == tk_tilde)
+    else if (op == tk_tilde) {
+        if (lhs_id == LILY_ID_INTEGER)
             opcode = o_unary_bitwise_not;
     }
-    else if (lhs_id == LILY_ID_DOUBLE) {
-        if (op == tk_minus)
+    else if (op == tk_minus) {
+        if (lhs_id == LILY_ID_INTEGER ||
+            lhs_id == LILY_ID_DOUBLE)
             opcode = o_unary_minus;
     }
 
