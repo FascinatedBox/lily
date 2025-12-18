@@ -5806,17 +5806,11 @@ static void parse_block_exit(lily_parse_state *parser)
             lily_next_token(parser->lex);
             expect_word(parser, "while");
             lily_next_token(parser->lex);
-
-            /* Vars declared in this block might have had their initialization
-               skipped over. Hide them so they don't turn up in expression. */
-            hide_block_vars(parser);
             expression(parser);
             lily_eval_do_while_condition(parser->emit, parser->expr);
             lily_emit_leave_block(parser->emit);
             break;
         case block_match:
-            hide_block_vars(parser);
-
             if (lily_emit_try_leave_match_block(emit) == 0)
                 lily_raise_syn(parser->raiser,
                         lily_mb_raw(parser->raiser->aux_msgbuf));
