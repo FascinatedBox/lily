@@ -5,21 +5,27 @@ class TestOptionMethods < TestCase
 {
     public define test__is_none
     {
-        None.is_none()    |> assert_true
+        var v: Option[Integer] = None
+
+        v.is_none()       |> assert_true
         Some(1).is_none() |> assert_false
     }
 
     public define test__is_some
     {
-        None   .is_some() |> assert_false
+        var v: Option[Integer] = None
+
+        v      .is_some() |> assert_false
         Some(1).is_some() |> assert_true
     }
 
     public define test_and
     {
-        None   .and(None)   .is_none() |> assert_true
-        None   .and(Some(1)).is_none() |> assert_true
-        Some(1).and(None)   .is_none() |> assert_true
+        var v: Option[Integer] = None
+
+        v      .and(v)      .is_none() |> assert_true
+        v      .and(Some(1)).is_none() |> assert_true
+        Some(1).and(v)      .is_none() |> assert_true
         Some(1).and(Some(2)).is_none() |> assert_false
     }
 

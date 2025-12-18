@@ -2065,6 +2065,13 @@ static void bad_assign_error(lily_emit_state *emit, lily_ast *ast,
             right_type, left_type);
 }
 
+static void incomplete_call_type_error(lily_emit_state *emit, lily_ast *ast,
+        lily_ast *arg, lily_type *type)
+{
+    lily_raise_tree(emit->raiser, ast,
+            "Cannot call ^I using incomplete type ^T.", arg->item, type);
+}
+
 static void incomplete_type_assign_error(lily_emit_state *emit, lily_ast *ast,
         lily_type *right_type)
 {
@@ -4155,7 +4162,12 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
             if (eval_oo_access_for_item(emit, first_arg) == ITEM_PROPERTY)
                 oo_property_read(emit, first_arg);
             else {
-                first_arg->result = first_arg->arg_start->result;
+                lily_sym *s = first_arg->arg_start->result;
+
+                if (s->type->flags & TYPE_IS_INCOMPLETE)
+                    incomplete_call_type_error(emit, ast, first_arg, s->type);
+
+                first_arg->result = s;
                 first_arg->tree_type = tree_cached;
             }
 

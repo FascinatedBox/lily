@@ -300,7 +300,7 @@ class TestBadCall < TestCase
         # invalid call (call incomplete anonymous type)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot call an incomplete type (Function (?, ? => List[?])).
+            SyntaxError: Cannot call Example.y using incomplete type Example[Function (?, ? => List[?])].
                 from [test]:10:
         """,
         """\
@@ -316,6 +316,18 @@ class TestBadCall < TestCase
             var v = Example(f).y()(1, 2).push("3")
 
             print(v[0].size())
+        """)
+
+        # invalid call of incomplete result
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot call an incomplete type (?).
+                from [test]:3:
+        """,
+        """\
+            define f[A](a: List[A]): A { return a[0] }
+
+            f([])()
         """)
     }
 
@@ -656,6 +668,33 @@ class TestBadCall < TestCase
         """\
             define f(a: String...) {}
             *[1] |> f
+        """)
+    }
+
+    public define test_call_incomplete_type
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot call Example.pushcall using incomplete type Example[?].
+                from [test]:14:
+        """,
+        """\
+            class Example[A] {
+                public var @x: List[A] = []
+
+                public define pushcall(a: A, fn: Function(A)): self
+                {
+                    @x.push(a)
+
+                    for x in @x: {
+                        fn(x)
+                    }
+                }
+            }
+
+            Example().pushcall(1, Integer.to_s)
+                     .pushcall("1", String.parse_i)
         """)
     }
 }

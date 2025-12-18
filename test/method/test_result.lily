@@ -3,28 +3,31 @@ import (Interpreter,
 
 class TestResultMethods < TestCase
 {
+    public var @f: Result[Integer, Integer] = Failure(1)
+    public var @s: Result[Integer, Integer] = Success(2)
+
     public define test__is_failure
     {
-        Failure(1).is_failure() |> assert_true
-        Success(2).is_failure() |> assert_false
+        @f.is_failure() |> assert_true
+        @s.is_failure() |> assert_false
     }
 
     public define test__is_success
     {
-        Failure(1).is_success() |> assert_false
-        Success(2).is_success() |> assert_true
+        @f.is_success() |> assert_false
+        @s.is_success() |> assert_true
     }
 
     public define test_failure
     {
-        assert_equal(Failure(1).failure().unwrap(), 1)
-        Success(2).failure().is_none() |> assert_true
+        assert_equal(@f.failure().unwrap(), 1)
+        @s.failure().is_none() |> assert_true
     }
 
     public define test_success
     {
-        Failure(1).success().is_none() |> assert_true
-        assert_equal(Success(2).success().unwrap(), 2)
+        @f.success().is_none() |> assert_true
+        assert_equal(@s.success().unwrap(), 2)
     }
 
     public define test_unwrap

@@ -250,8 +250,10 @@ class TestListMethods < TestCase
 
     public define test_join
     {
-        assert_equal([]       .join(),     "")
-        assert_equal([]       .join(","),  "")
+        var v: List[Integer] = []
+
+        assert_equal(v        .join(),     "")
+        assert_equal(v        .join(","),  "")
         assert_equal([1]      .join(),     "1")
         assert_equal([1]      .join(" "),  "1")
         assert_equal([1, 2, 3].join(),     "123")
@@ -391,7 +393,9 @@ class TestListMethods < TestCase
 
     public define test_sort
     {
-        assert_equal([] .sort(), [])
+        var v: List[Integer] = []
+
+        assert_equal(v  .sort(), [])
         assert_equal([1].sort(), [1])
 
         assert_equal([3, 1, 4, 2]  .sort(), [1, 2, 3, 4])
