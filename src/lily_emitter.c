@@ -3112,6 +3112,10 @@ static void eval_unary_op(lily_emit_state *emit, lily_ast *ast)
             lhs_id == LILY_ID_DOUBLE)
             opcode = o_unary_minus;
     }
+    else if (op == tk_multiply)
+        /* Proper vararg transfer will eval this tree's left, not this tree. */
+        lily_raise_tree(emit->raiser, ast,
+                "Vararg transfer (*args) must be the only excess arg in a vararg call.");
 
     if (opcode == 0)
         lily_raise_tree(emit->raiser, ast,
@@ -4027,11 +4031,45 @@ static lily_type *get_va_type(lily_type *call_type)
     return va_type;
 }
 
+static lily_storage *eval_vararg_transfer(lily_emit_state *emit, lily_ast *arg,
+        lily_type *va_list_type)
+{
+    if (arg->next_arg)
+        lily_raise_tree(emit->raiser, arg,
+                "Cannot have arguments after vararg transfer (*args).");
+
+    if (eval_call_arg(emit, arg->left, va_list_type)) {
+        /* Call handling will check arg results to see if any have a storage
+           that can be reused. Make sure that doesn't hit a NULL. */
+        arg->result = arg->left->result;
+        return (lily_storage *)arg->result;
+    }
+
+    if (va_list_type->flags & TYPE_IS_UNRESOLVED)
+        va_list_type = lily_ts_resolve(emit->ts, va_list_type);
+
+    lily_raise_tree(emit->raiser, arg,
+            "Mismatched type for vararg transfer (*args) to ^I:\n"
+            "Expected: ^T\n"
+            "Received: ^T", arg->parent->item, va_list_type,
+            arg->left->result->type);
+
+    /* Unreachable, but keeps the compiler happy. */
+    return NULL;
+}
+
 static lily_storage *run_varargs_of_call(lily_emit_state *emit, lily_ast *ast,
         lily_ast *arg, lily_type *call_type, uint16_t i)
 {
-    lily_storage *result = NULL;
     lily_type *va_list_type = get_va_type(call_type);
+
+    if (arg &&
+        arg->tree_type == tree_unary &&
+        arg->op == tk_multiply) {
+        return eval_vararg_transfer(emit, arg, va_list_type);
+    }
+
+    lily_storage *result = NULL;
     lily_type *va_elem_type = va_list_type->subtypes[0];
     lily_ast *vararg_iter = arg;
     uint16_t vararg_i;

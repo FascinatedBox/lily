@@ -99,7 +99,6 @@ var expression_group_data = [
         "tk_minus_eq",
         "tk_modulo",
         "tk_modulo_eq",
-        "tk_multiply",
         "tk_multiply_eq",
         "tk_not_eq",
         "tk_plus",
@@ -123,6 +122,10 @@ var expression_group_data = [
     "expr_invalid" => [
         "tk_scoop",
         "tk_typecast_parenth",
+    ],
+    "expr_minus_mul" => [
+        "tk_minus",
+        "tk_multiply",
     ],
     "expr_unary" => [
         "tk_tilde",

@@ -3156,12 +3156,14 @@ static void expr_left_parenth(lily_parse_state *parser, uint16_t *state)
     }
 }
 
-static void expr_minus(lily_parse_state *parser, uint16_t *state)
+static void expr_minus_mul(lily_parse_state *parser, uint16_t *state)
 {
+    lily_token t = parser->lex->token;
+
     if (*state == ST_WANT_OPERATOR)
-        lily_es_push_binary_op(parser->expr, tk_minus);
+        lily_es_push_binary_op(parser->expr, t);
     else
-        lily_es_push_unary_op(parser->expr, parser->lex->token);
+        lily_es_push_unary_op(parser->expr, t);
 
     *state = ST_DEMAND_VALUE;
 }

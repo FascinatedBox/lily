@@ -41,4 +41,55 @@ class TestVarargs < TestCase
             }
         """)
     }
+
+    public define test_vararg_transfer
+    {
+        var t = Interpreter()
+
+        # non-solving transfer
+
+        assert_parse_string(t, """
+            define f(a: Integer...): Integer {return a.fold(0,(|b, c| b + c))}
+            var first = [1, 2, 3]
+
+            class Example { public var @x = [4, 5, 6] }
+            var e = Example()
+
+            if f(*first) != 6: {0/0}
+            if f(*Example().x) != 15: {0/0}
+            if f(*[7, 8, 9]) != 24: {0/0}
+            if f(*[]) != 0: {0/0}
+
+            # call pipe equivalence
+            if *[1, 2, 3] |> f != 6: {0/0}
+        """)
+
+        # transfer to transfer
+
+        assert_parse_string(t, """
+            define g(a: String, b: Integer...): Integer
+            {
+                return a.parse_i().unwrap() + f(*b)
+            }
+
+            if g("100", *[10,11,12]) != 133: {0/0}
+        """)
+
+        # solving transfer
+
+        assert_parse_string(t, """
+            define h[A](a: A, b: A...): List[A]
+            {
+                return b.unshift(a)
+            }
+
+            if h(1.0, *[2.0, 3.0]) != [1.0, 2.0, 3.0]: {0/0}
+        """)
+
+        # transfer to foreign function
+
+        assert_parse_string(t, """
+            if [1].merge(*[[2], [3]]) != [1, 2, 3]: {0/0}
+        """)
+    }
 }

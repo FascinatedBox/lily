@@ -108,7 +108,7 @@ static void expr_keyword_arg(lily_parse_state *, uint16_t *);
 static void expr_lambda(lily_parse_state *, uint16_t *);
 static void expr_left_bracket(lily_parse_state *, uint16_t *);
 static void expr_left_parenth(lily_parse_state *, uint16_t *);
-static void expr_minus(lily_parse_state *, uint16_t *);
+static void expr_minus_mul(lily_parse_state *, uint16_t *);
 static void expr_prop_word(lily_parse_state *, uint16_t *);
 static void expr_question(lily_parse_state *, uint16_t *);
 static void expr_tuple_open(lily_parse_state *, uint16_t *);
@@ -131,14 +131,14 @@ static expr_handler *expr_handlers[] =
     [tk_not_eq] = expr_binary,
     [tk_modulo] = expr_binary,
     [tk_modulo_eq] = expr_binary,
-    [tk_multiply] = expr_binary,
+    [tk_multiply] = expr_minus_mul,
     [tk_multiply_eq] = expr_binary,
     [tk_divide] = expr_binary,
     [tk_divide_eq] = expr_binary,
     [tk_plus] = expr_binary,
     [tk_plus_eq] = expr_binary,
     [tk_plus_plus] = expr_binary,
-    [tk_minus] = expr_minus,
+    [tk_minus] = expr_minus_mul,
     [tk_minus_eq] = expr_binary,
     [tk_lt] = expr_binary,
     [tk_lt_eq] = expr_binary,

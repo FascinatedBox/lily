@@ -558,4 +558,104 @@ class TestBadCall < TestCase
             f(1, 2, 3, "4")
         """)
     }
+
+    public define test_vararg_transfer
+    {
+        var t = Interpreter()
+
+        # arg before transfer
+
+        assert_parse_fails(t, """\
+            SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+                from [test]:3:
+        """,
+        """\
+            define f(a: Integer...) {}
+            var v = [1]
+            f(1, *v)
+        """)
+
+        # arg after transfer
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot have arguments after vararg transfer (*args).
+                from [test]:3:
+        """,
+        """\
+            define f(a: Integer...) {}
+            var v = [1]
+            f(*v, "a")
+        """)
+
+        # key+transfer is not implemented
+
+        assert_parse_fails(t, """\
+            SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+                from [test]:2:
+        """,
+        """\
+            define f(:_ a: Integer...) {}
+            f(:a *[1])
+        """)
+
+        # key+transfer is not implemented
+
+        assert_parse_fails(t, """\
+            SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+                from [test]:2:
+        """,
+        """\
+            define f(:_ a: Integer...) {}
+            f(:a *[1])
+        """)
+
+        # blocked at toplevel
+
+        assert_parse_fails(t, """\
+            SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+                from [test]:1:
+        """,
+        """\
+            var v = *[1]
+        """)
+
+        # wrong type (unsolved)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type for vararg transfer (*args) to f:
+            Expected: List[String]
+            Received: List[Integer]
+                from [test]:2:
+        """,
+        """\
+            define f(a: String...) {}
+            f(*[1])
+        """)
+
+        # wrong type (solved)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type for vararg transfer (*args) to f:
+            Expected: List[Byte]
+            Received: List[List[Integer]]
+                from [test]:2:
+        """,
+        """\
+            define f[A](a: A, b: A...) {}
+            f('1', *[[1]])
+        """)
+
+        # wrong type (unsolved with call pipe)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Mismatched type for vararg transfer (*args) to f:
+            Expected: List[String]
+            Received: List[Integer]
+                from [test]:2:
+        """,
+        """\
+            define f(a: String...) {}
+            *[1] |> f
+        """)
+    }
 }
