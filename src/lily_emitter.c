@@ -577,14 +577,20 @@ void lily_emit_enter_anon_block(lily_emit_state *emit)
     emit->block = block;
 }
 
-void lily_emit_enter_class_block(lily_emit_state *emit, lily_var *var)
+void lily_emit_enter_class_block(lily_emit_state *emit, lily_class *cls,
+        lily_var *var)
 {
     lily_block *block = next_block(emit);
+
+    if (cls->flags & SYM_IS_FORWARD) {
+        emit->scope_block->forward_class_count--;
+        cls->flags &=~ SYM_IS_FORWARD;
+    }
 
     block->flags |= BLOCK_SELF_ORIGIN;
     block->block_type = block_class;
     block->scope_var = var;
-    block->class_entry = var->parent;
+    block->class_entry = cls;
     setup_scope_block(emit, block);
     emit->function_depth++;
 }

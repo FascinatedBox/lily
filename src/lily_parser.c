@@ -4617,7 +4617,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_var *call_var = new_method_var(parser, cls, "<new>",
             SYM_SCOPE_PUBLIC | SYM_NOT_INITIALIZED, lex->line_num);
 
-    lily_emit_enter_class_block(parser->emit, call_var);
+    lily_emit_enter_class_block(parser->emit, cls, call_var);
     parser->current_class = cls;
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
@@ -4803,11 +4803,11 @@ static void keyword_class(lily_parse_state *parser)
         }
     }
     else {
-        parser->emit->scope_block->forward_class_count--;
         new_cls = search_cls;
 
+        /* Generics must match what was requested before. Forward fixing will be
+           done by class block entry (in header parse below). */
         collect_and_verify_generics_for(parser, new_cls);
-        new_cls->flags &= ~SYM_IS_FORWARD;
     }
 
     parse_class_header(parser, new_cls);
