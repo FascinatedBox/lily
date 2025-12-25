@@ -5591,21 +5591,8 @@ static void verify_static_modifier(lily_parse_state *parser)
 static void parse_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
-    uint16_t modifiers = 0;
+    uint16_t modifiers = parser->modifiers;
     int in_class = (parser->emit->block->block_type == block_class);
-
-    if (key == KEY_FORWARD) {
-        lily_block_type block_type = parser->emit->block->block_type;
-        if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
-            lily_raise_syn(parser->raiser,
-                    "'forward' must be outside of a block or in a class.");
-
-        modifiers |= SYM_IS_FORWARD;
-        lily_next_token(lex);
-
-        if (lex->token == tk_word)
-            key = keyword_by_name(lex->label);
-    }
 
     if (key == KEY_PUBLIC ||
         key == KEY_PROTECTED ||
@@ -5674,10 +5661,25 @@ static void keyword_static(lily_parse_state *parser)
 
 static void keyword_forward(lily_parse_state *parser)
 {
-    parse_modifier(parser, KEY_FORWARD);
-
     lily_lex_state *lex = parser->lex;
     lily_emit_state *emit = parser->emit;
+    lily_block_type block_type = emit->block->block_type;
+    int key;
+
+    if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
+        lily_raise_syn(parser->raiser,
+                "'forward' must be outside of a block or in a class.");
+
+    parser->modifiers = SYM_IS_FORWARD;
+    lily_next_token(lex);
+
+    if (lex->token == tk_word)
+        key = keyword_by_name(lex->label);
+    else
+        key = -1;
+
+    parse_modifier(parser, key);
+
     lily_block *block = emit->block;
 
     lily_gp_restore(parser->generics, block->generic_start);
