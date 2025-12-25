@@ -895,7 +895,7 @@ void lily_emit_leave_scope_block(lily_emit_state *emit)
     emit->scope_block = block->prev_scope_block;
     emit->storages->start -= emit->scope_block->storage_count;
 
-    emit->block = emit->block->prev;
+    emit->block = block->prev;
     emit->function_depth--;
 }
 
