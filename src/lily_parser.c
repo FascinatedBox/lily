@@ -5523,27 +5523,22 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
 
 static void keyword_define(lily_parse_state *parser)
 {
-    lily_block *block = parser->emit->block;
     lily_lex_state *lex = parser->lex;
     lily_class *parent = NULL;
-    lily_block_type block_type = block->block_type;
+    lily_block_type block_type = parser->emit->block->block_type;
     uint16_t generic_start = lily_gp_save(parser->generics);
     uint16_t modifiers = parser->modifiers;
 
-    if ((block->block_type & ALLOW_DEFINE) == 0)
+    if ((block_type & ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
-
-    if (block->block_type == block_class &&
+    else if (block_type == block_class &&
         (modifiers & ANY_SCOPE) == 0)
         lily_raise_syn(parser->raiser,
                 "Class method declaration must start with a scope.");
-
-    lily_next_token(lex);
-
-    if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
+    else if (block_type & (SCOPE_CLASS | SCOPE_ENUM))
         parent = parser->current_class;
 
-    NEED_IDENT("Expected a definition name here.")
+    NEED_NEXT_IDENT("Expected a definition name here.")
 
     lily_var *define_var = parse_new_define(parser, parent, modifiers);
 
