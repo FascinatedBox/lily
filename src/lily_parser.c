@@ -5687,7 +5687,6 @@ static void keyword_forward(lily_parse_state *parser)
     /* Forward definitions leave a block open to be closed. Forward classes, on
        the other hand, don't enter the block since that's complicated. */
     if (block->block_type == block_define) {
-        hide_block_vars(parser);
         lily_emit_leave_simple_scope_block(emit);
         block->prev->forward_count++;
         lily_next_token(lex);
