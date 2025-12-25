@@ -5688,7 +5688,7 @@ static void keyword_forward(lily_parse_state *parser)
        the other hand, don't enter the block since that's complicated. */
     if (block->block_type == block_define) {
         hide_block_vars(parser);
-        lily_emit_leave_scope_block(emit);
+        lily_emit_leave_simple_scope_block(emit);
         block->prev->forward_count++;
         lily_next_token(lex);
     }
@@ -5950,7 +5950,7 @@ static void manifest_define(lily_parse_state *parser)
     lily_gp_restore(parser->generics, emit->block->generic_start);
 
     /* This exits the definition without doing a return check. */
-    lily_emit_leave_scope_block(emit);
+    lily_emit_leave_simple_scope_block(emit);
 }
 
 static void manifest_forward(lily_parse_state *parser)
