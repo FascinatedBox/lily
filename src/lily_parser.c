@@ -4768,8 +4768,9 @@ static void parse_forward_class_body(lily_parse_state *parser, lily_class *cls)
     NEED_NEXT_TOK(tk_right_curly)
     lily_next_token(lex);
 
-    /* Forward classes don't enter a block since that's complicated. Since
-       there's no block to exit, nudge this counter here. */
+    /* Classes are always at toplevel, where prior generics are always 0. */
+    lily_gp_restore(parser->generics, 0);
+
     parser->emit->scope_block->forward_class_count++;
     cls->flags |= SYM_IS_FORWARD;
 }
@@ -5673,15 +5674,15 @@ static void keyword_forward(lily_parse_state *parser)
     else
         key = -1;
 
+    /* This will either be a forward class or forward define. Forward defines
+       are complicated, so define handling leaves the block open for the caller
+       to fix. */
     parse_modifier(parser, key);
 
     lily_block *block = emit->block;
 
-    lily_gp_restore(parser->generics, block->generic_start);
-
-    /* Forward definitions leave a block open to be closed. Forward classes, on
-       the other hand, don't enter the block since that's complicated. */
     if (block->block_type == block_define) {
+        lily_gp_restore(parser->generics, block->generic_start);
         lily_emit_leave_simple_scope_block(emit);
         block->prev->forward_count++;
         lily_next_token(lex);
@@ -5959,10 +5960,6 @@ static void manifest_forward(lily_parse_state *parser)
     parser->modifiers |= SYM_IS_FORWARD;
     keyword_class(parser);
     parser->modifiers = 0;
-
-    /* The class block wasn't entered, but generics may have been collected.
-       Since this is always at toplevel, the restore point is always 0. */
-    lily_gp_restore(parser->generics, 0);
 }
 
 static void manifest_foreign(lily_parse_state *parser)
