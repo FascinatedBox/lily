@@ -488,4 +488,24 @@ class TestBadForward < TestCase
             class Example {}
         """)
     }
+
+    public define test_forward_without_scope
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a scope here (public, protected, or private).
+
+               |
+             2 | forward define f { ... }
+               |         ^
+
+                from [test]:2:
+        """,
+        """\
+            class Example {
+                forward define f { ... }
+            }
+        """)
+    }
 }

@@ -5611,7 +5611,7 @@ static void parse_modifier(lily_parse_state *parser, int key)
     }
     else if (modifiers & SYM_IS_FORWARD && in_class) {
         lily_raise_syn(parser->raiser,
-                "Expected a scope here after 'forward'.");
+                "Expected a scope here (public, protected, or private).");
     }
 
     if (key == KEY_STATIC) {
