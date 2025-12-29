@@ -3585,9 +3585,9 @@ static void keyword_var(lily_parse_state *parser)
     lily_sym *sym = NULL;
     lily_block *block = parser->emit->block;
     uint16_t modifiers = parser->modifiers;
-
     lily_token want_token, other_token;
-    if (block->block_type == block_class && modifiers) {
+
+    if (modifiers) {
         want_token = tk_prop_word;
         other_token = tk_word;
     }
