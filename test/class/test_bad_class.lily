@@ -83,19 +83,17 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.
-                from [test]:7:
+                from [test]:6:
         """,
         """\
             var v: Function() = (|| unit )
 
             class Example {
                 for i in 0...10: {
-                    {
-                        define f {
-                            print(i)
-                        }
-                        v = f
-                    }
+                    var f = (||
+                        print(i)
+                    )
+                    v = f
                 }
             }
 
@@ -108,19 +106,17 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.
-                from [test]:7:
+                from [test]:6:
         """,
         """\
             class Example {
                 var q = 10
 
                 for i in 0...10: {
-                    {
-                        define f {
-                            print(q)
-                        }
-                        v = f
-                    }
+                    var f = (||
+                        print(q)
+                    )
+                    v = f
                 }
             }
 

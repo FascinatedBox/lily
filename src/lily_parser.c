@@ -5519,9 +5519,6 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     return define_var;
 }
 
-#define ALLOW_DEFINE \
-(SCOPE_ANON | SCOPE_CLASS | SCOPE_DEFINE | SCOPE_ENUM | SCOPE_FILE)
-
 static void keyword_define(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -5530,7 +5527,7 @@ static void keyword_define(lily_parse_state *parser)
     uint16_t generic_start = lily_gp_save(parser->generics);
     uint16_t modifiers = parser->modifiers;
 
-    if ((block_type & ALLOW_DEFINE) == 0)
+    if ((parser->emit->block->flags & BLOCK_ALLOW_DEFINE) == 0)
         lily_raise_syn(parser->raiser, "Cannot define a function here.");
     else if (block_type == block_class &&
         (modifiers & ANY_SCOPE) == 0)
@@ -5569,8 +5566,6 @@ static void keyword_define(lily_parse_state *parser)
         NEED_NEXT_TOK(tk_right_curly)
     }
 }
-
-#undef ALLOW_DEFINE
 
 static void verify_static_modifier(lily_parse_state *parser)
 {

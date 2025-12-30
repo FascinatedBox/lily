@@ -2192,4 +2192,62 @@ class TestBadSyntax < TestCase
             v[0] += 1.0
         """)
     }
+
+    public define test_anon_blocks_define_check
+    {
+        var t = Interpreter()
+
+        # Crashes if allowed to proceed
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a function here.
+
+               |
+             6 | define g(b: Integer): Integer {
+               | ^
+
+                from [test]:6:
+        """,
+        """\
+            define f {
+                var a = (|b: Integer| b )
+                var v = (||
+                    for i in 0...10: {
+                        {
+                            define g(b: Integer): Integer {
+                                return i
+                            }
+                            a = g
+                        }
+                    }
+                )
+
+                v()
+                a(20) |> print
+            }
+
+            f()
+        """)
+
+        # Check nesting
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a function here.
+
+               |
+             4 | define f {}
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            if 1: {
+                {
+                    {
+                        define f {}
+                    }
+                }
+            }
+        """)
+    }
 }

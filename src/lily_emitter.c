@@ -68,8 +68,8 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     main_block->storage_count = 0;
     main_block->var_count = 0;
 
-    /* This prevents checking for 'self' from going too far. */
-    main_block->flags = BLOCK_SELF_ORIGIN;
+    /* The second flag prevents `self` checking from going too far. */
+    main_block->flags = BLOCK_ALLOW_DEFINE | BLOCK_SELF_ORIGIN;
     return emit;
 }
 
@@ -574,6 +574,7 @@ void lily_emit_enter_anon_block(lily_emit_state *emit)
     lily_block *block = next_block(emit);
 
     block->block_type = block_anon;
+    block->flags |= (block->prev->flags & BLOCK_ALLOW_DEFINE);
     emit->block = block;
 }
 
@@ -587,8 +588,8 @@ void lily_emit_enter_class_block(lily_emit_state *emit, lily_class *cls,
         cls->flags &=~ SYM_IS_FORWARD;
     }
 
-    block->flags |= BLOCK_SELF_ORIGIN;
     block->block_type = block_class;
+    block->flags |= BLOCK_ALLOW_DEFINE | BLOCK_SELF_ORIGIN;
     block->scope_var = var;
     block->class_entry = cls;
     setup_scope_block(emit, block);
@@ -610,6 +611,7 @@ void lily_emit_enter_define_block(lily_emit_state *emit, lily_var *var,
         var->flags |= VAR_NEEDS_CLOSURE;
 
     block->block_type = block_define;
+    block->flags |= BLOCK_ALLOW_DEFINE;
     block->generic_start = generic_start;
     block->scope_var = var;
     setup_scope_block(emit, block);
@@ -637,6 +639,7 @@ void lily_emit_enter_enum_block(lily_emit_state *emit, lily_class *cls)
        methods. They don't have a var since they don't execute code. */
     block->block_type = block_enum;
     block->class_entry = cls;
+    block->flags |= BLOCK_ALLOW_DEFINE;
     setup_scope_block(emit, block);
     emit->function_depth++;
 }
@@ -653,6 +656,7 @@ void lily_emit_enter_file_block(lily_emit_state *emit, lily_var *var)
 {
     lily_block *block = next_block(emit);
 
+    block->flags |= BLOCK_ALLOW_DEFINE;
     block->forward_class_count = 0;
     block->generic_start = 0;
     block->block_type = block_file;

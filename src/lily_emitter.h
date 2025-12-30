@@ -68,6 +68,9 @@ typedef enum {
 /* This block shouldn't have any more branches. */
 # define BLOCK_FINAL_BRANCH   0x200
 
+/* Definitions are allowed inside of this block. */
+# define BLOCK_ALLOW_DEFINE    0x400
+
 /* Storages are used to hold values not held by vars. In most cases, storages
    hold intermediate values for an expression. The emitter attempts to reuse
    storages where it can unless the storage is locked.
