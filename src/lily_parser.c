@@ -5470,6 +5470,8 @@ static void keyword_with(lily_parse_state *parser)
 static void verify_resolve_define_var(lily_parse_state *parser,
         lily_var *define_var, int modifiers)
 {
+    lily_block *block = parser->emit->block;
+
     if ((define_var->flags & SYM_IS_FORWARD) == 0)
         error_var_redeclaration(parser, define_var);
     else if (modifiers & SYM_IS_FORWARD)
@@ -5479,10 +5481,13 @@ static void verify_resolve_define_var(lily_parse_state *parser,
     else if ((define_var->flags & ALL_MODIFIERS) !=
              (modifiers & ALL_MODIFIERS))
         error_forward_decl_modifiers(parser, define_var);
+    else if (block->block_type == block_anon)
+        lily_raise_syn(parser->raiser,
+                "Cannot resolve a definition in an anonymous block.");
 
     /* This forward definition is no longer forward. */
     define_var->flags &= ~SYM_IS_FORWARD;
-    parser->emit->block->forward_count--;
+    block->forward_count--;
 }
 
 #undef ALL_MODIFIERS

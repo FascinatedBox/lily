@@ -129,6 +129,22 @@ class TestBadForward < TestCase
                 Two
             }
         """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot resolve a definition in an anonymous block.
+
+               |
+             3 | define f {}
+               |        ^
+
+                from [test]:3:
+        """,
+        """\
+            forward define f { ... }
+            {
+                define f {}
+            }
+        """)
     }
 
     public define test_duplicate
