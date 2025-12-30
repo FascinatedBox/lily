@@ -161,4 +161,35 @@ class TestForward < TestCase
             o.load_twos()
         """)
     }
+
+    public define test_forward_allowing_class_properties
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            class Example {
+                forward public define f { ... }
+                public var @v = 10
+                public define f {}
+            }
+        """)
+
+        assert_parse_string(t, """
+            class Example2 {
+                forward public define f { ... }
+                var v = 10
+                public define f {}
+            }
+        """)
+
+        assert_parse_string(t, """
+            class Example3 {
+                forward public define f { ... }
+                {
+                    var v = 10
+                }
+                public define f {}
+            }
+        """)
+    }
 }

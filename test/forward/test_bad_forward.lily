@@ -234,25 +234,6 @@ class TestBadForward < TestCase
             forward define f(String): String { ... }
         """)
 
-        # unresolved at end (of class)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a class property when there are unresolved forward(s):
-            * Test.f at line 2
-
-               |
-             3 | public var @x = 10
-               |        ^
-
-                from [test]:3:
-        """,
-        """\
-            class Test {
-                forward public define f(Integer) { ... }
-                public var @x = 10
-            }
-        """)
-
         # unresolved at end (trying to import)
 
         assert_parse_fails(t, """\

@@ -3563,12 +3563,8 @@ static void error_forward_decl_keyword(lily_parse_state *parser, int key)
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
     const char *action = "";
 
-    if (key == KEY_VAR) {
-        if (parser->emit->block->block_type == block_class)
-            action = "declare a class property";
-        else
-            action = "declare a global var";
-    }
+    if (key == KEY_VAR)
+        action = "declare a global var";
     else
         action = "use 'import'";
 
@@ -3596,7 +3592,7 @@ static void keyword_var(lily_parse_state *parser)
         other_token = tk_prop_word;
     }
 
-    if (block->forward_count)
+    if (block->forward_count && block->block_type != block_class)
         error_forward_decl_keyword(parser, KEY_VAR);
 
     lily_next_token(lex);

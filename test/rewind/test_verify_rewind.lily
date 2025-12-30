@@ -99,18 +99,17 @@ class TestVerifyRewind < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a class property when there are unresolved forward(s):
-            * Test.f at line 2
+            SyntaxError: A property in class 'Test' already has the name @v.
 
                |
              3 | public var @v = 10
-               |        ^
+               |            ^
 
                 from [test]:3:
         """,
         """\
             class Test {
-                forward public define f(Integer) { ... }
+                protected var @v = 11
                 public var @v = 10
             }
         """)
