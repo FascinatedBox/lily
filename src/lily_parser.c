@@ -3549,19 +3549,12 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
     }
 }
 
-static void error_forward_decl_keyword(lily_parse_state *parser, int key)
+static void error_forward_decl_keyword(lily_parse_state *parser)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    const char *action = "";
 
-    if (key == KEY_VAR)
-        action = "declare a global var";
-    else
-        action = "use 'import'";
-
-    lily_mb_add_fmt(msgbuf, "Cannot %s when there are unresolved forward(s):",
-            action);
-
+    lily_mb_add_fmt(msgbuf,
+            "The following definitions must be resolved first:");
     add_unresolved_defines_to_msgbuf(parser, msgbuf);
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
@@ -3584,7 +3577,7 @@ static void keyword_var(lily_parse_state *parser)
     }
 
     if (block->forward_count && block->block_type != block_class)
-        error_forward_decl_keyword(parser, KEY_VAR);
+        error_forward_decl_keyword(parser);
 
     lily_next_token(lex);
 
@@ -4402,7 +4395,7 @@ static void keyword_import(lily_parse_state *parser)
     lily_next_token(parser->lex);
 
     if (block->forward_count)
-        error_forward_decl_keyword(parser, KEY_IMPORT);
+        error_forward_decl_keyword(parser);
 
     import_loop(parser);
 }

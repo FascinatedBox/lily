@@ -504,7 +504,7 @@ class TestBadForward < TestCase
         # This can crash the interpreter
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot declare a global var when there are unresolved forward(s):
+            SyntaxError: The following definitions must be resolved first:
             * f at line 1
 
                |
@@ -522,7 +522,7 @@ class TestBadForward < TestCase
         # This can't, but block until there's a good reason not to
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use 'import' when there are unresolved forward(s):
+            SyntaxError: The following definitions must be resolved first:
             * f at line 1
 
                |
