@@ -3532,7 +3532,6 @@ static void bad_decl_token(lily_parse_state *parser)
 static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         lily_msgbuf *msgbuf)
 {
-    int count = parser->emit->block->forward_count;
     lily_module_entry *m = parser->symtab->active_module;
     lily_var *var_iter;
 
@@ -3547,11 +3546,6 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
 
             lily_mb_add_fmt(msgbuf, "\n* %s at line %d", p->name,
                     var_iter->line_num);
-
-            if (count == 1)
-                break;
-            else
-                count--;
         }
 
         var_iter = var_iter->next;
