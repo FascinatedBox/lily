@@ -3541,12 +3541,9 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         var_iter = (lily_var *)m->class_chain->members;
 
     while (var_iter) {
-        if (var_iter->flags & SYM_IS_FORWARD) {
-            lily_proto *p = lily_emit_proto_for_var(parser->emit, var_iter);
-
-            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", p->name,
+        if (var_iter->flags & SYM_IS_FORWARD)
+            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", var_iter->name,
                     var_iter->line_num);
-        }
 
         var_iter = var_iter->next;
     }
@@ -3651,15 +3648,14 @@ static void finish_define_init(lily_parse_state *parser, lily_var *var)
 static void error_forward_decl_pending(lily_parse_state *parser)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-    const char *what = "";
 
     if (parser->emit->block->block_type == block_file)
-        what = "module";
+        lily_mb_add_fmt(msgbuf,
+                "Reached end of module with unresolved forward(s):");
     else
-        what = "class";
+        lily_mb_add_fmt(msgbuf, "Class %s has unresolved forward(s):",
+                parser->current_class->name);
 
-    lily_mb_add_fmt(msgbuf,
-            "Reached end of %s with unresolved forward(s):", what);
     add_unresolved_defines_to_msgbuf(parser, msgbuf);
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }

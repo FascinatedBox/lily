@@ -213,8 +213,8 @@ class TestBadForward < TestCase
         # unresolved at end (of class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of class with unresolved forward(s):
-            * Test.f at line 2
+            SyntaxError: Class Test has unresolved forward(s):
+            * f at line 2
                 from [test]:3:
         """,
         """\
