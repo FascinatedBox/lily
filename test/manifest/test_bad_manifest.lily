@@ -645,7 +645,7 @@ class TestBadManifest < TestCase
         )
 
         assert_manifest_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward class(es):
+            SyntaxError: Reached end of module with unresolved forward(s):
             * Zero at line 3
                 from unresolved_target.lily:4:
         """,
@@ -656,7 +656,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward class(es):
+            SyntaxError: Reached end of module with unresolved forward(s):
             * One at line 3
                 from [test]:4:
         """,

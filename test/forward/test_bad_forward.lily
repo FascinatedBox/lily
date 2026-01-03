@@ -254,7 +254,7 @@ class TestBadForward < TestCase
         # unresolved at end (forward class)
 
         assert_parse_fails(t, """\
-            SyntaxError: Reached end of module with unresolved forward class(es):
+            SyntaxError: Reached end of module with unresolved forward(s):
             * Three at line 3
             * Two at line 2
             * One at line 1
@@ -264,6 +264,32 @@ class TestBadForward < TestCase
             forward class One { ... }
             forward class Two { ... }
             forward class Three { ... }
+        """)
+
+        # both kinds of unresolved, class first
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Example at line 1
+            * f at line 2
+                from [test]:3:
+        """,
+        """\
+            forward class Example { ... }
+            forward define f(String): String { ... }
+        """)
+
+        # both, reversed
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Example at line 2
+            * f at line 1
+                from [test]:3:
+        """,
+        """\
+            forward define f(String): String { ... }
+            forward class Example { ... }
         """)
     }
 

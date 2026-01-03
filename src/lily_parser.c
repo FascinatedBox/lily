@@ -3645,13 +3645,33 @@ static void finish_define_init(lily_parse_state *parser, lily_var *var)
     var->flags &= ~SYM_NOT_INITIALIZED;
 }
 
+static void add_unresolved_classes_to_msgbuf(lily_parse_state *parser,
+        lily_msgbuf *msgbuf)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_class *class_iter = m->class_chain;
+
+    while (class_iter) {
+        if (class_iter->flags & SYM_IS_FORWARD)
+            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", class_iter->name,
+                    class_iter->line_num);
+
+        class_iter = class_iter->next;
+    }
+}
+
 static void error_forward_decl_pending(lily_parse_state *parser)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+    lily_block *block = parser->emit->block;
 
-    if (parser->emit->block->block_type == block_file)
+    if (block->block_type == block_file) {
         lily_mb_add_fmt(msgbuf,
                 "Reached end of module with unresolved forward(s):");
+
+        if (block->forward_class_count)
+            add_unresolved_classes_to_msgbuf(parser, msgbuf);
+    }
     else
         lily_mb_add_fmt(msgbuf, "Class %s has unresolved forward(s):",
                 parser->current_class->name);
@@ -5834,34 +5854,6 @@ static void process_docblock(lily_parse_state *parser)
         lily_raise_syn(parser->raiser, "A docblock is not allowed here.");
 }
 
-static void error_forward_classes_pending(lily_parse_state *parser)
-{
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-
-    lily_mb_add(msgbuf,
-            "Reached end of module with unresolved forward class(es):");
-
-    uint16_t count = parser->emit->scope_block->forward_class_count;
-    lily_module_entry *m = parser->symtab->active_module;
-    lily_class *class_iter = m->class_chain;
-
-    while (class_iter) {
-        if (class_iter->flags & SYM_IS_FORWARD) {
-            lily_mb_add_fmt(msgbuf, "\n* %s at line %d", class_iter->name,
-                    class_iter->line_num);
-
-            if (count == 1)
-                break;
-            else
-                count--;
-        }
-
-        class_iter = class_iter->next;
-    }
-
-    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
-}
-
 /* This is the entry point into parsing regardless of the starting mode. This
    should only be called by the content handling functions that do the proper
    initialization beforehand.
@@ -5901,10 +5893,8 @@ static void parser_loop(lily_parse_state *parser)
             if (b->block_type != block_file)
                 lily_raise_syn(parser->raiser,
                         "Reached end of file while still inside a block.");
-            else if (b->forward_count)
+            else if (b->forward_count || b->forward_class_count)
                 error_forward_decl_pending(parser);
-            else if (b->forward_class_count)
-                error_forward_classes_pending(parser);
 
             if (b->prev != NULL)
                 finish_import(parser);
@@ -6304,7 +6294,7 @@ static void manifest_loop(lily_parse_state *parser)
                         "Reached end of file while still inside a block.");
 
             if (b->forward_class_count)
-                error_forward_classes_pending(parser);
+                error_forward_decl_pending(parser);
 
             if (b->prev != NULL)
                 finish_import(parser);
