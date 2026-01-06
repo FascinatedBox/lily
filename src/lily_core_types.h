@@ -117,7 +117,10 @@ typedef struct lily_class_ {
 
     uint16_t line_num;
     uint16_t doc_id;
-    uint32_t pad1;
+
+    /* Forward classes: How many forward methods to resolve (0 otherwise). */
+    uint16_t forward_count;
+    uint16_t pad1;
 
     struct lily_class_ *parent;
 

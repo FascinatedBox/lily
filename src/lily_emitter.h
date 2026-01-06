@@ -289,6 +289,7 @@ void lily_emit_enter_enum_block(lily_emit_state *, lily_class *);
 void lily_emit_enter_expr_match_block(lily_emit_state *);
 void lily_emit_enter_file_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_for_in_block(lily_emit_state *);
+void lily_emit_enter_forward_class_block(lily_emit_state *, lily_class *);
 void lily_emit_enter_if_block(lily_emit_state *);
 void lily_emit_enter_lambda_block(lily_emit_state *, lily_var *);
 void lily_emit_enter_match_block(lily_emit_state *, lily_sym *);

@@ -291,6 +291,54 @@ class TestBadForward < TestCase
             forward define f(String): String { ... }
             forward class Example { ... }
         """)
+
+        # unresolved class methods during class declaration
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class Example has unresolved forward(s):
+            * f at line 2
+
+               |
+             5 | class Example {}
+               |                ^
+
+                from [test]:5:
+        """,
+        """\
+            forward class Example {
+                public define f { ... }
+            }
+
+            class Example {}
+        """)
+
+        # unresolved class methods never resolved
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Example at line 1
+                from [test]:4:
+        """,
+        """\
+            forward class Example {
+                public define f { ... }
+            }
+        """)
+
+        # unresolved method and define at end
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Example at line 2
+            * f at line 1
+                from [test]:5:
+        """,
+        """\
+            forward define f { ... }
+            forward class Example {
+                public define g { ... }
+            }
+        """)
     }
 
     public define test_forward_collision
@@ -519,6 +567,49 @@ class TestBadForward < TestCase
             define f { }
         """)
 
+        # Demonstrate using forward method
+
+        assert_parse_fails(t, """\
+            SyntaxError: The following definitions must be resolved first:
+            * Example.f at line 2
+
+               |
+             5 | var v = Example.f()
+               | ^
+
+                from [test]:5:
+        """,
+        """\
+            forward class Example {
+                public static define f: Integer { ... }
+            }
+
+            var v = Example.f()
+
+            class Example {
+                public static define f: Integer {
+                    return v
+                }
+            }
+        """)
+
+        # forward methods and defines (methods go first)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Example at line 2
+            * h at line 5
+            * f at line 1
+                from [test]:6:
+        """,
+        """\
+            forward define f { ... }
+            forward class Example {
+                public static define g: Integer { ... }
+            }
+            forward define h { ... }
+        """)
+
         # This can't, but block until there's a good reason not to
 
         assert_parse_fails(t, """\
@@ -534,6 +625,94 @@ class TestBadForward < TestCase
         """\
             forward define f { ... }
             import notachance
+        """)
+    }
+
+    public define test_forward_methods_token_errors
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '}' here.
+
+               |
+             3 | ...
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            forward class Example {
+                public define f { ... }
+                ...
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected '...' here.
+
+               |
+             2 | public define f: Integer { return 10 }
+               |                            ^
+
+                from [test]:2:
+        """,
+        """\
+            forward class Example {
+                public define f: Integer { return 10 }
+                ...
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a scope here (public, protected, or private).
+
+               |
+             2 | forward public define f { ... }
+               | ^
+
+                from [test]:2:
+        """,
+        """\
+            forward class Example {
+                forward public define f { ... }
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a class here.
+
+               |
+             2 | public class Ex2 {
+               |        ^
+
+                from [test]:2:
+        """,
+        """\
+            forward class Example {
+                public class Ex2 {
+                    ...
+                }
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong qualifiers in resolution of Example.f (expected: public).
+
+               |
+             6 | protected define f {}
+               |                  ^
+
+                from [test]:6:
+        """,
+        """\
+            forward class Example {
+                public define f { ... }
+            }
+
+            class Example {
+                protected define f {}
+            }
         """)
     }
 }

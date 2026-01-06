@@ -3463,6 +3463,7 @@ lily_sym *lily_parser_lambda_eval(lily_parse_state *parser,
  */
 
 static void expect_manifest_header(lily_parse_state *);
+static void parse_modifier(lily_parse_state *, int);
 
 /** The rest of this focuses on handling handling keywords and blocks. Much of
     this is straightforward and kept in small functions that rely on the above
@@ -3549,12 +3550,44 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
     }
 }
 
-static void error_forward_decl_keyword(lily_parse_state *parser)
+static void add_unresolved_methods_to_msgbuf(lily_parse_state *parser,
+        lily_msgbuf *msgbuf)
+{
+    lily_module_entry *m = parser->symtab->active_module;
+    lily_block *block = parser->emit->block;
+    lily_class *class_iter = m->class_chain;
+
+    while (class_iter) {
+        if (class_iter->flags & SYM_IS_FORWARD) {
+            lily_var *var_iter = (lily_var *)class_iter->members;
+
+            /* Forward classes can't have properties, so every member is a
+               forward method to unpack. */
+            while (var_iter) {
+                lily_proto *p = lily_emit_proto_for_var(parser->emit, var_iter);
+
+                lily_mb_add_fmt(msgbuf, "\n* %s at line %d", p->name,
+                        var_iter->line_num);
+                var_iter = var_iter->next;
+            }
+
+            block->forward_count -= class_iter->forward_count;
+        }
+
+        class_iter = class_iter->next;
+    }
+}
+
+static void error_forward_decl_keyword(lily_parse_state *parser, int key)
 {
     lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
 
     lily_mb_add_fmt(msgbuf,
             "The following definitions must be resolved first:");
+
+    if (key == KEY_VAR && parser->emit->block->forward_class_count)
+        add_unresolved_methods_to_msgbuf(parser, msgbuf);
+
     add_unresolved_defines_to_msgbuf(parser, msgbuf);
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
@@ -3577,7 +3610,7 @@ static void keyword_var(lily_parse_state *parser)
     }
 
     if (block->forward_count && block->block_type != block_class)
-        error_forward_decl_keyword(parser);
+        error_forward_decl_keyword(parser, KEY_VAR);
 
     lily_next_token(lex);
 
@@ -4395,7 +4428,7 @@ static void keyword_import(lily_parse_state *parser)
     lily_next_token(parser->lex);
 
     if (block->forward_count)
-        error_forward_decl_keyword(parser);
+        error_forward_decl_keyword(parser, KEY_IMPORT);
 
     import_loop(parser);
 }
@@ -4758,19 +4791,62 @@ static void collect_and_verify_generics_for(lily_parse_state *parser,
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
+static void parse_forward_class_methods(lily_parse_state *parser,
+        lily_class *cls)
+{
+    lily_lex_state *lex = parser->lex;
+    uint16_t generic_start = lily_gp_save(parser->generics);
+    uint16_t method_count = 0;
+
+    /* Manifest mode doesn't need forward methods. */
+    if (parser->flags & PARSER_IN_MANIFEST) {
+        NEED_CURRENT_TOK(tk_three_dots)
+    }
+
+    lily_emit_enter_forward_class_block(parser->emit, cls);
+    parser->current_class = cls;
+
+    do {
+        uint16_t key_id = keyword_by_name(lex->label);
+
+        parser->modifiers = SYM_IS_FORWARD;
+        parse_modifier(parser, key_id);
+        lily_gp_restore(parser->generics, generic_start);
+        lily_emit_leave_simple_scope_block(parser->emit);
+        lily_next_token(lex);
+        method_count++;
+    } while (lex->token == tk_word);
+
+    cls->forward_count = method_count;
+    lily_emit_leave_block(parser->emit);
+    parser->current_class = NULL;
+}
+
 static void parse_forward_class_body(lily_parse_state *parser, lily_class *cls)
 {
     lily_lex_state *lex = parser->lex;
 
     NEED_CURRENT_TOK(tk_left_curly)
-    NEED_NEXT_TOK(tk_three_dots)
-    NEED_NEXT_TOK(tk_right_curly)
+    lily_next_token(lex);
+
+    if (lex->token == tk_word)
+        parse_forward_class_methods(parser, cls);
+    else if (lex->token != tk_three_dots)
+        lily_raise_syn(parser->raiser,
+                "Expected a forward method or '...' here.");
+    else
+        lily_next_token(lex);
+
+    NEED_CURRENT_TOK(tk_right_curly)
     lily_next_token(lex);
 
     /* Classes are always at toplevel, where prior generics are always 0. */
     lily_gp_restore(parser->generics, 0);
 
-    parser->emit->scope_block->forward_class_count++;
+    lily_block *scope_block = parser->emit->scope_block;
+
+    scope_block->forward_class_count++;
+    scope_block->forward_count += cls->forward_count;
     cls->flags |= SYM_IS_FORWARD;
 }
 

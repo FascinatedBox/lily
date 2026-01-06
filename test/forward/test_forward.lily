@@ -192,4 +192,36 @@ class TestForward < TestCase
             }
         """)
     }
+
+    public define test_forward_class_methods
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            forward class Counter {
+                public define next: Integer { ... }
+            }
+
+            define advance_two(c: Counter)
+            {
+                c.next()
+                c.next()
+            }
+
+            class Counter {
+                public var @x = 0
+
+                public define next: Integer {
+                    @x += 1
+                    return @x
+                }
+            }
+
+            var c = Counter()
+
+            advance_two(c)
+
+            if c.x != 2: { 0/0 }
+        """)
+    }
 }

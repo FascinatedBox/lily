@@ -699,7 +699,7 @@ class TestBadManifest < TestCase
         """)
 
         assert_manifest_fails(t, """\
-            SyntaxError: Expected '...' here.
+            SyntaxError: Expected a forward method or '...' here.
                 from [test]:4:
         """,
         """\
@@ -716,6 +716,22 @@ class TestBadManifest < TestCase
             import manifest
 
             forward class One { ...
+        """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected '...' here.
+
+               |
+             4 | public define f { ... }
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class Example {
+                public define f { ... }
         """)
     }
 

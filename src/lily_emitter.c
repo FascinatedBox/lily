@@ -585,7 +585,11 @@ void lily_emit_enter_class_block(lily_emit_state *emit, lily_class *cls,
 
     if (cls->flags & SYM_IS_FORWARD) {
         emit->scope_block->forward_class_count--;
-        cls->flags &=~ SYM_IS_FORWARD;
+
+        /* Parser will ensure they all get resolved. */
+        emit->scope_block->forward_count -= cls->forward_count;
+        block->forward_count = cls->forward_count;
+        cls->flags &= ~SYM_IS_FORWARD;
     }
 
     block->block_type = block_class;
@@ -670,6 +674,16 @@ void lily_emit_enter_for_in_block(lily_emit_state *emit)
     lily_block *block = next_block(emit);
 
     block->block_type = block_for_in;
+    emit->block = block;
+}
+
+void lily_emit_enter_forward_class_block(lily_emit_state *emit, lily_class *cls)
+{
+    lily_block *block = next_block(emit);
+
+    block->block_type = block_class;
+    block->flags |= BLOCK_ALLOW_DEFINE;
+    block->class_entry = cls;
     emit->block = block;
 }
 

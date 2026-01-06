@@ -40,6 +40,7 @@ static const lily_class name = \
     0, \
     UINT16_MAX, \
     0, \
+    0, \
     NULL, \
     NULL, \
     0, \
