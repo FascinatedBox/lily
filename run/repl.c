@@ -84,7 +84,6 @@ void content_loop(lily_state *s, const char **output)
         line = prompt_get_line(text_from_prompt, continuing);
 
         if (line == NULL) {
-            fprintf(stderr, "kill.\n");
             /* Ctrl-D on *nix. Stop the interpreter. */
             *output = NULL;
 
