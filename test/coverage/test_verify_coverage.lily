@@ -479,7 +479,8 @@ class TestVerifyCoverage < TestCase
         # In this case, forget about the indentation and match exactly.
 
         t.parse_expr("[test]", "10 +").is_none() |> assert_true
-        assert_equal(t.error(), """\
+
+        var expect = """\
 SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
    |
@@ -487,7 +488,12 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
    |     ^
 
     from [test]:1:
-""")
+"""
+
+        assert_equal(t.error(), expect)
+
+        # Subsequent calls should yield the same message.
+        assert_equal(t.error(), expect)
     }
 
     public define test_unit_call_error

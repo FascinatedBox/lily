@@ -99,18 +99,23 @@ static int is_source_useful(char *source)
 
 static void patch_line_end(lily_lex_state *lex)
 {
-    /* Lexer lines always have at least a newline included (never 0). */
+    /* Trim off the newline, so the format can add it back in. This is necessary
+       because lambdas end with a fake newline (for lexer convenience). */
     size_t len = strlen(lex->source);
     char *end = lex->source + len - 1;
 
+    /* Prevent multiple lily_error_message calls from trimming too much. */
+    if (*end == '\n')
+        *end = '\0';
+}
+
+static char *footer_for_error(lily_lex_state *lex)
+{
     if (lex->entry->entry_type != et_lambda ||
         *lex->entry->entry_cursor != '\0')
-        /* Patch this off so the format builder can add it for both cases. */
-        *end = '\0';
+        return "";
     else
-        /* Lambdas have \0 at their end as a convenience for parser. Patch that
-           into the ending parenth. */
-        *end = ')';
+        return ")";
 }
 
 static void add_context(lily_msgbuf *msgbuf,
@@ -130,6 +135,7 @@ static void add_context(lily_msgbuf *msgbuf,
 
     patch_line_end(lex);
 
+    char *footer = footer_for_error(lex);
     char *source_end = lex->source + lex->token_start;
 
     /* The context should look like this:
@@ -147,8 +153,9 @@ static void add_context(lily_msgbuf *msgbuf,
 
     lily_mb_add_fmt(msgbuf, "\n"
                             "%s |\n"
-                            " %d | %s\n"
-                            "%s |", pipe_space, line_num, line, pipe_space);
+                            " %d | %s%s\n"
+                            "%s |", pipe_space, line_num, line, footer,
+                            pipe_space);
     lily_mb_repeat_n(msgbuf, ' ', (int)(source_end - line + 1));
     lily_mb_add(msgbuf, "^\n\n");
 }
