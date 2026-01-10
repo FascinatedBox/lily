@@ -1,3 +1,55 @@
+Version 2.3 (2026-1-10)
+=======================
+
+This release contains a few breaking changes, and several fixes.
+
+Highlights:
+
+* Template mode has been removed (#579).
+
+* `foreach` is no longer a keyword (#587).
+
+* `Coroutine` has been made significantly better: Resumption now returns a
+  `Result` instead of an `Option` (#612). The `Failure` side of the `Result` is
+  either a new `CoError` (resumed incorrectly), or the exception raised when
+  attempting resumption. `Coroutine` now provides the value returned by the
+  `Function`. However, the `Function` must return the type yielded. This is only
+  a break if the `Coroutine` yields a non-`Unit` value.
+
+* Forward classes now allow forward methods (#591).
+
+* Method calls on incomplete types are now blocked (#594): This was necessary to
+resolve unsound behavior.
+
+* Vararg transfer (#621): By default, a `Function` taking varargs expects each
+arg to be sent individually. Vararg transfer, using `*args` indicates the whole
+`List` should be sent. The following is now possible:
+
+```
+define flatten[A](input: List[A], lists: List[A]...): List[A] {
+    return input.merge(*lists)
+}
+```
+
+* `for` now allows iteration over `String` and `ByteString`, yielding the
+  individual `Byte` values for each of them (#615).
+
+Fixes:
+
+* Keyopt calls were allowing missing required args (#606).
+
+* Foreign modules can now use imported types (#609).
+
+* Fix rare valgrind warning in `lily_call_prepare` (#611).
+
+* Forward classes used before resolution are now gc tagged (#614).
+
+* Fix `String.format`'s handling of a `ByteString` finishing with `\0` (#618).
+
+* `continue` in a do...while was jumping to the wrong place (#619).
+
+* In some cases, repl line context did not include the last character (#625).
+
 Version 2.2 (2025-10-10)
 ========================
 

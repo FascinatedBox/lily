@@ -30,7 +30,7 @@ set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 
 set(LILY_MAJOR             "2")
-set(LILY_MINOR             "2")
+set(LILY_MINOR             "3")
 
 # BSD libc includes the dl* functions and there's no libdl on them.
 # Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
