@@ -3372,6 +3372,8 @@ static uint16_t collect_lambda_args(lily_parse_state *parser,
                 lily_raise_syn(parser->raiser,
                         "'%s' has an incomplete inferred type (^T).",
                         lex->label, arg_type);
+            else if (arg_type->cls_id == LILY_ID_OPTARG)
+                arg_type = arg_type->subtypes[0];
         }
 
         arg_var->type = arg_type;

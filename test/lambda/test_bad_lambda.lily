@@ -511,5 +511,41 @@ class TestBadLambda < TestCase
 
             f(|x: Integer, y, z: String| x )
         """)
+
+        # can't take optargs either
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'String' to type 'Integer'.
+
+               |
+             4 | v = (|x| x = "1" )
+               |            ^
+
+                from [test]:4:
+        """,
+        """\
+            define f(a: *Integer=10) {}
+            var v = f
+
+            v = (|x| x = "1" )
+        """)
+
+        # also check varopt
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'String' to type 'List[Integer]'.
+
+               |
+             4 | v = (|x| x = "1" )
+               |            ^
+
+                from [test]:4:
+        """,
+        """\
+            define f(a: *Integer...=[10]) {}
+            var v = f
+
+            v = (|x| x = "1" )
+        """)
     }
 }
