@@ -108,6 +108,11 @@ class TestInference < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (Integer, Integer, Integer)' to type 'Function (Integer, Integer)'.
+
+               |
+             6 | h = f
+               |   ^
+
                 from [test]:6:
         """,
         """\
@@ -147,6 +152,11 @@ class TestInference < TestCase
             SyntaxError: Argument #1 to g is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             3 | f(10, g("10"))
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -226,6 +236,11 @@ class TestInference < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (String...)' to type 'Function (List[String])'.
+
+               |
+             3 | var v: Function(List[String]) = f
+               |                               ^
+
                 from [test]:3:
         """,
         """\
@@ -238,6 +253,11 @@ class TestInference < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (List[String])' to type 'Function (String...)'.
+
+               |
+             3 | var v: Function(String...) = f
+               |                            ^
+
                 from [test]:3:
         """,
         """\

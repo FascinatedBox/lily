@@ -11,6 +11,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to f (1 for 0).
+
+               |
+             3 | f(1)
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -25,6 +30,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to v is invalid:
             Expected Type: String
             Received Type: Integer
+
+               |
+             2 | v(1)
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -36,6 +46,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to g (3 for 1).
+
+               |
+             2 | g(1, 2, 3)
+               |  ^
+
                 from [test]:2:
         """,
         """\
@@ -48,6 +63,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to (anonymous) (0 for 2).
+
+               |
+             9 | var z = Test().test()()
+               |                      ^
+
                 from [test]:9:
         """,
         """\
@@ -68,6 +88,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to f is invalid:
             Expected Type: Function ()
             Received Type: Integer
+
+               |
+             3 | f(10)
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -85,6 +110,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Test.method (1 for 2).
+
+               |
+             4 | method()
+               |       ^
+
                 from [test]:4:
         """,
         """\
@@ -100,6 +130,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Test.method (2 for 1).
+
+               |
+             7 | t.method(123)
+               |         ^
+
                 from [test]:7:
         """,
         """\
@@ -116,6 +151,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to abc.a (3 for 0).
+
+               |
+             6 | d.a(1, 2, 3)
+               |    ^
+
                 from [test]:6:
         """,
         """\
@@ -131,6 +171,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to String.ends_with (3 for 2).
+
+               |
+             1 | String.ends_with("a", "b", "c")
+               |                 ^
+
                 from [test]:1:
         """,
         """\
@@ -141,6 +186,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Example.g (2 for 3).
+
+               |
+             6 | Example.g(10, "20")
+               |          ^
+
                 from [test]:6:
         """,
         """\
@@ -156,6 +206,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Time.now (1 for 0).
+
+               |
+             5 | t.now()
+               |      ^
+
                 from [test]:5:
         """,
         """\
@@ -172,6 +227,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to File.open is invalid:
             Expected Type: String
             Received Type: File
+
+               |
+             1 |   
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -187,6 +247,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to g (1 for 0).
+
+               |
+             3 | g(1)
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -205,6 +270,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Gamma is an empty variant that should not be called.
+
+               |
+             6 | Gamma()
+               |      ^
+
                 from [test]:6:
         """,
         """\
@@ -220,6 +290,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Some (none for 1).
+
+               |
+             1 | var v = Some
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -230,6 +305,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Some (2 for 1).
+
+               |
+             1 | var v = Some(1, 2)
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -240,6 +320,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to One (2 for 1).
+
+               |
+             6 | var opt: Test[Integer] = Test.One(1, 2)
+               |                                  ^
+
                 from [test]:6:
         """,
         """\
@@ -257,6 +342,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to One (none for 0+).
+
+               |
+             6 | var v = One
+               |         ^
+
                 from [test]:6:
         """,
         """\
@@ -277,6 +367,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot anonymously call resulting type 'Integer'.
+
+               |
+             1 | (10)()
+               |     ^
+
                 from [test]:1:
         """,
         """\
@@ -287,6 +382,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot anonymously call resulting type 'Integer'.
+
+               |
+             5 | Example().a()
+               |            ^
+
                 from [test]:5:
         """,
         """\
@@ -301,6 +401,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot call Example.y using incomplete type Example[Function (?, ? => List[?])].
+
+                |
+             10 | var v = Example(f).y()(1, 2).push("3")
+                |                     ^
+
                 from [test]:10:
         """,
         """\
@@ -322,6 +427,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot call an incomplete type (?).
+
+               |
+             3 | f([])()
+               |      ^
+
                 from [test]:3:
         """,
         """\
@@ -339,6 +449,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to f (4 for 1).
+
+               |
+             2 | f(1, 2, 3, :a 1)
+               |  ^
+
                 from [test]:2:
         """,
         """\
@@ -350,6 +465,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f does not have a keyword named ':b'.
+
+               |
+             3 | f(:b 1)
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -364,6 +484,11 @@ class TestBadCall < TestCase
             SyntaxError: Call to f is missing parameters:
             * Parameter #1 of type Integer.
             * Parameter #3 of type Double.
+
+               |
+             3 | f(:b "a")
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -376,6 +501,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Call to f has multiple values for parameter ':a'.
+
+               |
+             2 | f(:a 1, :a 2)
+               |         ^
+
                 from [test]:2:
         """,
         """\
@@ -389,6 +519,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to f is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             2 | f(:a "")
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -401,6 +536,11 @@ class TestBadCall < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to f is missing parameters:
             * Parameter #2 (:b) of type String.
+
+               |
+             3 | f(:a "1")
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -443,6 +583,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to f (1 for 2+).
+
+               |
+             5 | f(1)
+               |  ^
+
                 from [test]:5:
         """,
         """\
@@ -460,6 +605,11 @@ class TestBadCall < TestCase
             SyntaxError: Call to f is missing parameters:
             * Parameter #1 (:a) of type Integer.
             * Parameter #3 (:c) of type Double.
+
+               |
+             3 | f(:b "a")
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -474,6 +624,11 @@ class TestBadCall < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to f is missing parameters:
             * Parameter #1 (:a) of type Integer.
+
+               |
+             6 | f(:b "a")
+               |  ^
+
                 from [test]:6:
         """,
         """\
@@ -494,6 +649,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to f (0 for 1..2).
+
+               |
+             5 | f()
+               |  ^
+
                 from [test]:5:
         """,
         """\
@@ -513,6 +673,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Test.method (1 for 2+).
+
+               |
+             7 | t.method()
+               |         ^
+
                 from [test]:7:
         """,
         """\
@@ -531,6 +696,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to f is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             4 | f("4")
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -546,6 +716,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #1 to f is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             4 | f("4")
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -561,6 +736,11 @@ class TestBadCall < TestCase
             SyntaxError: Argument #4 to f is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             4 | f(1, 2, 3, "4")
+               |            ^
+
                 from [test]:4:
         """,
         """\
@@ -579,6 +759,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+
+               |
+             3 | f(1, *v)
+               |      ^
+
                 from [test]:3:
         """,
         """\
@@ -591,6 +776,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot have arguments after vararg transfer (*args).
+
+               |
+             3 | f(*v, "a")
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -603,6 +793,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+
+               |
+             2 | f(:a *[1])
+               |      ^
+
                 from [test]:2:
         """,
         """\
@@ -614,6 +809,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+
+               |
+             2 | f(:a *[1])
+               |      ^
+
                 from [test]:2:
         """,
         """\
@@ -625,6 +825,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Vararg transfer (*args) must be the only excess arg in a vararg call.
+
+               |
+             1 | var v = *[1]
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -637,6 +842,11 @@ class TestBadCall < TestCase
             SyntaxError: Mismatched type for vararg transfer (*args) to f:
             Expected: List[String]
             Received: List[Integer]
+
+               |
+             2 | f(*[1])
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -650,6 +860,11 @@ class TestBadCall < TestCase
             SyntaxError: Mismatched type for vararg transfer (*args) to f:
             Expected: List[Byte]
             Received: List[List[Integer]]
+
+               |
+             2 | f('1', *[[1]])
+               |        ^
+
                 from [test]:2:
         """,
         """\
@@ -663,6 +878,11 @@ class TestBadCall < TestCase
             SyntaxError: Mismatched type for vararg transfer (*args) to f:
             Expected: List[String]
             Received: List[Integer]
+
+               |
+             2 | *[1] |> f
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -677,6 +897,11 @@ class TestBadCall < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot call Example.pushcall using incomplete type Example[?].
+
+                |
+             14 | [A]
+                |                               ^
+
                 from [test]:14:
         """,
         """\

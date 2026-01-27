@@ -160,6 +160,47 @@ static void add_context(lily_msgbuf *msgbuf,
     lily_mb_add(msgbuf, "^\n\n");
 }
 
+/* LINE_STORE_MAX is intended to be a power of 2. */
+#define LINE_MASK (LINE_STORE_MAX - 1)
+
+static void maybe_fix_context(lily_lex_state *lex, uint16_t line_num)
+{
+    if (lex->line_num > line_num) {
+        int diff = (lex->line_num - line_num);
+
+        if (diff >= LINE_STORE_MAX)
+            /* Too far back to have it saved. */
+            return;
+
+        /* Lexer's line storage operates in a circle:
+           Forward: (x + 1) & 3
+           Backward: (x + 3) & 3
+
+           Lexer lines begin at 1, but the line store starts at 0. Move back one
+           step to neutralize that. */
+
+        uint16_t spot = (lex->line_spot + (LINE_STORE_MAX - 1));
+
+        /* With that neutralized, how many steps back need to be taken? The
+           possibilities are as follows:
+           1: 3 steps
+           2: 2 steps
+           3: 1 step
+           Finish by masking to keep the value in range. */
+        spot = (spot + (LINE_STORE_MAX - diff)) & LINE_MASK;
+
+        /* This throws line_spot and source out of sync. The next line prevents
+           a double mutation, and lexer's will reset the line storage before
+           using it again. */
+        lex->source = lex->line_store[spot];
+
+        /* Prevent subsequent calls from modifying the buffer again. */
+        lex->line_num = line_num;
+    }
+}
+
+#undef LINE_MASK
+
 static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
 {
     lily_raiser *raiser = parser->raiser;
@@ -176,6 +217,7 @@ static void add_frontend_trace(lily_msgbuf *msgbuf, lily_parse_state *parser)
 
         line_num = ast->line_num;
         parser->lex->token_start = ast->token_start;
+        maybe_fix_context(parser->lex, line_num);
     }
 
     if (can_show_context(parser, es, line_num))

@@ -11,6 +11,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'String' to type 'Integer'.
+
+               |
+             2 | a = "10"
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -22,6 +27,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'String' to type 'Integer'.
+
+               |
+             6 | v.a = "5"
+               |     ^
+
                 from [test]:6:
         """,
         """\
@@ -37,6 +47,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'String' to type 'Integer'.
+
+               |
+             3 | a = ""
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -51,6 +66,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+
+               |
+             3 | v[0] = None
+               |      ^
+
                 from [test]:3:
         """,
         """\
@@ -63,6 +83,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Subscript assignment on a String is not allowed.
+
+               |
+             3 | v[0] = 1
+               |      ^
+
                 from [test]:3:
         """,
         """\
@@ -302,6 +327,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Value -1 is out of range for a Byte.
+
+               |
+             1 | var a: Byte = -1
+               |               ^
+
                 from [test]:1:
         """,
         """\
@@ -312,6 +342,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Value 256 is out of range for a Byte.
+
+               |
+             1 | var a: Byte = 256
+               |               ^
+
                 from [test]:1:
         """,
         """\
@@ -327,6 +362,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot cast type 'Integer' to type 'Tuple[Integer]'.
+
+               |
+             1 | var v = 1.@(Tuple[Integer])
+               |                           ^
+
                 from [test]:1:
         """,
         """\
@@ -898,6 +938,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot create an empty Tuple.
+
+               |
+             1 | var v = <[]>
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -913,6 +958,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid operation: String + String.
+
+               |
+             6 | "c" + @v ++ "d" ++ other.v ++ "e"
+               |     ^
+
                 from [test]:6:
         """,
         """\
@@ -933,6 +983,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid operation: List[Integer] == List[String].
+
+               |
+             4 | v1 == v2
+               |    ^
+
                 from [test]:4:
         """,
         """\
@@ -946,6 +1001,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid operation: !String.
+
+               |
+             1 | var v = !"a"
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -983,6 +1043,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid operation: Double + Byte.
+
+               |
+             1 | var v = 1.0 + 'a'
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -998,6 +1063,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Index 3 is out of range for Tuple[Integer, String].
+
+               |
+             1 | var s: String = <[1, "2"]> [3]
+               |                 ^
+
                 from [test]:1:
         """,
         """\
@@ -1008,6 +1078,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Tuple subscripts must be Integer literals.
+
+               |
+             3 | v[a] = 0
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -1020,6 +1095,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Index -1 is out of range for Tuple[Integer].
+
+               |
+             2 | v[-1] = 0
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -1031,6 +1111,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Index 5 is out of range for Tuple[Integer].
+
+               |
+             2 | v[5] = 1
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -1043,6 +1128,11 @@ class TestBadSyntax < TestCase
         assert_parse_fails(t, """\
             SyntaxError: List subscripts require a simple numeric index.
             Index given: List[Integer]
+
+               |
+             2 | v[v]
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -1055,6 +1145,11 @@ class TestBadSyntax < TestCase
         assert_parse_fails(t, """\
             SyntaxError: ByteString subscripts require a simple numeric index.
             Index given: Function (String => Integer)
+
+               |
+             2 | v[String.size]
+               | ^
+
                 from [test]:2:
         """,
         """\
@@ -1066,6 +1161,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Hash index should be type 'Integer', not type 'String'.
+
+               |
+             1 | [1 => 1, 2 => 2]["1"]
+               | ^
+
                 from [test]:1:
         """,
         """\
@@ -1076,6 +1176,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot subscript type 'Option[Integer]'.
+
+               |
+             1 | Some(1)[1]
+               |     ^
+
                 from [test]:1:
         """,
         """\
@@ -1422,6 +1527,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'List[Integer]' to type 'List[String]'.
+
+               |
+             1 | var v: List[String] = [1]
+               |                     ^
+
                 from [test]:1:
         """,
         """\
@@ -1452,6 +1562,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Type 'ByteString' is not a valid key for Hash.
+
+               |
+             1 | var v = [B"" => 1]
+               |          ^
+
                 from [test]:1:
         """,
         """\
@@ -1462,6 +1577,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Hash[String, String]' to type 'Hash[Integer, String]'.
+
+               |
+             1 | var v: Hash[Integer, String] = ["1" => "1"]
+               |                              ^
+
                 from [test]:1:
         """,
         """\
@@ -1472,6 +1592,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Hash[Integer, Integer]' to type 'Hash[Integer, String]'.
+
+               |
+             1 | var v: Hash[Integer, String] = [1 => 1]
+               |                              ^
+
                 from [test]:1:
         """,
         """\
@@ -1504,6 +1629,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+
+               |
+             1 | var v = None
+               |       ^
+
                 from [test]:1:
         """,
         """\
@@ -1514,6 +1644,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Right side of assignment is incomplete type 'Option[?]'.
+
+               |
+             6 | v.v = None
+               |     ^
+
                 from [test]:6:
         """,
         """\
@@ -1534,6 +1669,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Left side of = is not assignable.
+
+               |
+             5 | f()[0] = 1
+               |        ^
+
                 from [test]:5:
         """,
         """\
@@ -1548,6 +1688,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Left side of = is not assignable.
+
+               |
+             3 | (a + a) = 1
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -1561,6 +1706,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Left side of = is not assignable.
+
+               |
+             5 | Example.f = 10
+               |           ^
+
                 from [test]:5:
         """,
         """\
@@ -1610,6 +1760,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: return expected type 'Option[Integer]' but got type 'Integer'.
+
+               |
+             3 | return 1
+               |        ^
+
                 from [test]:3:
         """,
         """\
@@ -1623,6 +1778,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Tuple[Integer]' to type 'Tuple[String]'.
+
+               |
+             1 | var v: Tuple[String] = <[1]>
+               |                      ^
+
                 from [test]:1:
         """,
         """\
@@ -1633,6 +1793,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Invalid operation: String / Integer.
+
+               |
+             1 | var v = ("abc" / 5)
+               |                ^
+
                 from [test]:1:
         """,
         """\
@@ -1770,6 +1935,11 @@ class TestBadSyntax < TestCase
             SyntaxError: Ternary branches have different types:
             First: Integer
             Second: String
+
+               |
+             1 | var v = (1 ? 2 : "3")
+               |         ^
+
                 from [test]:1:
         """,
         """\
@@ -2086,6 +2256,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             4 | v += 1.0
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -2100,6 +2275,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             3 | v += 1.0
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -2112,6 +2292,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             4 | @v += 1.0
+               |    ^
+
                 from [test]:4:
         """,
         """\
@@ -2126,6 +2311,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             7 | e.v += 1.0
+               |     ^
+
                 from [test]:7:
         """,
         """\
@@ -2142,6 +2332,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             5 | a += 1.0
+               |   ^
+
                 from [test]:5:
         """,
         """\
@@ -2158,6 +2353,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Value 300 is out of range for a Byte.
+
+               |
+             2 | v[0] += 300
+               |         ^
+
                 from [test]:2:
         """,
         """\
@@ -2167,6 +2367,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             2 | v[0] += 1.0
+               |      ^
+
                 from [test]:2:
         """,
         """\
@@ -2176,6 +2381,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             2 | v[0] += 1.0
+               |      ^
+
                 from [test]:2:
         """,
         """\
@@ -2185,6 +2395,11 @@ class TestBadSyntax < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Double' to type 'Integer'.
+
+               |
+             2 | v[0] += 1.0
+               |      ^
+
                 from [test]:2:
         """,
         """\

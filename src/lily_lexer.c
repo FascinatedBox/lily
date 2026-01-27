@@ -37,12 +37,20 @@ lily_lex_state *lily_new_lex_state(lily_raiser *raiser)
     lex->expand_start_line = 0;
     lex->string_length = 0;
     lex->n.integer_val = 0;
-    lex->source = lily_malloc(lex->source_size * sizeof(*lex->source));
     lex->entry = entry;
     lex->string_pile = lily_new_string_pile();
     lex->raiser = raiser;
     lex->token_start = 0;
+    lex->line_spot = 0;
 
+    for (int i = 0;i < LINE_STORE_MAX;i++) {
+        char *buffer = lily_malloc(lex->source_size * sizeof(*buffer));
+
+        buffer[0] = '\0';
+        lex->line_store[i] = buffer;
+    }
+
+    lex->source = lex->line_store[0];
     return lex;
 }
 
@@ -101,8 +109,10 @@ void lily_free_lex_state(lily_lex_state *lex)
         entry_iter = prev_entry;
     }
 
+    for (int i = 0;i < LINE_STORE_MAX;i++)
+        lily_free(lex->line_store[i]);
+
     lily_free_string_pile(lex->string_pile);
-    lily_free(lex->source);
     lily_free(lex->label);
     lily_free(lex);
 }
@@ -127,17 +137,21 @@ static void grow_source_buffer(lily_lex_state *lex)
         lex->label_size = new_size;
     }
 
-    char *new_source;
-    new_source = lily_realloc(lex->source, new_size * sizeof(*new_source));
+    for (int i = 0;i < LINE_STORE_MAX;i++) {
+        char *buffer = lily_realloc(lex->line_store[i], new_size *
+                sizeof(*lex->line_store[i]));
 
-    lex->source = new_source;
+        lex->line_store[i] = buffer;
+    }
+
+    lex->source = lex->line_store[lex->line_spot];
     lex->source_size = new_size;
 }
 
 #define READER_PREP \
 int bufsize, i; \
 lily_lex_entry *entry = lex->entry; \
-char *source = lex->source; \
+char *source = lex->line_store[lex->line_spot]; \
  \
 bufsize = lex->source_size - 2; \
 i = 0; \
@@ -146,7 +160,7 @@ int utf8_check = 0;
 #define READER_GROW_CHECK \
 if (i == bufsize) { \
     grow_source_buffer(lex); \
-    source = lex->source; \
+    source = lex->line_store[lex->line_spot]; \
     bufsize = lex->source_size - 2; \
 }
 
@@ -169,7 +183,9 @@ if (utf8_check && lily_is_valid_utf8(source) == 0) { \
             lex->line_num); \
 } \
  \
-lex->read_cursor = lex->source; \
+lex->read_cursor = source; \
+lex->source = source; \
+lex->line_spot = (lex->line_spot + 1) & ~LINE_STORE_MAX; \
 return i;
 
 /** file and str reading functions **/
@@ -1271,6 +1287,20 @@ static void save_lex_state(lily_lex_state *lex)
     target->next->pile_start = next_start;
 }
 
+static void clear_line_store(lily_lex_state *lex)
+{
+    char **line_store = lex->line_store;
+
+    for (int i = 0;i < LINE_STORE_MAX;i++) {
+        if (line_store[i] != lex->source)
+            line_store[i][0] = '\0';
+    }
+
+    /* Ensure a consistent buffer start position. */
+    lex->source = line_store[0];
+    lex->line_spot = 0;
+}
+
 void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
         const void *source)
 {
@@ -1290,12 +1320,17 @@ void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
         lex->entry = new_entry;
         lex->line_num = 0;
     }
-    else
+    else {
         /* Not in any content, so use the first entry and don't save. */
         new_entry = current;
+        clear_line_store(lex);
+    }
 
     switch (entry_type) {
         case et_file:
+            if (current->entry_type != et_unused)
+                clear_line_store(lex);
+
             new_entry->entry_file = (FILE *)source;
             break;
         case et_lambda:

@@ -229,6 +229,11 @@ class TestBadLambda < TestCase
             SyntaxError: Argument #1 to Some is invalid:
             Expected Type: Integer
             Received Type: String
+
+                |
+             10 | return Some("")
+                |             ^
+
                 from [test]:10:
         """,
         """\
@@ -252,6 +257,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: return expected type 'Option[Integer]' but got type 'Option[String]'.
+
+                |
+             11 | return b
+                |        ^
+
                 from [test]:11:
         """,
         """\
@@ -457,6 +467,11 @@ class TestBadLambda < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Lambda given where non-Function value expected (List[Integer]).
+
+               |
+             3 | f((|a| a * 2), [1, 2, 3])
+               |   ^
+
                 from [test]:3:
         """,
         """\

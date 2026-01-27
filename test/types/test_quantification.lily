@@ -13,6 +13,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #2 to f is invalid:
             Expected Type: List[Integer]
             Received Type: List[A]
+
+               |
+             4 | f([1], a)
+               |        ^
+
                 from [test]:4:
         """,
         """\
@@ -36,6 +41,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #1 to g is invalid:
             Expected Type: A
             Received Type: B
+
+               |
+             4 | g(value)
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -64,6 +74,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #3 to f is invalid:
             Expected Type: List[A]
             Received Type: List[Box]
+
+                |
+             10 | f(a, [value], [a])
+                |               ^
+
                 from [test]:10:
         """,
         """\
@@ -99,6 +114,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #3 to f is invalid:
             Expected Type: List[A]
             Received Type: List[List[Integer]]
+
+               |
+             6 | f([Box(10)], [one], [[1]])
+               |                     ^
+
                 from [test]:6:
         """,
         """\
@@ -142,6 +162,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #2 to f is invalid:
             Expected Type: A
             Received Type: Integer
+
+               |
+             4 | f(v1, 10)
+               |       ^
+
                 from [test]:4:
         """,
         """\

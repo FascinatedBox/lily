@@ -520,6 +520,11 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Integer' to type 'Function ()'.
+
+               |
+             2 | v = 1
+               |   ^
+
                 from [test]:2:
         """,
         """\
@@ -534,6 +539,11 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (*Integer...)' to type 'Integer'.
+
+               |
+             3 | var v: Integer = f
+               |                ^
+
                 from [test]:3:
         """,
         """\
@@ -573,6 +583,11 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
             Expected Type: Function (Integer, String, $1 => Boolean)
             Received Type: Function (Integer, String => Integer)
+
+               |
+             3 | covlib.scoop_narrow_with_args(j)
+               |                               ^
+
                 from [test]:3:
         """,
         """\
@@ -587,6 +602,11 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
             Expected Type: Function (Integer, String, $1 => Boolean)
             Received Type: Function (Integer, String, Double => Integer)
+
+               |
+             3 | covlib.scoop_narrow_with_args(j)
+               |                               ^
+
                 from [test]:3:
         """,
         """\
@@ -601,6 +621,11 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             SyntaxError: Argument #1 to scoop_narrow_with_args is invalid:
             Expected Type: Function (Integer, String, $1 => Boolean)
             Received Type: Function (Integer => Boolean)
+
+               |
+             3 | covlib.scoop_narrow_with_args(j)
+               |                               ^
+
                 from [test]:3:
         """,
         """\

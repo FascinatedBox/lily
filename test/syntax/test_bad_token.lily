@@ -347,6 +347,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot nest an assignment within an expression.
+
+               |
+             2 | var b = (a = 10)
+               |            ^
+
                 from [test]:2:
         """,
         """\
@@ -399,6 +404,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot use member 'to_i' of non-enum without a value.
+
+               |
+             1 | var a = 10 + .to_i()
+               |               ^
+
                 from [test]:1:
         """,
         """\
@@ -409,6 +419,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot use member 'to_i' of non-enum without a value.
+
+               |
+             1 | var a = [1, .to_i()]
+               |              ^
+
                 from [test]:1:
         """,
         """\
@@ -419,6 +434,11 @@ class TestBadToken < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot use member 'to_s' of non-enum without a value.
+
+               |
+             1 | .to_s()
+               |  ^
+
                 from [test]:1:
         """,
         """\

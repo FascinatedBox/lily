@@ -13,6 +13,11 @@ class TestGenerics < TestCase
             SyntaxError: List elements do not have a consistent type.
             Expected Type: Integer
             Received Type: String
+
+               |
+             1 | var v = [1, "2"]
+               |             ^
+
                 from [test]:1:
         """,
         """\
@@ -25,6 +30,11 @@ class TestGenerics < TestCase
             SyntaxError: Hash keys do not have a consistent type.
             Expected Type: Integer
             Received Type: String
+
+               |
+             1 | var v = [1 => 1, "2" => 2]
+               |                  ^
+
                 from [test]:1:
         """,
         """\
@@ -37,6 +47,11 @@ class TestGenerics < TestCase
             SyntaxError: Hash values do not have a consistent type.
             Expected Type: Integer
             Received Type: String
+
+               |
+             1 | var v = [1 => 1, 2 => "2"]
+               |                       ^
+
                 from [test]:1:
         """,
         """\
@@ -52,6 +67,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'b' cannot be used here, because it has a generic type (A) from another scope.
+
+               |
+             3 | b = c
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -73,6 +93,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+
+               |
+             3 | a
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -106,6 +131,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: 'a' cannot be used here, because it has a generic type (A) from another scope.
+
+               |
+             3 | a
+               | ^
+
                 from [test]:3:
         """,
         """\
@@ -162,6 +192,11 @@ class TestGenerics < TestCase
             SyntaxError: Argument #1 to f is invalid:
             Expected Type: Function (Example => ?)
             Received Type: Function (Example => self)
+
+               |
+             7 | f(Example.f)
+               |           ^
+
                 from [test]:7:
         """,
         """\
@@ -202,6 +237,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f has generics, and must be called or be a call argument.
+
+               |
+             3 | var v = f
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -218,6 +258,11 @@ class TestGenerics < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f has generics, and must be called or be a call argument.
+
+               |
+             4 | public var @x = f
+               |                 ^
+
                 from [test]:4:
         """,
         """\
@@ -245,6 +290,11 @@ class TestGenerics < TestCase
             SyntaxError: Argument #1 to Coroutine.build is invalid:
             Expected Type: Function (Coroutine[Integer, Unit] => Integer)
             Received Type: Function (Coroutine[Integer, Unit])
+
+               |
+             4 | var v = Coroutine.build(f)
+               |                         ^
+
                 from [test]:4:
         """,
         """\
@@ -258,6 +308,11 @@ class TestGenerics < TestCase
             SyntaxError: Argument #1 to Coroutine.build_with_value is invalid:
             Expected Type: Function (Coroutine[Integer, String], ? => Integer)
             Received Type: Function (Coroutine[Integer, String])
+
+               |
+             4 | var v = Coroutine.build_with_value(f, "asdf")
+               |                                    ^
+
                 from [test]:4:
         """,
         """\

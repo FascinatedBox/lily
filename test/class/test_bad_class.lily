@@ -68,6 +68,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.
+
+               |
+             3 | var v = a
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -83,6 +88,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.
+
+               |
+             6 | print(i))
+               |       ^
+
                 from [test]:6:
         """,
         """\
@@ -106,6 +116,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to close over variables from a class constructor.
+
+               |
+             6 | print(q))
+               |       ^
+
                 from [test]:6:
         """,
         """\
@@ -611,6 +626,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.a is marked protected, and not available here.
+
+               |
+             4 | t.a = 5
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -624,6 +644,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.a is marked private, and not available here.
+
+               |
+             4 | t.a = 5
+               |   ^
+
                 from [test]:4:
         """,
         """\
@@ -637,6 +662,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Test.x is marked protected, and not available here.
+
+               |
+             3 | Test().x = 11
+               |        ^
+
                 from [test]:3:
         """,
         """\
@@ -649,6 +679,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: abc.f is marked protected, and not available here.
+
+               |
+             5 | abc.f(abc())
+               |     ^
+
                 from [test]:5:
         """,
         """\
@@ -663,6 +698,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: One.f is marked private, and not available here.
+
+               |
+             7 | f()
+               | ^
+
                 from [test]:7:
         """,
         """\
@@ -681,6 +721,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: One.f is marked private, and not available here.
+
+               |
+             7 | self.f()
+               |      ^
+
                 from [test]:7:
         """,
         """\
@@ -699,6 +744,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: abc.f is marked private, and not available here.
+
+               |
+             6 | abc.f()
+               |     ^
+
                 from [test]:6:
         """,
         """\
@@ -933,6 +983,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Example.f is marked protected, and not available here.
+
+               |
+             5 | Example.f()
+               |         ^
+
                 from [test]:5:
         """,
         """\
@@ -947,6 +1002,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: One.f is marked private, and not available here.
+
+               |
+             6 | f()
+               | ^
+
                 from [test]:6:
         """,
         """\
@@ -1039,6 +1099,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Use @<name> to get/set properties, not self.<name>.
+
+               |
+             4 | @x = self.x
+               |      ^
+
                 from [test]:4:
         """,
         """\
@@ -1055,6 +1120,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Left side of = is not assignable.
+
+               |
+             7 | v.f = Test.g
+               |     ^
+
                 from [test]:7:
         """,
         """\
@@ -1088,6 +1158,11 @@ class TestBadClass < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Class A does not have a member named asdf.
+
+               |
+             2 | a.asdf()
+               | ^
+
                 from [test]:2:
         """,
         """\

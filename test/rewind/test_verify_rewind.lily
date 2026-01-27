@@ -333,6 +333,11 @@ class TestVerifyRewind < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: g does not have a keyword named ':a'.
+
+               |
+             3 | g(:a 1)
+               |   ^
+
                 from [test]:3:
         """,
         """\

@@ -7,6 +7,13 @@
 # include "lily_string_pile.h"
 # include "lily_token.h"
 
+/* For parser and lexer errors, the problem location is typically the current
+   token. However, expressions can have errors that occur a line or two back.
+   Lexer's line storage is a sliding window of the last few lines scanned in.
+   This isn't configurable because most expressions are within four lines. This
+   is assumed to be a power of 2. */
+# define LINE_STORE_MAX 4
+
 typedef enum {
     et_copied_string,
     et_file,
@@ -61,7 +68,8 @@ typedef struct {
        doesn't need to do buffer size checks when copying over. */
     char *label;
 
-    lily_token token: 16;
+    lily_token token: 8;
+    uint8_t line_spot;
     uint16_t line_num;
     uint16_t source_size;
     uint16_t label_size;
@@ -89,6 +97,7 @@ typedef struct {
     lily_lex_number n;
     char *source;
     lily_lex_entry *entry;
+    char *line_store[LINE_STORE_MAX];
 
     /* This holds the source lines and identifiers of entries that aren't
        current. This pile is not shared anywhere else. */

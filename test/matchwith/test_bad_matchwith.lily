@@ -429,6 +429,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Variant Some of enum Option expects 1 parameters (0 given).
+
+               |
+             2 | case Some:
+               |          ^
+
                 from [test]:2:
         """,
         """\
@@ -458,6 +463,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Variant Some of enum Option expects 1 parameters (2 given).
+
+               |
+             2 | case Some(s1, s2):
+               |                  ^
+
                 from [test]:2:
         """,
         """\
@@ -469,6 +479,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Variant None of enum Option does not take arguments.
+
+               |
+             2 | case None(s):
+               |             ^
+
                 from [test]:2:
         """,
         """\
@@ -480,6 +495,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Enum Option does not have a variant named Integer.
+
+               |
+             2 | case Integer(i):
+               |                ^
+
                 from [test]:2:
         """,
         """\
@@ -524,6 +544,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Already have a case for Some.
+
+               |
+             4 | case Some(s):
+               |             ^
+
                 from [test]:4:
         """,
         """\
@@ -537,6 +562,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: else in exhaustive match.
+
+               |
+             6 | else:
+               |     ^
+
                 from [test]:6:
         """,
         """\
@@ -552,6 +582,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Already have a case for None.
+
+               |
+             6 | case None:
+               |          ^
+
                 from [test]:6:
         """,
         """\
@@ -619,6 +654,11 @@ class TestBadMatchWith < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Enum Option does not have a variant named Integer.
+
+               |
+             2 | case Integer(i):
+               |                ^
+
                 from [test]:2:
         """,
         """\
@@ -826,6 +866,11 @@ class TestBadMatchWith < TestCase
             SyntaxError: Mismatched type in expression match branch:
             Expected Type: String
             Received Type: List[Integer]
+
+               |
+             5 | [1]
+               | ^
+
                 from [test]:5:
         """,
         """\

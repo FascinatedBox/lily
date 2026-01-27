@@ -143,6 +143,11 @@ class TestPkgMath < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Left side of = is not assignable.
+
+               |
+             3 | math.pi = 7.0
+               |         ^
+
                 from [test]:3:
         """,
         """\

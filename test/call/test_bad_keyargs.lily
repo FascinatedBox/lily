@@ -12,6 +12,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Positional argument after keyword argument.
+
+               |
+             5 | f(:b 1, 5)
+               |         ^
+
                 from [test]:5:
         """,
         """
@@ -61,6 +66,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f does not specify any keyword arguments.
+
+               |
+             3 | f(:a 1)
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -73,6 +83,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Example.f does not specify any keyword arguments.
+
+               |
+             5 | Example().f(:a 1)
+               |            ^
+
                 from [test]:5:
         """,
         """\
@@ -87,6 +102,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Example.f does not specify any keyword arguments.
+
+               |
+             7 | One.f(:a 1)
+               |      ^
+
                 from [test]:7:
         """,
         """\
@@ -103,6 +123,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: v is not capable of receiving keyword arguments.
+
+               |
+             3 | v(:a 1)
+               |  ^
+
                 from [test]:3:
         """,
         """\
@@ -115,6 +140,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: g is not capable of receiving keyword arguments.
+
+               |
+             4 | g(:a 1)
+               |  ^
+
                 from [test]:4:
         """,
         """\
@@ -197,6 +227,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f does not have a keyword named ':h'.
+
+               |
+             3 | f(:g 1, :h 2)
+               |         ^
+
                 from [test]:3:
         """,
         """\
@@ -209,6 +244,11 @@ class TestBadKeyarg < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: f does not have a keyword named ':_'.
+
+               |
+             3 | f(:_ 1)
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -227,6 +267,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #1 (String)
+
+               |
+             6 | check(:x 1)
+               |      ^
+
                 from [test]:6:
         """,
         """\
@@ -243,6 +288,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #1 (String)
+
+               |
+             8 | check(:y 1, :x 1)
+               |      ^
+
                 from [test]:8:
         """,
         """\
@@ -261,6 +311,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #1 (String)
+
+               |
+             8 | check(:va 1, :va 2, :x 1)
+               |      ^
+
                 from [test]:8:
         """,
         """\
@@ -279,6 +334,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #2 (String)
+
+               |
+             8 | check("1", :x 1)
+               |      ^
+
                 from [test]:8:
         """,
         """\
@@ -297,6 +357,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #2 (String)
+
+                |
+             10 | check("a", :c "1", :x 1, :y 1)
+                |      ^
+
                 from [test]:10:
         """,
         """\
@@ -317,6 +382,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #3 (String)
+
+                |
+             10 | check("a", :b "1", :x 1, :y 1)
+                |      ^
+
                 from [test]:10:
         """,
         """\
@@ -337,6 +407,11 @@ class TestBadKeyarg < TestCase
         assert_parse_fails(t, """\
             SyntaxError: Call to check is missing parameters:
             * Parameter #2 of type String.
+
+               |
+             8 | check("a", :va 1, :va 2)
+               |      ^
+
                 from [test]:8:
         """,
         """\

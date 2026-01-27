@@ -30,6 +30,11 @@ class TestVariance < TestCase
             SyntaxError: Argument #1 to g is invalid:
             Expected Type: Function ( => Integer)
             Received Type: Function ()
+
+               |
+             7 | g(f)
+               |   ^
+
                 from [test]:7:
         """,
         """\
@@ -46,6 +51,11 @@ class TestVariance < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (Function ())' to type 'Function (Function ( => Integer))'.
+
+               |
+             3 | g = h
+               |   ^
+
                 from [test]:3:
         """,
         """\
@@ -62,6 +72,11 @@ class TestVariance < TestCase
 
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (Integer)' to type 'Function (Integer, *Integer)'.
+
+               |
+             5 | h = f
+               |   ^
+
                 from [test]:5:
         """,
         """\
@@ -91,6 +106,11 @@ class TestVariance < TestCase
         var t = Interpreter()
         assert_parse_fails(t, """\
             SyntaxError: Cannot assign type 'Function (Integer, *Integer => Integer)' to type 'Function (String => String)'.
+
+               |
+             5 | h = g
+               |   ^
+
                 from [test]:5:
         """,
         """\
