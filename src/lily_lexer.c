@@ -1287,20 +1287,6 @@ static void save_lex_state(lily_lex_state *lex)
     target->next->pile_start = next_start;
 }
 
-static void clear_line_store(lily_lex_state *lex)
-{
-    char **line_store = lex->line_store;
-
-    for (int i = 0;i < LINE_STORE_MAX;i++) {
-        if (line_store[i] != lex->source)
-            line_store[i][0] = '\0';
-    }
-
-    /* Ensure a consistent buffer start position. */
-    lex->source = line_store[0];
-    lex->line_spot = 0;
-}
-
 void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
         const void *source)
 {
@@ -1323,14 +1309,10 @@ void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
     else {
         /* Not in any content, so use the first entry and don't save. */
         new_entry = current;
-        clear_line_store(lex);
     }
 
     switch (entry_type) {
         case et_file:
-            if (current->entry_type != et_unused)
-                clear_line_store(lex);
-
             new_entry->entry_file = (FILE *)source;
             break;
         case et_lambda:
