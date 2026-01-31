@@ -229,8 +229,8 @@ class TestBadCall < TestCase
             Received Type: File
 
                |
-             1 |   
-               | ^
+             1 | stdin.open("r")
+               |       ^
 
                 from [test]:1:
         """,
@@ -899,8 +899,8 @@ class TestBadCall < TestCase
             SyntaxError: Cannot call Example.pushcall using incomplete type Example[?].
 
                 |
-             14 | [A]
-                |                               ^
+             14 | Example().pushcall(1, Integer.to_s)
+                |                   ^
 
                 from [test]:14:
         """,

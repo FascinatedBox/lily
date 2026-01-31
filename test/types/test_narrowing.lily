@@ -13,6 +13,11 @@ class TestVariance < TestCase
             SyntaxError: Argument #2 to List.push is invalid:
             Expected Type: List[Function ( => Integer)]
             Received Type: List[Function ()]
+
+               |
+             6 | l.push(l2)
+               |        ^
+
                 from [test]:6:
         """,
         """\

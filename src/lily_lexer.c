@@ -1287,6 +1287,8 @@ static void save_lex_state(lily_lex_state *lex)
     target->next->pile_start = next_start;
 }
 
+#define LINE_MASK (LINE_STORE_MAX - 1)
+
 void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
         const void *source)
 {
@@ -1328,14 +1330,27 @@ void lily_lexer_load(lily_lex_state *lex, lily_lex_entry_type entry_type,
             break;
         case et_shallow_string:
             new_entry->entry_cursor = (const char *)source;
+
+            /* Shallow strings are used by first content loading, and dynaload.
+               The former don't need this. For the latter, this results in the
+               origin line being overwritten by the dynaload line. The origin
+               line will be fixed when the entry is done. */
+            lex->line_spot = (lex->line_spot + LINE_MASK) & LINE_MASK;
         default:
             break;
     }
 
     new_entry->entry_type = entry_type;
-
     read_line(lex);
+
+    /* Line reading has a failsafe to ensure line zero always loads content. If
+       the content is blank (default value for value variant, definition with
+       no arguments or return), the failsafe doesn't disengage. The next token
+       read will advance the line store again. Fix it. */
+    lex->line_num = 1;
 }
+
+#undef LINE_MASK
 
 #define move_2_set_token(t) \
 { \

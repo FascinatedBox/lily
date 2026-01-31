@@ -144,6 +144,11 @@ class TestQuantification < TestCase
             SyntaxError: Argument #2 to List.push is invalid:
             Expected Type: Integer
             Received Type: String
+
+               |
+             2 | v.push("")
+               |        ^
+
                 from [test]:2:
         """,
         """\
