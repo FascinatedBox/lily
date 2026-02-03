@@ -1750,29 +1750,6 @@ static void update_all_cid_tables(lily_parse_state *parser)
     }
 }
 
-/* This is called when the current label is a module. This walks through the
-   subsequent `.<name>` sequences until one of them finishes with a non-module.
-   The result of this function is the last module given. That module is the
-   namespace that should be used in place of the one given. */
-static lily_module_entry *resolve_module(lily_parse_state *parser,
-        lily_module_entry *m)
-{
-    lily_lex_state *lex = parser->lex;
-    lily_module_entry *result = m;
-
-    while (1) {
-        NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
-        m = lily_find_module(m, lex->label);
-        if (m == NULL)
-            break;
-
-        result = m;
-    }
-
-    return result;
-}
-
 static const char *dyna_get_name(lily_dyna_state *ds)
 {
     return ds->entry + DYNA_NAME_OFFSET;
@@ -2696,6 +2673,29 @@ static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
 
 static void expr_match(lily_parse_state *, uint16_t *);
 
+static lily_module_entry *walk_module(lily_parse_state *parser,
+        lily_module_entry *m)
+{
+    lily_lex_state *lex = parser->lex;
+    lily_module_entry *result = m;
+
+    while (1) {
+        NEED_NEXT_TOK(tk_dot)
+        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
+
+        /* No need to dynaload here: expr_word will do it (only caller). */
+        m = lily_find_module(m, lex->label);
+
+        if (m == NULL)
+            break;
+
+        /* Caller will search this module for a valid symbol. */
+        result = m;
+    }
+
+    return result;
+}
+
 /* This is called by expression when there is a word. This is complicated,
    because a word could be a lot of things. */
 static void expr_word(lily_parse_state *parser, uint16_t *state)
@@ -2720,7 +2720,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
            final module. */
         if (sym->item_kind == ITEM_MODULE) {
 handle_module:;
-            m = resolve_module(parser, (lily_module_entry *)sym);
+            m = walk_module(parser, (lily_module_entry *)sym);
             sym = find_existing_sym(m, name);
         }
     }
