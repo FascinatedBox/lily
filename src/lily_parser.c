@@ -1015,12 +1015,58 @@ static void create_main_func(lily_parse_state *parser)
  */
 
 static lily_type *get_type_raw(lily_parse_state *, int);
-static lily_class *resolve_class_name(lily_parse_state *);
 static int constant_by_name(const char *);
 static lily_prop_entry *declare_property(lily_parse_state *, uint16_t);
 static void simple_expression(lily_parse_state *);
 static int keyword_by_name(const char *);
 static void collect_keyarg(lily_parse_state *, uint16_t, int *);
+
+/* Type collection uses this to find the class. It could be a simple predefined
+   class or a generic. If there are module(s), walk them. If there's a dynaload
+   of a class (or a module!), walk those two.
+   Caller must ensure the token is on the first identifier. */
+static lily_class *resolve_class_name(lily_parse_state *parser)
+{
+    lily_symtab *symtab = parser->symtab;
+    lily_lex_state *lex = parser->lex;
+    lily_module_entry *m = symtab->active_module;
+    char *name = lex->label;
+
+    /* Try the prelude and generics first. */
+    lily_class *result = find_dl_class_in(parser, symtab->prelude_module, name);
+
+    if (result == NULL) {
+        if (name[1] == '\0')
+            result = (lily_class *)lily_gp_find(parser->generics, name);
+
+        if (result == NULL)
+            result = find_dl_class_in(parser, m, name);
+    }
+
+    if (result)
+        return result;
+
+    m = find_dl_module_in(parser, m, name);
+
+    while (m) {
+        NEED_NEXT_TOK(tk_dot)
+        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
+        name = lex->label;
+
+        result = find_dl_class_in(parser, m, name);
+
+        if (result)
+            return result;
+
+        m = find_dl_module_in(parser, m, name);
+    }
+
+    if (result == NULL)
+        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
+                lex->label);
+
+    return result;
+}
 
 /** Type collection can be roughly dividied into two subparts. One half deals
     with general collection of types that either do or don't have a name. The
@@ -1723,53 +1769,6 @@ static lily_module_entry *resolve_module(lily_parse_state *parser,
 
         result = m;
     }
-
-    return result;
-}
-
-/* Type collection uses this to find the class. It could be a simple predefined
-   class or a generic. If there are module(s), walk them. If there's a dynaload
-   of a class (or a module!), walk those two.
-   Caller must ensure the token is on the first identifier. */
-static lily_class *resolve_class_name(lily_parse_state *parser)
-{
-    lily_symtab *symtab = parser->symtab;
-    lily_lex_state *lex = parser->lex;
-    lily_module_entry *m = symtab->active_module;
-    char *name = lex->label;
-
-    /* Try the prelude and generics first. */
-    lily_class *result = find_dl_class_in(parser, symtab->prelude_module, name);
-
-    if (result == NULL) {
-        if (name[1] == '\0')
-            result = (lily_class *)lily_gp_find(parser->generics, name);
-
-        if (result == NULL)
-            result = find_dl_class_in(parser, m, name);
-    }
-
-    if (result)
-        return result;
-
-    m = find_dl_module_in(parser, m, name);
-
-    while (m) {
-        NEED_NEXT_TOK(tk_dot)
-        NEED_NEXT_IDENT("Expected a symbol name (module, class, etc.) here.")
-        name = lex->label;
-
-        result = find_dl_class_in(parser, m, name);
-
-        if (result)
-            return result;
-
-        m = find_dl_module_in(parser, m, name);
-    }
-
-    if (result == NULL)
-        lily_raise_syn(parser->raiser, "Class '%s' does not exist.",
-                lex->label);
 
     return result;
 }
