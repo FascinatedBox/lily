@@ -1418,26 +1418,6 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
     }
 }
 
-static lily_type *build_empty_variant_type(lily_parse_state *parser,
-        lily_class *enum_cls)
-{
-    lily_type_maker *tm = parser->tm;
-    lily_type *result;
-    uint16_t i = 0;
-    uint16_t count = (uint16_t)enum_cls->generic_count;
-
-    if (count) {
-        for (i = 0;i < count;i++)
-            lily_tm_add(tm, lily_question_type);
-
-        result = lily_tm_make(tm, enum_cls, count);
-    }
-    else
-        result = enum_cls->self_type;
-
-    return result;
-}
-
 typedef lily_type *(*collect_fn)(lily_parse_state *, int *);
 
 static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
@@ -1678,7 +1658,6 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
 static void parse_value_variant(lily_parse_state *, lily_variant_class *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
-static lily_type *build_empty_variant_type(lily_parse_state *, lily_class *);
 static lily_item *try_dynaload_method(lily_parse_state *, lily_class *,
         const char *);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
@@ -2127,7 +2106,8 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
 
     dyna_iter_past_methods(ds);
 
-    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
+    lily_type *empty_type = lily_tm_build_empty_variant_type(parser->tm,
+            enum_cls);
 
     do {
         lily_variant_class *variant = lily_new_variant_class(enum_cls,
@@ -4991,7 +4971,8 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     parser->current_class = enum_cls;
     collect_generics_for(parser, enum_cls);
 
-    lily_type *empty_type = build_empty_variant_type(parser, enum_cls);
+    lily_type *empty_type = lily_tm_build_empty_variant_type(parser->tm,
+            enum_cls);
     int is_value_enum = (lex->token == INHERITANCE_TOKEN);
 
     if (is_value_enum)

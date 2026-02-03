@@ -3,6 +3,8 @@
 #include "lily_alloc.h"
 #include "lily_type_maker.h"
 
+extern lily_type *lily_question_type;
+
 /* These are the TYPE_* flags that bubble up through types (it's written onto a
    type if any subtypes have them). */
 #define BUBBLE_FLAGS \
@@ -64,6 +66,25 @@ void lily_tm_add(lily_type_maker *tm, lily_type *type)
 void lily_tm_insert(lily_type_maker *tm, uint16_t pos, lily_type *type)
 {
     tm->types[pos] = type;
+}
+
+lily_type *lily_tm_build_empty_variant_type(lily_type_maker *tm,
+        lily_class *enum_cls)
+{
+    lily_type *result;
+    uint16_t i = 0;
+    uint16_t count = (uint16_t)enum_cls->generic_count;
+
+    if (count) {
+        for (i = 0;i < count;i++)
+            lily_tm_add(tm, lily_question_type);
+
+        result = lily_tm_make(tm, enum_cls, count);
+    }
+    else
+        result = enum_cls->self_type;
+
+    return result;
 }
 
 lily_type *lily_tm_pop(lily_type_maker *tm)
