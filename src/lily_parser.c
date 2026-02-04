@@ -2311,22 +2311,6 @@ lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
     return result;
 }
 
-static int keyword_by_name(const char *name)
-{
-    int i;
-    uint64_t shorthash = shorthash_for_name(name);
-
-    for (i = 0;i < KEY_BAD_ID;i++) {
-        if (keywords[i].shorthash == shorthash &&
-            strcmp(keywords[i].name, name) == 0)
-            return i;
-        else if (keywords[i].shorthash > shorthash)
-            break;
-    }
-
-    return KEY_BAD_ID;
-}
-
 /***
  *      _____                              _
  *     | ____|_  ___ __  _ __ ___  ___ ___(_) ___  _ __  ___
@@ -3450,6 +3434,22 @@ static void parse_modifier(lily_parse_state *, int);
     this is straightforward and kept in small functions that rely on the above
     stuff. As such, there's no real special attention paid to the rest.
     Near the bottom is parser_loop, which is the entry point of the parser. **/
+
+static int keyword_by_name(const char *name)
+{
+    int i;
+    uint64_t shorthash = shorthash_for_name(name);
+
+    for (i = 0;i < KEY_BAD_ID;i++) {
+        if (keywords[i].shorthash == shorthash &&
+            strcmp(keywords[i].name, name) == 0)
+            return i;
+        else if (keywords[i].shorthash > shorthash)
+            break;
+    }
+
+    return KEY_BAD_ID;
+}
 
 static void error_member_redeclaration(lily_parse_state *parser,
         lily_class *cls, lily_named_sym *sym)
