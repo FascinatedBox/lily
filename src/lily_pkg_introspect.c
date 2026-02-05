@@ -227,7 +227,7 @@ static int allow_boxed_classes(lily_boxed_sym *sym)
 
 static int allow_boxed_constants(lily_boxed_sym *sym)
 {
-    return sym->inner_sym->item_kind & ITEM_CONSTANT;
+    return sym->inner_sym->item_kind == ITEM_CONSTANT;
 }
 
 static int allow_boxed_enums(lily_boxed_sym *sym)
@@ -257,7 +257,7 @@ static int allow_classes(lily_class *cls)
 
 static int allow_constants(lily_var *var)
 {
-    return var->item_kind & ITEM_CONSTANT;
+    return var->item_kind == ITEM_CONSTANT;
 }
 
 static int allow_enums(lily_class *cls)

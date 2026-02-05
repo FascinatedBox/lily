@@ -2271,7 +2271,7 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
 
-    if (result && result->item_kind & (ITEM_MODULE | ITEM_IS_VARLIKE))
+    if (result && (result->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM)) == 0)
         result = NULL;
 
     return (lily_class *)result;
@@ -5347,7 +5347,10 @@ static void keyword_case(lily_parse_state *parser)
 static void verify_match_with_type(lily_parse_state *parser, lily_type *t,
         const char *what)
 {
-    if ((t->cls->item_kind & (ITEM_IS_ENUM | ITEM_CLASS_NATIVE)) == 0)
+    uint16_t kind = t->cls->item_kind;
+
+    if ((kind & ITEM_IS_ENUM) == 0 &&
+        kind != ITEM_CLASS_NATIVE)
         lily_raise_syn(parser->raiser,
                 "%s statement value must be a user class or enum.\n"
                 "Received: ^T", what, t);

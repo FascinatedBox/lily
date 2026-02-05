@@ -400,28 +400,30 @@ typedef struct lily_proto_ {
 } lily_proto;
 
 
-/* ITEM_* flags are for item_kind. */
+/* These flags are for item_kind.
+   Group checking flags begin at 0x20 (32) to give identity flags room to grow.
+   These groups are sufficient for most cases. */
+#define ITEM_IS_CLASS         0x0020
+#define ITEM_IS_ENUM          0x0040
+#define ITEM_IS_PROPERTY      0x0080
+#define ITEM_IS_VARIANT       0x0100
+#define ITEM_IS_VARLIKE       0x0200
 
-
-#define ITEM_CLASS_FOREIGN  0x0001
-#define ITEM_CLASS_NATIVE   0x0002
-#define ITEM_CONSTANT       0x0004
-#define ITEM_DEFINE         0x0008
-#define ITEM_ENUM_FLAT      0x0010
-#define ITEM_ENUM_SCOPED    0x0020
-#define ITEM_IS_CLASS       (ITEM_CLASS_FOREIGN | ITEM_CLASS_NATIVE)
-#define ITEM_IS_ENUM        (ITEM_ENUM_FLAT | ITEM_ENUM_SCOPED)
-#define ITEM_IS_VARIANT     (ITEM_VARIANT_EMPTY | ITEM_VARIANT_FILLED)
-#define ITEM_IS_VARLIKE     (ITEM_CONSTANT | ITEM_DEFINE | ITEM_VAR)
-#define ITEM_MODULE         0x0040
-#define ITEM_PROPERTY       0x0080
-#define ITEM_STORAGE        0x0100
-#define ITEM_TYPE           0x0200
-#define ITEM_VAR            0x0400
-#define ITEM_VARIANT_EMPTY  0x0800
-#define ITEM_VARIANT_FILLED 0x1000
-#define ITEM_SELF_STORAGE   0x2000
-#define ITEM_MATCH_TEMP     0x4000
+#define ITEM_CLASS_FOREIGN    (1 | ITEM_IS_CLASS)
+#define ITEM_CLASS_NATIVE     (2 | ITEM_IS_CLASS)
+#define ITEM_CONSTANT         (3 | ITEM_IS_VARLIKE)
+#define ITEM_DEFINE           (4 | ITEM_IS_VARLIKE)
+#define ITEM_ENUM_FLAT        (5 | ITEM_IS_ENUM)
+#define ITEM_ENUM_SCOPED      (6 | ITEM_IS_ENUM)
+#define ITEM_MATCH_TEMP       (7 | ITEM_IS_VARLIKE)
+#define ITEM_MODULE           8
+#define ITEM_PROPERTY         (9 | ITEM_IS_PROPERTY)
+#define ITEM_SELF_STORAGE     10
+#define ITEM_STORAGE          11
+#define ITEM_TYPE             12
+#define ITEM_VAR              (13 | ITEM_IS_VARLIKE)
+#define ITEM_VARIANT_EMPTY    (14 | ITEM_IS_VARIANT)
+#define ITEM_VARIANT_FILLED   (15 | ITEM_IS_VARIANT)
 
 
 /* These are important ids in the interpreter. */
