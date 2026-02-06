@@ -715,4 +715,26 @@ class TestBadForward < TestCase
             }
         """)
     }
+
+    public define test_forward_codegen
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Reached end of module with unresolved forward(s):
+            * Test at line 3
+                from [test]:10:
+        """,
+        """\
+            var l = [unit]
+
+            forward class Test {
+                public define f { ... }
+            }
+
+            define g {
+                print("...")
+            }
+        """)
+    }
 }

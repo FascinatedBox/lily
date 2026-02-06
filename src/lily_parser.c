@@ -4793,7 +4793,7 @@ static void parse_forward_class_methods(lily_parse_state *parser,
         parser->modifiers = SYM_IS_FORWARD;
         parse_modifier(parser, key_id);
         lily_gp_restore(parser->generics, generic_start);
-        lily_emit_leave_simple_scope_block(parser->emit);
+        lily_emit_leave_scope_block(parser->emit);
         lily_next_token(lex);
         method_count++;
     } while (lex->token == tk_word);
@@ -5743,7 +5743,7 @@ static void keyword_forward(lily_parse_state *parser)
 
     if (block->block_type == block_define) {
         lily_gp_restore(parser->generics, block->generic_start);
-        lily_emit_leave_simple_scope_block(emit);
+        lily_emit_leave_scope_block(emit);
         block->prev->forward_count++;
         lily_next_token(lex);
     }
@@ -5975,7 +5975,7 @@ static void manifest_define(lily_parse_state *parser)
     lily_gp_restore(parser->generics, emit->block->generic_start);
 
     /* This exits the definition without doing a return check. */
-    lily_emit_leave_simple_scope_block(emit);
+    lily_emit_leave_scope_block(emit);
 }
 
 static void manifest_forward(lily_parse_state *parser)

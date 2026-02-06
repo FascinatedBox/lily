@@ -921,15 +921,6 @@ void lily_emit_leave_scope_block(lily_emit_state *emit)
     emit->function_depth--;
 }
 
-void lily_emit_leave_simple_scope_block(lily_emit_state *emit)
-{
-    lily_block *block = emit->block;
-
-    emit->scope_block = block->prev_scope_block;
-    emit->block = block->prev;
-    emit->function_depth--;
-}
-
 int lily_emit_try_leave_match_block(lily_emit_state *emit)
 {
     lily_block *block = emit->block;
