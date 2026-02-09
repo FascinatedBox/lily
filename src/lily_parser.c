@@ -679,7 +679,7 @@ static void error_var_redeclaration(lily_parse_state *parser, lily_var *var)
 }
 
 static void make_new_function(lily_parse_state *parser, const char *class_name,
-        lily_var *var, lily_foreign_func foreign_func)
+        lily_var *var)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
     lily_module_entry *m = parser->symtab->active_module;
@@ -689,7 +689,7 @@ static void make_new_function(lily_parse_state *parser, const char *class_name,
     /* This won't get a ref bump from being moved/assigned since all functions
        are marked as literals. Start at 1 ref, not 0. */
     f->refcount = 1;
-    f->foreign_func = foreign_func;
+    f->foreign_func = NULL;
     f->code = NULL;
     f->num_upvalues = 0;
     f->upvalues = NULL;
@@ -880,7 +880,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
     if (line_num)
         parser->emit->block->var_count++;
 
-    make_new_function(parser, NULL, var, NULL);
+    make_new_function(parser, NULL, var);
 
     return var;
 }
@@ -898,7 +898,7 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
     var->next = (lily_var *)parent->members;
     parent->members = (lily_named_sym *)var;
 
-    make_new_function(parser, parent->name, var, NULL);
+    make_new_function(parser, parent->name, var);
 
     return var;
 }
