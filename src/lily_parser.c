@@ -678,13 +678,11 @@ static void error_var_redeclaration(lily_parse_state *parser, lily_var *var)
     lily_raise_syn(parser->raiser, "%s has already been declared.", var->name);
 }
 
-static void make_new_function(lily_parse_state *parser, const char *class_name,
-        lily_var *var)
+static void make_new_function(lily_parse_state *parser, lily_var *var)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
     lily_module_entry *m = parser->symtab->active_module;
-    lily_proto *proto = lily_emit_new_proto(parser->emit, m->path, class_name,
-            var->name);
+    lily_proto *proto = lily_emit_new_proto(parser->emit, m->path, var);
 
     /* This won't get a ref bump from being moved/assigned since all functions
        are marked as literals. Start at 1 ref, not 0. */
@@ -880,7 +878,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
     if (line_num)
         parser->emit->block->var_count++;
 
-    make_new_function(parser, NULL, var);
+    make_new_function(parser, var);
 
     return var;
 }
@@ -898,7 +896,7 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
     var->next = (lily_var *)parent->members;
     parent->members = (lily_named_sym *)var;
 
-    make_new_function(parser, parent->name, var);
+    make_new_function(parser, var);
 
     return var;
 }

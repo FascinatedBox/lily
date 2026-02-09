@@ -1411,7 +1411,7 @@ static void grow_protos(lily_proto_stack *stack)
 }
 
 lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
-        const char *class_name, const char *name)
+        lily_var *var)
 {
     lily_proto_stack *protos = emit->protos;
 
@@ -1419,9 +1419,15 @@ lily_proto *lily_emit_new_proto(lily_emit_state *emit, const char *module_path,
         grow_protos(protos);
 
     lily_proto *p = lily_malloc(sizeof(*p));
+    char *name = var->name;
     char *proto_name;
 
-    if (class_name != NULL) {
+    /* A bit of a hack: Vars with a module have it set after their proto is
+       made. Don't replace this with a scope modifier check, because enum
+       methods don't have a scope. */
+    if (var->parent) {
+        const char *class_name = var->parent->name;
+
         if (name[0] != '<') {
             proto_name = lily_malloc(strlen(class_name) + strlen(name) + 2);
             strcpy(proto_name, class_name);

@@ -325,8 +325,7 @@ void lily_emit_write_class_case(lily_emit_state *, lily_var *);
 int lily_emit_try_write_break(lily_emit_state *);
 int lily_emit_try_write_continue(lily_emit_state *);
 
-lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, const char *,
-        const char *);
+lily_proto *lily_emit_new_proto(lily_emit_state *, const char *, lily_var *);
 lily_proto *lily_emit_proto_for_var(lily_emit_state *, lily_var *);
 
 void lily_prepare_main(lily_emit_state *, lily_function_val *);
