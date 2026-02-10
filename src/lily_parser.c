@@ -4549,8 +4549,6 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
 
     uint16_t adjust = super_class->prop_count;
 
-    /* Lineage must be fixed before running the inherited constructor, as the
-       constructor may use 'self'. */
     cls->parent = super_class;
     cls->prop_count += super_class->prop_count;
     cls->inherit_depth = super_class->inherit_depth + 1;
