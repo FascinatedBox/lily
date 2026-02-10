@@ -678,7 +678,8 @@ static void error_var_redeclaration(lily_parse_state *parser, lily_var *var)
     lily_raise_syn(parser->raiser, "%s has already been declared.", var->name);
 }
 
-static void make_new_function(lily_parse_state *parser, lily_var *var)
+static lily_function_val *make_new_function(lily_parse_state *parser,
+        lily_var *var)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
     lily_module_entry *m = parser->symtab->active_module;
@@ -700,6 +701,7 @@ static void make_new_function(lily_parse_state *parser, lily_var *var)
     v->value.function = f;
 
     lily_new_function_literal(parser->symtab, var, v);
+    return f;
 }
 
 static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
@@ -878,8 +880,6 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
     if (line_num)
         parser->emit->block->var_count++;
 
-    make_new_function(parser, var);
-
     return var;
 }
 
@@ -895,8 +895,6 @@ static lily_var *new_method_var(lily_parse_state *parser, lily_class *parent,
     var->parent = parent;
     var->next = (lily_var *)parent->members;
     parent->members = (lily_named_sym *)var;
-
-    make_new_function(parser, var);
 
     return var;
 }
@@ -986,8 +984,7 @@ static void create_main_func(lily_parse_state *parser)
     lex->line_num = 1;
 
     lily_var *main_var = new_define_var(parser, "__main__", lex->line_num);
-    lily_value *v = lily_literal_at(parser->symtab, 0);
-    lily_function_val *f = v->value.function;
+    lily_function_val *f = make_new_function(parser, main_var);
 
     lex->line_num = 0;
     main_var->type = main_type;
@@ -2197,6 +2194,7 @@ static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
     else
         var = new_define_var(parser, name, 0);
 
+    make_new_function(parser, var);
     var->flags |= VAR_IS_FOREIGN_FUNC;
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
@@ -3381,6 +3379,8 @@ lily_sym *lily_parser_lambda_eval(lily_parse_state *parser,
 
     lily_var *lambda_var = new_define_var(parser, "(lambda)", lex->line_num);
 
+    make_new_function(parser, lambda_var);
+
     if (expect_type->cls_id == LILY_ID_FUNCTION)
         lambda_var->type = expect_type->subtypes[0];
     else
@@ -4334,6 +4334,7 @@ static void enter_module(lily_parse_state *parser, lily_module_entry *m)
     lily_var *module_var = new_define_var(parser, "__module__",
             parser->lex->line_num);
 
+    make_new_function(parser, module_var);
     module_var->type = module_type;
     module_var->module = m;
     lily_emit_enter_file_block(parser->emit, module_var);
@@ -4627,6 +4628,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_var *call_var = new_method_var(parser, cls, "<new>",
             SYM_SCOPE_PUBLIC | SYM_NOT_INITIALIZED, lex->line_num);
 
+    make_new_function(parser, call_var);
     lily_emit_enter_class_block(parser->emit, cls, call_var);
     parser->current_class = cls;
     lily_tm_add(parser->tm, cls->self_type);
@@ -5569,11 +5571,15 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
 
     if (define_var)
         verify_resolve_define_var(parser, define_var, modifiers);
-    else if (parent)
+    else if (parent) {
         define_var = new_method_var(parser, parent, name, modifiers,
                 lex->line_num);
-    else
+        make_new_function(parser, define_var);
+    }
+    else {
         define_var = new_define_var(parser, name, lex->line_num);
+        make_new_function(parser, define_var);
+    }
 
     /* Make flags consistent no matter which above case was selected. */
     define_var->flags |= modifiers | SYM_NOT_INITIALIZED;
