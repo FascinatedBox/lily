@@ -4625,6 +4625,14 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     lily_lex_state *lex = parser->lex;
     lily_var *call_var = new_method_var(parser, cls, "<new>",
             SYM_SCOPE_PUBLIC | SYM_NOT_INITIALIZED, lex->line_num);
+    uint16_t save_doc;
+
+    if (parser->flags & PARSER_EXTRA_INFO) {
+        /* Classes allow for shorthand properties which will scoop up the
+           docblock. Hide it until the class is ready for it. */
+        save_doc = parser->flags & PARSER_HAS_DOCBLOCK;
+        parser->flags &= ~PARSER_HAS_DOCBLOCK;
+    }
 
     make_new_function(parser, call_var);
     lily_emit_enter_class_block(parser->emit, cls, call_var);
@@ -4649,8 +4657,10 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     lily_emit_activate_block_self(parser->emit);
 
-    if (parser->flags & PARSER_EXTRA_INFO)
+    if (parser->flags & PARSER_EXTRA_INFO) {
+        parser->flags |= save_doc;
         set_definition_doc(parser);
+    }
 }
 
 /* This is a helper function that scans 'target' to determine if it will require

@@ -25,6 +25,7 @@ class TestPkgIntrospect < TestCase
                     private var @pri_prop = 1.0
                 }
 
+                ### Some documentation
                 class GenericClass[A, B](public var @test: String) < Base
                 {
                     public define f[C](c: C) {}
@@ -358,7 +359,7 @@ class TestPkgIntrospect < TestCase
 
                 check_class(
                     c,
-                    :doc      "",
+                    :doc      "Some documentation\\n",
                     :foreign  false,
                     :generics "A, B",
                     :name     "GenericClass",
@@ -369,10 +370,10 @@ class TestPkgIntrospect < TestCase
 
                 check_method(
                     methods[-1],
-                    :doc       "",
+                    :doc       "Some documentation\\n",
                     :generics  "A, B",
                     :is_static false,
-                    :line      17,
+                    :line      18,
                     :name      "<new>",
                     :params    "(,String,)",
                     :private   false,
@@ -388,7 +389,7 @@ class TestPkgIntrospect < TestCase
                     :doc       "",
                     :generics  "A, B, C",
                     :is_static false,
-                    :line      19,
+                    :line      20,
                     :name      "f",
                     :params    "(,GenericClass[A, B],)(c,C,)",
                     :private   false,
