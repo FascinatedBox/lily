@@ -4633,6 +4633,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
         save_doc = parser->flags & PARSER_HAS_DOCBLOCK;
         parser->flags &= ~PARSER_HAS_DOCBLOCK;
     }
+    else
+        save_doc = 0;
 
     make_new_function(parser, call_var);
     lily_emit_enter_class_block(parser->emit, cls, call_var);
