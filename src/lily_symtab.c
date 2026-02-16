@@ -776,6 +776,18 @@ lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
     return module_iter;
 }
 
+lily_named_sym *lily_find_visible_member(lily_class *cls, const char *name)
+{
+    lily_named_sym *result = lily_find_member(cls, name);
+
+    if (result &&
+        result->flags & SYM_SCOPE_PRIVATE &&
+        result->parent != cls)
+        result = NULL;
+
+    return result;
+}
+
 /***
  *       ____ _                  _______
  *      / ___| | __ _ ___ ___   / / ____|_ __  _   _ _ __ ___

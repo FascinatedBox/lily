@@ -3461,27 +3461,14 @@ static void error_member_redeclaration(lily_parse_state *parser,
                 cls->name, sym->name);
 }
 
-static int sym_visible_from(lily_class *cls, lily_named_sym *sym)
-{
-    int result = 1;
-
-    if (sym->flags & SYM_SCOPE_PRIVATE && sym->parent != cls) {
-        /* Private members aren't really private if inheriting classes need
-           to avoid their names. So don't count them. */
-        result = 0;
-    }
-
-    return result;
-}
-
 static lily_prop_entry *declare_property(lily_parse_state *parser,
         uint16_t flags)
 {
     char *name = parser->lex->label;
     lily_class *cls = parser->current_class;
-    lily_named_sym *sym = lily_find_member(cls, name);
+    lily_named_sym *sym = lily_find_visible_member(cls, name);
 
-    if (sym && sym_visible_from(cls, sym))
+    if (sym)
         error_member_redeclaration(parser, cls, sym);
 
     lily_prop_entry *prop = lily_add_class_property(cls, lily_question_type, name,
@@ -4547,31 +4534,38 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
         lily_raise_syn(parser->raiser,
                 "Cannot inherit from an incomplete class.");
 
-    uint16_t adjust = super_class->prop_count;
-
     cls->parent = super_class;
     cls->prop_count += super_class->prop_count;
     cls->inherit_depth = super_class->inherit_depth + 1;
 
     if (cls->members) {
-        lily_named_sym *sym = cls->members;
+        /* These have already been checked for uniqueness against each other,
+           but now a parent class is involved. Hide the new symbols, or visible
+           symbol search will send them back and not dive in. This is the only
+           time that member hiding is necessary. */
+        lily_named_sym *save_members, *sym;
+        uint16_t adjust = super_class->prop_count;
+
+        sym = save_members = cls->members;
+        cls->members = NULL;
 
         while (sym) {
             if (sym->item_kind == ITEM_PROPERTY) {
-                /* Shorthand properties have already been checked for uniqueness
-                   against each other. Now that a parent class is known, check
-                   for uniqueness there too. */
-                lily_named_sym *search_sym = lily_find_member(super_class,
+                lily_named_sym *search_sym = lily_find_visible_member(cls,
                         sym->name);
 
-                if (search_sym && sym_visible_from(cls, search_sym))
+                if (search_sym) {
+                    cls->members = save_members;
                     error_member_redeclaration(parser, super_class, search_sym);
+                }
 
                 sym->reg_spot += adjust;
             }
 
             sym = sym->next;
         }
+
+        cls->members = save_members;
     }
 }
 
@@ -5570,13 +5564,13 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     lily_var *define_var = find_active_var(parser, name);
 
     if (define_var == NULL && parent) {
-        lily_named_sym *named_sym = lily_find_member(parent, name);
+        lily_named_sym *named_sym = lily_find_visible_member(parent, name);
 
         if (named_sym == NULL)
             ;
         else if (named_sym->flags & SYM_IS_FORWARD)
             define_var = (lily_var *)named_sym;
-        else if (sym_visible_from(parent, named_sym))
+        else
             error_member_redeclaration(parser, parent, named_sym);
     }
 

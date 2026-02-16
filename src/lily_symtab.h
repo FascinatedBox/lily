@@ -74,6 +74,7 @@ lily_variant_class *lily_find_variant_with_lit(lily_class *, uint16_t);
 lily_module_entry *lily_find_module(lily_module_entry *, const char *);
 lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
 lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
+lily_named_sym *lily_find_visible_member(lily_class *, const char *);
 
 lily_generic_class *lily_new_generic_class(const char *);
 lily_class *lily_new_raw_class(const char *, uint16_t);
