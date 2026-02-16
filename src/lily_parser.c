@@ -4808,6 +4808,7 @@ static void parse_forward_class_methods(lily_parse_state *parser,
     } while (lex->token == tk_word);
 
     cls->forward_count = method_count;
+    lily_emit_exit_class_scope(parser->emit);
     lily_emit_leave_block(parser->emit);
     parser->current_class = NULL;
 }
@@ -5869,7 +5870,9 @@ static void parse_block_exit(lily_parse_state *parser)
             determine_enum_gc_flag(parser->current_class);
             parser->current_class = NULL;
             lily_gp_restore(parser->generics, 0);
+            lily_emit_exit_class_scope(emit);
             lily_emit_leave_scope_block(emit);
+
             lily_next_token(lex);
             break;
         case block_do_while:

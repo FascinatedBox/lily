@@ -38,6 +38,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->closure_aux_code = NULL;
     emit->closure_spots = lily_new_buffer_u16(4);
     emit->code = lily_new_buffer_u16(32);
+    emit->current_class = NULL;
     emit->expr_num = 1;
     emit->expr_strings = lily_new_string_pile();
     emit->function_depth = 1;
@@ -55,7 +56,6 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->ts = lily_new_type_system(emit->tm);
 
     main_block->block_type = block_file;
-    main_block->class_entry = NULL;
     main_block->code_start = 0;
     main_block->forward_class_count = 0;
     main_block->forward_count = 0;
@@ -102,6 +102,7 @@ void lily_rewind_emit_state(lily_emit_state *emit)
     emit->block->forward_class_count = 0;
     emit->block->forward_count = 0;
     emit->block = main_block;
+    emit->current_class = NULL;
     emit->function_depth = 1;
     emit->scope_block = main_block;
     lily_u16_set_pos(emit->closure_spots, 0);
@@ -540,7 +541,6 @@ static lily_block *next_block(lily_emit_state *emit)
     else
         new_block = emit->block->next;
 
-    new_block->class_entry = emit->block->class_entry;
     new_block->self = NULL;
     new_block->patch_start = lily_u16_pos(emit->patches);
 
@@ -593,8 +593,8 @@ void lily_emit_enter_class_block(lily_emit_state *emit, lily_class *cls,
     block->block_type = block_class;
     block->flags |= BLOCK_ALLOW_DEFINE | BLOCK_SELF_ORIGIN;
     block->scope_var = var;
-    block->class_entry = cls;
     setup_scope_block(emit, block);
+    emit->current_class = cls;
     emit->function_depth++;
 }
 
@@ -640,9 +640,9 @@ void lily_emit_enter_enum_block(lily_emit_state *emit, lily_class *cls)
     /* Enum blocks exist as scope blocks so that enum methods know they're enum
        methods. They don't have a var since they don't execute code. */
     block->block_type = block_enum;
-    block->class_entry = cls;
     block->flags |= BLOCK_ALLOW_DEFINE;
     setup_scope_block(emit, block);
+    emit->current_class = cls;
     emit->function_depth++;
 }
 
@@ -681,7 +681,7 @@ void lily_emit_enter_forward_class_block(lily_emit_state *emit, lily_class *cls)
 
     block->block_type = block_class;
     block->flags |= BLOCK_ALLOW_DEFINE;
-    block->class_entry = cls;
+    emit->current_class = cls;
     emit->block = block;
 }
 
@@ -761,6 +761,11 @@ void lily_emit_enter_with_block(lily_emit_state *emit, lily_sym *sym)
 
     /* Branch switching expects a patch, so write a fake one to skip over. */
     lily_u16_write_1(emit->patches, 0);
+}
+
+void lily_emit_exit_class_scope(lily_emit_state *emit)
+{
+    emit->current_class = NULL;
 }
 
 void lily_emit_leave_block(lily_emit_state *emit)
@@ -855,6 +860,7 @@ void lily_emit_leave_class_block(lily_emit_state *emit)
 {
     uint16_t self_reg = emit->block->self->reg_spot;
 
+    emit->current_class = NULL;
     lily_u16_write_3(emit->code, o_return_value, self_reg, *emit->lex_linenum);
     finish_block_code(emit);
     lily_emit_leave_scope_block(emit);
@@ -1198,7 +1204,7 @@ static uint16_t checked_close_over_var(lily_emit_state *emit, lily_ast *ast,
     }
 
     /* Closing over these variables is unnecessary and can cause crashes. */
-    if (var->function_depth == 2 && scope->class_entry)
+    if (var->function_depth == 2 && emit->current_class)
         lily_raise_tree(emit->raiser, ast,
                 "Not allowed to close over variables from a class constructor.");
 
@@ -1587,7 +1593,7 @@ static void ensure_valid_scope(lily_emit_state *emit, lily_ast *ast)
     lily_named_sym *sym = (lily_named_sym *)ast->sym;
 
     if (sym->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED)) {
-        lily_class *block_cls = emit->block->class_entry;
+        lily_class *block_cls = emit->current_class;
 
         /* Vars and properties have this at the same offset. */
         lily_class *parent = sym->parent;

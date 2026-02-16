@@ -153,9 +153,6 @@ typedef struct lily_block_ {
         lily_type *match_type;
     };
 
-    /* Scope blocks: The current class or enum when processing expressions. */
-    lily_class *class_entry;
-
     /* Scope blocks: If this block has a self in scope, this is that self. If
        this block does not have a self, this is NULL. This is also NULL if the
        current scope has a self in a closure that hasn't been used yet. */
@@ -236,6 +233,7 @@ typedef struct {
     /* This is the current line number, at any given time. */
     uint16_t *lex_linenum;
 
+    lily_class *current_class;
     lily_raiser *raiser;
 
     /* Expressions sometimes need to hold strings, like the name of a member
@@ -297,6 +295,7 @@ void lily_emit_enter_try_block(lily_emit_state *);
 void lily_emit_enter_while_block(lily_emit_state *);
 void lily_emit_enter_with_block(lily_emit_state *, lily_sym *);
 
+void lily_emit_exit_class_scope(lily_emit_state *);
 void lily_emit_leave_block(lily_emit_state *);
 void lily_emit_leave_class_block(lily_emit_state *);
 void lily_emit_leave_define_block(lily_emit_state *);
