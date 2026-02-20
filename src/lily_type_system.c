@@ -95,8 +95,7 @@ static void do_scoop_resolve(lily_type_system *ts, lily_type *type)
         lily_type *t;
 
         if (type->cls_id == LILY_ID_FUNCTION)
-            t = lily_tm_make_call(ts->tm, type->flags, type->cls,
-                    ts->tm->pos - start);
+            t = lily_tm_make_call(ts->tm, type->flags, ts->tm->pos - start);
         else
             t = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
 
@@ -140,8 +139,7 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
             lily_tm_add_unchecked(ts->tm, lily_ts_resolve(ts, subtypes[i]));
 
         if (type->cls_id == LILY_ID_FUNCTION)
-            ret = lily_tm_make_call(ts->tm, type->flags, type->cls,
-                    ts->tm->pos - start);
+            ret = lily_tm_make_call(ts->tm, type->flags, ts->tm->pos - start);
         else
             ret = lily_tm_make(ts->tm, type->cls, ts->tm->pos - start);
     }
@@ -154,14 +152,13 @@ lily_type *lily_ts_resolve(lily_type_system *ts, lily_type *type)
 static void unify_call(lily_type_system *ts, lily_type *left,
         lily_type *right, uint16_t num_subtypes)
 {
-    lily_class *cls = left->cls;
     uint16_t flags = (left->flags & TYPE_IS_VARARGS) &
                      (right->flags & TYPE_IS_VARARGS);
     lily_type *result_type = lily_tm_pop(ts->tm);
     uint16_t pos = lily_tm_pos(ts->tm) - num_subtypes;
 
     lily_tm_insert(ts->tm, pos, result_type);
-    lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, cls, num_subtypes));
+    lily_tm_add(ts->tm, lily_tm_make_call(ts->tm, flags, num_subtypes));
 }
 
 static void unify_simple(lily_type_system *ts, lily_type *left,

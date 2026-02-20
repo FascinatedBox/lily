@@ -975,8 +975,7 @@ static void create_main_func(lily_parse_state *parser)
     lily_lex_state *lex = parser->lex;
 
     lily_tm_add(tm, lily_unit_type);
-    lily_type *main_type = lily_tm_make_call(tm, 0,
-            parser->symtab->function_class, 1);
+    lily_type *main_type = lily_tm_make_call(tm, 0, 1);
 
     /* __main__'s line number should be 1 since it's not a foreign function.
        Since lexer hasn't read in the first line (it might be broken and raiser
@@ -1385,7 +1384,7 @@ static lily_type *get_type_raw(lily_parse_state *parser, int flags)
 
         uint16_t call_flags = (uint16_t)(arg_flags & F_NO_COLLECT);
 
-        result = lily_tm_make_call(parser->tm, call_flags, cls, i + 1);
+        result = lily_tm_make_call(parser->tm, call_flags, i + 1);
     }
 
     lily_next_token(lex);
@@ -1627,7 +1626,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     }
 
     lily_type *t = lily_tm_make_call(parser->tm, arg_flags & F_NO_COLLECT,
-            parser->symtab->function_class, i + 1);
+            i + 1);
 
     if ((arg_flags & F_COLLECT_VARIANT) == 0) {
         lily_var *var = (lily_var *)target;
@@ -3405,8 +3404,7 @@ lily_sym *lily_parser_lambda_eval(lily_parse_state *parser,
     if (root_result)
         lily_tm_insert(parser->tm, tm_return, root_result);
 
-    lambda_var->type = lily_tm_make_call(parser->tm, flags,
-            parser->symtab->function_class, args_collected + 1);
+    lambda_var->type = lily_tm_make_call(parser->tm, flags, args_collected + 1);
 
     hide_block_vars(parser);
     lily_emit_leave_lambda_block(parser->emit);

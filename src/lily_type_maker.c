@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "lily.h"
 #include "lily_alloc.h"
 #include "lily_type_maker.h"
 
@@ -11,11 +12,12 @@ extern lily_type *lily_question_type;
     (TYPE_IS_UNRESOLVED | TYPE_IS_INCOMPLETE | TYPE_HAS_SCOOP | \
      TYPE_HAS_OPTARGS | TYPE_TO_BLOCK)
 
-lily_type_maker *lily_new_type_maker(void)
+lily_type_maker *lily_new_type_maker(lily_class *function_cls)
 {
     lily_type_maker *tm = lily_malloc(sizeof(*tm));
 
     tm->types = lily_malloc(sizeof(*tm->types) * 4);
+    tm->function_cls = function_cls;
     tm->pos = 0;
     tm->size = 4;
 
@@ -185,12 +187,12 @@ lily_type *lily_tm_make(lily_type_maker *tm, lily_class *cls,
 }
 
 lily_type *lily_tm_make_call(lily_type_maker *tm, uint16_t flags,
-        lily_class *cls, uint16_t num_entries)
+        uint16_t num_entries)
 {
     lily_type fake_type;
 
-    fake_type.cls = cls;
-    fake_type.cls_id = cls->id;
+    fake_type.cls = tm->function_cls;
+    fake_type.cls_id = LILY_ID_FUNCTION;
     fake_type.subtypes = tm->types + (tm->pos - num_entries);
     fake_type.subtype_count = num_entries;
     fake_type.flags = flags;

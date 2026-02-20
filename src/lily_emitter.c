@@ -50,7 +50,7 @@ lily_emit_state *lily_new_emit_state(lily_symtab *symtab, lily_raiser *raiser)
     emit->storages = new_storage_stack(4);
     emit->self_storages = new_storage_stack(2);
     emit->symtab = symtab;
-    emit->tm = lily_new_type_maker();
+    emit->tm = lily_new_type_maker(symtab->function_class);
     emit->transform_size = 0;
     emit->transform_table = NULL;
     emit->ts = lily_new_type_system(emit->tm);
