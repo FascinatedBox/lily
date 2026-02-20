@@ -248,7 +248,7 @@ class TestBadClass < TestCase
         # bad decl (class method shadows constructor var)
 
         assert_parse_fails(t, """\
-            SyntaxError: x has already been declared.
+            SyntaxError: A method in class 'Test' already has the name 'x'.
 
                |
              2 | public define x {}

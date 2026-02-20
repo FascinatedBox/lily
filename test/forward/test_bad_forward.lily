@@ -189,7 +189,7 @@ class TestBadForward < TestCase
         # Blocked because it's this way for regular method definitions.
 
         assert_parse_fails(t, """\
-            SyntaxError: f has already been declared.
+            SyntaxError: A method in class 'Example' already has the name 'f'.
 
                |
              4 | forward public define f(Integer) { ... }

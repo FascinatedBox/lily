@@ -3451,7 +3451,7 @@ static int keyword_by_name(const char *name)
 static void error_member_redeclaration(lily_parse_state *parser,
         lily_class *cls, lily_named_sym *sym)
 {
-    if (sym->item_kind == ITEM_DEFINE)
+    if (sym->item_kind != ITEM_PROPERTY)
         lily_raise_syn(parser->raiser,
                 "A method in class '%s' already has the name '%s'.",
                 cls->name, sym->name);
@@ -5536,8 +5536,15 @@ static void verify_resolve_define_var(lily_parse_state *parser,
 {
     lily_block *block = parser->emit->block;
 
-    if ((define_var->flags & SYM_IS_FORWARD) == 0)
-        error_var_redeclaration(parser, define_var);
+    if ((define_var->flags & SYM_IS_FORWARD) == 0) {
+        lily_class *parent = parser->current_class;
+
+        if (parent)
+            error_member_redeclaration(parser, parent,
+                    (lily_named_sym *)define_var);
+        else
+            error_var_redeclaration(parser, define_var);
+    }
     else if (modifiers & SYM_IS_FORWARD)
         lily_raise_syn(parser->raiser,
                 "A forward declaration for %s already exists.",
@@ -5563,31 +5570,24 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     const char *name = lex->label;
     lily_var *define_var = find_active_var(parser, name);
 
-    if (define_var == NULL && parent) {
-        lily_named_sym *named_sym = lily_find_visible_member(parent, name);
+    if (define_var == NULL && parent)
+        /* If this yields a property, resolve will error since properties can't
+           be forward. */
+        define_var = (lily_var *)lily_find_visible_member(parent, name);
 
-        if (named_sym == NULL)
-            ;
-        else if (named_sym->flags & SYM_IS_FORWARD)
-            define_var = (lily_var *)named_sym;
-        else
-            error_member_redeclaration(parser, parent, named_sym);
+    if (define_var == NULL) {
+        if (parent == NULL) {
+            define_var = new_define_var(parser, name, lex->line_num);
+            make_new_function(parser, define_var);
+        }
+        else {
+            define_var = new_method_var(parser, parent, name, modifiers,
+                    lex->line_num);
+            make_new_function(parser, define_var);
+        }
     }
-
-    if (define_var)
+    else
         verify_resolve_define_var(parser, define_var, modifiers);
-    else if (parent) {
-        define_var = new_method_var(parser, parent, name, modifiers,
-                lex->line_num);
-        make_new_function(parser, define_var);
-    }
-    else {
-        define_var = new_define_var(parser, name, lex->line_num);
-        make_new_function(parser, define_var);
-    }
-
-    /* Make flags consistent no matter which above case was selected. */
-    define_var->flags |= modifiers | SYM_NOT_INITIALIZED;
 
     return define_var;
 }
@@ -5613,6 +5613,7 @@ static void keyword_define(lily_parse_state *parser)
 
     lily_var *define_var = parse_new_define(parser, parent, modifiers);
 
+    define_var->flags |= modifiers | SYM_NOT_INITIALIZED;
     lily_emit_enter_define_block(parser->emit, define_var, generic_start);
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
