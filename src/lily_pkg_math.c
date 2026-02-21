@@ -24,6 +24,13 @@ void lily_math__acos(lily_state *s)
     lily_return_double(s, acos(x));
 }
 
+void lily_math__acosh(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, acosh(x));
+}
+
 void lily_math__asin(lily_state *s)
 {
     double x = lily_arg_double(s, 0);
@@ -31,11 +38,32 @@ void lily_math__asin(lily_state *s)
     lily_return_double(s, asin(x));
 }
 
+void lily_math__asinh(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, asinh(x));
+}
+
 void lily_math__atan(lily_state *s)
 {
     double x = lily_arg_double(s, 0);
 
     lily_return_double(s, atan(x));
+}
+
+void lily_math__atanh(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, atanh(x));
+}
+
+void lily_math__cbrt(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, cbrt(x));
 }
 
 void lily_math__ceil(lily_state *s)
@@ -66,6 +94,13 @@ void lily_math__exp(lily_state *s)
     lily_return_double(s, exp(x));
 }
 
+void lily_math__exp2(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, exp2(x));
+}
+
 void lily_math__fabs(lily_state *s)
 {
     double x = lily_arg_double(s, 0);
@@ -86,6 +121,14 @@ void lily_math__fmod(lily_state *s)
     double y = lily_arg_double(s, 1);
 
     lily_return_double(s, fmod(x, y));
+}
+
+void lily_math__hypot(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+    double y = lily_arg_double(s, 1);
+
+    lily_return_double(s, hypot(x, y));
 }
 
 void lily_math__is_infinity(lily_state *s)
@@ -117,6 +160,13 @@ void lily_math__log(lily_state *s)
     lily_return_double(s, log(x));
 }
 
+void lily_math__log2(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, log2(x));
+}
+
 void lily_math__log10(lily_state *s)
 {
     double x = lily_arg_double(s, 0);
@@ -146,6 +196,13 @@ void lily_math__pow(lily_state *s)
     double y = lily_arg_double(s, 1);
 
     lily_return_double(s, pow(x, y));
+}
+
+void lily_math__round(lily_state *s)
+{
+    double x = lily_arg_double(s, 0);
+
+    lily_return_double(s, round(x));
 }
 
 void lily_math__sin(lily_state *s)
