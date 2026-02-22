@@ -1998,13 +1998,27 @@ static void oo_property_read(lily_emit_state *emit, lily_ast *ast)
     ast->result = (lily_sym *)result;
 }
 
+static void oo_virt_read(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_var *var = (lily_var *)ast->sym;
+    lily_storage *result = get_storage(emit, var->type);
+
+    /* Unpack the virtual the same way properties are unpacked. */
+    lily_u16_write_5(emit->code, o_virt_get, var->virt_spot,
+            ast->arg_start->result->reg_spot, result->reg_spot, ast->line_num);
+
+    ast->result = (lily_sym *)result;
+}
+
 /* This is the actual handler for simple 'x.y' accesses. It doesn't do assigns
    though. */
 static void eval_oo_access(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
-    /* The result is a property or class method. */
-    if (eval_oo_access_for_item(emit, ast) == ITEM_PROPERTY) {
+    /* The result is a property, class method, or virtual method. */
+    uint16_t group = eval_oo_access_for_item(emit, ast);
+
+    if (group == ITEM_PROPERTY) {
         oo_property_read(emit, ast);
 
         /* Promotion is handled here because the other callers (compound op and
@@ -2012,12 +2026,14 @@ static void eval_oo_access(lily_emit_state *emit, lily_ast *ast,
         if (ast->result->type != expect)
             maybe_promote_value(emit, ast, expect);
     }
-    else {
+    else if (group != ITEM_VIRTUAL_METHOD) {
         lily_storage *result = get_storage(emit, ast->sym->type);
         lily_u16_write_4(emit->code, o_load_readonly, ast->sym->reg_spot,
                 result->reg_spot, ast->line_num);
         ast->result = (lily_sym *)result;
     }
+    else
+        oo_virt_read(emit, ast);
 }
 
 /***
@@ -3256,6 +3272,18 @@ static void eval_expr_match(lily_emit_state *emit, lily_ast *ast,
     lily_emit_leave_expr_match_block(emit);
 }
 
+static void eval_method_virt(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_var *var = (lily_var *)ast->sym;
+    lily_storage *result = get_storage(emit, var->type);
+
+    /* Unpack the virtual the same way properties are unpacked. */
+    lily_u16_write_5(emit->code, o_virt_get, var->virt_spot,
+            emit->scope_block->self->reg_spot, result->reg_spot, ast->line_num);
+
+    ast->result = (lily_sym *)result;
+}
+
 /***
  *      _     _     _             _   _           _
  *     | |   (_)___| |_     _    | | | | __ _ ___| |__
@@ -3830,16 +3858,23 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
             call_item = first_arg->item;
             break;
         case tree_oo_access:
-            if (eval_oo_access_for_item(emit, first_arg) == ITEM_PROPERTY)
-                oo_property_read(emit, first_arg);
-            else {
-                lily_sym *s = first_arg->arg_start->result;
+            {
+                lily_tree_type tt = eval_oo_access_for_item(emit, first_arg);
 
-                if (s->type->flags & TYPE_IS_INCOMPLETE)
-                    incomplete_call_type_error(emit, ast, first_arg, s->type);
+                if (tt == ITEM_PROPERTY)
+                    oo_property_read(emit, first_arg);
+                else if (tt != ITEM_VIRTUAL_METHOD) {
+                    lily_sym *s = first_arg->arg_start->result;
 
-                first_arg->result = s;
-                first_arg->tree_type = tree_cached;
+                    if (s->type->flags & TYPE_IS_INCOMPLETE)
+                        incomplete_call_type_error(emit, ast, first_arg, s->type);
+
+                    first_arg->result = s;
+                    first_arg->tree_type = tree_cached;
+                }
+                else
+                    /* Unpack the virt. Call start will route it. */
+                    oo_virt_read(emit, first_arg);
             }
 
             call_item = first_arg->item;
@@ -3864,6 +3899,10 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
         case tree_local_var:
         case tree_defined_func:
         case tree_inherited_new:
+            call_item = first_arg->item;
+            break;
+        case tree_method_virt:
+            eval_method_virt(emit, first_arg);
             call_item = first_arg->item;
             break;
         default:
@@ -3922,6 +3961,27 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
             ast->sym = first_arg->sym;
             call_source_reg = first_arg->result->reg_spot;
             call_type = first_arg->result->type;
+            break;
+        case ITEM_VIRTUAL_METHOD:
+            /* The call will use the unpacked virt. Similar to above. */
+            ast->sym = first_arg->sym;
+            call_source_reg = first_arg->result->reg_spot;
+            call_type = ast->sym->type;
+
+            if (first_arg->tree_type == tree_oo_access) {
+                /* For `x.y` calls, send `x` for self. */
+                first_arg->result = first_arg->arg_start->result;
+                first_arg->tree_type = tree_cached;
+            }
+            else if (first_arg->tree_type == tree_method_virt) {
+                /* For known methods, send scope self as self. */
+                first_arg->result = (lily_sym *)emit->scope_block->self;
+                first_arg->tree_type = tree_cached;
+            }
+            else if (first_arg->tree_type == tree_static_func)
+                /* `Someclass.f` has no self or register source. */
+                call_op = o_call_native;
+
             break;
         case ITEM_STORAGE:
         default: {
@@ -4524,6 +4584,8 @@ static void eval_tree(lily_emit_state *emit, lily_ast *ast, lily_type *expect)
         eval_ternary(emit, ast, expect);
     else if (ast->tree_type == tree_expr_match)
         eval_expr_match(emit, ast, expect);
+    else if (ast->tree_type == tree_method_virt)
+        eval_method_virt(emit, ast);
 }
 
 static void eval_enforce_value(lily_emit_state *emit, lily_ast *ast,

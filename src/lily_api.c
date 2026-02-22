@@ -76,6 +76,30 @@ lily_container_val *lily_new_container_raw(uint16_t class_id,
     return cv;
 }
 
+lily_vt_container_val *lily_new_vt_container_raw(uint16_t class_id,
+        uint32_t num_values, lily_function_val **virts)
+{
+    lily_vt_container_val *vcv = lily_malloc(sizeof(*vcv));
+
+    vcv->values = lily_malloc(num_values * sizeof(*vcv->values));
+    vcv->refcount = 1;
+    vcv->num_values = num_values;
+    vcv->extra_space = 0;
+    vcv->class_id = class_id;
+    vcv->gc_entry = NULL;
+    vcv->virts = virts;
+
+    uint32_t i;
+
+    for (i = 0;i < num_values;i++) {
+        lily_value *elem = lily_malloc(sizeof(*elem));
+
+        elem->flags = 0;
+        vcv->values[i] = elem;
+    }
+
+    return vcv;
+}
 
 /* Internal api (not in lily.h) functions for handling values. */
 

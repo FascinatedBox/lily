@@ -65,6 +65,7 @@ typedef struct lily_global_state_ {
 
     lily_value **readonly_table;
     lily_class **class_table;
+    lily_function_val ***virt_table;
     uint32_t class_count;
     uint32_t readonly_count;
 

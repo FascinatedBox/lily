@@ -27,6 +27,7 @@ typedef enum {
     tree_literal,
     tree_local_var,
     tree_method,
+    tree_method_virt,
     tree_named_arg,
     tree_named_call,
     tree_oo_access,

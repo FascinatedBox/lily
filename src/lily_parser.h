@@ -53,6 +53,13 @@ typedef struct {
     uint32_t pad;
 } lily_doc_stack;
 
+typedef struct lily_virt_stack_ {
+    struct lily_function_val_ **data;
+    uint16_t pos;
+    uint16_t size;
+    uint32_t pad;
+} lily_virt_stack;
+
 typedef struct lily_parse_state_ {
     lily_module_entry *module_start;
     lily_module_entry *module_top;
@@ -97,6 +104,7 @@ typedef struct lily_parse_state_ {
     struct lily_rewind_state_ *rs;
     struct lily_import_state_ *ims;
     lily_var *spare_vars;
+    struct lily_virt_state_ *vs;
     lily_doc_stack *doc;
 } lily_parse_state;
 

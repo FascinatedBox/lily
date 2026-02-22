@@ -61,6 +61,7 @@ var keywords = [
     "static",
     "try",
     "var",
+    "virtual",
     "while",
     "with",
 ]

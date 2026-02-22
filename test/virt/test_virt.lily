@@ -1,0 +1,160 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestVirt < TestCase
+{
+    public define test_baseline
+    {
+        var t = Interpreter()
+
+        # Valid override of parent with same signature
+
+        assert_parse_string(t, """
+            class Base {
+                public virtual define f: Integer { return 0/0 }
+            }
+            class One < Base {
+                public virtual define f: Integer { return 1 }
+            }
+            class Two < Base {
+                public virtual define f: Integer { return 2 }
+            }
+            {
+                var v: List[Base] = [One(), Two(), One()]
+                var out = v.map(|m| m.f())
+
+                if out != [1, 2, 1]: {0/0}
+            }
+        """)
+
+        # Layered override
+
+        assert_parse_string(t, """
+            class Three {
+                public virtual define f: Integer { return 1 }
+                public define g: Integer { return 2 }
+                public virtual define h: String { return "3" }
+            }
+            class Four < Three {
+                public virtual define f: Integer { return 10 }
+            }
+            class Five < Four {
+                public virtual define h: String { return "30" }
+            }
+            {
+                var v: List[Three] = [Three(), Four(), Five()]
+                var out_f = v.map(|m| m.f())
+                var out_g = v.map(|m| m.g())
+                var out_h = v.map(|m| m.h())
+
+                if out_f != [1, 10, 10] ||
+                   out_g != [2, 2, 2] ||
+                   out_h != ["3", "3", "30"]: {0/0}
+            }
+        """)
+    }
+
+    public define test_virt_access
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            class Base {
+                public virtual define f: Integer { return 0 }
+                public define h: Integer { return 1 }
+            }
+            class One < Base {
+                public virtual define f: Integer { return 1 }
+            }
+            class Two < Base {
+                public virtual define f: Integer { return 2 }
+
+                public define g: Integer { return 1 }
+            }
+        """)
+
+        # Use by instance
+
+        assert_parse_string(t, """
+            {
+                var v = One().f
+
+                if v(One()) != 1: {0/0}
+            }
+        """)
+
+        # Use directly
+
+        assert_parse_string(t, """
+            {
+                var v = One.f
+
+                if v(One()) != 1: {0/0}
+            }
+        """)
+
+        # By method call
+
+        assert_parse_string(t, """
+            class Three < Base {
+                public virtual define f: Integer { return 2 }
+
+                public define g: Integer { return f() }
+            }
+            {
+                var v = Three.g
+
+                if v(Three()) != 2: {0/0}
+            }
+        """)
+
+        # Static call in and out of a class
+
+        assert_parse_string(t, """
+            class RecBase {
+                public virtual define f(a: Integer)
+                {
+                    if a == 10: {
+                        f(11)
+                    elif a == 11:
+                    }
+                }
+                public define g(a: Integer): Integer { return a * 2 }
+            }
+            class RecOne < RecBase {
+                public virtual define f(a: Integer) { 0/0 }
+                public define h(a: Integer): Integer { return a * 3 }
+                public define i(a: Integer): Integer { return RecBase.g(self, a) }
+            }
+            {
+                var v: RecBase = RecOne()
+                var w = RecOne()
+
+                try: {
+                    var x = RecBase.f(w, 10)
+                    0/0
+                except DivisionByZeroError:
+                }
+
+                if RecOne.h(w, 10) != 30: { 0/0 }
+            }
+        """)
+
+        # Save method virt before usage
+
+        assert_parse_string(t, """
+            class RecBase2 {
+                public virtual define f(a: Integer): Integer { return 0 / 0 }
+                public define g: Integer { var w = f return w(self, 0) }
+            }
+            class RecOne2 < RecBase2 {
+                public virtual define f(a: Integer): Integer { return 10 }
+            }
+            {
+                var v: RecBase2 = RecOne2()
+
+                if v.g() != 10: {0/0}
+            }
+        """)
+    }
+}

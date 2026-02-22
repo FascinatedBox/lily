@@ -120,7 +120,7 @@ typedef struct lily_class_ {
 
     /* Forward classes: How many forward methods to resolve (0 otherwise). */
     uint16_t forward_count;
-    uint16_t pad1;
+    uint16_t virt_index;
 
     struct lily_class_ *parent;
 
@@ -277,8 +277,13 @@ typedef struct lily_var_ {
     /* This is used to determine if a var is an upvalue, local, or global. */
     uint16_t function_depth;
 
-    /* For inline constants, this is the value to send to emitter. */
-    int16_t constant_value;
+    union {
+        /* For inline constants, this is the value to send to emitter. */
+        int16_t constant_value;
+
+        /* For virtual methods, this method's place in the vtable. */
+        uint16_t virt_spot;
+    };
 
     union {
         /* If this is a class/enum method, this is the parent. Otherwise, except
@@ -424,6 +429,7 @@ typedef struct lily_proto_ {
 #define ITEM_VAR              (13 | ITEM_IS_VARLIKE)
 #define ITEM_VARIANT_EMPTY    (14 | ITEM_IS_VARIANT)
 #define ITEM_VARIANT_FILLED   (15 | ITEM_IS_VARIANT)
+#define ITEM_VIRTUAL_METHOD   (16 | ITEM_IS_VARLIKE)
 
 
 /* These are important ids in the interpreter. */
@@ -535,6 +541,8 @@ typedef struct lily_proto_ {
 /* Static methods don't receive an implicit self. */
 #define VAR_IS_STATIC         0x20
 
+/* Virtual methods can be redefined by a child class. */
+#define VAR_IS_VIRTUAL        0x40
 
 /* lily_variant_class uses the flags for lily_class. */
 

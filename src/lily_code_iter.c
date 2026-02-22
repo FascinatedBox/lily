@@ -173,6 +173,7 @@ int lily_ci_next(lily_code_iter *iter)
             iter->round_total = 4;
             break;
         case o_property_get:
+        case o_virt_get:
             iter->special_1 = 1;
             iter->inputs_3 = 1;
             iter->outputs_4 = 1;

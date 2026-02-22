@@ -923,6 +923,20 @@ static void do_o_property_get(lily_vm_state *vm, uint16_t *code)
     lily_value_assign(result_reg, ival->values[index]);
 }
 
+static void do_o_virt_get(lily_vm_state *vm, uint16_t *code)
+{
+    lily_value **vm_regs = vm->call_chain->start;
+    uint16_t index = code[1];
+    lily_vt_container_val *ival = vm_regs[code[2]]->value.vt_container;
+    lily_value *result_reg = vm_regs[code[3]];
+    lily_function_val *virt = ival->virts[index];
+
+    move_function_f(0, result_reg, virt);
+
+    /* This is not a closure copy, ergo it is not derefable. */
+    result_reg->flags &= ~VAL_IS_DEREFABLE;
+}
+
 #define RELATIVE_INDEX(limit) \
     if (index_int < 0) { \
         int64_t new_index = limit + index_int; \
@@ -1137,7 +1151,13 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     lily_class *instance_class = vm->gs->class_table[cls_id];
     uint16_t total_entries = instance_class->prop_count;
-    lily_container_val *iv = lily_new_container_raw(cls_id, total_entries);
+    lily_container_val *iv;
+
+    if (instance_class->virt_index == 0)
+        iv = lily_new_container_raw(cls_id, total_entries);
+    else
+        iv = (lily_container_val *)lily_new_vt_container_raw(cls_id,
+                total_entries, vm->gs->virt_table[instance_class->virt_index]);
 
     iv->instance_ctor_need = instance_class->inherit_depth;
 
@@ -2452,6 +2472,10 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_closure_new(vm, code);
                 upvalues = current_frame->function->upvalues;
                 code += 4;
+                break;
+            case o_virt_get:
+                do_o_virt_get(vm, code);
+                code += 5;
                 break;
             case o_for_setup:
                 /* lhs_reg is the start, rhs_reg is the stop. */

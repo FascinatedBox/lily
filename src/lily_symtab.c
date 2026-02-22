@@ -814,7 +814,7 @@ lily_class *lily_new_raw_class(const char *name, uint16_t line_num)
        generic count. */
     new_class->self_type = (lily_type *)new_class;
     new_class->type_subtype_count = 0;
-
+    new_class->virt_index = 0;
     new_class->parent = NULL;
     new_class->shorthash = shorthash_for_name(name);
     new_class->line_num = line_num;
@@ -871,7 +871,6 @@ lily_class *lily_new_class(lily_symtab *symtab, const char *name,
 
     new_class->module = symtab->active_module;
     new_class->line_num = line_num;
-
     new_class->id = symtab->next_class_id;
     symtab->next_class_id++;
 

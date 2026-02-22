@@ -13,6 +13,7 @@
 #include "lily_platform.h"
 #include "lily_string_pile.h"
 #include "lily_value.h"
+#include "lily_virt.h"
 
 #define NEED_IDENT(message) \
 if (lex->token != tk_word) \
@@ -139,6 +140,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->module_start = NULL;
     parser->module_top = NULL;
     parser->spare_vars = NULL;
+    parser->vs = lily_new_virt_state();
 
     /* These two are used for handling keyword arguments and paths that have
        been tried. The strings are stored next to each other in the pile, with
@@ -304,6 +306,7 @@ void lily_free_state(lily_state *vm)
     lily_free(parser->rs);
     lily_free_string_pile(parser->data_strings);
     free_docs(parser->doc);
+    lily_free_virt_state(parser->vs);
     lily_free(parser);
 }
 
@@ -1459,13 +1462,34 @@ static void collect_generics_for(lily_parse_state *parser, lily_class *cls)
 
 typedef lily_type *(*collect_fn)(lily_parse_state *, int *);
 
-static void error_forward_decl_type(lily_parse_state *parser, lily_var *var,
+static void verify_incoming_type(lily_parse_state *parser, lily_var *var,
         lily_type *got)
 {
-    lily_raise_syn(parser->raiser,
-            "Declaration does not match prior forward declaration at line %d.\n"
-            "Expected: ^T\n"
-            "Received: ^T", var->line_num, var->type, got);
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    if (var->flags & VAR_IS_VIRTUAL) {
+        int ok = lily_ts_verify_virtual_type(var->type, got);
+
+        if (ok)
+            return;
+
+        var->type = lily_tm_build_virt_error_type(parser->tm, var->type, got);
+        lily_mb_add_fmt(msgbuf,
+                "Virtual method %s.%s resolved with a different type.\n",
+                var->type->subtypes[1]->cls->name, var->name);
+    }
+    else if (var->type == got)
+        /* Vars only have types at this stage if they are resolving a forward
+           definition. The declaration matches, so nothing more to do. */
+        return;
+    else {
+        lily_mb_add_fmt(msgbuf,
+                "Declaration does not match prior forward declaration at line %d.\n",
+                var->line_num);
+    }
+
+    lily_mb_add_fmt(msgbuf, "Expected: ^T\nReceived: ^T", var->type, got);
+    lily_raise_syn(parser->raiser, lily_mb_raw(parser->msgbuf));
 }
 
 static void collect_keyarg(lily_parse_state *parser, uint16_t pos,
@@ -1630,9 +1654,11 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
     if ((arg_flags & F_COLLECT_VARIANT) == 0) {
         lily_var *var = (lily_var *)target;
-        if (var->type != t &&
-            var->type != lily_question_type)
-            error_forward_decl_type(parser, var, t);
+
+        if (var->type == lily_question_type)
+            ;
+        else
+            verify_incoming_type(parser, var, t);
 
         var->type = t;
     }
@@ -2509,7 +2535,7 @@ static int expr_word_try_use_self(lily_parse_state *parser)
         item = lily_find_or_dl_member(parser, self_cls, name);
 
         if (item) {
-            if (item->item_kind == ITEM_DEFINE) {
+            if (item->item_kind & ITEM_IS_VARLIKE) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
                 if ((item->flags & VAR_IS_STATIC) == 0) {
@@ -2588,7 +2614,8 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
                 lex->label);
     }
 
-    if (item->item_kind == ITEM_DEFINE)
+    if (item->item_kind == ITEM_DEFINE ||
+        item->item_kind == ITEM_VIRTUAL_METHOD)
         lily_es_push_static_func(parser->expr, (lily_var *)item);
     else if (item->item_kind & ITEM_IS_VARIANT)
         lily_es_push_variant(parser->expr, (lily_variant_class *)item);
@@ -4536,6 +4563,9 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
     cls->prop_count += super_class->prop_count;
     cls->inherit_depth = super_class->inherit_depth + 1;
 
+    if (super_class->virt_index)
+        lily_vs_load_parent_virts(parser->vs, cls);
+
     if (cls->members) {
         /* These have already been checked for uniqueness against each other,
            but now a parent class is involved. Hide the new symbols, or visible
@@ -4631,6 +4661,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     make_new_function(parser, call_var);
     lily_emit_enter_class_block(parser->emit, cls, call_var);
     parser->current_class = cls;
+    lily_vs_reset_pos(parser->vs);
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
 
@@ -5581,12 +5612,31 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
         else {
             define_var = new_method_var(parser, parent, name, modifiers,
                     lex->line_num);
-            make_new_function(parser, define_var);
+            lily_function_val *f = make_new_function(parser, define_var);
+
+            if (modifiers & VAR_IS_VIRTUAL) {
+                /* Max index means make a new space. */
+                lily_vs_register_virt(parser->vs, define_var, UINT16_MAX, f);
+                define_var->item_kind = ITEM_VIRTUAL_METHOD;
+            }
         }
     }
-    else
+    else if ((define_var->flags & VAR_IS_VIRTUAL) == 0)
         verify_resolve_define_var(parser, define_var, modifiers);
+    else {
+        uint16_t virt_spot = define_var->virt_spot;
+        lily_type *virt_type = define_var->type;
 
+        define_var = new_method_var(parser, parent, name, modifiers,
+                lex->line_num);
+        lily_function_val *f = make_new_function(parser, define_var);
+
+        lily_vs_register_virt(parser->vs, define_var, virt_spot, f);
+        define_var->item_kind = ITEM_VIRTUAL_METHOD;
+        define_var->type = virt_type;
+    }
+
+    define_var->flags |= modifiers | SYM_NOT_INITIALIZED;
     return define_var;
 }
 
@@ -5611,7 +5661,6 @@ static void keyword_define(lily_parse_state *parser)
 
     lily_var *define_var = parse_new_define(parser, parent, modifiers);
 
-    define_var->flags |= modifiers | SYM_NOT_INITIALIZED;
     lily_emit_enter_define_block(parser->emit, define_var, generic_start);
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
@@ -5639,7 +5688,7 @@ static void keyword_define(lily_parse_state *parser)
     }
 }
 
-static void verify_static_modifier(lily_parse_state *parser)
+static void verify_define_modifier(lily_parse_state *parser, int key)
 {
     lily_lex_state *lex = parser->lex;
 
@@ -5648,7 +5697,9 @@ static void verify_static_modifier(lily_parse_state *parser)
     if (lex->token == tk_word && strcmp(lex->label, "define") == 0)
         return;
 
-    lily_raise_syn(parser->raiser, "'static' must be followed by 'define'.");
+    const char *what = keywords[key].name;
+
+    lily_raise_syn(parser->raiser, "'%s' must be followed by 'define'.", what);
 }
 
 static void parse_modifier(lily_parse_state *parser, int key)
@@ -5683,7 +5734,12 @@ static void parse_modifier(lily_parse_state *parser, int key)
 
     if (key == KEY_STATIC) {
         modifiers |= VAR_IS_STATIC;
-        verify_static_modifier(parser);
+        verify_define_modifier(parser, key);
+        key = KEY_DEFINE;
+    }
+    else if (key == KEY_VIRTUAL) {
+        modifiers |= VAR_IS_VIRTUAL;
+        verify_define_modifier(parser, key);
         key = KEY_DEFINE;
     }
 
@@ -5756,6 +5812,12 @@ static void keyword_forward(lily_parse_state *parser)
     }
 }
 
+static void keyword_virtual(lily_parse_state *parser)
+{
+    lily_raise_syn(parser->raiser,
+            "'virtual' must follow a scope (public, protected, or private).");
+}
+
 static void keyword_private(lily_parse_state *parser)
 {
     parse_modifier(parser, KEY_PRIVATE);
@@ -5809,6 +5871,7 @@ static void main_func_setup(lily_parse_state *parser)
     lily_prepare_main(parser->emit, parser->toplevel_func);
 
     parser->vm->gs->readonly_table = parser->symtab->literals->data;
+    parser->vm->gs->virt_table = parser->vs->table;
 
     maybe_capture_stdout(parser);
     maybe_fix_print(parser);
@@ -5852,6 +5915,9 @@ static void parse_block_exit(lily_parse_state *parser)
         case block_class:
             if (block->forward_count)
                 error_forward_decl_pending(parser);
+
+            if (parser->vs->pos)
+                lily_vs_save_virts(parser->vs, parser->current_class);
 
             determine_class_gc_flag(parser->current_class);
             parser->current_class = NULL;
@@ -6125,7 +6191,7 @@ static void manifest_modifier(lily_parse_state *parser, int key)
 
     if (key == KEY_STATIC) {
         modifiers |= VAR_IS_STATIC;
-        verify_static_modifier(parser);
+        verify_define_modifier(parser, key);
         key = KEY_DEFINE;
     }
 

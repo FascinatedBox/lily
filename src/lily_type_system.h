@@ -82,6 +82,10 @@ void lily_ts_scope_restore(lily_type_system *, lily_ts_save_point *);
    how many were collected. max_seen may or may not be updated. */
 void lily_ts_generics_seen(lily_type_system *, uint16_t);
 
+/* Given a base class virtual and a child class virtual, determine if the child
+   virtual matches. */
+int lily_ts_verify_virtual_type(lily_type *, lily_type *);
+
 /* Determine if the first class passed is either a base class or the same class
    as the second one. This doesn't take the ts because the information needed
    is within the classes themselves. */

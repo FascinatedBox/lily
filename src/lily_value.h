@@ -26,6 +26,7 @@ typedef union lily_raw_value_ {
     struct lily_hash_val_ *hash;
     struct lily_file_val_ *file;
     struct lily_container_val_ *container;
+    struct lily_vt_container_val_ *vt_container;
     struct lily_foreign_val_ *foreign;
 } lily_raw_value;
 
@@ -99,6 +100,17 @@ typedef struct lily_container_val_ {
     struct lily_value_ **values;
     struct lily_gc_entry_ *gc_entry;
 } lily_container_val;
+
+typedef struct lily_vt_container_val_ {
+    uint32_t refcount;
+    uint16_t class_id;
+    uint16_t instance_ctor_need;
+    uint32_t num_values;
+    uint32_t extra_space;
+    struct lily_value_ **values;
+    struct lily_gc_entry_ *gc_entry;
+    struct lily_function_val_ **virts;
+} lily_vt_container_val;
 
 typedef struct lily_hash_entry_ {
     uint64_t hash;
@@ -272,6 +284,8 @@ typedef struct lily_generic_gc_val_ {
 
 lily_bytestring_val *lily_new_bytestring_raw(const char *, int);
 lily_container_val *lily_new_container_raw(uint16_t, uint32_t);
+lily_vt_container_val *lily_new_vt_container_raw(uint16_t, uint32_t,
+        lily_function_val **);
 lily_hash_val *lily_new_hash_raw(int);
 lily_string_val *lily_new_string_raw(const char *);
 

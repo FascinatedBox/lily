@@ -597,7 +597,12 @@ void lily_es_push_expr_match_case(lily_expr_state *es, lily_var *first_var,
 
 void lily_es_push_method(lily_expr_state *es, lily_var *func)
 {
-    AST_COMMON_INIT(a, tree_method);
+    lily_tree_type tt = tree_method;
+
+    /* Converts to tree_method_virt. */
+    tt += (func->item_kind == ITEM_VIRTUAL_METHOD);
+
+    AST_COMMON_INIT(a, tt);
     a->result = (lily_sym *)func;
     a->sym = (lily_sym *)func;
 

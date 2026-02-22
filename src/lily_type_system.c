@@ -495,6 +495,24 @@ void lily_ts_generics_seen(lily_type_system *ts, uint16_t amount)
         ts->max_seen = amount;
 }
 
+int lily_ts_verify_virtual_type(lily_type *base, lily_type *given)
+{
+    if (base->subtype_count != given->subtype_count)
+        return 0;
+
+    lily_type **base_types = base->subtypes;
+    lily_type **given_types = given->subtypes;
+    uint16_t matches = 0;
+
+    for (uint16_t i = 0;i < base->subtype_count;i++)
+        matches += base_types[i] == given_types[i];
+
+    matches += (base->flags & TYPE_IS_VARARGS) ==
+            (given->flags & TYPE_IS_VARARGS);
+
+    return matches == base->subtype_count;
+}
+
 int lily_class_greater_eq(lily_class *left, lily_class *right)
 {
     int ret = 0;

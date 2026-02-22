@@ -1,0 +1,476 @@
+import (Interpreter,
+        TestCase) "../t/testing"
+
+class TestBadVirt < TestCase
+{
+    public define test_no_bare_virt
+    {
+        var t = Interpreter()
+
+        # No bare virtual at toplevel
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must follow a scope (public, protected, or private).
+
+               |
+             1 | virtual define f {}
+               | ^
+
+                from [test]:1:
+        """,
+        """\
+            virtual define f {}
+        """)
+
+        # Not within a define either
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must follow a scope (public, protected, or private).
+
+               |
+             2 | virtual define g {}
+               | ^
+
+                from [test]:2:
+        """,
+        """\
+            define f {
+                virtual define g {}
+            }
+        """)
+
+        # Against an existing define
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must follow a scope (public, protected, or private).
+
+               |
+             2 | virtual define f {}
+               | ^
+
+                from [test]:2:
+        """,
+        """\
+            define f {}
+            virtual define f {}
+        """)
+
+        # Within a method
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must follow a scope (public, protected, or private).
+
+               |
+             3 | virtual define g {}
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            class Example {
+                public define f {
+                    virtual define g {}
+                }
+            }
+        """)
+
+        # Enum doesn't allow modifiers
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected either 'define' or '}' (did you forget a comma?)
+
+               |
+             4 | virtual define f {}
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            enum Example {
+                first,
+                second
+                virtual define f {}
+            }
+        """)
+    }
+
+    public define test_virt_keywords
+    {
+        var t = Interpreter()
+
+        # Static+virtual is blocked for lack of a use case
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'static' must be followed by 'define'.
+
+               |
+             2 | public static virtual define f {}
+               |               ^
+
+                from [test]:2:
+        """,
+        """\
+            class One {
+                public static virtual define f {}
+            }
+        """)
+
+        # Even if the above was allowed, this would not be
+        # Only one order should be correct
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must be followed by 'define'.
+
+               |
+             2 | public virtual static define f {}
+               |                ^
+
+                from [test]:2:
+        """,
+        """\
+            class One {
+                public virtual static define f {}
+            }
+        """)
+    }
+
+    public define test_virt_wrong_arg_checks
+    {
+        var t = Interpreter()
+
+        # Various incorrect arg counts (should not crash with virt)
+
+        # Static usage of a virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: Argument #1 to One.f is invalid:
+            Expected Type: One
+            Received Type: Integer
+
+               |
+             8 | var v = One.f(10)
+               |               ^
+
+                from [test]:8:
+        """,
+        """\
+            class Base {
+                public virtual define f: Integer { return 0 }
+            }
+            class One < Base {
+                public virtual define f: Integer { return 1 }
+            }
+
+            var v = One.f(10)
+        """)
+
+        # Method access virt, from non-static
+
+        assert_parse_fails(t, """\
+            SyntaxError: Wrong number of arguments to Base.f (2 for 1).
+
+               |
+             3 | public define g: Integer { return f(10) }
+               |                                    ^
+
+                from [test]:3:
+        """,
+        """\
+            class Base {
+                public virtual define f: Integer { return 0 }
+                public define g: Integer { return f(10) }
+            }
+        """)
+
+        # Method access virt, from static
+
+        assert_parse_fails(t, """\
+            SyntaxError: Static methods cannot call instance methods.
+
+               |
+             3 | public static define g: Integer { return f() }
+               |                                          ^
+
+                from [test]:3:
+        """,
+        """\
+            class Base {
+                public virtual define f: Integer { return 0 }
+                public static define g: Integer { return f() }
+            }
+        """)
+    }
+
+    public define test_virt_must_match
+    {
+        var t = Interpreter()
+
+        # Establish common signatures
+
+        assert_parse_string(t, """
+            class One {
+                public virtual define f {}
+                public virtual define g: String { return "" }
+                public virtual define h(a: Integer) {}
+                public virtual define i(a: Integer...) {}
+                public virtual define j(a: *Integer=1) {}
+                public virtual define k(a: *Integer...=[]) {}
+            }
+        """)
+
+        # Wrong return type against Unit
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.f resolved with a different type.
+            Expected: Function (Two)
+            Received: Function (Two => Integer)
+
+               |
+             2 | public virtual define f: Integer { return 10 }
+               |                                  ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define f: Integer { return 10 }
+            }
+        """)
+
+        # Wrong return type against non-Unit
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.g resolved with a different type.
+            Expected: Function (Two => String)
+            Received: Function (Two => Integer)
+
+               |
+             2 | public virtual define g: Integer { return 0 }
+               |                                  ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define g: Integer { return 0 }
+            }
+        """)
+
+        # Parameter count off (few, then many)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.h resolved with a different type.
+            Expected: Function (Two, Integer)
+            Received: Function (Two)
+
+               |
+             2 | public virtual define h {}
+               |                         ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define h {}
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.h resolved with a different type.
+            Expected: Function (Two, Integer)
+            Received: Function (Two, Integer, Integer)
+
+               |
+             2 | public virtual define h(a: Integer, b: Integer) {}
+               |                                                 ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define h(a: Integer, b: Integer) {}
+            }
+        """)
+
+        # Vararg missing
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.i resolved with a different type.
+            Expected: Function (Two, Integer...)
+            Received: Function (Two, Integer)
+
+               |
+             2 | public virtual define i(a: Integer) {}
+               |                                     ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define i(a: Integer) {}
+            }
+        """)
+
+        # List[x] can't satisfy vararg[x] in type signature
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.i resolved with a different type.
+            Expected: Function (Two, Integer...)
+            Received: Function (Two, List[Integer])
+
+               |
+             2 | public virtual define i(a: List[Integer]) {}
+               |                                           ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define i(a: List[Integer]) {}
+            }
+        """)
+
+        # More optargs
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.j resolved with a different type.
+            Expected: Function (Two, *Integer)
+            Received: Function (Two, *Integer, *Integer)
+
+               |
+             2 | public virtual define j(a: *Integer=0, b: *Integer=0) {}
+               |                                                       ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define j(a: *Integer=0, b: *Integer=0) {}
+            }
+        """)
+
+        # Optarg with too few
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.j resolved with a different type.
+            Expected: Function (Two, *Integer)
+            Received: Function (Two)
+
+               |
+             2 | public virtual define j {}
+               |                         ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define j {}
+            }
+        """)
+
+        # Not var or opt where needed
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.k resolved with a different type.
+            Expected: Function (Two, *Integer...)
+            Received: Function (Two, Integer)
+
+               |
+             2 | public virtual define k(a: Integer) {}
+               |                                     ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < One {
+                public virtual define k(a: Integer) {}
+            }
+        """)
+
+        # Virtual parameter types must be exact
+        # This is a soundness issue
+        # Excess opt arguments could be allowed given a sufficient use case
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Six.f resolved with a different type.
+            Expected: Function (Six, Three => Three)
+            Received: Function (Six, Four => Three)
+
+                |
+             10 | public virtual define f(a: Four): Three {
+                |                                         ^
+
+                from [test]:10:
+        """,
+        """\
+            class Three {}
+            class Four < Three { public var @x = 1 }
+            class Five {
+                public virtual define f(a: Three): Three {
+                    f(a) # Virtual reroutes to Six.f
+                    return a
+                }
+            }
+            class Six < Five {
+                public virtual define f(a: Four): Three {
+                    print(a.x) # a is Three(), field unset, crashes.
+                    return a
+                }
+            }
+
+            Five.f(Six(), Three())
+        """)
+
+        # Same for the return type
+        # Possibly sound, but forbidden for consistency
+        # Will allow if provided a sufficent use case
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Six.f resolved with a different type.
+            Expected: Function (Six, Three => Three)
+            Received: Function (Six, Three => Four)
+
+               |
+             7 | public virtual define f(a: Three): Four { return Four() }
+               |                                         ^
+
+                from [test]:7:
+        """,
+        """\
+            class Three {}
+            class Four < Three {}
+            class Five {
+                public virtual define f(a: Three): Three { return a }
+            }
+            class Six < Five {
+                public virtual define f(a: Three): Four { return Four() }
+            }
+        """)
+    }
+
+    public define test_virt_error
+    {
+        var t = Interpreter()
+
+        # Ensure no leak if an error occurs when parsing a virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: Statement(s) after 'return' will not execute (no return type given).
+
+               |
+             5 | return 10
+               |        ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                public virtual define f {}
+
+                public virtual define g {
+                    return 10
+                }
+            }
+        """)
+    }
+}

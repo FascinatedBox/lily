@@ -135,6 +135,9 @@ typedef enum {
     /* Like above, except for setting instead of getting. */
     o_property_set,
 
+    /* Fetch a method from the vtable of a class instance. */
+    o_virt_get,
+
     /* Push a catch entry. It's expected that this will be followed by
        o_exception_catch. */
     o_catch_push,

@@ -89,6 +89,20 @@ lily_type *lily_tm_build_empty_variant_type(lily_type_maker *tm,
     return result;
 }
 
+lily_type *lily_tm_build_virt_error_type(lily_type_maker *tm, lily_type *base,
+        lily_type *given)
+{
+    uint16_t count = base->subtype_count;
+
+    lily_tm_add(tm, base->subtypes[0]);
+    lily_tm_add(tm, given->subtypes[1]);
+
+    for (uint16_t i = 2;i < count;i++)
+        lily_tm_add(tm, base->subtypes[i]);
+
+    return lily_tm_make_call(tm, base->flags & TYPE_IS_VARARGS, count);
+}
+
 lily_type *lily_tm_pop(lily_type_maker *tm)
 {
     tm->pos--;

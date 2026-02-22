@@ -59,6 +59,7 @@ keyword_entry keywords[] =
     {"import", 128034844732777},
     {"forward", 28273260612448102},
     {"private", 28556934595048048},
+    {"virtual", 30506454577473910},
     {"protected", 7310577382525465200},
     {"continue", 7310870969309884259},
     {"constant", 8389750308618530659},
@@ -88,10 +89,11 @@ keyword_entry keywords[] =
 # define KEY_IMPORT 21
 # define KEY_FORWARD 22
 # define KEY_PRIVATE 23
-# define KEY_PROTECTED 24
-# define KEY_CONTINUE 25
-# define KEY_CONSTANT 26
-# define KEY_BAD_ID 27
+# define KEY_VIRTUAL 24
+# define KEY_PROTECTED 25
+# define KEY_CONTINUE 26
+# define KEY_CONSTANT 27
+# define KEY_BAD_ID 28
 
 static void expr_arrow(lily_parse_state *, uint16_t *);
 static void expr_binary(lily_parse_state *, uint16_t *);
@@ -205,6 +207,7 @@ static void keyword_except(lily_parse_state *);
 static void keyword_import(lily_parse_state *);
 static void keyword_forward(lily_parse_state *);
 static void keyword_private(lily_parse_state *);
+static void keyword_virtual(lily_parse_state *);
 static void keyword_protected(lily_parse_state *);
 static void keyword_continue(lily_parse_state *);
 static void keyword_constant(lily_parse_state *);
@@ -235,6 +238,7 @@ static keyword_handler *handlers[] =
     keyword_import,
     keyword_forward,
     keyword_private,
+    keyword_virtual,
     keyword_protected,
     keyword_continue,
     keyword_constant,
@@ -242,7 +246,7 @@ static keyword_handler *handlers[] =
 
 static const int valid_docblock_table[] = {
     0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1,
-    0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0,
+    0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
 };
 
 #endif
