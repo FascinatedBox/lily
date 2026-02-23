@@ -490,4 +490,27 @@ class TestBadVirt < TestCase
             }
         """)
     }
+
+    public define test_bad_virt_redecl
+    {
+        var t = Interpreter()
+
+        # Can't override a virt in the same class
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             3 | public define f {}
+               |               ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                public virtual define f {}
+                public define f {}
+            }
+        """)
+    }
 }

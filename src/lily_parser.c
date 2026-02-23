@@ -5624,6 +5624,10 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     else if ((define_var->flags & VAR_IS_VIRTUAL) == 0)
         verify_resolve_define_var(parser, define_var, modifiers);
     else {
+        if (define_var->parent == parent)
+            error_member_redeclaration(parser, parent,
+                    (lily_named_sym *)define_var);
+
         uint16_t virt_spot = define_var->virt_spot;
         lily_type *virt_type = define_var->type;
 
