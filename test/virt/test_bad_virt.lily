@@ -132,6 +132,23 @@ class TestBadVirt < TestCase
                 public virtual static define f {}
             }
         """)
+
+        # Properties cannot be virtual
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'virtual' must be followed by 'define'.
+
+               |
+             2 | public virtual var @x = 10
+               |                ^
+
+                from [test]:2:
+        """,
+        """\
+            class One {
+                public virtual var @x = 10
+            }
+        """)
     }
 
     public define test_virt_wrong_arg_checks
