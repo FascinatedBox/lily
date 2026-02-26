@@ -512,5 +512,45 @@ class TestBadVirt < TestCase
                 public define f {}
             }
         """)
+
+        # Override virt with non-virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: f must be virtual to override One.f.
+
+               |
+             5 | public define f {}
+               |               ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                public virtual define f {}
+            }
+            class Two < One {
+                public define f {}
+            }
+        """)
+
+        # Override non-virt with virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'Two' already has the name 'f'.
+
+               |
+             5 | public virtual define f {}
+               |                       ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                public define f {}
+            }
+            class Two < One {
+                public virtual define f {}
+            }
+        """)
     }
 }

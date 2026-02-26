@@ -5627,6 +5627,10 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
         if (define_var->parent == parent)
             error_member_redeclaration(parser, parent,
                     (lily_named_sym *)define_var);
+        else if ((modifiers & VAR_IS_VIRTUAL) == 0)
+            lily_raise_syn(parser->raiser,
+                    "%s must be virtual to override ^I.", define_var->name,
+                    define_var);
 
         uint16_t virt_spot = define_var->virt_spot;
         lily_type *virt_type = define_var->type;
