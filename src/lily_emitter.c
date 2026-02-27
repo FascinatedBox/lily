@@ -3859,11 +3859,11 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
             break;
         case tree_oo_access:
             {
-                lily_tree_type tt = eval_oo_access_for_item(emit, first_arg);
+                uint16_t group = eval_oo_access_for_item(emit, first_arg);
 
-                if (tt == ITEM_PROPERTY)
+                if (group == ITEM_PROPERTY)
                     oo_property_read(emit, first_arg);
-                else if (tt != ITEM_VIRTUAL_METHOD) {
+                else if (group != ITEM_VIRTUAL_METHOD) {
                     lily_sym *s = first_arg->arg_start->result;
 
                     if (s->type->flags & TYPE_IS_INCOMPLETE)
