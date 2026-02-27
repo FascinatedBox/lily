@@ -3863,7 +3863,7 @@ static void init_call_state(lily_emit_state *emit, lily_ast *ast,
 
                 if (group == ITEM_PROPERTY)
                     oo_property_read(emit, first_arg);
-                else if (group != ITEM_VIRTUAL_METHOD) {
+                else if (group == ITEM_DEFINE) {
                     lily_sym *s = first_arg->arg_start->result;
 
                     if (s->type->flags & TYPE_IS_INCOMPLETE)
