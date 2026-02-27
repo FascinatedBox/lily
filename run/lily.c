@@ -17,6 +17,7 @@ static void usage()
           "  -l            local imports only (don't use system dirs)\n"
           "  -gstart N     # of values to allow before a gc sweep\n"
           "  -gmul N       (# allowed * N) when sweep can't free anything\n"
+          "  -v            print version information\n"
           "  -h            show this help\n"
           , stderr);
     exit(EXIT_FAILURE);
@@ -35,6 +36,9 @@ static void process_args(int argc, char **argv, int *argc_offset)
         char *arg = argv[i];
         if (strcmp("-h", arg) == 0)
             usage();
+        else if (strcmp("-v", arg) == 0)
+            if (fputs(LILY_MAJOR "." LILY_MINOR "\n", stdout) == 0)
+                exit(EXIT_SUCCESS);
         else if (strcmp("-gstart", arg) == 0) {
             i++;
             if (i + 1 == argc)
