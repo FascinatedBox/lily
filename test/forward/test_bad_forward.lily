@@ -680,7 +680,7 @@ class TestBadForward < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot define a class here.
+            SyntaxError: Expected 'define' here.
 
                |
              2 | public class Ex2 {
@@ -735,6 +735,41 @@ class TestBadForward < TestCase
             define g {
                 print("...")
             }
+        """)
+    }
+
+    public define test_bad_usage
+    {
+        var t = Interpreter()
+
+        # Forward and virtual are invalid at toplevel
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'class' or 'define' here.
+
+               |
+             1 | forward static define f { ... }
+               |         ^
+
+                from [test]:1:
+        """,
+        """\
+            forward static define f { ... }
+            define f {}
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'class' or 'define' here.
+
+               |
+             1 | forward virtual define f { ... }
+               |         ^
+
+                from [test]:1:
+        """,
+        """\
+            forward virtual define f { ... }
+            define f {}
         """)
     }
 }

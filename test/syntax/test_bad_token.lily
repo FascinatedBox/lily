@@ -999,7 +999,7 @@ class TestBadToken < TestCase
         # bad keyword (forward with class prop var)
 
         assert_parse_fails(t, """\
-            SyntaxError: Cannot use 'forward' with 'var'.
+            SyntaxError: Expected 'class' or 'define' here.
 
                |
              2 | forward public var @x = 10

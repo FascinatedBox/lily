@@ -3450,7 +3450,6 @@ lily_sym *lily_parser_lambda_eval(lily_parse_state *parser,
  */
 
 static void expect_manifest_header(lily_parse_state *);
-static void parse_modifier(lily_parse_state *, int);
 
 /** The rest of this focuses on handling handling keywords and blocks. Much of
     this is straightforward and kept in small functions that rely on the above
@@ -4804,6 +4803,62 @@ static void collect_and_verify_generics_for(lily_parse_state *parser,
     lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
+static void verify_define_modifier(lily_parse_state *parser, int key)
+{
+    lily_lex_state *lex = parser->lex;
+
+    lily_next_token(lex);
+
+    if (lex->token == tk_word && strcmp(lex->label, "define") == 0)
+        return;
+
+    const char *what = keywords[key].name;
+
+    lily_raise_syn(parser->raiser, "'%s' must be followed by 'define'.", what);
+}
+
+static int maybe_next_keyword(lily_lex_state *lex)
+{
+    int key;
+
+    lily_next_token(lex);
+
+    if (lex->token == tk_word)
+        key = keyword_by_name(lex->label);
+    else
+        key = 0;
+
+    return key;
+}
+
+static int read_modifiers(lily_parse_state *parser, int key)
+{
+    if (key == KEY_PUBLIC)
+        parser->modifiers |= SYM_SCOPE_PUBLIC;
+    else if (key == KEY_PROTECTED)
+        parser->modifiers |= SYM_SCOPE_PROTECTED;
+    else if (key == KEY_PRIVATE)
+        parser->modifiers |= SYM_SCOPE_PRIVATE;
+    else
+        lily_raise_syn(parser->raiser,
+                "Expected a scope here (public, protected, or private).");
+
+    key = maybe_next_keyword(parser->lex);
+
+    if (key == KEY_STATIC) {
+        parser->modifiers |= VAR_IS_STATIC;
+        verify_define_modifier(parser, key);
+        key = KEY_DEFINE;
+    }
+    else if (key == KEY_VIRTUAL) {
+        parser->modifiers |= VAR_IS_VIRTUAL;
+        verify_define_modifier(parser, key);
+        key = KEY_DEFINE;
+    }
+
+    return key;
+}
+
 static void parse_forward_class_methods(lily_parse_state *parser,
         lily_class *cls)
 {
@@ -4820,16 +4875,21 @@ static void parse_forward_class_methods(lily_parse_state *parser,
     parser->current_class = cls;
 
     do {
-        uint16_t key_id = keyword_by_name(lex->label);
-
         parser->modifiers = SYM_IS_FORWARD;
-        parse_modifier(parser, key_id);
+
+        int key_id = read_modifiers(parser, keyword_by_name(lex->label));
+
+        if (key_id != KEY_DEFINE)
+            lily_raise_syn(parser->raiser, "Expected 'define' here.");
+
+        keyword_define(parser);
         lily_gp_restore(parser->generics, generic_start);
         lily_emit_leave_scope_block(parser->emit);
         lily_next_token(lex);
         method_count++;
     } while (lex->token == tk_word);
 
+    parser->modifiers = 0;
     cls->forward_count = method_count;
     lily_emit_exit_class_scope(parser->emit);
     lily_emit_leave_block(parser->emit);
@@ -5696,88 +5756,28 @@ static void keyword_define(lily_parse_state *parser)
     }
 }
 
-static void verify_define_modifier(lily_parse_state *parser, int key)
+static void dispatch_post_modifier(lily_parse_state *parser, int key)
 {
-    lily_lex_state *lex = parser->lex;
-
-    lily_next_token(lex);
-
-    if (lex->token == tk_word && strcmp(lex->label, "define") == 0)
-        return;
-
-    const char *what = keywords[key].name;
-
-    lily_raise_syn(parser->raiser, "'%s' must be followed by 'define'.", what);
-}
-
-static void parse_modifier(lily_parse_state *parser, int key)
-{
-    lily_lex_state *lex = parser->lex;
-    uint16_t modifiers = parser->modifiers;
-    int in_class = (parser->emit->block->block_type == block_class);
-
-    if (key == KEY_PUBLIC ||
-        key == KEY_PROTECTED ||
-        key == KEY_PRIVATE) {
-        if (key == KEY_PUBLIC)
-            modifiers |= SYM_SCOPE_PUBLIC;
-        else if (key == KEY_PROTECTED)
-            modifiers |= SYM_SCOPE_PROTECTED;
-        else
-            modifiers |= SYM_SCOPE_PRIVATE;
-
-        if (in_class == 0)
-            lily_raise_syn(parser->raiser,
-                "Class method scope must be within a class block.");
-
-        lily_next_token(lex);
-
-        if (lex->token == tk_word)
-            key = keyword_by_name(lex->label);
-    }
-    else if (modifiers & SYM_IS_FORWARD && in_class) {
-        lily_raise_syn(parser->raiser,
-                "Expected a scope here (public, protected, or private).");
-    }
-
-    if (key == KEY_STATIC) {
-        modifiers |= VAR_IS_STATIC;
-        verify_define_modifier(parser, key);
-        key = KEY_DEFINE;
-    }
-    else if (key == KEY_VIRTUAL) {
-        modifiers |= VAR_IS_VIRTUAL;
-        verify_define_modifier(parser, key);
-        key = KEY_DEFINE;
-    }
-
-    parser->modifiers = modifiers;
-
-    if (key == KEY_VAR) {
-        if (modifiers & SYM_IS_FORWARD)
-            lily_raise_syn(parser->raiser, "Cannot use 'forward' with 'var'.");
-
+    if (key == KEY_VAR)
         keyword_var(parser);
-    }
     else if (key == KEY_DEFINE)
         keyword_define(parser);
     else if (key == KEY_CLASS)
         keyword_class(parser);
-    else {
-        const char *what = "'class', 'var', or 'define'";
-
-        if (modifiers & SYM_IS_FORWARD)
-            what = "'class' or 'define'";
-
-        lily_raise_syn(parser->raiser, "Expected %s here.", what);
-    }
+    else
+        lily_raise_syn(parser->raiser,
+                "Expected 'class', 'var', or 'define' here.");
 
     parser->modifiers = 0;
 }
 
 static void keyword_public(lily_parse_state *parser)
 {
-    parse_modifier(parser, KEY_PUBLIC);
+    if (parser->emit->block->block_type != block_class)
+        lily_raise_syn(parser->raiser,
+                "Class method scope must be within a class block.");
+
+    dispatch_post_modifier(parser, read_modifiers(parser, KEY_PUBLIC));
 }
 
 static void keyword_static(lily_parse_state *parser)
@@ -5793,26 +5793,31 @@ static void keyword_forward(lily_parse_state *parser)
     lily_block_type block_type = emit->block->block_type;
     int key;
 
-    if ((block_type & (SCOPE_CLASS | SCOPE_FILE)) == 0)
+    parser->modifiers = SYM_IS_FORWARD;
+
+    if (block_type & SCOPE_FILE)
+        key = maybe_next_keyword(lex);
+    else if (block_type & SCOPE_CLASS)
+        key = read_modifiers(parser, maybe_next_keyword(lex));
+    else {
+        /* Silence a warning about uninitialized use. */
+        key = KEY_FORWARD;
         lily_raise_syn(parser->raiser,
                 "'forward' must be outside of a block or in a class.");
+    }
 
-    parser->modifiers = SYM_IS_FORWARD;
-    lily_next_token(lex);
-
-    if (lex->token == tk_word)
-        key = keyword_by_name(lex->label);
+    if (key == KEY_DEFINE)
+        keyword_define(parser);
+    else if (key == KEY_CLASS)
+        keyword_class(parser);
     else
-        key = -1;
+        lily_raise_syn(parser->raiser, "Expected 'class' or 'define' here.");
 
-    /* This will either be a forward class or forward define. Forward defines
-       are complicated, so define handling leaves the block open for the caller
-       to fix. */
-    parse_modifier(parser, key);
+    parser->modifiers = 0;
 
-    lily_block *block = emit->block;
+    if (key == KEY_DEFINE) {
+        lily_block *block = emit->block;
 
-    if (block->block_type == block_define) {
         lily_gp_restore(parser->generics, block->generic_start);
         lily_emit_leave_scope_block(emit);
         block->prev->forward_count++;
@@ -5828,12 +5833,20 @@ static void keyword_virtual(lily_parse_state *parser)
 
 static void keyword_private(lily_parse_state *parser)
 {
-    parse_modifier(parser, KEY_PRIVATE);
+    if (parser->emit->block->block_type != block_class)
+        lily_raise_syn(parser->raiser,
+                "Class method scope must be within a class block.");
+
+    dispatch_post_modifier(parser, read_modifiers(parser, KEY_PRIVATE));
 }
 
 static void keyword_protected(lily_parse_state *parser)
 {
-    parse_modifier(parser, KEY_PROTECTED);
+    if (parser->emit->block->block_type != block_class)
+        lily_raise_syn(parser->raiser,
+                "Class method scope must be within a class block.");
+
+    dispatch_post_modifier(parser, read_modifiers(parser, KEY_PROTECTED));
 }
 
 static void maybe_capture_stdout(lily_parse_state *parser)
