@@ -771,5 +771,23 @@ class TestBadForward < TestCase
             forward virtual define f { ... }
             define f {}
         """)
+
+        # Forward classes with forward virtuals are blocked
+        # Will allow if given a sufficient use case
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot define a forward virtual here.
+
+               |
+             2 | public virtual define f { ... }
+               |                ^
+
+                from [test]:2:
+        """,
+        """\
+            forward class One {
+                public virtual define f { ... }
+            }
+        """)
     }
 }

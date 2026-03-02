@@ -430,6 +430,7 @@ typedef struct lily_proto_ {
 #define ITEM_VARIANT_EMPTY    (14 | ITEM_IS_VARIANT)
 #define ITEM_VARIANT_FILLED   (15 | ITEM_IS_VARIANT)
 #define ITEM_VIRTUAL_METHOD   (16 | ITEM_IS_VARLIKE)
+#define ITEM_FORWARD_VIRT     (17 | ITEM_IS_VARLIKE)
 
 
 /* These are important ids in the interpreter. */
@@ -511,6 +512,10 @@ typedef struct lily_proto_ {
 /* This is Integer, Byte, or a value enum. Results can never have a variant for
    their type, so variants are not included in this one. */
 #define CLS_IS_BASIC_NUMBER 0x400
+
+/* This class contains forward virtual methods that have not been resolved.
+   The interpreter *must not* allow instances of this class to be made. */
+#define CLS_HAS_MISSING_VIRTS 0x800
 
 
 /* lily_prop_entry does not have any flags. */

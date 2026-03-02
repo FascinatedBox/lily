@@ -600,7 +600,7 @@ void lily_es_push_method(lily_expr_state *es, lily_var *func)
     lily_tree_type tt = tree_method;
 
     /* Converts to tree_method_virt. */
-    tt += (func->item_kind == ITEM_VIRTUAL_METHOD);
+    tt += (func->item_kind != ITEM_DEFINE);
 
     AST_COMMON_INIT(a, tt);
     a->result = (lily_sym *)func;

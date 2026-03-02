@@ -10,6 +10,9 @@ typedef struct lily_virt_state_ {
     uint16_t table_size;
     uint16_t pos;
     uint16_t size;
+    uint16_t forward_count;
+    uint16_t pad1;
+    uint32_t pad2;
 } lily_virt_state;
 
 lily_virt_state *lily_new_virt_state(void);
@@ -19,6 +22,9 @@ void lily_vs_register_virt(lily_virt_state *, lily_var *, uint16_t,
         struct lily_function_val_ *);
 void lily_vs_load_parent_virts(lily_virt_state *, lily_class *);
 void lily_vs_save_virts(lily_virt_state *, lily_class *);
+struct lily_function_val_ *lily_vs_next_forward(lily_virt_state *, uint16_t,
+        uint16_t *);
+
 #define lily_vs_reset_pos(vs) { vs->pos = 0; }
 
 #endif

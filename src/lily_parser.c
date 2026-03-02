@@ -2538,12 +2538,12 @@ static int expr_word_try_use_self(lily_parse_state *parser)
             if (item->item_kind & ITEM_IS_VARLIKE) {
                 /* Pushing the item as a method tells emitter to add an implicit
                    self to the mix. */
-                if ((item->flags & VAR_IS_STATIC) == 0) {
+                if (item->flags & VAR_IS_STATIC)
+                    lily_es_push_static_func(parser->expr, (lily_var *)item);
+                else {
                     verify_self_access(parser, SELF_METHOD);
                     lily_es_push_method(parser->expr, (lily_var *)item);
                 }
-                else
-                    lily_es_push_static_func(parser->expr, (lily_var *)item);
             }
             else if (item->item_kind == ITEM_PROPERTY)
                 lily_raise_syn(parser->raiser,
@@ -2559,6 +2559,33 @@ static int expr_word_try_use_self(lily_parse_state *parser)
     }
 
     return item != NULL;
+}
+
+static void error_ctor_incomplete_class(lily_parse_state *parser,
+        lily_class *cls, uint16_t last_usage)
+{
+    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+    lily_mb_add_fmt(msgbuf,
+            "Cannot construct %s, because it has unresolved virtual(s):\n",
+            cls->name);
+
+    if (last_usage != 0)
+        lily_mb_add_fmt(msgbuf, "(constructed on line %d)\n", last_usage);
+
+    uint16_t virt_index = cls->virt_index;
+    uint16_t i = 0;
+
+    while (1) {
+        lily_function_val *f = lily_vs_next_forward(parser->vs, virt_index, &i);
+
+        if (f == NULL)
+            break;
+
+        lily_mb_add_fmt(msgbuf, "\n* %s", f->proto->name);
+    }
+
+    lily_raise_syn(parser->raiser, lily_mb_raw(msgbuf));
 }
 
 static void expr_word_ctor(lily_parse_state *parser, lily_class *cls)
@@ -2581,6 +2608,12 @@ static void expr_word_ctor(lily_parse_state *parser, lily_class *cls)
     if (target->flags & SYM_NOT_INITIALIZED)
         lily_raise_syn(parser->raiser,
                 "Constructor for class %s is not initialized.", cls->name);
+
+    if (cls == parser->current_class)
+        /* Make a note of this, in case the class ends up being incomplete. */
+        parser->last_ctor_line = parser->lex->line_num;
+    else if (cls->flags & CLS_HAS_MISSING_VIRTS)
+        error_ctor_incomplete_class(parser, cls, 0);
 
     lily_es_push_static_func(parser->expr, target);
 }
@@ -2622,6 +2655,10 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
     else if (item->item_kind == ITEM_PROPERTY)
         lily_raise_syn(parser->raiser,
                 "Cannot use a class property without a class instance.");
+    else if (item->item_kind == ITEM_FORWARD_VIRT)
+        lily_raise_syn(parser->raiser,
+                "Cannot directly call ^I, because it is a forward virtual.",
+                item);
 }
 
 static void expr_word_as_match_var(lily_parse_state *parser, lily_var *var)
@@ -3531,7 +3568,8 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         var_iter = (lily_var *)m->class_chain->members;
 
     while (var_iter) {
-        if (var_iter->flags & SYM_IS_FORWARD)
+        if (var_iter->flags & SYM_IS_FORWARD &&
+            (var_iter->flags & VAR_IS_VIRTUAL) == 0)
             lily_mb_add_fmt(msgbuf, "\n* %s at line %d", var_iter->name,
                     var_iter->line_num);
 
@@ -4660,6 +4698,7 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
     make_new_function(parser, call_var);
     lily_emit_enter_class_block(parser->emit, cls, call_var);
     parser->current_class = cls;
+    parser->last_ctor_line = 0;
     lily_vs_reset_pos(parser->vs);
     lily_tm_add(parser->tm, cls->self_type);
     collect_call_args(parser, call_var, F_COLLECT_CLASS);
@@ -4881,6 +4920,10 @@ static void parse_forward_class_methods(lily_parse_state *parser,
 
         if (key_id != KEY_DEFINE)
             lily_raise_syn(parser->raiser, "Expected 'define' here.");
+
+        if (parser->modifiers & VAR_IS_VIRTUAL)
+            lily_raise_syn(parser->raiser,
+                    "Cannot define a forward virtual here.");
 
         keyword_define(parser);
         lily_gp_restore(parser->generics, generic_start);
@@ -5644,6 +5687,9 @@ static void verify_resolve_define_var(lily_parse_state *parser,
     else if (block->block_type == block_anon)
         lily_raise_syn(parser->raiser,
                 "Cannot resolve a definition in an anonymous block.");
+    else if (modifiers & VAR_IS_VIRTUAL)
+        error_member_redeclaration(parser, parser->current_class,
+                (lily_named_sym *)define_var);
 
     /* This forward definition is no longer forward. */
     define_var->flags &= ~SYM_IS_FORWARD;
@@ -5674,11 +5720,11 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
                     lex->line_num);
             lily_function_val *f = make_new_function(parser, define_var);
 
-            if (modifiers & VAR_IS_VIRTUAL) {
+            if ((modifiers & VAR_IS_VIRTUAL) == 0)
+                ;
+            else
                 /* Max index means make a new space. */
                 lily_vs_register_virt(parser->vs, define_var, UINT16_MAX, f);
-                define_var->item_kind = ITEM_VIRTUAL_METHOD;
-            }
         }
     }
     else if ((define_var->flags & VAR_IS_VIRTUAL) == 0)
@@ -5700,7 +5746,6 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
         lily_function_val *f = make_new_function(parser, define_var);
 
         lily_vs_register_virt(parser->vs, define_var, virt_spot, f);
-        define_var->item_kind = ITEM_VIRTUAL_METHOD;
         define_var->type = virt_type;
     }
 
@@ -5820,7 +5865,10 @@ static void keyword_forward(lily_parse_state *parser)
 
         lily_gp_restore(parser->generics, block->generic_start);
         lily_emit_leave_scope_block(emit);
-        block->prev->forward_count++;
+
+        if ((block->scope_var->flags & VAR_IS_VIRTUAL) == 0)
+            block->prev->forward_count++;
+
         lily_next_token(lex);
     }
 }
@@ -5937,8 +5985,14 @@ static void parse_block_exit(lily_parse_state *parser)
             if (block->forward_count)
                 error_forward_decl_pending(parser);
 
-            if (parser->vs->pos)
+            if (parser->vs->pos) {
                 lily_vs_save_virts(parser->vs, parser->current_class);
+                if (parser->last_ctor_line &&
+                    parser->current_class->flags & CLS_HAS_MISSING_VIRTS) {
+                    error_ctor_incomplete_class(parser,
+                            parser->current_class, parser->last_ctor_line);
+                }
+            }
 
             determine_class_gc_flag(parser->current_class);
             parser->current_class = NULL;

@@ -513,6 +513,22 @@ class TestBadVirt < TestCase
             }
         """)
 
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             3 | public define f {}
+               |               ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+                public define f {}
+            }
+        """)
+
         # Override virt with non-virt
 
         assert_parse_fails(t, """\
@@ -550,6 +566,276 @@ class TestBadVirt < TestCase
             }
             class Two < One {
                 public virtual define f {}
+            }
+        """)
+
+        # Forward non-virt resolved by virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             3 | public virtual define f {}
+               |                       ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                forward public define f { ... }
+                public virtual define f {}
+            }
+        """)
+
+        # Forward non-virt and forward virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: A forward declaration for f already exists.
+
+               |
+             3 | forward public virtual define f { ... }
+               |                               ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                forward public define f { ... }
+                forward public virtual define f { ... }
+            }
+        """)
+
+        # Forward virt and non-forward virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             3 | forward public define f { ... }
+               |                       ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+                forward public define f { ... }
+            }
+        """)
+
+        # Forward virt and property
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             3 | public var @f = 10
+               |            ^
+
+                from [test]:3:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+                public var @f = 10
+            }
+        """)
+
+        # Forward virt overridden with non-virt
+
+        assert_parse_fails(t, """\
+            SyntaxError: f must be virtual to override One.f.
+
+               |
+             5 | public define f {}
+               |               ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public define f {}
+            }
+        """)
+    }
+
+    public define test_bad_virt_misc
+    {
+        var t = Interpreter()
+
+        # The forward virt doesn't need to be resolved here
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class One has unresolved forward(s):
+            * h at line 4
+            * f at line 2
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public define f { ... }
+                forward public virtual define g { ... }
+                forward public define h { ... }
+            }
+        """)
+
+        # Forward virts are placeholders and cannot be directly called
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot directly call One.f, because it is a forward virtual.
+
+                |
+             10 | One.f(v)
+                |     ^
+
+                from [test]:10:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public virtual define f {}
+            }
+
+            var v = Two()
+
+            One.f(v)
+        """)
+    }
+
+    public define test_bad_forward_virt_resolution
+    {
+        var t = Interpreter()
+
+        # Parameters must match
+        # Virtual checking above goes in depth, these two ensure sanity
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.f resolved with a different type.
+            Expected: Function (Two)
+            Received: Function (Two, Integer)
+
+               |
+             5 | public virtual define f(a: Integer) {}
+               |                                     ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public virtual define f(a: Integer) {}
+            }
+        """)
+
+        # Return type must match too
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method Two.f resolved with a different type.
+            Expected: Function (Two)
+            Received: Function (Two => Integer)
+
+               |
+             5 | public virtual define f: Integer { return 10 }
+               |                                  ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public virtual define f: Integer { return 10 }
+            }
+        """)
+    }
+
+    public define test_bad_forward_virt_ctor
+    {
+        var t = Interpreter()
+
+        # The interpreter *must* block construction of incomplete classes
+        # This is difficult when inside a class that becomes incomplete later
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot construct One, because it has unresolved virtual(s):
+
+            * One.f
+
+               |
+             5 | One()
+               |    ^
+
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+
+            One()
+        """)
+
+        # Usage inside of a class
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot construct One, because it has unresolved virtual(s):
+            (constructed on line 4)
+
+            * One.f
+                from [test]:5:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+
+                public static define g: One { return One() }
+            }
+        """)
+
+        # Inheriting unresolved
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot construct Two, because it has unresolved virtual(s):
+            (constructed on line 5)
+
+            * One.f
+                from [test]:6:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public static define g: Two { return Two() }
+            }
+        """)
+    }
+
+    public define test_bad_virt_redefinition
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot construct Two, because it has unresolved virtual(s):
+            (constructed on line 5)
+
+            * One.f
+                from [test]:6:
+        """,
+        """\
+            class One {
+                forward public virtual define f { ... }
+            }
+            class Two < One {
+                public static define g: Two { return Two() }
             }
         """)
     }

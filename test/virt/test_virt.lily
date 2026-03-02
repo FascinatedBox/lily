@@ -157,4 +157,71 @@ class TestVirt < TestCase
             }
         """)
     }
+
+    public define test_forward_virt_dispatch
+    {
+        var t = Interpreter()
+
+        # Forward virt dispatch must be done by member access
+        # This also tests constructing a resolved class
+
+        assert_parse_string(t, """
+            class One {
+                forward public virtual define f: Integer { ... }
+            }
+            class Two < One {
+                public virtual define f: Integer { return 20 }
+            }
+            class Three < One {
+                public virtual define f: Integer { return 30 }
+            }
+
+            {
+                var v: List[One] = [Two(), Three()]
+                var w = v.map(|m| m.f() )
+
+                if w != [20, 30]: {
+                    0/0
+                }
+            }
+        """)
+
+        # Direct call of inherited member
+
+        assert_parse_string(t, """
+            {
+                var v = Two()
+
+                if Two.f(v) != 20: {
+                    0/0
+                }
+            }
+        """)
+
+
+        # Siblings should be able to use forward virts, because incomplete
+        # classes are a syntax error
+
+        assert_parse_string(t, """
+            class Four {
+                forward public virtual define f(Integer): Integer { ... }
+                public define g(a: Integer): Integer { return f(a) }
+            }
+            class Five < Four {
+                public virtual define f(a: Integer): Integer { return a * 3 }
+            }
+            class Six < Four {
+                public virtual define f(a: Integer): Integer { return a + 1 }
+            }
+
+            {
+                var v: List[Four] = [Five(), Six()]
+                var w = v.map(|m| m.g(10) )
+
+                if w != [30, 11]: {
+                    0/0
+                }
+            }
+        """)
+    }
 }

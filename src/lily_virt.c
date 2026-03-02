@@ -17,6 +17,7 @@ lily_virt_state *lily_new_virt_state(void)
     result->table_size = 4;
     result->pos = 0;
     result->size = 4;
+    result->forward_count = 0;
     return result;
 }
 
@@ -42,18 +43,31 @@ static void grow_virts(lily_virt_state *vs)
     vs->virts = lily_realloc(vs->virts, vs->size * sizeof(*vs->virts));
 }
 
+static uint16_t load_forwards(lily_virt_state *vs, uint16_t virt_index)
+{
+    lily_function_val **virts = vs->table[virt_index];
+    uint16_t count = 0, i = 0;
+
+    for (i = 0;virts[i];i++) {
+        if (virts[i]->code == NULL)
+            count++;
+    }
+
+    vs->forward_count = count;
+    return i;
+}
+
 void lily_vs_load_parent_virts(lily_virt_state *vs, lily_class *cls)
 {
     lily_class *parent = cls->parent;
+
+    vs->forward_count = 0;
 
     if (parent == NULL || parent->virt_index == 0)
         vs->pos = 0;
     else {
         uint16_t virt_index = parent->virt_index;
-        lily_function_val **virts = vs->table[virt_index];
-        uint16_t count;
-
-        for (count = 0;virts[count];count++) {}
+        uint16_t count = load_forwards(vs, virt_index);
 
         memcpy(vs->virts, vs->table[virt_index], count * sizeof(*vs->virts));
         vs->pos = count;
@@ -79,6 +93,14 @@ void lily_vs_save_virts(lily_virt_state *vs, lily_class *cls)
     memcpy(virts, vs->virts, vs->pos * sizeof(*virts));
     cls->virt_index = vs->table_pos;
     vs->table[vs->table_pos] = virts;
+
+    if (vs->forward_count) {
+        load_forwards(vs, vs->table_pos);
+
+        if (vs->forward_count)
+            cls->flags |= CLS_HAS_MISSING_VIRTS;
+    }
+
     vs->table_pos++;
 }
 
@@ -97,4 +119,27 @@ void lily_vs_register_virt(lily_virt_state *vs, lily_var *var, uint16_t spot,
         vs->virts[spot] = f;
         var->virt_spot = spot;
     }
+
+    if (var->flags & SYM_IS_FORWARD) {
+        vs->forward_count++;
+        var->item_kind = ITEM_FORWARD_VIRT;
+    }
+    else
+        var->item_kind = ITEM_VIRTUAL_METHOD;
+}
+
+struct lily_function_val_ *lily_vs_next_forward(lily_virt_state *vs,
+        uint16_t virt_index, uint16_t *index)
+{
+    lily_function_val **virts = vs->table[virt_index];
+    uint16_t i = *index;
+    lily_function_val *f;
+
+    do {
+        f = virts[i];
+        i++;
+    } while (f && f->code != NULL);
+
+    *index = i;
+    return f;
 }

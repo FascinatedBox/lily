@@ -76,7 +76,10 @@ typedef struct lily_parse_state_ {
     uint16_t flags;
 
     uint16_t modifiers;
-    uint16_t pad;
+
+    /* When parsing a class, the last line where the constructor was used, or 0.
+       This is used to prevent creating instances of incomplete classes. */
+    uint16_t last_ctor_line;
 
     /* The current expression state. */
     lily_expr_state *expr;

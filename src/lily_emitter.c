@@ -3963,6 +3963,7 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
             call_type = first_arg->result->type;
             break;
         case ITEM_VIRTUAL_METHOD:
+        case ITEM_FORWARD_VIRT:
             /* The call will use the unpacked virt. Similar to above. */
             ast->sym = first_arg->sym;
             call_source_reg = first_arg->result->reg_spot;
