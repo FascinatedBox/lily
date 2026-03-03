@@ -278,7 +278,7 @@ static int allow_functions(lily_var *var)
 
 static int allow_methods(lily_named_sym *sym)
 {
-    return sym->item_kind == ITEM_DEFINE;
+    return sym->item_kind & ITEM_IS_VARLIKE;
 }
 
 static int allow_properties(lily_named_sym *sym)
