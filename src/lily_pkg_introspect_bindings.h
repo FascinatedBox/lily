@@ -159,15 +159,17 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0result_type\0(FunctionEntry): TypeEntry"
     ,"m\0type\0(FunctionEntry): TypeEntry"
-    ,"C\14MethodEntry\0"
+    ,"C\16MethodEntry\0"
     ,"m\0doc\0(MethodEntry): String"
     ,"m\0function_name\0(MethodEntry): String"
     ,"m\0generics\0(MethodEntry): List[TypeEntry]"
+    ,"m\0is_forward_virtual\0(MethodEntry): Boolean"
     ,"m\0is_private\0(MethodEntry): Boolean"
     ,"m\0is_protected\0(MethodEntry): Boolean"
     ,"m\0is_public\0(MethodEntry): Boolean"
     ,"m\0is_static\0(MethodEntry): Boolean"
     ,"m\0is_varargs\0(MethodEntry): Boolean"
+    ,"m\0is_virtual\0(MethodEntry): Boolean"
     ,"m\0line_number\0(MethodEntry): Integer"
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
@@ -269,11 +271,13 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_doc, \
     lily_introspect_MethodEntry_function_name, \
     lily_introspect_MethodEntry_generics, \
+    lily_introspect_MethodEntry_is_forward_virtual, \
     lily_introspect_MethodEntry_is_private, \
     lily_introspect_MethodEntry_is_protected, \
     lily_introspect_MethodEntry_is_public, \
     lily_introspect_MethodEntry_is_static, \
     lily_introspect_MethodEntry_is_varargs, \
+    lily_introspect_MethodEntry_is_virtual, \
     lily_introspect_MethodEntry_line_number, \
     lily_introspect_MethodEntry_parameters, \
     lily_introspect_MethodEntry_result_type, \

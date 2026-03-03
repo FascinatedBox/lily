@@ -147,6 +147,9 @@ foreign static class MethodEntry
     ### return `[]`.
     public define generics: List[TypeEntry]
 
+    ### Returns `true` if the method is forward virtual, `false` otherwise.
+    public define is_forward_virtual: Boolean
+
     ### Return `true` if the method is private, `false` otherwise.
     public define is_private: Boolean
 
@@ -161,6 +164,10 @@ foreign static class MethodEntry
 
     ### Returns `true` if the method takes varargs, `false` otherwise.
     public define is_varargs: Boolean
+
+    ### Returns `true` if the method is virtual or forward virtual, `false`
+    ### otherwise.
+    public define is_virtual: Boolean
 
     ### Return the line number that this method was declared on.
     public define line_number: Integer

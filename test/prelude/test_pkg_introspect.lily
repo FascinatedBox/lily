@@ -1395,6 +1395,7 @@ class TestPkgIntrospect < TestCase
             {
                 forward public virtual define f { ... }
                 protected virtual define g(a: String) {}
+                private define h {}
             }
         """
         var t = Interpreter.with_targets(
@@ -1433,7 +1434,9 @@ class TestPkgIntrospect < TestCase
                 :public    pub:       Boolean,
                 :result    result:    String,
                 :type      type:      String,
-                :is_va     is_va:     Boolean
+                :is_va     is_va:     Boolean,
+                :_         is_forward: Boolean,
+                :_         is_virt:   Boolean
             )
             {
                 var input = <[
@@ -1448,7 +1451,9 @@ class TestPkgIntrospect < TestCase
                     m.is_public(),
                     m.result_type().as_string(),
                     m.type().as_string(),
-                    m.is_varargs()
+                    m.is_varargs(),
+                    m.is_forward_virtual(),
+                    m.is_virtual()
                 ]>
                 var expect = <[
                     doc,
@@ -1462,7 +1467,9 @@ class TestPkgIntrospect < TestCase
                     pub,
                     result,
                     type,
-                    is_va
+                    is_va,
+                    is_forward,
+                    is_virt
                 ]>
 
                 if input != expect: {
@@ -1488,7 +1495,9 @@ class TestPkgIntrospect < TestCase
                     :public    true,
                     :result    "Base",
                     :type      "Function ( => Base)",
-                    :is_va     false
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    false
                 )
 
                 check_method(
@@ -1504,7 +1513,9 @@ class TestPkgIntrospect < TestCase
                     :public    true,
                     :result    "Unit",
                     :type      "Function (Base)",
-                    :is_va     false
+                    :is_va     false,
+                    :is_forward true,
+                    :is_virt    true
                 )
 
                 check_method(
@@ -1520,7 +1531,27 @@ class TestPkgIntrospect < TestCase
                     :public    false,
                     :result    "Unit",
                     :type      "Function (Base, String)",
-                    :is_va     false
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    true
+                )
+
+                check_method(
+                    methods[-4],
+                    :doc       "",
+                    :generics  "",
+                    :is_static false,
+                    :line      5,
+                    :name      "h",
+                    :params    "(,Base,)",
+                    :private   true,
+                    :protected false,
+                    :public    false,
+                    :result    "Unit",
+                    :type      "Function (Base)",
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    false
                 )
             }
         """)

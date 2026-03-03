@@ -721,6 +721,12 @@ void lily_introspect_MethodEntry_generics(lily_state *s)
     lily_introspect_FunctionEntry_generics(s);
 }
 
+void lily_introspect_MethodEntry_is_forward_virtual(lily_state *s)
+{
+    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
+    lily_return_boolean(s, entry->item_kind == ITEM_FORWARD_VIRT);
+}
+
 void lily_introspect_MethodEntry_line_number(lily_state *s)
 {
     lily_introspect_VarEntry_line_number(s);
@@ -756,6 +762,12 @@ void lily_introspect_MethodEntry_is_static(lily_state *s)
 void lily_introspect_MethodEntry_is_varargs(lily_state *s)
 {
     lily_introspect_FunctionEntry_is_varargs(s);
+}
+
+void lily_introspect_MethodEntry_is_virtual(lily_state *s)
+{
+    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
+    lily_return_boolean(s, !!(entry->flags & VAR_IS_VIRTUAL));
 }
 
 void lily_introspect_MethodEntry_parameters(lily_state *s)
