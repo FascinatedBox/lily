@@ -116,6 +116,29 @@ class TestEnum < TestCase
                     raise Exception("Failed.")
             }
         """)
+
+        # variant name may share enum name
+
+        assert_parse_string(t, """\
+            scoped enum check2 {
+                check2,
+                other
+            }
+
+            var w = check2.other
+
+            match w: {
+                case check2: 0
+                case other: 0
+            }
+
+            var x = match w: {
+                case check2: 0
+                case other: 1
+            }
+
+            var y = x / x
+        """)
     }
 
     public define test_shorthand

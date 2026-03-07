@@ -5322,7 +5322,9 @@ static lily_class *parse_target_to_match(lily_parse_state *parser,
         }
     }
     else {
-        if (match_cls->item_kind == ITEM_ENUM_SCOPED) {
+        cls = (lily_class *)lily_find_variant(match_cls, lex->label);
+
+        if (cls == NULL && match_cls->item_kind == ITEM_ENUM_SCOPED) {
             /* Lily v2.1 and prior required scoped enums to have their matches
                written as `EnumName.VariantName`. This is done to prevent
                breaking older code unnecessarily. However, it will eventually be
@@ -5331,9 +5333,9 @@ static lily_class *parse_target_to_match(lily_parse_state *parser,
                 NEED_NEXT_TOK(tk_dot)
                 NEED_NEXT_TOK(tk_word)
             }
-        }
 
-        cls = (lily_class *)lily_find_variant(match_cls, lex->label);
+            cls = (lily_class *)lily_find_variant(match_cls, lex->label);
+        }
 
         if (cls == NULL)
             lily_raise_syn(parser->raiser, "%s is not a member of enum %s.",
