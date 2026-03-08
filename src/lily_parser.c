@@ -6130,20 +6130,6 @@ static void manifest_define(lily_parse_state *parser)
     lily_emit_leave_scope_block(emit);
 }
 
-static void manifest_forward(lily_parse_state *parser)
-{
-    lily_block_type block_type = parser->emit->block->block_type;
-
-    if (block_type != block_file)
-        lily_raise_syn(parser->raiser, "'forward' must be at toplevel.");
-
-    lily_next_token(parser->lex);
-    expect_word(parser, "class");
-    parser->modifiers |= SYM_IS_FORWARD;
-    keyword_class(parser);
-    parser->modifiers = 0;
-}
-
 static void manifest_foreign(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
@@ -6253,38 +6239,52 @@ static void manifest_var(lily_parse_state *parser)
 
 static void manifest_modifier(lily_parse_state *parser, int key)
 {
-    lily_lex_state *lex = parser->lex;
-    uint16_t modifiers = 0;
-
-    if (key == KEY_PUBLIC)
-        modifiers |= SYM_SCOPE_PUBLIC;
-    else if (key == KEY_PROTECTED)
-        modifiers |= SYM_SCOPE_PROTECTED;
-    else if (key == KEY_PRIVATE)
-        modifiers |= SYM_SCOPE_PRIVATE;
-
-    NEED_NEXT_IDENT("Expected either 'static' or 'define' here.")
-    key = keyword_by_name(lex->label);
-
-    if (key == KEY_STATIC) {
-        modifiers |= VAR_IS_STATIC;
-        verify_define_modifier(parser, key);
-        key = KEY_DEFINE;
-    }
-
-    parser->modifiers = modifiers;
+    key = read_modifiers(parser, key);
 
     if (key == KEY_DEFINE) {
-        if (modifiers & (SYM_SCOPE_PROTECTED | SYM_SCOPE_PRIVATE))
+        if (parser->modifiers & (SYM_SCOPE_PROTECTED | SYM_SCOPE_PRIVATE))
             lily_raise_syn(parser->raiser,
                     "Class methods defined in manifest mode must be public.");
 
         manifest_define(parser);
     }
-    else if (key == KEY_VAR)
+    else if (key == KEY_VAR) {
+        if (parser->modifiers & SYM_IS_FORWARD)
+            lily_raise_syn(parser->raiser, "Expected 'define' here.");
+
         manifest_var(parser);
+    }
     else
         lily_raise_syn(parser->raiser, "Expected 'define' or 'var' here.");
+
+    parser->modifiers = 0;
+}
+
+static void manifest_forward(lily_parse_state *parser)
+{
+    lily_block_type block_type = parser->emit->block->block_type;
+
+    parser->modifiers = SYM_IS_FORWARD;
+
+    if (block_type == block_file) {
+        lily_next_token(parser->lex);
+        expect_word(parser, "class");
+        keyword_class(parser);
+    }
+    else if (block_type == block_class) {
+        lily_lex_state *lex = parser->lex;
+
+        manifest_modifier(parser, maybe_next_keyword(lex));
+
+        /* Definition handling will bail before capturing the `{ ... }` of the
+           forward. Do it manually here. */
+        NEED_CURRENT_TOK(tk_left_curly)
+        NEED_NEXT_TOK(tk_three_dots)
+        NEED_NEXT_TOK(tk_right_curly)
+        lily_next_token(lex);
+    }
+    else
+        lily_raise_syn(parser->raiser, "'forward' not allowed here.");
 
     parser->modifiers = 0;
 }

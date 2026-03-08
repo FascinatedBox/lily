@@ -1594,4 +1594,177 @@ class TestManifest < TestCase
             }
         """)
     }
+
+    public define test_virt
+    {
+        var virt_data = """\
+            import manifest
+
+            class Base
+            {
+                forward public virtual define f { ... }
+                public virtual define g(a: String)
+                public define h
+            }
+        """
+        var t = Interpreter.with_targets(
+            StringTarget(
+                :path "_virt",
+                :data virt_data
+            )
+        )
+
+        assert_manifest_string(t, """\
+            import manifest
+            import _virt
+        """)
+
+        assert_parse_string(t, """
+            import introspect
+
+            define stringify_parameters(p: List[introspect.ParameterEntry])
+                : String
+            {
+                return p.map(|m| "({0},{1},{2})".format(
+                    m.name,
+                    m.type.as_string(),
+                    m.keyword
+                )).join()
+            }
+
+            define check_method(
+                           m:         introspect.MethodEntry,
+                :doc       doc:       String,
+                :name      name:      String,
+                :generics  generics:  String,
+                :is_static is_static: Boolean,
+                :line      line:      Integer,
+                :params    params:    String,
+                :private   pri:       Boolean,
+                :protected pro:       Boolean,
+                :public    pub:       Boolean,
+                :result    result:    String,
+                :type      type:      String,
+                :is_va     is_va:     Boolean,
+                :_         is_forward: Boolean,
+                :_         is_virt:   Boolean
+            )
+            {
+                var input = <[
+                    m.doc(),
+                    m.function_name(),
+                    m.generics().map(|m_| m_.as_string() ).join(", "),
+                    m.is_static(),
+                    m.line_number(),
+                    stringify_parameters(m.parameters()),
+                    m.is_private(),
+                    m.is_protected(),
+                    m.is_public(),
+                    m.result_type().as_string(),
+                    m.type().as_string(),
+                    m.is_varargs(),
+                    m.is_forward_virtual(),
+                    m.is_virtual()
+                ]>
+                var expect = <[
+                    doc,
+                    name,
+                    generics,
+                    is_static,
+                    line,
+                    params,
+                    pri,
+                    pro,
+                    pub,
+                    result,
+                    type,
+                    is_va,
+                    is_forward,
+                    is_virt
+                ]>
+
+                if input != expect: {
+                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
+                            .format(expect, input))
+                }
+            }
+
+            var m = introspect.main_module().modules_used()[-1]
+            var methods = m.classes()[0].methods()
+
+            {
+                check_method(
+                    methods[-1],
+                    :doc       "",
+                    :generics  "",
+                    :is_static false,
+                    :line      4,
+                    :name      "<new>",
+                    :params    "",
+                    :private   false,
+                    :protected false,
+                    :public    true,
+                    :result    "Base",
+                    :type      "Function ( => Base)",
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    false
+                )
+
+                check_method(
+                    methods[-2],
+                    :doc       "",
+                    :generics  "",
+                    :is_static false,
+                    :line      5,
+                    :name      "f",
+                    :params    "(,Base,)",
+                    :private   false,
+                    :protected false,
+                    :public    true,
+                    :result    "Unit",
+                    :type      "Function (Base)",
+                    :is_va     false,
+                    :is_forward true,
+                    :is_virt    true
+                )
+
+                check_method(
+                    methods[-3],
+                    :doc       "",
+                    :generics  "",
+                    :is_static false,
+                    :line      6,
+                    :name      "g",
+                    :params    "(,Base,)(a,String,)",
+                    :private   false,
+                    :protected false,
+                    :public    true,
+                    :result    "Unit",
+                    :type      "Function (Base, String)",
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    true
+                )
+
+                check_method(
+                    methods[-4],
+                    :doc       "",
+                    :generics  "",
+                    :is_static false,
+                    :line      7,
+                    :name      "h",
+                    :params    "(,Base,)",
+                    :private   false,
+                    :protected false,
+                    :public    true,
+                    :result    "Unit",
+                    :type      "Function (Base)",
+                    :is_va     false,
+                    :is_forward false,
+                    :is_virt    false
+                )
+            }
+        """)
+    }
 }
