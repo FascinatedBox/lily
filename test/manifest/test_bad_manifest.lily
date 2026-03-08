@@ -247,6 +247,23 @@ class TestBadManifest < TestCase
         """\
             ???
         """)
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected 'define' or 'var' here.
+
+               |
+             4 | public public define f
+               |        ^
+
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            class One {
+                public public define f
+            }
+        """)
     }
 
     public define test_import

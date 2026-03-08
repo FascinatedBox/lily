@@ -1325,6 +1325,21 @@ class TestBadClass < TestCase
         """\
             static class Test {}
         """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected 'class', 'var', or 'define' here.
+
+               |
+             2 | public public define f {}
+               |        ^
+
+                from [test]:2:
+        """,
+        """\
+            class One {
+                public public define f {}
+            }
+        """)
     }
 
     public define test_self
