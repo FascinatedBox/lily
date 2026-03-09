@@ -11,7 +11,7 @@ foreign static class ForeignGeneric[A, B] {}
 
 class Container(value: String)
 {
-    private var @value: String
+    public var @value: String
     public define fetch: String
     public define update(x: String)
     public define nothing: self
@@ -20,7 +20,7 @@ class Container(value: String)
 class C2(value: String, x: Integer) < Container(value)
 {
     public define check: Integer
-    private var @x: Integer
+    public var @x: Integer
 }
 
 enum FlatEnum {

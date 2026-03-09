@@ -118,6 +118,11 @@ class TestVerifyCoverage < TestCase
             if covlib.C2("asdf", 45).nothing().check() != 45: {
                 0 / 0
             }
+
+            var check_props = covlib.C2("asdf", 45)
+
+            if check_props.value != "asdf" ||
+               check_props.x != 45: {0/0}
         """)
     }
 

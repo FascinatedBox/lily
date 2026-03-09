@@ -9,11 +9,11 @@
 #endif
 
 #define GET_C2__x(c_) \
-lily_con_get(c_, 0)
+lily_con_get(c_, 1)
 #define SET_C2__x(c_, v_) \
-lily_con_set(c_, 0, v_)
+lily_con_set(c_, 1, v_)
 #define SETFS_C2__x(state, c_) \
-lily_con_set_from_stack(state, c_, 0)
+lily_con_set_from_stack(state, c_, 1)
 #define ID_C2(s_) \
 lily_cid_at(s_, 0)
 #define SUPER_C2(s_) \
@@ -116,13 +116,13 @@ const char *lily_covlib_info_table[] = {
     ,"N\3C2\0< Container"
     ,"m\0<new>\0(String,Integer): C2"
     ,"m\0check\0(C2): Integer"
-    ,"1\0x\0Integer"
+    ,"3\0x\0Integer"
     ,"N\5Container\0"
     ,"m\0<new>\0(String): Container"
     ,"m\0fetch\0(Container): String"
     ,"m\0nothing\0(Container): self"
     ,"m\0update\0(Container,String)"
-    ,"1\0value\0String"
+    ,"3\0value\0String"
     ,"N\2CoolExample\0"
     ,"m\0<new>\0: CoolExample"
     ,"m\0cool_to_i\0(CoolExample,cool.Color): Integer"
