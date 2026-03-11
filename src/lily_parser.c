@@ -2219,14 +2219,12 @@ static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
     else
         var = new_define_var(parser, name, 0);
 
-    make_new_function(parser, var);
+    lily_function_val *f = make_new_function(parser, var);
+
     var->flags |= VAR_IS_FOREIGN_FUNC;
     collect_generics_for(parser, NULL);
     lily_tm_add(parser->tm, lily_unit_type);
     collect_call_args(parser, var, F_COLLECT_DYNALOAD);
-
-    lily_value *v = lily_literal_at(parser->symtab, var->reg_spot);
-    lily_function_val *f = v->value.function;
 
     f->foreign_func = m->call_table[ds->index];
     f->reg_count = var->type->subtype_count;
