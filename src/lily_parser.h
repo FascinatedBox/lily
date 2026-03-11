@@ -59,7 +59,7 @@ typedef struct lily_parse_state_ {
 
     lily_module_entry *main_module;
 
-    /* This stores positions in data_strings for fetching out later. */
+    /* Temporary value storage, typically for use with data_strings. */
     lily_buffer_u16 *data_stack;
 
     /* The next insertion position into data_strings. */
