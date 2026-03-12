@@ -61,6 +61,7 @@ lily_container_val *lily_new_container_raw(uint16_t class_id,
     cv->refcount = 1;
     cv->num_values = num_values;
     cv->extra_space = 0;
+    cv->instance_ctor_need = 0;
     cv->class_id = class_id;
     cv->gc_entry = NULL;
 
@@ -85,6 +86,7 @@ lily_vt_container_val *lily_new_vt_container_raw(uint16_t class_id,
     vcv->refcount = 1;
     vcv->num_values = num_values;
     vcv->extra_space = 0;
+    vcv->instance_ctor_need = 0;
     vcv->class_id = class_id;
     vcv->gc_entry = NULL;
     vcv->virts = virts;

@@ -966,4 +966,22 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             fn()
         """)
     }
+
+    public define test_push_super_invalid_read
+    {
+        # This was originally showing an invalid read in valgrind.
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            import introspect
+
+            define func(a: Integer) {
+                var f = introspect.main_module().functions()[0]
+                var p = f.parameters()[0]
+                p = introspect.ParameterEntry(p.name, p.keyword, p.type)
+            }
+
+            func(1)
+        """)
+    }
 }
