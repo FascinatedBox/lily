@@ -524,7 +524,7 @@ static void set_definition_doc(lily_parse_state *parser)
 {
     lily_var *define_var = parser->emit->scope_block->scope_var;
     lily_var *var_iter = parser->symtab->active_module->var_chain;
-    uint16_t count = parser->emit->scope_block->var_count;
+    uint16_t count = define_var->type->subtype_count - 1;
     uint16_t offset = 0;
     int is_ctor = 0;
     uint16_t i;
@@ -543,7 +543,6 @@ static void set_definition_doc(lily_parse_state *parser)
                held in a storage instead of a var, but is in the type. An extra
                space is added later so that parameters and types line up. */
             offset = 1;
-            count++;
         }
         else
             is_ctor = 1;
