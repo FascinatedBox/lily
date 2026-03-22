@@ -924,20 +924,17 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
     if (FLAGS_TO_BASE(v) == V_INSTANCE_BASE) {
         lily_container_val *pending_instance = v->value.container;
         if (pending_instance->instance_ctor_need != 0) {
+            /* The caller is a constructor that is finishing the init of this
+               value. Mark this value as being done and send it. */
             pending_instance->instance_ctor_need = 0;
             lily_push_value(s, v);
             return pending_instance;
         }
     }
 
-    /* Create a new instance of the foreign-based native class. This native
-       class is considered completely constructed. In the case of foreign-based
-       native classes with inheritance (Exception and friends), the caller must
-       run the relevant inits.
-       This is not an issue with true native classes that inherit foreign-based
-       native classes, because they'll be trapped by the above. */
+    /* Send back a new instance. In the case of foreign-based native classes
+       (Exception and friends), the caller must run the relevant inits. */
     lily_container_val *cv = lily_push_instance(s, id, initial);
-    cv->instance_ctor_need = 0;
     return cv;
 }
 
