@@ -2161,6 +2161,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
 
         cls->parent = parent;
         cls->prop_count = parent->prop_count;
+        cls->inherit_depth = parent->inherit_depth + 1;
     }
 
     if (ds->m == parser->module_start)

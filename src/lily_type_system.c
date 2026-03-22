@@ -164,7 +164,7 @@ static void unify_call(lily_type_system *ts, lily_type *left,
 static void unify_simple(lily_type_system *ts, lily_type *left,
         lily_type *right, uint16_t num_subtypes)
 {
-    lily_class *cls = left->cls_id < right->cls_id ? left->cls : right->cls;
+    lily_class *cls = left->cls->inherit_depth < right->cls->inherit_depth ? left->cls : right->cls;
 
     if (num_subtypes)
         lily_tm_add(ts->tm, lily_tm_make(ts->tm, cls, num_subtypes));

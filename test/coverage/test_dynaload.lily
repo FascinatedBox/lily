@@ -107,4 +107,27 @@ class TestDynaload < TestCase
             var v = covlib.farm.Farmer()
         """)
     }
+
+    public define test_dynaload_class_unify
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot assign type 'Integer' to type 'List[Container]'.
+
+               |
+             4 | v = 1
+               |   ^
+
+                from [test]:4:
+        """,
+        """\
+            import covlib
+            covlib.C2
+            var v = [covlib.C2("2", 1), covlib.Container("a")]
+            v = 1
+        """)
+    }
 }
