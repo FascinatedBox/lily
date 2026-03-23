@@ -1,4 +1,5 @@
 import (Interpreter,
+        LibraryTarget,
         TestCase) "../t/testing"
 
 class TestBadVirt < TestCase
@@ -836,6 +837,75 @@ class TestBadVirt < TestCase
             }
             class Two < One {
                 public static define g: Two { return Two() }
+            }
+        """)
+    }
+
+    public define test_dynaload_virt
+    {
+        # Some of these are duplicates of above checks
+        # Dynaloaded methods must follow the same rules as native methods
+
+        var t = Interpreter.with_targets(
+            LibraryTarget(
+                :path "covlib",
+                :redirect "test/t/backbone"
+            )
+        )
+
+        assert_parse_string(t, """
+            import (virt) covlib
+        """)
+
+        # VOne and VThree are complete, but VTwo isn't
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot construct VTwo, because it has unresolved virtual(s):
+
+            * VOne.add_to_var
+            * VTwo.get_name
+
+               |
+             1 | var v = virt.VTwo()
+               |                  ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = virt.VTwo()
+        """)
+
+        # Forward virts need to be blocked (any and all usages)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot directly call VTwo.get_name, because it is a forward virtual.
+
+               |
+             1 | var v = virt.VTwo.get_name
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = virt.VTwo.get_name
+        """)
+
+        # Overriding the wrong type
+
+        assert_parse_fails(t, """\
+            SyntaxError: Virtual method V2.get_name resolved with a different type.
+            Expected: Function (V2 => String)
+            Received: Function (V2, Integer)
+
+               |
+             2 | public virtual define get_name(a: Integer) {}
+               |                                            ^
+
+                from [test]:2:
+        """,
+        """\
+            class V2 < virt.VTwo {
+                public virtual define get_name(a: Integer) {}
             }
         """)
     }

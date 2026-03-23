@@ -143,3 +143,33 @@ struct lily_function_val_ *lily_vs_next_forward(lily_virt_state *vs,
     *index = i;
     return f;
 }
+
+struct lily_function_val_ **lily_vs_make_dyna_vtable(lily_virt_state *vs,
+        lily_class *cls, uint16_t size)
+{
+    lily_function_val **result = lily_malloc((size + 1) * sizeof(*result));
+
+    result[size] = NULL;
+
+    if (cls->parent == NULL || cls->parent->virt_index == 0)
+        return result;
+
+    /* Copy NULL-terminated parent vtable into child. */
+    lily_function_val **source = vs->table[cls->parent->virt_index];
+
+    for (uint16_t i = 0;source[i];i++)
+        result[i] = source[i];
+
+    return result;
+}
+
+void lily_vs_finish_dyna_vtable(lily_virt_state *vs, lily_class *cls,
+        struct lily_function_val_ **virts)
+{
+    if (vs->table_pos == vs->table_size)
+        grow_table(vs);
+
+    cls->virt_index = vs->table_pos;
+    vs->table[vs->table_pos] = virts;
+    vs->table_pos++;
+}

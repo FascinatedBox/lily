@@ -1,4 +1,5 @@
 import (Interpreter,
+        LibraryTarget,
         TestCase) "../t/testing"
 
 class TestVirt < TestCase
@@ -222,6 +223,79 @@ class TestVirt < TestCase
                     0/0
                 }
             }
+        """)
+    }
+
+    public define test_virt_dynaload
+    {
+        var t = Interpreter.with_targets(
+            LibraryTarget(
+                :path "covlib",
+                :redirect "test/t/backbone"
+            )
+        )
+
+        # Basics check out
+
+        assert_parse_string(t, """
+            import (virt) covlib
+
+            var v1 = virt.VOne()
+            var v3 = virt.VThree()
+
+            if v1.x != 100 ||
+               v3.x != 100 ||
+               v3.y != 2000: {0/0}
+        """)
+
+        # Direct dispatch of virtuals
+
+        assert_parse_string(t, """
+            virt.VOne.add_to_var(v1, 10)
+            virt.VOne.add_to_var(v3, 20)
+            virt.VThree.add_to_var(v3, 100)
+
+            if v1.x != 110 ||
+               v3.x != 120 ||
+               v3.y != 2100: {0/0}
+        """)
+
+        # Virtual dispatch
+
+        assert_parse_string(t, """
+            v1 = virt.VOne()
+            v3 = virt.VThree()
+
+            for v in [v1, v3]: {
+                v.add_to_var(10)
+            }
+
+            if v1.x != 110 ||
+               v3.x != 100 ||
+               v3.y != 2010: {0/0}
+        """)
+
+        # VTwo (incomplete) can be constructed if completed
+
+        assert_parse_string(t, """
+            class V2 < virt.VTwo {
+                public var @z = 40000
+
+                public virtual define add_to_var(a: Integer): Integer {
+                    @z += a
+                    return @z
+                }
+
+                public virtual define get_name: String
+                {
+                    return "V2"
+                }
+            }
+
+            var vlist: List[virt.VTwo] = [V2(), v3]
+            var names = vlist.map(|m| m.get_name() )
+
+            if names != ["V2", "VThree"]: {0/0}
         """)
     }
 }

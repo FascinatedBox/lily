@@ -1,0 +1,23 @@
+import manifest
+
+library virt
+
+class VOne {
+    # @x += a
+    public virtual define add_to_var(a: Integer): Integer
+    public define f
+    public var @x: Integer
+}
+
+class VTwo < VOne {
+    # Should yield the class name.
+    forward public virtual define get_name: String { ... }
+    public define h
+}
+
+class VThree < VTwo {
+    # @y += a (not @x)
+    public virtual define add_to_var(a: Integer): Integer
+    public virtual define get_name: String
+    public var @y: Integer
+}

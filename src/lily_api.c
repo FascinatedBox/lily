@@ -934,7 +934,19 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
 
     /* Send back a new instance. In the case of foreign-based native classes
        (Exception and friends), the caller must run the relevant inits. */
-    lily_container_val *cv = lily_push_instance(s, id, initial);
+    lily_container_val *cv;
+    lily_class *cls = s->gs->class_table[id];
+
+    PUSH_PREAMBLE
+
+    if (cls->virt_index == 0)
+        cv = lily_new_container_raw(id, initial);
+    else
+        cv = (lily_container_val *)lily_new_vt_container_raw(id, initial,
+                s->gs->virt_table[cls->virt_index]);
+
+    SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | V_INSTANCE_BASE,
+            container, cv);
     return cv;
 }
 

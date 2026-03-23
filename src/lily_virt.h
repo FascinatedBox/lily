@@ -24,6 +24,10 @@ void lily_vs_load_parent_virts(lily_virt_state *, lily_class *);
 void lily_vs_save_virts(lily_virt_state *, lily_class *);
 struct lily_function_val_ *lily_vs_next_forward(lily_virt_state *, uint16_t,
         uint16_t *);
+struct lily_function_val_ **lily_vs_make_dyna_vtable(lily_virt_state *,
+        lily_class *, uint16_t);
+void lily_vs_finish_dyna_vtable(lily_virt_state *, lily_class *,
+        struct lily_function_val_ **);
 
 #define lily_vs_reset_pos(vs) { vs->pos = 0; }
 

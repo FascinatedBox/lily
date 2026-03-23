@@ -106,6 +106,10 @@ extern LILY_COVLIB_EXPORT const char *lily_farm_info_table[];
 extern LILY_COVLIB_EXPORT lily_call_entry_func lily_farm_call_table[];
 void lily_covlib_module_farm(lily_state *s) { lily_import_library_data(s, "[covlib.farm]", lily_farm_info_table, lily_farm_call_table); }
 
+extern LILY_COVLIB_EXPORT const char *lily_virt_info_table[];
+extern LILY_COVLIB_EXPORT lily_call_entry_func lily_virt_call_table[];
+void lily_covlib_module_virt(lily_state *s) { lily_import_library_data(s, "[covlib.virt]", lily_virt_info_table, lily_virt_call_table); }
+
 extern LILY_COVLIB_EXPORT const char *lily_warm_info_table[];
 extern LILY_COVLIB_EXPORT lily_call_entry_func lily_warm_call_table[];
 void lily_covlib_module_warm(lily_state *s) { lily_import_library_data(s, "[covlib.warm]", lily_warm_info_table, lily_warm_call_table); }
@@ -177,6 +181,7 @@ const char *lily_covlib_info_table[] = {
     ,"F\0warm_to_i\0(warm.Color): Integer"
     ,"M\0cool"
     ,"M\0farm"
+    ,"M\0virt"
     ,"M\0warm"
     ,"Z"
 };
@@ -248,6 +253,7 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__warm_to_i, \
     lily_covlib_module_cool, \
     lily_covlib_module_farm, \
+    lily_covlib_module_virt, \
     lily_covlib_module_warm, \
     lily_v21_plus_required, \
 };

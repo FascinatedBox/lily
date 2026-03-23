@@ -548,10 +548,19 @@ static void set_definition_doc(lily_parse_state *parser)
             is_ctor = 1;
     }
 
-    for (i = count;i > offset;i--) {
-        lily_u16_write_1(parser->data_stack, i);
-        lily_pa_add_data_string(parser, var_iter->name);
-        var_iter = var_iter->next;
+    if ((define_var->flags & SYM_IS_FORWARD) == 0) {
+        for (i = count;i > offset;i--) {
+            lily_u16_write_1(parser->data_stack, i);
+            lily_pa_add_data_string(parser, var_iter->name);
+            var_iter = var_iter->next;
+        }
+    }
+    else {
+        /* Forward virtuals only collect types, so there's no vars to pull. */
+        for (i = count;i > offset;i--) {
+            lily_u16_write_1(parser->data_stack, i);
+            lily_pa_add_data_string(parser, "");
+        }
     }
 
     if (offset) {
@@ -2142,6 +2151,99 @@ static void dynaload_variant(lily_parse_state *parser, lily_dyna_state *ds)
     ds->result = (lily_item *)lily_find_class(ds->m, name);
 }
 
+static uint16_t read_virt_number(const char **cursor)
+{
+    const char *ch = *cursor + 1;
+
+    /* Will always have at least one digit. */
+    int result = *ch - '0';
+
+    ch++;
+
+    while (*ch >= '0' && *ch <= '9') {
+        result = (result * 10) + *ch - '0';
+        ch++;
+    }
+
+    *cursor = ch;
+    return (uint16_t)result;
+}
+
+static void dynaload_virtuals(lily_parse_state *parser, lily_dyna_state *ds,
+        lily_class *cls)
+{
+    /* Indexes are relative to where the class starts. */
+    ds->index = cls->dyna_start;
+
+    const char **base = ds->m->info_table + cls->dyna_start;
+
+    /* Format is "t\0<marker><vtable size> <entry count> <entries...>".
+       Marker is 'i' if incomplete, ' ' otherwise. */
+    const char *cursor = ds->entry + 2;
+
+    if (*cursor == 'i')
+        cls->flags |= CLS_HAS_MISSING_VIRTS;
+
+    uint16_t vtable_size = read_virt_number(&cursor);
+    uint16_t entry_count = read_virt_number(&cursor);
+    cursor++;
+
+    lily_function_val **vtable = lily_vs_make_dyna_vtable(parser->vs, cls,
+            vtable_size);
+    const char *cursor_start = cursor;
+
+    /* Immediately load every item that's in the vtable. The caveat to this
+       approach is that collect_call_args may want to recurse. Thus, what is
+       effectively dynaload_method is split into two halves here. */
+    for (uint16_t i = 0;i < entry_count;i++) {
+        char group = *cursor;
+        uint16_t vindex, dyna_index;
+
+        vindex = read_virt_number(&cursor);
+        dyna_index = read_virt_number(&cursor);
+
+        /* +1 to account for <new> having a line. */
+        const char *dy_line = *(base + 1 + dyna_index);
+        const char *name = dy_line + DYNA_NAME_OFFSET;
+        lily_var *var = new_method_var(parser, cls, name, SYM_SCOPE_PUBLIC, 0);
+        lily_function_val *f = make_new_function(parser, var);
+
+        var->flags |= VAR_IS_FOREIGN_FUNC | VAR_IS_VIRTUAL;
+        var->virt_spot = vindex;
+        vtable[vindex] = f;
+
+        if (group == 'v') {
+            f->foreign_func = ds->m->call_table[ds->index + 1 + dyna_index];
+            var->item_kind = ITEM_VIRTUAL_METHOD;
+        }
+        else {
+            var->item_kind = ITEM_FORWARD_VIRT;
+            var->flags |= SYM_IS_FORWARD;
+        }
+
+        lily_u16_write_2(parser->data_stack, vindex, dyna_index);
+    }
+
+    lily_vs_finish_dyna_vtable(parser->vs, cls, vtable);
+    cursor = cursor_start;
+    lily_var *var_iter = (lily_var *)cls->members;
+
+    for (uint16_t i = 0;i < entry_count;i++, var_iter = var_iter->next) {
+        uint16_t dyna_index = lily_u16_pop(parser->data_stack);
+        uint16_t vindex = lily_u16_pop(parser->data_stack);
+
+        ds->entry = *(base + 1 + dyna_index);
+        lily_gp_restore(parser->generics, 0);
+        lily_lexer_load(parser->lex, et_shallow_string, dyna_get_body(ds));
+        collect_generics_for(parser, NULL);
+        lily_tm_add(parser->tm, lily_unit_type);
+        collect_call_args(parser, var_iter, F_COLLECT_DYNALOAD);
+
+        vtable[vindex]->reg_count = var_iter->type->subtype_count;
+        lily_pop_lex_entry(parser->lex);
+    }
+}
+
 static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
 {
     dyna_save(parser, ds);
@@ -2169,12 +2271,9 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
 
     dyna_iter_past_methods(ds);
 
-    do {
-        char rec = dyna_record_type(ds);
+    char rec = dyna_record_type(ds);
 
-        if (rec != '1' && rec != '2' && rec != '3')
-            break;
-
+    while (rec == '1' || rec == '2' || rec == '3') {
         lily_lexer_load(lex, et_shallow_string, dyna_get_body(ds));
         lily_next_token(lex);
 
@@ -2184,7 +2283,11 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
         lily_add_class_property(cls, type, dyna_get_name(ds), 0, modifiers);
         lily_pop_lex_entry(lex);
         dyna_iter_next(ds);
-    } while (1);
+        rec = dyna_record_type(ds);
+    }
+
+    if (rec == 't')
+        dynaload_virtuals(parser, ds, cls);
 
     /* Make sure the constructor loads too. Parts like inheritance will call for
        the class to dynaload, but (reasonably) expect <new> to be visible. */
@@ -6243,6 +6346,11 @@ static void manifest_modifier(lily_parse_state *parser, int key)
         if (parser->modifiers & (SYM_SCOPE_PROTECTED | SYM_SCOPE_PRIVATE))
             lily_raise_syn(parser->raiser,
                     "Class methods defined in manifest mode must be public.");
+
+        if ((parser->modifiers & (SYM_IS_FORWARD | VAR_IS_VIRTUAL))
+            == SYM_IS_FORWARD)
+            lily_raise_syn(parser->raiser,
+                    "Forward methods in manifest must be virtual.");
 
         manifest_define(parser);
     }

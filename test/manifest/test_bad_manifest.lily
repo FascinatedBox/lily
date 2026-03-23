@@ -750,6 +750,25 @@ class TestBadManifest < TestCase
             forward class Example {
                 public define f { ... }
         """)
+
+        # Forward methods must be virtual.
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Forward methods in manifest must be virtual.
+
+               |
+             4 | forward public define f { ... }
+               |                ^
+
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            class Example {
+                forward public define f { ... }
+            }
+        """)
     }
 
     public define test_forward_generic_class_generics
@@ -836,6 +855,70 @@ class TestBadManifest < TestCase
 
             forward class Example[A, B] { ... }
             class Example {}
+        """)
+    }
+
+    public define test_virt
+    {
+        var t = Interpreter()
+
+        # Toplevel virtual keyword
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Invalid keyword virtual for manifest.
+
+               |
+             3 | virtual define f
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            import manifest
+
+            virtual define f
+        """)
+
+        # Virtual in enum
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Invalid keyword virtual for manifest.
+
+               |
+             8 | virtual define g
+               | ^
+
+                from [test]:8:
+        """,
+        """\
+            import manifest
+
+            enum Example {
+                One,
+                Two,
+                Three,
+                define f
+                virtual define g
+            }
+        """)
+
+        # Forward class cannot have virt forward
+
+        assert_manifest_fails(t, """\
+            SyntaxError: Expected '...' here.
+
+               |
+             4 | public define f
+               | ^
+
+                from [test]:4:
+        """,
+        """\
+            import manifest
+
+            forward class One {
+                public define f
+            }
         """)
     }
 }

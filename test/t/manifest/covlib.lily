@@ -4,6 +4,7 @@ library covlib
 
 import farm
 import cool
+import virt
 import warm
 
 foreign class Foreign {}

@@ -3979,9 +3979,14 @@ static lily_type *start_call(lily_emit_state *emit, lily_ast *ast)
                 first_arg->result = (lily_sym *)emit->scope_block->self;
                 first_arg->tree_type = tree_cached;
             }
-            else if (first_arg->tree_type == tree_static_func)
+            else if (first_arg->tree_type == tree_static_func) {
                 /* `Someclass.f` has no self or register source. */
-                call_op = o_call_native;
+
+                if ((ast->sym->flags & VAR_IS_FOREIGN_FUNC) == 0)
+                    call_op = o_call_native;
+                else
+                    call_op = o_call_foreign;
+            }
 
             break;
         case ITEM_STORAGE:
