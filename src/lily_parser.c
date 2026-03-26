@@ -3011,6 +3011,15 @@ static void expr_close_token(lily_parse_state *parser, uint16_t *state)
     }
     else if (tt == tree_tuple)
         expect = tk_tuple_close;
+    else if (tt == tree_hash) {
+        /* Must be even, unless there's a trailing comma (empty root). */
+        if ((tree->args_collected & 0x1) == 0 &&
+            parser->expr->root != NULL)
+            lily_raise_syn(parser->raiser,
+                    "Hash literal is incomplete (missing last value).");
+
+        expect = tk_right_bracket;
+    }
     else if (tt != tree_ternary_first)
         expect = tk_right_bracket;
     /* Currently here `(cond ? truthy --> : <-- falsey)`. */

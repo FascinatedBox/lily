@@ -1619,6 +1619,21 @@ class TestBadSyntax < TestCase
 
             f(unit, unit)
         """)
+
+        # Hash literal missing value for last key
+
+        assert_parse_fails(t, """\
+            SyntaxError: Hash literal is incomplete (missing last value).
+
+               |
+             1 | var v = [1 => 1, 2]
+               |                   ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = [1 => 1, 2]
+        """)
     }
 
     public define test_incomplete_assign
