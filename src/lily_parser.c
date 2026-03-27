@@ -2851,8 +2851,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     lily_module_entry *m = symtab->active_module;
-    const char *name = lex->label;
-    lily_sym *sym = find_existing_sym(m, name);
+    lily_sym *sym = find_existing_sym(m, lex->label);
 
     /* Words are always values, so an operator should always come next. */
     *state = ST_WANT_OPERATOR;
@@ -2864,7 +2863,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
         if (sym->item_kind == ITEM_MODULE) {
 handle_module:;
             m = walk_module(parser, (lily_module_entry *)sym);
-            sym = find_existing_sym(m, name);
+            sym = find_existing_sym(m, lex->label);
         }
     }
     else if (expr_word_try_constant(parser) ||
@@ -2874,7 +2873,7 @@ handle_module:;
         /* Since no module was explicitly provided, look through predefined
            symbols. */
         m = symtab->prelude_module;
-        sym = find_existing_sym(m, name);
+        sym = find_existing_sym(m, lex->label);
     }
 
     /* As a last resort, try running a dynaload. This will check either the
@@ -2884,7 +2883,7 @@ handle_module:;
        native modules, it is impossible for the active module to have a dynaload
        as a last resort. */
     if (sym == NULL)
-        sym = (lily_sym *)try_toplevel_dynaload(parser, m, name);
+        sym = (lily_sym *)try_toplevel_dynaload(parser, m, lex->label);
 
     if (sym) {
         if (sym->item_kind == ITEM_VAR)
@@ -2903,10 +2902,10 @@ handle_module:;
             expr_word_as_match_var(parser, (lily_var *)sym);
     }
     else if (m == symtab->prelude_module &&
-             strcmp(name, "match") == 0)
+             strcmp(lex->label, "match") == 0)
         expr_match(parser, state);
     else
-        lily_raise_syn(parser->raiser, "%s has not been declared.", name);
+        lily_raise_syn(parser->raiser, "%s has not been declared.", lex->label);
 }
 
 static void expr_arrow(lily_parse_state *parser, uint16_t *state)

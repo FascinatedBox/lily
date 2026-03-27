@@ -984,4 +984,25 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             func(1)
         """)
     }
+
+    public define test_expr_word_invalid_read
+    {
+        # This was originally showing an invalid read in valgrind.
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: var has not been declared.
+
+               |
+             3 | var s: A00enum0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+               | ^
+
+                from [test]:3:
+        """,
+        """\
+            import sys
+            var v = (sys.
+            var s: A00enum0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+        """)
+    }
 }
