@@ -12,12 +12,6 @@ class TestVerifyCoverage < TestCase
             :redirect "test/t/backbone"
         )
 
-    private var @t_packagelib =
-        LibraryTarget(
-            :path "packagelib",
-            :redirect "test/t/backbone"
-        )
-
     public define test_api_misc
     {
         var t = Interpreter.with_targets(
