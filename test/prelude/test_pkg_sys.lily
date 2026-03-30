@@ -126,5 +126,33 @@ class TestPkgSys < TestCase
 
             f()
         """)
+
+        # recursion limit below deepest point reached
+
+        t = Interpreter()
+        assert_parse_fails(t, """\
+            RuntimeError: Function call recursion limit reached.
+            Traceback:
+                from [test]:8: in recurse
+                from [test]:8: in recurse
+                from [test]:8: in recurse
+                from [test]:8: in recurse
+                from [test]:14: in __main__
+        """,
+        """
+            import sys
+
+            define recurse(n: Integer)
+            {
+                if n: {
+                    n -= 1
+                    recurse(n)
+                }
+            }
+
+            recurse(10)
+            sys.set_recursion_limit(4)
+            recurse(4)
+        """)
     }
 }

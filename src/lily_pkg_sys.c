@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "lily.h"
+#include "lily_alloc.h"
 #include "lily_vm.h"
 #define LILY_NO_EXPORT
 #include "lily_pkg_sys_bindings.h"
@@ -67,7 +68,32 @@ void lily_sys__set_recursion_limit(lily_state *s)
             "Limit value (%ld) is lower than the current recursion depth.",
             limit);
 
+    lily_call_frame *frame_iter = s->call_chain;
+
+    /* Find the last frame to keep around. */
     s->depth_max = (int32_t)limit;
+    limit -= frame_iter->depth;
+
+    do {
+        frame_iter = frame_iter->next;
+        limit--;
+    } while (limit && frame_iter);
+
+    if (frame_iter) {
+        /* Detach and prune the excess. */
+        lily_call_frame *save_iter = frame_iter;
+
+        frame_iter = frame_iter->next;
+        save_iter->next = NULL;
+
+        do {
+            lily_call_frame *frame_next = frame_iter->next;
+
+            lily_free(frame_iter);
+            frame_iter = frame_next;
+        } while (frame_iter);
+    }
+
     lily_return_unit(s);
 }
 
