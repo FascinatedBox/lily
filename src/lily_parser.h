@@ -108,7 +108,7 @@ void lily_parser_hide_match_vars(lily_parse_state *);
 void lily_parser_lambda_init(lily_parse_state *, const char *, uint16_t,
       uint16_t);
 lily_sym *lily_parser_lambda_eval(lily_parse_state *, lily_type *);
-lily_item *lily_find_or_dl_member(lily_parse_state *, lily_class *,
+lily_named_sym *lily_find_or_dl_member(lily_parse_state *, lily_class *,
         const char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
 void lily_pa_add_data_string(lily_parse_state *, const char *);

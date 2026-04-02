@@ -715,8 +715,8 @@ static lily_function_val *make_new_function(lily_parse_state *parser,
     return f;
 }
 
-static void put_keywords_in_target(lily_parse_state *parser, lily_item *target,
-        char **keys)
+static void put_keywords_in_target(lily_parse_state *parser,
+        lily_named_sym *target, char **keys)
 {
     if (target->item_kind == ITEM_DEFINE) {
         lily_var *var = (lily_var *)target;
@@ -1731,7 +1731,7 @@ static void collect_call_args(lily_parse_state *parser, void *target,
 
 static void parse_value_variant(lily_parse_state *, lily_variant_class *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
-static lily_item *try_dynaload_method(lily_parse_state *, lily_class *,
+static lily_var *try_dynaload_method(lily_parse_state *, lily_class *,
         const char *);
 static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
         const char *);
@@ -2377,7 +2377,7 @@ static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
     return result;
 }
 
-static lily_item *try_dynaload_method(lily_parse_state *parser, lily_class *cls,
+static lily_var *try_dynaload_method(lily_parse_state *parser, lily_class *cls,
         const char *name)
 {
     lily_dyna_state ds;
@@ -2385,7 +2385,7 @@ static lily_item *try_dynaload_method(lily_parse_state *parser, lily_class *cls,
     if (dyna_find_class_method(&ds, cls, name))
         dynaload_function(parser, &ds);
 
-    return ds.result;
+    return (lily_var *)ds.result;
 }
 
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
@@ -2418,15 +2418,15 @@ lily_class *lily_dynaload_exception(lily_parse_state *parser, const char *name)
     return (lily_class *)try_toplevel_dynaload(parser, m, name);
 }
 
-lily_item *lily_find_or_dl_member(lily_parse_state *parser, lily_class *cls,
-        const char *name)
+lily_named_sym *lily_find_or_dl_member(lily_parse_state *parser,
+        lily_class *cls, const char *name)
 {
-    lily_item *result = (lily_item *)lily_find_member(cls, name);
+    lily_named_sym *result = lily_find_member(cls, name);
 
     while (result == NULL && cls != NULL) {
         /* Has to be a method, because properties and variants are loaded with
            their classes and enums. */
-        result = try_dynaload_method(parser, cls, name);
+        result = (lily_named_sym *)try_dynaload_method(parser, cls, name);
         cls = cls->parent;
     }
 
@@ -2628,26 +2628,26 @@ static int expr_word_try_constant(lily_parse_state *parser)
 
 static int expr_word_try_use_self(lily_parse_state *parser)
 {
-    lily_item *item = NULL;
+    lily_named_sym *sym = NULL;
 
     if (parser->current_class) {
         lily_class *self_cls = parser->current_class;
         const char *name = parser->lex->label;
 
-        item = lily_find_or_dl_member(parser, self_cls, name);
+        sym = lily_find_or_dl_member(parser, self_cls, name);
 
-        if (item) {
-            if (item->item_kind & ITEM_IS_VARLIKE) {
-                /* Pushing the item as a method tells emitter to add an implicit
-                   self to the mix. */
-                if (item->flags & VAR_IS_STATIC)
-                    lily_es_push_static_func(parser->expr, (lily_var *)item);
+        if (sym) {
+            if (sym->item_kind & ITEM_IS_VARLIKE) {
+                if (sym->flags & VAR_IS_STATIC)
+                    lily_es_push_static_func(parser->expr, (lily_var *)sym);
                 else {
                     verify_self_access(parser, SELF_METHOD);
-                    lily_es_push_method(parser->expr, (lily_var *)item);
+
+                    /* Push a method so emitter adds an implicit self. */
+                    lily_es_push_method(parser->expr, (lily_var *)sym);
                 }
             }
-            else if (item->item_kind == ITEM_PROPERTY)
+            else if (sym->item_kind == ITEM_PROPERTY)
                 lily_raise_syn(parser->raiser,
                         "%s is a property, and must be referenced as @%s.",
                         name, name);
@@ -2655,12 +2655,12 @@ static int expr_word_try_use_self(lily_parse_state *parser)
                been found in the flat scope search. So this is a variant of a
                scoped enum. Do not count this so that the variant names have to
                be scoped at all times. */
-            else if (item->item_kind & ITEM_IS_VARIANT)
-                item = NULL;
+            else if (sym->item_kind & ITEM_IS_VARIANT)
+                sym = NULL;
         }
     }
 
-    return item != NULL;
+    return sym != NULL;
 }
 
 static void error_ctor_incomplete_class(lily_parse_state *parser,
@@ -2735,29 +2735,29 @@ static void expr_word_as_class(lily_parse_state *parser, lily_class *cls,
 
     NEED_NEXT_IDENT("Expected a class member name here.")
 
-    lily_item *item = (lily_item *)lily_find_member_in_class(cls, lex->label);
+    lily_named_sym *sym = lily_find_member_in_class(cls, lex->label);
 
-    if (item == NULL)
-        item = try_dynaload_method(parser, cls, lex->label);
+    if (sym == NULL)
+        sym = (lily_named_sym *)try_dynaload_method(parser, cls, lex->label);
 
-    if (item == NULL) {
+    if (sym == NULL) {
         lily_raise_syn(parser->raiser,
                 "Class %s does not have a member named %s.", cls->name,
                 lex->label);
     }
 
-    if (item->item_kind == ITEM_DEFINE ||
-        item->item_kind == ITEM_VIRTUAL_METHOD)
-        lily_es_push_static_func(parser->expr, (lily_var *)item);
-    else if (item->item_kind & ITEM_IS_VARIANT)
-        lily_es_push_variant(parser->expr, (lily_variant_class *)item);
-    else if (item->item_kind == ITEM_PROPERTY)
+    if (sym->item_kind == ITEM_DEFINE ||
+        sym->item_kind == ITEM_VIRTUAL_METHOD)
+        lily_es_push_static_func(parser->expr, (lily_var *)sym);
+    else if (sym->item_kind & ITEM_IS_VARIANT)
+        lily_es_push_variant(parser->expr, (lily_variant_class *)sym);
+    else if (sym->item_kind == ITEM_PROPERTY)
         lily_raise_syn(parser->raiser,
                 "Cannot use a class property without a class instance.");
-    else if (item->item_kind == ITEM_FORWARD_VIRT)
+    else if (sym->item_kind == ITEM_FORWARD_VIRT)
         lily_raise_syn(parser->raiser,
                 "Cannot directly call ^I, because it is a forward virtual.",
-                item);
+                sym);
 }
 
 static void expr_word_as_match_var(lily_parse_state *parser, lily_var *var)

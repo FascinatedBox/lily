@@ -1942,26 +1942,26 @@ static uint16_t eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
 
     lily_class *lookup_class = ast->arg_start->result->type->cls;
     char *oo_name = lily_sp_get(emit->expr_strings, ast->pile_pos);
-    lily_item *item = lily_find_or_dl_member(emit->parser, lookup_class,
+    lily_named_sym *sym = lily_find_or_dl_member(emit->parser, lookup_class,
             oo_name);
 
-    if (item == NULL) {
+    if (sym == NULL) {
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Class %s does not have a member named %s.", lookup_class->name,
                 oo_name);
     }
 
-    if (item->item_kind == ITEM_PROPERTY &&
+    if (sym->item_kind == ITEM_PROPERTY &&
         ast->arg_start->tree_type == tree_self)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Use @<name> to get/set properties, not self.<name>.");
-    else if (item->item_kind & ITEM_IS_VARIANT)
+    else if (sym->item_kind & ITEM_IS_VARIANT)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Not allowed to access a variant through an enum instance.");
 
-    ast->item = item;
+    ast->item = (lily_item *)sym;
     ensure_valid_scope(emit, ast);
-    return item->item_kind;
+    return sym->item_kind;
 }
 
 /* This is called on oo trees that have been evaluated and which contain a
