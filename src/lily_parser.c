@@ -1929,6 +1929,7 @@ static void dynaload_foreign(lily_parse_state *parser, lily_dyna_state *ds)
     cls->item_kind = ITEM_CLASS_FOREIGN;
     cls->dyna_start = ds->index;
     collect_generics_for(parser, cls);
+    try_dynaload_method(parser, cls, "<new>");
     dyna_restore(parser, ds);
     ds->result = (lily_item *)cls;
 }
@@ -2696,9 +2697,6 @@ static void expr_word_ctor(lily_parse_state *parser, lily_class *cls)
                 "To construct an enum, specify a variant.");
 
     lily_var *target = (lily_var *)lily_find_member_in_class(cls, "<new>");
-
-    if (target == NULL)
-        target = (lily_var *)try_dynaload_method(parser, cls, "<new>");
 
     if (target == NULL)
         lily_raise_syn(parser->raiser,
