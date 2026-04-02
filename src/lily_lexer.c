@@ -222,6 +222,12 @@ static int read_file_line(lily_lex_state *lex)
         }
         else if ((unsigned char)ch > 127)
             utf8_check = 1;
+        else if (ch != 0)
+            ;
+        else
+            /* These cause problems in multiple areas. */
+            lily_raise_raw(lex->raiser, "Invalid NUL character on line %d.",
+                    lex->line_num);
 
         i++;
     }

@@ -999,4 +999,16 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
             var s: A00enum0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
         """)
     }
+
+    public define test_nul_read
+    {
+        var t = Interpreter()
+
+        t.parse_file("test\/coverage\/nul_in_file.lily")
+            |> assert_false
+
+        if t.error_message() != "Invalid NUL character on line 9.": {
+            0/0
+        }
+    }
 }
