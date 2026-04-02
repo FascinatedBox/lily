@@ -370,6 +370,26 @@ class TestEnum < TestCase
                 0/0
             }
         """)
+
+        # Inheriting Integer's methods as their own
+
+        assert_parse_string(t, """
+            if SubscriptDirection.North.to_s() != "0": {
+                0/0
+            }
+        """)
+
+        # These shouldn't clash since they have different casing
+        # Not worth the effort to block
+
+        assert_parse_string(t, """
+            scoped enum Example < Integer {
+                abc,
+                to_s
+            }
+
+            var example_x: Integer = Example.to_s
+        """)
     }
 
     public define test_trailing_comma

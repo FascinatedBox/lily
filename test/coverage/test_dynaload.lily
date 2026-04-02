@@ -130,4 +130,21 @@ class TestDynaload < TestCase
             v = 1
         """)
     }
+
+    public define test_dynaload_enum_integer_methods
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        # Dynaloaded enums inheriting Integer get Integer methods
+
+        assert_parse_string(t, """
+            import (ScopedValueDirection) covlib
+
+            if ScopedValueDirection.North.to_s() != "4": {
+                0/0
+            }
+        """)
+    }
 }
