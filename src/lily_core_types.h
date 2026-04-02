@@ -35,8 +35,8 @@ typedef struct lily_sym_ {
     struct lily_type_ *type;
 } lily_sym;
 
-/* This is a subset of lily_prop_entry and lily_var. This is used in certain
-   cases where a symbol is known to be a class method or class property. */
+/* A subset of lily_var, lily_variant_class (technically lily_class also), and
+   lily_prop_entry. */
 typedef struct lily_named_sym_ {
     struct lily_named_sym_ *next;
 
