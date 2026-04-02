@@ -57,6 +57,11 @@ void lily_virt_VThree_get_name(lily_state *s)
     lily_return_string(s, "VThree");
 }
 
+void lily_virt_VThree_i(lily_state *s)
+{
+    lily_return_unit(s);
+}
+
 void lily_virt_new_VTwo(lily_state *s)
 {
     lily_virt_new_VOne(s);

@@ -20,4 +20,5 @@ class VThree < VTwo {
     public virtual define add_to_var(a: Integer): Integer
     public virtual define get_name: String
     public var @y: Integer
+    public define i
 }

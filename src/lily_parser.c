@@ -2435,6 +2435,19 @@ lily_named_sym *lily_find_or_dl_member(lily_parse_state *parser,
     return result;
 }
 
+static lily_named_sym *find_or_dl_visible_member(lily_parse_state *parser,
+        lily_class *cls, const char *name)
+{
+    lily_named_sym *result = lily_find_or_dl_member(parser, cls, name);
+
+    if (result &&
+        result->flags & SYM_SCOPE_PRIVATE &&
+        result->parent != cls)
+        result = NULL;
+
+    return result;
+}
+
 /***
  *      _____                              _
  *     | ____|_  ___ __  _ __ ___  ___ ___(_) ___  _ __  ___
@@ -3634,20 +3647,20 @@ static void error_member_redeclaration(lily_parse_state *parser,
 static lily_prop_entry *declare_property(lily_parse_state *parser,
         uint16_t flags)
 {
-    char *name = parser->lex->label;
+    lily_lex_state *lex = parser->lex;
     lily_class *cls = parser->current_class;
-    lily_named_sym *sym = lily_find_visible_member(cls, name);
+    lily_named_sym *sym = find_or_dl_visible_member(parser, cls, lex->label);
 
     if (sym)
         error_member_redeclaration(parser, cls, sym);
 
-    lily_prop_entry *prop = lily_add_class_property(cls, lily_question_type, name,
-            parser->lex->line_num, flags);
+    lily_prop_entry *prop = lily_add_class_property(cls, lily_question_type,
+            lex->label, lex->line_num, flags);
 
     if (parser->flags & PARSER_HAS_DOCBLOCK)
         prop->doc_id = store_docblock(parser);
 
-    lily_next_token(parser->lex);
+    lily_next_token(lex);
     return prop;
 }
 
@@ -4726,8 +4739,8 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
 
         while (sym) {
             if (sym->item_kind == ITEM_PROPERTY) {
-                lily_named_sym *search_sym = lily_find_visible_member(cls,
-                        sym->name);
+                lily_named_sym *search_sym = find_or_dl_visible_member(parser,
+                        cls, sym->name);
 
                 if (search_sym) {
                     cls->members = save_members;
@@ -5821,10 +5834,15 @@ static lily_var *parse_new_define(lily_parse_state *parser, lily_class *parent,
     const char *name = lex->label;
     lily_var *define_var = find_active_var(parser, name);
 
-    if (define_var == NULL && parent)
+    if (define_var == NULL && parent) {
         /* If this yields a property, resolve will error since properties can't
            be forward. */
-        define_var = (lily_var *)lily_find_visible_member(parent, name);
+        define_var = (lily_var *)find_or_dl_visible_member(parser, parent,
+                name);
+
+        /* Dynaload shouldn't (but might) invalidate this. */
+        name = lex->label;
+    }
 
     if (define_var == NULL) {
         if (parent == NULL) {

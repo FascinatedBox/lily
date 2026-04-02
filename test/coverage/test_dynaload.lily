@@ -147,4 +147,62 @@ class TestDynaload < TestCase
             }
         """)
     }
+
+    public define test_redeclare_unloaded_members
+    {
+        var t = Interpreter.with_targets(
+            @t_covlib
+        )
+
+        # Redeclare as a method
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'One' already has the name 'f'.
+
+               |
+             4 | public define f: String { return "" }
+               |               ^
+
+                from [test]:4:
+        """,
+        """\
+            import covlib
+
+            class One < covlib.virt.VOne {
+                public define f: String { return "" }
+            }
+        """)
+
+        # Redeclare as a property
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'Two' already has the name 'h'.
+
+               |
+             2 | public var @h = 10
+               |            ^
+
+                from [test]:2:
+        """,
+        """\
+            class Two < covlib.virt.VTwo {
+                public var @h = 10
+            }
+        """)
+
+        # Redeclare as shorthand property
+
+        assert_parse_fails(t, """\
+            SyntaxError: A method in class 'VThree' already has the name 'i'.
+
+               |
+             1 | class Three(public var @i: Integer) < covlib.virt.VThree {}
+               |                                                   ^
+
+                from [test]:1:
+        """,
+        """\
+            class Three(public var @i: Integer) < covlib.virt.VThree {}
+        """)
+    }
 }

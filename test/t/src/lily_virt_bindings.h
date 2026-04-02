@@ -44,10 +44,11 @@ const char *lily_virt_info_table[] = {
     ,"m\0f\0(VOne)"
     ,"3\0x\0Integer"
     ,"t\0 1 1 v0:1"
-    ,"N\5VThree\0< VTwo"
+    ,"N\6VThree\0< VTwo"
     ,"m\0<new>\0: VThree"
     ,"m\0add_to_var\0(VThree,Integer): Integer"
     ,"m\0get_name\0(VThree): String"
+    ,"m\0i\0(VThree)"
     ,"3\0y\0Integer"
     ,"t\0 2 2 v0:1v1:2"
     ,"N\4VTwo\0< VOne"
@@ -71,6 +72,7 @@ lily_call_entry_func lily_virt_call_table[] = { \
     lily_virt_new_VThree, \
     lily_virt_VThree_add_to_var, \
     lily_virt_VThree_get_name, \
+    lily_virt_VThree_i, \
     NULL, \
     NULL, \
     NULL, \
