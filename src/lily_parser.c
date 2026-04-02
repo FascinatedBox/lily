@@ -2423,12 +2423,14 @@ lily_named_sym *lily_find_or_dl_member(lily_parse_state *parser,
 {
     lily_named_sym *result = lily_find_member(cls, name);
 
-    while (result == NULL && cls != NULL) {
-        /* Has to be a method, because properties and variants are loaded with
-           their classes and enums. */
+    if (result || cls->flags & CLS_NO_DYNA)
+        return result;
+
+    do {
+        /* Must be a method, since non-methods are loaded immediately. */
         result = (lily_named_sym *)try_dynaload_method(parser, cls, name);
         cls = cls->parent;
-    }
+    } while (result == NULL && cls);
 
     return result;
 }
@@ -4706,6 +4708,7 @@ static void parse_super(lily_parse_state *parser, lily_class *cls)
     cls->parent = super_class;
     cls->prop_count += super_class->prop_count;
     cls->inherit_depth = super_class->inherit_depth + 1;
+    cls->flags |= (super_class->flags & CLS_NO_DYNA);
 
     if (super_class->virt_index)
         lily_vs_load_parent_virts(parser->vs, cls);
@@ -4812,6 +4815,8 @@ static void parse_class_header(lily_parse_state *parser, lily_class *cls)
 
     if (lex->token == INHERITANCE_TOKEN)
         parse_super(parser, cls);
+    else
+        cls->flags |= CLS_NO_DYNA;
 
     /* Don't make 'self' available until the class is fully constructed. */
     lily_emit_create_block_self(parser->emit, cls->self_type);
@@ -5219,6 +5224,8 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 
     if (is_value_enum)
         parse_enum_inheritance(parser, enum_cls);
+    else
+        enum_cls->flags |= CLS_NO_DYNA;
 
     NEED_CURRENT_TOK(tk_left_curly)
     NEED_NEXT_IDENT("Expected a variant name here.")

@@ -517,6 +517,9 @@ typedef struct lily_proto_ {
    The interpreter *must not* allow instances of this class to be made. */
 #define CLS_HAS_MISSING_VIRTS 0x800
 
+/* There are no dynaload tables in this class or any parent. */
+#define CLS_NO_DYNA 0x1000
+
 
 /* lily_prop_entry does not have any flags. */
 
