@@ -303,7 +303,7 @@ class Interpreter < backbone.Interpreter
     {
         var t = Interpreter()
 
-        t.set_hook(hook)
+        t.import_hook_set(hook)
         t.targets = targets
 
         return t

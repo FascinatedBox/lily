@@ -509,11 +509,6 @@ void lily_backbone_Interpreter_parse_string(lily_state *s)
     lily_return_boolean(s, result);
 }
 
-void lily_backbone_Interpreter_set_hook(lily_state *s)
-{
-    lily_backbone_Interpreter_import_hook_set(s);
-}
-
 void lily_backbone_Interpreter_validate_file(lily_state *s)
 {
     lily_backbone_RawInterpreter *raw = unpack_rawinterp(s);
