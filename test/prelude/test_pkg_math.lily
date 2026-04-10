@@ -14,14 +14,39 @@ class TestPkgMath < TestCase
         assert_near_equal(math.acos(math.pi / 4.0), 0.6674572160283838)
     }
 
+    public define test_acosh
+    {
+        assert_near_equal(math.acosh(10.0), 2.993222846126381)
+    }
+
     public define test_asin
     {
         assert_near_equal(math.asin(math.pi / 4.0), 0.9033391107665127)
     }
 
+    public define test_asinh
+    {
+        assert_near_equal(math.asinh(10.0), 2.99822295029797)
+    }
+
     public define test_atan
     {
         assert_near_equal(math.atan(math.pi / 4.0), 0.6657737500283538)
+    }
+
+    public define test_atanh
+    {
+        assert_near_equal(math.atanh(0.5), 0.5493061443340549)
+    }
+
+    public define test_atan2
+    {
+        assert_near_equal(math.atan2(1.0, 1.0), math.pi / 4.0)
+    }
+
+    public define test_cbrt
+    {
+        assert_near_equal(math.cbrt(27.0), 3.0)
     }
 
     public define test_ceil
@@ -51,6 +76,11 @@ class TestPkgMath < TestCase
         assert_near_equal(math.exp(3.0), 20.085536923187668)
     }
 
+    public define test_exp2
+    {
+        assert_near_equal(math.exp2(3.0), 8.0)
+    }
+
     public define test_fabs
     {
         assert_near_equal(math.fabs(-3.0), 3.0)
@@ -76,6 +106,11 @@ class TestPkgMath < TestCase
         assert_near_equal(math.log(math.exp(1.0)), 1.0)
     }
 
+    public define test_log2
+    {
+        assert_near_equal(math.log2(2.0), 1.0)
+    }
+
     public define test_log10
     {
         assert_near_equal(math.log10(10.0), 1.0)
@@ -89,6 +124,11 @@ class TestPkgMath < TestCase
         assert_near_equal(ip_fp[1], 0.4)
     }
 
+    public define test_hypot
+    {
+        assert_near_equal(math.hypot(3.0, 4.0), 5.0)
+    }
+
     public define test_pow
     {
         assert_near_equal(math.pow(2.0, 5.0), 32.0)
@@ -96,6 +136,12 @@ class TestPkgMath < TestCase
         math.pow(999999.0, 99999.0)
             |> math.is_infinity
             |> assert_true
+    }
+
+    public define test_round
+    {
+        assert_near_equal(math.round(23.4), 23.0)
+        assert_near_equal(math.round(23.5), 24.0)
     }
 
     public define test_sin
