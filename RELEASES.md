@@ -1,3 +1,41 @@
+Version 2.4 (2026-4-10)
+=======================
+
+Virtual methods, more math functions, and context for expressions.
+
+Highlights:
+
+* Introduce virtual and forward virtual methods (#626). Virtual methods can only
+  be overwritten by another virtual method. Forward virtual methods are
+  placeholders that a child class must define, similar to C++ pure virtuals.
+
+* Line context for expressions (#604). This release completes the addition of
+  line context to the interpreter's frontend that was started in v2.1.
+
+* Math module additons: `acosh`, `asinh`, `atanh`, `atan2`, `cbrt`, `exp2`,
+  `log2`, `hypot`, and `round`. By goodusername123 and python-b5.
+
+Fixes:
+
+* `sys.set_recursion_limit` now clears excess stack frames (#601). By clearing
+  excess frames created by prior recursion, the limit is now correctly enforced.
+
+* Lambdas now correctly infer optional argument types (#629).
+
+* Shorthand properties no longer take docblocks from a class (#631).
+
+* Manifest no longer allows "public public define" (#635).
+
+* Redeclaration of dynaloaded methods is no longer possible (#636). A value enum
+  could, previously, define `to_s(x: String): String`. If `Integer.to_s` had
+  been referenced, it would mention redefinition. Otherwise, the declaration
+  would proceed.
+
+* If a line contains ascii NUL (0), an error is raised immediately (#640).
+  NULs shown to be able to cause a variety of problems in different areas.
+
+* Incomplete Hash literals no longer crash the interpreter (#641).
+
 Version 2.3 (2026-1-10)
 =======================
 
