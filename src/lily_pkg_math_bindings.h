@@ -13,22 +13,31 @@ const char *lily_math_info_table[] = {
     "\0\0"
     ,"F\0abs\0(Integer): Integer"
     ,"F\0acos\0(Double): Double"
+    ,"F\0acosh\0(Double): Double"
     ,"F\0asin\0(Double): Double"
+    ,"F\0asinh\0(Double): Double"
     ,"F\0atan\0(Double): Double"
+    ,"F\0atan2\0(Double,Double): Double"
+    ,"F\0atanh\0(Double): Double"
+    ,"F\0cbrt\0(Double): Double"
     ,"F\0ceil\0(Double): Double"
     ,"F\0cos\0(Double): Double"
     ,"F\0cosh\0(Double): Double"
     ,"F\0exp\0(Double): Double"
+    ,"F\0exp2\0(Double): Double"
     ,"F\0fabs\0(Double): Double"
     ,"F\0floor\0(Double): Double"
     ,"F\0fmod\0(Double,Double): Double"
+    ,"F\0hypot\0(Double,Double): Double"
     ,"F\0is_infinity\0(Double): Boolean"
     ,"F\0is_nan\0(Double): Boolean"
     ,"F\0ldexp\0(Double,Integer): Double"
     ,"F\0log\0(Double): Double"
     ,"F\0log10\0(Double): Double"
+    ,"F\0log2\0(Double): Double"
     ,"F\0modf\0(Double): Tuple[Double,Double]"
     ,"F\0pow\0(Double,Double): Double"
+    ,"F\0round\0(Double): Double"
     ,"F\0sin\0(Double): Double"
     ,"F\0sinh\0(Double): Double"
     ,"F\0sqrt\0(Double): Double"
@@ -48,22 +57,31 @@ lily_call_entry_func lily_math_call_table[] = { \
     NULL, \
     lily_math__abs, \
     lily_math__acos, \
+    lily_math__acosh, \
     lily_math__asin, \
+    lily_math__asinh, \
     lily_math__atan, \
+    lily_math__atan2, \
+    lily_math__atanh, \
+    lily_math__cbrt, \
     lily_math__ceil, \
     lily_math__cos, \
     lily_math__cosh, \
     lily_math__exp, \
+    lily_math__exp2, \
     lily_math__fabs, \
     lily_math__floor, \
     lily_math__fmod, \
+    lily_math__hypot, \
     lily_math__is_infinity, \
     lily_math__is_nan, \
     lily_math__ldexp, \
     lily_math__log, \
     lily_math__log10, \
+    lily_math__log2, \
     lily_math__modf, \
     lily_math__pow, \
+    lily_math__round, \
     lily_math__sin, \
     lily_math__sinh, \
     lily_math__sqrt, \
