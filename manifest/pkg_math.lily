@@ -27,7 +27,7 @@ define atanh(x: Double): Double
 
 ### Calculates the arc tangent of y / x, using the arguments' signs to defermine
 ### the correct quadrant.
-define atan2(x: Double, y: Double): Double
+define atan2(y: Double, x: Double): Double
 
 ### Calculate the cube root of a double.
 define cbrt(x: Double): Double

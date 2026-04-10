@@ -61,10 +61,10 @@ void lily_math__atanh(lily_state *s)
 
 void lily_math__atan2(lily_state *s)
 {
-    double x = lily_arg_double(s, 0);
-    double y = lily_arg_double(s, 1);
+    double y = lily_arg_double(s, 0);
+    double x = lily_arg_double(s, 1);
 
-    lily_return_double(s, atan2(x, y));
+    lily_return_double(s, atan2(y, x));
 }
 
 void lily_math__cbrt(lily_state *s)
