@@ -1,34 +1,34 @@
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - .public/
+image: $CI_REGISTRY/fascinatedbox/lily-containers/interpreter:latest
 
-test:
-  stage: test
+build:
+  stage: build
   before_script:
-    - apt-get update && apt-get -y install cmake lcov
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
     - cmake -DWITH_COVERAGE=on .
     - make
     - ./pre-commit-tests
     - lcov --directory . --capture --output-file coverage.info
     - >-
-      lcov --remove coverage.info "/usr/*" \
+      lcov --ignore-errors unused \
+           --remove coverage.info "/usr/*" \
                                   "${PWD}/run/*" \
                                   "${PWD}/test/*" \
                                   "${PWD}/src/csiphash.c" \
                                   "${PWD}/src/lily_alloc.c" \
                                   "${PWD}/src/lily_pkg_core.c" \
            --output-file coverage.info
-    - genhtml -o .public coverage.info
-    - lcov --list coverage.info
-  only:
-    - main
+  artifacts:
+    paths:
+      - coverage.info
+    expire_in: 10 mins
 
 pages:
   stage: deploy
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-  - mv .public public
+    - genhtml -o public coverage.info
   artifacts:
     paths:
     - public
