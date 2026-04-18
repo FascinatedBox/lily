@@ -509,17 +509,18 @@ static uint64_t scan_hex(char **source_ch)
         ch++;
 
     while (num_digits != max_digits) {
-        char mod;
+        char c = *ch;
+
         if (*ch >= '0' && *ch <= '9')
-            mod = '0';
+            c = *ch - '0';
         else if (*ch >= 'a' && *ch <= 'f')
-            mod = 'a' - 10;
+            c = *ch - 'a' + 10;
         else if (*ch >= 'A' && *ch <= 'F')
-            mod = 'A' - 10;
+            c = *ch - 'A' + 10;
         else
             break;
 
-        result = (result * 16) + *ch - mod;
+        result = (result * 16) + c;
         num_digits++;
         ch++;
     }
