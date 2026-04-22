@@ -753,6 +753,86 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
     label[label_pos] = '\0';
 }
 
+static uint32_t try_scan_unicode(lily_lex_state *lex, char **source_ch,
+        uint16_t *distance)
+{
+    char *ch = *source_ch;
+    uint16_t count;
+
+    /* +1 to skip over the letter too. */
+    if (*ch == 'u')
+        count = 5;
+    else if (*ch == 'U')
+        count = 9;
+    else
+        return 0;
+
+    *distance = count;
+    ch++;
+
+    uint32_t result = 0;
+
+    for (;count > 1;count--) {
+        char c = *ch;
+
+        if (*ch >= '0' && *ch <= '9')
+            c = *ch - '0';
+        else if (*ch >= 'a' && *ch <= 'f')
+            c = *ch - 'a' + 10;
+        else if (*ch >= 'A' && *ch <= 'F')
+            c = *ch - 'A' + 10;
+        else {
+            lex->token_start = (uint16_t)(ch - lex->source);
+            lily_raise_lex(lex->raiser,
+                    "Need %d more hex chars"
+                    " (formats are \\uXXXX and \\uXXXXXXXX).",
+                    count - 1);
+        }
+
+        result = (result * 16) + c;
+        ch++;
+    }
+
+    /* Check for it being in range, not a trailing surrogate, and not 0. It's
+       valid unicode, but not valid for a String. For consistency, block it. */
+    if (result > 0x10FFFF ||
+        (result >= 0xD800 && result <= 0xDFFF) ||
+        result == 0) {
+        lex->token_start = (uint16_t)(ch - lex->source);
+        lily_raise_lex(lex->raiser, "Unicode escape value is not valid.");
+    }
+
+    return result;
+}
+
+static void write_escaped_unicode(char *buffer, uint32_t *pos, uint32_t c)
+{
+    buffer += *pos;
+
+    if (c <= 0x7F) {
+        buffer[0] = (char)c;
+        (*pos)++;
+    }
+    else if (c <= 0x07FF) {
+        buffer[0] = (char)(((c >> 6) & 0x1F) | 0xC0);
+        buffer[1] = (char)(((c     ) & 0x3F) | 0x80);
+        (*pos) += 2;
+    }
+    else if (c <= 0xFFFF) {
+        buffer[0] = (char)(((c >> 12) & 0x0F) | 0xE0);
+        buffer[1] = (char)(((c >>  6) & 0x3F) | 0x80);
+        buffer[2] = (char)(((c      ) & 0x3F) | 0x80);
+        (*pos) += 3;
+    }
+    else {
+        buffer[0] = (char)(((c >> 18) & 0x07) | 0xF0);
+        buffer[1] = (char)(((c >> 12) & 0x3F) | 0x80);
+        buffer[2] = (char)(((c >>  6) & 0x3F) | 0x80);
+        buffer[3] = (char)(((c      ) & 0x3F) | 0x80);
+        (*pos) += 4;
+    }
+}
+
 /* Scan a String or ByteString literal. This starts on the cursor provided and
    updates it.
    The caller is expected to set the cursor on the earliest part of the literal.
@@ -795,8 +875,16 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
             char esc_ch;
             uint16_t distance = scan_escape(ch, &esc_ch);
 
-            if (distance == 0)
-                lily_raise_lex(lex->raiser, "Invalid escape sequence.");
+            if (distance == 0) {
+                uint32_t v = try_scan_unicode(lex, &ch, &distance);
+
+                if (distance == 0)
+                    lily_raise_lex(lex->raiser, "Invalid escape sequence.");
+
+                ch += distance;
+                write_escaped_unicode(label, &label_pos, v);
+                continue;
+            }
 
             ch += distance;
 
@@ -869,10 +957,11 @@ static void scan_string(lily_lex_state *lex, char **source_ch)
         lex->token_start = 0;
 }
 
-static void scan_single_quote(lily_lex_state *lex, char **source_ch)
+static lily_token scan_single_quote(lily_lex_state *lex, char **source_ch)
 {
     char *ch = *source_ch + 1;
     char result = '\0';
+    lily_token t = tk_byte;
 
     if (*ch == '\\') {
         ch++;
@@ -880,8 +969,17 @@ static void scan_single_quote(lily_lex_state *lex, char **source_ch)
         char esc_ch;
         uint16_t distance = scan_escape(ch, &esc_ch);
 
-        if (distance == 0)
-            lily_raise_lex(lex->raiser, "Invalid escape sequence.");
+        if (distance == 0) {
+            uint32_t v = try_scan_unicode(lex, &ch, &distance);
+
+            if (distance == 0)
+                lily_raise_lex(lex->raiser, "Invalid escape sequence.");
+
+            ch += distance;
+            lex->n.integer_val = (uint32_t)v;
+            t = tk_integer;
+            goto check_and_finish;
+        }
 
         result = esc_ch;
         ch += distance;
@@ -893,11 +991,14 @@ static void scan_single_quote(lily_lex_state *lex, char **source_ch)
     else
         lily_raise_lex(lex->raiser, "Byte literals cannot be empty.");
 
+    lex->n.integer_val = (unsigned char)result;
+
+check_and_finish:
     if (*ch != '\'')
         lily_raise_lex(lex->raiser, "Multi-character byte literal.");
 
     *source_ch = ch + 1;
-    lex->n.integer_val = (unsigned char)result;
+    return t;
 }
 
 static int read_line_for_buffer(lily_lex_state *lex, char **label, int start)
@@ -1453,7 +1554,7 @@ word_case: ;
             scan_string(lex, &ch);
             break;
         case tk_byte:
-            scan_single_quote(lex, &ch);
+            token = scan_single_quote(lex, &ch);
             break;
         case CC_B:
             if (*(ch + 1) == '"') {

@@ -2377,4 +2377,40 @@ class TestBasics < TestCase
             mixed_chain()
         """)
     }
+
+    public define test_unicode_escape
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            if "\\U00000041" != "A": {
+                0/0
+            }
+
+            if "\\u2200" != "∀": {
+                0/0
+            }
+
+            if "\\U00000D9E" != "ඞ": {
+                0/0
+            }
+
+            if "\\U0001F642" != "🙂": {
+                0/0
+            }
+
+            if "(\\u00af\\u25BF\\U000000AF)" != "(¯▿¯)": {
+                0/0
+            }
+
+            {
+                # It's an Integer literal, but fits into Byte.
+                var v: Byte = '\\u0001'
+
+                if '\\U00000D9E' != 0xD9E: {
+                    0/0
+                }
+            }
+        """)
+    }
 }

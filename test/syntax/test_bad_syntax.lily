@@ -950,6 +950,127 @@ class TestBadSyntax < TestCase
         """)
     }
 
+    public define test_bad_unicode_literal
+    {
+        # \u and \U have many possible issues.
+        # \\ becoming \ makes context look off.
+        var t = Interpreter()
+
+        # Invalid char for hex / too few values
+
+        assert_parse_fails(t, """\
+            SyntaxError: Need 4 more hex chars (formats are \\uXXXX and \\uXXXXXXXX).
+
+               |
+             1 | var v = "\\u"
+               |            ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\u"
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Need 8 more hex chars (formats are \\uXXXX and \\uXXXXXXXX).
+
+               |
+             1 | var v = "\\U"
+               |            ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\U"
+        """)
+
+        # Too large (\U only)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unicode escape value is not valid.
+
+               |
+             1 | var v = "\\U00110000"
+               |                    ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\U00110000"
+        """)
+
+        # This range is not allowed (inclusive), also checks lowercase hex
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unicode escape value is not valid.
+
+               |
+             1 | var v = "\\ud800"
+               |                ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\ud800"
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unicode escape value is not valid.
+
+               |
+             1 | var v = "\\U0000dfff"
+               |                    ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\U0000dfff"
+        """)
+
+        # Blocked: Not valid for String, others can use \x00 or \0
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unicode escape value is not valid.
+
+               |
+             1 | var v = B"\\U00000000"
+               |                     ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = B"\\U00000000"
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Unicode escape value is not valid.
+
+               |
+             1 | var v = "\\u0000"
+               |                ^
+
+                from [test]:1:
+        """,
+        """\
+            var v = "\\u0000"
+        """)
+
+        # Prove that '\uxxxx' makes an Integer by using a value out of range
+
+        assert_parse_fails(t, """\
+            SyntaxError: Value 256 is out of range for a Byte.
+
+               |
+             1 | var v: Byte = '\\u0100'
+               |               ^
+
+                from [test]:1:
+        """,
+        """\
+            var v: Byte = '\\u0100'
+        """)
+    }
+
     public define test_bad_operation
     {
         var t = Interpreter()
