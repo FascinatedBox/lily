@@ -55,7 +55,7 @@ static void setup_for_transform(lily_emit_state *emit,
         int pos = 1;
         for (i = 0;i < next_reg_spot;i++) {
             if (emit->transform_table[i] != UINT16_MAX) {
-                locals[pos] = i;
+                locals[pos] = emit->transform_table[i];
                 pos++;
             }
         }

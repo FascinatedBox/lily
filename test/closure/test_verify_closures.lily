@@ -550,6 +550,7 @@ class TestVerifyClosures < TestCase
                 var ok = true
 
                 define g {
+                    var aa = 1, ab = 20
                     var v = 10
 
                     define h {
