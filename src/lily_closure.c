@@ -195,7 +195,6 @@ void lily_cl_transform(lily_emit_state *emit, lily_block *scope_block,
     lily_code_iter ci;
     lily_ci_init(&ci, emit->code->data, iter_start, lily_u16_pos(emit->code));
     uint16_t *transform_table = emit->transform_table;
-    uint16_t jump_adjust = 0;
 
 /* If the input at the position given by 'x' is within the closure, then write
    an instruction to fetch it from the closure first. This makes sure that if
@@ -207,7 +206,6 @@ void lily_cl_transform(lily_emit_state *emit, lily_block *scope_block,
     if (id != UINT16_MAX) { \
         lily_u16_write_4(emit->closure_aux_code, z, id, \
                 buffer[x], first_line); \
-        jump_adjust += 4; \
     } \
 }
 
