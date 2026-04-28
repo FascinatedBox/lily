@@ -4179,9 +4179,9 @@ static void keyargs_mark_and_verify(lily_emit_state *emit, lily_ast *ast,
     if (keywords == NULL)
         error_keyarg_not_supported(emit, ast);
 
-    for (uint16_t i = 0; arg != NULL; i++, arg = arg->next_arg) {
-        uint16_t pos;
+    uint16_t pos = 0;
 
+    for (uint16_t i = 0; arg != NULL; i++, arg = arg->next_arg) {
         if (arg->tree_type == tree_binary &&
             arg->op == tk_keyword_arg) {
             have_keyargs = 1;
