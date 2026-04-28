@@ -4089,7 +4089,8 @@ static void parse_one_constant(lily_parse_state *parser)
         lit = lily_get_bytestring_literal(parser->symtab, &t, lex->label,
                 lex->string_length);
     else {
-        /* Silence a warning about uninitialized use. */
+        /* Silence warnings about uninitialized use. */
+        t = NULL;
         lit = NULL;
         lily_raise_syn(parser->raiser,
                 "Constant initialization expects a primitive value (ex: 1 or \"abc\").");
