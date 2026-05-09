@@ -35,14 +35,6 @@ terms.each(|e| e.width += 20 )
 
 ## Features
 
-#### Templating
-
-By default, Lily runs in **standalone** mode where all content is code to
-execute. But Lily can also be run in **template** mode. In **template** mode,
-code is between `<?lily ... ?>` tags. When a file is imported, it's always
-loaded in **standalone** mode, so that it doesn't accidentally send headers.
-Files that are imported are also namespaced (no 'global namespace').
-
 #### Embeddable
 
 Lily may be a statically-typed language, but the reference implementation is an
