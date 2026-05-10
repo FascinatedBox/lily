@@ -10,12 +10,12 @@
 static void setup_for_transform(lily_emit_state *emit,
         lily_function_val *f, int is_backing)
 {
-    int next_reg_spot = emit->scope_block->next_reg_spot;
+    uint16_t next_reg_spot = emit->scope_block->next_reg_spot;
 
-    if (emit->transform_size < emit->scope_block->next_reg_spot) {
+    if (emit->transform_size < next_reg_spot) {
         emit->transform_table = lily_realloc(emit->transform_table,
                 next_reg_spot * sizeof(*emit->transform_table));
-        emit->transform_size = emit->scope_block->next_reg_spot;
+        emit->transform_size = next_reg_spot;
     }
 
     memset(emit->transform_table, UINT16_MAX,
