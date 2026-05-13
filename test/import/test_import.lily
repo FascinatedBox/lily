@@ -596,4 +596,32 @@ class TestImport < TestCase
             }
         """)
     }
+
+    public define test_reimport_if_direct
+    {
+        var t = Interpreter.with_targets(
+            StringTarget(
+                :path "mylib",
+                :data """
+                    import green
+                """
+            ),
+            StringTarget(
+                :path "green",
+                :data """
+                    var is_green = 1
+                """
+            )
+        )
+
+        assert_parse_string(t, """
+            import sys
+            import (argv) sys
+        """)
+
+        assert_parse_string(t, """
+            import (green) mylib
+            import (is_green) green
+        """)
+    }
 }

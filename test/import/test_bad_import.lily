@@ -727,4 +727,18 @@ class TestBadImport < TestCase
             import (self, self) math
         """)
     }
+
+    public define test_direct_reimport_collision
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'sys' has already been declared.
+                from [test]:2:
+        """,
+        """\
+            import sys
+            import (self) sys
+        """)
+    }
 }

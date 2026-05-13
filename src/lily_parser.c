@@ -4389,7 +4389,7 @@ fail_redeclaration:
 
 /* This function collects symbol names within parentheses for import. The result
    is how many names were collected, and is never zero. */
-static void parse_import_refs(lily_parse_state *parser)
+static uint16_t parse_import_refs(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     uint16_t count = 0;
@@ -4418,6 +4418,7 @@ static void parse_import_refs(lily_parse_state *parser)
     }
 
     lily_u16_write_1(parser->data_stack, count);
+    return count;
 }
 
 static void parse_import_path_into_ims(lily_parse_state *parser)
@@ -4459,13 +4460,13 @@ static void parse_import_target(lily_parse_state *parser)
 {
     lily_import_state *ims = parser->ims;
     lily_module_entry *active = parser->symtab->active_module;
+    uint16_t count = parse_import_refs(parser);
 
-    parse_import_refs(parser);
     parse_import_path_into_ims(parser);
 
     /* Will the name that is going to be added conflict with something that
        has already been added? */
-    if (lily_find_module(active, ims->pending_loadname))
+    if (count == 0 && lily_find_module(active, ims->pending_loadname))
         lily_raise_syn(parser->raiser,
                 "A module named '%s' has already been imported here.",
                 ims->pending_loadname);
