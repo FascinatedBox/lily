@@ -705,4 +705,26 @@ class TestBadImport < TestCase
             print(1)
         """)
     }
+
+    public define test_import_self_collision
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'sys' has already been declared.
+                from [test]:2:
+        """,
+        """\
+            var sys = 1
+            import (self) sys
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'math' has already been declared.
+                from [test]:1:
+        """,
+        """\
+            import (self, self) math
+        """)
+    }
 }

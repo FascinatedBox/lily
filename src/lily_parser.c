@@ -4345,6 +4345,7 @@ static void link_import_syms(lily_parse_state *parser,
         lily_sym *sym = find_existing_sym(active, name);
 
         if (sym) {
+fail_redeclaration:
             uint16_t line = lily_u16_get(buffer, iter);
 
             lily_raise_syn_at(parser->raiser, line,
@@ -4355,6 +4356,16 @@ static void link_import_syms(lily_parse_state *parser,
 
         if (sym == NULL)
             sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
+
+        if (sym == NULL && strcmp(name, "self") == 0) {
+            name = source->loadname;
+            sym = find_existing_sym(active, name);
+
+            if (sym)
+                goto fail_redeclaration;
+
+            sym = (lily_sym *)source;
+        }
 
         if (sym == NULL) {
             uint16_t line = lily_u16_get(buffer, iter);
