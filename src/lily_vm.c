@@ -2275,8 +2275,8 @@ void lily_vm_execute(lily_vm_state *vm)
                 code += 4;
                 break;
             case o_global_set:
-                rhs_reg = vm_regs[code[1]];
-                lhs_reg = vm->gs->regs_from_main[code[2]];
+                lhs_reg = vm->gs->regs_from_main[code[1]];
+                rhs_reg = vm_regs[code[2]];
 
                 lily_value_assign(lhs_reg, rhs_reg);
                 code += 4;

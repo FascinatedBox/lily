@@ -613,4 +613,29 @@ class TestVerifyClosures < TestCase
             f()
         """)
     }
+
+    public define test_closure_global_assignment
+    {
+        var t = Interpreter()
+
+        # Ensure global assignment is being transformed properly.
+
+        assert_parse_string(t, """
+            var a = 1, b = 2, c = 3, d = 4, e = 5
+
+            define f {
+                var v = 10
+                define g {
+                    e += e
+
+                    for e in 0...10 by a: {
+                        v = e
+                    }
+                }
+                g()
+            }
+
+            f()
+        """)
+    }
 }

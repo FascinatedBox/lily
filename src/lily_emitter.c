@@ -206,8 +206,8 @@ void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
             for_end->reg_spot, for_step->reg_spot, target->reg_spot, line_num);
 
     if (need_sync) {
-        lily_u16_write_4(emit->code, o_global_set, target->reg_spot,
-                user_loop_var->reg_spot, line_num);
+        lily_u16_write_4(emit->code, o_global_set, user_loop_var->reg_spot,
+                target->reg_spot, line_num);
     }
 
     /* Fix the start so the continue doesn't reinitialize loop vars. */
@@ -221,8 +221,8 @@ void lily_emit_write_for_header(lily_emit_state *emit, lily_var *user_loop_var,
     lily_u16_write_1(emit->patches, lily_u16_pos(emit->code) - 2);
 
     if (need_sync) {
-        lily_u16_write_4(emit->code, o_global_set, target->reg_spot,
-                user_loop_var->reg_spot, line_num);
+        lily_u16_write_4(emit->code, o_global_set, user_loop_var->reg_spot,
+                target->reg_spot, line_num);
     }
 }
 
@@ -261,18 +261,19 @@ void lily_emit_write_for_of(lily_emit_state *emit, lily_var *for_source,
     /* Indexes are copied to prevent mutation, matching range for behavior. */
     if (for_index != for_backing) {
         if ((for_index->flags & VAR_IS_GLOBAL) == 0)
-            opcode = o_assign_noref;
+            /* Local set takes the target last because outputs go last. */
+            lily_u16_write_4(emit->code, o_assign_noref, for_backing->reg_spot,
+                    for_index->reg_spot, line_num);
         else
-            opcode = o_global_set;
-
-        lily_u16_write_4(emit->code, opcode, for_backing->reg_spot,
-                for_index->reg_spot, line_num);
+            /* Global set takes the target first because it's a global index. */
+            lily_u16_write_4(emit->code, o_global_set, for_index->reg_spot,
+                    for_backing->reg_spot, line_num);
     }
 
     /* Element mutations are harmless to the loop. Only sync if global. */
     if (sync_elem)
-        lily_u16_write_4(emit->code, o_global_set, elem_sym->reg_spot,
-                for_elem->reg_spot, line_num);
+        lily_u16_write_4(emit->code, o_global_set, for_elem->reg_spot,
+                elem_sym->reg_spot, line_num);
 }
 
 /* This is called before 'continue', 'break', or 'return' is written. It writes
@@ -2421,8 +2422,8 @@ static void eval_assign_global(lily_emit_state *emit, lily_ast *ast)
         right_sym = eval_assign_spoof_op(emit, ast);
     }
 
-    lily_u16_write_4(emit->code, o_global_set, right_sym->reg_spot,
-            left_sym->reg_spot, ast->line_num);
+    lily_u16_write_4(emit->code, o_global_set, left_sym->reg_spot,
+            right_sym->reg_spot, ast->line_num);
     ast->result = right_sym;
 }
 
