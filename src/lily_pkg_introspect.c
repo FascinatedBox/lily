@@ -163,55 +163,18 @@ typedef struct {
     lily_class *parent;
 } lily_introspect_PropertyEntry;
 
-static void lily_introspect_destroy_ClassEntry(lily_introspect_ClassEntry *c)
-{
-    (void)c;
-}
+static void introspect_dtor(void *p) { (void)p; }
 
-static void lily_introspect_destroy_ConstantEntry(lily_introspect_ConstantEntry *c)
-{
-    (void)c;
-}
-
-static void lily_introspect_destroy_EnumEntry(lily_introspect_EnumEntry *c)
-{
-    (void)c;
-}
-
-static void lily_introspect_destroy_FunctionEntry(lily_introspect_FunctionEntry *f)
-{
-    (void)f;
-}
-
-static void lily_introspect_destroy_MethodEntry(lily_introspect_MethodEntry *m)
-{
-    (void)m;
-}
-
-static void lily_introspect_destroy_ModuleEntry(lily_introspect_ModuleEntry *m)
-{
-    (void)m;
-}
-
-static void lily_introspect_destroy_PropertyEntry(lily_introspect_PropertyEntry *p)
-{
-    (void)p;
-}
-
-static void lily_introspect_destroy_VarEntry(lily_introspect_VarEntry *v)
-{
-    (void)v;
-}
-
-static void lily_introspect_destroy_VariantEntry(lily_introspect_VariantEntry *v)
-{
-    (void)v;
-}
-
-static void lily_introspect_destroy_TypeEntry(lily_introspect_TypeEntry *t)
-{
-    (void)t;
-}
+#define lily_introspect_destroy_ClassEntry introspect_dtor
+#define lily_introspect_destroy_ConstantEntry introspect_dtor
+#define lily_introspect_destroy_EnumEntry introspect_dtor
+#define lily_introspect_destroy_FunctionEntry introspect_dtor
+#define lily_introspect_destroy_MethodEntry introspect_dtor
+#define lily_introspect_destroy_ModuleEntry introspect_dtor
+#define lily_introspect_destroy_PropertyEntry introspect_dtor
+#define lily_introspect_destroy_TypeEntry introspect_dtor
+#define lily_introspect_destroy_VarEntry introspect_dtor
+#define lily_introspect_destroy_VariantEntry introspect_dtor
 
 static int allow_all(void *any)
 {
