@@ -8,6 +8,10 @@
 extern uint8_t lily_repl(lily_state *);
 
 #define arg_equal(b) strcmp(arg, b) == 0
+#define CHECK_NEXT \
+i++; \
+if (i == argc) \
+    missing_value(arg);
 
 static void usage()
 {
@@ -22,6 +26,13 @@ static void usage()
           "  -h            show this help\n"
           , stderr);
     exit(EXIT_FAILURE);
+}
+
+static void missing_value(const char *opt)
+{
+    /* Use two lines to match the above using two lines. */
+    fprintf(stderr, "lily: %s requires a value\n\n", opt);
+    usage();
 }
 
 int is_file;
@@ -40,24 +51,15 @@ static void process_args(int argc, char **argv, int *argc_offset)
         if (arg_equal("-h"))
             usage();
         else if (arg_equal("-gstart")) {
-            i++;
-            if (i + 1 == argc)
-                usage();
-
+            CHECK_NEXT
             gc_start = atoi(argv[i]);
         }
         else if (arg_equal("-gmul")) {
-            i++;
-            if (i + 1 == argc)
-                usage();
-
+            CHECK_NEXT
             gc_multiplier = atoi(argv[i]);
         }
         else if (arg_equal("-s")) {
-            i++;
-            if (i == argc)
-                usage();
-
+            CHECK_NEXT
             is_file = 0;
             break;
         }
