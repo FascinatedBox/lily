@@ -7,6 +7,8 @@
 
 extern uint8_t lily_repl(lily_state *);
 
+#define arg_equal(b) strcmp(arg, b) == 0
+
 static void usage()
 {
     fputs(
@@ -31,25 +33,27 @@ char *to_process = NULL;
 static void process_args(int argc, char **argv, int *argc_offset)
 {
     int i;
+
     for (i = 1;i < argc;i++) {
         char *arg = argv[i];
-        if (strcmp("-h", arg) == 0)
+
+        if (arg_equal("-h"))
             usage();
-        else if (strcmp("-gstart", arg) == 0) {
+        else if (arg_equal("-gstart")) {
             i++;
             if (i + 1 == argc)
                 usage();
 
             gc_start = atoi(argv[i]);
         }
-        else if (strcmp("-gmul", arg) == 0) {
+        else if (arg_equal("-gmul")) {
             i++;
             if (i + 1 == argc)
                 usage();
 
             gc_multiplier = atoi(argv[i]);
         }
-        else if (strcmp("-s", arg) == 0) {
+        else if (arg_equal("-s")) {
             i++;
             if (i == argc)
                 usage();
@@ -57,7 +61,7 @@ static void process_args(int argc, char **argv, int *argc_offset)
             is_file = 0;
             break;
         }
-        else if (strcmp("-l", arg) == 0)
+        else if (arg_equal("-l"))
             use_sys_dirs = 0;
         else {
             is_file = 1;
