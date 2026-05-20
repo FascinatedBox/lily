@@ -23,9 +23,17 @@ static void usage()
           "  -l            local imports only (don't use system dirs)\n"
           "  -gstart N     # of values to allow before a gc sweep\n"
           "  -gmul N       (# allowed * N) when sweep can't free anything\n"
+          "  --            stop handling options\n"
           "  -h            show this help\n"
           , stderr);
     exit(EXIT_FAILURE);
+}
+
+static void invalid_arg(const char *opt)
+{
+    /* Use two lines to match the above using two lines. */
+    fprintf(stderr, "lily: %s is not a valid option\n\n", opt);
+    usage();
 }
 
 static void missing_value(const char *opt)
@@ -48,23 +56,33 @@ static void process_args(int argc, char **argv, int *argc_offset)
     for (i = 1;i < argc;i++) {
         char *arg = argv[i];
 
-        if (arg_equal("-h"))
-            usage();
-        else if (arg_equal("-gstart")) {
-            CHECK_NEXT
-            gc_start = atoi(argv[i]);
+        if (arg[0] == '-') {
+            if (arg_equal("-h"))
+                usage();
+            else if (arg_equal("-gstart")) {
+                CHECK_NEXT
+                gc_start = atoi(argv[i]);
+            }
+            else if (arg_equal("-gmul")) {
+                CHECK_NEXT
+                gc_multiplier = atoi(argv[i]);
+            }
+            else if (arg_equal("-s")) {
+                CHECK_NEXT
+                is_file = 0;
+                break;
+            }
+            else if (arg_equal("-l"))
+                use_sys_dirs = 0;
+            else if (arg_equal("--")) {
+                /* The repl safely handles i == argc. */
+                i++;
+                is_file = 1;
+                break;
+            }
+            else
+                invalid_arg(arg);
         }
-        else if (arg_equal("-gmul")) {
-            CHECK_NEXT
-            gc_multiplier = atoi(argv[i]);
-        }
-        else if (arg_equal("-s")) {
-            CHECK_NEXT
-            is_file = 0;
-            break;
-        }
-        else if (arg_equal("-l"))
-            use_sys_dirs = 0;
         else {
             is_file = 1;
             break;
