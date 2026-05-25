@@ -75,6 +75,7 @@ const char *lily_prelude_info_table[] = {
     ,"m\0all\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0any\0[A](List[A],Function(A=>Boolean)): Boolean"
     ,"m\0clear\0[A](List[A])"
+    ,"m\0contains\0[A](List[A],A): Boolean"
     ,"m\0count\0[A](List[A],Function(A=>Boolean)): Integer"
     ,"m\0delete_at\0[A](List[A],Integer)"
     ,"m\0each\0[A](List[A],Function(A)): List[A]"
@@ -171,11 +172,11 @@ const char *lily_prelude_info_table[] = {
 #define Integer_OFFSET 50
 #define KeyError_OFFSET 58
 #define List_OFFSET 60
-#define RuntimeError_OFFSET 90
-#define String_OFFSET 92
-#define Tuple_OFFSET 114
-#define Unit_OFFSET 115
-#define ValueError_OFFSET 116
+#define RuntimeError_OFFSET 91
+#define String_OFFSET 93
+#define Tuple_OFFSET 115
+#define Unit_OFFSET 116
+#define ValueError_OFFSET 117
 #define LILY_DECLARE_PRELUDE_CALL_TABLE \
 LILY_PRELUDE_EXPORT \
 lily_call_entry_func lily_prelude_call_table[] = { \
@@ -244,6 +245,7 @@ lily_call_entry_func lily_prelude_call_table[] = { \
     lily_prelude_List_all, \
     lily_prelude_List_any, \
     lily_prelude_List_clear, \
+    lily_prelude_List_contains, \
     lily_prelude_List_count, \
     lily_prelude_List_delete_at, \
     lily_prelude_List_each, \

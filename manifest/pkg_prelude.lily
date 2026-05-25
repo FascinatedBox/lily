@@ -377,6 +377,10 @@ predefined List[A] {
     ### is being iterated over.
     public define clear
 
+    ### Searches linearly through `self` for `value`. Returns `true` if it is
+    ### found, and `false` otherwise.
+    public define contains(value: A): Boolean
+
     ### This calls `fn` for each element within `self`. The result of this
     ### function is the number of times that `fn` returns `true`.
     public define count(fn: Function(A => Boolean)): Integer

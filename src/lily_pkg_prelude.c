@@ -1105,6 +1105,54 @@ void lily_prelude_List_clear(lily_state *s)
     lily_return_unit(s);
 }
 
+void lily_prelude_List_contains(lily_state *s)
+{
+    lily_container_val *input_list = lily_arg_container(s, 0);
+    lily_value *value = lily_arg_value(s, 1);
+    uint32_t input_size = lily_con_size(input_list);
+    uint32_t i;
+    int found = 0;
+
+    if (value->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) {
+        int64_t integer = value->value.integer;
+        for (i = 0;i < input_size;i++) {
+            if (lily_con_get(input_list, i)->value.integer == integer) {
+                found = 1;
+                break;
+            }
+        }
+    }
+    else if (value->flags & V_STRING_FLAG) {
+        char *string = value->value.string->string;
+        for (i = 0;i < input_size;i++) {
+            if (strcmp(lily_con_get(input_list, i)->value.string->string,
+                       string) == 0) {
+                found = 1;
+                break;
+            }
+        }
+    }
+    else if (value->flags & V_DOUBLE_FLAG) {
+        double doubleval = value->value.doubleval;
+        for (i = 0;i < input_size;i++) {
+            if (lily_con_get(input_list, i)->value.doubleval == doubleval) {
+                found = 1;
+                break;
+            }
+        }
+    }
+    else {
+        for (i = 0;i < input_size;i++) {
+            if (lily_value_compare(s, lily_con_get(input_list, i), value)) {
+                found = 1;
+                break;
+            }
+        }
+    }
+
+    lily_return_boolean(s, found);
+}
+
 void lily_prelude_List_count(lily_state *s)
 {
     lily_container_val *input_list = lily_arg_container(s, 0);
