@@ -48,6 +48,23 @@ class TestListMethods < TestCase
         assert_equal(v2, [])
     }
 
+    public define test_contains
+    {
+        assert_equal([1, 2, 3].contains(2), true)
+        assert_equal([1, 2, 3].contains(4), false)
+
+        assert_equal(["a", "b", "c"].contains("b"), true)
+        assert_equal(["a", "b", "c"].contains("d"), false)
+
+        assert_equal([1.0, 2.0, 3.0].contains(2.0), true)
+        assert_equal([1.0, 2.0, 3.0].contains(4.0), false)
+
+        var b = Exception("b")
+        var v = [Exception("a"), b, Exception("c")]
+        assert_equal(v.contains(b), true)
+        assert_equal(v.contains(Exception("b")), false)
+    }
+
     public define test_count
     {
         var v: List[Integer] = []
