@@ -5253,8 +5253,19 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     else
         enum_cls->flags |= CLS_NO_DYNA;
 
+    if (parser->flags & PARSER_EXTRA_INFO)
+        enum_cls->doc_id = store_enum_docblock(parser);
+
     NEED_CURRENT_TOK(tk_left_curly)
-    NEED_NEXT_IDENT("Expected a variant name here.")
+    lily_next_token(lex);
+
+    if (lex->token == tk_docblock) {
+        save_docblock(parser);
+        lily_next_token(lex);
+    }
+
+    if (lex->token != tk_word)
+        lily_raise_syn(parser->raiser, "Expected a variant name here.");
 
     while (1) {
         lily_variant_class *variant_cls = lily_find_variant(enum_cls,
@@ -5283,8 +5294,26 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
         else
             parse_value_variant(parser, variant_cls);
 
+        if (parser->flags & PARSER_EXTRA_INFO) {
+            if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
+                lily_u16_write_1(parser->data_stack, 0);
+                lily_pa_add_data_string(parser, "");
+            }
+            else
+                parser->flags &= ~PARSER_HAS_DOCBLOCK;
+
+            write_generics(parser, 1);
+            variant_cls->doc_id = build_doc_data(parser, 2);
+        }
+
         if (lex->token == tk_comma) {
             lily_next_token(lex);
+            int read_docblock = (lex->token == tk_docblock);
+
+            if (read_docblock) {
+                save_docblock(parser);
+                lily_next_token(lex);
+            }
 
             if (lex->token == tk_word) {
                 if (lex->label[0] == 'd' &&
@@ -5293,6 +5322,9 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
                 else
                     continue;
             }
+            else if (read_docblock)
+                lily_raise_syn(parser->raiser,
+                        "Expected a variant name or 'define' here.");
             else if (lex->token == tk_right_curly)
                 break;
 
@@ -5312,9 +5344,6 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     }
 
     lily_fix_enum_variant_ids(parser->symtab, enum_cls);
-
-    if (parser->flags & PARSER_EXTRA_INFO)
-        enum_cls->doc_id = store_enum_docblock(parser);
 }
 
 static void enum_method_check(lily_parse_state *parser)

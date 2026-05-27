@@ -553,7 +553,10 @@ class TestBasics < TestCase
 
             ### test
             enum FlatEnum {
+                ### test
                 FlatOne,
+
+                ### test
                 FlatTwo
 
                 ### test
@@ -565,7 +568,10 @@ class TestBasics < TestCase
 
             ### test
             scoped enum ScopedEnum {
+                ### test
                 ScopedOne,
+
+                ### test
                 ScopedTwo
 
                 ### test

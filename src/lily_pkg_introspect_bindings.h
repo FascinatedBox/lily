@@ -215,6 +215,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0name\0(VarEntry): String"
     ,"m\0type\0(VarEntry): TypeEntry"
     ,"C\10VariantEntry\0"
+    ,"m\0doc\0(VariantEntry): String"
     ,"m\0enum_id\0(VariantEntry): Integer"
     ,"m\0enum_name\0(VariantEntry): String"
     ,"m\0is_empty\0(VariantEntry): Boolean"
@@ -323,6 +324,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VarEntry_name, \
     lily_introspect_VarEntry_type, \
     NULL, \
+    lily_introspect_VariantEntry_doc, \
     lily_introspect_VariantEntry_enum_id, \
     lily_introspect_VariantEntry_enum_name, \
     lily_introspect_VariantEntry_is_empty, \

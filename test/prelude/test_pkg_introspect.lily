@@ -68,6 +68,7 @@ class TestPkgIntrospect < TestCase
                 ### FlatEnum docblock
                 enum FlatEnum
                 {
+                    ### FlatOne docblock
                     FlatOne,
                     FlatTwo(Integer),
                     FlatThree(String...),
@@ -84,6 +85,7 @@ class TestPkgIntrospect < TestCase
 
                 scoped enum ScopedEnum[A, B]
                 {
+                    ### ScopedOne docblock
                     ScopedOne(A),
                     ScopedTwo(B),
                     ScopedThree
@@ -648,6 +650,7 @@ class TestPkgIntrospect < TestCase
 
             define check_variant(
                            v:     introspect.VariantEntry,
+                :doc       doc:       String,
                 :enum_id   enum_id:   Integer,
                 :enum_name enum_name: String,
                 :is_empty  is_empty:  Boolean,
@@ -658,6 +661,7 @@ class TestPkgIntrospect < TestCase
             )
             {
                 var input = <[
+                    v.doc(),
                     v.enum_id(),
                     v.enum_name(),
                     v.is_empty(),
@@ -667,6 +671,7 @@ class TestPkgIntrospect < TestCase
                     v.type().as_string()
                 ]>
                 var expect = <[
+                    doc,
                     enum_id,
                     enum_name,
                     is_empty,
@@ -739,6 +744,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-1],
+                    :doc       "FlatOne docblock\\n",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  true,
@@ -750,6 +756,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-2],
+                    :doc       "",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  false,
@@ -761,6 +768,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-3],
+                    :doc       "",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  false,
@@ -772,6 +780,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-4],
+                    :doc       "",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  false,
@@ -815,6 +824,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-1],
+                    :doc       "ScopedOne docblock\\n",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  false,
@@ -826,6 +836,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-2],
+                    :doc       "",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  false,
@@ -837,6 +848,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-3],
+                    :doc       "",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  true,
@@ -869,6 +881,7 @@ class TestPkgIntrospect < TestCase
 
                 check_variant(
                     variants[-1],
+                    :doc       "FlatOne docblock\\n",
                     :enum_id   e.id(),
                     :enum_name e.name(),
                     :is_empty  true,

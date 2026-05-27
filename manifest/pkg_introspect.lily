@@ -232,6 +232,10 @@ foreign static class ClassEntry
 ### This is a foreign class that wraps over an enum variant.
 foreign static class VariantEntry
 {
+    ### Return the docblock of this variant, or an empty string. Docblocks are
+    ### only saved when a variant is parsed in manifest mode.
+    public define doc: String
+
     ### Return the id of the enum parent of this variant.
     public define enum_id: Integer
 
