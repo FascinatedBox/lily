@@ -24,9 +24,16 @@ static void usage()
           "  -gstart N     # of values to allow before a gc sweep\n"
           "  -gmul N       (# allowed * N) when sweep can't free anything\n"
           "  --            stop handling options\n"
+          "  -v            show version information\n"
           "  -h            show this help\n"
           , stderr);
     exit(EXIT_FAILURE);
+}
+
+static void show_version_and_exit()
+{
+    puts("Lily v" LILY_MAJOR "." LILY_MINOR);
+    exit(EXIT_SUCCESS);
 }
 
 static void invalid_arg(const char *opt)
@@ -80,6 +87,8 @@ static void process_args(int argc, char **argv, int *argc_offset)
                 is_file = 1;
                 break;
             }
+            else if (arg_equal("-v"))
+                show_version_and_exit();
             else
                 invalid_arg(arg);
         }
