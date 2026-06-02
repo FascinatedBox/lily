@@ -929,6 +929,7 @@ lily_variant_class *lily_new_variant_class(lily_class *enum_cls,
     variant->build_type = NULL;
     variant->shorthash = shorthash_for_name(name);
     variant->line_num = line_num;
+    variant->doc_id = UINT16_MAX;
     variant->keywords = NULL;
     variant->name = lily_malloc((strlen(name) + 1) * sizeof(*variant->name));
     strcpy(variant->name, name);

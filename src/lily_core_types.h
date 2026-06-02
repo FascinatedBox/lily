@@ -211,8 +211,9 @@ typedef struct {
 
     uint64_t shorthash;
     uint16_t line_num;
+    uint16_t doc_id;
     uint16_t backing_lit;
-    uint32_t pad2;
+    uint16_t pad1;
 
     /* A variant's parent is the enum it belongs to. */
     struct lily_class_ *parent;
