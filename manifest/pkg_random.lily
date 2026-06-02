@@ -1,7 +1,7 @@
 import manifest
 
-### The random package provides access to a Mersenne Twister for pseudo-random
-### number generation.
+### The random package provides pseudo-random number generation using the
+### `xoshiro256**` algorithm.
 library random
 
 ### The `Random` class provides access to the random number generator. Each
