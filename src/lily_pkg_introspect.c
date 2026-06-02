@@ -176,6 +176,38 @@ static void introspect_dtor(void *p) { (void)p; }
 #define lily_introspect_destroy_VarEntry introspect_dtor
 #define lily_introspect_destroy_VariantEntry introspect_dtor
 
+/* Symbols are intentionally laid out to line up with each other. Bindgen
+   expects each function to have a different implementation which is *usually*
+   the correct move. Here, however, that's not necessary. Use macros to allow
+   duplication. */
+
+#define lily_introspect_ClassEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_ClassEntry_generics lily_introspect_EnumEntry_generics
+#define lily_introspect_ClassEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_ConstantEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_ConstantEntry_line_number lily_introspect_VarEntry_line_number
+#define lily_introspect_ConstantEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_ConstantEntry_type lily_introspect_VarEntry_type
+#define lily_introspect_EnumEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_EnumEntry_id lily_introspect_ClassEntry_id
+#define lily_introspect_EnumEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_EnumEntry_parent lily_introspect_ClassEntry_parent
+#define lily_introspect_FunctionEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_FunctionEntry_line_number lily_introspect_VarEntry_line_number
+#define lily_introspect_FunctionEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_FunctionEntry_type lily_introspect_VarEntry_type
+#define lily_introspect_MethodEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_MethodEntry_generics lily_introspect_FunctionEntry_generics
+#define lily_introspect_MethodEntry_line_number lily_introspect_VarEntry_line_number
+#define lily_introspect_MethodEntry_result_type lily_introspect_FunctionEntry_result_type
+#define lily_introspect_MethodEntry_type lily_introspect_VarEntry_type
+#define lily_introspect_PropertyEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_PropertyEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_PropertyEntry_type lily_introspect_VarEntry_type
+#define lily_introspect_VariantEntry_doc lily_introspect_VarEntry_doc
+#define lily_introspect_VariantEntry_name lily_introspect_VarEntry_name
+#define lily_introspect_VariantEntry_type lily_introspect_VarEntry_type
+
 static int allow_all(void *any)
 {
     (void)any;
@@ -355,32 +387,6 @@ static void boxed_make_variant(lily_state *s, lily_boxed_sym *source)
     make_variant(s, v->parent, (lily_named_sym *)v);
 }
 
-/* Unpack the first argument given and send the type it has. All foreign classes
-   must have lily_sym * as the first field. Internally, the type is at a common
-   location for properties, definitions, and vars. This library only needs to
-   guarantee the former for this to work across symbols. */
-static void unpack_and_return_type(lily_state *s)
-{
-    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
-    lily_type *t = entry->type;
-
-    lily_introspect_TypeEntry *boxed_type = INIT_TypeEntry(s);
-    boxed_type->entry = t;
-
-    lily_return_top(s);
-}
-
-static void unpack_and_return_result_type(lily_state *s)
-{
-    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
-    lily_type *t = entry->type;
-
-    lily_introspect_TypeEntry *boxed_type = INIT_TypeEntry(s);
-    boxed_type->entry = t->subtypes[0];
-
-    lily_return_top(s);
-}
-
 static void return_doc(lily_state *s, uint16_t doc_id)
 {
     const char *str = "";
@@ -389,16 +395,6 @@ static void return_doc(lily_state *s, uint16_t doc_id)
         str = s->gs->parser->doc->data[doc_id][0];
 
     lily_return_string(s, str);
-}
-
-static char **get_doc_text(lily_state *s, uint16_t doc_id)
-{
-    char **text = NULL;
-
-    if (doc_id != UINT16_MAX)
-        text = s->gs->parser->doc->data[doc_id];
-
-    return text;
 }
 
 void lily_introspect_TypeEntry_as_string(lily_state *s)
@@ -482,34 +478,13 @@ void lily_introspect_VarEntry_name(lily_state *s)
 
 void lily_introspect_VarEntry_type(lily_state *s)
 {
-    unpack_and_return_type(s);
-}
+    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
+    lily_type *t = entry->type;
 
-void lily_introspect_ConstantEntry_doc(lily_state *s)
-{
-    UNPACK_FIRST_ARG(ConstantEntry, lily_var *);
-    return_doc(s, entry->doc_id);
-}
+    lily_introspect_TypeEntry *boxed_type = INIT_TypeEntry(s);
+    boxed_type->entry = t;
 
-void lily_introspect_ConstantEntry_name(lily_state *s)
-{
-    FETCH_FIELD(ConstantEntry, lily_var, const char *, name, lily_push_string);
-}
-
-void lily_introspect_ConstantEntry_type(lily_state *s)
-{
-    unpack_and_return_type(s);
-}
-
-void lily_introspect_ConstantEntry_line_number(lily_state *s)
-{
-    lily_introspect_VarEntry_line_number(s);
-}
-
-void lily_introspect_PropertyEntry_doc(lily_state *s)
-{
-    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
-    return_doc(s, entry->doc_id);
+    lily_return_top(s);
 }
 
 void lily_introspect_PropertyEntry_is_private(lily_state *s)
@@ -528,22 +503,6 @@ void lily_introspect_PropertyEntry_is_public(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PUBLIC));
-}
-
-void lily_introspect_PropertyEntry_name(lily_state *s)
-{
-    FETCH_FIELD(PropertyEntry, lily_prop_entry, const char *, name, lily_push_string);
-}
-
-void lily_introspect_PropertyEntry_type(lily_state *s)
-{
-    unpack_and_return_type(s);
-}
-
-void lily_introspect_FunctionEntry_doc(lily_state *s)
-{
-    UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
-    return_doc(s, entry->doc_id);
 }
 
 static char *get_var_generics(lily_state *s, lily_var *v)
@@ -595,16 +554,6 @@ void lily_introspect_FunctionEntry_is_varargs(lily_state *s)
     lily_return_boolean(s, !!(entry->type->flags & TYPE_IS_VARARGS));
 }
 
-void lily_introspect_FunctionEntry_name(lily_state *s)
-{
-    FETCH_FIELD(FunctionEntry, lily_var, const char *, name, lily_push_string);
-}
-
-void lily_introspect_FunctionEntry_line_number(lily_state *s)
-{
-    lily_introspect_VarEntry_line_number(s);
-}
-
 static const char *get_block_string(char **block, int index)
 {
     const char *str = "";
@@ -645,6 +594,16 @@ static void push_parameters(lily_state *s, lily_type *type, char **doc,
     lily_return_top(s);
 }
 
+static char **get_doc_text(lily_state *s, uint16_t doc_id)
+{
+    char **text = NULL;
+
+    if (doc_id != UINT16_MAX)
+        text = s->gs->parser->doc->data[doc_id];
+
+    return text;
+}
+
 void lily_introspect_FunctionEntry_parameters(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
@@ -659,18 +618,13 @@ void lily_introspect_FunctionEntry_parameters(lily_state *s)
 
 void lily_introspect_FunctionEntry_result_type(lily_state *s)
 {
-    unpack_and_return_result_type(s);
-}
-
-void lily_introspect_FunctionEntry_type(lily_state *s)
-{
-    unpack_and_return_type(s);
-}
-
-void lily_introspect_MethodEntry_doc(lily_state *s)
-{
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
-    return_doc(s, entry->doc_id);
+    lily_type *t = entry->type;
+
+    lily_introspect_TypeEntry *boxed_type = INIT_TypeEntry(s);
+    boxed_type->entry = t->subtypes[0];
+
+    lily_return_top(s);
 }
 
 void lily_introspect_MethodEntry_function_name(lily_state *s)
@@ -679,20 +633,10 @@ void lily_introspect_MethodEntry_function_name(lily_state *s)
     lily_return_string(s, entry->name);
 }
 
-void lily_introspect_MethodEntry_generics(lily_state *s)
-{
-    lily_introspect_FunctionEntry_generics(s);
-}
-
 void lily_introspect_MethodEntry_is_forward_virtual(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, entry->item_kind == ITEM_FORWARD_VIRT);
-}
-
-void lily_introspect_MethodEntry_line_number(lily_state *s)
-{
-    lily_introspect_VarEntry_line_number(s);
 }
 
 void lily_introspect_MethodEntry_is_private(lily_state *s)
@@ -736,22 +680,6 @@ void lily_introspect_MethodEntry_is_virtual(lily_state *s)
 void lily_introspect_MethodEntry_parameters(lily_state *s)
 {
     lily_introspect_FunctionEntry_parameters(s);
-}
-
-void lily_introspect_MethodEntry_result_type(lily_state *s)
-{
-    unpack_and_return_result_type(s);
-}
-
-void lily_introspect_MethodEntry_type(lily_state *s)
-{
-    unpack_and_return_type(s);
-}
-
-void lily_introspect_ClassEntry_doc(lily_state *s)
-{
-    UNPACK_FIRST_ARG(ClassEntry, lily_class *);
-    return_doc(s, entry->doc_id);
 }
 
 void lily_introspect_ClassEntry_generics(lily_state *s)
@@ -813,11 +741,6 @@ void lily_introspect_ClassEntry_methods(lily_state *s)
     BUILD_LIST_FROM_2(allow_methods, make_method);
 }
 
-void lily_introspect_ClassEntry_name(lily_state *s)
-{
-    FETCH_FIELD(ClassEntry, lily_class, const char *, name, lily_push_string);
-}
-
 void lily_introspect_ClassEntry_parent(lily_state *s)
 {
     lily_introspect_ClassEntry *introspect_entry = ARG_ClassEntry(s, 0);
@@ -850,12 +773,6 @@ void lily_introspect_ClassEntry_property_count(lily_state *s)
     lily_return_integer(s, entry->prop_count);
 }
 
-void lily_introspect_VariantEntry_doc(lily_state *s)
-{
-    UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
-    return_doc(s, entry->doc_id);
-}
-
 void lily_introspect_VariantEntry_enum_id(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -885,12 +802,6 @@ void lily_introspect_VariantEntry_is_scoped(lily_state *s)
     lily_return_boolean(s, parent->item_kind == ITEM_ENUM_SCOPED);
 }
 
-void lily_introspect_VariantEntry_name(lily_state *s)
-{
-    FETCH_FIELD(VariantEntry, lily_variant_class, const char *, name,
-            lily_push_string);
-}
-
 void lily_introspect_VariantEntry_parameters(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -916,11 +827,6 @@ void lily_introspect_VariantEntry_parameters(lily_state *s)
     push_parameters(s, type, doc, keywords);
 }
 
-void lily_introspect_VariantEntry_type(lily_state *s)
-{
-    unpack_and_return_type(s);
-}
-
 void lily_introspect_VariantEntry_value(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -934,21 +840,6 @@ void lily_introspect_VariantEntry_value(lily_state *s)
 
     sprintf(buf, "%" PRId64, entry->raw_value);
     lily_return_string(s, buf);
-}
-
-void lily_introspect_EnumEntry_doc(lily_state *s)
-{
-    lily_introspect_ClassEntry_doc(s);
-}
-
-void lily_introspect_EnumEntry_generics(lily_state *s)
-{
-    lily_introspect_ClassEntry_generics(s);
-}
-
-void lily_introspect_EnumEntry_id(lily_state *s)
-{
-    lily_introspect_ClassEntry_id(s);
 }
 
 void lily_introspect_EnumEntry_is_flat(lily_state *s)
@@ -971,11 +862,6 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
     lily_named_sym *source_iter = source;
 
     BUILD_LIST_FROM_2(allow_methods, make_method);
-}
-
-void lily_introspect_EnumEntry_parent(lily_state *s)
-{
-    lily_introspect_ClassEntry_parent(s);
 }
 
 void lily_introspect_EnumEntry_variants(lily_state *s)
@@ -1002,11 +888,6 @@ void lily_introspect_EnumEntry_variants(lily_state *s)
 
         BUILD_FLAT_VARIANT_LIST(allow_flat_variants, make_variant);
     }
-}
-
-void lily_introspect_EnumEntry_name(lily_state *s)
-{
-    lily_introspect_ClassEntry_name(s);
 }
 
 void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
@@ -1099,6 +980,7 @@ void lily_introspect_ModuleEntry_dirname(lily_state *s)
 
 void lily_introspect_ModuleEntry_doc(lily_state *s)
 {
+    /* Can't use VarEntry.doc because modules don't align to lily_sym. */
     UNPACK_FIRST_ARG(ModuleEntry, lily_module_entry *);
     return_doc(s, entry->doc_id);
 }
@@ -1137,6 +1019,7 @@ void lily_introspect_ModuleEntry_modules_used(lily_state *s)
 
 void lily_introspect_ModuleEntry_name(lily_state *s)
 {
+    /* Can't use VarEntry.name because modules don't align to lily_sym. */
     FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, loadname,
             lily_push_string, "[main]");
 }
