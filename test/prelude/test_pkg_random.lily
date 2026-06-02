@@ -65,14 +65,16 @@ class TestPkgRandom < TestCase
     {
         assert_equal(random.Random().between(0, 0), 0)
 
+        # Minimum 64-bit integer value.
+        assert_equal(random.Random().between(-9223372036854775808,
+                -9223372036854775808), -9223372036854775808)
+
+        # Maximum 64-bit integer value.
+        assert_equal(random.Random().between(9223372036854775807,
+                9223372036854775807), 9223372036854775807)
+
         assert_raises("ValueError: Interval range is reversed.",
-            (|| random.Random().between(10, 0) ))
-
-        assert_raises("ValueError: Interval exceeds 32 bits in size.",
-            (|| random.Random().between(-999999999999999, 0) ))
-
-        assert_raises("ValueError: Interval exceeds 32 bits in size.",
-            (|| random.Random().between(0, 999999999999999) ))
+                (|| random.Random().between(10, 0) ))
     }
 
     public define test_Random_double_between
@@ -80,7 +82,7 @@ class TestPkgRandom < TestCase
         assert_equal(random.Random().double_between(0.0, 0.0), 0.0)
 
         assert_raises("ValueError: Interval range is reversed.",
-            (|| random.Random().double_between(10.0, 0.0) ))
+                (|| random.Random().double_between(10.0, 0.0) ))
     }
 
     public define test_Random_using_seed
