@@ -200,6 +200,7 @@ static void introspect_dtor(void *p) { (void)p; }
 #define lily_introspect_MethodEntry_generics lily_introspect_FunctionEntry_generics
 #define lily_introspect_MethodEntry_line_number lily_introspect_VarEntry_line_number
 #define lily_introspect_MethodEntry_result_type lily_introspect_FunctionEntry_result_type
+#define lily_introspect_MethodEntry_scope lily_introspect_PropertyEntry_scope
 #define lily_introspect_MethodEntry_type lily_introspect_VarEntry_type
 #define lily_introspect_PropertyEntry_doc lily_introspect_VarEntry_doc
 #define lily_introspect_PropertyEntry_name lily_introspect_VarEntry_name
@@ -397,6 +398,14 @@ static void return_doc(lily_state *s, uint16_t doc_id)
     lily_return_string(s, str);
 }
 
+void lily_introspect_SymScope_as_string(lily_state *s)
+{
+    char *text[] = {"public", "protected", "private"};
+    int64_t val = lily_arg_integer(s, 0);
+
+    lily_return_string(s, text[val]);
+}
+
 void lily_introspect_TypeEntry_as_string(lily_state *s)
 {
     UNPACK_FIRST_ARG(TypeEntry, lily_type *);
@@ -503,6 +512,27 @@ void lily_introspect_PropertyEntry_is_public(lily_state *s)
 {
     UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
     lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PUBLIC));
+}
+
+static int64_t flags_to_scope(uint16_t flags)
+{
+    int64_t result;
+
+    if (flags & SYM_SCOPE_PUBLIC)
+        result = SymScope_Public_VALUE;
+    else if (flags & SYM_SCOPE_PROTECTED)
+        result = SymScope_Protected_VALUE;
+    else
+        result = SymScope_Private_VALUE;
+
+    return result;
+}
+
+void lily_introspect_PropertyEntry_scope(lily_state *s)
+{
+    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
+
+    lily_return_integer(s, flags_to_scope(entry->flags));
 }
 
 static char *get_var_generics(lily_state *s, lily_var *v)

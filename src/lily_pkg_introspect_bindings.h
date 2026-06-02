@@ -121,9 +121,13 @@ lily_cid_at(s_, 10)
 #define INIT_VariantEntry(s_) \
 (lily_introspect_VariantEntry *)lily_push_foreign(s_, ID_VariantEntry(s_), (lily_destroy_func)lily_introspect_destroy_VariantEntry, sizeof(lily_introspect_VariantEntry))
 
+#define SymScope_Private_VALUE 2
+#define SymScope_Protected_VALUE 1
+#define SymScope_Public_VALUE 0
+
 LILY_INTROSPECT_EXPORT
 const char *lily_introspect_info_table[] = {
-    "\13ClassEntry\0ConstantEntry\0EnumEntry\0FunctionEntry\0MethodEntry\0ModuleEntry\0ParameterEntry\0PropertyEntry\0TypeEntry\0VarEntry\0VariantEntry\0"
+    "\14ClassEntry\0ConstantEntry\0EnumEntry\0FunctionEntry\0MethodEntry\0ModuleEntry\0ParameterEntry\0PropertyEntry\0TypeEntry\0VarEntry\0VariantEntry\0SymScope\0"
     ,"C\12ClassEntry\0"
     ,"m\0doc\0(ClassEntry): String"
     ,"m\0generics\0(ClassEntry): List[TypeEntry]"
@@ -159,7 +163,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0result_type\0(FunctionEntry): TypeEntry"
     ,"m\0type\0(FunctionEntry): TypeEntry"
-    ,"C\16MethodEntry\0"
+    ,"C\17MethodEntry\0"
     ,"m\0doc\0(MethodEntry): String"
     ,"m\0function_name\0(MethodEntry): String"
     ,"m\0generics\0(MethodEntry): List[TypeEntry]"
@@ -173,6 +177,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(MethodEntry): Integer"
     ,"m\0parameters\0(MethodEntry): List[ParameterEntry]"
     ,"m\0result_type\0(MethodEntry): TypeEntry"
+    ,"m\0scope\0(MethodEntry): SymScope"
     ,"m\0type\0(MethodEntry): TypeEntry"
     ,"C\20ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
@@ -196,12 +201,13 @@ const char *lily_introspect_info_table[] = {
     ,"3\0keyword\0String"
     ,"3\0name\0String"
     ,"3\0type\0TypeEntry"
-    ,"C\6PropertyEntry\0"
+    ,"C\7PropertyEntry\0"
     ,"m\0doc\0(PropertyEntry): String"
     ,"m\0is_private\0(PropertyEntry): Boolean"
     ,"m\0is_protected\0(PropertyEntry): Boolean"
     ,"m\0is_public\0(PropertyEntry): Boolean"
     ,"m\0name\0(PropertyEntry): String"
+    ,"m\0scope\0(PropertyEntry): SymScope"
     ,"m\0type\0(PropertyEntry): TypeEntry"
     ,"C\5TypeEntry\0"
     ,"m\0as_string\0(TypeEntry): String"
@@ -214,7 +220,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
     ,"m\0type\0(VarEntry): TypeEntry"
-    ,"C\10VariantEntry\0"
+    ,"C\11VariantEntry\0"
     ,"m\0doc\0(VariantEntry): String"
     ,"m\0enum_id\0(VariantEntry): Integer"
     ,"m\0enum_name\0(VariantEntry): String"
@@ -224,6 +230,11 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(VariantEntry): List[ParameterEntry]"
     ,"m\0type\0(VariantEntry): TypeEntry"
     ,"m\0value\0(VariantEntry): String"
+    ,"E\4SymScope\0< Integer"
+    ,"m\0as_string\0(SymScope): String"
+    ,"V\0Private\0=2"
+    ,"V\0Protected\0=1"
+    ,"V\0Public\0=0"
     ,"F\0class_name\0[A](A): String"
     ,"F\0main_module\0: ModuleEntry"
     ,"F\0module_list\0: List[ModuleEntry]"
@@ -282,6 +293,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_line_number, \
     lily_introspect_MethodEntry_parameters, \
     lily_introspect_MethodEntry_result_type, \
+    lily_introspect_MethodEntry_scope, \
     lily_introspect_MethodEntry_type, \
     NULL, \
     lily_introspect_ModuleEntry_boxed_classes, \
@@ -311,6 +323,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_PropertyEntry_is_protected, \
     lily_introspect_PropertyEntry_is_public, \
     lily_introspect_PropertyEntry_name, \
+    lily_introspect_PropertyEntry_scope, \
     lily_introspect_PropertyEntry_type, \
     NULL, \
     lily_introspect_TypeEntry_as_string, \
@@ -333,6 +346,11 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_parameters, \
     lily_introspect_VariantEntry_type, \
     lily_introspect_VariantEntry_value, \
+    NULL, \
+    lily_introspect_SymScope_as_string, \
+    NULL, \
+    NULL, \
+    NULL, \
     lily_introspect__class_name, \
     lily_introspect__main_module, \
     lily_introspect__module_list, \

@@ -61,6 +61,17 @@ foreign static class VarEntry
     public define type: TypeEntry
 }
 
+### The scope of a method or property.
+scoped enum SymScope < Integer
+{
+    Public,
+    Protected,
+    Private
+
+    ### Returns "public", "protected", or "private".
+    define as_string: String
+}
+
 ### This is a foreign class that wraps over a class property.
 foreign static class PropertyEntry
 {
@@ -79,6 +90,9 @@ foreign static class PropertyEntry
 
     ### Return the name of the property.
     public define name: String
+
+    ### Return the scope (public, protected, or private) of this property.
+    public define scope: SymScope
 
     ### Return the type of the property.
     public define type: TypeEntry
@@ -178,6 +192,9 @@ foreign static class MethodEntry
 
     ### Return the type that this method returns when called.
     public define result_type: TypeEntry
+
+    ### Return the scope (public, protected, or private) of this method.
+    public define scope: SymScope
 
     ### Return the type of the method provided.
     public define type: TypeEntry

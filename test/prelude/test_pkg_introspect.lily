@@ -131,7 +131,7 @@ class TestPkgIntrospect < TestCase
         t.config_set_extra_info(true)
 
         assert_parse_string(t, """
-            import introspect
+            import (SymScope, self) introspect
             import (Time) time
             import time
             import (Base) _class
@@ -155,9 +155,7 @@ class TestPkgIntrospect < TestCase
                 :is_static is_static: Boolean,
                 :line      line:      Integer,
                 :params    params:    String,
-                :private   pri:       Boolean,
-                :protected pro:       Boolean,
-                :public    pub:       Boolean,
+                :scope     scope:     SymScope,
                 :result    result:    String,
                 :type      type:      String,
                 :is_va     is_va:     Boolean
@@ -170,9 +168,7 @@ class TestPkgIntrospect < TestCase
                     m.is_static(),
                     m.line_number(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string(),
                     m.is_varargs()
@@ -184,9 +180,7 @@ class TestPkgIntrospect < TestCase
                     is_static,
                     line,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type,
                     is_va
@@ -202,26 +196,20 @@ class TestPkgIntrospect < TestCase
                            p:    introspect.PropertyEntry,
                 :doc       doc:  String,
                 :name      name: String,
-                :private   pri:  Boolean,
-                :protected pro:  Boolean,
-                :public    pub:  Boolean,
+                :scope     scope: SymScope,
                 :type      type: String
             )
             {
                 var input = <[
                     p.doc(),
                     p.name(),
-                    p.is_private(),
-                    p.is_protected(),
-                    p.is_public(),
+                    p.scope(),
                     p.type().as_string()
                 ]>
                 var expect = <[
                     doc,
                     name,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     type
                 ]>
 
@@ -295,9 +283,7 @@ class TestPkgIntrospect < TestCase
                     :line      3,
                     :name      "<new>",
                     :params    "",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Base",
                     :type      "Function ( => Base)",
                     :is_va     false
@@ -311,9 +297,7 @@ class TestPkgIntrospect < TestCase
                     :line      5,
                     :name      "pub",
                     :params    "(,Base,)(a,List[Integer],)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "String",
                     :type      "Function (Base, Integer... => String)",
                     :is_va     true
@@ -323,9 +307,7 @@ class TestPkgIntrospect < TestCase
                     properties[-1],
                     :doc       "Public property\\n",
                     :name      "pub_prop",
-                    :public    true,
-                    :protected false,
-                    :private   false,
+                    :scope     .Public,
                     :type      "Integer"
                 )
 
@@ -333,9 +315,7 @@ class TestPkgIntrospect < TestCase
                     properties[-2],
                     :doc       "Protected property\\n",
                     :name      "pro_prop",
-                    :public    false,
-                    :protected true,
-                    :private   false,
+                    :scope     .Protected,
                     :type      "String"
                 )
 
@@ -343,9 +323,7 @@ class TestPkgIntrospect < TestCase
                     properties[-3],
                     :doc        "Private property\\n",
                     :name       "pri_prop",
-                    :public     false,
-                    :protected  false,
-                    :private    true,
+                    :scope      .Private,
                     :type       "Double"
                 )
 
@@ -378,9 +356,7 @@ class TestPkgIntrospect < TestCase
                     :line      18,
                     :name      "<new>",
                     :params    "(,String,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "GenericClass[A, B]",
                     :type      "Function (String => GenericClass[A, B])",
                     :is_va     false
@@ -394,9 +370,7 @@ class TestPkgIntrospect < TestCase
                     :line      20,
                     :name      "f",
                     :params    "(,GenericClass[A, B],)(c,C,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function (GenericClass[A, B], C)",
                     :is_va     false
@@ -406,9 +380,7 @@ class TestPkgIntrospect < TestCase
                     properties[-1],
                     :doc        "",
                     :name       "test",
-                    :public     true,
-                    :protected  false,
-                    :private    false,
+                    :scope     .Public,
                     :type       "String"
                 )
 
@@ -1566,6 +1538,21 @@ class TestPkgIntrospect < TestCase
                     :is_forward false,
                     :is_virt    false
                 )
+            }
+        """)
+    }
+
+    public define test_scope_to_s
+    {
+        var t = Interpreter()
+
+        assert_parse_string(t, """
+            import (SymScope) introspect
+
+            if SymScope.Public.as_string() != "public" ||
+               SymScope.Protected.as_string() != "protected" ||
+               SymScope.Private.as_string() != "private": {
+                0/0
             }
         """)
     }
