@@ -50,15 +50,14 @@ static void lily_random_destroy_Random(lily_random_Random *r)
 void lily_random_new_Random(lily_state *s)
 {
     lily_random_Random *r = INIT_Random(s);
-    int64_t seed = lily_optional_integer(s, 0, 0);
-    uint64_t x = (seed > 0 ? (uint64_t) seed : (uint64_t) time(NULL));
+    uint64_t seed = (uint64_t)lily_optional_integer(s, 0, (int64_t)time(NULL));
 
     /* The authors of `xoshiro256**` suggest using a `splitmix64` generator to
      * fill the initial state, which is what we do here. This implementation is
      * also in the public domain:
      * https://prng.di.unimi.it/splitmix64.c */
     for (int i = 0;i < 4;i++) {
-        uint64_t z = x += 0x9e3779b97f4a7c15;
+        uint64_t z = seed += 0x9e3779b97f4a7c15;
         z = (z ^ z >> 30) * 0xbf58476d1ce4e5b9;
         z = (z ^ z >> 27) * 0x94d049bb133111eb;
         r->state[i] = z ^ z >> 31;
