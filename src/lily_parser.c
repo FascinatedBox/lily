@@ -91,7 +91,6 @@ typedef struct lily_rewind_state_
     lily_class *main_class_start;
     lily_var *main_var_start;
     lily_boxed_sym *main_boxed_start;
-    lily_module_link *main_last_module_link;
     lily_module_entry *main_last_module;
     uint16_t line_num;
     uint16_t pending;
@@ -362,7 +361,6 @@ static void initialize_rewind(lily_parse_state *parser)
     rs->main_class_start = m->class_chain;
     rs->main_var_start = m->var_chain;
     rs->main_boxed_start = m->boxed_chain;
-    rs->main_last_module_link = m->module_chain;
     rs->main_last_module = parser->module_top;
     rs->line_num = parser->lex->line_num;
 }
