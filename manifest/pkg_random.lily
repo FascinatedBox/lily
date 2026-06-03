@@ -7,9 +7,9 @@ library random
 ### The `Random` class provides access to the random number generator. Each
 ### instance is completely separate from all others.
 ###
-### The constructor for this class takes a seed. If the seed provided is 0 or
-### less, then the current time (`time(NULL)` in C) is used instead.
-foreign class Random(seed: *Integer = 0)
+### The constructor for this class optionally takes a seed. If no seed is
+### provided, then the current time (`time(NULL)` in C) is used instead.
+foreign class Random(seed: *Integer)
 {
     ### Generate a random `Integer` value between `lower` and `upper`
     ### (inclusive).

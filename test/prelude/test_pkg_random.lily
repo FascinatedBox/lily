@@ -32,7 +32,9 @@ class TestPkgRandom < TestCase
     public define test_Random_ranges
     {
         check_ranges(random.Random())
+        check_ranges(random.Random(0))
         check_ranges(random.Random(1234567890))
+        check_ranges(random.Random(-1234567890))
     }
 
     public define test_Random_determinism
