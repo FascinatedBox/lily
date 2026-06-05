@@ -22,7 +22,7 @@
 
 static lily_value_stack *new_value_stack(uint16_t);
 
-lily_symtab *lily_new_symtab(void)
+lily_symtab *lily_new_symtab(lily_module_entry *prelude)
 {
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
@@ -31,14 +31,9 @@ lily_symtab *lily_new_symtab(void)
     symtab->literals = new_value_stack(4);
     symtab->next_class_id = 1;
     symtab->next_global_id = 0;
+    symtab->active_module = prelude;
 
     return symtab;
-}
-
-void lily_set_prelude(lily_symtab *symtab, lily_module_entry *prelude)
-{
-    symtab->prelude_module = prelude;
-    symtab->active_module = prelude;
 }
 
 static void free_boxed_syms_since(lily_boxed_sym *sym, lily_boxed_sym *stop)
@@ -164,9 +159,8 @@ static void free_literals(lily_value_stack *literals)
     lily_free(literals);
 }
 
-void lily_free_module_symbols(lily_symtab *symtab, lily_module_entry *entry)
+void lily_free_module_symbols(lily_module_entry *entry)
 {
-    (void) symtab;
     free_classes(entry->class_chain);
     free_vars(entry->var_chain);
     if (entry->boxed_chain)
@@ -738,44 +732,6 @@ lily_module_entry *lily_find_module(lily_module_entry *module, const char *name)
     return result;
 }
 
-lily_module_entry *lily_find_module_by_path(lily_symtab *symtab,
-        const char *path)
-{
-    /* Modules are linked starting after prelude. Skip that, it's not what's
-       being looked for. */
-    lily_module_entry *module_iter = symtab->prelude_module->next;
-    size_t len = strlen(path);
-
-    while (module_iter) {
-        if (module_iter->cmp_len == len &&
-            strcmp(module_iter->path, path) == 0) {
-            break;
-        }
-
-        module_iter = module_iter->next;
-    }
-
-    return module_iter;
-}
-
-lily_module_entry *lily_find_registered_module(lily_symtab *symtab,
-        const char *name)
-{
-    /* Start after the prelude module because nothing actually wants the prelude
-       module. */
-    lily_module_entry *module_iter = symtab->prelude_module->next;
-
-    while (module_iter) {
-        if (module_iter->flags & MODULE_IS_REGISTERED &&
-            strcmp(module_iter->loadname, name) == 0)
-            break;
-
-        module_iter = module_iter->next;
-    }
-
-    return module_iter;
-}
-
 /***
  *       ____ _                  _______
  *      / ___| | __ _ ___ ___   / / ____|_ __  _   _ _ __ ___
@@ -998,11 +954,12 @@ void lily_fix_enum_type_ids(lily_class *enum_cls)
 /* This loads the symtab's classes into the vm's class table. That class table
    is used to give classes out to instances and enums that are built. The class
    information is later used to differentiate different instances. */
-void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm)
+void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm,
+        lily_module_entry *prelude)
 {
     lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
 
-    lily_module_entry *module_iter = symtab->prelude_module;
+    lily_module_entry *module_iter = prelude;
     while (module_iter) {
         lily_class *class_iter = module_iter->class_chain;
         while (class_iter) {

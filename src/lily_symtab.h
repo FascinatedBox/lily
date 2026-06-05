@@ -12,7 +12,6 @@ typedef struct lily_value_stack_ {
 } lily_value_stack;
 
 typedef struct lily_symtab_ {
-    lily_module_entry *prelude_module;
     lily_module_entry *active_module;
 
     /* Defined functions that go out of scope are stuffed in here, unless
@@ -47,9 +46,8 @@ typedef struct lily_symtab_ {
     lily_class *optarg_class;
 } lily_symtab;
 
-lily_symtab *lily_new_symtab(void);
-void lily_set_prelude(lily_symtab *, lily_module_entry *);
-void lily_free_module_symbols(lily_symtab *, lily_module_entry *);
+lily_symtab *lily_new_symtab(lily_module_entry *);
+void lily_free_module_symbols(lily_module_entry *);
 void lily_free_properties(lily_class *);
 void lily_rewind_symtab(lily_symtab *, lily_module_entry *, lily_class *,
         lily_var *, lily_boxed_sym *, int);
@@ -72,8 +70,6 @@ lily_named_sym *lily_find_member_in_class(lily_class *, const char *);
 lily_variant_class *lily_find_variant(lily_class *, const char *);
 lily_variant_class *lily_find_variant_with_lit(lily_class *, uint16_t);
 lily_module_entry *lily_find_module(lily_module_entry *, const char *);
-lily_module_entry *lily_find_module_by_path(lily_symtab *, const char *);
-lily_module_entry *lily_find_registered_module(lily_symtab *, const char *);
 
 lily_generic_class *lily_new_generic_class(const char *);
 lily_class *lily_new_raw_class(const char *, uint16_t);
@@ -88,5 +84,6 @@ void lily_add_symbol_ref(lily_module_entry *, lily_sym *);
 
 void lily_fix_enum_variant_ids(lily_symtab *, lily_class *);
 void lily_fix_enum_type_ids(lily_class *);
-void lily_register_classes(lily_symtab *, struct lily_vm_state_ *);
+void lily_register_classes(lily_symtab *, struct lily_vm_state_ *,
+        lily_module_entry *);
 #endif

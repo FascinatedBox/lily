@@ -54,9 +54,7 @@ typedef struct {
 } lily_doc_stack;
 
 typedef struct lily_parse_state_ {
-    lily_module_entry *module_start;
-    lily_module_entry *module_top;
-
+    lily_module_entry *prelude;
     lily_module_entry *main_module;
 
     /* Temporary value storage, typically for use with data_strings. */

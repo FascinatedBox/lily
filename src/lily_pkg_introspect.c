@@ -1092,7 +1092,7 @@ void lily_introspect__main_module(lily_state *s)
 void lily_introspect__module_list(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
-    lily_module_entry *source = parser->module_start;
+    lily_module_entry *source = parser->prelude;
     lily_module_entry *source_iter = source;
 
     BUILD_LIST_FROM(allow_all, make_module);
