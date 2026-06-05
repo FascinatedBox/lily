@@ -722,11 +722,12 @@ static void scan_docblock(lily_lex_state *lex, char **source_ch)
             lily_raise_lex(lex->raiser,
                     "Docblock has inconsistent indentation.");
 
-        /* Don't include the triple # in the docblock. */
+        /* Advance past '###' and into docblock content. */
         ch += 3;
 
-        /* Same for the spacing that comes after. */
-        while (*ch == ' ' || *ch == '\t')
+        /* It's common to have a space before the content begins. If there is a
+           space, advance past it. Keep the rest verbatim. */
+        if (*ch == ' ')
             ch++;
 
         /* The rest goes into the outgoing text. */

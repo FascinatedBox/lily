@@ -1556,4 +1556,37 @@ class TestPkgIntrospect < TestCase
             }
         """)
     }
+
+    public define test_docblock_whitespace
+    {
+        var t = Interpreter()
+
+        t.config_set_extra_info(true)
+
+        assert_parse_string(t, """
+            ### ```lily
+            ### for i in 1...5: {
+            ###     print(i)
+            ### }
+            ### ```
+            define example {}
+
+            import introspect
+
+            var fns = introspect.main_module().functions()
+            var doc = fns[0].doc().split("\\n")
+            var expect = [
+                "```lily",
+                "for i in 1...5: {",
+                "    print(i)",
+                "}",
+                "```",
+                "",
+            ]
+
+            if doc != expect: {
+                0/0
+            }
+        """)
+    }
 }
