@@ -333,6 +333,10 @@ typedef struct lily_module_entry_ {
        Modules can be hidden from path search by setting this to 0. */
     uint16_t cmp_len;
 
+    uint16_t id;
+    uint16_t pad;
+    uint32_t pad2;
+
     /* This is the default name this module will appear with when imported by
        other modules. Usually 'basename(path) - suffix'. */
     char *loadname;

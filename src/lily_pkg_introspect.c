@@ -1037,6 +1037,12 @@ void lily_introspect_ModuleEntry_functions(lily_state *s)
     BUILD_LIST_FROM(allow_functions, make_function)
 }
 
+void lily_introspect_ModuleEntry_id(lily_state *s)
+{
+    FETCH_FIELD(ModuleEntry, lily_module_entry, uint16_t, id,
+            lily_push_integer);
+}
+
 void lily_introspect_ModuleEntry_modules_used(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);

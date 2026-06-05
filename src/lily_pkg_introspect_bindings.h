@@ -179,7 +179,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0result_type\0(MethodEntry): TypeEntry"
     ,"m\0scope\0(MethodEntry): SymScope"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\20ModuleEntry\0"
+    ,"C\21ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0boxed_constants\0(ModuleEntry): List[ConstantEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
@@ -192,6 +192,7 @@ const char *lily_introspect_info_table[] = {
     ,"m\0doc\0(ModuleEntry): String"
     ,"m\0enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0functions\0(ModuleEntry): List[FunctionEntry]"
+    ,"m\0id\0(ModuleEntry): Integer"
     ,"m\0modules_used\0(ModuleEntry): List[ModuleEntry]"
     ,"m\0name\0(ModuleEntry): String"
     ,"m\0path\0(ModuleEntry): String"
@@ -308,6 +309,7 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ModuleEntry_doc, \
     lily_introspect_ModuleEntry_enums, \
     lily_introspect_ModuleEntry_functions, \
+    lily_introspect_ModuleEntry_id, \
     lily_introspect_ModuleEntry_modules_used, \
     lily_introspect_ModuleEntry_name, \
     lily_introspect_ModuleEntry_path, \

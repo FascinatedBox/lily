@@ -367,6 +367,9 @@ foreign static class ModuleEntry
     ### Return the functions that were declared inside of this module.
     public define functions: List[FunctionEntry]
 
+    ### Return the id of this module.
+    public define id: Integer
+
     ### Return the modules that were used inside of this module.
     public define modules_used: List[ModuleEntry]
 

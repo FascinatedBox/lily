@@ -52,6 +52,7 @@ lily_import_state *lily_new_import_state(void)
     lily_import_state *ims = lily_malloc(sizeof(*ims));
 
     ims->module_top = NULL;
+    ims->next_module_id = 0;
     ims->path_msgbuf = lily_new_msgbuf(64);
     ims->prelude = NULL;
     ims->sys_dirs = NULL;
@@ -300,6 +301,8 @@ static lily_module_entry *new_module(lily_import_state *ims)
     /* If the module has a foreign source, setting the data will drop this. */
     module->flags = MODULE_NOT_EXECUTED;
     module->root_dirname = NULL;
+    module->id = ims->next_module_id;
+    ims->next_module_id++;
 
     if (ims->module_top)
         ims->module_top->next = module;

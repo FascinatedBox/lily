@@ -1230,6 +1230,25 @@ class TestPkgIntrospect < TestCase
             }
         """)
 
+        assert_parse_string(t, """
+            var prelude_m = introspect.module_list()[0]
+            var main_m = introspect.main_module()
+
+            if prelude_m == main_m: {
+                0/0
+            }
+
+            if prelude_m.id() == main_m.id(): {
+                0/0
+            }
+
+            var id = prelude_m.id().to_s().parse_i().unwrap()
+
+            if id != prelude_m.id(): {
+                0/0
+            }
+        """)
+
         t = Interpreter.with_targets(
             @t_nest_example
         )

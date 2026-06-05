@@ -55,7 +55,8 @@ typedef struct lily_import_state_ {
     /* 1 if a package import, 0 otherwise. If 1, path building adds a package
        base directory after the dirname above. */
     lily_import_type import_type: 16;
-    uint32_t pad;
+    uint16_t next_module_id;
+    uint16_t pad;
 } lily_import_state;
 
 lily_import_state *lily_new_import_state(void);
