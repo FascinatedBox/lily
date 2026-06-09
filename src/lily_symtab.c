@@ -144,10 +144,7 @@ static void free_literals(lily_value_stack *literals)
     for (i = 0;i < literals->pos;i++) {
         lily_literal *lit = (lily_literal *)data[i];
 
-        /* These literals stay alive by having one ref since they live in
-           symtab's literal space. They can go away now. */
-        if (lit->flags &
-            (V_BYTESTRING_FLAG | V_STRING_FLAG | V_FUNCTION_FLAG)) {
+        if (lit->flags & VAL_IS_INTERNED) {
             lit->flags |= VAL_IS_DEREFABLE;
             lily_deref((lily_value *)lit);
         }
@@ -410,8 +407,8 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     lily_bytestring_val *sv = lily_new_bytestring_raw(want_string, len);
     lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
-    /* Drop the derefable marker. */
-    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE;
+    /* Mark as a literal (to be deleted later). */
+    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_INTERNED;
     v->reg_spot = symtab->literals->pos;
     v->next_index = 0;
 
@@ -458,8 +455,8 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, lily_type **type_ret,
     lily_string_val *sv = lily_new_string_raw(want_string);
     lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
-    /* Drop the derefable marker. */
-    v->flags = V_STRING_FLAG | V_STRING_BASE;
+    /* Mark as a literal (to be deleted later). */
+    v->flags = V_STRING_FLAG | V_STRING_BASE | VAL_IS_INTERNED;
     v->reg_spot = symtab->literals->pos;
     v->next_index = 0;
 

@@ -243,6 +243,10 @@ typedef struct lily_generic_gc_val_ {
 #define VAL_IS_GC_SPECULATIVE   0x0020000
 #define VAL_IS_DEREFABLE        0x0040000
 
+/* ByteString literal, String literal, or parser-made Function.
+   Symtab will delete during parser teardown. */
+#define VAL_IS_INTERNED         0x0080000
+
 /* Class markers for lily_value and lily_literal. If a class has a flag and a
    base, both must always be set together. The flags are used to test several
    different classes together. The bases are used when testing a specific kind
@@ -253,8 +257,7 @@ typedef struct lily_generic_gc_val_ {
 #define V_STRING_FLAG           0x0400000
 #define V_BYTE_FLAG             0x0800000
 #define V_BYTESTRING_FLAG       0x1000000
-#define V_FUNCTION_FLAG         0x2000000
-#define V_BOOLEAN_FLAG          0x4000000
+#define V_BOOLEAN_FLAG          0x2000000
 #define V_UNSET_BASE            0
 #define V_INTEGER_BASE          1
 #define V_DOUBLE_BASE           2
