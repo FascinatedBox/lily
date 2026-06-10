@@ -269,7 +269,7 @@ static lily_value *new_value_of_integer(int64_t i)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+    v->flags = V_NUMERIC_FLAG | V_INTEGER_BASE;
     v->value.integer = i;
     return v;
 }

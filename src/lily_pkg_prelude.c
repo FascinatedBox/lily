@@ -1113,7 +1113,7 @@ void lily_prelude_List_contains(lily_state *s)
     uint32_t i;
     int found = 0;
 
-    if (value->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) {
+    if (value->flags & V_NUMERIC_FLAG) {
         int64_t integer = value->value.integer;
         for (i = 0;i < input_size;i++) {
             if (lily_con_get(input_list, i)->value.integer == integer) {

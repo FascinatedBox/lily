@@ -252,14 +252,13 @@ typedef struct lily_generic_gc_val_ {
    different classes together. The bases are used when testing a specific kind
    of class. */
 
-#define V_INTEGER_FLAG          0x0100000
+/* Numeric: Boolean, Byte, or Integer (all use .integer). */
+#define V_NUMERIC_FLAG          0x0100000
 #define V_DOUBLE_FLAG           0x0200000
 #define V_STRING_FLAG           0x0400000
-#define V_BYTE_FLAG             0x0800000
-#define V_BYTESTRING_FLAG       0x1000000
-#define V_BOOLEAN_FLAG          0x2000000
-#define V_EMPTY_VARIANT_FLAG    0x4000000
-#define V_FOREIGN_FLAG          0x8000000
+#define V_BYTESTRING_FLAG       0x0800000
+#define V_EMPTY_VARIANT_FLAG    0x1000000
+#define V_FOREIGN_FLAG          0x2000000
 #define V_UNSET_BASE            0
 #define V_INTEGER_BASE          1
 #define V_DOUBLE_BASE           2

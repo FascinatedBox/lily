@@ -629,7 +629,7 @@ static void move_byte(lily_value *v, uint8_t z)
         lily_deref(v);
 
     v->value.integer = z;
-    v->flags = V_BYTE_FLAG | V_BYTE_BASE;
+    v->flags = V_NUMERIC_FLAG | V_BYTE_BASE;
 }
 
 static void move_function_f(uint32_t f, lily_value *v, lily_function_val *z)
@@ -1927,7 +1927,7 @@ lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 vm_regs[code[3]]->value.integer = \
 lhs_reg->value.integer OP rhs_reg->value.integer; \
-vm_regs[code[3]]->flags = V_INTEGER_FLAG | V_INTEGER_BASE; \
+vm_regs[code[3]]->flags = V_NUMERIC_FLAG | V_INTEGER_BASE; \
 code += 5;
 
 #define DOUBLE_OP(OP) \
@@ -1943,7 +1943,7 @@ code += 5;
 #define EQUALITY_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_BYTE_FLAG | V_INTEGER_FLAG)) { \
+if (lhs_reg->flags & V_NUMERIC_FLAG) { \
     i = lhs_reg->value.integer OP rhs_reg->value.integer; \
 } \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
@@ -1968,7 +1968,7 @@ else \
 #define COMPARE_OP(OP) \
 lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
-if (lhs_reg->flags & (V_INTEGER_FLAG | V_BYTE_FLAG)) \
+if (lhs_reg->flags & V_NUMERIC_FLAG) \
     i = lhs_reg->value.integer OP rhs_reg->value.integer; \
 else if (lhs_reg->flags & V_STRING_FLAG) { \
     i = strcmp(lhs_reg->value.string->string, \
@@ -2039,19 +2039,19 @@ void lily_vm_execute(lily_vm_state *vm)
             case o_load_integer:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (int16_t)code[1];
-                lhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+                lhs_reg->flags = V_NUMERIC_FLAG | V_INTEGER_BASE;
                 code += 4;
                 break;
             case o_load_boolean:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = code[1];
-                lhs_reg->flags = V_BOOLEAN_BASE | V_BOOLEAN_FLAG;
+                lhs_reg->flags = V_NUMERIC_FLAG | V_BOOLEAN_BASE;
                 code += 4;
                 break;
             case o_load_byte:
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.integer = (uint8_t)code[1];
-                lhs_reg->flags = V_BYTE_FLAG | V_BYTE_BASE;
+                lhs_reg->flags = V_NUMERIC_FLAG | V_BYTE_BASE;
                 code += 4;
                 break;
             case o_int_add:
@@ -2142,7 +2142,7 @@ void lily_vm_execute(lily_vm_state *vm)
                     int base = FLAGS_TO_BASE(lhs_reg);
                     int result;
 
-                    if (lhs_reg->flags & (V_BOOLEAN_FLAG | V_INTEGER_FLAG))
+                    if (lhs_reg->flags & V_NUMERIC_FLAG)
                         result = (lhs_reg->value.integer == 0);
                     else if (base == V_STRING_BASE)
                         result = (lhs_reg->value.string->size == 0);
@@ -2231,9 +2231,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[1]];
                 lhs_reg = vm_regs[code[2]];
 
-                if (rhs_reg->flags & V_INTEGER_FLAG) {
+                if (rhs_reg->flags & V_NUMERIC_FLAG) {
                     lhs_reg->value.integer = -(rhs_reg->value.integer);
-                    lhs_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+                    lhs_reg->flags = V_NUMERIC_FLAG | V_INTEGER_BASE;
                 }
                 else {
                     lhs_reg->value.doubleval = -(rhs_reg->value.doubleval);
@@ -2494,7 +2494,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 loop_reg->value.integer =
                         lhs_reg->value.integer - step_reg->value.integer;
                 lhs_reg->value.integer = loop_reg->value.integer;
-                loop_reg->flags = V_INTEGER_FLAG | V_INTEGER_BASE;
+                loop_reg->flags = V_NUMERIC_FLAG | V_INTEGER_BASE;
 
                 code += 6;
                 break;

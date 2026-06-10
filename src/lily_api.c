@@ -832,7 +832,7 @@ void lily_push_coroutine(lily_state *s, lily_coroutine_val *co)
 void lily_push_boolean(lily_state *s, int v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_BOOLEAN_BASE | V_BOOLEAN_FLAG, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_BOOLEAN_BASE, integer, v);
 }
 
 void lily_push_bytestring(lily_state *s, const char *source, int len)
@@ -851,7 +851,7 @@ void lily_push_bytestring(lily_state *s, const char *source, int len)
 void lily_push_byte(lily_state *s, uint8_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_BYTE_FLAG | V_BYTE_BASE, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_BYTE_BASE, integer, v);
 }
 
 void lily_push_double(lily_state *s, double v)
@@ -912,7 +912,7 @@ lily_container_val *lily_push_instance(lily_state *s, uint16_t id,
 void lily_push_integer(lily_state *s, int64_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_INTEGER_FLAG | V_INTEGER_BASE, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_INTEGER_BASE, integer, v);
 }
 
 lily_container_val *lily_push_list(lily_state *s, uint32_t size)
@@ -1023,13 +1023,13 @@ if (target->flags & VAL_IS_DEREFABLE) \
 void lily_return_boolean(lily_state *s, int v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_BOOLEAN_BASE | V_BOOLEAN_FLAG, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_BOOLEAN_BASE, integer, v);
 }
 
 void lily_return_byte(lily_state *s, uint8_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_BYTE_FLAG | V_BYTE_BASE, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_BYTE_BASE, integer, v);
 }
 
 void lily_return_double(lily_state *s, double v)
@@ -1041,7 +1041,7 @@ void lily_return_double(lily_state *s, double v)
 void lily_return_integer(lily_state *s, int64_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_INTEGER_FLAG | V_INTEGER_BASE, integer, v);
+    SET_TARGET(V_NUMERIC_FLAG | V_INTEGER_BASE, integer, v);
 }
 
 void lily_return_none(lily_state *s)
