@@ -145,8 +145,8 @@ uint16_t lily_value_class_id(lily_value *value)
     int base = FLAGS_TO_BASE(value);
     uint16_t result_id;
 
-    if (base == V_INSTANCE_BASE ||
-        (value->flags & (V_COROUTINE_FLAG | V_FOREIGN_FLAG | V_VARIANT_FLAG)))
+    if ((value->flags &
+        (V_COROUTINE_FLAG | V_FOREIGN_FLAG | V_INSTANCE_FLAG | V_VARIANT_FLAG)))
         result_id = (uint16_t)value->value.container->class_id;
     else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
@@ -447,7 +447,7 @@ void lily_value_destroy(lily_value *v)
 
     if (base == V_LIST_BASE || base == V_TUPLE_BASE)
         destroy_list(v);
-    else if ((v->flags & V_VARIANT_FLAG) || base == V_INSTANCE_BASE)
+    else if (v->flags & (V_INSTANCE_FLAG | V_VARIANT_FLAG))
         destroy_container(v);
     else if (base == V_STRING_BASE || base == V_BYTESTRING_BASE)
         destroy_string(v);
@@ -906,7 +906,7 @@ lily_hash_val *lily_push_hash(lily_state *s, int size)
 lily_container_val *lily_push_instance(lily_state *s, uint16_t id,
         uint32_t size)
 {
-    PUSH_CONTAINER(id, V_INSTANCE_BASE, size);
+    PUSH_CONTAINER(id, V_INSTANCE_FLAG, size);
 }
 
 void lily_push_integer(lily_state *s, int64_t v)
@@ -925,7 +925,7 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
 {
     lily_value *v = s->call_chain->return_target;
 
-    if (FLAGS_TO_BASE(v) == V_INSTANCE_BASE) {
+    if (v->flags & V_INSTANCE_FLAG) {
         lily_container_val *pending_instance = v->value.container;
         if (pending_instance->instance_ctor_need != 0) {
             /* The caller is a constructor that is finishing the init of this
@@ -949,7 +949,7 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
         cv = (lily_container_val *)lily_new_vt_container_raw(id, initial,
                 s->gs->virt_table[cls->virt_index]);
 
-    SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | V_INSTANCE_BASE,
+    SET_TARGET(V_INSTANCE_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
             container, cv);
     return cv;
 }
@@ -1088,7 +1088,7 @@ void lily_return_super(lily_state *s)
     lily_value *target = s->call_chain->return_target;
     lily_value *top = *(s->call_chain->top - 1);
 
-    if (FLAGS_TO_BASE(target) == V_INSTANCE_BASE &&
+    if (target->flags & V_INSTANCE_FLAG &&
         target->value.container == top->value.container) {
         return;
     }
@@ -1156,9 +1156,6 @@ lily_value_group lily_value_get_group(lily_value *value)
         case V_HASH_BASE:
             result = lily_isa_hash;
             break;
-        case V_INSTANCE_BASE:
-            result = lily_isa_native_class;
-            break;
         case V_INTEGER_BASE:
             result = lily_isa_integer;
             break;
@@ -1175,7 +1172,9 @@ lily_value_group lily_value_get_group(lily_value *value)
             result = lily_isa_unit;
             break;
         default:
-            if (value->flags & V_VARIANT_FLAG)
+            if (value->flags & V_INSTANCE_FLAG)
+                result = lily_isa_native_class;
+            else if (value->flags & V_VARIANT_FLAG)
                 result = lily_isa_variant;
             else if (value->flags & V_EMPTY_VARIANT_FLAG)
                 result = lily_isa_empty_variant;

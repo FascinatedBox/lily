@@ -456,8 +456,8 @@ static void gc_mark(lily_value *v)
     if (v->flags & (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)) {
         int base = FLAGS_TO_BASE(v);
 
-        if (base == V_LIST_BASE     || base == V_TUPLE_BASE ||
-            base == V_INSTANCE_BASE || (v->flags & V_VARIANT_FLAG))
+        if (base == V_LIST_BASE || base == V_TUPLE_BASE ||
+            (v->flags & (V_INSTANCE_FLAG | V_VARIANT_FLAG)))
             list_marker(v);
         else if (base == V_HASH_BASE)
             hash_marker(v);
@@ -656,7 +656,7 @@ static void move_instance_f(uint32_t f, lily_value *v, lily_container_val *z)
         lily_deref(v);
 
     v->value.container = z;
-    v->flags = f | V_INSTANCE_BASE | VAL_IS_DEREFABLE;
+    v->flags = f | V_INSTANCE_FLAG | VAL_IS_DEREFABLE;
 }
 
 static void move_list_f(uint32_t f, lily_value *v, lily_container_val *z)
@@ -1139,7 +1139,7 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
 
     /* Is the caller a superclass building an instance already? */
     lily_value *pending_value = vm->call_chain->return_target;
-    if (FLAGS_TO_BASE(pending_value) == V_INSTANCE_BASE) {
+    if (pending_value->flags & V_INSTANCE_FLAG) {
         lily_container_val *cv = pending_value->value.container;
 
         if (cv->instance_ctor_need) {
@@ -2448,7 +2448,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 /* This opcode is used for match branches. The source is always
                    a class instance or a variant (which might be empty). */
-                if (lhs_reg->flags & V_VARIANT_FLAG || i == V_INSTANCE_BASE)
+                if (lhs_reg->flags & (V_INSTANCE_FLAG | V_VARIANT_FLAG))
                     i = lhs_reg->value.container->class_id;
                 else
                     i = (uint16_t)lhs_reg->value.integer;
