@@ -142,21 +142,7 @@ void lily_value_assign(lily_value *left, lily_value *right)
 
 uint16_t lily_value_class_id(lily_value *value)
 {
-    int base = FLAGS_TO_BASE(value);
-    uint16_t result_id;
-
-    if ((value->flags &
-        (V_COROUTINE_FLAG | V_FOREIGN_FLAG | V_INSTANCE_FLAG | V_VARIANT_FLAG)))
-        result_id = (uint16_t)value->value.container->class_id;
-    else if (value->flags & V_EMPTY_VARIANT_FLAG)
-        result_id = (uint16_t)value->value.integer;
-    else if (base == LILY_ID_UNIT)
-        result_id = LILY_ID_UNIT;
-    else
-        /* The other bases map directly to class ids. */
-        result_id = (uint16_t)base;
-
-    return result_id;
+    return FLAGS_TO_BASE(value);
 }
 
 static int lily_value_compare_raw(lily_vm_state *, int *, lily_value *,
