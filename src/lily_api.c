@@ -150,7 +150,7 @@ uint16_t lily_value_class_id(lily_value *value)
         result_id = (uint16_t)value->value.container->class_id;
     else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
-    else if (base == V_UNIT_BASE)
+    else if (base == LILY_ID_UNIT)
         result_id = LILY_ID_UNIT;
     else
         /* The other bases map directly to class ids. */
@@ -198,14 +198,14 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
     if (*depth == 100)
         lily_RuntimeError(s, "Infinite loop in comparison.");
 
-    if (left_base == V_INTEGER_BASE || left_base == V_BOOLEAN_BASE)
+    if (left_base == LILY_ID_INTEGER || left_base == LILY_ID_BOOLEAN)
         return left->value.integer == right->value.integer;
-    else if (left_base == V_DOUBLE_BASE)
+    else if (left_base == LILY_ID_DOUBLE)
         return left->value.doubleval == right->value.doubleval;
-    else if (left_base == V_STRING_BASE)
+    else if (left_base == LILY_ID_STRING)
         return strcmp(left->value.string->string,
                 right->value.string->string) == 0;
-    else if (left_base == V_BYTESTRING_BASE) {
+    else if (left_base == LILY_ID_BYTESTRING) {
         lily_string_val *left_sv = left->value.string;
         lily_string_val *right_sv = right->value.string;
         char *left_s = left_sv->string;
@@ -214,9 +214,9 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         return (left_size == right_sv->size &&
                 memcmp(left_s, right_s, left_size) == 0);
     }
-    else if (left_base == V_LIST_BASE || left_base == V_TUPLE_BASE)
+    else if (left_base == LILY_ID_LIST || left_base == LILY_ID_TUPLE)
         return subvalue_eq(s, depth, left, right);
-    else if (left_base == V_HASH_BASE) {
+    else if (left_base == LILY_ID_HASH) {
         lily_hash_val *left_hash = left->value.hash;
         lily_hash_val *right_hash = right->value.hash;
 
@@ -356,7 +356,7 @@ static void destroy_coroutine(lily_value *v)
     /* Do a direct destroy of the base frame because the Coroutine has the only
        reference to it (it's never put into a register). */
     lily_value func_v;
-    func_v.flags = V_FUNCTION_BASE;
+    func_v.flags = LILY_ID_FUNCTION;
     func_v.value.function = co_val->base_function;
     destroy_function(&func_v);
 
@@ -445,17 +445,17 @@ void lily_value_destroy(lily_value *v)
 {
     int base = FLAGS_TO_BASE(v);
 
-    if (base == V_LIST_BASE || base == V_TUPLE_BASE)
+    if (base == LILY_ID_LIST || base == LILY_ID_TUPLE)
         destroy_list(v);
     else if (v->flags & (V_INSTANCE_FLAG | V_VARIANT_FLAG))
         destroy_container(v);
-    else if (base == V_STRING_BASE || base == V_BYTESTRING_BASE)
+    else if (base == LILY_ID_STRING || base == LILY_ID_BYTESTRING)
         destroy_string(v);
-    else if (base == V_FUNCTION_BASE)
+    else if (base == LILY_ID_FUNCTION)
         destroy_function(v);
-    else if (base == V_HASH_BASE)
+    else if (base == LILY_ID_HASH)
         lily_destroy_hash(v);
-    else if (base == V_FILE_BASE)
+    else if (base == LILY_ID_FILE)
         destroy_file(v);
     else if (v->flags & V_COROUTINE_FLAG)
         destroy_coroutine(v);
@@ -469,15 +469,15 @@ void lily_value_write_to_file(lily_vm_state *vm, FILE *f, lily_value *v)
 {
     int base = FLAGS_TO_BASE(v);
 
-    if (base == V_STRING_BASE)
+    if (base == LILY_ID_STRING)
         fputs(v->value.string->string, f);
-    else if (base != V_BYTESTRING_BASE && base != V_BYTE_BASE) {
+    else if (base != LILY_ID_BYTESTRING && base != LILY_ID_BYTE) {
         lily_msgbuf *msgbuf = lily_msgbuf_get(vm);
 
         lily_mb_add_value(msgbuf, vm, v);
         fputs(lily_mb_raw(msgbuf), f);
     }
-    else if (base == V_BYTESTRING_BASE)
+    else if (base == LILY_ID_BYTESTRING)
         fwrite(v->value.string->string, sizeof(char), v->value.string->size,
                 f);
     else
@@ -754,7 +754,7 @@ int lily_optional_boolean(lily_state *s, int index, int fallback)
 {
     lily_value *v = s->call_chain->start[index];
 
-    if (FLAGS_TO_BASE(v) == V_BOOLEAN_BASE)
+    if (FLAGS_TO_BASE(v) == LILY_ID_BOOLEAN)
         return (int)v->value.integer;
     else
         return fallback;
@@ -764,7 +764,7 @@ double lily_optional_double(lily_state *s, int index, double fallback)
 {
     lily_value *v = s->call_chain->start[index];
 
-    if (FLAGS_TO_BASE(v) == V_DOUBLE_BASE)
+    if (FLAGS_TO_BASE(v) == LILY_ID_DOUBLE)
         return v->value.doubleval;
     else
         return fallback;
@@ -774,7 +774,7 @@ int64_t lily_optional_integer(lily_state *s, int index, int64_t fallback)
 {
     lily_value *v = s->call_chain->start[index];
 
-    if (FLAGS_TO_BASE(v) == V_INTEGER_BASE)
+    if (FLAGS_TO_BASE(v) == LILY_ID_INTEGER)
         return v->value.integer;
     else
         return fallback;
@@ -785,7 +785,7 @@ const char *lily_optional_string_raw(lily_state *s, int index,
 {
     lily_value *v = s->call_chain->start[index];
 
-    if (FLAGS_TO_BASE(v) == V_STRING_BASE)
+    if (FLAGS_TO_BASE(v) == LILY_ID_STRING)
         return v->value.string->string;
     else
         return fallback;
@@ -832,7 +832,7 @@ void lily_push_coroutine(lily_state *s, lily_coroutine_val *co)
 void lily_push_boolean(lily_state *s, int v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_BOOLEAN_BASE, integer, v);
+    SET_TARGET(LILY_ID_BOOLEAN | V_NUMERIC_FLAG, integer, v);
 }
 
 void lily_push_bytestring(lily_state *s, const char *source, int len)
@@ -845,19 +845,19 @@ void lily_push_bytestring(lily_state *s, const char *source, int len)
 
     lily_string_val *sv = new_sv(buffer, len);
 
-    SET_TARGET(V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(V_BYTESTRING_FLAG | LILY_ID_BYTESTRING | VAL_IS_DEREFABLE, string, sv);
 }
 
 void lily_push_byte(lily_state *s, uint8_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_BYTE_BASE, integer, v);
+    SET_TARGET(LILY_ID_BYTE | V_NUMERIC_FLAG, integer, v);
 }
 
 void lily_push_double(lily_state *s, double v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_DOUBLE_BASE, doubleval, v);
+    SET_TARGET(LILY_ID_DOUBLE, doubleval, v);
 }
 
 void lily_push_empty_variant(lily_state *s, uint16_t id)
@@ -878,7 +878,7 @@ void lily_push_file(lily_state *s, FILE *inner_file, const char *mode,
     filev->read_ok = (*mode == 'r' || plus);
     filev->write_ok = (*mode == 'w' || *mode == 'a' || plus);
     filev->close_func = close_func;
-    SET_TARGET(V_FILE_BASE | VAL_IS_DEREFABLE, file, filev);
+    SET_TARGET(LILY_ID_FILE | VAL_IS_DEREFABLE, file, filev);
 }
 
 lily_foreign_val *lily_push_foreign(lily_state *s, uint16_t id,
@@ -899,7 +899,7 @@ lily_hash_val *lily_push_hash(lily_state *s, int size)
     PUSH_PREAMBLE
     lily_hash_val *h = lily_new_hash_raw(size);
 
-    SET_TARGET(V_HASH_BASE | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE, hash, h);
+    SET_TARGET(LILY_ID_HASH | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE, hash, h);
     return h;
 }
 
@@ -912,12 +912,12 @@ lily_container_val *lily_push_instance(lily_state *s, uint16_t id,
 void lily_push_integer(lily_state *s, int64_t v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_INTEGER_BASE, integer, v);
+    SET_TARGET(LILY_ID_INTEGER | V_NUMERIC_FLAG, integer, v);
 }
 
 lily_container_val *lily_push_list(lily_state *s, uint32_t size)
 {
-    PUSH_CONTAINER(LILY_ID_LIST, V_LIST_BASE, size);
+    PUSH_CONTAINER(LILY_ID_LIST, LILY_ID_LIST, size);
 }
 
 lily_container_val *lily_push_super(lily_state *s, uint16_t id,
@@ -964,7 +964,7 @@ void lily_push_string(lily_state *s, const char *source)
 
     lily_string_val *sv = new_sv(buffer, (int)len);
 
-    SET_TARGET(V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_STRING | V_STRING_FLAG | VAL_IS_DEREFABLE, string, sv);
 }
 
 void lily_push_string_sized(lily_state *s, const char *source, int len)
@@ -976,24 +976,24 @@ void lily_push_string_sized(lily_state *s, const char *source, int len)
 
     lily_string_val *sv = new_sv(buffer, len);
 
-    SET_TARGET(V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_STRING | V_STRING_FLAG | VAL_IS_DEREFABLE, string, sv);
 }
 
 lily_container_val *lily_push_tuple(lily_state *s, uint32_t size)
 {
-    PUSH_CONTAINER(LILY_ID_TUPLE, V_TUPLE_BASE, size);
+    PUSH_CONTAINER(LILY_ID_TUPLE, LILY_ID_TUPLE, size);
 }
 
 void lily_push_unit(lily_state *s)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_UNIT_BASE, integer, 0);
+    SET_TARGET(LILY_ID_UNIT, integer, 0);
 }
 
 void lily_push_unset(lily_state *s)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_UNSET_BASE, integer, 0);
+    SET_TARGET(LILY_ID_UNSET, integer, 0);
 }
 
 void lily_push_value(lily_state *s, lily_value *v)
@@ -1023,25 +1023,25 @@ if (target->flags & VAL_IS_DEREFABLE) \
 void lily_return_boolean(lily_state *s, int v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_BOOLEAN_BASE, integer, v);
+    SET_TARGET(LILY_ID_BOOLEAN | V_NUMERIC_FLAG, integer, v);
 }
 
 void lily_return_byte(lily_state *s, uint8_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_BYTE_BASE, integer, v);
+    SET_TARGET(LILY_ID_BYTE | V_NUMERIC_FLAG, integer, v);
 }
 
 void lily_return_double(lily_state *s, double v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_DOUBLE_BASE, doubleval, v);
+    SET_TARGET(LILY_ID_DOUBLE, doubleval, v);
 }
 
 void lily_return_integer(lily_state *s, int64_t v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_NUMERIC_FLAG | V_INTEGER_BASE, integer, v);
+    SET_TARGET(LILY_ID_INTEGER | V_NUMERIC_FLAG, integer, v);
 }
 
 void lily_return_none(lily_state *s)
@@ -1080,7 +1080,7 @@ void lily_return_string(lily_state *s, const char *value)
 
     lily_string_val *sv = new_sv(buffer, (int)len);
 
-    SET_TARGET(V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE, string, sv);
+    SET_TARGET(LILY_ID_STRING | V_STRING_FLAG | VAL_IS_DEREFABLE, string, sv);
 }
 
 void lily_return_super(lily_state *s)
@@ -1116,7 +1116,7 @@ void lily_return_top(lily_state *s)
 void lily_return_unit(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_UNIT_BASE, container, NULL);
+    SET_TARGET(LILY_ID_UNIT, container, NULL);
 }
 
 void lily_return_value(lily_state *s, lily_value *v)
@@ -1135,40 +1135,40 @@ lily_value_group lily_value_get_group(lily_value *value)
     lily_value_group result = lily_isa_unit;
 
     switch (FLAGS_TO_BASE(value)) {
-        case V_BOOLEAN_BASE:
+        case LILY_ID_BOOLEAN:
             result = lily_isa_boolean;
             break;
-        case V_BYTE_BASE:
+        case LILY_ID_BYTE:
             result = lily_isa_byte;
             break;
-        case V_BYTESTRING_BASE:
+        case LILY_ID_BYTESTRING:
             result = lily_isa_bytestring;
             break;
-        case V_DOUBLE_BASE:
+        case LILY_ID_DOUBLE:
             result = lily_isa_double;
             break;
-        case V_FILE_BASE:
+        case LILY_ID_FILE:
             result = lily_isa_file;
             break;
-        case V_FUNCTION_BASE:
+        case LILY_ID_FUNCTION:
             result = lily_isa_function;
             break;
-        case V_HASH_BASE:
+        case LILY_ID_HASH:
             result = lily_isa_hash;
             break;
-        case V_INTEGER_BASE:
+        case LILY_ID_INTEGER:
             result = lily_isa_integer;
             break;
-        case V_LIST_BASE:
+        case LILY_ID_LIST:
             result = lily_isa_list;
             break;
-        case V_STRING_BASE:
+        case LILY_ID_STRING:
             result = lily_isa_string;
             break;
-        case V_TUPLE_BASE:
+        case LILY_ID_TUPLE:
             result = lily_isa_tuple;
             break;
-        case V_UNIT_BASE:
+        case LILY_ID_UNIT:
             result = lily_isa_unit;
             break;
         default:

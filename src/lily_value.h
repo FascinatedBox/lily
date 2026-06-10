@@ -247,10 +247,9 @@ typedef struct lily_generic_gc_val_ {
    Symtab will delete during parser teardown. */
 #define VAL_IS_INTERNED         0x0080000
 
-/* Class markers for lily_value and lily_literal. If a class has a flag and a
-   base, both must always be set together. The flags are used to test several
-   different classes together. The bases are used when testing a specific kind
-   of class. */
+/* Class markers for lily_value and lily_literal. A value is initialized by
+   providing an id and (if there is one) a relevant flag from here. These flags
+   allow testing of several things together. */
 
 /* Numeric: Boolean, Byte, or Integer (all use .integer). */
 #define V_NUMERIC_FLAG          0x0100000
@@ -261,19 +260,6 @@ typedef struct lily_generic_gc_val_ {
 #define V_VARIANT_FLAG          0x2000000
 #define V_COROUTINE_FLAG        0x4000000
 #define V_INSTANCE_FLAG         0x8000000
-#define V_UNSET_BASE            0
-#define V_INTEGER_BASE          1
-#define V_DOUBLE_BASE           2
-#define V_STRING_BASE           3
-#define V_BYTE_BASE             4
-#define V_BYTESTRING_BASE       5
-#define V_BOOLEAN_BASE          6
-#define V_FUNCTION_BASE         7
-#define V_LIST_BASE             8
-#define V_HASH_BASE             9
-#define V_TUPLE_BASE            10
-#define V_FILE_BASE             11
-#define V_UNIT_BASE             12
 
 /* How much do the CLS flags from lily_class need to be shifted to become vm
    VAL gc flags? */

@@ -669,7 +669,7 @@ static lily_function_val *make_new_function(lily_parse_state *parser,
 
     /* Mark as a literal (to be deleted later). */
     lily_value *v = lily_malloc(sizeof(*v));
-    v->flags = V_FUNCTION_BASE | VAL_IS_INTERNED;
+    v->flags = LILY_ID_FUNCTION | VAL_IS_INTERNED;
     v->value.function = f;
 
     lily_new_function_literal(parser->symtab, var, v);

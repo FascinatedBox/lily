@@ -251,7 +251,7 @@ static lily_value *new_value_of_bytestring(lily_bytestring_val *bv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_DEREFABLE;
+    v->flags = LILY_ID_BYTESTRING | V_BYTESTRING_FLAG | VAL_IS_DEREFABLE;
     v->value.string = (lily_string_val *)bv;
     return v;
 }
@@ -260,7 +260,7 @@ static lily_value *new_value_of_double(double d)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_DOUBLE_BASE;
+    v->flags = LILY_ID_DOUBLE;
     v->value.doubleval = d;
     return v;
 }
@@ -269,7 +269,7 @@ static lily_value *new_value_of_integer(int64_t i)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_NUMERIC_FLAG | V_INTEGER_BASE;
+    v->flags = LILY_ID_INTEGER | V_NUMERIC_FLAG;
     v->value.integer = i;
     return v;
 }
@@ -278,7 +278,7 @@ static lily_value *new_value_of_string(lily_string_val *sv)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_STRING_FLAG | V_STRING_BASE | VAL_IS_DEREFABLE;
+    v->flags = LILY_ID_STRING | V_STRING_FLAG | VAL_IS_DEREFABLE;
     v->value.string = sv;
     return v;
 }
@@ -287,7 +287,7 @@ static lily_value *new_value_of_unit(void)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_UNIT_BASE;
+    v->flags = LILY_ID_UNIT;
     v->value.integer = 0;
     return v;
 }
@@ -314,7 +314,7 @@ lily_literal *lily_get_integer_literal(lily_symtab *symtab,
 {
     *type_ret = (lily_type *)symtab->integer_class;
 
-    lily_literal *iter = first_lit_of(symtab->literals, V_INTEGER_BASE);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_INTEGER);
 
     while (iter) {
         if (iter->value.integer == int_val)
@@ -344,7 +344,7 @@ lily_literal *lily_get_double_literal(lily_symtab *symtab, lily_type **type_ret,
 {
     *type_ret = (lily_type *)symtab->double_class;
 
-    lily_literal *iter = first_lit_of(symtab->literals, V_DOUBLE_BASE);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_DOUBLE);
 
     while (iter) {
         if (iter->value.doubleval == dbl_val)
@@ -374,7 +374,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
 {
     *type_ret = (lily_type *)symtab->bytestring_class;
 
-    lily_literal *iter = first_lit_of(symtab->literals, V_BYTESTRING_BASE);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_BYTESTRING);
 
     if (len < MAX_STRING_CACHE_LENGTH) {
         while (iter) {
@@ -408,7 +408,7 @@ lily_literal *lily_get_bytestring_literal(lily_symtab *symtab,
     lily_literal *v = (lily_literal *)new_value_of_bytestring(sv);
 
     /* Mark as a literal (to be deleted later). */
-    v->flags = V_BYTESTRING_FLAG | V_BYTESTRING_BASE | VAL_IS_INTERNED;
+    v->flags = LILY_ID_BYTESTRING | V_BYTESTRING_FLAG | VAL_IS_INTERNED;
     v->reg_spot = symtab->literals->pos;
     v->next_index = 0;
 
@@ -421,7 +421,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, lily_type **type_ret,
 {
     *type_ret = (lily_type *)symtab->string_class;
 
-    lily_literal *iter = first_lit_of(symtab->literals, V_STRING_BASE);
+    lily_literal *iter = first_lit_of(symtab->literals, LILY_ID_STRING);
     size_t want_string_len = strlen(want_string);
 
     if (want_string_len < MAX_STRING_CACHE_LENGTH) {
@@ -456,7 +456,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, lily_type **type_ret,
     lily_literal *v = (lily_literal *)new_value_of_string(sv);
 
     /* Mark as a literal (to be deleted later). */
-    v->flags = V_STRING_FLAG | V_STRING_BASE | VAL_IS_INTERNED;
+    v->flags = LILY_ID_STRING | V_STRING_FLAG | VAL_IS_INTERNED;
     v->reg_spot = symtab->literals->pos;
     v->next_index = 0;
 
@@ -466,7 +466,7 @@ lily_literal *lily_get_string_literal(lily_symtab *symtab, lily_type **type_ret,
 
 lily_literal *lily_get_unit_literal(lily_symtab *symtab)
 {
-    lily_literal *lit = first_lit_of(symtab->literals, V_UNIT_BASE);
+    lily_literal *lit = first_lit_of(symtab->literals, LILY_ID_UNIT);
 
     if (lit == NULL) {
         lily_literal *v = (lily_literal *)new_value_of_unit();

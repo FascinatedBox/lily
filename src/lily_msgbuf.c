@@ -527,19 +527,19 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 
     int base = FLAGS_TO_BASE(v);
 
-    if (base == V_BOOLEAN_BASE)
+    if (base == LILY_ID_BOOLEAN)
         add_boolean(msgbuf, v->value.integer);
-    else if (base == V_INTEGER_BASE)
+    else if (base == LILY_ID_INTEGER)
         add_int64(msgbuf, v->value.integer);
-    else if (base == V_BYTE_BASE)
+    else if (base == LILY_ID_BYTE)
         add_byte(msgbuf, (uint8_t) v->value.integer);
-    else if (base == V_DOUBLE_BASE)
+    else if (base == LILY_ID_DOUBLE)
         add_double(msgbuf, v->value.doubleval);
-    else if (base == V_STRING_BASE)
+    else if (base == LILY_ID_STRING)
         lily_mb_escape_add_str(msgbuf, v->value.string->string);
-    else if (base == V_BYTESTRING_BASE)
+    else if (base == LILY_ID_BYTESTRING)
         add_bytestring(msgbuf, v->value.string);
-    else if (base == V_FUNCTION_BASE) {
+    else if (base == LILY_ID_FUNCTION) {
         lily_function_val *fv = v->value.function;
         const char *builtin = "";
 
@@ -548,11 +548,11 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
 
         lily_mb_add_fmt(msgbuf, "<%sfunction %s>", builtin, fv->proto->name);
     }
-    else if (base == V_LIST_BASE)
+    else if (base == LILY_ID_LIST)
         add_list_like(vm, msgbuf, t, v, "[", "]");
-    else if (base == V_TUPLE_BASE)
+    else if (base == LILY_ID_TUPLE)
         add_list_like(vm, msgbuf, t, v, "<[", "]>");
-    else if (base == V_HASH_BASE) {
+    else if (base == LILY_ID_HASH) {
         lily_hash_val *hv = v->value.hash;
         lily_mb_add_char(msgbuf, '[');
         int i, j;
@@ -572,9 +572,9 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         }
         lily_mb_add_char(msgbuf, ']');
     }
-    else if (base == V_UNIT_BASE)
+    else if (base == LILY_ID_UNIT)
         lily_mb_add(msgbuf, "unit");
-    else if (base == V_FILE_BASE) {
+    else if (base == LILY_ID_FILE) {
         lily_file_val *fv = v->value.file;
         const char *state = fv->close_func ? "open" : "closed";
         lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);

@@ -161,7 +161,7 @@ static void execute_test_methods(lily_state *s, lily_function_val *drive_fn,
         lily_raw_value raw_fn_value = value_for_id(s, m->reg_spot);
         lily_value fn_value;
 
-        fn_value.flags = V_FUNCTION_BASE;
+        fn_value.flags = LILY_ID_FUNCTION;
         fn_value.value = raw_fn_value;
 
         /* The first is the driver's self, and the second is the 'A' of the
