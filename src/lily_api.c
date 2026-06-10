@@ -146,7 +146,7 @@ uint16_t lily_value_class_id(lily_value *value)
     uint16_t result_id;
 
     if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
-        base == V_FOREIGN_BASE || base == V_COROUTINE_BASE)
+        base == V_COROUTINE_BASE || (value->flags & V_FOREIGN_FLAG))
         result_id = (uint16_t)value->value.container->class_id;
     else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
@@ -459,7 +459,7 @@ void lily_value_destroy(lily_value *v)
         destroy_file(v);
     else if (base == V_COROUTINE_BASE)
         destroy_coroutine(v);
-    else if (base == V_FOREIGN_BASE) {
+    else if (v->flags & V_FOREIGN_FLAG) {
         v->value.foreign->destroy_func(v->value.generic);
         lily_free(v->value.generic);
     }
@@ -888,7 +888,7 @@ lily_foreign_val *lily_push_foreign(lily_state *s, uint16_t id,
     fv->refcount = 1;
     fv->class_id = id;
     fv->destroy_func = func;
-    SET_TARGET(VAL_IS_DEREFABLE | V_FOREIGN_BASE, foreign, fv);
+    SET_TARGET(V_FOREIGN_FLAG | VAL_IS_DEREFABLE, foreign, fv);
     return fv;
 }
 
@@ -1143,7 +1143,6 @@ lily_value_group lily_value_get_group(lily_value *value)
             result = lily_isa_bytestring;
             break;
         case V_COROUTINE_BASE:
-        case V_FOREIGN_BASE:
             result = lily_isa_foreign_class;
             break;
         case V_DOUBLE_BASE:
@@ -1182,6 +1181,8 @@ lily_value_group lily_value_get_group(lily_value *value)
         default:
             if (value->flags & V_EMPTY_VARIANT_FLAG)
                 result = lily_isa_empty_variant;
+            else if (value->flags & V_FOREIGN_FLAG)
+                result = lily_isa_foreign_class;
     }
 
     return result;
