@@ -2033,7 +2033,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_deref(lhs_reg);
 
                 lhs_reg->value.integer = code[1];
-                lhs_reg->flags = V_EMPTY_VARIANT_BASE;
+                lhs_reg->flags = V_EMPTY_VARIANT_FLAG;
                 code += 4;
                 break;
             case o_load_integer:

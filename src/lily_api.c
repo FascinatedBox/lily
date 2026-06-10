@@ -148,7 +148,7 @@ uint16_t lily_value_class_id(lily_value *value)
     if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
         base == V_FOREIGN_BASE || base == V_COROUTINE_BASE)
         result_id = (uint16_t)value->value.container->class_id;
-    else if (base == V_EMPTY_VARIANT_BASE)
+    else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
     else if (base == V_UNIT_BASE)
         result_id = LILY_ID_UNIT;
@@ -259,12 +259,14 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
 
         return ok;
     }
-    else if (left_base == V_EMPTY_VARIANT_BASE)
-        /* Empty variants store their class id here. */
-        return left->value.integer == right->value.integer;
-    else
-        /* Everything else gets pointer equality. */
-        return left->value.generic == right->value.generic;
+    else {
+        if (left->flags & V_EMPTY_VARIANT_FLAG)
+            /* Empty variants store their class id here. */
+            return left->value.integer == right->value.integer;
+        else
+            /* Everything else gets pointer equality. */
+            return left->value.generic == right->value.generic;
+    }
 }
 
 int lily_value_compare(lily_state *s, lily_value *left, lily_value *right)
@@ -859,7 +861,7 @@ void lily_push_double(lily_state *s, double v)
 void lily_push_empty_variant(lily_state *s, uint16_t id)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_EMPTY_VARIANT_BASE, integer, id);
+    SET_TARGET(V_EMPTY_VARIANT_FLAG, integer, id);
 }
 
 void lily_push_file(lily_state *s, FILE *inner_file, const char *mode,
@@ -1043,7 +1045,7 @@ void lily_return_integer(lily_state *s, int64_t v)
 void lily_return_none(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_EMPTY_VARIANT_BASE, integer, LILY_ID_NONE);
+    SET_TARGET(V_EMPTY_VARIANT_FLAG, integer, LILY_ID_NONE);
 }
 
 void lily_return_some_of_top(lily_state *s)
@@ -1147,9 +1149,6 @@ lily_value_group lily_value_get_group(lily_value *value)
         case V_DOUBLE_BASE:
             result = lily_isa_double;
             break;
-        case V_EMPTY_VARIANT_BASE:
-            result = lily_isa_empty_variant;
-            break;
         case V_FILE_BASE:
             result = lily_isa_file;
             break;
@@ -1180,6 +1179,9 @@ lily_value_group lily_value_get_group(lily_value *value)
         case V_VARIANT_BASE:
             result = lily_isa_variant;
             break;
+        default:
+            if (value->flags & V_EMPTY_VARIANT_FLAG)
+                result = lily_isa_empty_variant;
     }
 
     return result;

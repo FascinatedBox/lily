@@ -592,22 +592,24 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         lily_mb_add(msgbuf, variant_cls->name);
         add_list_like(vm, msgbuf, t, v, "(", ")");
     }
-    else if (base == V_EMPTY_VARIANT_BASE) {
-        uint16_t class_id = (uint16_t)v->value.integer;
-        lily_class *variant_cls = vm->gs->class_table[class_id];
-
-        if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
-            lily_mb_add(msgbuf, variant_cls->parent->name);
-            lily_mb_add_char(msgbuf, '.');
-        }
-
-        lily_mb_add(msgbuf, variant_cls->name);
-    }
     else {
-        lily_container_val *cv = v->value.container;
-        lily_class *cls = vm->gs->class_table[cv->class_id];
+        if (v->flags & V_EMPTY_VARIANT_FLAG) {
+            uint16_t class_id = (uint16_t)v->value.integer;
+            lily_class *variant_cls = vm->gs->class_table[class_id];
 
-        lily_mb_add_fmt(msgbuf, "<%s at %p>", cls->name, v->value.generic);
+            if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
+                lily_mb_add(msgbuf, variant_cls->parent->name);
+                lily_mb_add_char(msgbuf, '.');
+            }
+
+            lily_mb_add(msgbuf, variant_cls->name);
+        }
+        else {
+            lily_container_val *cv = v->value.container;
+            lily_class *cls = vm->gs->class_table[cv->class_id];
+
+            lily_mb_add_fmt(msgbuf, "<%s at %p>", cls->name, v->value.generic);
+        }
     }
 }
 
