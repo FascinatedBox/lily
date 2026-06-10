@@ -579,21 +579,21 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
         const char *state = fv->close_func ? "open" : "closed";
         lily_mb_add_fmt(msgbuf, "<%s file at %p>", state, fv);
     }
-    else if (base == V_VARIANT_BASE) {
-        uint16_t class_id = v->value.container->class_id;
-        lily_class *variant_cls = vm->gs->class_table[class_id];
-
-        /* For scoped variants, render them how they're written. */
-        if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
-            lily_mb_add(msgbuf, variant_cls->parent->name);
-            lily_mb_add_char(msgbuf, '.');
-        }
-
-        lily_mb_add(msgbuf, variant_cls->name);
-        add_list_like(vm, msgbuf, t, v, "(", ")");
-    }
     else {
-        if (v->flags & V_EMPTY_VARIANT_FLAG) {
+        if (v->flags & V_VARIANT_FLAG) {
+            uint16_t class_id = v->value.container->class_id;
+            lily_class *variant_cls = vm->gs->class_table[class_id];
+
+            /* For scoped variants, render them how they're written. */
+            if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
+                lily_mb_add(msgbuf, variant_cls->parent->name);
+                lily_mb_add_char(msgbuf, '.');
+            }
+
+            lily_mb_add(msgbuf, variant_cls->name);
+            add_list_like(vm, msgbuf, t, v, "(", ")");
+        }
+        else if (v->flags & V_EMPTY_VARIANT_FLAG) {
             uint16_t class_id = (uint16_t)v->value.integer;
             lily_class *variant_cls = vm->gs->class_table[class_id];
 

@@ -457,7 +457,7 @@ static void gc_mark(lily_value *v)
         int base = FLAGS_TO_BASE(v);
 
         if (base == V_LIST_BASE     || base == V_TUPLE_BASE ||
-            base == V_INSTANCE_BASE || base == V_VARIANT_BASE)
+            base == V_INSTANCE_BASE || (v->flags & V_VARIANT_FLAG))
             list_marker(v);
         else if (base == V_HASH_BASE)
             hash_marker(v);
@@ -701,7 +701,7 @@ static void move_variant_f(uint32_t f, lily_value *v, lily_container_val *z)
         lily_deref(v);
 
     v->value.container = z;
-    v->flags = f | VAL_IS_DEREFABLE | V_VARIANT_BASE;
+    v->flags = f | VAL_IS_DEREFABLE | V_VARIANT_FLAG;
 }
 
 /***
@@ -2448,7 +2448,7 @@ void lily_vm_execute(lily_vm_state *vm)
 
                 /* This opcode is used for match branches. The source is always
                    a class instance or a variant (which might be empty). */
-                if (i == V_VARIANT_BASE || i == V_INSTANCE_BASE)
+                if (lhs_reg->flags & V_VARIANT_FLAG || i == V_INSTANCE_BASE)
                     i = lhs_reg->value.container->class_id;
                 else
                     i = (uint16_t)lhs_reg->value.integer;

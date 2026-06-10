@@ -258,6 +258,7 @@ typedef struct lily_generic_gc_val_ {
 #define V_BYTESTRING_FLAG       0x0400000
 #define V_EMPTY_VARIANT_FLAG    0x0800000
 #define V_FOREIGN_FLAG          0x1000000
+#define V_VARIANT_FLAG          0x2000000
 #define V_UNSET_BASE            0
 #define V_INTEGER_BASE          1
 #define V_DOUBLE_BASE           2
@@ -273,7 +274,6 @@ typedef struct lily_generic_gc_val_ {
 #define V_COROUTINE_BASE        12
 #define V_INSTANCE_BASE         13
 #define V_UNIT_BASE             14
-#define V_VARIANT_BASE          15
 
 /* How much do the CLS flags from lily_class need to be shifted to become vm
    VAL gc flags? */

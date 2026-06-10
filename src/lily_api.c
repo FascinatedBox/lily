@@ -145,8 +145,8 @@ uint16_t lily_value_class_id(lily_value *value)
     int base = FLAGS_TO_BASE(value);
     uint16_t result_id;
 
-    if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE ||
-        base == V_COROUTINE_BASE || (value->flags & V_FOREIGN_FLAG))
+    if (base == V_INSTANCE_BASE || base == V_COROUTINE_BASE ||
+        (value->flags & (V_FOREIGN_FLAG | V_VARIANT_FLAG)))
         result_id = (uint16_t)value->value.container->class_id;
     else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
@@ -248,19 +248,19 @@ int lily_value_compare_raw(lily_state *s, int *depth, lily_value *left,
         }
         return ok;
     }
-    else if (left_base == V_VARIANT_BASE) {
-        int ok;
-        if (FLAGS_TO_BASE(right) == V_VARIANT_BASE &&
-            left->value.container->class_id ==
-            right->value.container->class_id)
-            ok = subvalue_eq(s, depth, left, right);
-        else
-            ok = 0;
-
-        return ok;
-    }
     else {
-        if (left->flags & V_EMPTY_VARIANT_FLAG)
+        if (left->flags & V_VARIANT_FLAG) {
+            int ok;
+            if (right->flags & V_VARIANT_FLAG &&
+                left->value.container->class_id ==
+                right->value.container->class_id)
+                ok = subvalue_eq(s, depth, left, right);
+            else
+                ok = 0;
+
+            return ok;
+        }
+        else if (left->flags & V_EMPTY_VARIANT_FLAG)
             /* Empty variants store their class id here. */
             return left->value.integer == right->value.integer;
         else
@@ -447,7 +447,7 @@ void lily_value_destroy(lily_value *v)
 
     if (base == V_LIST_BASE || base == V_TUPLE_BASE)
         destroy_list(v);
-    else if (base == V_VARIANT_BASE || base == V_INSTANCE_BASE)
+    else if ((v->flags & V_VARIANT_FLAG) || base == V_INSTANCE_BASE)
         destroy_container(v);
     else if (base == V_STRING_BASE || base == V_BYTESTRING_BASE)
         destroy_string(v);
@@ -1008,7 +1008,7 @@ void lily_push_value(lily_state *s, lily_value *v)
 
 lily_container_val *lily_push_variant(lily_state *s, uint16_t id, uint32_t size)
 {
-    PUSH_CONTAINER(id, V_VARIANT_BASE, size);
+    PUSH_CONTAINER(id, V_VARIANT_FLAG, size);
 }
 
 
@@ -1066,7 +1066,7 @@ void lily_return_some_of_top(lily_state *s)
     top->flags = 0;
 
     /* Floating variant slides into the return. */
-    SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | V_VARIANT_BASE,
+    SET_TARGET(V_VARIANT_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
                container, variant);
 }
 
@@ -1177,11 +1177,10 @@ lily_value_group lily_value_get_group(lily_value *value)
         case V_UNIT_BASE:
             result = lily_isa_unit;
             break;
-        case V_VARIANT_BASE:
-            result = lily_isa_variant;
-            break;
         default:
-            if (value->flags & V_EMPTY_VARIANT_FLAG)
+            if (value->flags & V_VARIANT_FLAG)
+                result = lily_isa_variant;
+            else if (value->flags & V_EMPTY_VARIANT_FLAG)
                 result = lily_isa_empty_variant;
             else if (value->flags & V_FOREIGN_FLAG)
                 result = lily_isa_foreign_class;
