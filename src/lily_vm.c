@@ -2444,16 +2444,8 @@ void lily_vm_execute(lily_vm_state *vm)
             }
             case o_jump_if_not_class:
                 lhs_reg = vm_regs[code[2]];
-                i = FLAGS_TO_BASE(lhs_reg);
 
-                /* This opcode is used for match branches. The source is always
-                   a class instance or a variant (which might be empty). */
-                if (lhs_reg->flags & (V_INSTANCE_FLAG | V_VARIANT_FLAG))
-                    i = lhs_reg->value.container->class_id;
-                else
-                    i = (uint16_t)lhs_reg->value.integer;
-
-                if (i == code[1])
+                if (FLAGS_TO_BASE(lhs_reg) == code[1])
                     code += 4;
                 else
                     code += code[3];
