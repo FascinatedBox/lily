@@ -467,15 +467,17 @@ void lily_value_destroy(lily_value *v)
 
 void lily_value_write_to_file(lily_vm_state *vm, FILE *f, lily_value *v)
 {
-    if (v->flags & V_STRING_FLAG)
+    int base = FLAGS_TO_BASE(v);
+
+    if (base == V_STRING_BASE)
         fputs(v->value.string->string, f);
-    else if ((v->flags & (V_BYTESTRING_FLAG | V_BYTE_FLAG)) == 0) {
+    else if (base != V_BYTESTRING_BASE && base != V_BYTE_BASE) {
         lily_msgbuf *msgbuf = lily_msgbuf_get(vm);
 
         lily_mb_add_value(msgbuf, vm, v);
         fputs(lily_mb_raw(msgbuf), f);
     }
-    else if (v->flags & V_BYTESTRING_FLAG)
+    else if (base == V_BYTESTRING_BASE)
         fwrite(v->value.string->string, sizeof(char), v->value.string->size,
                 f);
     else
