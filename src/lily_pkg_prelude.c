@@ -1132,7 +1132,8 @@ void lily_prelude_List_contains(lily_state *s)
             }
         }
     }
-    else if (value->flags & V_DOUBLE_FLAG) {
+    /* This base comparison works because Double has no other markers. */
+    else if (value->flags == V_DOUBLE_BASE) {
         double doubleval = value->value.doubleval;
         for (i = 0;i < input_size;i++) {
             if (lily_con_get(input_list, i)->value.doubleval == doubleval) {

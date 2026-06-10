@@ -857,7 +857,7 @@ void lily_push_byte(lily_state *s, uint8_t v)
 void lily_push_double(lily_state *s, double v)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_DOUBLE_FLAG | V_DOUBLE_BASE, doubleval, v);
+    SET_TARGET(V_DOUBLE_BASE, doubleval, v);
 }
 
 void lily_push_empty_variant(lily_state *s, uint16_t id)
@@ -1035,7 +1035,7 @@ void lily_return_byte(lily_state *s, uint8_t v)
 void lily_return_double(lily_state *s, double v)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_DOUBLE_FLAG | V_DOUBLE_BASE, doubleval, v);
+    SET_TARGET(V_DOUBLE_BASE, doubleval, v);
 }
 
 void lily_return_integer(lily_state *s, int64_t v)

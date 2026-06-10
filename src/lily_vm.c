@@ -1935,7 +1935,7 @@ lhs_reg = vm_regs[code[1]]; \
 rhs_reg = vm_regs[code[2]]; \
 vm_regs[code[3]]->value.doubleval = \
 lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
-vm_regs[code[3]]->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE; \
+vm_regs[code[3]]->flags = V_DOUBLE_BASE; \
 code += 5;
 
 /* EQUALITY_OP is for `!=` and `==`. This has fast paths for the usual suspects,
@@ -1950,7 +1950,7 @@ else if (lhs_reg->flags & V_STRING_FLAG) { \
     i = strcmp(lhs_reg->value.string->string, \
                rhs_reg->value.string->string) OP 0; \
 } \
-else if (lhs_reg->flags & V_DOUBLE_FLAG) { \
+else if (lhs_reg->flags == V_DOUBLE_BASE) { \
     i = lhs_reg->value.doubleval OP rhs_reg->value.doubleval; \
 } \
 else { \
@@ -2237,7 +2237,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 }
                 else {
                     lhs_reg->value.doubleval = -(rhs_reg->value.doubleval);
-                    lhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+                    lhs_reg->flags = V_DOUBLE_BASE;
                 }
 
                 code += 4;
@@ -2345,7 +2345,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 rhs_reg = vm_regs[code[1]];
                 lhs_reg = vm_regs[code[2]];
                 lhs_reg->value.doubleval = (double)rhs_reg->value.integer;
-                lhs_reg->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+                lhs_reg->flags = V_DOUBLE_BASE;
                 code += 4;
                 break;
             case o_for_list_step:

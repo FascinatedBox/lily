@@ -260,7 +260,7 @@ static lily_value *new_value_of_double(double d)
 {
     lily_value *v = lily_malloc(sizeof(*v));
 
-    v->flags = V_DOUBLE_FLAG | V_DOUBLE_BASE;
+    v->flags = V_DOUBLE_BASE;
     v->value.doubleval = d;
     return v;
 }
