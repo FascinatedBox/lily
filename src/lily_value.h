@@ -265,7 +265,7 @@ typedef struct lily_generic_gc_val_ {
    VAL gc flags? */
 #define VAL_FROM_CLS_GC_SHIFT   10
 #define VAL_HAS_SWEEP_FLAG      (VAL_IS_GC_TAGGED | VAL_IS_GC_SPECULATIVE)
-#define FLAGS_TO_BASE(x)        (x->flags & 31)
+#define FLAGS_TO_BASE(x)        (x->flags & 0xffff)
 
 /* Miscellaneous internal value-related functions. */
 

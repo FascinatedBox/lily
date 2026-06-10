@@ -802,7 +802,7 @@ const char *lily_optional_string_raw(lily_state *s, int index,
 #define PUSH_CONTAINER(id, container_flags, size) \
 PUSH_PREAMBLE \
 lily_container_val *c = lily_new_container_raw(id, size); \
-SET_TARGET(VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | container_flags, container, c); \
+SET_TARGET(id | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE | container_flags, container, c); \
 return c
 
 #define PUSH_PREAMBLE \
@@ -826,7 +826,7 @@ void lily_push_coroutine(lily_state *s, lily_coroutine_val *co)
 {
     /* The caller will tag the value, so don't set a speculative flag. */
     PUSH_PREAMBLE
-    SET_TARGET(V_COROUTINE_FLAG | VAL_IS_DEREFABLE, coroutine, co);
+    SET_TARGET(co->class_id | V_COROUTINE_FLAG | VAL_IS_DEREFABLE, coroutine, co);
 }
 
 void lily_push_boolean(lily_state *s, int v)
@@ -863,7 +863,7 @@ void lily_push_double(lily_state *s, double v)
 void lily_push_empty_variant(lily_state *s, uint16_t id)
 {
     PUSH_PREAMBLE
-    SET_TARGET(V_EMPTY_VARIANT_FLAG, integer, id);
+    SET_TARGET(id | V_EMPTY_VARIANT_FLAG, integer, id);
 }
 
 void lily_push_file(lily_state *s, FILE *inner_file, const char *mode,
@@ -890,7 +890,7 @@ lily_foreign_val *lily_push_foreign(lily_state *s, uint16_t id,
     fv->refcount = 1;
     fv->class_id = id;
     fv->destroy_func = func;
-    SET_TARGET(V_FOREIGN_FLAG | VAL_IS_DEREFABLE, foreign, fv);
+    SET_TARGET(id | V_FOREIGN_FLAG | VAL_IS_DEREFABLE, foreign, fv);
     return fv;
 }
 
@@ -949,7 +949,7 @@ lily_container_val *lily_push_super(lily_state *s, uint16_t id,
         cv = (lily_container_val *)lily_new_vt_container_raw(id, initial,
                 s->gs->virt_table[cls->virt_index]);
 
-    SET_TARGET(V_INSTANCE_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
+    SET_TARGET(id | V_INSTANCE_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
             container, cv);
     return cv;
 }
@@ -1047,7 +1047,7 @@ void lily_return_integer(lily_state *s, int64_t v)
 void lily_return_none(lily_state *s)
 {
     RETURN_PREAMBLE
-    SET_TARGET(V_EMPTY_VARIANT_FLAG, integer, LILY_ID_NONE);
+    SET_TARGET(LILY_ID_NONE | V_EMPTY_VARIANT_FLAG, integer, LILY_ID_NONE);
 }
 
 void lily_return_some_of_top(lily_state *s)
@@ -1066,7 +1066,7 @@ void lily_return_some_of_top(lily_state *s)
     top->flags = 0;
 
     /* Floating variant slides into the return. */
-    SET_TARGET(V_VARIANT_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
+    SET_TARGET(LILY_ID_SOME | V_VARIANT_FLAG | VAL_IS_DEREFABLE | VAL_IS_GC_SPECULATIVE,
                container, variant);
 }
 

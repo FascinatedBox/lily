@@ -1094,9 +1094,9 @@ static void do_o_build_variant(lily_vm_state *vm, uint16_t *code)
         (variant_cls->flags & CLS_GC_FLAGS) << VAL_FROM_CLS_GC_SHIFT;
 
     if (flags == VAL_IS_GC_SPECULATIVE)
-        move_variant_f(VAL_IS_GC_SPECULATIVE, result, ival);
+        move_variant_f(variant_id | VAL_IS_GC_SPECULATIVE, result, ival);
     else {
-        move_variant_f(0, result, ival);
+        move_variant_f(variant_id, result, ival);
         if (flags == VAL_IS_GC_TAGGED)
             lily_value_tag(vm, result);
         else if (inner_flags)
@@ -1165,9 +1165,9 @@ static void do_o_new_instance(lily_vm_state *vm, uint16_t *code)
         (instance_class->flags & CLS_GC_FLAGS) << VAL_FROM_CLS_GC_SHIFT;
 
     if (flags == VAL_IS_GC_SPECULATIVE)
-        move_instance_f(VAL_IS_GC_SPECULATIVE, result, iv);
+        move_instance_f(cls_id | VAL_IS_GC_SPECULATIVE, result, iv);
     else {
-        move_instance_f(0, result, iv);
+        move_instance_f(cls_id, result, iv);
         if (flags == VAL_IS_GC_TAGGED)
             lily_value_tag(vm, result);
     }
@@ -1423,7 +1423,7 @@ static void store_exception_into(lily_vm_state *vm, lily_value *result)
         /* Need space for 2 fields (message and traceback). */
         ival = lily_new_container_raw(cls->id, 2);
 
-        move_instance_f(0, result, ival);
+        move_instance_f(cls->id, result, ival);
         move_string(ival->values[0], sv);
     }
 
@@ -2033,7 +2033,7 @@ void lily_vm_execute(lily_vm_state *vm)
                 lily_deref(lhs_reg);
 
                 lhs_reg->value.integer = code[1];
-                lhs_reg->flags = V_EMPTY_VARIANT_FLAG;
+                lhs_reg->flags = code[1] | V_EMPTY_VARIANT_FLAG;
                 code += 4;
                 break;
             case o_load_integer:
