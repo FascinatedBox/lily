@@ -145,8 +145,8 @@ uint16_t lily_value_class_id(lily_value *value)
     int base = FLAGS_TO_BASE(value);
     uint16_t result_id;
 
-    if (base == V_INSTANCE_BASE || base == V_COROUTINE_BASE ||
-        (value->flags & (V_FOREIGN_FLAG | V_VARIANT_FLAG)))
+    if (base == V_INSTANCE_BASE ||
+        (value->flags & (V_COROUTINE_FLAG | V_FOREIGN_FLAG | V_VARIANT_FLAG)))
         result_id = (uint16_t)value->value.container->class_id;
     else if (value->flags & V_EMPTY_VARIANT_FLAG)
         result_id = (uint16_t)value->value.integer;
@@ -457,7 +457,7 @@ void lily_value_destroy(lily_value *v)
         lily_destroy_hash(v);
     else if (base == V_FILE_BASE)
         destroy_file(v);
-    else if (base == V_COROUTINE_BASE)
+    else if (v->flags & V_COROUTINE_FLAG)
         destroy_coroutine(v);
     else if (v->flags & V_FOREIGN_FLAG) {
         v->value.foreign->destroy_func(v->value.generic);
@@ -826,7 +826,7 @@ void lily_push_coroutine(lily_state *s, lily_coroutine_val *co)
 {
     /* The caller will tag the value, so don't set a speculative flag. */
     PUSH_PREAMBLE
-    SET_TARGET(V_COROUTINE_BASE | VAL_IS_DEREFABLE, coroutine, co);
+    SET_TARGET(V_COROUTINE_FLAG | VAL_IS_DEREFABLE, coroutine, co);
 }
 
 void lily_push_boolean(lily_state *s, int v)
@@ -1144,9 +1144,6 @@ lily_value_group lily_value_get_group(lily_value *value)
         case V_BYTESTRING_BASE:
             result = lily_isa_bytestring;
             break;
-        case V_COROUTINE_BASE:
-            result = lily_isa_foreign_class;
-            break;
         case V_DOUBLE_BASE:
             result = lily_isa_double;
             break;
@@ -1182,7 +1179,7 @@ lily_value_group lily_value_get_group(lily_value *value)
                 result = lily_isa_variant;
             else if (value->flags & V_EMPTY_VARIANT_FLAG)
                 result = lily_isa_empty_variant;
-            else if (value->flags & V_FOREIGN_FLAG)
+            else if (value->flags & (V_COROUTINE_FLAG | V_FOREIGN_FLAG))
                 result = lily_isa_foreign_class;
     }
 

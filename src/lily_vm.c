@@ -463,7 +463,7 @@ static void gc_mark(lily_value *v)
             hash_marker(v);
         else if (base == V_FUNCTION_BASE)
             function_marker(v);
-        else if (base == V_COROUTINE_BASE)
+        else if (v->flags & V_COROUTINE_FLAG)
             coroutine_marker(v);
     }
 }
