@@ -650,9 +650,6 @@ const char *lily_import_current_root_dir(lily_state *s);
 // Identity of the Unit class.
 #define LILY_ID_UNIT         25
 
-/* Internal use only: Where class ids start at. */
-#define START_CLASS_ID       26
-
 ////////////////////////////////
 // Section: Raw value operations
 ////////////////////////////////

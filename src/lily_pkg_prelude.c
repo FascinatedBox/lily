@@ -2733,9 +2733,9 @@ void lily_init_pkg_prelude(lily_symtab *symtab)
     unit_cls->self_type = lily_unit_type;
     /* This must be set here so that it bubbles up in type building. */
     symtab->function_class->flags |= CLS_GC_TAGGED;
-    /* HACK: This ensures that there is space to dynaload builtin classes and
-       enums into. */
-    symtab->next_class_id = START_CLASS_ID;
+
+    /* Unit is the last predefined class. */
+    symtab->next_class_id = LILY_ID_UNIT + 1;
 }
 
 /* The call table expects to find these here, but they're in the vm. */
