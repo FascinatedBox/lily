@@ -612,21 +612,6 @@ lily_module_entry *find_dl_module_in(lily_parse_state *parser,
     return result;
 }
 
-lily_sym *find_existing_sym(lily_module_entry *m, const char *name)
-{
-    lily_sym *result = NULL;
-
-    result = (lily_sym *)lily_find_var(m, name);
-
-    if (result == NULL)
-        result = (lily_sym *)lily_find_class(m, name);
-
-    if (result == NULL)
-        result = (lily_sym *)lily_find_module(m, name);
-
-    return result;
-}
-
 /***
  *     __     __
  *     \ \   / /_ _ _ __ ___
@@ -2824,7 +2809,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
     lily_module_entry *m = symtab->active_module;
-    lily_sym *sym = find_existing_sym(m, lex->label);
+    lily_sym *sym = lily_find_symbol(m, lex->label);
 
     /* Words are always values, so an operator should always come next. */
     *state = ST_WANT_OPERATOR;
@@ -2836,7 +2821,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
         if (sym->item_kind == ITEM_MODULE) {
 handle_module:;
             m = walk_module(parser, (lily_module_entry *)sym);
-            sym = find_existing_sym(m, lex->label);
+            sym = lily_find_symbol(m, lex->label);
         }
     }
     else if (expr_word_try_constant(parser) ||
@@ -2846,7 +2831,7 @@ handle_module:;
         /* Since no module was explicitly provided, look through predefined
            symbols. */
         m = parser->prelude;
-        sym = find_existing_sym(m, lex->label);
+        sym = lily_find_symbol(m, lex->label);
     }
 
     /* As a last resort, try running a dynaload. This will check either the
@@ -4302,7 +4287,7 @@ static void link_import_syms(lily_parse_state *parser,
     do {
         uint16_t search_pos = lily_u16_get(buffer, iter + 1);
         char *name = lily_sp_get(parser->data_strings, search_pos);
-        lily_sym *sym = find_existing_sym(active, name);
+        lily_sym *sym = lily_find_symbol(active, name);
 
         if (sym) {
 fail_redeclaration:
@@ -4312,14 +4297,14 @@ fail_redeclaration:
                     "'%s' has already been declared.", name);
         }
 
-        sym = find_existing_sym(source, name);
+        sym = lily_find_symbol(source, name);
 
         if (sym == NULL)
             sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
 
         if (sym == NULL && strcmp(name, "self") == 0) {
             name = source->loadname;
-            sym = find_existing_sym(active, name);
+            sym = lily_find_symbol(active, name);
 
             if (sym)
                 goto fail_redeclaration;

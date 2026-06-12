@@ -664,6 +664,20 @@ lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
     return result;
 }
 
+lily_sym *lily_find_symbol(lily_module_entry *m, const char *name)
+{
+    lily_sym *result = (lily_sym *)lily_find_var(m, name);
+
+    if (result == NULL) {
+        result = (lily_sym *)lily_find_class(m, name);
+
+        if (result == NULL)
+            result = (lily_sym *)lily_find_module(m, name);
+    }
+
+    return result;
+}
+
 /* Scoped variants are stored within the enum they're part of. This will try to
    find a variant stored within 'enum_cls'. */
 lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
