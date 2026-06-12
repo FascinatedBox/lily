@@ -566,12 +566,14 @@ static lily_class *find_active_class(lily_parse_state *parser, const char *name)
     return result;
 }
 
-static lily_class *find_or_dl_class(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+static lily_class *find_dl_active_class(lily_parse_state *parser,
+        const char *name)
 {
     lily_class *result = lily_find_class(parser->prelude, name);
 
     if (result == NULL) {
+        lily_module_entry *m = parser->symtab->active_module;
+
         result = lily_find_class(m, name);
 
         if (result == NULL) {
@@ -2201,7 +2203,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
     if (lex->token == INHERITANCE_TOKEN) {
         lily_next_token(lex);
 
-        lily_class *parent = find_or_dl_class(parser, ds->m, lex->label);
+        lily_class *parent = find_dl_active_class(parser, lex->label);
 
         cls->parent = parent;
         cls->prop_count = parent->prop_count;
@@ -4648,8 +4650,7 @@ static lily_item *search_for_valid_classlike(lily_parse_state *parser,
         lily_raise_syn(parser->raiser,
                 "'%s' is not a valid class name (too short).", name);
 
-    lily_module_entry *m = parser->symtab->active_module;
-    lily_item *item = (lily_item *)find_or_dl_class(parser, m, name);
+    lily_item *item = (lily_item *)find_dl_active_class(parser, name);
 
     return item;
 }
