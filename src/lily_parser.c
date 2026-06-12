@@ -569,23 +569,18 @@ static lily_class *find_active_class(lily_parse_state *parser, const char *name)
 static lily_class *find_or_dl_class(lily_parse_state *parser,
         lily_module_entry *m, const char *name)
 {
-    lily_symtab *symtab = parser->symtab;
-    lily_class *result = NULL;
+    lily_class *result = lily_find_class(parser->prelude, name);
 
-    if (m == symtab->active_module) {
-        lily_module_entry *prelude = parser->prelude;
-
-        result = lily_find_class(prelude, name);
-
-        if (result == NULL)
-            result = find_run_class_dynaload(parser, prelude, name);
-    }
-
-    if (result == NULL)
+    if (result == NULL) {
         result = lily_find_class(m, name);
 
-    if (result == NULL && m->info_table)
-        result = find_run_class_dynaload(parser, m, name);
+        if (result == NULL) {
+            result = find_run_class_dynaload(parser, parser->prelude, name);
+
+            if (result == NULL && m->info_table)
+                result = find_run_class_dynaload(parser, m, name);
+        }
+    }
 
     return result;
 }
