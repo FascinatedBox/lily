@@ -974,26 +974,20 @@ static void collect_keyarg(lily_parse_state *, uint16_t, int *);
    Caller must ensure the token is on the first identifier. */
 static lily_class *resolve_class_name(lily_parse_state *parser)
 {
-    lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_module_entry *m = symtab->active_module;
+    lily_class *result;
     char *name = lex->label;
 
-    /* Try the prelude and generics first. */
-    lily_class *result = find_dl_class_in(parser, parser->prelude, name);
-
-    if (result == NULL) {
-        if (name[1] == '\0')
-            result = (lily_class *)lily_gp_find(parser->generics, name);
-
-        if (result == NULL)
-            result = find_dl_class_in(parser, m, name);
-    }
+    if (name[1] != '\0')
+        result = find_dl_active_class(parser, name);
+    else
+        result = (lily_class *)lily_gp_find(parser->generics, name);
 
     if (result)
         return result;
 
-    m = find_dl_module_in(parser, m, name);
+    lily_module_entry *m = find_dl_module_in(parser,
+            parser->symtab->active_module, name);
 
     while (m) {
         NEED_NEXT_TOK(tk_dot)
