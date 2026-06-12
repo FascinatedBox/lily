@@ -70,8 +70,7 @@ static void setup_for_transform(lily_emit_state *emit,
    destination to the new destination.
    This function ensures that jumps that are added are kept in order from lowest
    to highest. The reason for that is it makes it easier for closure transform
-   to step through them.
-   This is a helper for closure transform: Nothing else should use it. */
+   to step through them. */
 static void maybe_add_jump(lily_buffer_u16 *buffer, uint16_t i, uint16_t dest)
 {
     uint16_t end = lily_u16_pos(buffer);
