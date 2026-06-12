@@ -566,8 +566,8 @@ static lily_class *find_active_class(lily_parse_state *parser, const char *name)
     return result;
 }
 
-lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
-        const char *name)
+static lily_class *find_or_dl_class(lily_parse_state *parser,
+        lily_module_entry *m, const char *name)
 {
     lily_symtab *symtab = parser->symtab;
     lily_class *result = NULL;
@@ -590,8 +590,8 @@ lily_class *find_or_dl_class(lily_parse_state *parser, lily_module_entry *m,
     return result;
 }
 
-lily_class *find_dl_class_in(lily_parse_state *parser, lily_module_entry *m,
-        const char *name)
+static lily_class *find_dl_class_in(lily_parse_state *parser,
+        lily_module_entry *m, const char *name)
 {
     lily_class *result = lily_find_class(m, name);
 
@@ -601,7 +601,7 @@ lily_class *find_dl_class_in(lily_parse_state *parser, lily_module_entry *m,
     return result;
 }
 
-lily_module_entry *find_dl_module_in(lily_parse_state *parser,
+static lily_module_entry *find_dl_module_in(lily_parse_state *parser,
         lily_module_entry *m, const char *name)
 {
     lily_module_entry *result = lily_find_module(m, name);

@@ -217,7 +217,7 @@ void lily_free_symtab(lily_symtab *symtab)
     Storing of (defined) functions is also here, because a function cannot be
     altered once it's defined. **/
 
-lily_value_stack *new_value_stack(uint16_t initial)
+static lily_value_stack *new_value_stack(uint16_t initial)
 {
     lily_value_stack *result = lily_malloc(sizeof(*result));
 

@@ -125,7 +125,7 @@ static int count_transforms(lily_emit_state *emit, int start)
     return count;
 }
 
-uint16_t iter_for_first_line(lily_emit_state *emit, uint16_t pos)
+static uint16_t iter_for_first_line(lily_emit_state *emit, uint16_t pos)
 {
     uint16_t result = 0;
     lily_code_iter ci;

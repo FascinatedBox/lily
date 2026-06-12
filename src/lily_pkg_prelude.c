@@ -179,7 +179,7 @@ void lily_prelude_ByteString_encode(lily_state *s)
     lily_return_some_of_top(s);
 }
 
-int get_slice_range(lily_state *s, uint32_t max, uint32_t *start,
+static int get_slice_range(lily_state *s, uint32_t max, uint32_t *start,
         uint32_t *stop, int index)
 {
     uint16_t count = lily_arg_count(s);
@@ -292,7 +292,7 @@ static const uint8_t follower_table[256] =
 /* F */ 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-void do_str_slice(lily_state *s, int is_bytestring)
+static void do_str_slice(lily_state *s, int is_bytestring)
 {
     lily_string_val *input_sv = lily_arg_string(s, 0);
     char *input_str = lily_string_raw(input_sv);
