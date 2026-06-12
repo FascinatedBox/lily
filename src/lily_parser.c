@@ -6541,7 +6541,7 @@ static void manifest_predefined(lily_parse_state *parser)
 
     NEED_NEXT_IDENT("Predefined symbol name expected here.")
 
-    lily_class *cls = find_or_dl_class(parser, prelude, lex->label);
+    lily_class *cls = find_dl_class_in(parser, prelude, lex->label);
 
     /* Drop everything in this target. The methods have been loaded into vm
        tables already, so this won't break existing declarations. This will,
