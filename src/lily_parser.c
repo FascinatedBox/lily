@@ -5413,7 +5413,7 @@ static lily_class *parse_target_to_match(lily_parse_state *parser,
 
         if (lily_class_greater_eq(match_cls, cls) == 0) {
             lily_raise_syn(parser->raiser,
-                    "Class %s does not inherit from matching class %s.",
+                    "%s does not inherit from matching class %s.",
                     cls->name, match_cls->name);
         }
 

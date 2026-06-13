@@ -511,7 +511,7 @@ class TestBadClass < TestCase
         # bad match (class match not inheriting base)
 
         assert_parse_fails(t, """\
-            SyntaxError: Class Three does not inherit from matching class One.
+            SyntaxError: Three does not inherit from matching class One.
 
                |
              8 | case Three(t):
