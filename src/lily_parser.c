@@ -2325,16 +2325,20 @@ static lily_var *try_dynaload_method(lily_parse_state *parser, lily_class *cls,
     return (lily_var *)ds.result;
 }
 
+#define ITEM_CLASSLIKE (ITEM_IS_VARIANT | ITEM_IS_CLASS | ITEM_IS_ENUM)
+
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
         lily_module_entry *m, const char *name)
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
 
-    if (result && (result->item_kind & (ITEM_IS_CLASS | ITEM_IS_ENUM)) == 0)
+    if (result && (result->item_kind & ITEM_CLASSLIKE) == 0)
         result = NULL;
 
     return (lily_class *)result;
 }
+
+#undef ITEM_CLASSLIKE
 
 static lily_module_entry *find_run_module_dynaload(lily_parse_state *parser,
         lily_module_entry *m, const char *name)

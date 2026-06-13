@@ -205,4 +205,29 @@ class TestDynaload < TestCase
             class Three(public var @i: Integer) < covlib.virt.VThree {}
         """)
     }
+
+    public define test_dl_variant_error_change
+    {
+        var t = Interpreter()
+
+        assert_parse_fails(t, """\
+            SyntaxError: None does not inherit from matching class One.
+
+               |
+             6 | case None:
+               |      ^
+
+                from [test]:6:
+        """,
+        """\
+            class One {}
+
+            define f(a: One)
+            {
+                match a: {
+                    case None:
+                }
+            }
+        """)
+    }
 }
