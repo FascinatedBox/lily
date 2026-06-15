@@ -5404,6 +5404,34 @@ static void keyword_scoped(lily_parse_state *parser)
         enum_method_check(parser);
 }
 
+static void verify_class_match_case(lily_parse_state *parser,
+        lily_class *match_cls, lily_class *cls)
+{
+    if (match_cls->id != LILY_ID_GENERIC) {
+        if (lily_class_greater_eq(match_cls, cls) == 0) {
+            lily_raise_syn(parser->raiser,
+                    "%s does not inherit from matching class %s.",
+                    cls->name, match_cls->name);
+        }
+    }
+    else {
+        if (cls->id == LILY_ID_GENERIC)
+            lily_raise_syn(parser->raiser,
+                    "Match case cannot be a generic class.");
+
+        if ((cls->item_kind & ITEM_IS_CLASS) == 0)
+            lily_raise_syn(parser->raiser,
+                    "Match to a generic must be against a class.");
+    }
+
+    /* The vm does not have inner type information at runtime. */
+    if (cls->generic_count != 0) {
+        lily_raise_syn(parser->raiser,
+                "Class matching only works for types without generics.",
+                cls->name);
+    }
+}
+
 static lily_class *parse_target_to_match(lily_parse_state *parser,
         lily_class *match_cls)
 {
@@ -5414,20 +5442,7 @@ static lily_class *parse_target_to_match(lily_parse_state *parser,
 
     if (match_cls->item_kind & ITEM_IS_CLASS) {
         cls = resolve_class_name(parser);
-
-        if (lily_class_greater_eq(match_cls, cls) == 0) {
-            lily_raise_syn(parser->raiser,
-                    "%s does not inherit from matching class %s.",
-                    cls->name, match_cls->name);
-        }
-
-        /* Forbid non-monomorphic types to avoid the question of what to do
-           if the match class has more generics. */
-        if (cls->generic_count != 0) {
-            lily_raise_syn(parser->raiser,
-                    "Class matching only works for types without generics.",
-                    cls->name);
-        }
+        verify_class_match_case(parser, match_cls, cls);
     }
     else {
         cls = (lily_class *)lily_find_variant(match_cls, lex->label);
@@ -5596,9 +5611,10 @@ static void verify_match_with_type(lily_parse_state *parser, lily_type *t,
     uint16_t kind = t->cls->item_kind;
 
     if ((kind & ITEM_IS_ENUM) == 0 &&
-        kind != ITEM_CLASS_NATIVE)
+        kind != ITEM_CLASS_NATIVE &&
+        t->cls->id != LILY_ID_GENERIC)
         lily_raise_syn(parser->raiser,
-                "%s statement value must be a user class or enum.\n"
+                "%s statement value must be a native class, generic, or enum.\n"
                 "Received: ^T", what, t);
 
     if (t->flags & TYPE_IS_INCOMPLETE)

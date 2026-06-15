@@ -325,7 +325,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: Match statement value must be a user class or enum.
+            SyntaxError: Match statement value must be a native class, generic, or enum.
             Received: Tuple[Integer, String, Double]
 
                |
@@ -385,7 +385,7 @@ class TestBadMatchWith < TestCase
         """)
 
         assert_parse_fails(t, """\
-            SyntaxError: With statement value must be a user class or enum.
+            SyntaxError: With statement value must be a native class, generic, or enum.
             Received: Integer
 
                |
@@ -991,6 +991,168 @@ class TestBadMatchWith < TestCase
                     msg
                 case Exception(msg):
                     msg
+            }
+        """)
+    }
+
+    public define test_bad_generic_match
+    {
+        var t = Interpreter()
+
+        # match case must not be a generic
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match case cannot be a generic class.
+
+               |
+             4 | case B:
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            define f[A, B](a: A, b: B)
+            {
+                match a: {
+                    case B:
+                }
+            }
+        """)
+
+        # Subject must be a class, not a variant
+        # Blocked on the assumption it isn't that useful
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match to a generic must be against a class.
+
+               |
+             4 | case None:
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            define f[A](a: A)
+            {
+                match a: {
+                    case None:
+                }
+            }
+        """)
+
+        # Must have an else case
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match against a class must have an 'else' case.
+                from [test]:5:
+        """,
+        """\
+            define f[A](a: A)
+            {
+                match a: {
+                    case Integer(i):
+                }
+            }
+        """)
+
+        # Cannot have generics
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class matching only works for types without generics.
+
+               |
+             4 | case List(i):
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            define f[A](a: A)
+            {
+                match a: {
+                    case List(i):
+                }
+            }
+        """)
+
+        # Function and Tuple have a special arity, check one of them
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class matching only works for types without generics.
+
+               |
+             4 | case Tuple(t):
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            define f[A](a: A)
+            {
+                match a: {
+                    case Tuple(t):
+                }
+            }
+        """)
+
+        # Expression match blocks it like classes are blocked
+
+        assert_parse_fails(t, """\
+            SyntaxError: Match expressions only work with enum values.
+            Received: A
+                from [test]:3:
+        """,
+        """\
+            define f[A](a: A): Integer
+            {
+                return match a: {
+                    case Integer(i):
+                        1
+                }
+            }
+        """)
+
+        # Duplicate
+
+        assert_parse_fails(t, """\
+            SyntaxError: Already have a case for Integer.
+
+               |
+             6 | case Integer(b):
+               |      ^
+
+                from [test]:6:
+        """,
+        """\
+            define f[A](a: A)
+            {
+                match a: {
+                    case Integer(i):
+                        1
+                    case Integer(b):
+                        2
+                }
+            }
+        """)
+
+        # Has to actually exist
+
+        assert_parse_fails(t, """\
+            SyntaxError: Class 'Potato' does not exist.
+
+               |
+             4 | case Potato(i):
+               |      ^
+
+                from [test]:4:
+        """,
+        """\
+            define f[A](a: A): Integer
+            {
+                match a: {
+                    case Potato(i):
+                        1
+                }
             }
         """)
     }

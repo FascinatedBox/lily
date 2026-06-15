@@ -696,4 +696,119 @@ class TestMatchWith < TestCase
             }
         """)
     }
+
+    public define test_match_generic_class
+    {
+        var t = Interpreter()
+
+        # match to predefined types
+
+        assert_parse_string(t, """
+            define return_int[A](a: A): Integer
+            {
+                match a: {
+                    case Integer(i):
+                        return i
+                    else:
+                        return 0
+                }
+            }
+
+            define to_i[A](a: A): Integer
+            {
+                match a: {
+                    case Integer(i):
+                        return i
+                    case Double(d):
+                        return d.to_i()
+                    case Byte(b):
+                        return b
+                    case String(s):
+                        return s.parse_i().unwrap()
+                    else:
+                        return 0
+                }
+            }
+
+            if return_int(10) != 10 ||
+                return_int("") != 0 ||
+                return_int(1 + 2) != 3: {
+                0/0
+            }
+
+            if to_i('1') != '1' ||
+               to_i(10.0) != 10 ||
+               to_i("11") != 11 ||
+               to_i(12 + 1) != 13: {
+                0/0
+            }
+        """)
+
+        # match against a native class
+
+        assert_parse_string(t, """
+            class One {}
+            class Two < One {}
+            class Three < Two {}
+
+            define depth[A](a: A): Integer
+            {
+                match a: {
+                    case One(o):
+                        return 1
+                    case Two(t):
+                        return 2
+                    case Three(t):
+                        return 3
+                    else:
+                        return 0
+                }
+            }
+
+            if depth(One()) != 1 ||
+                depth(Two()) != 2 ||
+                depth(Three()) != 3 ||
+                depth("") != 0: {
+                0/0
+            }
+        """)
+
+        # match to a dynaloaded foreign class with module scope
+
+        assert_parse_string(t, """
+            import introspect
+
+            define match_module[A](a: A): Boolean
+            {
+                match a: {
+                    case introspect.ModuleEntry(m):
+                        return true
+                    else:
+                        return false
+                }
+            }
+
+            if match_module(introspect.module_list()[0]) != true ||
+                match_module(false) != false: {
+                0/0
+            }
+        """)
+
+        # with against a generic
+
+        assert_parse_string(t, """
+            define f[A](a: A): Boolean
+            {
+                with a as Integer(i): {
+                    return true
+                else:
+                    return false
+                }
+            }
+
+            if f(1) == false || f(false) == true: {
+                0/0
+            }
+        """)
+    }
 }
