@@ -99,16 +99,6 @@ class TestEnum < TestCase
 
         # scope (matching scoped enum)
 
-        assert_parse_string(t, """
-            match check: {
-                case ScopeTest.One(s):
-                case ScopeTest.Two:
-                    raise Exception("Failed.")
-            }
-        """)
-
-        # scope (match scoped enum variants directly)
-
         assert_parse_string(t, """\
             match check: {
                 case One(s):

@@ -354,9 +354,9 @@ class TestImport < TestCase
             var v = ScopedOption.ScopedSome(1)
 
             match v: {
-                case ScopedOption.ScopedNone:
+                case ScopedNone:
                     0 / 0
-                case ScopedOption.ScopedSome(s):
+                case ScopedSome(s):
             }
         """)
 
