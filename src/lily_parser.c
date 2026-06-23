@@ -2242,6 +2242,10 @@ static void dynaload_module(lily_parse_state *parser, lily_dyna_state *ds)
     /* Clear off prior import data, or the last module will be returned. */
     parser->ims->last_import = NULL;
 
+    /* lily_import_library_data calls add_path_to_module with this variable, so
+       it must be set to avoid an invalid memory access. */
+    parser->ims->pending_loadname = parser->lex->label;
+
     /* This will call lily_import_library_data with the necessary tables. */
     module_loader(parser->vm);
     ds->result = (lily_item *)parser->ims->last_import;
