@@ -4289,7 +4289,7 @@ static void link_import_syms(lily_parse_state *parser,
         lily_sym *sym = lily_find_symbol(active, name);
 
         if (sym) {
-fail_redeclaration:
+fail_redeclaration: ;
             uint16_t line = lily_u16_get(buffer, iter);
 
             lily_raise_syn_at(parser->raiser, line,
