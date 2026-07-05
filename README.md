@@ -27,7 +27,7 @@ class Terminal(public var @foreground: Color, width_str: String)
     }
 }
 
-var terms = [Terminal(Color.White, "A"), Terminal(Color.Red, "40")]
+var terms = [Terminal(Color.White, "A"), Terminal(.Red, "40")]
 
 terms.each(|e| e.width += 20 )
      |> print
