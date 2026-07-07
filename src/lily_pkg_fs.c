@@ -110,29 +110,32 @@ void lily_fs_Dir_each_entry(lily_state *s)
     while (1) {
         struct dirent *e = readdir(d->cursor);
 
-        if (e) {
-            lily_container_val *variant;
+        if (!e)
+            break;
 
-            if (e->d_type == DT_DIR) {
-                if (is_dot_or_dot_dot(e->d_name))
-                    continue;
+        struct stat sb;
+        if (stat(e->d_name, &sb) < 0)
+            break;
 
-                variant = lily_push_variant(s, dir_cid, 1);
-                lily_push_string(s, e->d_name);
-            }
-            else if (e->d_type == DT_REG) {
-                variant = lily_push_variant(s, file_cid, 1);
-                lily_push_string(s, e->d_name);
-            }
-            else
+        lily_container_val *variant;
+
+        if (S_ISDIR(sb.st_mode)) {
+            if (is_dot_or_dot_dot(e->d_name))
                 continue;
 
-            lily_con_set_from_stack(s, variant, 0);
-            lily_push_value(s, v);
-            lily_call(s, 2);
+            variant = lily_push_variant(s, dir_cid, 1);
+            lily_push_string(s, e->d_name);
+        }
+        else if (S_ISREG(sb.st_mode)) {
+            variant = lily_push_variant(s, file_cid, 1);
+            lily_push_string(s, e->d_name);
         }
         else
-            break;
+            continue;
+
+        lily_con_set_from_stack(s, variant, 0);
+        lily_push_value(s, v);
+        lily_call(s, 2);
     }
 
     closedir(d->cursor);

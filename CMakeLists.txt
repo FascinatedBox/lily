@@ -36,7 +36,7 @@ set(LILY_MINOR             "4")
 # Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
 STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
 
-if(IS_BSD OR MINGW OR MSVC OR APPLE)
+if(IS_BSD OR MINGW OR MSVC OR APPLE OR HAIKU)
     set(LILY_NEED_DL 0)
 else()
     set(LILY_NEED_DL 1)
