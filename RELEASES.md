@@ -1,3 +1,44 @@
+Version 2.5 (2026-7-10)
+=======================
+
+Highlights:
+
+* `match` statements now allow generic values. When matching against a generic, the case can be any class (foreign or native, even builtin) (#653).
+
+* Scoped matching support `case enum.variant` has been removed. This is a breaking change. Use `case variant` instead (#649).
+
+New:
+
+* New API: `List.contains` (!380), `introspect.SymScope`, `introspect.ModuleEntry.id`.
+
+* Docblocks are now allowed on variants (!381).
+
+* Introduce `\u` and `\U` unicode escapes (#605).
+
+* Direct imports (`import (target) module`) can now specify `self` to import the module. This allows importing specific symbol(s) and the module in one line (#644).
+
+* Direct import is now allowed from modules that have already been loaded (#645).
+
+* The interpreter can now be built on Haiku (!384).
+
+Changes:
+
+* Docblocks now permit leading whitespace (#654).
+
+* The executable now understands `-v` to show version.
+
+* Randomization now uses xoshiro256** instead of libmtwist (!382).
+
+* Random seeds `<= 0` are now allowed (!383).
+
+Fixes:
+
+* Class dynaload now allows variants. This was changing some error messages (#655).
+
+* Class match failure no longer assumes a class is given (#655).
+
+* If a closure involved a global assignment, and the global had a high index, the interpreter could crash (#646).
+
 Version 2.4 (2026-4-10)
 =======================
 
