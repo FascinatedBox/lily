@@ -279,9 +279,7 @@ class TestManifest < TestCase
                 :is_static is_static: Boolean,
                 :line      line:      Integer,
                 :params    params:    String,
-                :private   pri:       Boolean,
-                :protected pro:       Boolean,
-                :public    pub:       Boolean,
+                :_         scope:     introspect.SymScope,
                 :result    result:    String,
                 :type      type:      String
             )
@@ -293,9 +291,7 @@ class TestManifest < TestCase
                     m.is_static(),
                     m.line_number(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string()
                 ]>
@@ -306,9 +302,7 @@ class TestManifest < TestCase
                     is_static,
                     line,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type
                 ]>
@@ -323,26 +317,20 @@ class TestManifest < TestCase
                            p:    introspect.PropertyEntry,
                 :doc       doc:  String,
                 :name      name: String,
-                :private   pri:  Boolean,
-                :protected pro:  Boolean,
-                :public    pub:  Boolean,
+                :_         scope: introspect.SymScope,
                 :type      type: String
             )
             {
                 var input = <[
                     p.doc(),
                     p.name(),
-                    p.is_private(),
-                    p.is_protected(),
-                    p.is_public(),
+                    p.scope(),
                     p.type().as_string()
                 ]>
                 var expect = <[
                     doc,
                     name,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     type
                 ]>
 
@@ -416,9 +404,7 @@ class TestManifest < TestCase
                     :line      5,
                     :name      "<new>",
                     :params    "",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Base",
                     :type      "Function ( => Base)"
                 )
@@ -431,9 +417,7 @@ class TestManifest < TestCase
                     :line      7,
                     :name      "pub",
                     :params    "(,Base,)(a,Integer,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "String",
                     :type      "Function (Base, Integer => String)"
                 )
@@ -442,9 +426,7 @@ class TestManifest < TestCase
                     properties[-1],
                     :doc       "Public property\\n",
                     :name      "pub_prop",
-                    :public    true,
-                    :protected false,
-                    :private   false,
+                    :scope     .Public,
                     :type      "Integer"
                 )
 
@@ -452,9 +434,7 @@ class TestManifest < TestCase
                     properties[-2],
                     :doc       "Protected property\\n",
                     :name      "pro_prop",
-                    :public    false,
-                    :protected true,
-                    :private   false,
+                    :scope     .Protected,
                     :type      "String"
                 )
 
@@ -462,9 +442,7 @@ class TestManifest < TestCase
                     properties[-3],
                     :doc        "Private property\\n",
                     :name       "pri_prop",
-                    :public     false,
-                    :protected  false,
-                    :private    true,
+                    :scope      .Private,
                     :type       "Double"
                 )
 
@@ -497,9 +475,7 @@ class TestManifest < TestCase
                     :line      19,
                     :name      "<new>",
                     :params    "(,String,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "GenericClass[A, B]",
                     :type      "Function (String => GenericClass[A, B])"
                 )
@@ -512,9 +488,7 @@ class TestManifest < TestCase
                     :line      21,
                     :name      "f",
                     :params    "(,GenericClass[A, B],)(c,C,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function (GenericClass[A, B], C)"
                 )
@@ -523,9 +497,7 @@ class TestManifest < TestCase
                     properties[-1],
                     :doc        "",
                     :name       "test",
-                    :public     true,
-                    :protected  false,
-                    :private    false,
+                    :scope      .Public,
                     :type       "String"
                 )
 
@@ -558,9 +530,7 @@ class TestManifest < TestCase
                     :line      26,
                     :name      "<new>",
                     :params    "",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "ForeignBase",
                     :type      "Function ( => ForeignBase)"
                 )
@@ -573,9 +543,7 @@ class TestManifest < TestCase
                     :line      28,
                     :name      "pub",
                     :params    "(,ForeignBase,)(a,Integer,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "String",
                     :type      "Function (ForeignBase, Integer => String)"
                 )
@@ -609,9 +577,7 @@ class TestManifest < TestCase
                     :line      33,
                     :name      "stat",
                     :params    "",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function ()"
                 )
@@ -1598,7 +1564,7 @@ class TestManifest < TestCase
         """)
 
         assert_parse_string(t, """
-            import introspect
+            import (SymScope, self) introspect
 
             define stringify_parameters(p: List[introspect.ParameterEntry])
                 : String
@@ -1618,9 +1584,7 @@ class TestManifest < TestCase
                 :is_static is_static: Boolean,
                 :line      line:      Integer,
                 :params    params:    String,
-                :private   pri:       Boolean,
-                :protected pro:       Boolean,
-                :public    pub:       Boolean,
+                :scope     scope:     SymScope,
                 :result    result:    String,
                 :type      type:      String,
                 :is_va     is_va:     Boolean,
@@ -1635,9 +1599,7 @@ class TestManifest < TestCase
                     m.is_static(),
                     m.line_number(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string(),
                     m.is_varargs(),
@@ -1651,9 +1613,7 @@ class TestManifest < TestCase
                     is_static,
                     line,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type,
                     is_va,
@@ -1679,9 +1639,7 @@ class TestManifest < TestCase
                     :line      4,
                     :name      "<new>",
                     :params    "",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Base",
                     :type      "Function ( => Base)",
                     :is_va     false,
@@ -1697,9 +1655,7 @@ class TestManifest < TestCase
                     :line      5,
                     :name      "f",
                     :params    "(,Base,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function (Base)",
                     :is_va     false,
@@ -1715,9 +1671,7 @@ class TestManifest < TestCase
                     :line      6,
                     :name      "g",
                     :params    "(,Base,)(a,String,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function (Base, String)",
                     :is_va     false,
@@ -1733,9 +1687,7 @@ class TestManifest < TestCase
                     :line      7,
                     :name      "h",
                     :params    "(,Base,)",
-                    :private   false,
-                    :protected false,
-                    :public    true,
+                    :scope     .Public,
                     :result    "Unit",
                     :type      "Function (Base)",
                     :is_va     false,

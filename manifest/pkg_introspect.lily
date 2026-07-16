@@ -79,15 +79,6 @@ foreign static class PropertyEntry
     ### only saved when a property is parsed in manifest mode.
     public define doc: String
 
-    ### Return `true` if the property is private, `false` otherwise.
-    public define is_private: Boolean
-
-    ### Return `true` if the property is protected, `false` otherwise.
-    public define is_protected: Boolean
-
-    ### Return `true` if the property is public, `false` otherwise.
-    public define is_public: Boolean
-
     ### Return the name of the property.
     public define name: String
 
@@ -163,15 +154,6 @@ foreign static class MethodEntry
 
     ### Returns `true` if the method is forward virtual, `false` otherwise.
     public define is_forward_virtual: Boolean
-
-    ### Return `true` if the method is private, `false` otherwise.
-    public define is_private: Boolean
-
-    ### Return `true` if the method is protected, `false` otherwise.
-    public define is_protected: Boolean
-
-    ### Return `true` if the method is public, `false` otherwise.
-    public define is_public: Boolean
 
     ### Return `true` if the method is static, `false` otherwise.
     public define is_static: Boolean

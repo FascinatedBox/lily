@@ -163,14 +163,11 @@ const char *lily_introspect_info_table[] = {
     ,"m\0parameters\0(FunctionEntry): List[ParameterEntry]"
     ,"m\0result_type\0(FunctionEntry): TypeEntry"
     ,"m\0type\0(FunctionEntry): TypeEntry"
-    ,"C\17MethodEntry\0"
+    ,"C\14MethodEntry\0"
     ,"m\0doc\0(MethodEntry): String"
     ,"m\0function_name\0(MethodEntry): String"
     ,"m\0generics\0(MethodEntry): List[TypeEntry]"
     ,"m\0is_forward_virtual\0(MethodEntry): Boolean"
-    ,"m\0is_private\0(MethodEntry): Boolean"
-    ,"m\0is_protected\0(MethodEntry): Boolean"
-    ,"m\0is_public\0(MethodEntry): Boolean"
     ,"m\0is_static\0(MethodEntry): Boolean"
     ,"m\0is_varargs\0(MethodEntry): Boolean"
     ,"m\0is_virtual\0(MethodEntry): Boolean"
@@ -202,11 +199,8 @@ const char *lily_introspect_info_table[] = {
     ,"3\0keyword\0String"
     ,"3\0name\0String"
     ,"3\0type\0TypeEntry"
-    ,"C\7PropertyEntry\0"
+    ,"C\4PropertyEntry\0"
     ,"m\0doc\0(PropertyEntry): String"
-    ,"m\0is_private\0(PropertyEntry): Boolean"
-    ,"m\0is_protected\0(PropertyEntry): Boolean"
-    ,"m\0is_public\0(PropertyEntry): Boolean"
     ,"m\0name\0(PropertyEntry): String"
     ,"m\0scope\0(PropertyEntry): SymScope"
     ,"m\0type\0(PropertyEntry): TypeEntry"
@@ -285,9 +279,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_MethodEntry_function_name, \
     lily_introspect_MethodEntry_generics, \
     lily_introspect_MethodEntry_is_forward_virtual, \
-    lily_introspect_MethodEntry_is_private, \
-    lily_introspect_MethodEntry_is_protected, \
-    lily_introspect_MethodEntry_is_public, \
     lily_introspect_MethodEntry_is_static, \
     lily_introspect_MethodEntry_is_varargs, \
     lily_introspect_MethodEntry_is_virtual, \
@@ -321,9 +312,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     NULL, \
     NULL, \
     lily_introspect_PropertyEntry_doc, \
-    lily_introspect_PropertyEntry_is_private, \
-    lily_introspect_PropertyEntry_is_protected, \
-    lily_introspect_PropertyEntry_is_public, \
     lily_introspect_PropertyEntry_name, \
     lily_introspect_PropertyEntry_scope, \
     lily_introspect_PropertyEntry_type, \

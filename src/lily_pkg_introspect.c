@@ -496,24 +496,6 @@ void lily_introspect_VarEntry_type(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_introspect_PropertyEntry_is_private(lily_state *s)
-{
-    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
-    lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PRIVATE));
-}
-
-void lily_introspect_PropertyEntry_is_protected(lily_state *s)
-{
-    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
-    lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PROTECTED));
-}
-
-void lily_introspect_PropertyEntry_is_public(lily_state *s)
-{
-    UNPACK_FIRST_ARG(PropertyEntry, lily_prop_entry *);
-    lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PUBLIC));
-}
-
 static int64_t flags_to_scope(uint16_t flags)
 {
     int64_t result = SymScope_Public_VALUE;
@@ -665,27 +647,6 @@ void lily_introspect_MethodEntry_is_forward_virtual(lily_state *s)
 {
     UNPACK_FIRST_ARG(MethodEntry, lily_var *);
     lily_return_boolean(s, entry->item_kind == ITEM_FORWARD_VIRT);
-}
-
-void lily_introspect_MethodEntry_is_private(lily_state *s)
-{
-    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
-    lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PRIVATE));
-}
-
-void lily_introspect_MethodEntry_is_protected(lily_state *s)
-{
-    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
-    lily_return_boolean(s, !!(entry->flags & SYM_SCOPE_PROTECTED));
-}
-
-void lily_introspect_MethodEntry_is_public(lily_state *s)
-{
-    UNPACK_FIRST_ARG(MethodEntry, lily_var *);
-
-    int flags = entry->flags & (SYM_SCOPE_PRIVATE | SYM_SCOPE_PROTECTED);
-
-    lily_return_boolean(s, flags == 0);
 }
 
 void lily_introspect_MethodEntry_is_static(lily_state *s)
