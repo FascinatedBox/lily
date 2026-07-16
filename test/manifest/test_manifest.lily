@@ -688,9 +688,7 @@ class TestManifest < TestCase
                 :line      line:   Integer,
                 :name      name:   String,
                 :params    params: String,
-                :private   pri:    Boolean,
-                :protected pro:    Boolean,
-                :public    pub:    Boolean,
+                :_         scope:  introspect.SymScope,
                 :result    result: String,
                 :type      type:   String
             )
@@ -700,9 +698,7 @@ class TestManifest < TestCase
                     m.line_number(),
                     m.function_name(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string()
                 ]>
@@ -711,9 +707,7 @@ class TestManifest < TestCase
                     line,
                     name,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type
                 ]>
@@ -785,9 +779,7 @@ class TestManifest < TestCase
                     :line       12,
                     :name       "f",
                     :params     "(,FlatEnum,)(a,Integer,key)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Integer",
                     :type       "Function (FlatEnum, Integer => Integer)"
                 )
@@ -798,9 +790,7 @@ class TestManifest < TestCase
                     :line       14,
                     :name       "g",
                     :params     "(,FlatEnum,)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (FlatEnum)"
                 )
@@ -811,9 +801,7 @@ class TestManifest < TestCase
                     :line       17,
                     :name       "h",
                     :params     "(,FlatEnum,)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (FlatEnum)"
                 )
@@ -888,9 +876,7 @@ class TestManifest < TestCase
                     :line       26,
                     :name       "f",
                     :params     "(,ScopedEnum[A, B],)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (ScopedEnum[A, B])"
                 )
@@ -1422,9 +1408,7 @@ class TestManifest < TestCase
                 :doc       doc:    String,
                 :name      name:   String,
                 :params    params: String,
-                :private   pri:    Boolean,
-                :protected pro:    Boolean,
-                :public    pub:    Boolean,
+                :_         scope:  introspect.SymScope,
                 :result    result: String,
                 :type      type:   String
             )
@@ -1433,9 +1417,7 @@ class TestManifest < TestCase
                     m.doc(),
                     m.function_name(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string()
                 ]>
@@ -1443,9 +1425,7 @@ class TestManifest < TestCase
                     doc,
                     name,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type
                 ]>
@@ -1520,9 +1500,7 @@ class TestManifest < TestCase
                     :doc        "",
                     :name       "check",
                     :params     "(,ValueDirection,)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (ValueDirection)"
                 )

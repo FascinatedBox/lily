@@ -586,9 +586,7 @@ class TestPkgIntrospect < TestCase
                 :doc       doc:    String,
                 :name      name:   String,
                 :params    params: String,
-                :private   pri:    Boolean,
-                :protected pro:    Boolean,
-                :public    pub:    Boolean,
+                :_         scope:  introspect.SymScope,
                 :result    result: String,
                 :type      type:   String
             )
@@ -597,9 +595,7 @@ class TestPkgIntrospect < TestCase
                     m.doc(),
                     m.function_name(),
                     stringify_parameters(m.parameters()),
-                    m.is_private(),
-                    m.is_protected(),
-                    m.is_public(),
+                    m.scope(),
                     m.result_type().as_string(),
                     m.type().as_string()
                 ]>
@@ -607,9 +603,7 @@ class TestPkgIntrospect < TestCase
                     doc,
                     name,
                     params,
-                    pri,
-                    pro,
-                    pub,
+                    scope,
                     result,
                     type
                 ]>
@@ -683,9 +677,7 @@ class TestPkgIntrospect < TestCase
                     :doc        "f docblock\\n",
                     :name       "f",
                     :params     "(,FlatEnum,)(a,Integer,key)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Integer",
                     :type       "Function (FlatEnum, Integer => Integer)"
                 )
@@ -695,9 +687,7 @@ class TestPkgIntrospect < TestCase
                     :doc        "",
                     :name       "g",
                     :params     "(,FlatEnum,)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (FlatEnum)"
                 )
@@ -707,9 +697,7 @@ class TestPkgIntrospect < TestCase
                     :doc        "h docblock\\n",
                     :name       "h",
                     :params     "(,FlatEnum,)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (FlatEnum)"
                 )
@@ -787,9 +775,7 @@ class TestPkgIntrospect < TestCase
                     :doc        "",
                     :name       "f",
                     :params     "(,ScopedEnum[A, B],)",
-                    :private    false,
-                    :protected  false,
-                    :public     true,
+                    :scope      .Public,
                     :result     "Unit",
                     :type       "Function (ScopedEnum[A, B])"
                 )

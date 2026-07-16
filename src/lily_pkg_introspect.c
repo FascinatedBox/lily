@@ -516,13 +516,11 @@ void lily_introspect_PropertyEntry_is_public(lily_state *s)
 
 static int64_t flags_to_scope(uint16_t flags)
 {
-    int64_t result;
+    int64_t result = SymScope_Public_VALUE;
 
-    if (flags & SYM_SCOPE_PUBLIC)
-        result = SymScope_Public_VALUE;
-    else if (flags & SYM_SCOPE_PROTECTED)
+    if (flags & SYM_SCOPE_PROTECTED)
         result = SymScope_Protected_VALUE;
-    else
+    else if (flags & SYM_SCOPE_PRIVATE)
         result = SymScope_Private_VALUE;
 
     return result;
