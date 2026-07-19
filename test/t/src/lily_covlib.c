@@ -288,16 +288,16 @@ void lily_covlib__make_flat_n(lily_state *s)
     lily_return_top(s);
 }
 
-void lily_covlib__make_scoped_n(lily_state *s)
+void lily_covlib__make_basic_n(lily_state *s)
 {
     int64_t arg_n = lily_arg_integer(s, 0);
 
     if (arg_n == 1)
-        PUSH_ScopedEnum_ScopedOne(s);
+        PUSH_BasicEnum_One(s);
     else if (arg_n == 2)
-        PUSH_ScopedEnum_ScopedTwo(s);
+        PUSH_BasicEnum_Two(s);
     else
-        PUSH_ScopedEnum_ScopedThree(s);
+        PUSH_BasicEnum_Three(s);
 
     lily_return_top(s);
 }

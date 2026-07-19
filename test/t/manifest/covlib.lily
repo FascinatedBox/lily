@@ -30,10 +30,10 @@ enum FlatEnum {
     FlatThree
 }
 
-scoped enum ScopedEnum {
-    ScopedOne,
-    ScopedTwo,
-    ScopedThree
+scoped enum BasicEnum {
+    One,
+    Two,
+    Three
 }
 
 enum FlatValueDirection < Integer {
@@ -100,7 +100,7 @@ define cover_value_group(a: Boolean,
      o: Unit,
      p: Option[Integer]): Boolean
 define make_flat_n(n: Integer): FlatEnum
-define make_scoped_n(n: Integer): ScopedEnum
+define make_basic_n(n: Integer): BasicEnum
 define optcount(
     :a a: *Integer=0,
     :b b: *Integer=0,

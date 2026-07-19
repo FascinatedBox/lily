@@ -53,45 +53,45 @@ lily_cid_at(s_, 4)
 #define INIT_ForeignGeneric(s_) \
 (lily_covlib_ForeignGeneric *)lily_push_foreign(s_, ID_ForeignGeneric(s_), (lily_destroy_func)lily_covlib_destroy_ForeignGeneric, sizeof(lily_covlib_ForeignGeneric))
 
-#define ID_Color_Cool(s_) \
+#define ID_BasicEnum_One(s_) \
 (lily_cid_at(s_, 5) + 1)
-#define INIT_Color_Cool(state)\
-lily_push_variant(state, (lily_cid_at(state, 5) + 1), 1)
-#define ID_Color_Warm(s_) \
+#define PUSH_BasicEnum_One(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 1)
+#define ID_BasicEnum_Three(s_) \
 (lily_cid_at(s_, 5) + 2)
+#define PUSH_BasicEnum_Three(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 2)
+#define ID_BasicEnum_Two(s_) \
+(lily_cid_at(s_, 5) + 3)
+#define PUSH_BasicEnum_Two(state)\
+lily_push_empty_variant(state, lily_cid_at(state, 5) + 3)
+
+#define ID_Color_Cool(s_) \
+(lily_cid_at(s_, 6) + 1)
+#define INIT_Color_Cool(state)\
+lily_push_variant(state, (lily_cid_at(state, 6) + 1), 1)
+#define ID_Color_Warm(s_) \
+(lily_cid_at(s_, 6) + 2)
 #define INIT_Color_Warm(state)\
-lily_push_variant(state, (lily_cid_at(state, 5) + 2), 1)
+lily_push_variant(state, (lily_cid_at(state, 6) + 2), 1)
 
 #define ID_FlatOne(s_) \
-(lily_cid_at(s_, 6) + 1)
+(lily_cid_at(s_, 7) + 1)
 #define PUSH_FlatOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 1)
+lily_push_empty_variant(state, lily_cid_at(state, 7) + 1)
 #define ID_FlatThree(s_) \
-(lily_cid_at(s_, 6) + 2)
+(lily_cid_at(s_, 7) + 2)
 #define PUSH_FlatThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 2)
+lily_push_empty_variant(state, lily_cid_at(state, 7) + 2)
 #define ID_FlatTwo(s_) \
-(lily_cid_at(s_, 6) + 3)
+(lily_cid_at(s_, 7) + 3)
 #define PUSH_FlatTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 6) + 3)
+lily_push_empty_variant(state, lily_cid_at(state, 7) + 3)
 
 #define East_VALUE -2
 #define North_VALUE 0
 #define South_VALUE -1
 #define West_VALUE 4567890
-
-#define ID_ScopedEnum_ScopedOne(s_) \
-(lily_cid_at(s_, 8) + 1)
-#define PUSH_ScopedEnum_ScopedOne(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 8) + 1)
-#define ID_ScopedEnum_ScopedThree(s_) \
-(lily_cid_at(s_, 8) + 2)
-#define PUSH_ScopedEnum_ScopedThree(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 8) + 2)
-#define ID_ScopedEnum_ScopedTwo(s_) \
-(lily_cid_at(s_, 8) + 3)
-#define PUSH_ScopedEnum_ScopedTwo(state)\
-lily_push_empty_variant(state, lily_cid_at(state, 8) + 3)
 
 #define ScopedValueDirection_East_VALUE 5
 #define ScopedValueDirection_North_VALUE 4
@@ -116,7 +116,7 @@ void lily_covlib_module_warm(lily_state *s) { lily_import_library_data(s, "[covl
 
 LILY_COVLIB_EXPORT
 const char *lily_covlib_info_table[] = {
-    "\12C2\0Container\0CoolExample\0Foreign\0ForeignGeneric\0Color\0FlatEnum\0FlatValueDirection\0ScopedEnum\0ScopedValueDirection\0"
+    "\12C2\0Container\0CoolExample\0Foreign\0ForeignGeneric\0BasicEnum\0Color\0FlatEnum\0FlatValueDirection\0ScopedValueDirection\0"
     ,"N\3C2\0< Container"
     ,"m\0<new>\0(String,Integer): C2"
     ,"m\0check\0(C2): Integer"
@@ -133,6 +133,10 @@ const char *lily_covlib_info_table[] = {
     ,"C\1Foreign\0"
     ,"m\0<new>\0: Foreign"
     ,"C\0ForeignGeneric\0[A,B]"
+    ,"E\3BasicEnum\0"
+    ,"V\0One\0"
+    ,"V\0Three\0"
+    ,"V\0Two\0"
     ,"E\2Color\0"
     ,"V\0Cool\0(cool.Color)"
     ,"V\0Warm\0(warm.Color)"
@@ -145,10 +149,6 @@ const char *lily_covlib_info_table[] = {
     ,"V\0North\0=0"
     ,"V\0South\0=-1"
     ,"V\0West\0=4567890"
-    ,"E\3ScopedEnum\0"
-    ,"V\0ScopedOne\0"
-    ,"V\0ScopedThree\0"
-    ,"V\0ScopedTwo\0"
     ,"E\5ScopedValueDirection\0< Integer"
     ,"m\0turn_right\0(ScopedValueDirection): ScopedValueDirection"
     ,"V\0East\0=5"
@@ -170,8 +170,8 @@ const char *lily_covlib_info_table[] = {
     ,"F\0cover_value_as\0(Byte,ByteString,Exception,Double,File,Function(Integer),Foreign,Hash[Integer,Integer],Integer,String)"
     ,"F\0cover_value_group\0(Boolean,Byte,ByteString,Double,Option[Integer],File,Function(Integer),Hash[Integer,Integer],Foreign,Exception,Integer,List[Integer],String,Tuple[Integer],Unit,Option[Integer]): Boolean"
     ,"F\0ec_error_passthru\0(Function())"
+    ,"F\0make_basic_n\0(Integer): BasicEnum"
     ,"F\0make_flat_n\0(Integer): FlatEnum"
-    ,"F\0make_scoped_n\0(Integer): ScopedEnum"
     ,"F\0optcount\0(:a *Integer,:b *Integer,:c *Integer,:d *Integer,:e *Integer,:f *Integer,:g *Integer,:h *Integer,:i *Integer,:j *Integer,:k *Integer,:l *Integer,:m *Integer,:n *Integer,:o *Integer,:p *Integer): Integer"
     ,"F\0optsum\0(:a *Integer,:b *Integer,:c *Integer,:d *Integer,:e *Integer,:f *Integer,:g *Integer,:h *Integer,:i *Integer,:j *Integer,:k *Integer,:l *Integer,:m *Integer,:n *Integer,:o *Integer,:p *Integer): Integer"
     ,"F\0raise_dbzerror\0"
@@ -242,8 +242,8 @@ lily_call_entry_func lily_covlib_call_table[] = { \
     lily_covlib__cover_value_as, \
     lily_covlib__cover_value_group, \
     lily_covlib__ec_error_passthru, \
+    lily_covlib__make_basic_n, \
     lily_covlib__make_flat_n, \
-    lily_covlib__make_scoped_n, \
     lily_covlib__optcount, \
     lily_covlib__optsum, \
     lily_covlib__raise_dbzerror, \

@@ -309,25 +309,24 @@ class TestVerifyCoverage < TestCase
         )
 
         assert_parse_string(t, """
-            import (FlatEnum, FlatOne, FlatTwo, FlatThree,
-                    make_scoped_n) covlib
+            import (BasicEnum, make_basic_n) covlib
 
-            var v = "" ++ FlatTwo
-            if v != "FlatTwo": {
+            var v = "" ++ BasicEnum.One
+            if v != "BasicEnum.One": {
                 raise Exception("Failed to interpolate.")
             }
 
-            define f(l: List[FlatEnum]): List[Integer] {
+            define f(l: List[BasicEnum]): List[Integer] {
                 var result: List[Integer] = []
 
                 for i in 0...l.size() - 1: {
                     var e = l[i]
                     match e: {
-                        case FlatOne:
+                        case One:
                             result.push(1)
-                        case FlatTwo:
+                        case Two:
                             result.push(2)
-                        case FlatThree:
+                        case Three:
                             result.push(3)
                     }
                 }
@@ -335,23 +334,22 @@ class TestVerifyCoverage < TestCase
                 return result
             }
 
-            var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
+            var v2 = f([.One, .Two, .Three, .Two, .One])
             if v2 != [1, 2, 3, 2, 1]: {
                 raise Exception("Failed to match and transform.")
             }
 
             var v3 = [
-                make_scoped_n(1) ++ "",
-                make_scoped_n(2) ++ "",
-                make_scoped_n(3) ++ "",
+                make_basic_n(1) ++ "",
+                make_basic_n(2) ++ "",
+                make_basic_n(3) ++ "",
             ]
 
-            if v3 != ["ScopedEnum.ScopedOne",
-                      "ScopedEnum.ScopedTwo",
-                      "ScopedEnum.ScopedThree"]: {
+            if v3 != ["BasicEnum.One",
+                      "BasicEnum.Two",
+                      "BasicEnum.Three"]: {
                 raise Exception("Failed to interpolate foreign made variants.")
             }
-
         """)
     }
 
