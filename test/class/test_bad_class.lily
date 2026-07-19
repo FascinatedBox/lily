@@ -378,21 +378,31 @@ class TestBadClass < TestCase
         # bad inheritance (inherit from enum)
 
         assert_parse_fails(t, """\
-            SyntaxError: 'Two' cannot be inherited from.
+            SyntaxError: 'Option' cannot be inherited from.
 
                |
-             6 | class example < Two { }
-               |                 ^
+             1 | class Example[A] < Option { }
+               |                    ^
 
-                from [test]:6:
+                from [test]:1:
         """,
         """\
-            enum Test {
-                One,
-                Two
-            }
+            class Example[A] < Option { }
+        """)
 
-            class example < Two { }
+        # bad inheritance (inherit from variant)
+
+        assert_parse_fails(t, """\
+            SyntaxError: 'Some' cannot be inherited from.
+
+               |
+             1 | class example < Some { }
+               |                 ^
+
+                from [test]:1:
+        """,
+        """\
+            class example < Some { }
         """)
 
         # bad inheritance (inherit from missing class)
