@@ -1,18 +1,18 @@
-import (Interpreter,
-        LibraryTarget,
-        StringTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestBadManifest < TestCase
 {
     private var @t_covlib =
-        LibraryTarget(
+        ImportTarget(
+            :kind .Library,
             :path "covlib",
-            :redirect "test/t/backbone"
+            :data "test/t/backbone"
         )
 
     private var @t_left =
-        StringTarget(
+        ImportTarget(
             :path "left",
             :data """\
                 var a: Integer
@@ -20,7 +20,7 @@ class TestBadManifest < TestCase
         )
 
     private var @t_unresolved_target =
-        StringTarget(
+        ImportTarget(
             :path "unresolved_target",
             :data """\
                 import manifest

@@ -1,5 +1,5 @@
-import (Interpreter,
-        LibraryTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestBadVirt < TestCase
@@ -847,9 +847,10 @@ class TestBadVirt < TestCase
         # Dynaloaded methods must follow the same rules as native methods
 
         var t = Interpreter.with_targets(
-            LibraryTarget(
+            ImportTarget(
+                :kind .Library,
                 :path "covlib",
-                :redirect "test/t/backbone"
+                :data "test/t/backbone"
             )
         )
 

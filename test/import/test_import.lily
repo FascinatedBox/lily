@@ -1,11 +1,11 @@
-import (Interpreter,
-        StringTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestImport < TestCase
 {
     private var @t_var_exporter =
-        StringTarget(
+        ImportTarget(
             :path "var_exporter",
             :data """
                 var v = 10
@@ -13,7 +13,7 @@ class TestImport < TestCase
         )
 
     private var @t_export_var =
-        StringTarget(
+        ImportTarget(
             :path "export_var",
             :data """
                 import var_exporter
@@ -24,7 +24,7 @@ class TestImport < TestCase
         )
 
     private var @t_deep_access =
-        StringTarget(
+        ImportTarget(
             :path "deep_access",
             :data """
                 import deep_middle
@@ -41,7 +41,7 @@ class TestImport < TestCase
         )
 
     private var @t_deep_middle =
-        StringTarget(
+        ImportTarget(
             :path "deep_middle",
             :data """
                 import deep_bottom
@@ -49,7 +49,7 @@ class TestImport < TestCase
         )
 
     private var @t_deep_bottom =
-        StringTarget(
+        ImportTarget(
             :path "deep_bottom",
             :data """
                 define bottomFunc(i: Integer): Integer { return i }
@@ -60,7 +60,7 @@ class TestImport < TestCase
         )
 
     private var @t_diamond =
-        StringTarget(
+        ImportTarget(
             :path "diamond",
             :data """
                 import diamond_a
@@ -74,7 +74,7 @@ class TestImport < TestCase
         )
 
     private var @t_diamond_a =
-        StringTarget(
+        ImportTarget(
             :path "diamond_a",
             :data """
                 import diamond_d
@@ -83,7 +83,7 @@ class TestImport < TestCase
         )
 
     private var @t_diamond_b =
-        StringTarget(
+        ImportTarget(
             :path "diamond_b",
             :data """
                 import diamond_d
@@ -92,7 +92,7 @@ class TestImport < TestCase
         )
 
     private var @t_diamond_d =
-        StringTarget(
+        ImportTarget(
             :path "diamond_d",
             :data """
                 var d = 10
@@ -100,7 +100,7 @@ class TestImport < TestCase
         )
 
     private var @t_one =
-        StringTarget(
+        ImportTarget(
             :path "one",
             :data """
                 var v = 10
@@ -108,7 +108,7 @@ class TestImport < TestCase
         )
 
     private var @t_two =
-        StringTarget(
+        ImportTarget(
             :path "two",
             :data """
                 var v = 100
@@ -116,7 +116,7 @@ class TestImport < TestCase
         )
 
     private var @t_three =
-        StringTarget(
+        ImportTarget(
             :path "three",
             :data """
                 var v = 1000
@@ -124,7 +124,7 @@ class TestImport < TestCase
         )
 
     private var @t_four =
-        StringTarget(
+        ImportTarget(
             :path "four",
             :data """
                 var v = 10000
@@ -132,7 +132,7 @@ class TestImport < TestCase
         )
 
     private var @t_five =
-        StringTarget(
+        ImportTarget(
             :path "five",
             :data """
                 import var_exporter
@@ -140,7 +140,7 @@ class TestImport < TestCase
         )
 
     private var @t_ref_import =
-        StringTarget(
+        ImportTarget(
             :path "ref_import",
             :data """
                 import (v) var_exporter
@@ -148,7 +148,7 @@ class TestImport < TestCase
         )
 
     private var @t_ref_target =
-        StringTarget(
+        ImportTarget(
             :path "ref_target",
             :data """
                 define ref_define: Integer { return 10 }
@@ -172,7 +172,7 @@ class TestImport < TestCase
         )
 
     private var @t_fakefib =
-        StringTarget(
+        ImportTarget(
             :path "fakefib",
             :data """
                 define fakefib(n: Integer): Integer { return n }
@@ -180,7 +180,7 @@ class TestImport < TestCase
         )
 
     private var @t_ref_diamond =
-        StringTarget(
+        ImportTarget(
             :path "ref_diamond",
             :data """
                 import (AA, BB) ref_left
@@ -189,7 +189,7 @@ class TestImport < TestCase
         )
 
     private var @t_ref_right =
-        StringTarget(
+        ImportTarget(
             :path "ref_right",
             :data """
                 import (AA) ref_left
@@ -199,7 +199,7 @@ class TestImport < TestCase
         )
 
     private var @t_ref_left =
-        StringTarget(
+        ImportTarget(
             :path "ref_left",
             :data """
                 class AA {
@@ -211,7 +211,7 @@ class TestImport < TestCase
         )
 
     private var @t_constant =
-        StringTarget(
+        ImportTarget(
             :path "ref_constant",
             :data """
                 constant x = 10
@@ -219,7 +219,7 @@ class TestImport < TestCase
         )
 
     private var @t_dir =
-        StringTarget(
+        ImportTarget(
             :path "ref_dir",
             :data """
                 var v = __dir__
@@ -227,7 +227,7 @@ class TestImport < TestCase
         )
 
     private var @t_numeric_start =
-        StringTarget(
+        ImportTarget(
             :path "0asdf",
             :data """\
                 var v = 10
@@ -235,7 +235,7 @@ class TestImport < TestCase
         )
 
     private var @t_direct_a =
-        StringTarget(
+        ImportTarget(
             :path "direct_a",
             :data """\
                 var x = 10
@@ -243,7 +243,7 @@ class TestImport < TestCase
         )
 
     private var @t_direct_abc =
-        StringTarget(
+        ImportTarget(
             :path "direct_abc",
             :data """\
                 var y = 20
@@ -251,7 +251,7 @@ class TestImport < TestCase
         )
 
     private var @t_direct_mid =
-        StringTarget(
+        ImportTarget(
             :path "direct_mid",
             :data """\
                 import direct_a
@@ -260,7 +260,7 @@ class TestImport < TestCase
         )
 
     private var @t_import_forward_gen =
-        StringTarget(
+        ImportTarget(
             :path "asdf",
             :data """\
                 forward class Example[A] { ... }
@@ -600,13 +600,13 @@ class TestImport < TestCase
     public define test_reimport_if_direct
     {
         var t = Interpreter.with_targets(
-            StringTarget(
+            ImportTarget(
                 :path "mylib",
                 :data """
                     import green
                 """
             ),
-            StringTarget(
+            ImportTarget(
                 :path "green",
                 :data """
                     var is_green = 1

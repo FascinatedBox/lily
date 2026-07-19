@@ -251,14 +251,15 @@ class TestCase < backbone.TestCaseBase
     }
 }
 
-enum ImportTarget {
-    StringTarget(:path String,
-                 :data String),
-    PackageTarget(:path String,
-                  :data String),
-    LibraryTarget(:path String,
-                  :redirect String)
+enum ImportKind {
+    String,
+    Package,
+    Library
 }
+
+class ImportTarget(:_ public var @path: String,
+                   :_ public var @data: String,
+                   :_ public var @kind: *ImportKind=.String) {}
 
 class Interpreter < backbone.Interpreter
 {
@@ -267,23 +268,23 @@ class Interpreter < backbone.Interpreter
     private define do_import_hook(want_path: String)
     {
         for t in @targets: {
-            match t: {
-                case StringTarget(t_path, t_data):
-                    if want_path == t_path: {
+            match t.kind: {
+                case String:
+                    if want_path == t.path: {
                         import_use_local_dir("")
-                        import_string(want_path, t_data)
+                        import_string(want_path, t.data)
                         break
                     }
-                case PackageTarget(t_path, t_data):
-                    if want_path == t_path: {
+                case Package:
+                    if want_path == t.path: {
                         import_use_package_dir("")
-                        import_string(want_path, t_data)
+                        import_string(want_path, t.data)
                         break
                     }
-                case LibraryTarget(t_path, t_redirect):
-                    if want_path == t_path: {
+                case Library:
+                    if want_path == t.path: {
                         import_use_local_dir("")
-                        import_library(t_redirect)
+                        import_library(t.data)
                         break
                     }
             }
@@ -292,10 +293,8 @@ class Interpreter < backbone.Interpreter
 
     private static define hook(s: backbone.Interpreter, target: String)
     {
-        match s: {
-            case Interpreter(i):
-                Interpreter.do_import_hook(i, target)
-            else:
+        with s as Interpreter(i): {
+            Interpreter.do_import_hook(i, target)
         }
     }
 

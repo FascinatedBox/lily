@@ -1,5 +1,5 @@
-import (Interpreter,
-        LibraryTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestVirt < TestCase
@@ -229,9 +229,10 @@ class TestVirt < TestCase
     public define test_virt_dynaload
     {
         var t = Interpreter.with_targets(
-            LibraryTarget(
+            ImportTarget(
+                :kind .Library,
                 :path "covlib",
-                :redirect "test/t/backbone"
+                :data "test/t/backbone"
             )
         )
 

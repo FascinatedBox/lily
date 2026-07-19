@@ -1,49 +1,49 @@
-import (Interpreter,
-        LibraryTarget,
-        StringTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 import "../t/backbone"
 
 class TestBadImport < TestCase
 {
     private var @t_brace_at_end =
-        StringTarget(
+        ImportTarget(
             :path "brace_at_end",
             :data "}"
         )
 
     private var @t_invalid_token =
-        StringTarget(
+        ImportTarget(
             :path "invalid_token",
             :data ";"
         )
 
     private var @t_var_exporter =
-        StringTarget(
+        ImportTarget(
             :path "var_exporter",
             :data "var v = 10"
         )
 
     private var @t_fff =
-        StringTarget(
+        ImportTarget(
             :path "fff",
             :data "import var_exporter"
         )
 
     private var @t_bad_asdf =
-        LibraryTarget(
+        ImportTarget(
+            :kind .Library,
             :path "bad_asdf",
-            :redirect "test\/t\/backbone"
+            :data "test\/t\/backbone"
         )
 
     private var @t_loop =
-        StringTarget(
+        ImportTarget(
             :path "loop",
             :data "import loop"
         )
 
     private var @t_manifest_loop =
-        StringTarget(
+        ImportTarget(
             :path "manifest_loop",
             :data """\
                 import manifest
@@ -52,7 +52,7 @@ class TestBadImport < TestCase
         )
 
     private var @t_direct_left =
-        StringTarget(
+        ImportTarget(
             :path "direct_left",
             :data """\
                 var a = 10
@@ -60,7 +60,7 @@ class TestBadImport < TestCase
         )
 
     private var @t_direct_mid =
-        StringTarget(
+        ImportTarget(
             :path "direct_mid",
             :data """\
                 import direct_left as abc

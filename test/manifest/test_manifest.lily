@@ -1,12 +1,11 @@
-import (Interpreter,
-        PackageTarget,
-        StringTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestManifest < TestCase
 {
     private var @t_class_payload =
-        StringTarget(
+        ImportTarget(
             :path "_class",
             :data """\
                 import manifest
@@ -47,7 +46,7 @@ class TestManifest < TestCase
         )
 
     private var @t_define_payload =
-        StringTarget(
+        ImportTarget(
             :path "_define",
             :data """\
                 import manifest
@@ -66,7 +65,7 @@ class TestManifest < TestCase
         )
 
     private var @t_enum_payload =
-        StringTarget(
+        ImportTarget(
             :path "_enum",
             :data """\
                 import manifest
@@ -100,7 +99,8 @@ class TestManifest < TestCase
         )
 
     private var @t_fake =
-        PackageTarget(
+        ImportTarget(
+            :kind .Package,
             :path "fake",
             :data """\
                 import manifest
@@ -111,7 +111,7 @@ class TestManifest < TestCase
         )
 
     private var @t_nest_example =
-        StringTarget(
+        ImportTarget(
             :path "nest\/example",
             :data """\
                 import manifest
@@ -122,7 +122,7 @@ class TestManifest < TestCase
         )
 
     private var @t_constant_payload =
-        StringTarget(
+        ImportTarget(
             :path "_constant",
             :data """\
                 import manifest
@@ -142,7 +142,7 @@ class TestManifest < TestCase
         )
 
     private var @t_var_payload =
-        StringTarget(
+        ImportTarget(
             :path "_var",
             :data """\
                 import manifest
@@ -155,7 +155,7 @@ class TestManifest < TestCase
         )
 
     private var @t_left =
-        StringTarget(
+        ImportTarget(
             :path "left",
             :data """\
                 import manifest
@@ -165,7 +165,7 @@ class TestManifest < TestCase
         )
 
     private var @t_right =
-        StringTarget(
+        ImportTarget(
             :path "right",
             :data """\
                 import manifest
@@ -175,7 +175,7 @@ class TestManifest < TestCase
         )
 
     private var @t_middle =
-        StringTarget(
+        ImportTarget(
             :path "middle",
             :data """\
                 import manifest
@@ -185,7 +185,7 @@ class TestManifest < TestCase
         )
 
     private var @t_check_forwards =
-        StringTarget(
+        ImportTarget(
             :path "check_forwards",
             :data """\
                 import manifest
@@ -212,7 +212,7 @@ class TestManifest < TestCase
         )
 
     private var @t_blank_optarg =
-        StringTarget(
+        ImportTarget(
             :path "blank_optarg",
             :data """\
                 import manifest
@@ -229,7 +229,7 @@ class TestManifest < TestCase
         )
 
     private var @t_value_enum_payload =
-        StringTarget(
+        ImportTarget(
             :path "_value_enum",
             :data """\
                 import manifest
@@ -1552,7 +1552,7 @@ class TestManifest < TestCase
             }
         """
         var t = Interpreter.with_targets(
-            StringTarget(
+            ImportTarget(
                 :path "_virt",
                 :data virt_data
             )

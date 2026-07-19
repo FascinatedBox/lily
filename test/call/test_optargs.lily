@@ -1,13 +1,14 @@
-import (Interpreter,
-        LibraryTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestOptargs < TestCase
 {
     private var @t_covlib =
-        LibraryTarget(
+        ImportTarget(
+            :kind .Library,
             :path "covlib",
-            :redirect "test/t/backbone"
+            :data "test/t/backbone"
         )
 
     public define test_base

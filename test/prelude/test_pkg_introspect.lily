@@ -1,12 +1,11 @@
-import (Interpreter,
-        StringTarget,
-        PackageTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing", introspect
 
 class TestPkgIntrospect < TestCase
 {
     private var @t_class_payload =
-        StringTarget(
+        ImportTarget(
             :path "_class",
             :data """\
                 ### Test docblock
@@ -34,7 +33,7 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_constant_payload =
-        StringTarget(
+        ImportTarget(
             :path "_constant",
             :data """\
                 ### Test docblock
@@ -45,7 +44,7 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_define_payload =
-        StringTarget(
+        ImportTarget(
             :path "_define",
             :data """\
                 ### f docblock
@@ -62,7 +61,7 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_enum_payload =
-        StringTarget(
+        ImportTarget(
             :path "_enum",
             :data """\
                 ### FlatEnum docblock
@@ -96,7 +95,8 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_fake =
-        PackageTarget(
+        ImportTarget(
+            :kind .Package,
             :path "fake",
             :data """
                 var v = 10
@@ -104,7 +104,7 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_nest_example =
-        StringTarget(
+        ImportTarget(
             :path "nest\/example",
             :data """
                 var v = 10
@@ -112,7 +112,7 @@ class TestPkgIntrospect < TestCase
         )
 
     private var @t_var_payload =
-        StringTarget(
+        ImportTarget(
             :path "_var",
             :data """\
                 ### Var docblock
@@ -1389,7 +1389,7 @@ class TestPkgIntrospect < TestCase
             }
         """
         var t = Interpreter.with_targets(
-            StringTarget(
+            ImportTarget(
                 :path "_virt",
                 :data virt_data
             )

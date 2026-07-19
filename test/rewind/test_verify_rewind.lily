@@ -1,5 +1,5 @@
-import (Interpreter,
-        StringTarget,
+import (ImportTarget,
+        Interpreter,
         TestCase) "../t/testing"
 
 class TestVerifyRewind < TestCase
@@ -38,7 +38,7 @@ class TestVerifyRewind < TestCase
     public define test_rewind_broken_import
     {
         var t = Interpreter.with_targets(
-            StringTarget(
+            ImportTarget(
                 :path "invalid_token",
                 :data """
                     ?
@@ -522,7 +522,7 @@ class TestVerifyRewind < TestCase
     public define test_save_valid_import
     {
         var t = Interpreter.with_targets(
-            StringTarget(
+            ImportTarget(
                 :path "var_exporter",
                 :data """
                     var v = 10
