@@ -1,0 +1,69 @@
+
+#[
+This file contains the content given to inspection.
+Input content is parsed in default mode and in manifest mode.
+
+Guidelines:
+    Inputs are given to String.format, hence the {{ and }} escaping.
+    {0} will be replaced with "import manifest" or "".
+    {1} and above are for giving a value/define body/etc. (default mode).
+    Inputs should end with f# to indicate how many values to send.
+    \x22 is a double quote, since expected strings are fed as values.
+    Direct sym input runs custom expects.
+]#
+
+constant enum_input_f3 =
+"""\
+{0}
+
+### FlatEnum docblock
+enum FlatEnum
+{{
+    FlatOne,
+    FlatTwo(Integer),
+    FlatThree(String...),
+    FlatFour(:a Integer, :b String)
+
+    ### f docblock
+    define f(:key a: Integer): Integer {1}
+
+    define g {2}
+
+    ### h docblock
+    define h {2}
+}}
+
+scoped enum ScopedEnum[A, B]
+{{
+    ScopedOne(A),
+    ScopedTwo(B),
+    ScopedThree
+
+    define f {2}
+}}"""
+
+constant enum_expected =
+"""\x22\x22\x22\
+enum ScopedEnum[A, B]
+    ScopedThree
+    ScopedTwo(B)
+    ScopedOne(A)
+    26 | public method f[A, B](ScopedEnum[A, B]): Unit
+### FlatEnum docblock
+enum FlatEnum
+    FlatFour(:a Integer, :b String)
+    FlatThree(List[String])
+    FlatTwo(Integer)
+    FlatOne
+    ### h docblock
+    17 | public method h(FlatEnum): Unit
+    14 | public method g(FlatEnum): Unit
+    ### f docblock
+    12 | public method f(FlatEnum, :key a: Integer): Integer\
+\x22\x22\x22"""
+
+constant direct_sym_input_f0 =
+"""\
+import (FlatEnum, ScopedEnum) _enum
+var mm = introspect.main_module()
+"""

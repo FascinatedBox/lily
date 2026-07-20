@@ -307,4 +307,14 @@ class Interpreter < backbone.Interpreter
 
         return t
     }
+
+    public define update_targets(targets: ImportTarget...)
+    {
+        if targets.size() == 0: {
+            import_hook_reset()
+        else:
+            import_hook_set(hook)
+            @targets = targets
+        }
+    }
 }

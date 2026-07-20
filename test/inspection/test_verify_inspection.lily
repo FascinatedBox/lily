@@ -1,0 +1,101 @@
+import (ImportTarget,
+        Interpreter,
+        TestCase) "../t/testing"
+
+import content as C
+
+# There is significant overlap in manifest and introspection testing.
+# This file tests the common parts.
+
+class TestVerifyInspection < TestCase
+{
+    private define manifest_check(
+        t: Interpreter,
+        :_ path: String,
+        :_ format_skip: Integer,
+        :_ input: String,
+        :_ expect: String
+    )
+    {
+        var f_args = List.repeat(format_skip, "")
+
+        f_args[0] = "import manifest"
+        input = input.format(*f_args)
+
+        t.update_targets(
+            ImportTarget(
+                :path path,
+                :data input
+            )
+        )
+        assert_manifest_string(t, """\
+            import manifest
+            import """ ++ path)
+        assert_parse_string(t, """\
+            extract_and_expect("{}.lily", {})
+        """.format(path, expect))
+    }
+
+    private define introspect_check(
+        t: Interpreter,
+        :_ path: String,
+        :_ format: List[String],
+        :_ input: String,
+        :_ expect: String
+    )
+    {
+        # First argument is always for "import manifest". Skip that.
+        input = input.format(*format.unshift(""))
+
+        t.update_targets(
+            ImportTarget(
+                :path path,
+                :data input
+            )
+        )
+        assert_parse_string(t, "import " ++ path)
+        assert_parse_string(t, """\
+            extract_and_expect("{}.lily", {})
+        """.format(path, expect))
+    }
+
+    public define test_manifest
+    {
+        var t = Interpreter()
+
+        t.parse_file("test\/inspection\/inspection.lily")
+
+        manifest_check(
+            t,
+            :path "_enum",
+            :format_skip 3,
+            :input C.enum_input_f3,
+            :expect C.enum_expected
+        )
+    }
+
+    public define test_introspect
+    {
+        var t = Interpreter()
+
+        t.config_set_extra_info(true)
+        t.parse_file("test\/inspection\/inspection.lily")
+
+        introspect_check(
+            t,
+            :path "_enum",
+            :format ["{return 0}", "{}"],
+            :input C.enum_input_f3,
+            :expect C.enum_expected
+        )
+
+        # Check direct imports of the modules loaded above.
+        # Reset the import hook so re-imports work.
+        t.update_targets()
+
+        assert_parse_string(t, C.direct_sym_input_f0)
+        assert_parse_string(t, """\
+            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
+        """.format("enum", C.enum_expected))
+    }
+}

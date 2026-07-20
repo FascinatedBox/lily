@@ -80,6 +80,7 @@ const char *all_test_paths[] =
     TEST("exception",   "test_bad_exception"),
     TEST("forward",     "test_bad_forward"),
     TEST("import",      "test_bad_import"),
+    TEST("inspection",  "test_verify_inspection"),
     TEST("lambda",      "test_bad_lambda"),
     TEST("manifest",    "test_bad_manifest"),
     TEST("syntax",      "test_bad_syntax"),
