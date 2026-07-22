@@ -12,15 +12,13 @@ class TestVerifyInspection < TestCase
     private define manifest_check(
         t: Interpreter,
         :_ path: String,
-        :_ format_skip: Integer,
+        :_ format: List[String],
         :_ input: String,
         :_ expect: String
     )
     {
-        var f_args = List.repeat(format_skip, "")
-
-        f_args[0] = "import manifest"
-        input = input.format(*f_args)
+        format.unshift("import manifest")
+        input = input.format(*format)
 
         t.update_targets(
             ImportTarget(
@@ -67,8 +65,16 @@ class TestVerifyInspection < TestCase
 
         manifest_check(
             t,
+            :path "_constant",
+            :format [": Integer", ": String", ": Double", ": Boolean",
+                     ": ByteString"],
+            :input C.constant_input_f6,
+            :expect C.constant_expected
+        )
+        manifest_check(
+            t,
             :path "_enum",
-            :format_skip 3,
+            :format ["", ""],
             :input C.enum_input_f3,
             :expect C.enum_expected
         )
@@ -83,6 +89,14 @@ class TestVerifyInspection < TestCase
 
         introspect_check(
             t,
+            :path "_constant",
+            :format ["= 1", "= \x22abc\x22", "= 1.0", "= true",
+                     "= B\x22abc\x22"],
+            :input C.constant_input_f6,
+            :expect C.constant_expected
+        )
+        introspect_check(
+            t,
             :path "_enum",
             :format ["{return 0}", "{}"],
             :input C.enum_input_f3,
@@ -94,6 +108,9 @@ class TestVerifyInspection < TestCase
         t.update_targets()
 
         assert_parse_string(t, C.direct_sym_input_f0)
+        assert_parse_string(t, """\
+            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
+        """.format("constant", C.constant_expected))
         assert_parse_string(t, """\
             expect_imported(mm.boxed_{0}s(), write_{0}, {1})
         """.format("enum", C.enum_expected))

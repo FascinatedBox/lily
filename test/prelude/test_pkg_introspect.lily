@@ -32,17 +32,6 @@ class TestPkgIntrospect < TestCase
             """
         )
 
-    private var @t_constant_payload =
-        ImportTarget(
-            :path "_constant",
-            :data """\
-                ### Test docblock
-                constant ct = 10
-
-                constant asdf = "abc"
-            """
-        )
-
     private var @t_define_payload =
         ImportTarget(
             :path "_define",
@@ -400,92 +389,6 @@ class TestPkgIntrospect < TestCase
                 )
 
                 if classes.size() != 2: {
-                    0 / 0
-                }
-            }
-        """)
-    }
-
-    public define test_constant
-    {
-        var t = Interpreter.with_targets(
-            @t_constant_payload
-        )
-
-        t.config_set_extra_info(true)
-
-        assert_parse_string(t, """
-            import introspect
-            import (asdf, ct) _constant
-            import _constant
-
-            define check_constant(
-                         c: introspect.ConstantEntry,
-                :doc   doc: String,
-                :line line: Integer,
-                :name name: String,
-                :type type: String
-            )
-            {
-                var input = <[
-                    c.doc(),
-                    c.line_number(),
-                    c.name(),
-                    c.type().as_string()
-                ]>
-                var expect = <[
-                    doc,
-                    line,
-                    name,
-                    type
-                ]>
-
-                if input != expect: {
-                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
-                            .format(expect, input))
-                }
-            }
-
-            var mm = introspect.main_module()
-            var constant_m = mm.modules_used()[0]
-            var constants = constant_m.constants()
-
-            {
-                check_constant(
-                    constants[-2],
-                    :doc       "",
-                    :line      4,
-                    :name      "asdf",
-                    :type      "String"
-                )
-                check_constant(
-                    constants[-1],
-                    :doc       "Test docblock\\n",
-                    :line      2,
-                    :name      "ct",
-                    :type      "Integer"
-                )
-            }
-
-            constants = mm.boxed_constants()
-
-            {
-                check_constant(
-                    constants[-2],
-                    :doc       "Test docblock\\n",
-                    :line      2,
-                    :name      "ct",
-                    :type      "Integer"
-                )
-                check_constant(
-                    constants[-1],
-                    :doc       "",
-                    :line      4,
-                    :name      "asdf",
-                    :type      "String"
-                )
-
-                if constants.size() != 2: {
                     0 / 0
                 }
             }

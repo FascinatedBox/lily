@@ -57,6 +57,16 @@ define generics_to_s(g: List[introspect.TypeEntry]): String
     return "[" ++ text ++ "]"
 }
 
+define write_constant(out: List[String], c: introspect.ConstantEntry)
+{
+    out.push("{}{} | constant {}: {}".format(
+        doc_to_s(c, c.doc),
+        c.line_number(),
+        c.name(),
+        c.type().as_string()
+    ))
+}
+
 define write_method(out: List[String], m: introspect.MethodEntry)
 {
     var params = params_to_s(m, m.parameters)
@@ -120,6 +130,10 @@ define extract_and_expect(path: String, expected: String)
         .get(0)
         .unwrap()
     var output: List[String] = []
+
+    for c in subject.constants(): {
+        write_constant(output, c)
+    }
 
     for e in subject.enums(): {
         write_enum(output, e)

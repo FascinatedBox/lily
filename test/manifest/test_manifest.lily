@@ -87,26 +87,6 @@ class TestManifest < TestCase
             """
         )
 
-    private var @t_constant_payload =
-        ImportTarget(
-            :path "_constant",
-            :data """\
-                import manifest
-
-                ### Constant docblock
-                constant one: Integer
-
-                constant two: String
-
-                ### Doc for three
-                constant three: Double
-
-                constant four: Boolean
-
-                constant five: ByteString
-            """
-        )
-
     private var @t_var_payload =
         ImportTarget(
             :path "_var",
@@ -766,88 +746,6 @@ class TestManifest < TestCase
         """)
     }
 
-    public define test_constant
-    {
-        var t = Interpreter.with_targets(
-            @t_constant_payload
-        )
-
-        assert_manifest_string(t, """\
-            import manifest
-            import _constant
-        """)
-
-        assert_parse_string(t, """\
-            import introspect
-
-            define check_constant(
-                           c:    introspect.ConstantEntry,
-                :doc       doc:  String,
-                :name      name: String,
-                :type      type: String
-            )
-            {
-                var input = <[
-                    c.doc(),
-                    c.name(),
-                    c.type().as_string()
-                ]>
-                var expect = <[
-                    doc,
-                    name,
-                    type
-                ]>
-
-                if input != expect: {
-                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
-                            .format(expect, input))
-                }
-            }
-
-            var mm = introspect.main_module()
-            var constant_m = mm.modules_used()[1]
-            var constants = constant_m.constants()
-
-            check_constant(
-                constants[-1],
-                :doc        "Constant docblock\\n",
-                :name       "one",
-                :type       "Integer"
-            )
-
-            check_constant(
-                constants[-2],
-                :doc        "",
-                :name       "two",
-                :type       "String"
-            )
-
-            check_constant(
-                constants[-3],
-                :doc        "Doc for three\\n",
-                :name       "three",
-                :type       "Double"
-            )
-
-            check_constant(
-                constants[-4],
-                :doc        "",
-                :name       "four",
-                :type       "Boolean"
-            )
-
-            check_constant(
-                constants[-5],
-                :doc        "",
-                :name       "five",
-                :type       "ByteString"
-            )
-
-            if constants.size() != 5: {
-                0 / 0
-            }
-        """)
-    }
 
     public define test_var
     {

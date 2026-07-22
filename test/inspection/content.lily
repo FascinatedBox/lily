@@ -12,6 +12,31 @@ Guidelines:
     Direct sym input runs custom expects.
 ]#
 
+constant constant_input_f6 =
+"""\
+{0}
+
+### Constant docblock
+constant one {1}
+constant two {2}
+
+### Doc for three
+constant three {3}
+constant four {4}
+constant five {5}
+"""
+
+constant constant_expected =
+"""\x22\x22\x22\
+10 | constant five: ByteString
+9 | constant four: Boolean
+### Doc for three
+8 | constant three: Double
+5 | constant two: String
+### Constant docblock
+4 | constant one: Integer\
+\x22\x22\x22"""
+
 constant enum_input_f3 =
 """\
 {0}
@@ -65,5 +90,6 @@ enum FlatEnum
 constant direct_sym_input_f0 =
 """\
 import (FlatEnum, ScopedEnum) _enum
+import (one, two, three, four, five) _constant
 var mm = introspect.main_module()
 """
