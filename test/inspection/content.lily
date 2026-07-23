@@ -87,9 +87,26 @@ enum FlatEnum
     12 | public method f(FlatEnum, :key a: Integer): Integer\
 \x22\x22\x22"""
 
+constant var_input_f3 =
+"""\
+{0}
+
+### Var docblock
+var v_one: Integer {1}
+var v_two: String {2}
+"""
+
+constant var_expected =
+"""\x22\x22\x22\
+5 | var v_two: String
+### Var docblock
+4 | var v_one: Integer\
+\x22\x22\x22"""
+
 constant direct_sym_input_f0 =
 """\
 import (FlatEnum, ScopedEnum) _enum
 import (one, two, three, four, five) _constant
+import (v_one, v_two) _var
 var mm = introspect.main_module()
 """

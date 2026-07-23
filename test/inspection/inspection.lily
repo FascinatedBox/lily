@@ -86,6 +86,16 @@ define write_method(out: List[String], m: introspect.MethodEntry)
     ))
 }
 
+define write_var(out: List[String], v: introspect.VarEntry)
+{
+    out.push("{}{} | var {}: {}".format(
+        doc_to_s(v, v.doc),
+        v.line_number(),
+        v.name(),
+        v.type().as_string()
+    ))
+}
+
 define write_variant(out: List[String], v: introspect.VariantEntry)
 {
     var params = params_to_s(v, v.parameters)
@@ -137,6 +147,10 @@ define extract_and_expect(path: String, expected: String)
 
     for e in subject.enums(): {
         write_enum(output, e)
+    }
+
+    for v in subject.vars(): {
+        write_var(output, v)
     }
 
     var given = output.join("\n")

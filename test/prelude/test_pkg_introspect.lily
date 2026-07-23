@@ -66,17 +66,6 @@ class TestPkgIntrospect < TestCase
             """
         )
 
-    private var @t_var_payload =
-        ImportTarget(
-            :path "_var",
-            :data """\
-                ### Var docblock
-                var one: Integer = 1
-
-                var two: String = "2"
-            """
-        )
-
     public define test_class
     {
         var t = Interpreter.with_targets(
@@ -818,80 +807,6 @@ class TestPkgIntrospect < TestCase
                     :name    "prelude",
                     :path    "[prelude]"
                 )
-            }
-        """)
-    }
-
-    public define test_var
-    {
-        var t = Interpreter.with_targets(
-            @t_var_payload
-        )
-
-        t.config_set_extra_info(true)
-
-        assert_parse_string(t, """\
-            import introspect
-            import (one) _var
-            import _var
-
-            define check_var(
-                           v:    introspect.VarEntry,
-                :doc       doc:  String,
-                :name      name: String,
-                :type      type: String
-            )
-            {
-                var input = <[
-                    v.doc(),
-                    v.name(),
-                    v.type().as_string()
-                ]>
-                var expect = <[
-                    doc,
-                    name,
-                    type
-                ]>
-
-                if input != expect: {
-                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
-                            .format(expect, input))
-                }
-            }
-
-            var mm = introspect.main_module()
-            var var_m = mm.modules_used()[0]
-            var vars = var_m.vars()
-
-            check_var(
-                vars[-1],
-                :doc        "Var docblock\\n",
-                :name       "one",
-                :type       "Integer"
-            )
-
-            check_var(
-                vars[-2],
-                :doc        "",
-                :name       "two",
-                :type       "String"
-            )
-
-            if vars.size() != 2: {
-                0 / 0
-            }
-
-            vars = mm.boxed_vars()
-
-            check_var(
-                vars[-1],
-                :doc        "Var docblock\\n",
-                :name       "one",
-                :type       "Integer"
-            )
-
-            if vars.size() != 1: {
-                0 / 0
             }
         """)
     }

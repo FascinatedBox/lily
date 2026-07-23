@@ -78,6 +78,13 @@ class TestVerifyInspection < TestCase
             :input C.enum_input_f3,
             :expect C.enum_expected
         )
+        manifest_check(
+            t,
+            :path "_var",
+            :format ["", ""],
+            :input C.var_input_f3,
+            :expect C.var_expected
+        )
     }
 
     public define test_introspect
@@ -102,17 +109,25 @@ class TestVerifyInspection < TestCase
             :input C.enum_input_f3,
             :expect C.enum_expected
         )
+        introspect_check(
+            t,
+            :path "_var",
+            :format ["= 1", "= \x22\x22"],
+            :input C.var_input_f3,
+            :expect C.var_expected
+        )
 
         # Check direct imports of the modules loaded above.
         # Reset the import hook so re-imports work.
         t.update_targets()
 
+        var fmt = """\
+            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
+        """
+
         assert_parse_string(t, C.direct_sym_input_f0)
-        assert_parse_string(t, """\
-            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
-        """.format("constant", C.constant_expected))
-        assert_parse_string(t, """\
-            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
-        """.format("enum", C.enum_expected))
+        assert_parse_string(t, fmt.format("constant", C.constant_expected))
+        assert_parse_string(t, fmt.format("enum", C.enum_expected))
+        assert_parse_string(t, fmt.format("var", C.var_expected))
     }
 }

@@ -87,19 +87,6 @@ class TestManifest < TestCase
             """
         )
 
-    private var @t_var_payload =
-        ImportTarget(
-            :path "_var",
-            :data """\
-                import manifest
-
-                ### Var docblock
-                var one: Integer
-
-                var two: String
-            """
-        )
-
     private var @t_left =
         ImportTarget(
             :path "left",
@@ -742,69 +729,6 @@ class TestManifest < TestCase
                 if modules.size() != 3: {
                     0 / 0
                 }
-            }
-        """)
-    }
-
-
-    public define test_var
-    {
-        var t = Interpreter.with_targets(
-            @t_var_payload
-        )
-
-        assert_manifest_string(t, """\
-            import manifest
-            import _var
-        """)
-
-        assert_parse_string(t, """\
-            import introspect
-
-            define check_var(
-                           v:    introspect.VarEntry,
-                :doc       doc:  String,
-                :name      name: String,
-                :type      type: String
-            )
-            {
-                var input = <[
-                    v.doc(),
-                    v.name(),
-                    v.type().as_string()
-                ]>
-                var expect = <[
-                    doc,
-                    name,
-                    type
-                ]>
-
-                if input != expect: {
-                    raise Exception("\\n    Expected: {0}\\n    Given: {1}"
-                            .format(expect, input))
-                }
-            }
-
-            var mm = introspect.main_module()
-            var var_m = mm.modules_used()[1]
-            var vars = var_m.vars()
-
-            check_var(
-                vars[-1],
-                :doc        "Var docblock\\n",
-                :name       "one",
-                :type       "Integer"
-            )
-
-            check_var(
-                vars[-2],
-                :doc        "",
-                :name       "two",
-                :type       "String"
-            )
-
-            if vars.size() != 2: {
-                0 / 0
             }
         """)
     }
