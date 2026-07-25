@@ -66,39 +66,39 @@ class TestVerifyInspection < TestCase
         manifest_check(
             t, "_class",
             ["", ": Integer", ": String", ": Double", ""],
-            C.class_input_f6,
+            C.class_input_f,
             C.class_expected
         )
         manifest_check(
             t, "_constant",
             [": Integer", ": String", ": Double", ": Boolean", ": ByteString"],
-            C.constant_input_f6, C.constant_expected
+            C.constant_input_f, C.constant_expected
         )
         manifest_check(
-            t, "_enum", ["", ""], C.enum_input_f3, C.enum_expected
+            t, "_enum", ["", ""], C.enum_input_f, C.enum_expected
         )
         manifest_check(
             t, "_function", ["", "", "= \x22\x22", ""],
-            C.function_input_f5, C.function_expected
+            C.function_input_f, C.function_expected
         )
         manifest_check(
-            t, "_v_enum", [""], C.v_enum_input_f1, C.v_enum_expected
+            t, "_v_enum", [""], C.v_enum_input_f, C.v_enum_expected
         )
         manifest_check(
-            t, "_var", ["", ""], C.var_input_f3, C.var_expected
+            t, "_var", ["", ""], C.var_input_f, C.var_expected
         )
         manifest_check(
-            t, "_virt", [""], C.virt_input_f2, C.virt_expected
+            t, "_virt", [""], C.virt_input_f, C.virt_expected
         )
 
-        # The remainder are unique to manifest mode
+        # The remainder are for manifest mode only,
 
-        manifest_check(
-            t, "_scoop", [""], C.m_scoop_input_f0, C.m_scoop_expected
-        )
         manifest_check(
             t, "_foreign", [""],
-            C.m_foreign_class_input_f0, C.m_foreign_class_expected
+            C.m_foreign_class_input_f, C.m_foreign_class_expected
+        )
+        manifest_check(
+            t, "_scoop", [""], C.m_scoop_input_f, C.m_scoop_expected
         )
     }
 
@@ -112,32 +112,32 @@ class TestVerifyInspection < TestCase
         introspect_check(
             t, "_class",
             ["{return \x22\x22}", "=2", "=\x22\x22", "=3.0", "{}"],
-            C.class_input_f6, C.class_expected
+            C.class_input_f, C.class_expected
         )
         introspect_check(
             t, "_constant",
             ["= 1", "= \x22abc\x22", "= 1.0", "= true", "= B\x22abc\x22"],
-            C.constant_input_f6, C.constant_expected
+            C.constant_input_f, C.constant_expected
         )
         introspect_check(
             t, "_enum", ["{return 0}", "{}"],
-            C.enum_input_f3, C.enum_expected
+            C.enum_input_f, C.enum_expected
         )
         introspect_check(
             t, "_function", ["{}", "{ return \x22\x22}", "=\x22\x22", "=[]"],
-            C.function_input_f5, C.function_expected
+            C.function_input_f, C.function_expected
         )
         introspect_check(
             t, "_v_enum", ["{}"],
-            C.v_enum_input_f1, C.v_enum_expected
+            C.v_enum_input_f, C.v_enum_expected
         )
         introspect_check(
             t, "_var", ["= 1", "= \x22\x22"],
-            C.var_input_f3, C.var_expected
+            C.var_input_f, C.var_expected
         )
         introspect_check(
             t, "_virt", ["{}"],
-            C.virt_input_f2, C.virt_expected
+            C.virt_input_f, C.virt_expected
         )
 
         # Check direct imports of the modules loaded above.
@@ -151,7 +151,7 @@ class TestVerifyInspection < TestCase
             expect_imported(mm.boxed_{0}es(), write_{0}, {1})
         """
 
-        assert_parse_string(t, C.direct_sym_input_f0)
+        assert_parse_string(t, C.direct_sym_input_f)
         assert_parse_string(t, fmt_es.format("class", C.class_expected))
         assert_parse_string(t, fmt.format("constant", C.constant_expected))
         assert_parse_string(t, fmt.format("enum", C.enum_expected))

@@ -2,18 +2,17 @@
 #[
 This file contains the content given to inspection.
 Input content is parsed in default mode and in manifest mode.
+    (except m_* tests, which are manifest only)
 
 Guidelines:
     Inputs are given to String.format, hence the {{ and }} escaping.
     {0} will be replaced with "import manifest" or "".
     {1} and above are for giving a value/define body/etc. (default mode).
-    Inputs should end with f# to indicate how many values to send.
     \x22 is a double quote, since expected strings are fed as values.
     Direct sym input runs custom expects.
-    Manifest tests are (m_*) and don't have a direct sym check.
 ]#
 
-constant class_input_f6 =
+constant class_input_f =
 """\
 {0}
 
@@ -62,7 +61,7 @@ class Base | 3
     5 | public method <new>(): Base\
 \x22\x22\x22"""
 
-constant constant_input_f6 =
+constant constant_input_f =
 """\
 {0}
 
@@ -87,7 +86,7 @@ constant constant_expected =
 4 | constant one: Integer\
 \x22\x22\x22"""
 
-constant function_input_f5 =
+constant function_input_f =
 """\
 {0}
 
@@ -113,7 +112,7 @@ constant function_expected =
 4 | define f(): Unit\
 \x22\x22\x22"""
 
-constant enum_input_f3 =
+constant enum_input_f =
 """\
 {0}
 
@@ -163,7 +162,7 @@ enum FlatEnum
     12 | public method f(FlatEnum, :key a: Integer): Integer\
 \x22\x22\x22"""
 
-constant m_foreign_class_input_f0 =
+constant m_foreign_class_input_f =
 """\
 {0}
 ### ForeignBase docblock
@@ -190,7 +189,7 @@ foreign class ForeignBase | 0
     4 | public method <new>(): ForeignBase\
 \x22\x22\x22"""
 
-constant m_scoop_input_f0 =
+constant m_scoop_input_f =
 """\
 {0}
 define s(targets: $1...)"""
@@ -200,7 +199,7 @@ constant m_scoop_expected =
 2 | varargs define s(targets: List[$1]): Unit\
 \x22\x22\x22"""
 
-constant v_enum_input_f1 =
+constant v_enum_input_f =
 """\
 {0}
 
@@ -227,7 +226,7 @@ enum ValueDirection < Integer
     11 | public method check(ValueDirection): Unit\
 \x22\x22\x22"""
 
-constant var_input_f3 =
+constant var_input_f =
 """\
 {0}
 
@@ -243,7 +242,7 @@ constant var_expected =
 4 | var v_one: Integer\
 \x22\x22\x22"""
 
-constant virt_input_f2 =
+constant virt_input_f =
 """\
 {0}
 
@@ -264,7 +263,7 @@ class Base | 0
     4 | public method <new>(): Base\
 \x22\x22\x22"""
 
-constant direct_sym_input_f0 =
+constant direct_sym_input_f =
 """\
 import (FlatEnum, ScopedEnum) _enum
 import (one, two, three, four, five) _constant
