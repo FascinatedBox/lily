@@ -200,6 +200,33 @@ constant m_scoop_expected =
 2 | varargs define s(targets: List[$1]): Unit\
 \x22\x22\x22"""
 
+constant v_enum_input_f1 =
+"""\
+{0}
+
+enum ValueDirection < Integer
+{{
+    North,
+    East = -2,
+    South,
+    West = 4567890,
+    Test
+
+    define check {1}
+}}
+"""
+
+constant v_enum_expected =
+"""\x22\x22\x22\
+enum ValueDirection < Integer
+    Test = 4567891
+    West = 4567890
+    South = -1
+    East = -2
+    North = 0
+    11 | public method check(ValueDirection): Unit\
+\x22\x22\x22"""
+
 constant var_input_f3 =
 """\
 {0}
