@@ -10,6 +10,7 @@ Guidelines:
     Inputs should end with f# to indicate how many values to send.
     \x22 is a double quote, since expected strings are fed as values.
     Direct sym input runs custom expects.
+    Manifest tests are (m_*) and don't have a direct sym check.
 ]#
 
 constant constant_input_f6 =

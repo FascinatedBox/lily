@@ -11,10 +11,10 @@ class TestVerifyInspection < TestCase
 {
     private define manifest_check(
         t: Interpreter,
-        :_ path: String,
-        :_ format: List[String],
-        :_ input: String,
-        :_ expect: String
+        path: String,
+        format: List[String],
+        input: String,
+        expect: String
     )
     {
         format.unshift("import manifest")
@@ -36,10 +36,10 @@ class TestVerifyInspection < TestCase
 
     private define introspect_check(
         t: Interpreter,
-        :_ path: String,
-        :_ format: List[String],
-        :_ input: String,
-        :_ expect: String
+        path: String,
+        format: List[String],
+        input: String,
+        expect: String
     )
     {
         # First argument is always for "import manifest". Skip that.
@@ -64,40 +64,25 @@ class TestVerifyInspection < TestCase
         t.parse_file("test\/inspection\/inspection.lily")
 
         manifest_check(
-            t,
-            :path "_constant",
-            :format [": Integer", ": String", ": Double", ": Boolean",
-                     ": ByteString"],
-            :input C.constant_input_f6,
-            :expect C.constant_expected
+            t, "_constant",
+            [": Integer", ": String", ": Double", ": Boolean", ": ByteString"],
+            C.constant_input_f6, C.constant_expected
         )
         manifest_check(
-            t,
-            :path "_enum",
-            :format ["", ""],
-            :input C.enum_input_f3,
-            :expect C.enum_expected
+            t, "_enum", ["", ""], C.enum_input_f3, C.enum_expected
         )
         manifest_check(
-            t,
-            :path "_function",
-            :format ["", "", "= \x22\x22", ""],
-            :input C.function_input_f5,
-            :expect C.function_expected
+            t, "_function", ["", "", "= \x22\x22", ""],
+            C.function_input_f5, C.function_expected
         )
         manifest_check(
-            t,
-            :path "_var",
-            :format ["", ""],
-            :input C.var_input_f3,
-            :expect C.var_expected
+            t, "_var", ["", ""], C.var_input_f3, C.var_expected
         )
+
+        # The remainder are unique to manifest mode
+
         manifest_check(
-            t,
-            :path "_scoop",
-            :format [""],
-            :input C.m_scoop_input_f0,
-            :expect C.m_scoop_expected
+            t, "_scoop", [""], C.m_scoop_input_f0, C.m_scoop_expected
         )
     }
 
@@ -109,33 +94,21 @@ class TestVerifyInspection < TestCase
         t.parse_file("test\/inspection\/inspection.lily")
 
         introspect_check(
-            t,
-            :path "_constant",
-            :format ["= 1", "= \x22abc\x22", "= 1.0", "= true",
-                     "= B\x22abc\x22"],
-            :input C.constant_input_f6,
-            :expect C.constant_expected
+            t, "_constant",
+            ["= 1", "= \x22abc\x22", "= 1.0", "= true", "= B\x22abc\x22"],
+            C.constant_input_f6, C.constant_expected
         )
         introspect_check(
-            t,
-            :path "_enum",
-            :format ["{return 0}", "{}"],
-            :input C.enum_input_f3,
-            :expect C.enum_expected
+            t, "_enum", ["{return 0}", "{}"],
+            C.enum_input_f3, C.enum_expected
         )
         introspect_check(
-            t,
-            :path "_function",
-            :format ["{}", "{ return \x22\x22}", "=\x22\x22", "=[]"],
-            :input C.function_input_f5,
-            :expect C.function_expected
+            t, "_function", ["{}", "{ return \x22\x22}", "=\x22\x22", "=[]"],
+            C.function_input_f5, C.function_expected
         )
         introspect_check(
-            t,
-            :path "_var",
-            :format ["= 1", "= \x22\x22"],
-            :input C.var_input_f3,
-            :expect C.var_expected
+            t, "_var", ["= 1", "= \x22\x22"],
+            C.var_input_f3, C.var_expected
         )
 
         # Check direct imports of the modules loaded above.
