@@ -243,6 +243,27 @@ constant var_expected =
 4 | var v_one: Integer\
 \x22\x22\x22"""
 
+constant virt_input_f2 =
+"""\
+{0}
+
+class Base
+{{
+    forward public virtual define f {{ ... }}
+    public virtual define g(a: String) {1}
+    public define h {1}
+}}
+"""
+
+constant virt_expected =
+"""\x22\x22\x22\
+class Base | 0
+    7 | public method h(Base): Unit
+    6 | public V method g(Base, a: String): Unit
+    5 | public FV method f(Base): Unit
+    4 | public method <new>(): Base\
+\x22\x22\x22"""
+
 constant direct_sym_input_f0 =
 """\
 import (FlatEnum, ScopedEnum) _enum

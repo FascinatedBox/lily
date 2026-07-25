@@ -93,17 +93,27 @@ define write_function(out: List[String], f: introspect.FunctionEntry)
 
 define write_method(out: List[String], m: introspect.MethodEntry)
 {
+    var kind = ""
+
+    # Order is not important, just make sure it's reasonably readable.
+    if m.is_forward_virtual(): {
+        kind = " FV"
+    elif m.is_virtual():
+        kind = " V"
+    }
+
     var params = params_to_s(m, m.parameters)
     var type_line = "("
         ++ params
         ++ "): "
         ++ m.result_type().as_string()
 
-    out.push("    {}{} | {}{} method {}{}{}".format(
+    out.push("    {}{} | {}{}{} method {}{}{}".format(
         doc_to_s(m, m.doc, "    "),
         m.line_number().to_s(),
         (m.scope().as_string()),
         (m.is_static() ? "static" : ""),
+        kind,
         m.function_name(),
         generics_to_s(m.generics()),
         type_line

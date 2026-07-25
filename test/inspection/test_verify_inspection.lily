@@ -87,6 +87,9 @@ class TestVerifyInspection < TestCase
         manifest_check(
             t, "_var", ["", ""], C.var_input_f3, C.var_expected
         )
+        manifest_check(
+            t, "_virt", [""], C.virt_input_f2, C.virt_expected
+        )
 
         # The remainder are unique to manifest mode
 
@@ -131,6 +134,10 @@ class TestVerifyInspection < TestCase
         introspect_check(
             t, "_var", ["= 1", "= \x22\x22"],
             C.var_input_f3, C.var_expected
+        )
+        introspect_check(
+            t, "_virt", ["{}"],
+            C.virt_input_f2, C.virt_expected
         )
 
         # Check direct imports of the modules loaded above.
