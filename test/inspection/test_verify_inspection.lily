@@ -64,6 +64,12 @@ class TestVerifyInspection < TestCase
         t.parse_file("test\/inspection\/inspection.lily")
 
         manifest_check(
+            t, "_class",
+            ["", ": Integer", ": String", ": Double", ""],
+            C.class_input_f6,
+            C.class_expected
+        )
+        manifest_check(
             t, "_constant",
             [": Integer", ": String", ": Double", ": Boolean", ": ByteString"],
             C.constant_input_f6, C.constant_expected
@@ -84,6 +90,10 @@ class TestVerifyInspection < TestCase
         manifest_check(
             t, "_scoop", [""], C.m_scoop_input_f0, C.m_scoop_expected
         )
+        manifest_check(
+            t, "_foreign", [""],
+            C.m_foreign_class_input_f0, C.m_foreign_class_expected
+        )
     }
 
     public define test_introspect
@@ -93,6 +103,11 @@ class TestVerifyInspection < TestCase
         t.config_set_extra_info(true)
         t.parse_file("test\/inspection\/inspection.lily")
 
+        introspect_check(
+            t, "_class",
+            ["{return \x22\x22}", "=2", "=\x22\x22", "=3.0", "{}"],
+            C.class_input_f6, C.class_expected
+        )
         introspect_check(
             t, "_constant",
             ["= 1", "= \x22abc\x22", "= 1.0", "= true", "= B\x22abc\x22"],
@@ -118,8 +133,12 @@ class TestVerifyInspection < TestCase
         var fmt = """\
             expect_imported(mm.boxed_{0}s(), write_{0}, {1})
         """
+        var fmt_es = """\
+            expect_imported(mm.boxed_{0}es(), write_{0}, {1})
+        """
 
         assert_parse_string(t, C.direct_sym_input_f0)
+        assert_parse_string(t, fmt_es.format("class", C.class_expected))
         assert_parse_string(t, fmt.format("constant", C.constant_expected))
         assert_parse_string(t, fmt.format("enum", C.enum_expected))
         assert_parse_string(t, fmt.format("function", C.function_expected))

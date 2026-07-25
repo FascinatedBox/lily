@@ -110,6 +110,36 @@ define write_method(out: List[String], m: introspect.MethodEntry)
     ))
 }
 
+define write_property(out: List[String], p: introspect.PropertyEntry)
+{
+    out.push("    {}{} property @{}: {}".format(
+        doc_to_s(p, p.doc, "    "),
+        p.scope().as_string(),
+        p.name(),
+        p.type().as_string()
+    ))
+}
+
+define write_class(out: List[String], c: introspect.ClassEntry)
+{
+    out.push("{}{}class {}{}{} | {}".format(
+        doc_to_s(c, c.doc),
+        (c.is_native() ? "" : "foreign "),
+        c.name(),
+        generics_to_s(c.generics()),
+        c.parent().map_or("", (|p| " < " ++ p.name() )),
+        c.property_count()
+    ))
+
+    for p in c.properties(): {
+        write_property(out, p)
+    }
+
+    for m in c.methods(): {
+        write_method(out, m)
+    }
+}
+
 define write_var(out: List[String], v: introspect.VarEntry)
 {
     out.push("{}{} | var {}: {}".format(
@@ -164,6 +194,10 @@ define extract_and_expect(path: String, expected: String)
         .get(0)
         .unwrap()
     var output: List[String] = []
+
+    for c in subject.classes(): {
+        write_class(output, c)
+    }
 
     for c in subject.constants(): {
         write_constant(output, c)

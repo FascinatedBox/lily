@@ -13,6 +13,55 @@ Guidelines:
     Manifest tests are (m_*) and don't have a direct sym check.
 ]#
 
+constant class_input_f6 =
+"""\
+{0}
+
+### Test docblock
+class Base
+{{
+    ### Public method
+    public define pub(a: Integer): String {1}
+
+    ### Public property
+    public var @pub_prop {2}
+
+    ### Protected property
+    protected var @pro_prop {3}
+
+    ### Private property
+    private var @pri_prop {4}
+}}
+
+### Some documentation
+class GenericClass[A, B](public var @test: String) < Base
+{{
+    public define f[C](c: C) {5}
+}}
+"""
+
+constant class_expected =
+"""\x22\x22\x22\
+### Some documentation
+class GenericClass[A, B] < Base | 4
+    public property @test: String
+    22 | public method f[A, B, C](GenericClass[A, B], c: C): Unit
+    ### Some documentation
+    20 | public method <new>[A, B](String): GenericClass[A, B]
+### Test docblock
+class Base | 3
+    ### Private property
+    private property @pri_prop: Double
+    ### Protected property
+    protected property @pro_prop: String
+    ### Public property
+    public property @pub_prop: Integer
+    ### Public method
+    7 | public method pub(Base, a: Integer): String
+    ### Test docblock
+    5 | public method <new>(): Base\
+\x22\x22\x22"""
+
 constant constant_input_f6 =
 """\
 {0}
@@ -114,6 +163,33 @@ enum FlatEnum
     12 | public method f(FlatEnum, :key a: Integer): Integer\
 \x22\x22\x22"""
 
+constant m_foreign_class_input_f0 =
+"""\
+{0}
+### ForeignBase docblock
+foreign class ForeignBase
+{{
+    ### Public method
+    public define pub(a: Integer): String
+}}
+
+foreign static class StaticBase
+{{
+    public static define stat
+}}"""
+
+constant m_foreign_class_expected =
+"""\x22\x22\x22\
+foreign class StaticBase | 0
+    11 | publicstatic method stat(): Unit
+### ForeignBase docblock
+foreign class ForeignBase | 0
+    ### Public method
+    6 | public method pub(ForeignBase, a: Integer): String
+    ### ForeignBase docblock
+    4 | public method <new>(): ForeignBase\
+\x22\x22\x22"""
+
 constant m_scoop_input_f0 =
 """\
 {0}
@@ -146,5 +222,6 @@ import (FlatEnum, ScopedEnum) _enum
 import (one, two, three, four, five) _constant
 import (v_one, v_two) _var
 import (f, g, h, i, j) _function
+import (Base, GenericClass) _class
 var mm = introspect.main_module()
 """
