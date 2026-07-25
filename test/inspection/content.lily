@@ -37,6 +37,32 @@ constant constant_expected =
 4 | constant one: Integer\
 \x22\x22\x22"""
 
+constant function_input_f5 =
+"""\
+{0}
+
+### f docblock
+define f {1}
+
+define g(a: Integer): String {2}
+
+define h(b: Double...) {1}
+
+define i(c: *String{3}) {1}
+
+define j(l: *Integer...{4}) {1}
+"""
+
+constant function_expected =
+"""\x22\x22\x22\
+12 | varargs define j(l: *List[Integer]): Unit
+10 | define i(c: *String): Unit
+8 | varargs define h(b: List[Double]): Unit
+6 | define g(a: Integer): String
+### f docblock
+4 | define f(): Unit\
+\x22\x22\x22"""
+
 constant enum_input_f3 =
 """\
 {0}
@@ -87,6 +113,16 @@ enum FlatEnum
     12 | public method f(FlatEnum, :key a: Integer): Integer\
 \x22\x22\x22"""
 
+constant m_scoop_input_f0 =
+"""\
+{0}
+define s(targets: $1...)"""
+
+constant m_scoop_expected =
+"""\x22\x22\x22\
+2 | varargs define s(targets: List[$1]): Unit\
+\x22\x22\x22"""
+
 constant var_input_f3 =
 """\
 {0}
@@ -108,5 +144,6 @@ constant direct_sym_input_f0 =
 import (FlatEnum, ScopedEnum) _enum
 import (one, two, three, four, five) _constant
 import (v_one, v_two) _var
+import (f, g, h, i, j) _function
 var mm = introspect.main_module()
 """

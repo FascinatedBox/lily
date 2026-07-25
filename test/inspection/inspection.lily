@@ -67,6 +67,30 @@ define write_constant(out: List[String], c: introspect.ConstantEntry)
     ))
 }
 
+define write_function(out: List[String], f: introspect.FunctionEntry)
+{
+    var name = f.name()
+
+    if name == "__module__": {
+        return
+    }
+
+    var params = params_to_s(f, f.parameters)
+    var type_line = "("
+        ++ params
+        ++ "): "
+        ++ f.result_type().as_string()
+
+    out.push("{}{} | {}define {}{}{}".format(
+        doc_to_s(f, f.doc),
+        f.line_number().to_s(),
+        (f.is_varargs() ? "varargs " : ""),
+        name,
+        generics_to_s(f.generics()),
+        type_line
+    ))
+}
+
 define write_method(out: List[String], m: introspect.MethodEntry)
 {
     var params = params_to_s(m, m.parameters)
@@ -147,6 +171,10 @@ define extract_and_expect(path: String, expected: String)
 
     for e in subject.enums(): {
         write_enum(output, e)
+    }
+
+    for f in subject.functions(): {
+        write_function(output, f)
     }
 
     for v in subject.vars(): {

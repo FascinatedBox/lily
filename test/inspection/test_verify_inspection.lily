@@ -80,10 +80,24 @@ class TestVerifyInspection < TestCase
         )
         manifest_check(
             t,
+            :path "_function",
+            :format ["", "", "= \x22\x22", ""],
+            :input C.function_input_f5,
+            :expect C.function_expected
+        )
+        manifest_check(
+            t,
             :path "_var",
             :format ["", ""],
             :input C.var_input_f3,
             :expect C.var_expected
+        )
+        manifest_check(
+            t,
+            :path "_scoop",
+            :format [""],
+            :input C.m_scoop_input_f0,
+            :expect C.m_scoop_expected
         )
     }
 
@@ -111,6 +125,13 @@ class TestVerifyInspection < TestCase
         )
         introspect_check(
             t,
+            :path "_function",
+            :format ["{}", "{ return \x22\x22}", "=\x22\x22", "=[]"],
+            :input C.function_input_f5,
+            :expect C.function_expected
+        )
+        introspect_check(
+            t,
             :path "_var",
             :format ["= 1", "= \x22\x22"],
             :input C.var_input_f3,
@@ -128,6 +149,7 @@ class TestVerifyInspection < TestCase
         assert_parse_string(t, C.direct_sym_input_f0)
         assert_parse_string(t, fmt.format("constant", C.constant_expected))
         assert_parse_string(t, fmt.format("enum", C.enum_expected))
+        assert_parse_string(t, fmt.format("function", C.function_expected))
         assert_parse_string(t, fmt.format("var", C.var_expected))
     }
 }
