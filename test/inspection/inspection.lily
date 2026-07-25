@@ -1,0 +1,269 @@
+import introspect
+
+define doc_to_s[A](a: A, fn: Function(A => String), tail: *String=""): String
+{
+    var doc = fn(a)
+
+    if doc: {
+        doc = "### " ++ doc ++ tail
+    }
+
+    return doc
+}
+
+define params_to_s[A](
+    a: A,
+    fn: Function(A => List[introspect.ParameterEntry])
+): String
+{
+    return fn(a).map(|param|
+        if param.keyword && param.name: {
+            return ":{} {}: {}".format(
+                param.keyword,
+                param.name,
+                param.type.as_string()
+            )
+        elif param.keyword:
+            return ":{} {}".format(
+                param.keyword,
+                param.type.as_string()
+            )
+        elif param.name:
+            return "{}: {}".format(
+                param.name,
+                param.type.as_string()
+            )
+        else:
+            return "{}".format(
+                param.type.as_string()
+            )
+        }
+    ).join(", ")
+}
+
+constant GENERIC_TEXT = """\
+A, B, C, D, E, F, G, H, I, J, K, L, M, \
+N, O, P, Q, R, S, T, U, V, W, X, Y, Z"""
+
+define generics_to_s(g: List[introspect.TypeEntry]): String
+{
+    if g.size() == 0: {
+        return ""
+    }
+
+    # Generics are always single letters and in order.
+    var text = GENERIC_TEXT.slice(0, (g.size() * 3) - 2)
+
+    return "[" ++ text ++ "]"
+}
+
+define write_constant(out: List[String], c: introspect.ConstantEntry)
+{
+    out.push("{}{} | constant {}: {}".format(
+        doc_to_s(c, c.doc),
+        c.line_number(),
+        c.name(),
+        c.type().as_string()
+    ))
+}
+
+define write_function(out: List[String], f: introspect.FunctionEntry)
+{
+    var name = f.name()
+
+    if name == "__module__": {
+        return
+    }
+
+    var params = params_to_s(f, f.parameters)
+    var type_line = "("
+        ++ params
+        ++ "): "
+        ++ f.result_type().as_string()
+
+    out.push("{}{} | {}define {}{}{}".format(
+        doc_to_s(f, f.doc),
+        f.line_number().to_s(),
+        (f.is_varargs() ? "varargs " : ""),
+        name,
+        generics_to_s(f.generics()),
+        type_line
+    ))
+}
+
+define write_method(out: List[String], m: introspect.MethodEntry)
+{
+    var kind = ""
+
+    # Order is not important, just make sure it's reasonably readable.
+    if m.is_forward_virtual(): {
+        kind = " FV"
+    elif m.is_virtual():
+        kind = " V"
+    }
+
+    var params = params_to_s(m, m.parameters)
+    var type_line = "("
+        ++ params
+        ++ "): "
+        ++ m.result_type().as_string()
+
+    out.push("    {}{} | {}{}{} method {}{}{}".format(
+        doc_to_s(m, m.doc, "    "),
+        m.line_number().to_s(),
+        (m.scope().as_string()),
+        (m.is_static() ? "static" : ""),
+        kind,
+        m.function_name(),
+        generics_to_s(m.generics()),
+        type_line
+    ))
+}
+
+define write_property(out: List[String], p: introspect.PropertyEntry)
+{
+    out.push("    {}{} property @{}: {}".format(
+        doc_to_s(p, p.doc, "    "),
+        p.scope().as_string(),
+        p.name(),
+        p.type().as_string()
+    ))
+}
+
+define write_class(out: List[String], c: introspect.ClassEntry)
+{
+    out.push("{}{}class {}{}{} | {}".format(
+        doc_to_s(c, c.doc),
+        (c.is_native() ? "" : "foreign "),
+        c.name(),
+        generics_to_s(c.generics()),
+        c.parent().map_or("", (|p| " < " ++ p.name() )),
+        c.property_count()
+    ))
+
+    for p in c.properties(): {
+        write_property(out, p)
+    }
+
+    for m in c.methods(): {
+        write_method(out, m)
+    }
+}
+
+define write_var(out: List[String], v: introspect.VarEntry)
+{
+    out.push("{}{} | var {}: {}".format(
+        doc_to_s(v, v.doc),
+        v.line_number(),
+        v.name(),
+        v.type().as_string()
+    ))
+}
+
+define write_variant(out: List[String], v: introspect.VariantEntry)
+{
+    var params = params_to_s(v, v.parameters)
+    var backing = v.value()
+
+    if params: {
+        params = "(" ++ params ++ ")"
+    }
+
+    out.push("    {}{}{}{}{}".format(
+        doc_to_s(v, v.doc, "    "),
+        v.name(),
+        params,
+        (backing ? " = " : ""),
+        backing
+    ))
+}
+
+define write_enum(out: List[String], e: introspect.EnumEntry)
+{
+    out.push("{}enum {}{}{}".format(
+        doc_to_s(e, e.doc),
+        e.name(),
+        generics_to_s(e.generics()),
+        e.parent().map_or("", (|p| " < " ++ p.name() ))
+    ))
+
+    for v in e.variants(): {
+        write_variant(out, v)
+    }
+
+    for m in e.methods(): {
+        write_method(out, m)
+    }
+}
+
+define extract_and_expect(path: String, expected: String)
+{
+    var subject = introspect
+        .module_list()
+        .select(|s| s.path() == path )
+        .get(0)
+        .unwrap()
+    var output: List[String] = []
+
+    for c in subject.classes(): {
+        write_class(output, c)
+    }
+
+    for c in subject.constants(): {
+        write_constant(output, c)
+    }
+
+    for e in subject.enums(): {
+        write_enum(output, e)
+    }
+
+    for f in subject.functions(): {
+        write_function(output, f)
+    }
+
+    for v in subject.vars(): {
+        write_var(output, v)
+    }
+
+    var given = output.join("\n")
+
+    if expected != given: {
+        var content = """\
+\n
+===== mismatch in {} (expected, given) =====
+{}
+-----
+{}
+=====""".format(path, expected, given)
+
+        raise Exception(content)
+    }
+}
+
+define expect_imported[A](
+    input: List[A],
+    fn: Function(List[String], A),
+    expected: String)
+{
+    var subject = introspect
+        .main_module()
+    var output: List[String] = []
+
+    for i in input: {
+        fn(output, i)
+    }
+
+    var given = output.join("\n")
+
+    if expected != given: {
+        var content = """\
+\n
+===== mismatch in _direct (expected, given) =====
+{}
+-----
+{}
+=====""".format(expected, given)
+
+        raise Exception(content)
+    }
+}

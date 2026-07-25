@@ -1,0 +1,274 @@
+
+#[
+This file contains the content given to inspection.
+Input content is parsed in default mode and in manifest mode.
+    (except m_* tests, which are manifest only)
+
+Guidelines:
+    Inputs are given to String.format, hence the {{ and }} escaping.
+    {0} will be replaced with "import manifest" or "".
+    {1} and above are for giving a value/define body/etc. (default mode).
+    \x22 is a double quote, since expected strings are fed as values.
+    Direct sym input runs custom expects.
+]#
+
+constant class_input_f =
+"""\
+{0}
+
+### Test docblock
+class Base
+{{
+    ### Public method
+    public define pub(a: Integer): String {1}
+
+    ### Public property
+    public var @pub_prop {2}
+
+    ### Protected property
+    protected var @pro_prop {3}
+
+    ### Private property
+    private var @pri_prop {4}
+}}
+
+### Some documentation
+class GenericClass[A, B](public var @test: String) < Base
+{{
+    public define f[C](c: C) {5}
+}}
+"""
+
+constant class_expected =
+"""\x22\x22\x22\
+### Some documentation
+class GenericClass[A, B] < Base | 4
+    public property @test: String
+    22 | public method f[A, B, C](GenericClass[A, B], c: C): Unit
+    ### Some documentation
+    20 | public method <new>[A, B](String): GenericClass[A, B]
+### Test docblock
+class Base | 3
+    ### Private property
+    private property @pri_prop: Double
+    ### Protected property
+    protected property @pro_prop: String
+    ### Public property
+    public property @pub_prop: Integer
+    ### Public method
+    7 | public method pub(Base, a: Integer): String
+    ### Test docblock
+    5 | public method <new>(): Base\
+\x22\x22\x22"""
+
+constant constant_input_f =
+"""\
+{0}
+
+### Constant docblock
+constant one {1}
+constant two {2}
+
+### Doc for three
+constant three {3}
+constant four {4}
+constant five {5}
+"""
+
+constant constant_expected =
+"""\x22\x22\x22\
+10 | constant five: ByteString
+9 | constant four: Boolean
+### Doc for three
+8 | constant three: Double
+5 | constant two: String
+### Constant docblock
+4 | constant one: Integer\
+\x22\x22\x22"""
+
+constant function_input_f =
+"""\
+{0}
+
+### f docblock
+define f {1}
+
+define g(a: Integer): String {2}
+
+define h(b: Double...) {1}
+
+define i(c: *String{3}) {1}
+
+define j(l: *Integer...{4}) {1}
+"""
+
+constant function_expected =
+"""\x22\x22\x22\
+12 | varargs define j(l: *List[Integer]): Unit
+10 | define i(c: *String): Unit
+8 | varargs define h(b: List[Double]): Unit
+6 | define g(a: Integer): String
+### f docblock
+4 | define f(): Unit\
+\x22\x22\x22"""
+
+constant enum_input_f =
+"""\
+{0}
+
+### FlatEnum docblock
+enum FlatEnum
+{{
+    FlatOne,
+    FlatTwo(Integer),
+    FlatThree(String...),
+    FlatFour(:a Integer, :b String)
+
+    ### f docblock
+    define f(:key a: Integer): Integer {1}
+
+    define g {2}
+
+    ### h docblock
+    define h {2}
+}}
+
+scoped enum ScopedEnum[A, B]
+{{
+    ScopedOne(A),
+    ScopedTwo(B),
+    ScopedThree
+
+    define f {2}
+}}"""
+
+constant enum_expected =
+"""\x22\x22\x22\
+enum ScopedEnum[A, B]
+    ScopedThree
+    ScopedTwo(B)
+    ScopedOne(A)
+    26 | public method f[A, B](ScopedEnum[A, B]): Unit
+### FlatEnum docblock
+enum FlatEnum
+    FlatFour(:a Integer, :b String)
+    FlatThree(List[String])
+    FlatTwo(Integer)
+    FlatOne
+    ### h docblock
+    17 | public method h(FlatEnum): Unit
+    14 | public method g(FlatEnum): Unit
+    ### f docblock
+    12 | public method f(FlatEnum, :key a: Integer): Integer\
+\x22\x22\x22"""
+
+constant m_foreign_class_input_f =
+"""\
+{0}
+### ForeignBase docblock
+foreign class ForeignBase
+{{
+    ### Public method
+    public define pub(a: Integer): String
+}}
+
+foreign static class StaticBase
+{{
+    public static define stat
+}}"""
+
+constant m_foreign_class_expected =
+"""\x22\x22\x22\
+foreign class StaticBase | 0
+    11 | publicstatic method stat(): Unit
+### ForeignBase docblock
+foreign class ForeignBase | 0
+    ### Public method
+    6 | public method pub(ForeignBase, a: Integer): String
+    ### ForeignBase docblock
+    4 | public method <new>(): ForeignBase\
+\x22\x22\x22"""
+
+constant m_scoop_input_f =
+"""\
+{0}
+define s(targets: $1...)"""
+
+constant m_scoop_expected =
+"""\x22\x22\x22\
+2 | varargs define s(targets: List[$1]): Unit\
+\x22\x22\x22"""
+
+constant v_enum_input_f =
+"""\
+{0}
+
+enum ValueDirection < Integer
+{{
+    North,
+    East = -2,
+    South,
+    West = 4567890,
+    Test
+
+    define check {1}
+}}
+"""
+
+constant v_enum_expected =
+"""\x22\x22\x22\
+enum ValueDirection < Integer
+    Test = 4567891
+    West = 4567890
+    South = -1
+    East = -2
+    North = 0
+    11 | public method check(ValueDirection): Unit\
+\x22\x22\x22"""
+
+constant var_input_f =
+"""\
+{0}
+
+### Var docblock
+var v_one: Integer {1}
+var v_two: String {2}
+"""
+
+constant var_expected =
+"""\x22\x22\x22\
+5 | var v_two: String
+### Var docblock
+4 | var v_one: Integer\
+\x22\x22\x22"""
+
+constant virt_input_f =
+"""\
+{0}
+
+class Base
+{{
+    forward public virtual define f {{ ... }}
+    public virtual define g(a: String) {1}
+    public define h {1}
+}}
+"""
+
+constant virt_expected =
+"""\x22\x22\x22\
+class Base | 0
+    7 | public method h(Base): Unit
+    6 | public V method g(Base, a: String): Unit
+    5 | public FV method f(Base): Unit
+    4 | public method <new>(): Base\
+\x22\x22\x22"""
+
+constant direct_sym_input_f =
+"""\
+import (FlatEnum, ScopedEnum) _enum
+import (one, two, three, four, five) _constant
+import (v_one, v_two) _var
+import (f, g, h, i, j) _function
+import (Base, GenericClass) _class
+var mm = introspect.main_module()
+"""

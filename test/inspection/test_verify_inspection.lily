@@ -1,0 +1,161 @@
+import (ImportTarget,
+        Interpreter,
+        TestCase) "../t/testing"
+
+import content as C
+
+# There is significant overlap in manifest and introspection testing.
+# This file tests the common parts.
+
+class TestVerifyInspection < TestCase
+{
+    private define manifest_check(
+        t: Interpreter,
+        path: String,
+        format: List[String],
+        input: String,
+        expect: String
+    )
+    {
+        format.unshift("import manifest")
+        input = input.format(*format)
+
+        t.update_targets(
+            ImportTarget(
+                :path path,
+                :data input
+            )
+        )
+        assert_manifest_string(t, """\
+            import manifest
+            import """ ++ path)
+        assert_parse_string(t, """\
+            extract_and_expect("{}.lily", {})
+        """.format(path, expect))
+    }
+
+    private define introspect_check(
+        t: Interpreter,
+        path: String,
+        format: List[String],
+        input: String,
+        expect: String
+    )
+    {
+        # First argument is always for "import manifest". Skip that.
+        input = input.format(*format.unshift(""))
+
+        t.update_targets(
+            ImportTarget(
+                :path path,
+                :data input
+            )
+        )
+        assert_parse_string(t, "import " ++ path)
+        assert_parse_string(t, """\
+            extract_and_expect("{}.lily", {})
+        """.format(path, expect))
+    }
+
+    public define test_manifest
+    {
+        var t = Interpreter()
+
+        t.parse_file("test\/inspection\/inspection.lily")
+
+        manifest_check(
+            t, "_class",
+            ["", ": Integer", ": String", ": Double", ""],
+            C.class_input_f,
+            C.class_expected
+        )
+        manifest_check(
+            t, "_constant",
+            [": Integer", ": String", ": Double", ": Boolean", ": ByteString"],
+            C.constant_input_f, C.constant_expected
+        )
+        manifest_check(
+            t, "_enum", ["", ""], C.enum_input_f, C.enum_expected
+        )
+        manifest_check(
+            t, "_function", ["", "", "= \x22\x22", ""],
+            C.function_input_f, C.function_expected
+        )
+        manifest_check(
+            t, "_v_enum", [""], C.v_enum_input_f, C.v_enum_expected
+        )
+        manifest_check(
+            t, "_var", ["", ""], C.var_input_f, C.var_expected
+        )
+        manifest_check(
+            t, "_virt", [""], C.virt_input_f, C.virt_expected
+        )
+
+        # The remainder are for manifest mode only,
+
+        manifest_check(
+            t, "_foreign", [""],
+            C.m_foreign_class_input_f, C.m_foreign_class_expected
+        )
+        manifest_check(
+            t, "_scoop", [""], C.m_scoop_input_f, C.m_scoop_expected
+        )
+    }
+
+    public define test_introspect
+    {
+        var t = Interpreter()
+
+        t.config_set_extra_info(true)
+        t.parse_file("test\/inspection\/inspection.lily")
+
+        introspect_check(
+            t, "_class",
+            ["{return \x22\x22}", "=2", "=\x22\x22", "=3.0", "{}"],
+            C.class_input_f, C.class_expected
+        )
+        introspect_check(
+            t, "_constant",
+            ["= 1", "= \x22abc\x22", "= 1.0", "= true", "= B\x22abc\x22"],
+            C.constant_input_f, C.constant_expected
+        )
+        introspect_check(
+            t, "_enum", ["{return 0}", "{}"],
+            C.enum_input_f, C.enum_expected
+        )
+        introspect_check(
+            t, "_function", ["{}", "{ return \x22\x22}", "=\x22\x22", "=[]"],
+            C.function_input_f, C.function_expected
+        )
+        introspect_check(
+            t, "_v_enum", ["{}"],
+            C.v_enum_input_f, C.v_enum_expected
+        )
+        introspect_check(
+            t, "_var", ["= 1", "= \x22\x22"],
+            C.var_input_f, C.var_expected
+        )
+        introspect_check(
+            t, "_virt", ["{}"],
+            C.virt_input_f, C.virt_expected
+        )
+
+        # Check direct imports of the modules loaded above.
+        # Reset the import hook so re-imports work.
+        t.update_targets()
+
+        var fmt = """\
+            expect_imported(mm.boxed_{0}s(), write_{0}, {1})
+        """
+        var fmt_es = """\
+            expect_imported(mm.boxed_{0}es(), write_{0}, {1})
+        """
+
+        assert_parse_string(t, C.direct_sym_input_f)
+        assert_parse_string(t, fmt_es.format("class", C.class_expected))
+        assert_parse_string(t, fmt.format("constant", C.constant_expected))
+        assert_parse_string(t, fmt.format("enum", C.enum_expected))
+        assert_parse_string(t, fmt.format("function", C.function_expected))
+        assert_parse_string(t, fmt.format("var", C.var_expected))
+    }
+}
