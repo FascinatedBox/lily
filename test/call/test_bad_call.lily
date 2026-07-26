@@ -266,27 +266,22 @@ class TestBadCall < TestCase
     {
         var t = Interpreter()
 
-        # enum calls (empty flat variant with args)
+        # enum calls (None with args)
 
         assert_parse_fails(t, """\
-            SyntaxError: Gamma is an empty variant that should not be called.
+            SyntaxError: None is an empty variant that should not be called.
 
                |
-             6 | Gamma()
-               |      ^
+             1 | None()
+               |     ^
 
-                from [test]:6:
+                from [test]:1:
         """,
         """\
-            enum TestE {
-                Alpha,
-                Beta,
-                Gamma
-            }
-            Gamma()
+            None()
         """)
 
-        # enum calls (non-empty flat variant no args)
+        # enum calls (Some without args)
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Some (none for 1).
@@ -301,7 +296,7 @@ class TestBadCall < TestCase
             var v = Some
         """)
 
-        # enum calls (non-empty flat variant too many args)
+        # enum calls (Some with too many args)
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to Some (2 for 1).
@@ -316,7 +311,7 @@ class TestBadCall < TestCase
             var v = Some(1, 2)
         """)
 
-        # enum calls (non-empty scoped variant wrong count)
+        # enum calls (user variant wrong arg count)
 
         assert_parse_fails(t, """\
             SyntaxError: Wrong number of arguments to One (2 for 1).
@@ -328,34 +323,12 @@ class TestBadCall < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Test[A] {
+            enum Test[A] {
                 One(A),
                 Two
             }
 
             var opt: Test[Integer] = Test.One(1, 2)
-        """)
-
-        # enum calls (non-empty flat wrong vararg count)
-        # This is blocked for consistency with defined functions, which are not
-        # auto invoked when passed no args.
-
-        assert_parse_fails(t, """\
-            SyntaxError: Wrong number of arguments to One (none for 0+).
-
-               |
-             6 | var v = One
-               |         ^
-
-                from [test]:6:
-        """,
-        """\
-            enum Test[A] {
-                One(A...),
-                Two
-            }
-
-            var v = One
         """)
     }
 

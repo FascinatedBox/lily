@@ -107,37 +107,27 @@ class TestVerifyFormat < TestCase
         var t = Interpreter()
 
         assert_parse_string(t, """
-            scoped enum ScopedExample {
+            enum Example {
                 Zero,
                 One(Integer)
             }
 
-            var zero = ScopedExample.Zero
-            var one = ScopedExample.One(1)
+            var zero = Example.Zero
+            var one = Example.One(1)
 
-            if "{0}".format(zero) != "ScopedExample.Zero": {
+            if "{0}".format(zero) != "Example.Zero": {
                 0 / 0
             }
 
-            if "{0}".format(one) != "ScopedExample.One(1)": {
-                0 / 0
-            }
-        """)
-
-        assert_parse_string(t, """
-            enum FlatExample {
-                FlatZero,
-                FlatOne(Integer)
-            }
-
-            var flat_zero = FlatExample.FlatZero
-            var flat_one = FlatExample.FlatOne(1)
-
-            if "{0}".format(flat_zero) != "FlatZero": {
+            if "{0}".format(one) != "Example.One(1)": {
                 0 / 0
             }
 
-            if "{0}".format(flat_one) != "FlatOne(1)": {
+            if "{0}".format(Some(1)) != "Some(1)": {
+                0 / 0
+            }
+
+            if "{0}".format(None) != "None": {
                 0 / 0
             }
         """)
@@ -311,7 +301,7 @@ class TestVerifyFormat < TestCase
         # native (enum method)
 
         assert_parse_string(t, """
-            scoped enum TestEnum {
+            enum TestEnum {
                 TestOne,
                 TestTwo
                 define g {}
@@ -330,10 +320,11 @@ class TestVerifyFormat < TestCase
                 Map(Hash[Integer, Tree])
             }
 
-            var t1 = Map([1 => Map([2 => Leaf])])
+            var t1 = Tree.Map([1 => .Map([2 => .Leaf])])
             var t2 = t1 ++ t1
+            var t1_expect = "Tree.Map([1 => Tree.Map([2 => Tree.Leaf])])"
 
-            if t2 != "Map([1 => Map([2 => Leaf])])Map([1 => Map([2 => Leaf])])": {
+            if t2 != (t1_expect ++ t1_expect): {
                 0 / 0
             }
         """)
@@ -341,14 +332,15 @@ class TestVerifyFormat < TestCase
         # native (circular value)
 
         assert_parse_string(t, """
-            var l3 = [1 => Leaf]
-            var t3 = Map(l3)
+            var l3 = [1 => Tree.Leaf]
+            var t3 = Tree.Map(l3)
 
             l3[1] = t3
 
             var s3 = t3 ++ t3
+            var s3_expect = "Tree.Map([1 => [...]])"
 
-            if s3 != "Map([1 => [...]])Map([1 => [...]])": {
+            if s3 != (s3_expect ++ s3_expect): {
                 0 / 0
             }
         """)

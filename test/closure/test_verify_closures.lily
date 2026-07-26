@@ -495,8 +495,8 @@ class TestVerifyClosures < TestCase
                 }
             }
 
-            var v = One
-            var w = Two
+            var v = Example.One
+            var w = Example.Two
             var x = [v.g(), w.g()]
 
             if x != [1, 2]: {

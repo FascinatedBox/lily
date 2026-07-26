@@ -41,7 +41,7 @@ class TestMatchWith < TestCase
 
             var red_count = 0
             var else_count = 0
-            var colors = [Red, Blue, Green]
+            var colors = [RGB.Red, .Blue, .Green]
 
             for i in 0...colors.size()-1: {
                 match colors[i]: {
@@ -73,8 +73,8 @@ class TestMatchWith < TestCase
                 }
             }
 
-            var v = Def(100, 200, 300)
-            var w = Ghi(400)
+            var v = Abc.Def(100, 200, 300)
+            var w = Abc.Ghi(400)
 
             if f(v) != 600 || f(w) != 400: {
                 raise Exception("Failed.")
@@ -109,8 +109,8 @@ class TestMatchWith < TestCase
                 }
             }
 
-            var v = Left
-            var w = Right
+            var v = Test.Left
+            var w = Test.Right
 
             if v.is_left() == false || w.is_left() == true: {
                 raise Exception("Failed.")
@@ -142,11 +142,11 @@ class TestMatchWith < TestCase
             }
 
             var v = [
-                Five      |> f,
-                One       |> f,
-                Four      |> f,
-                Three(10) |> f,
-                Two       |> f,
+                Example.Five      |> f,
+                Example.One       |> f,
+                Example.Four      |> f,
+                Example.Three(10) |> f,
+                Example.Two       |> f,
             ]
 
             if v != [1, 1, 1, 10, 2]: {
@@ -205,9 +205,9 @@ class TestMatchWith < TestCase
                 return 0 / 0
             }
 
-            if f2(One(2, 4)) != 6 ||
-               f2(Two("asdf")) != 4 ||
-               f2(Three([1])) != 2: {
+            if f2(Example.One(2, 4)) != 6 ||
+               f2(Example.Two("asdf")) != 4 ||
+               f2(Example.Three([1])) != 2: {
                 0 / 0
             }
         """)
@@ -283,7 +283,7 @@ class TestMatchWith < TestCase
         # value variants using match
 
         assert_parse_string(t, """
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North,
                 East = -2,
                 South,
@@ -442,12 +442,12 @@ class TestMatchWith < TestCase
         # Unpack multiple values
 
         assert_parse_string(t, """
-            enum MultiValEnum {
+            enum MV {
                 MVOne(Integer, String),
                 MVTwo(String, Integer),
             }
 
-            define multival(target: MultiValEnum): Tuple[Integer, String] {
+            define multival(target: MV): Tuple[Integer, String] {
                 return match target: {
                     case MVOne(i, s):
                         <[i, s]>
@@ -456,8 +456,8 @@ class TestMatchWith < TestCase
                 }
             }
 
-            if multival(MVOne(100, "200")) != <[100, "200"]> ||
-                multival(MVTwo("300", 400)) != <[400, "300"]>: {
+            if multival(MV.MVOne(100, "200")) != <[100, "200"]> ||
+                multival(MV.MVTwo("300", 400)) != <[400, "300"]>: {
                 0/0
             }
         """)
@@ -503,14 +503,14 @@ class TestMatchWith < TestCase
             }
         """)
 
-        # Check later cases unify result type and scoped enum matching
+        # Check later cases unify result type and enum matching
 
         assert_parse_string(t, """
             class Base {}
             class Two < Base {}
             class Three < Base {}
 
-            scoped enum Selection {
+            enum Selection {
                 First,
                 Second,
                 Third,
@@ -547,7 +547,7 @@ class TestMatchWith < TestCase
         # Use enum self as a source
 
         assert_parse_string(t, """
-            scoped enum SelfCheck {
+            enum SelfCheck {
                 First,
                 Second,
 
@@ -607,7 +607,7 @@ class TestMatchWith < TestCase
             }
 
             {
-                var v = match One(1, "2", 3): {
+                var v = match Multi.One(1, "2", 3): {
                     case One(a, _, c):
                         a + c
                     case Two:
@@ -624,7 +624,7 @@ class TestMatchWith < TestCase
 
         assert_parse_string(t, """
             {
-                var v = match One(1, "2", 3): {
+                var v = match Multi.One(1, "2", 3): {
                     case One(_, b, _):
                         b ++ b
                     case Two:
@@ -689,9 +689,9 @@ class TestMatchWith < TestCase
                 }
             }
 
-            if Green.is_green() == false ||
-                Red.is_green() == true ||
-                Blue.is_green() == true: {
+            if RGB.Green.is_green() == false ||
+                RGB.Red.is_green() == true ||
+                RGB.Blue.is_green() == true: {
                 0/0
             }
         """)

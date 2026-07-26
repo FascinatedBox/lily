@@ -24,7 +24,7 @@ class TestBadMatchWith < TestCase
                 Two
             }
 
-            var v = Two
+            var v = Test.Two
 
             match v: {
                 case One(asdf, asdf):
@@ -229,7 +229,7 @@ class TestBadMatchWith < TestCase
                 Three(Integer)
             }
 
-            var v = Three(1)
+            var v = Example.Three(1)
 
             match v: {
                 case One(s), Two(s):
@@ -252,33 +252,10 @@ class TestBadMatchWith < TestCase
                 Two
             }
 
-            var v = Two
-
-            match v: {
-                case Two, One(s):
-            }
-        """)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Banana is not a member of enum Example.
-
-               |
-             9 | case Banana.One:
-               |      ^
-
-                from [test]:9:
-        """,
-        """\
-            scoped enum Example {
-                One,
-                Two
-            }
-
             var v = Example.Two
 
             match v: {
-                case Banana.One:
-                case Example.Two:
+                case Two, One(s):
             }
         """)
 
@@ -287,8 +264,8 @@ class TestBadMatchWith < TestCase
             Received: Multival[List[?], List[?]]
 
                |
-             9 | match Tree([], []): {
-               |                   ^
+             9 | match Multival.Tree([], []): {
+               |                            ^
 
                 from [test]:9:
         """,
@@ -301,7 +278,7 @@ class TestBadMatchWith < TestCase
             define f {
                 var counter = 3
 
-                match Tree([], []): {
+                match Multival.Tree([], []): {
                     case Tree(x, y):
                         var container: List[List[String]] = []
 
@@ -349,8 +326,8 @@ class TestBadMatchWith < TestCase
             Received: Multival[List[?], List[?]]
 
                |
-             9 | with Tree([], []) as Tree(x, y): {
-               |                   ^
+             9 | with Multival.Tree([], []) as Tree(x, y): {
+               |                            ^
 
                 from [test]:9:
         """,
@@ -363,7 +340,7 @@ class TestBadMatchWith < TestCase
             define f {
                 var counter = 3
 
-                with Tree([], []) as Tree(x, y): {
+                with Multival.Tree([], []) as Tree(x, y): {
                     var container: List[List[String]] = []
 
                     while counter != 0: {
@@ -421,7 +398,7 @@ class TestBadMatchWith < TestCase
                 Two
             }
 
-            var v = match Two: {
+            var v = match Test.Two: {
                 case One(asdf, asdf):
                 case Two:
             }
@@ -678,12 +655,12 @@ class TestBadMatchWith < TestCase
                 from [test]:7:
         """,
         """\
-            enum example {
+            enum Example {
                 One(Integer, Integer),
                 Two
             }
 
-            var v = match One(1, 2): {
+            var v = match Example.One(1, 2): {
                 case One(s, s):
                     1
                 case Two:
@@ -701,12 +678,12 @@ class TestBadMatchWith < TestCase
                 from [test]:10:
         """,
         """\
-            enum example {
+            enum Example {
                 One(Integer, Integer),
                 Two
             }
 
-            var v = match One(1, 2): {
+            var v = match Example.One(1, 2): {
                 case One(s1, s2):
                     1
                 case Two:
@@ -971,7 +948,7 @@ class TestBadMatchWith < TestCase
                 Three(Integer),
             }
 
-            var w = One
+            var w = Example.One
             var v = match w: {
                 case One, Two:
                     1
@@ -1174,7 +1151,7 @@ class TestBadMatchWith < TestCase
         """,
         """\
             0/0
-            scoped enum ScopeTest {
+            enum ScopeTest {
                 One,
                 Two
             }

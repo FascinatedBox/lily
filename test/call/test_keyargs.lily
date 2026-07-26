@@ -293,27 +293,11 @@ class TestKeyargs < TestCase
     {
         var t = Interpreter()
 
-        # variant (keyargs only for a flat variant)
-
-        assert_parse_string(t, """
-            enum Example {
-                One(:a Integer, :b String, :c Boolean),
-                Two
-            }
-
-            var v = One(:c false, :a 10, :b "asdf")
-            var v2 = One(10, "asdf", false)
-
-            if v != v2: {
-               raise Exception("Failed.")
-            }
-        """)
-
-        # variant (keyargs only for a scoped variant)
+        # variant (keyargs only for a variant)
 
         t = Interpreter()
         assert_parse_string(t, """
-            scoped enum Example {
+            enum Example {
                 One(:a Integer, :b String, :c Boolean),
                 Two
             }

@@ -8,12 +8,12 @@ enum Tree {
 define make_tree(item: Integer, depth: Integer): Tree
 {
     if depth == 0: {
-        return Leaf(item)
+        return .Leaf(item)
     }
 
     var item2 = item + item
     depth -= 1
-    return Branch(item, make_tree(item2 - 1, depth), make_tree(item2, depth))
+    return .Branch(item, make_tree(item2 - 1, depth), make_tree(item2, depth))
 }
 
 define check_tree(t: Tree): Integer

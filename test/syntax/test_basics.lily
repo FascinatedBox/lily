@@ -206,8 +206,8 @@ class TestBasics < TestCase
                 Two(Integer)
             }
 
-            var a = One(1)
-            var b = Two(1)
+            var a = Example.One(1)
+            var b = Example.Two(1)
 
             if a == b: {
                 0 / 0
@@ -552,27 +552,12 @@ class TestBasics < TestCase
             }
 
             ### test
-            enum FlatEnum {
+            enum BasicEnum {
                 ### test
-                FlatOne,
+                One,
 
                 ### test
-                FlatTwo
-
-                ### test
-                define g {}
-
-                ### test
-                define h {}
-            }
-
-            ### test
-            scoped enum ScopedEnum {
-                ### test
-                ScopedOne,
-
-                ### test
-                ScopedTwo
+                Two
 
                 ### test
                 define g {}

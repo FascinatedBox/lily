@@ -116,13 +116,13 @@ constant enum_input_f =
 """\
 {0}
 
-### FlatEnum docblock
-enum FlatEnum
+### BasicEnum docblock
+enum BasicEnum
 {{
-    FlatOne,
-    FlatTwo(Integer),
-    FlatThree(String...),
-    FlatFour(:a Integer, :b String)
+    One,
+    Two(Integer),
+    Three(String...),
+    Four(:a Integer, :b String)
 
     ### f docblock
     define f(:key a: Integer): Integer {1}
@@ -133,33 +133,33 @@ enum FlatEnum
     define h {2}
 }}
 
-scoped enum ScopedEnum[A, B]
+enum GenericEnum[A, B]
 {{
-    ScopedOne(A),
-    ScopedTwo(B),
-    ScopedThree
+    One(A),
+    Two(B),
+    Three
 
     define f {2}
 }}"""
 
 constant enum_expected =
 """\x22\x22\x22\
-enum ScopedEnum[A, B]
-    ScopedThree
-    ScopedTwo(B)
-    ScopedOne(A)
-    26 | public method f[A, B](ScopedEnum[A, B]): Unit
-### FlatEnum docblock
-enum FlatEnum
-    FlatFour(:a Integer, :b String)
-    FlatThree(List[String])
-    FlatTwo(Integer)
-    FlatOne
+enum GenericEnum[A, B]
+    Three
+    Two(B)
+    One(A)
+    26 | public method f[A, B](GenericEnum[A, B]): Unit
+### BasicEnum docblock
+enum BasicEnum
+    Four(:a Integer, :b String)
+    Three(List[String])
+    Two(Integer)
+    One
     ### h docblock
-    17 | public method h(FlatEnum): Unit
-    14 | public method g(FlatEnum): Unit
+    17 | public method h(BasicEnum): Unit
+    14 | public method g(BasicEnum): Unit
     ### f docblock
-    12 | public method f(FlatEnum, :key a: Integer): Integer\
+    12 | public method f(BasicEnum, :key a: Integer): Integer\
 \x22\x22\x22"""
 
 constant m_foreign_class_input_f =
@@ -265,7 +265,7 @@ class Base | 0
 
 constant direct_sym_input_f =
 """\
-import (FlatEnum, ScopedEnum) _enum
+import (BasicEnum, GenericEnum) _enum
 import (one, two, three, four, five) _constant
 import (v_one, v_two) _var
 import (f, g, h, i, j) _function

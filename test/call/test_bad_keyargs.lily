@@ -104,8 +104,8 @@ class TestBadKeyarg < TestCase
             SyntaxError: Example.f does not specify any keyword arguments.
 
                |
-             7 | One.f(:a 1)
-               |      ^
+             7 | Example.One.f(:a 1)
+               |              ^
 
                 from [test]:7:
         """,
@@ -116,7 +116,7 @@ class TestBadKeyarg < TestCase
                 define f(a: Integer) {}
             }
 
-            One.f(:a 1)
+            Example.One.f(:a 1)
         """)
 
         # unsupported (on lambda)

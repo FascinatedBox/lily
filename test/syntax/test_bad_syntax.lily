@@ -1141,13 +1141,13 @@ class TestBadSyntax < TestCase
                 Branch(List[Tree])
             }
 
-            var b0 = [Leaf(0)]
-            var t0 = Branch(b0)
+            var b0 = [Tree.Leaf(0)]
+            var t0 = Tree.Branch(b0)
 
             b0[0] = t0
 
-            var b1 = [Leaf(1)]
-            var t1 = Branch(b1)
+            var b1 = [Tree.Leaf(1)]
+            var t1 = Tree.Branch(b1)
 
             b1[0] = t1
 
@@ -1155,8 +1155,8 @@ class TestBadSyntax < TestCase
                 b1 == b0
                 0 / 0
             except RuntimeError:
-                b0[0] = Leaf(1)
-                b1[0] = Leaf(1)
+                b0[0] = Tree.Leaf(1)
+                b1[0] = Tree.Leaf(1)
             }
         """)
 

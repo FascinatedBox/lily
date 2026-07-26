@@ -319,26 +319,6 @@ class TestBadClass < TestCase
 
             class Example {}
         """)
-
-        # bad decl (redeclare a variant)
-
-        assert_parse_fails(t, """\
-            SyntaxError: A variant named 'One' has already been declared.
-
-               |
-             6 | class One {}
-               |       ^
-
-                from [test]:6:
-        """,
-        """\
-            enum Example {
-                One,
-                Two
-            }
-
-            class One {}
-        """)
     }
 
     public define test_bad_inheritance

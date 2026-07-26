@@ -92,7 +92,7 @@ class TestBadForward < TestCase
             }
         """)
 
-        # bad resolution (forward class as flat enum)
+        # bad resolution (forward class as an enum)
 
         assert_parse_fails(t, """\
             SyntaxError: A class named 'Test' has already been declared.
@@ -106,25 +106,6 @@ class TestBadForward < TestCase
         """\
             forward class Test { ... }
             enum Test {
-                One,
-                Two
-            }
-        """)
-
-        # bad resolution (forward class as scoped enum)
-
-        assert_parse_fails(t, """\
-            SyntaxError: A class named 'Test' has already been declared.
-
-               |
-             2 | scoped enum Test {
-               |             ^
-
-                from [test]:2:
-        """,
-        """\
-            forward class Test { ... }
-            scoped enum Test {
                 One,
                 Two
             }
@@ -345,7 +326,7 @@ class TestBadForward < TestCase
     {
         var t = Interpreter()
 
-        # forward collision (against a flat enum)
+        # forward collision (against an enum)
 
         assert_parse_fails(t, """\
             SyntaxError: An enum named 'Test' has already been declared.
@@ -358,26 +339,6 @@ class TestBadForward < TestCase
         """,
         """\
             enum Test {
-                One,
-                Two
-            }
-
-            forward class Test { ... }
-        """)
-
-        # forward collision (against a scoped enum)
-
-        assert_parse_fails(t, """\
-            SyntaxError: An enum named 'Test' has already been declared.
-
-               |
-             6 | forward class Test { ... }
-               |               ^
-
-                from [test]:6:
-        """,
-        """\
-            scoped enum Test {
                 One,
                 Two
             }
@@ -400,7 +361,7 @@ class TestBadForward < TestCase
             forward class Exception { ... }
         """)
 
-        # forward collision (against a predefined flat enum)
+        # forward collision (against Option)
 
         assert_parse_fails(t, """\
             SyntaxError: A built-in enum named 'Option' already exists.

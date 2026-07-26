@@ -136,8 +136,8 @@ class TestInference < TestCase
 
             define f[A](a: A, b: A) {}
 
-            f(One(10), Two(""))
-            var v = [One(5), One(10), Two([1])]
+            f(Dual.One(10), Dual.Two(""))
+            var v = [Dual.One(5), .One(10), .Two([1])]
         """)
     }
 

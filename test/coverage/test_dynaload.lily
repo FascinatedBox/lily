@@ -141,9 +141,9 @@ class TestDynaload < TestCase
         # Dynaloaded enums inheriting Integer get Integer methods
 
         assert_parse_string(t, """
-            import (ScopedValueDirection) covlib
+            import (ValueDirection) covlib
 
-            if ScopedValueDirection.North.to_s() != "4": {
+            if ValueDirection.North.to_s() != "4": {
                 0/0
             }
         """)

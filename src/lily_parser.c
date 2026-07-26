@@ -558,14 +558,6 @@ static lily_var *find_active_var(lily_parse_state *parser, const char *name)
     return result;
 }
 
-static lily_class *find_active_class(lily_parse_state *parser, const char *name)
-{
-    lily_module_entry *m = parser->symtab->active_module;
-    lily_class *result = lily_find_class(m, name);
-
-    return result;
-}
-
 static lily_class *find_dl_active_class(lily_parse_state *parser,
         const char *name)
 {
@@ -1748,18 +1740,6 @@ static char dyna_iter_next(lily_dyna_state *ds)
     return ds->entry[0];
 }
 
-static char dyna_check_next(lily_dyna_state *ds)
-{
-    uint16_t index = ds->index;
-
-    char ch = dyna_iter_next(ds);
-
-    ds->index = index;
-    ds->entry = ds->table[index];
-
-    return ch;
-}
-
 static void dyna_iter_back_to_enum(lily_dyna_state *ds)
 {
     do {
@@ -2018,6 +1998,9 @@ static void fix_option_result_class_ids(lily_class *enum_cls)
     enum_cls->id = id;
     first->id = id + (id == LILY_ID_RESULT) + 1;
     second->id = id + (id == LILY_ID_OPTION) + 1;
+
+    /* Option and Result are the only flat enums. */
+    enum_cls->item_kind = ITEM_ENUM_FLAT;
 }
 
 static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
@@ -2038,12 +2021,6 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
         enum_cls->parent = parser->symtab->integer_class;
         enum_cls->flags |= CLS_IS_BASIC_NUMBER | CLS_IS_HAS_VALUE;
     }
-
-    /* Enums are followed by methods, then variants. Flat enums will write an
-       offset that goes to the first enum, whereas scoped enums skip to the next
-       toplevel entry. */
-    if (dyna_check_next(ds) != 'V')
-        enum_cls->item_kind = ITEM_ENUM_SCOPED;
 
     dyna_iter_past_methods(ds);
 
@@ -5180,7 +5157,6 @@ static void parse_value_variant(lily_parse_state *parser,
 
 static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
 {
-    int is_scoped = (enum_cls->item_kind == ITEM_ENUM_SCOPED);
     lily_lex_state *lex = parser->lex;
 
     lily_emit_enter_enum_block(parser->emit, enum_cls);
@@ -5213,10 +5189,6 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     while (1) {
         lily_variant_class *variant_cls = lily_find_variant(enum_cls,
                 lex->label);
-
-        if (variant_cls == NULL && is_scoped == 0)
-            variant_cls = (lily_variant_class *)find_active_class(parser,
-                    lex->label);
 
         if (variant_cls)
             lily_raise_syn(parser->raiser,

@@ -7,25 +7,7 @@ class TestBadEnum < TestCase
     {
         var t = Interpreter()
 
-        # bad decl (flat enum duplicate names)
-
-        assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'One' already exists.
-
-               |
-             3 | One(A)
-               | ^
-
-                from [test]:3:
-        """,
-        """\
-            enum Test[A] {
-                One(A),
-                One(A)
-            }
-        """)
-
-        # bad decl (scoped enum duplicate names)
+        # bad decl (duplicate variant names)
 
         assert_parse_fails(t, """\
             SyntaxError: A class with the name 'Fast' already exists.
@@ -37,7 +19,7 @@ class TestBadEnum < TestCase
                 from [test]:3:
         """,
         """\
-            scoped enum Speed {
+            enum Speed {
                 Fast,
                 Fast
             }
@@ -65,50 +47,7 @@ class TestBadEnum < TestCase
             }
         """)
 
-        # bad decl (first variant collide with class)
-
-        assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'One' already exists.
-
-               |
-             4 | One,
-               | ^
-
-                from [test]:4:
-        """,
-        """\
-            class One {}
-
-            enum Example {
-                One,
-                Two
-            }
-        """)
-
-        # bad decl (nth variant collide with class)
-
-        assert_parse_fails(t, """\
-            SyntaxError: A class with the name 'Four' already exists.
-
-               |
-             7 | Four,
-               | ^
-
-                from [test]:7:
-        """,
-        """\
-            class Four {}
-
-            enum Example {
-                One,
-                Two,
-                Three,
-                Four,
-                Five
-            }
-        """)
-
-        # bad decl (flat enum name too short)
+        # bad decl (enum name too short)
 
         assert_parse_fails(t, """\
             SyntaxError: 'A' is not a valid class name (too short).
@@ -121,25 +60,6 @@ class TestBadEnum < TestCase
         """,
         """\
             enum A {
-                One,
-                Two,
-                Three
-            }
-        """)
-
-        # bad decl (scoped enum name too short)
-
-        assert_parse_fails(t, """\
-            SyntaxError: 'A' is not a valid class name (too short).
-
-               |
-             1 | scoped enum A {
-               |             ^
-
-                from [test]:1:
-        """,
-        """\
-            scoped enum A {
                 One,
                 Two,
                 Three
@@ -181,51 +101,6 @@ class TestBadEnum < TestCase
                 One,
                 "Two"
             }
-        """)
-    }
-
-    public define test_bad_flat
-    {
-        var t = Interpreter()
-
-        # bad flat (optarg using scoped variant as flat)
-
-        assert_parse_fails(t, """\
-            SyntaxError: One has not been declared.
-
-               |
-             6 | define f(a: *Test = One) {}
-               |                     ^
-
-                from [test]:6:
-        """,
-        """\
-            scoped enum Test {
-                One,
-                Two
-            }
-
-            define f(a: *Test = One) {}
-        """)
-
-        # bad flat (assign using scoped enum as flat)
-
-        assert_parse_fails(t, """\
-            SyntaxError: One has not been declared.
-
-               |
-             6 | var opt: Test[Integer] = One(10)
-               |                          ^
-
-                from [test]:6:
-        """,
-        """\
-            scoped enum Test[A] {
-                One(A),
-                Two
-            }
-
-            var opt: Test[Integer] = One(10)
         """)
     }
 
@@ -311,7 +186,7 @@ class TestBadEnum < TestCase
             SyntaxError: Variant types not allowed in a declaration.
 
                |
-             6 | var v: One[integer] = One(10)
+             6 | var v: Some[Integer] = Some(10)
                |        ^
 
                 from [test]:6:
@@ -322,7 +197,7 @@ class TestBadEnum < TestCase
                 Two
             }
 
-            var v: One[integer] = One(10)
+            var v: Some[Integer] = Some(10)
         """)
 
         # enum rules (no empty decl parenth)
@@ -389,27 +264,7 @@ class TestBadEnum < TestCase
             }
         """)
 
-        # enum rules (access variant by flat enum instance)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Not allowed to access a variant through an enum instance.
-
-               |
-             6 | var v = One.One
-               |         ^
-
-                from [test]:6:
-        """,
-        """\
-            enum Example {
-                One,
-                Two
-            }
-
-            var v = One.One
-        """)
-
-        # enum rules (access variant by scoped enum instance)
+        # enum rules (access variant by enum instance)
 
         assert_parse_fails(t, """\
             SyntaxError: Not allowed to access a variant through an enum instance.
@@ -421,7 +276,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One,
                 Two
             }
@@ -441,7 +296,7 @@ class TestBadEnum < TestCase
                 from [test]:4:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One,
                 Two,
                 Three = 1,
@@ -465,7 +320,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One,
                 Two
             }
@@ -484,7 +339,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One,
                 Two
             }
@@ -503,7 +358,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One(Integer),
                 Two
             }
@@ -522,7 +377,7 @@ class TestBadEnum < TestCase
                 from [test]:6:
         """,
         """\
-            scoped enum Example {
+            enum Example {
                 One(Integer),
                 Two
             }
@@ -540,13 +395,13 @@ class TestBadEnum < TestCase
             SyntaxError: Enums with generics are not allowed to inherit.
 
                |
-             1 | scoped enum Example[A] < Integer {
-               |                        ^
+             1 | enum Example[A] < Integer {
+               |                 ^
 
                 from [test]:1:
         """,
         """\
-            scoped enum Example[A] < Integer {
+            enum Example[A] < Integer {
                 One,
                 Two
             }
@@ -558,13 +413,13 @@ class TestBadEnum < TestCase
             SyntaxError: Enums are only allowed to inherit from Integer.
 
                |
-             1 | scoped enum Direction < String {
-               |                         ^
+             1 | enum Direction < String {
+               |                  ^
 
                 from [test]:1:
         """,
         """\
-            scoped enum Direction < String {
+            enum Direction < String {
                 One,
                 Two
             }
@@ -581,7 +436,7 @@ class TestBadEnum < TestCase
                 from [test]:2:
         """,
         """\
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North(Integer),
             }
         """)
@@ -592,7 +447,7 @@ class TestBadEnum < TestCase
                 from [test]:3:
         """,
         """\
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North
             }
         """)
@@ -608,7 +463,7 @@ class TestBadEnum < TestCase
                 from [test]:3:
         """,
         """\
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North = 1,
                 East = 1
             }
@@ -679,7 +534,7 @@ class TestBadEnum < TestCase
                 from [test]:4:
         """,
         """\
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North,
                 East,
                 South = (1 << 2)
@@ -693,8 +548,8 @@ class TestBadEnum < TestCase
             Received Type: Integer
 
                |
-             8 | x(Left, 0)
-               |         ^
+             8 | x(LR.Left, 0)
+               |            ^
 
                 from [test]:8:
         """,
@@ -706,7 +561,7 @@ class TestBadEnum < TestCase
 
             define x[A](a: A, b: A) { }
 
-            x(Left, 0)
+            x(LR.Left, 0)
         """)
     }
 }

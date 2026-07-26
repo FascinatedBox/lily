@@ -584,7 +584,7 @@ static void add_value_to_msgbuf(lily_vm_state *vm, lily_msgbuf *msgbuf,
             uint16_t class_id = v->value.container->class_id;
             lily_class *variant_cls = vm->gs->class_table[class_id];
 
-            /* For scoped variants, render them how they're written. */
+            /* Render variants as they are written. */
             if (variant_cls->parent->item_kind == ITEM_ENUM_SCOPED) {
                 lily_mb_add(msgbuf, variant_cls->parent->name);
                 lily_mb_add_char(msgbuf, '.');

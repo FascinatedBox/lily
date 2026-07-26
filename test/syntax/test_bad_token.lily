@@ -197,18 +197,13 @@ class TestBadToken < TestCase
             SyntaxError: Unexpected token within an expression.
 
                |
-             6 | ObjList(ObjList() ObjList())
-               |                   ^
+             1 | var v = Some(Some(1) Some(1))
+               |                      ^
 
-                from [test]:6:
+                from [test]:1:
         """,
         """\
-            enum Object {
-                Value,
-                ObjList(Object...)
-            }
-
-            ObjList(ObjList() ObjList())
+            var v = Some(Some(1) Some(1))
         """)
     }
 
@@ -931,21 +926,6 @@ class TestBadToken < TestCase
         """,
         """\
             private define f {}
-        """)
-
-        # bad keyword (scoped without enum)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Expected 'enum' here.
-
-               |
-             1 | scoped asdf
-               |        ^
-
-                from [test]:1:
-        """,
-        """\
-            scoped asdf
         """)
 
         # bad keyword (case outside of match)

@@ -842,7 +842,7 @@ lily_class *lily_new_enum_class(lily_symtab *symtab, const char *name,
     lily_class *new_class = lily_new_class(symtab, name, line_num);
 
     symtab->next_class_id--;
-    new_class->item_kind = ITEM_ENUM_FLAT;
+    new_class->item_kind = ITEM_ENUM_SCOPED;
     new_class->id = 0;
 
     /* Enums don't interact with the type system or emitter until their

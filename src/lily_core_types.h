@@ -95,7 +95,7 @@ typedef struct lily_class_ {
     /* This is one of the following:
        ITEM_CLASS_FOREIGN: Class with a foreign representation (or a generic).
        ITEM_CLASS_NATIVE:  Inheritable class which may have properties.
-       ITEM_ENUM_FLAT:     Enum with variants visible at toplevel.
+       ITEM_ENUM_FLAT:     Predefined variants are visible at toplevel.
        ITEM_ENUM_SCOPED:   Enum with namespaced variants. */
     uint16_t item_kind;
     uint16_t flags;

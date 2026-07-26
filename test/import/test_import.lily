@@ -159,14 +159,9 @@ class TestImport < TestCase
                     public define square(a: Integer): Integer { return a + a }
                 }
 
-                scoped enum ScopedOption[A] {
-                    ScopedSome(A),
-                    ScopedNone
-                }
-
-                enum FlatOption[A] {
-                    FlatSome(A),
-                    FlatNone
+                enum UserOption[A] {
+                    UserSome(A),
+                    UserNone
                 }
             """
         )
@@ -342,39 +337,21 @@ class TestImport < TestCase
             }
         """)
 
-        # import refs (scoped enum)
+        # import refs (enum)
 
         t = Interpreter.with_targets(
             @t_ref_target
         )
 
         assert_parse_string(t, """
-            import (ScopedOption) ref_target
+            import (UserOption) ref_target
 
-            var v = ScopedOption.ScopedSome(1)
-
-            match v: {
-                case ScopedNone:
-                    0 / 0
-                case ScopedSome(s):
-            }
-        """)
-
-        # import refs (flat enum)
-
-        t = Interpreter.with_targets(
-            @t_ref_target
-        )
-
-        assert_parse_string(t, """
-            import (FlatOption, FlatSome, FlatNone) ref_target
-
-            var v: FlatOption[Integer] = FlatNone
+            var v = UserOption.UserSome(1)
 
             match v: {
-                case FlatNone:
-                case FlatSome(s):
+                case UserNone:
                     0 / 0
+                case UserSome(s):
             }
         """)
 

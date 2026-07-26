@@ -2,6 +2,6 @@ import manifest
 
 library warm
 
-scoped enum Color < Integer {
+enum Color < Integer {
     Red, Yellow, Orange
 }

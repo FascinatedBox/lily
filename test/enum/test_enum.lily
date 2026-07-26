@@ -59,7 +59,7 @@ class TestEnum < TestCase
                 }
             }
 
-            if Test.or_else(One(1), 2) != 1: {
+            if Test.or_else(Test.One(1), 2) != 1: {
                raise Exception("Failed.")
             }
         """)
@@ -69,48 +69,26 @@ class TestEnum < TestCase
     {
         var t = Interpreter()
 
-        # scope (no collision for scoped + non-scoped enums)
+        # Variant names are per-enum
 
         assert_parse_string(t, """
-            enum StrangeSpeed {
+            enum SpeedOne {
                 Fast,
                 Medium,
                 Slow
             }
 
-            scoped enum Speed {
+            enum SpeedTwo {
                 Fast,
                 Medium,
                 Slow
             }
         """)
 
-        # scope (use scoped enums)
-
-        assert_parse_string(t, """
-            scoped enum ScopeTest[A] {
-                One(A),
-                Two
-            }
-
-            var v = [ScopeTest.One(1), ScopeTest.Two, ScopeTest.One(2)]
-            var check: ScopeTest[Integer] = v[0]
-        """)
-
-        # scope (matching scoped enum)
+        # Variant may have the same name as the enum
 
         assert_parse_string(t, """\
-            match check: {
-                case One(s):
-                case Two:
-                    raise Exception("Failed.")
-            }
-        """)
-
-        # variant name may share enum name
-
-        assert_parse_string(t, """\
-            scoped enum check2 {
+            enum check2 {
                 check2,
                 other
             }
@@ -137,49 +115,35 @@ class TestEnum < TestCase
 
         # test shorthand (expression setup)
         assert_parse_string(t, """
-            enum FlatSpeed {
-                FSlow,
-                FMedium,
-                FFast
-            }
-
-            scoped enum ScSpeed {
+            enum Speed {
                 Slow,
                 Medium,
                 Fast
             }
 
-            define sc_check(:input input: ScSpeed) {}
-            define fl_check(:input input: FlatSpeed) {}
+            define check(:input input: Speed) {}
             define takemany[A](a: A, m: A...) {}
             define taketwo[A](a: A, b: A) {}
         """)
 
         # test shorthand (different calls)
         assert_parse_string(t, """
-            sc_check(.Slow)
-            sc_check(.Fast)
-
-            fl_check(.FSlow)
-            fl_check(.FFast)
-
-            taketwo(ScSpeed.Slow, .Medium)
-            taketwo(FSlow, .FSlow)
-            takemany(ScSpeed.Slow, .Slow, .Medium)
-            takemany(FSlow, .FSlow, .FMedium)
+            check(.Slow)
+            taketwo(Speed.Slow, .Medium)
+            takemany(Speed.Slow, .Slow, .Medium)
         """)
 
         # test shorthand (assignments)
         assert_parse_string(t, """
             class Example {
-                public var @x: ScSpeed = .Fast
+                public var @x: Speed = .Fast
             }
 
-            var v: ScSpeed = .Fast
+            var v: Speed = .Fast
 
             define f {
-                var w: ScSpeed = .Fast
-                var box: List[ScSpeed] = [.Medium]
+                var w: Speed = .Fast
+                var box: List[Speed] = [.Medium]
 
                 box[0] = .Fast
 
@@ -191,37 +155,28 @@ class TestEnum < TestCase
 
         # test shorthand (return)
         assert_parse_string(t, """
-            define g: ScSpeed {
+            define g: Speed {
                 return .Fast
-            }
-
-            define h: FlatSpeed {
-                return .FFast
             }
         """)
 
         # test shorthand (builders)
         assert_parse_string(t, """
             {
-                var v2: List[ScSpeed] = [.Fast, .Slow]
-                var v3: Hash[Integer, ScSpeed] = [1 => .Fast]
-                var v4: Tuple[ScSpeed] = <[.Fast]>
-            }
-            {
-                var v2: List[FlatSpeed] = [.FFast, .FSlow]
-                var v3: Hash[Integer, FlatSpeed] = [1 => .FFast]
-                var v4: Tuple[FlatSpeed] = <[.FFast]>
+                var v2: List[Speed] = [.Fast, .Slow]
+                var v3: Hash[Integer, Speed] = [1 => .Fast]
+                var v4: Tuple[Speed] = <[.Fast]>
             }
         """)
 
         # test shorthand (practical nested usage)
         assert_parse_string(t, """
-            scoped enum Tree {
+            enum Tree {
                 Leaf(Integer),
                 Branch(Tree, Tree)
             }
 
-            define check(t: Tree)
+            define check2(t: Tree)
             {
                 var v2 = t ++ ""
 
@@ -230,7 +185,7 @@ class TestEnum < TestCase
                 }
             }
 
-            check(.Branch(.Leaf(1), Tree.Leaf(2)))
+            check2(.Branch(.Leaf(1), Tree.Leaf(2)))
         """)
     }
 
@@ -240,7 +195,7 @@ class TestEnum < TestCase
 
         # test value variants (basic usage, numeric interpolation)
         assert_parse_string(t, """
-            scoped enum Direction < Integer {
+            enum Direction < Integer {
                 North,
                 East = -2,
                 South,
@@ -252,24 +207,6 @@ class TestEnum < TestCase
                                 .map(|m| (m ++ "").parse_i().unwrap() )
 
             if directions != [0, -2, -1, 4567890]: {
-                0 / 0
-            }
-        """)
-
-        # test value variants (flat enum too)
-        assert_parse_string(t, """
-            enum FlatDirection < Integer {
-                FNorth,
-                FEast = -2,
-                FSouth,
-                FWest = 4567890
-            }
-
-            var flat_directions = [.FNorth, .FEast, .FSouth, .FWest]
-                                    .@(List[FlatDirection])
-                                    .map(|m| (m ++ "").parse_i().unwrap() )
-
-            if flat_directions != [0, -2, -1, 4567890]: {
                 0 / 0
             }
         """)
@@ -298,24 +235,24 @@ class TestEnum < TestCase
             define x(a: Integer, b: Integer): Integer
             {
                 if a != b: { 0/0 }
-                return Left
+                return LR.Left
             }
 
-            x(Left, 0)
-            x(Right, 1)
+            x(LR.Left, 0)
+            x(LR.Right, 1)
         """)
 
         # test value variants (typecast narrowing)
         assert_parse_string(t, """
             define x2[A](a: A, b: A) { }
 
-            x2(Left.@(Integer), 0)
+            x2(LR.Left.@(Integer), 0)
         """)
 
         # Allow math with value variants
 
         assert_parse_string(t, """
-            scoped enum Color < Integer {
+            enum Color < Integer {
                 Red,
                 Green,
                 Blue,
@@ -341,7 +278,7 @@ class TestEnum < TestCase
         # They can be subscript indexes too
 
         assert_parse_string(t, """
-            scoped enum SubscriptDirection < Integer {
+            enum SubscriptDirection < Integer {
                 North,
                 East,
                 South,
@@ -373,7 +310,7 @@ class TestEnum < TestCase
         # Not worth the effort to block
 
         assert_parse_string(t, """
-            scoped enum Example < Integer {
+            enum Example < Integer {
                 abc,
                 to_s
             }
@@ -408,18 +345,6 @@ class TestEnum < TestCase
             enum ValueExampleB < Integer {
                 BFirst = 1,
                 BSecond = 2,
-                define f {}
-            }
-
-            scoped enum ScopedExample {
-                SFirst,
-                SSecond,
-                SThird,
-            }
-
-            scoped enum ScopedExampleB {
-                SFirst,
-                SSecond,
                 define f {}
             }
         """)

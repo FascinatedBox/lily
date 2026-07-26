@@ -228,9 +228,9 @@ class TestVerifyCoverage < TestCase
                 Branch(List[Tree])
             }
 
-            var a = Leaf
+            var a = Tree.Leaf
             var b = [a]
-            var c = Branch(b)
+            var c = Tree.Branch(b)
 
             b[0] = c
         """)
@@ -255,54 +255,7 @@ class TestVerifyCoverage < TestCase
             @t_covlib
         )
 
-        # foreign enums (flat)
-
-        assert_parse_string(t, """
-            import (FlatEnum, FlatOne, FlatTwo, FlatThree,
-                    make_flat_n) covlib
-
-            var v = "" ++ FlatTwo
-            if v != "FlatTwo": {
-                raise Exception("Failed to interpolate.")
-            }
-
-            define f(l: List[FlatEnum]): List[Integer] {
-                var result: List[Integer] = []
-
-                for i in 0...l.size() - 1: {
-                    var e = l[i]
-                    match e: {
-                        case FlatOne:
-                            result.push(1)
-                        case FlatTwo:
-                            result.push(2)
-                        case FlatThree:
-                            result.push(3)
-                    }
-                }
-
-                return result
-            }
-
-            var v2 = f([FlatOne, FlatTwo, FlatThree, FlatTwo, FlatOne])
-            if v2 != [1, 2, 3, 2, 1]: {
-                raise Exception("Failed to match and transform.")
-            }
-
-            var v3 = [
-                make_flat_n(1) ++ "",
-                make_flat_n(2) ++ "",
-                make_flat_n(3) ++ "",
-            ]
-
-            if v3 != ["FlatOne",
-                      "FlatTwo",
-                      "FlatThree"]: {
-                raise Exception("Failed to interpolate foreign made variants.")
-            }
-        """)
-
-        # foreign enums (scoped)
+        # Foreign enums operate as expected
 
         t = Interpreter.with_targets(
             @t_covlib
@@ -812,13 +765,13 @@ SyntaxError: Expected a value (var, literal, lambda, etc.) here.
         )
 
         assert_parse_string(t, """
-            import (ScopedValueDirection) covlib
+            import (ValueDirection) covlib
 
-            var v: ScopedValueDirection = .North
-            var in: List[ScopedValueDirection] = [.North, .East, .South, .West]
-            var out: List[ScopedValueDirection] = [.East, .South, .West, .North]
+            var v: ValueDirection = .North
+            var in: List[ValueDirection] = [.North, .East, .South, .West]
+            var out: List[ValueDirection] = [.East, .South, .West, .North]
 
-            in = in.map(ScopedValueDirection.turn_right)
+            in = in.map(ValueDirection.turn_right)
 
             if in != out: {
                 0/0
