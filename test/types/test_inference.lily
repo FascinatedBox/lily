@@ -232,38 +232,24 @@ class TestInference < TestCase
     {
         var t = Interpreter()
 
-        # vararg nonvararg (want List, given vararg)
+        # Non-varargs should match to varargs, and vice versa
 
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (String...)' to type 'Function (List[String])'.
+        assert_parse_string(t, """
+            define f(a: List[Integer]): Integer { return a[0] + a[1] + a[2] }
+            define g(a: Integer...): Integer { return a[0] - a[1] - a[2] }
 
-               |
-             3 | var v: Function(List[String]) = f
-               |                               ^
+            var lst = f
+            lst = g
 
-                from [test]:3:
-        """,
-        """\
-            define f(a: String...) {}
+            var va = g
+            va = f
 
-            var v: Function(List[String]) = f
-        """)
+            var l = [1, 2, 3]
 
-        # vararg nonvararg (want vararg, given List)
-
-        assert_parse_fails(t, """\
-            SyntaxError: Cannot assign type 'Function (List[String])' to type 'Function (String...)'.
-
-               |
-             3 | var v: Function(String...) = f
-               |                            ^
-
-                from [test]:3:
-        """,
-        """\
-            define f(a: List[String]) {}
-
-            var v: Function(String...) = f
+            if lst([1, 2, 3]) != -4 ||
+                va(*l) != 6: {
+                0/0
+            }
         """)
     }
 

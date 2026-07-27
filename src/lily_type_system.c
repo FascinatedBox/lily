@@ -284,9 +284,8 @@ static int check_function(lily_type_system *ts, lily_type *left,
     if (ret)
         ret = check_func_return(ts, left, right, flags);
 
-    /* Can't disagree on varargs. */
-    if ((left->flags ^ right->flags) & TYPE_IS_VARARGS)
-        ret = 0;
+    /* Varargs is ignored, because `Integer...` is actually `List[Integer]`, and
+       already handled above. */
 
     if (ret && flags & T_UNIFY)
         unify_call(ts, left, right, left->subtype_count);
