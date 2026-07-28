@@ -85,31 +85,6 @@ for (i = 0;source != NULL;source = source->next) { \
  \
 lily_return_top(s);
 
-/* Flat variants are listed at the toplevel of whatever module they're a part of
-   instead of in their enum. Their check function needs to take the module and
-   the enum to do a parent check. */
-#define BUILD_FLAT_VARIANT_LIST(check_func, build_func) \
-int i, count = 0; \
- \
-while (source_iter) { \
-    if (check_func(source_iter, parent)) \
-        count++; \
- \
-    source_iter = source_iter->next; \
-} \
- \
-lily_container_val *lv = lily_push_list(s, count); \
- \
-for (i = 0;source != NULL;source = source->next) { \
-    if (check_func(source, parent)) { \
-        build_func(s, entry, source); \
-        lily_con_set_from_stack(s, lv, i); \
-        i++; \
-    } \
-} \
- \
-lily_return_top(s);
-
 typedef struct {
     LILY_FOREIGN_HEADER
     lily_class *entry;
@@ -261,12 +236,6 @@ static int allow_enums(lily_class *cls)
     return cls->item_kind & ITEM_IS_ENUM;
 }
 
-static int allow_flat_variants(lily_named_sym *sym, lily_class *parent)
-{
-    return sym->item_kind & ITEM_IS_VARIANT &&
-           ((lily_variant_class *)sym)->parent == parent;
-}
-
 static int allow_functions(lily_var *var)
 {
     return var->item_kind == ITEM_DEFINE;
@@ -282,7 +251,7 @@ static int allow_properties(lily_named_sym *sym)
     return sym->item_kind == ITEM_PROPERTY;
 }
 
-static int allow_scoped_variants(lily_named_sym *sym)
+static int allow_variants(lily_named_sym *sym)
 {
     return sym->item_kind & ITEM_IS_VARIANT;
 }
@@ -855,28 +824,12 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
 
 void lily_introspect_EnumEntry_variants(lily_state *s)
 {
-    /* Variants come in two flavors:
-       * Flat variants (like Some and None) are found in the module with the
-         enum as their parent.
-       * Scoped variants (the other kind) are found in the enum.
-       The variants have the same item kind either way. */
     lily_introspect_EnumEntry *introspect_entry = ARG_EnumEntry(s, 0);
     lily_class *entry = introspect_entry->entry;
-    int is_scoped = entry->item_kind == ITEM_ENUM_SCOPED;
+    lily_named_sym *source = introspect_entry->entry->members;
+    lily_named_sym *source_iter = source;
 
-    if (is_scoped) {
-        lily_named_sym *source = entry->members;
-        lily_named_sym *source_iter = source;
-
-        BUILD_LIST_FROM_2(allow_scoped_variants, make_variant);
-    }
-    else {
-        lily_named_sym *source = entry->members;
-        lily_named_sym *source_iter = source;
-        lily_class *parent = entry;
-
-        BUILD_FLAT_VARIANT_LIST(allow_flat_variants, make_variant);
-    }
+    BUILD_LIST_FROM_2(allow_variants, make_variant);
 }
 
 void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
