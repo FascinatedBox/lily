@@ -144,12 +144,10 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(ConstantEntry): Integer"
     ,"m\0name\0(ConstantEntry): String"
     ,"m\0type\0(ConstantEntry): TypeEntry"
-    ,"C\11EnumEntry\0"
+    ,"C\7EnumEntry\0"
     ,"m\0doc\0(EnumEntry): String"
     ,"m\0generics\0(EnumEntry): List[TypeEntry]"
     ,"m\0id\0(EnumEntry): Integer"
-    ,"m\0is_flat\0(EnumEntry): Boolean"
-    ,"m\0is_scoped\0(EnumEntry): Boolean"
     ,"m\0methods\0(EnumEntry): List[MethodEntry]"
     ,"m\0name\0(EnumEntry): String"
     ,"m\0parent\0(EnumEntry): Option[ClassEntry]"
@@ -176,12 +174,11 @@ const char *lily_introspect_info_table[] = {
     ,"m\0result_type\0(MethodEntry): TypeEntry"
     ,"m\0scope\0(MethodEntry): SymScope"
     ,"m\0type\0(MethodEntry): TypeEntry"
-    ,"C\21ModuleEntry\0"
+    ,"C\20ModuleEntry\0"
     ,"m\0boxed_classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0boxed_constants\0(ModuleEntry): List[ConstantEntry]"
     ,"m\0boxed_enums\0(ModuleEntry): List[EnumEntry]"
     ,"m\0boxed_functions\0(ModuleEntry): List[FunctionEntry]"
-    ,"m\0boxed_variants\0(ModuleEntry): List[VariantEntry]"
     ,"m\0boxed_vars\0(ModuleEntry): List[VarEntry]"
     ,"m\0classes\0(ModuleEntry): List[ClassEntry]"
     ,"m\0constants\0(ModuleEntry): List[ConstantEntry]"
@@ -215,12 +212,11 @@ const char *lily_introspect_info_table[] = {
     ,"m\0line_number\0(VarEntry): Integer"
     ,"m\0name\0(VarEntry): String"
     ,"m\0type\0(VarEntry): TypeEntry"
-    ,"C\11VariantEntry\0"
+    ,"C\10VariantEntry\0"
     ,"m\0doc\0(VariantEntry): String"
     ,"m\0enum_id\0(VariantEntry): Integer"
     ,"m\0enum_name\0(VariantEntry): String"
     ,"m\0is_empty\0(VariantEntry): Boolean"
-    ,"m\0is_scoped\0(VariantEntry): Boolean"
     ,"m\0name\0(VariantEntry): String"
     ,"m\0parameters\0(VariantEntry): List[ParameterEntry]"
     ,"m\0type\0(VariantEntry): TypeEntry"
@@ -259,8 +255,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_EnumEntry_doc, \
     lily_introspect_EnumEntry_generics, \
     lily_introspect_EnumEntry_id, \
-    lily_introspect_EnumEntry_is_flat, \
-    lily_introspect_EnumEntry_is_scoped, \
     lily_introspect_EnumEntry_methods, \
     lily_introspect_EnumEntry_name, \
     lily_introspect_EnumEntry_parent, \
@@ -292,7 +286,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_ModuleEntry_boxed_constants, \
     lily_introspect_ModuleEntry_boxed_enums, \
     lily_introspect_ModuleEntry_boxed_functions, \
-    lily_introspect_ModuleEntry_boxed_variants, \
     lily_introspect_ModuleEntry_boxed_vars, \
     lily_introspect_ModuleEntry_classes, \
     lily_introspect_ModuleEntry_constants, \
@@ -331,7 +324,6 @@ lily_call_entry_func lily_introspect_call_table[] = { \
     lily_introspect_VariantEntry_enum_id, \
     lily_introspect_VariantEntry_enum_name, \
     lily_introspect_VariantEntry_is_empty, \
-    lily_introspect_VariantEntry_is_scoped, \
     lily_introspect_VariantEntry_name, \
     lily_introspect_VariantEntry_parameters, \
     lily_introspect_VariantEntry_type, \

@@ -245,12 +245,6 @@ foreign static class VariantEntry
     ### are variants that do not receive any values.
     public define is_empty: Boolean
 
-    ### Returns true if the variant is scoped, false otherwise. A variant is
-    ### scoped if the enum was prefixed with 'scoped' during declarations.
-    ### Scoped variants must be qualified with their names to be used, whereas
-    ### flat variants are directly available.
-    public define is_scoped: Boolean
-
     ### Return the name of the variant provided.
     public define name: String
 
@@ -279,13 +273,6 @@ foreign static class EnumEntry
 
     ### Return the internal id of this enum.
     public define id: Integer
-
-    ### Returns true if the enum's variants are visible at toplevel, false
-    ### otherwise.
-    public define is_flat: Boolean
-
-    ### Returns true if the enum's variants are namespaced, false otherwise.
-    public define is_scoped: Boolean
 
     ### Return the methods that were declared in this class. There is no
     ### guarantee as to the order.
@@ -321,10 +308,6 @@ foreign static class ModuleEntry
     ### Return all functions that were directly imported into this module
     ### (`import (somevariant) somefile`).
     public define boxed_functions: List[FunctionEntry]
-
-    ### Return all variants that were directly imported into this module
-    ### (`import (somevariant) somefile`).
-    public define boxed_variants: List[VariantEntry]
 
     ### Return all vars that were directly imported into this module
     ### (`import (somevar) somefile`).

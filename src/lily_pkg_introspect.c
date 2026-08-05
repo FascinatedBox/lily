@@ -211,11 +211,6 @@ static int allow_boxed_functions(lily_boxed_sym *sym)
     return sym->inner_sym->item_kind == ITEM_DEFINE;
 }
 
-static int allow_boxed_variants(lily_boxed_sym *sym)
-{
-    return sym->inner_sym->item_kind & ITEM_IS_VARIANT;
-}
-
 static int allow_boxed_vars(lily_boxed_sym *sym)
 {
     return sym->inner_sym->item_kind == ITEM_VAR;
@@ -348,13 +343,6 @@ static void boxed_make_function(lily_state *s, lily_boxed_sym *source)
 static void boxed_make_var(lily_state *s, lily_boxed_sym *source)
 {
     make_var(s, (lily_var *)source->inner_sym);
-}
-
-static void boxed_make_variant(lily_state *s, lily_boxed_sym *source)
-{
-    lily_variant_class *v = (lily_variant_class *)source->inner_sym;
-
-    make_variant(s, v->parent, (lily_named_sym *)v);
 }
 
 static void return_doc(lily_state *s, uint16_t doc_id)
@@ -752,14 +740,6 @@ void lily_introspect_VariantEntry_is_empty(lily_state *s)
     lily_return_boolean(s, entry->item_kind == ITEM_VARIANT_EMPTY);
 }
 
-void lily_introspect_VariantEntry_is_scoped(lily_state *s)
-{
-    lily_introspect_VariantEntry *introspect_entry = ARG_VariantEntry(s, 0);
-    lily_class *parent = introspect_entry->parent;
-
-    lily_return_boolean(s, parent->item_kind == ITEM_ENUM_SCOPED);
-}
-
 void lily_introspect_VariantEntry_parameters(lily_state *s)
 {
     UNPACK_FIRST_ARG(VariantEntry, lily_variant_class *);
@@ -798,18 +778,6 @@ void lily_introspect_VariantEntry_value(lily_state *s)
 
     sprintf(buf, "%" PRId64, entry->raw_value);
     lily_return_string(s, buf);
-}
-
-void lily_introspect_EnumEntry_is_flat(lily_state *s)
-{
-    UNPACK_FIRST_ARG(EnumEntry, lily_class *);
-    lily_return_boolean(s, entry->item_kind == ITEM_ENUM_FLAT);
-}
-
-void lily_introspect_EnumEntry_is_scoped(lily_state *s)
-{
-    UNPACK_FIRST_ARG(EnumEntry, lily_class *);
-    lily_return_boolean(s, entry->item_kind == ITEM_ENUM_SCOPED);
 }
 
 void lily_introspect_EnumEntry_methods(lily_state *s)
@@ -870,16 +838,6 @@ void lily_introspect_ModuleEntry_boxed_functions(lily_state *s)
     lily_boxed_sym *source_iter = source;
 
     BUILD_LIST_FROM(allow_boxed_functions, boxed_make_function)
-}
-
-void lily_introspect_ModuleEntry_boxed_variants(lily_state *s)
-{
-    lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
-    lily_boxed_sym *source = entry->boxed_chain;
-    lily_boxed_sym *source_iter = source;
-
-    BUILD_LIST_FROM(allow_boxed_variants, boxed_make_variant)
 }
 
 void lily_introspect_ModuleEntry_boxed_vars(lily_state *s)
