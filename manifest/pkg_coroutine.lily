@@ -9,7 +9,7 @@ library coroutine
 ### an exception has been raised. A `Coroutine` that is running is executing.
 ### Finally, a `Coroutine` that is waiting is ready to be resumed. A `Coroutine`
 ### that has just been made, or has yielded is waiting.
-scoped enum CoStatus {
+enum CoStatus {
     Done,
     Failed,
     Running,

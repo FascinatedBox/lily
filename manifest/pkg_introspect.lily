@@ -62,7 +62,7 @@ foreign static class VarEntry
 }
 
 ### The scope of a method or property.
-scoped enum SymScope < Integer
+enum SymScope < Integer
 {
     Public,
     Protected,

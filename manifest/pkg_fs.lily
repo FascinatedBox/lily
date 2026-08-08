@@ -4,7 +4,7 @@ import manifest
 library fs
 
 ### Variants in this enum represent a path in the filesystem.
-scoped enum DirEntry
+enum DirEntry
 {
     Directory(String),
     File(String)
