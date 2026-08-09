@@ -271,7 +271,7 @@ class TestBadEnum < TestCase
 
                |
              6 | var v = Example.One.One
-               |                 ^
+               |                     ^
 
                 from [test]:6:
         """,

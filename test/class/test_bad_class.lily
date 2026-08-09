@@ -1092,7 +1092,7 @@ class TestBadClass < TestCase
 
                |
              4 | @x = self.x
-               |      ^
+               |           ^
 
                 from [test]:4:
         """,
@@ -1173,7 +1173,7 @@ class TestBadClass < TestCase
 
                |
              2 | a.asdf()
-               | ^
+               |   ^
 
                 from [test]:2:
         """,
