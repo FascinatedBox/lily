@@ -1959,7 +1959,8 @@ static uint16_t eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
                 oo_name, oo_name);
     else if (sym->item_kind & ITEM_IS_VARIANT)
         lily_raise_tree(emit->raiser, ast,
-                "Not allowed to access a variant through an enum instance.");
+                "%s is a variant (use %s.%s or .%s instead).", oo_name,
+                lookup_class->name, oo_name, oo_name);
 
     ast->item = (lily_item *)sym;
     ensure_valid_scope(emit, ast);

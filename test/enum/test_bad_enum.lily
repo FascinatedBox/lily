@@ -267,7 +267,7 @@ class TestBadEnum < TestCase
         # enum rules (access variant by enum instance)
 
         assert_parse_fails(t, """\
-            SyntaxError: Not allowed to access a variant through an enum instance.
+            SyntaxError: One is a variant (use Example.One or .One instead).
 
                |
              6 | var v = Example.One.One
