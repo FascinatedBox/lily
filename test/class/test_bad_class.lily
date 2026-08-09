@@ -1105,6 +1105,28 @@ class TestBadClass < TestCase
             }
         """)
 
+        # class rules (direct access to a property)
+
+        assert_parse_fails(t, """\
+            SyntaxError: x is a property, and must be referenced as @x.
+
+               |
+             5 | var y = x
+               |         ^
+
+                from [test]:5:
+        """,
+        """\
+            class Example {
+                public var @x = 10
+
+                public define f {
+                    var y = x
+                }
+            }
+        """)
+
+
         # class rules (assign to method)
         # Blocked for consistency with standard defines.
 
@@ -1202,27 +1224,6 @@ class TestBadClass < TestCase
                 }
 
                 g()
-            }
-        """)
-
-        # class rules (lambda cannot send self back)
-
-        assert_parse_fails(t, """\
-            SyntaxError: x is a property, and must be referenced as @x.
-
-               |
-             5 | var y = x
-               |         ^
-
-                from [test]:5:
-        """,
-        """\
-            class Example {
-                public var @x = 10
-
-                public define f {
-                    var y = x
-                }
             }
         """)
 
