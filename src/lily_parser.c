@@ -2586,12 +2586,10 @@ static int expr_word_try_use_self(lily_parse_state *parser)
             else if (sym->item_kind == ITEM_PROPERTY)
                 lily_raise_syn(parser->raiser,
                         "%s is a property (use @%s instead).", name, name);
-            /* If 'self' is a flat enum, then one of the variants would have
-               been found in the flat scope search. So this is a variant of a
-               scoped enum. Do not count this so that the variant names have to
-               be scoped at all times. */
             else if (sym->item_kind & ITEM_IS_VARIANT)
-                sym = NULL;
+                lily_raise_syn(parser->raiser,
+                        "%s is a variant (use %s.%s or .%s instead).",
+                        name, self_cls->name, name, name);
         }
     }
 

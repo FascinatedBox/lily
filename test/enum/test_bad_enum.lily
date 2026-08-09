@@ -303,6 +303,27 @@ class TestBadEnum < TestCase
                 Four
             }
         """)
+
+        # enum rules (no direct variant access)
+
+        assert_parse_fails(t, """\
+            SyntaxError: One is a variant (use Example.One or .One instead).
+
+               |
+             5 | var w = One
+               |         ^
+
+                from [test]:5:
+        """,
+        """\
+            enum Example {
+                One, Two, Three
+
+                define f {
+                    var w = One
+                }
+            }
+        """)
     }
 
     public define test_bad_shorthand
