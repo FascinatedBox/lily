@@ -1088,7 +1088,7 @@ class TestBadClass < TestCase
         # blocked for consistency (require @<name> always)
 
         assert_parse_fails(t, """\
-            SyntaxError: Use @<name> to get/set properties, not self.<name>.
+            SyntaxError: x is a property (use @x instead of self.x).
 
                |
              4 | @x = self.x
@@ -1108,7 +1108,7 @@ class TestBadClass < TestCase
         # class rules (direct access to a property)
 
         assert_parse_fails(t, """\
-            SyntaxError: x is a property, and must be referenced as @x.
+            SyntaxError: x is a property (use @x instead).
 
                |
              5 | var y = x

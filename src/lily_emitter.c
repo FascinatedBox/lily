@@ -1955,7 +1955,8 @@ static uint16_t eval_oo_access_for_item(lily_emit_state *emit, lily_ast *ast)
     if (sym->item_kind == ITEM_PROPERTY &&
         ast->arg_start->tree_type == tree_self)
         lily_raise_tree(emit->raiser, ast->arg_start,
-                "Use @<name> to get/set properties, not self.<name>.");
+                "%s is a property (use @%s instead of self.%s).", oo_name,
+                oo_name, oo_name);
     else if (sym->item_kind & ITEM_IS_VARIANT)
         lily_raise_tree(emit->raiser, ast->arg_start,
                 "Not allowed to access a variant through an enum instance.");
