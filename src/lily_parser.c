@@ -1642,9 +1642,8 @@ static void collect_call_args(lily_parse_state *parser, void *target,
     variants/properties.
 
     Toplevel symbols link to each other so that toplevel search doesn't match to
-    a symbol that wouldn't be visible. For enums, the offset is also used to
-    implement scoping: Flat enums point to their variants while scoped enums
-    point past them. The info table is always terminated with a "Z" record.
+    a symbol that wouldn't be visible. The info table is always terminated with
+    a "Z" record.
 
     When a module is first loaded (except for prelude), no symbols are loaded.
     Instead, the interpreter waits until a symbol is explicitly specified. When
@@ -5349,34 +5348,6 @@ static void keyword_enum(lily_parse_state *parser)
         enum_method_check(parser);
 }
 
-static void keyword_scoped(lily_parse_state *parser)
-{
-    lily_block *block = parser->emit->block;
-    lily_lex_state *lex = parser->lex;
-
-    if (block->block_type != block_file)
-        lily_raise_syn(parser->raiser,
-            "Cannot declare an enum while inside a block.");
-
-    lily_next_token(lex);
-    expect_word(parser, "enum");
-    NEED_NEXT_IDENT("Expected an enum name here.")
-
-    lily_item *search_item = search_for_valid_classlike(parser, lex->label);
-
-    if (search_item)
-        error_class_redeclaration(parser, search_item);
-
-    lily_class *enum_cls = lily_new_enum_class(parser->symtab, lex->label,
-            lex->line_num);
-
-    enum_cls->item_kind = ITEM_ENUM_SCOPED;
-    parse_enum_header(parser, enum_cls);
-
-    if ((parser->flags & PARSER_IN_MANIFEST) == 0)
-        enum_method_check(parser);
-}
-
 static void verify_class_match_case(lily_parse_state *parser,
         lily_class *match_cls, lily_class *cls)
 {
@@ -6555,8 +6526,7 @@ static void manifest_loop(lily_parse_state *parser)
             if (key_id == KEY_DEFINE)
                 manifest_define(parser);
             else if (key_id == KEY_CLASS ||
-                     key_id == KEY_ENUM ||
-                     key_id == KEY_SCOPED) {
+                     key_id == KEY_ENUM) {
                 handlers[key_id](parser);
             }
             else if (key_id == KEY_PUBLIC ||

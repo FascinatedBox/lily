@@ -52,7 +52,6 @@ keyword_entry keywords[] =
     {"class", 495857003619},
     {"public", 109304441107824},
     {"static", 109304575259763},
-    {"scoped", 110386840822643},
     {"define", 111524889126244},
     {"return", 121437875889522},
     {"except", 128026086176869},
@@ -82,18 +81,17 @@ keyword_entry keywords[] =
 # define KEY_CLASS 14
 # define KEY_PUBLIC 15
 # define KEY_STATIC 16
-# define KEY_SCOPED 17
-# define KEY_DEFINE 18
-# define KEY_RETURN 19
-# define KEY_EXCEPT 20
-# define KEY_IMPORT 21
-# define KEY_FORWARD 22
-# define KEY_PRIVATE 23
-# define KEY_VIRTUAL 24
-# define KEY_PROTECTED 25
-# define KEY_CONTINUE 26
-# define KEY_CONSTANT 27
-# define KEY_BAD_ID 28
+# define KEY_DEFINE 17
+# define KEY_RETURN 18
+# define KEY_EXCEPT 19
+# define KEY_IMPORT 20
+# define KEY_FORWARD 21
+# define KEY_PRIVATE 22
+# define KEY_VIRTUAL 23
+# define KEY_PROTECTED 24
+# define KEY_CONTINUE 25
+# define KEY_CONSTANT 26
+# define KEY_BAD_ID 27
 
 static void expr_arrow(lily_parse_state *, uint16_t *);
 static void expr_binary(lily_parse_state *, uint16_t *);
@@ -200,7 +198,6 @@ static void keyword_break(lily_parse_state *);
 static void keyword_class(lily_parse_state *);
 static void keyword_public(lily_parse_state *);
 static void keyword_static(lily_parse_state *);
-static void keyword_scoped(lily_parse_state *);
 static void keyword_define(lily_parse_state *);
 static void keyword_return(lily_parse_state *);
 static void keyword_except(lily_parse_state *);
@@ -231,7 +228,6 @@ static keyword_handler *handlers[] =
     keyword_class,
     keyword_public,
     keyword_static,
-    keyword_scoped,
     keyword_define,
     keyword_return,
     keyword_except,
@@ -246,7 +242,7 @@ static keyword_handler *handlers[] =
 
 static const int valid_docblock_table[] = {
     0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1,
-    0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
+    0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
 };
 
 #endif

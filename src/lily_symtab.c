@@ -678,8 +678,8 @@ lily_sym *lily_find_symbol(lily_module_entry *m, const char *name)
     return result;
 }
 
-/* Scoped variants are stored within the enum they're part of. This will try to
-   find a variant stored within 'enum_cls'. */
+/* Variants are stored within the enum they're part of. This will try to find a
+   variant stored within 'enum_cls'. */
 lily_variant_class *lily_find_variant(lily_class *enum_cls, const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
