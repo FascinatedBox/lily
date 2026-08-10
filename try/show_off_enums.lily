@@ -8,17 +8,19 @@ enum Tree {
                 return v
 
             case Array(a):
+                var after = " "
                 var result = "["
                 var size = a.size() - 1
 
-                for i in 0...size: {
-                    result = "{}{}".format(result, a[i].as_string())
-                    if i != size: {
-                        result = result ++ " "
+                for i, elem in a: {
+                    if i == size: {
+                        after = "]"
                     }
+
+                    result = result ++ elem.as_string() ++ after
                 }
 
-                return result ++ "]"
+                return result
         }
     }
 }
