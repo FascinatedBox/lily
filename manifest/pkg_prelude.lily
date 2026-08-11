@@ -843,8 +843,7 @@ predefined Result[A, B] {
 ### The `Exception` class is the base class of all exceptions. It defines two
 ### properties: A `message` as `String`, and a `traceback` as `List[String]`.
 ### The `traceback` field is rewritten whenever an exception instance is raised.
-predefined Exception(message: String) {
-    public var @message: String
+predefined Exception(public var @message: String) {
     public var @traceback: List[String]
 }
 
