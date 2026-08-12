@@ -2437,11 +2437,9 @@ void lily_vm_execute(lily_vm_state *vm)
                 do_o_exception_raise(vm, lhs_reg);
                 break;
             case o_instance_new:
-            {
                 do_o_new_instance(vm, code);
                 code += 4;
                 break;
-            }
             case o_jump_if_not_class:
                 lhs_reg = vm_regs[code[2]];
 
