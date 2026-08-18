@@ -145,7 +145,7 @@ typedef struct lily_class_ {
     uint16_t dyna_start;
 
     /* This is the module that the class/enum comes from, used by dynaload. */
-    struct lily_module_entry_ *module;
+    struct lily_module_ *module;
 
     /* For polymorphic classes/enums, this contains a linked list of all types
        that represent this class. */
@@ -293,7 +293,7 @@ typedef struct lily_var_ {
 
         /* If this is the backing function for a module (`__main__` or
            `__module__`), this is that module. */
-        struct lily_module_entry_ *module;
+        struct lily_module_ *module;
     };
 } lily_var;
 
@@ -303,7 +303,7 @@ typedef struct lily_module_link_ {
     struct lily_module_link_ *next;
 
     /* This is the module being imported. */
-    struct lily_module_entry_ *module;
+    struct lily_module_ *module;
 
     /* If the module was imported with a certain name (ex: `import a as b`),
        then this is that name. NULL otherwise. */
@@ -319,9 +319,9 @@ typedef struct lily_boxed_sym_ {
 } lily_boxed_sym;
 
 /* This represents a single file or library. */
-typedef struct lily_module_entry_ {
+typedef struct lily_module_ {
     /* All modules loaded are linked together through here. */
-    struct lily_module_entry_ *next;
+    struct lily_module_ *next;
 
     /* This is always ITEM_MODULE. */
     uint16_t item_kind;
@@ -381,7 +381,7 @@ typedef struct lily_module_entry_ {
        that don't have hardcoded ids. If this modules does not need that, then
        this is NULL. */
     uint16_t *cid_table;
-} lily_module_entry;
+} lily_module;
 
 /* Each function value has one of these to hold debug information. */
 typedef struct lily_proto_ {
@@ -453,7 +453,7 @@ typedef struct lily_proto_ {
 /* Here are the symbol flags that are not shared. */
 
 
-/* MODULE_* flags are for lily_module_entry. */
+/* MODULE_* flags are for lily_module. */
 
 
 /* This module is currently being executed. */

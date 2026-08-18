@@ -22,7 +22,7 @@
 
 static lily_value_stack *new_value_stack(uint16_t);
 
-lily_symtab *lily_new_symtab(lily_module_entry *prelude)
+lily_symtab *lily_new_symtab(lily_module *prelude)
 {
     lily_symtab *symtab = lily_malloc(sizeof(*symtab));
 
@@ -156,7 +156,7 @@ static void free_literals(lily_value_stack *literals)
     lily_free(literals);
 }
 
-void lily_free_module_symbols(lily_module_entry *entry)
+void lily_free_module_symbols(lily_module *entry)
 {
     free_classes(entry->class_chain);
     free_vars(entry->var_chain);
@@ -164,7 +164,7 @@ void lily_free_module_symbols(lily_module_entry *entry)
         free_boxed_syms(entry->boxed_chain);
 }
 
-void lily_rewind_symtab(lily_symtab *symtab, lily_module_entry *main_module,
+void lily_rewind_symtab(lily_symtab *symtab, lily_module *main_module,
         lily_class *stop_class, lily_var *stop_var, lily_boxed_sym *stop_box,
         int executing)
 {
@@ -516,7 +516,7 @@ static uint64_t shorthash_for_name(const char *name)
     return ret;
 }
 
-static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
+static lily_sym *find_boxed_sym(lily_module *m, const char *name,
         uint64_t shorthash)
 {
     lily_boxed_sym *boxed_iter = m->boxed_chain;
@@ -537,7 +537,7 @@ static lily_sym *find_boxed_sym(lily_module_entry *m, const char *name,
     return result;
 }
 
-lily_class *lily_find_class(lily_module_entry *m, const char *name)
+lily_class *lily_find_class(lily_module *m, const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
     lily_class *result = NULL;
@@ -582,7 +582,7 @@ lily_class *lily_find_class(lily_module_entry *m, const char *name)
     return result;
 }
 
-lily_var *lily_find_var(lily_module_entry *m, const char *name)
+lily_var *lily_find_var(lily_module *m, const char *name)
 {
     uint64_t shorthash = shorthash_for_name(name);
     lily_var *result = NULL;
@@ -664,7 +664,7 @@ lily_named_sym *lily_find_member_in_class(lily_class *cls, const char *name)
     return result;
 }
 
-lily_sym *lily_find_symbol(lily_module_entry *m, const char *name)
+lily_sym *lily_find_symbol(lily_module *m, const char *name)
 {
     lily_sym *result = (lily_sym *)lily_find_var(m, name);
 
@@ -720,10 +720,10 @@ lily_variant_class *lily_find_variant_with_lit(lily_class *enum_cls,
     return (lily_variant_class *)sym_iter;
 }
 
-lily_module_entry *lily_find_module(lily_module_entry *module, const char *name)
+lily_module *lily_find_module(lily_module *module, const char *name)
 {
     lily_module_link *link_iter = module->module_chain;
-    lily_module_entry *result = NULL;
+    lily_module *result = NULL;
     while (link_iter) {
         char *as_name = link_iter->as_name;
         char *loadname = link_iter->module->loadname;
@@ -966,11 +966,11 @@ void lily_fix_enum_type_ids(lily_class *enum_cls)
    is used to give classes out to instances and enums that are built. The class
    information is later used to differentiate different instances. */
 void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm,
-        lily_module_entry *prelude)
+        lily_module *prelude)
 {
     lily_vm_ensure_class_table(vm, symtab->next_class_id + 1);
 
-    lily_module_entry *module_iter = prelude;
+    lily_module *module_iter = prelude;
     while (module_iter) {
         lily_class *class_iter = module_iter->class_chain;
         while (class_iter) {
@@ -1000,7 +1000,7 @@ void lily_register_classes(lily_symtab *symtab, lily_vm_state *vm,
     lily_vm_add_class_unchecked(vm, symtab->integer_class);
 }
 
-void lily_add_symbol_ref(lily_module_entry *m, lily_sym *sym)
+void lily_add_symbol_ref(lily_module *m, lily_sym *sym)
 {
     lily_boxed_sym *box = lily_malloc(sizeof(*box));
 

@@ -77,10 +77,10 @@ void lily_open_prelude_library(lily_parse_state *);
 typedef struct {
     const char **table;
     const char *entry;
-    lily_module_entry *m;
+    lily_module *m;
     lily_class *cls;
     lily_item *result;
-    lily_module_entry *saved_active;
+    lily_module *saved_active;
     uint16_t saved_generics;
     uint16_t index;
     uint32_t pad;
@@ -91,7 +91,7 @@ typedef struct lily_rewind_state_
     lily_class *main_class_start;
     lily_var *main_var_start;
     lily_boxed_sym *main_boxed_start;
-    lily_module_entry *main_last_module;
+    lily_module *main_last_module;
     uint16_t line_num;
     uint16_t pending;
     uint8_t exit_status;
@@ -202,7 +202,7 @@ lily_state *lily_new_state(lily_config *config)
     parser->emit->lex_linenum = &parser->lex->line_num;
 
     /* Build the module that will hold `__main__`. */
-    lily_module_entry *main_module = lily_ims_create_main(parser->ims);
+    lily_module *main_module = lily_ims_create_main(parser->ims);
 
     parser->main_module = main_module;
     parser->symtab->active_module = parser->main_module;
@@ -279,7 +279,7 @@ static void rewind_parser(lily_parse_state *parser)
     parser->current_class = NULL;
 
     /* Parser's flags are reset when the first content loads. */
-    lily_module_entry *module_iter = parser->rs->main_last_module;
+    lily_module *module_iter = parser->rs->main_last_module;
 
     while (module_iter) {
         /* Hide broken modules from being loaded in the next pass as though
@@ -318,7 +318,7 @@ static void rewind_interpreter(lily_parse_state *parser)
 static void initialize_rewind(lily_parse_state *parser)
 {
     lily_rewind_state *rs = parser->rs;
-    lily_module_entry *m = parser->main_module;
+    lily_module *m = parser->main_module;
 
     rs->main_class_start = m->class_chain;
     rs->main_var_start = m->var_chain;
@@ -546,13 +546,13 @@ static void set_definition_doc(lily_parse_state *parser)
  */
 
 static lily_class *find_run_class_dynaload(lily_parse_state *,
-        lily_module_entry *, const char *);
-static lily_module_entry *find_run_module_dynaload(lily_parse_state *,
-        lily_module_entry *, const char *);
+        lily_module *, const char *);
+static lily_module *find_run_module_dynaload(lily_parse_state *,
+        lily_module *, const char *);
 
 static lily_var *find_active_var(lily_parse_state *parser, const char *name)
 {
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_var *result = lily_find_var(m, name);
 
     return result;
@@ -564,7 +564,7 @@ static lily_class *find_dl_active_class(lily_parse_state *parser,
     lily_class *result = lily_find_class(parser->prelude, name);
 
     if (result == NULL) {
-        lily_module_entry *m = parser->symtab->active_module;
+        lily_module *m = parser->symtab->active_module;
 
         result = lily_find_class(m, name);
 
@@ -580,7 +580,7 @@ static lily_class *find_dl_active_class(lily_parse_state *parser,
 }
 
 static lily_class *find_dl_class_in(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+        lily_module *m, const char *name)
 {
     lily_class *result = lily_find_class(m, name);
 
@@ -590,10 +590,10 @@ static lily_class *find_dl_class_in(lily_parse_state *parser,
     return result;
 }
 
-static lily_module_entry *find_dl_module_in(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+static lily_module *find_dl_module_in(lily_parse_state *parser, lily_module *m,
+        const char *name)
 {
-    lily_module_entry *result = lily_find_module(m, name);
+    lily_module *result = lily_find_module(m, name);
 
     if (result == NULL && m->info_table)
         result = find_run_module_dynaload(parser, m, name);
@@ -627,7 +627,7 @@ static lily_function_val *make_new_function(lily_parse_state *parser,
         lily_var *var)
 {
     lily_function_val *f = lily_malloc(sizeof(*f));
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_proto *proto = lily_emit_new_proto(parser->emit, m->path, var);
 
     /* This won't get a ref bump from being moved/assigned since all functions
@@ -743,7 +743,7 @@ static lily_var *new_constant_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
     lily_var *var = new_var(parser, name, line_num);
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
 
     /* Constants get their id from the literal they're assigned to. */
     var->item_kind = ITEM_CONSTANT;
@@ -763,7 +763,7 @@ static lily_var *new_local_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
     lily_var *var = new_var(parser, name, line_num);
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
 
     var->function_depth = parser->emit->function_depth;
     var->reg_spot = parser->emit->scope_block->next_reg_spot;
@@ -789,7 +789,7 @@ static lily_var *new_global_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
     lily_var *var = new_var(parser, name, line_num);
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
 
     var->function_depth = 1;
     var->reg_spot = parser->symtab->next_global_id;
@@ -814,7 +814,7 @@ static lily_var *new_define_var(lily_parse_state *parser, const char *name,
         uint16_t line_num)
 {
     lily_var *var = new_var(parser, name, line_num);
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
 
     /* Symtab sets reg_spot when the function is made. */
     var->item_kind = ITEM_DEFINE;
@@ -978,7 +978,7 @@ static lily_class *resolve_class_name(lily_parse_state *parser)
     if (result)
         return result;
 
-    lily_module_entry *m = find_dl_module_in(parser,
+    lily_module *m = find_dl_module_in(parser,
             parser->symtab->active_module, name);
 
     while (m) {
@@ -1661,7 +1661,7 @@ static void parse_value_variant(lily_parse_state *, lily_variant_class *);
 static void parse_variant_header(lily_parse_state *, lily_variant_class *);
 static lily_var *try_dynaload_method(lily_parse_state *, lily_class *,
         const char *);
-static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module_entry *,
+static lily_item *try_toplevel_dynaload(lily_parse_state *, lily_module *,
         const char *);
 typedef void (dyna_function)(lily_parse_state *, lily_dyna_state *);
 
@@ -1671,13 +1671,13 @@ typedef void (dyna_function)(lily_parse_state *, lily_dyna_state *);
 /* This function scans through the first line in the dynaload table to find the
    cid entries listed. For each of those cid entries, the ones currently
    available are loaded into the appropriate place in the cid table. */
-static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
+static void update_cid_table(lily_parse_state *parser, lily_module *m)
 {
     const char *cid_entry = m->info_table[0] + 1;
     int counter = 0;
     int stop = cid_entry[-1];
     uint16_t *cid_table = m->cid_table;
-    lily_module_entry *prelude = parser->prelude;
+    lily_module *prelude = parser->prelude;
 
     while (counter < stop) {
         if (cid_table[counter] == 0) {
@@ -1696,7 +1696,7 @@ static void update_cid_table(lily_parse_state *parser, lily_module_entry *m)
 
 static void update_all_cid_tables(lily_parse_state *parser)
 {
-    lily_module_entry *entry_iter = parser->prelude;
+    lily_module *entry_iter = parser->prelude;
     while (entry_iter) {
         if (entry_iter->cid_table)
             update_cid_table(parser, entry_iter);
@@ -1784,7 +1784,7 @@ static int dyna_find_class_method(lily_dyna_state *ds, lily_class *cls,
 }
 
 static int dyna_find_toplevel_item(lily_dyna_state *ds,
-        lily_module_entry *m, const char *name)
+        lily_module *m, const char *name)
 {
     ds->result = NULL;
 
@@ -1855,7 +1855,7 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
     dyna_save(parser, ds);
     lily_next_token(parser->lex);
 
-    lily_module_entry *m = ds->m;
+    lily_module *m = ds->m;
     lily_type *type = get_type_raw(parser, 0);
     lily_var *var = new_global_var(parser, dyna_get_name(ds), 0);
 
@@ -2212,7 +2212,7 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
 
 static void dynaload_module(lily_parse_state *parser, lily_dyna_state *ds)
 {
-    lily_module_entry *m = ds->m;
+    lily_module *m = ds->m;
     lily_foreign_func module_loader = m->call_table[ds->index];
 
     /* Clear off prior import data, or the last module will be returned. */
@@ -2230,7 +2230,7 @@ static void dynaload_module(lily_parse_state *parser, lily_dyna_state *ds)
 static void dynaload_function(lily_parse_state *parser, lily_dyna_state *ds)
 {
     const char *name = dyna_get_name(ds);
-    lily_module_entry *m = ds->m;
+    lily_module *m = ds->m;
     lily_var *var;
 
     dyna_save(parser, ds);
@@ -2283,7 +2283,7 @@ static lily_item *run_dynaload(lily_parse_state *parser,
 }
 
 static lily_item *try_toplevel_dynaload(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+        lily_module *m, const char *name)
 {
     lily_dyna_state ds;
     lily_item *result = NULL;
@@ -2308,7 +2308,7 @@ static lily_var *try_dynaload_method(lily_parse_state *parser, lily_class *cls,
 #define ITEM_CLASSLIKE (ITEM_IS_VARIANT | ITEM_IS_CLASS | ITEM_IS_ENUM)
 
 static lily_class *find_run_class_dynaload(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+        lily_module *m, const char *name)
 {
     lily_item *result = try_toplevel_dynaload(parser, m, name);
 
@@ -2320,8 +2320,8 @@ static lily_class *find_run_class_dynaload(lily_parse_state *parser,
 
 #undef ITEM_CLASSLIKE
 
-static lily_module_entry *find_run_module_dynaload(lily_parse_state *parser,
-        lily_module_entry *m, const char *name)
+static lily_module *find_run_module_dynaload(lily_parse_state *parser,
+        lily_module *m, const char *name)
 {
     lily_dyna_state ds;
 
@@ -2330,7 +2330,7 @@ static lily_module_entry *find_run_module_dynaload(lily_parse_state *parser,
         return NULL;
 
     dynaload_module(parser, &ds);
-    return (lily_module_entry *)ds.result;
+    return (lily_module *)ds.result;
 }
 
 lily_class *lily_dynaload_exception(lily_parse_state *parser, const char *name)
@@ -2512,7 +2512,7 @@ static int maybe_digit_fixup(lily_parse_state *parser)
 
 static void push_dir_constant(lily_parse_state *parser)
 {
-    lily_module_entry *module = parser->symtab->active_module;
+    lily_module *module = parser->symtab->active_module;
     char *dir = lily_ims_dir_from_path(module->path);
     const char *push_dir = "." LILY_PATH_SLASH;
 
@@ -2746,11 +2746,11 @@ static void expr_word_as_var(lily_parse_state *parser, lily_var *var)
 
 static void expr_match(lily_parse_state *, uint16_t *);
 
-static lily_module_entry *walk_module(lily_parse_state *parser,
-        lily_module_entry *m)
+static lily_module *walk_module(lily_parse_state *parser,
+        lily_module *m)
 {
     lily_lex_state *lex = parser->lex;
-    lily_module_entry *result = m;
+    lily_module *result = m;
 
     while (1) {
         NEED_NEXT_TOK(tk_dot)
@@ -2780,7 +2780,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
 
     lily_symtab *symtab = parser->symtab;
     lily_lex_state *lex = parser->lex;
-    lily_module_entry *m = symtab->active_module;
+    lily_module *m = symtab->active_module;
     lily_sym *sym = lily_find_symbol(m, lex->label);
 
     /* Words are always values, so an operator should always come next. */
@@ -2792,7 +2792,7 @@ static void expr_word(lily_parse_state *parser, uint16_t *state)
            final module. */
         if (sym->item_kind == ITEM_MODULE) {
 handle_module:;
-            m = walk_module(parser, (lily_module_entry *)sym);
+            m = walk_module(parser, (lily_module *)sym);
             sym = lily_find_symbol(m, lex->label);
         }
     }
@@ -3598,7 +3598,7 @@ static void bad_decl_token(lily_parse_state *parser)
 static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
         lily_msgbuf *msgbuf)
 {
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_var *var_iter;
 
     if (parser->emit->block->block_type == block_file)
@@ -3619,7 +3619,7 @@ static void add_unresolved_defines_to_msgbuf(lily_parse_state *parser,
 static void add_unresolved_methods_to_msgbuf(lily_parse_state *parser,
         lily_msgbuf *msgbuf)
 {
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_block *block = parser->emit->block;
     lily_class *class_iter = m->class_chain;
 
@@ -3740,7 +3740,7 @@ static void finish_define_init(lily_parse_state *parser, lily_var *var)
 static void add_unresolved_classes_to_msgbuf(lily_parse_state *parser,
         lily_msgbuf *msgbuf)
 {
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_class *class_iter = m->class_chain;
 
     while (class_iter) {
@@ -4248,10 +4248,10 @@ static void keyword_do(lily_parse_state *parser)
 /* This links 'count' symbols from 'source' into the active module. The symbol
    names come from popping names inserted by collect_import_refs. */
 static void link_import_syms(lily_parse_state *parser,
-        lily_module_entry *source, uint16_t count)
+        lily_module *source, uint16_t count)
 {
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *active = symtab->active_module;
+    lily_module *active = symtab->active_module;
     lily_buffer_u16 *buffer = parser->data_stack;
     uint16_t start = lily_u16_pos(buffer) - (count * 2);
     uint16_t iter = start, restore_to = start;
@@ -4295,7 +4295,7 @@ fail_redeclaration: ;
         if (sym->item_kind != ITEM_MODULE)
             lily_add_symbol_ref(active, sym);
         else
-            lily_ims_link_module_to(active, (lily_module_entry *)sym, name);
+            lily_ims_link_module_to(active, (lily_module *)sym, name);
 
         iter += 2;
         count--;
@@ -4376,7 +4376,7 @@ static void parse_import_path_into_ims(lily_parse_state *parser)
 static void parse_import_target(lily_parse_state *parser)
 {
     lily_import_state *ims = parser->ims;
-    lily_module_entry *active = parser->symtab->active_module;
+    lily_module *active = parser->symtab->active_module;
     uint16_t count = parse_import_refs(parser);
 
     parse_import_path_into_ims(parser);
@@ -4389,11 +4389,11 @@ static void parse_import_target(lily_parse_state *parser)
                 ims->pending_loadname);
 }
 
-static void parse_import_link(lily_parse_state *parser, lily_module_entry *m)
+static void parse_import_link(lily_parse_state *parser, lily_module *m)
 {
     uint16_t import_sym_count = lily_u16_pop(parser->data_stack);
 
-    lily_module_entry *active = parser->symtab->active_module;
+    lily_module *active = parser->symtab->active_module;
     lily_lex_state *lex = parser->lex;
 
     lily_next_token(lex);
@@ -4422,7 +4422,7 @@ static void parse_import_link(lily_parse_state *parser, lily_module_entry *m)
                 "Cannot use 'as' when only specific items are being imported.");
 }
 
-static void enter_module(lily_parse_state *parser, lily_module_entry *m)
+static void enter_module(lily_parse_state *parser, lily_module *m)
 {
     /* The flag is changed so that rewind can identify modules that didn't
        fully load and hide them from a subsequent pass. */
@@ -4453,7 +4453,7 @@ static void import_loop(lily_parse_state *parser)
     while (1) {
         parse_import_target(parser);
 
-        lily_module_entry *m = lily_ims_open_module(parser);
+        lily_module *m = lily_ims_open_module(parser);
 
         if (m->flags & MODULE_NOT_EXECUTED) {
             enter_module(parser, m);
@@ -4477,7 +4477,7 @@ static void finish_import(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *m = symtab->active_module;
+    lily_module *m = symtab->active_module;
     uint16_t last_line = lex->line_num;
 
     /* Don't hide vars (these are globals). */
@@ -5966,7 +5966,7 @@ static void maybe_capture_stdout(lily_parse_state *parser)
     if (gs->stdout_reg_spot != UINT16_MAX)
         return;
 
-    lily_module_entry *prelude = parser->prelude;
+    lily_module *prelude = parser->prelude;
     lily_var *stdout_var = lily_find_var(prelude, "stdout");
 
     if (stdout_var)
@@ -6353,7 +6353,7 @@ static void manifest_forward(lily_parse_state *parser)
 
 static void manifest_override_prelude(lily_parse_state *parser)
 {
-    lily_module_entry *prelude = parser->prelude;
+    lily_module *prelude = parser->prelude;
     lily_block *scope_block = parser->emit->scope_block;
 
     parser->symtab->active_module = prelude;
@@ -6373,7 +6373,7 @@ static void manifest_override_prelude(lily_parse_state *parser)
 
 static void manifest_library(lily_parse_state *parser)
 {
-    lily_module_entry *m = parser->symtab->active_module;
+    lily_module *m = parser->symtab->active_module;
     lily_block *scope_block = parser->emit->scope_block;
     lily_lex_state *lex = parser->lex;
 
@@ -6455,7 +6455,7 @@ static void manifest_predefined(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     lily_symtab *symtab = parser->symtab;
-    lily_module_entry *prelude = parser->prelude;
+    lily_module *prelude = parser->prelude;
 
     /* This keyword is strictly for the prelude manifest. It allows the prelude
        module to redefine prelude classes/enums.
@@ -6577,7 +6577,7 @@ static void manifest_loop(lily_parse_state *parser)
 static void update_main_name(lily_parse_state *parser,
         const char *filename)
 {
-    lily_module_entry *module = parser->main_module;
+    lily_module *module = parser->main_module;
 
     if (module->path &&
         strcmp(module->path, filename) == 0)

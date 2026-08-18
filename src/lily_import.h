@@ -19,18 +19,18 @@ typedef enum {
    before importing begins. */
 typedef struct lily_import_state_ {
     /* The prelude is also the start when walking modules. */
-    lily_module_entry *prelude;
-    lily_module_entry *module_top;
+    lily_module *prelude;
+    lily_module *module_top;
 
     /* Buffer for constructing paths into. */
     lily_msgbuf *path_msgbuf;
 
     /* This is set to NULL before running the import hook. If an import function
        succeeds, this is non-NULL. */
-    lily_module_entry *last_import;
+    lily_module *last_import;
 
     /* This module called for the import. */
-    lily_module_entry *source_module;
+    lily_module *source_module;
 
     /* Strictly for the import hook (might be NULL/invalid outside of it). This
        is the name that the imported module will have. It is also the name used
@@ -65,11 +65,10 @@ void lily_free_import_state(lily_import_state *);
 void lily_default_import_func(lily_state *, const char *);
 const char *lily_ims_build_path(lily_import_state *, const char *,
         const char *);
-lily_module_entry *lily_ims_create_main(lily_import_state *);
+lily_module *lily_ims_create_main(lily_import_state *);
 char *lily_ims_dir_from_path(const char *);
-void lily_ims_link_module_to(lily_module_entry *, lily_module_entry *,
-        const char *);
-lily_module_entry *lily_ims_open_module(struct lily_parse_state_ *);
+void lily_ims_link_module_to(lily_module *, lily_module *, const char *);
+lily_module *lily_ims_open_module(struct lily_parse_state_ *);
 void lily_ims_process_sys_dirs(struct lily_parse_state_ *, lily_config *);
 
 #endif

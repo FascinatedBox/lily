@@ -130,7 +130,7 @@ static void run_test_code(test_data *td)
     /* All testing methods should be in one testing class. That testing class
        should be the only one that starts with Test. */
     lily_parse_state *parser = s->gs->parser;
-    lily_module_entry *main_module = parser->main_module;
+    lily_module *main_module = parser->main_module;
     lily_class *cls = main_module->class_chain;
     lily_class *target_cls = NULL;
 

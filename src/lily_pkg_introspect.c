@@ -113,7 +113,7 @@ typedef struct {
 
 typedef struct {
     LILY_FOREIGN_HEADER
-    lily_module_entry *entry;
+    lily_module *entry;
 } lily_introspect_ModuleEntry;
 
 typedef struct {
@@ -288,7 +288,7 @@ static void make_method(lily_state *s, lily_class *entry,
     new_entry->parent = entry;
 }
 
-static void make_module(lily_state *s, lily_module_entry *source) {
+static void make_module(lily_state *s, lily_module *source) {
     lily_introspect_ModuleEntry *new_entry = INIT_ModuleEntry(s);
     new_entry->entry = source;
 }
@@ -803,7 +803,7 @@ void lily_introspect_EnumEntry_variants(lily_state *s)
 void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_boxed_sym *source = entry->boxed_chain;
     lily_boxed_sym *source_iter = source;
 
@@ -813,7 +813,7 @@ void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
 void lily_introspect_ModuleEntry_boxed_constants(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_boxed_sym *source = entry->boxed_chain;
     lily_boxed_sym *source_iter = source;
 
@@ -823,7 +823,7 @@ void lily_introspect_ModuleEntry_boxed_constants(lily_state *s)
 void lily_introspect_ModuleEntry_boxed_enums(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_boxed_sym *source = entry->boxed_chain;
     lily_boxed_sym *source_iter = source;
 
@@ -833,7 +833,7 @@ void lily_introspect_ModuleEntry_boxed_enums(lily_state *s)
 void lily_introspect_ModuleEntry_boxed_functions(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_boxed_sym *source = entry->boxed_chain;
     lily_boxed_sym *source_iter = source;
 
@@ -843,7 +843,7 @@ void lily_introspect_ModuleEntry_boxed_functions(lily_state *s)
 void lily_introspect_ModuleEntry_boxed_vars(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_boxed_sym *source = entry->boxed_chain;
     lily_boxed_sym *source_iter = source;
 
@@ -854,7 +854,7 @@ void lily_introspect_ModuleEntry_classes(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_class *source = entry->class_chain;
     lily_class *source_iter = source;
 
@@ -865,7 +865,7 @@ void lily_introspect_ModuleEntry_constants(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_var *source = entry->var_chain;
     lily_var *source_iter = source;
 
@@ -874,14 +874,14 @@ void lily_introspect_ModuleEntry_constants(lily_state *s)
 
 void lily_introspect_ModuleEntry_dirname(lily_state *s)
 {
-    FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, dirname,
+    FETCH_FIELD_SAFE(ModuleEntry, lily_module, const char *, dirname,
            lily_push_string, "");
 }
 
 void lily_introspect_ModuleEntry_doc(lily_state *s)
 {
     /* Can't use VarEntry.doc because modules don't align to lily_sym. */
-    UNPACK_FIRST_ARG(ModuleEntry, lily_module_entry *);
+    UNPACK_FIRST_ARG(ModuleEntry, lily_module *);
     return_doc(s, entry->doc_id);
 }
 
@@ -889,7 +889,7 @@ void lily_introspect_ModuleEntry_enums(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_class *source = entry->class_chain;
     lily_class *source_iter = source;
 
@@ -900,7 +900,7 @@ void lily_introspect_ModuleEntry_functions(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_var *source = entry->var_chain;
     lily_var *source_iter = source;
 
@@ -909,14 +909,14 @@ void lily_introspect_ModuleEntry_functions(lily_state *s)
 
 void lily_introspect_ModuleEntry_id(lily_state *s)
 {
-    FETCH_FIELD(ModuleEntry, lily_module_entry, uint16_t, id,
+    FETCH_FIELD(ModuleEntry, lily_module, uint16_t, id,
             lily_push_integer);
 }
 
 void lily_introspect_ModuleEntry_modules_used(lily_state *s)
 {
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_module_link *source = entry->module_chain;
     lily_module_link *source_iter = source;
 
@@ -926,13 +926,13 @@ void lily_introspect_ModuleEntry_modules_used(lily_state *s)
 void lily_introspect_ModuleEntry_name(lily_state *s)
 {
     /* Can't use VarEntry.name because modules don't align to lily_sym. */
-    FETCH_FIELD_SAFE(ModuleEntry, lily_module_entry, const char *, loadname,
+    FETCH_FIELD_SAFE(ModuleEntry, lily_module, const char *, loadname,
             lily_push_string, "[main]");
 }
 
 void lily_introspect_ModuleEntry_path(lily_state *s)
 {
-    FETCH_FIELD(ModuleEntry, lily_module_entry, const char *, path,
+    FETCH_FIELD(ModuleEntry, lily_module, const char *, path,
             lily_push_string);
 }
 
@@ -940,7 +940,7 @@ void lily_introspect_ModuleEntry_vars(lily_state *s)
 {
     /* Do not use boxed elements too. Those are another module's elements. */
     lily_introspect_ModuleEntry *introspect_entry = ARG_ModuleEntry(s, 0);
-    lily_module_entry *entry = introspect_entry->entry;
+    lily_module *entry = introspect_entry->entry;
     lily_var *source = entry->var_chain;
     lily_var *source_iter = source;
 
@@ -959,7 +959,7 @@ void lily_introspect__class_name(lily_state *s)
 void lily_introspect__main_module(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
-    lily_module_entry *source = parser->main_module;
+    lily_module *source = parser->main_module;
 
     make_module(s, source);
     lily_return_top(s);
@@ -968,8 +968,8 @@ void lily_introspect__main_module(lily_state *s)
 void lily_introspect__module_list(lily_state *s)
 {
     lily_parse_state *parser = s->gs->parser;
-    lily_module_entry *source = parser->prelude;
-    lily_module_entry *source_iter = source;
+    lily_module *source = parser->prelude;
+    lily_module *source_iter = source;
 
     BUILD_LIST_FROM(allow_all, make_module);
 }
