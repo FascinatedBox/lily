@@ -56,10 +56,11 @@ typedef struct lily_vm_catch_entry_ {
 } lily_vm_catch_entry;
 
 /* This is shared by the vm and any coroutines that are created within it. It
-   serves two purposes:
+   serves three purposes:
    * One, that parse updates do not leave a coroutine with stale tables.
    * Two, that there is one set of gc information with 'regs_from_main'
-     belonging to the first state. The first state acts as a main 'thread'. */
+     belonging to the first state. The first state acts as a main 'thread'.
+   * Three, it holds the parser for interpreter api that needs that. */
 typedef struct lily_global_state_ {
     lily_value **regs_from_main;
 
@@ -93,8 +94,6 @@ typedef struct lily_global_state_ {
     uint16_t pad;
 
     struct lily_vm_state_ *first_vm;
-
-    /* This is used to dynaload exceptions when absolutely necessary. */
     struct lily_parse_state_ *parser;
 } lily_global_state;
 
