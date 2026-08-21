@@ -90,8 +90,8 @@ typedef struct lily_global_state_ {
     /* The id of the global register that stdout is in, or UINT16_MAX if stdout
        is not in a register. */
     uint16_t stdout_reg_spot;
-
-    uint16_t pad;
+    uint8_t has_exited;
+    uint8_t exit_status;
 
     struct lily_vm_state_ *first_vm;
     struct lily_parse_state_ *parser;

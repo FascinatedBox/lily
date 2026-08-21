@@ -1267,3 +1267,38 @@ void lily_v21_plus_required(lily_vm_state *vm)
        obvious error. */
     (void)vm;
 }
+
+void lily_interp_exit(lily_state *s, uint8_t status)
+{
+    lily_jump_link *jump_iter = s->raiser->all_jumps;
+
+    s->gs->exit_status = status;
+    s->gs->has_exited = 1;
+
+    while (jump_iter->prev != NULL)
+        jump_iter = jump_iter->prev;
+
+    /* Fix this so raiser deletes all the jumps. */
+    s->raiser->all_jumps = jump_iter;
+    longjmp(jump_iter->jump, 1);
+}
+
+uint8_t lily_exit_code(lily_state *s)
+{
+    uint8_t result;
+
+    if (s->gs->has_exited)
+        result = s->gs->exit_status;
+    else if (s->raiser->source == err_from_none)
+        result = EXIT_SUCCESS;
+    else
+        result = EXIT_FAILURE;
+
+    return result;
+}
+
+int lily_has_exited(lily_state *s)
+{
+    return s->gs->has_exited;
+}
+

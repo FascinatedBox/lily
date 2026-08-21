@@ -113,6 +113,7 @@ lily_vm_state *lily_new_vm_state(lily_raiser *raiser)
     gs->gc_live_entry_count = 0;
     gs->stdout_reg_spot = UINT16_MAX;
     gs->first_vm = vm;
+    gs->has_exited = 0;
 
     vm->gs = gs;
 

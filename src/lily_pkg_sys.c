@@ -8,7 +8,7 @@
 #define LILY_NO_EXPORT
 #include "lily_pkg_sys_bindings.h"
 
-extern void lily_parser_exit(lily_state *, uint8_t);
+extern void lily_interp_exit(lily_state *, uint8_t);
 
 void lily_sys_var_argv(lily_state *s)
 {
@@ -26,17 +26,17 @@ void lily_sys_var_argv(lily_state *s)
 
 void lily_sys__exit(lily_state *s)
 {
-    lily_parser_exit(s, lily_arg_byte(s, 0));
+    lily_interp_exit(s, lily_arg_byte(s, 0));
 }
 
 void lily_sys__exit_failure(lily_state *s)
 {
-    lily_parser_exit(s, EXIT_FAILURE);
+    lily_interp_exit(s, EXIT_FAILURE);
 }
 
 void lily_sys__exit_success(lily_state *s)
 {
-    lily_parser_exit(s, EXIT_SUCCESS);
+    lily_interp_exit(s, EXIT_SUCCESS);
 }
 
 void lily_sys__getenv(lily_state *s)

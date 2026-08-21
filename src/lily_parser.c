@@ -94,9 +94,7 @@ typedef struct lily_rewind_state_
     lily_module *main_last_module;
     uint16_t line_num;
     uint16_t pending;
-    uint8_t exit_status;
-    uint8_t has_exited;
-    uint16_t pad;
+    uint32_t pad;
 } lily_rewind_state;
 
 void lily_init_pkg_prelude(lily_symtab *);
@@ -154,7 +152,6 @@ lily_state *lily_new_state(lily_config *config)
 
     parser->rs = lily_malloc(sizeof(*parser->rs));
     parser->rs->pending = 0;
-    parser->rs->has_exited = 0;
 
     /* These two are simple and don't depend on other parts. */
     parser->expr = lily_new_expr_state();
@@ -6624,7 +6621,7 @@ static int open_first_content(lily_state *s, const char *filename,
     lily_parse_state *parser = s->gs->parser;
 
     if (parser->flags & PARSER_HAS_CONTENT ||
-        parser->rs->has_exited)
+        s->gs->has_exited)
         return 0;
 
     /* Loading initial content should only be done outside of execution, so
@@ -6670,44 +6667,6 @@ static int open_first_content(lily_state *s, const char *filename,
     /* Do not set a pending rewind here, because no processing took place. */
 
     return 0;
-}
-
-void lily_parser_exit(lily_state *s, uint8_t status)
-{
-    lily_parse_state *parser = s->gs->parser;
-    lily_rewind_state *rs = parser->rs;
-    lily_jump_link *jump_iter = parser->raiser->all_jumps;
-
-    rs->exit_status = status;
-    rs->has_exited = 1;
-
-    while (jump_iter->prev != NULL)
-        jump_iter = jump_iter->prev;
-
-    /* Fix this so raiser deletes all the jumps. */
-    parser->raiser->all_jumps = jump_iter;
-    longjmp(jump_iter->jump, 1);
-}
-
-uint8_t lily_exit_code(lily_state *s)
-{
-    lily_parse_state *parser = s->gs->parser;
-    lily_rewind_state *rs = parser->rs;
-    uint8_t result;
-
-    if (rs->has_exited)
-        result = rs->exit_status;
-    else if (parser->raiser->source == err_from_none)
-        result = EXIT_SUCCESS;
-    else
-        result = EXIT_FAILURE;
-
-    return result;
-}
-
-int lily_has_exited(lily_state *s)
-{
-    return s->gs->parser->rs->has_exited;
 }
 
 int lily_load_file(lily_state *s, const char *filename)
