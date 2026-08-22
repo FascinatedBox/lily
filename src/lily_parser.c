@@ -83,7 +83,12 @@ typedef struct {
     lily_module *saved_active;
     uint16_t saved_generics;
     uint16_t index;
-    uint32_t pad;
+
+    /* Toplevel symbol search counts the number of steps taken. If the symbol is
+       a class or enum, the step count will be the symbol's position in the cid
+       table. */
+    uint16_t steps;
+    uint16_t pad;
 } lily_dyna_state;
 
 typedef struct lily_rewind_state_
@@ -1635,43 +1640,6 @@ typedef void (dyna_function)(lily_parse_state *, lily_dyna_state *);
 /* [0] is the record letter and [1] is the offset. */
 #define DYNA_NAME_OFFSET 2
 
-/* This function scans through the first line in the dynaload table to find the
-   cid entries listed. For each of those cid entries, the ones currently
-   available are loaded into the appropriate place in the cid table. */
-static void update_cid_table(lily_parse_state *parser, lily_module *m)
-{
-    const char *cid_entry = m->info_table[0] + 1;
-    int counter = 0;
-    int stop = cid_entry[-1];
-    uint16_t *cid_table = m->cid_table;
-    lily_module *prelude = parser->prelude;
-
-    while (counter < stop) {
-        if (cid_table[counter] == 0) {
-            lily_class *cls = lily_find_class(prelude, cid_entry);
-
-            if (cls == NULL)
-                cls = lily_find_class(m, cid_entry);
-
-            if (cls)
-                cid_table[counter] = cls->id;
-        }
-        cid_entry += strlen(cid_entry) + 1;
-        counter++;
-    }
-}
-
-static void update_all_cid_tables(lily_parse_state *parser)
-{
-    lily_module *entry_iter = parser->prelude;
-    while (entry_iter) {
-        if (entry_iter->cid_table)
-            update_cid_table(parser, entry_iter);
-
-        entry_iter = entry_iter->next;
-    }
-}
-
 static const char *dyna_get_name(lily_dyna_state *ds)
 {
     return ds->entry + DYNA_NAME_OFFSET;
@@ -1766,6 +1734,9 @@ static int dyna_find_toplevel_item(lily_dyna_state *ds,
 
     int result = 0;
 
+    /* If this is a class or enum, this will be the cid table position. */
+    uint16_t steps = 0;
+
     do {
         if (dyna_name_is(ds, name)) {
             result = 1;
@@ -1773,8 +1744,10 @@ static int dyna_find_toplevel_item(lily_dyna_state *ds,
         }
 
         dyna_iter_next(ds);
+        steps++;
     } while (dyna_record_type(ds) != 'Z');
 
+    ds->steps = steps;
     return result;
 }
 
@@ -1809,6 +1782,10 @@ static void dynaload_foreign(lily_parse_state *parser, lily_dyna_state *ds)
         (void) find_dl_class_in(parser, ds->m, "CoError");
     }
 
+    /* This doesn't check for the prelude, because it doesn't come through here.
+       It has foreign classes, but they're all manually loaded when parser does
+       prelude init. */
+    ds->m->cid_table[ds->steps] = cls->id;
     cls->item_kind = ITEM_CLASS_FOREIGN;
     cls->dyna_start = ds->index;
     collect_generics_for(parser, cls);
@@ -1826,22 +1803,15 @@ static void dynaload_var(lily_parse_state *parser, lily_dyna_state *ds)
     lily_type *type = get_type_raw(parser, 0);
     lily_var *var = new_global_var(parser, dyna_get_name(ds), 0);
 
-    /* The initial vm has a function above main for storing globals that's never
-       truly exited. Var loaders work by pushing a new value in toplevel space.
-       Make sure the identity table is up-to-date before running the loader in
-       case the loader needs it. */
-
     var->type = type;
 
-    /* These two allow var loaders to use ID_ macros. */
-    update_cid_table(parser, m);
+    /* This allows var loaders to use ID_ macros. */
     parser->toplevel_func->cid_table = m->cid_table;
 
     lily_foreign_func var_loader = m->call_table[ds->index];
 
-    /* This should push exactly one extra value onto the stack. Since
-       global vars have placeholder values inserted, the var ends up
-       exactly where it should be. */
+    /* The vm has a function above main (toplevel) that stores globals and which
+       is never truly exited. Var loaders work by pushing a value into it. */
     var_loader(parser->vm);
     dyna_restore(parser, ds);
     ds->result = (lily_item *)var;
@@ -2015,8 +1985,10 @@ static void dynaload_enum(lily_parse_state *parser, lily_dyna_state *ds)
 
     if (ds->m == parser->prelude)
         fix_option_result_class_ids(enum_cls);
-    else
+    else {
         lily_fix_enum_variant_ids(parser->symtab, enum_cls);
+        ds->m->cid_table[ds->steps] = enum_cls->id;
+    }
 
     lily_fix_enum_type_ids(enum_cls);
     dyna_restore(parser, ds);
@@ -2149,6 +2121,8 @@ static void dynaload_native(lily_parse_state *parser, lily_dyna_state *ds)
 
     if (ds->m == parser->prelude)
         fix_predefined_class_id(parser, cls);
+    else
+        ds->m->cid_table[ds->steps] = cls->id;
 
     dyna_iter_past_methods(ds);
 
@@ -5970,7 +5944,6 @@ static void main_func_setup(lily_parse_state *parser)
 
     maybe_capture_stdout(parser);
     maybe_fix_print(parser);
-    update_all_cid_tables(parser);
 
     parser->flags |= PARSER_IS_EXECUTING;
     lily_call_prepare(parser->vm, parser->toplevel_func);
