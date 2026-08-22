@@ -43,6 +43,10 @@
    returning empty strings. */
 #define PARSER_EXTRA_INFO   0x40
 
+/* The last parse/exec failed, so there's a rewind to process. It's done during
+   initial content loading. */
+#define PARSER_HAS_REWIND   0x80
+
 struct lily_rewind_state_;
 struct lily_import_state_;
 

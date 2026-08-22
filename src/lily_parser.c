@@ -93,8 +93,8 @@ typedef struct lily_rewind_state_
     lily_boxed_sym *main_boxed_start;
     lily_module *main_last_module;
     uint16_t line_num;
-    uint16_t pending;
-    uint32_t pad;
+    uint16_t pad1;
+    uint32_t pad2;
 } lily_rewind_state;
 
 void lily_init_pkg_prelude(lily_symtab *);
@@ -151,7 +151,6 @@ lily_state *lily_new_state(lily_config *config)
     parser->ims = lily_new_import_state();
 
     parser->rs = lily_malloc(sizeof(*parser->rs));
-    parser->rs->pending = 0;
 
     /* These two are simple and don't depend on other parts. */
     parser->expr = lily_new_expr_state();
@@ -308,8 +307,6 @@ static void rewind_interpreter(lily_parse_state *parser)
     lily_rewind_symtab(parser->symtab, parser->main_module,
             rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
             executing);
-
-    parser->rs->pending = 0;
 }
 
 static void initialize_rewind(lily_parse_state *parser)
@@ -6649,7 +6646,7 @@ static int open_first_content(lily_state *s, const char *filename,
         }
 
         /* Rewind before loading content so it starts with a fresh slate. */
-        if (parser->rs->pending)
+        if (parser->flags & PARSER_HAS_REWIND)
             rewind_interpreter(parser);
 
         /* Always rewind the raiser to account for content loading not setting a
@@ -6701,7 +6698,7 @@ int lily_parse_manifest(lily_state *s)
         return 1;
     }
     else
-        parser->rs->pending = 1;
+        parser->flags |= PARSER_HAS_REWIND;
 
     return 0;
 }
@@ -6728,7 +6725,7 @@ int lily_parse_content(lily_state *s)
         return 1;
     }
     else
-        parser->rs->pending = 1;
+        parser->flags |= PARSER_HAS_REWIND;
 
     return 0;
 }
@@ -6754,7 +6751,7 @@ int lily_validate_content(lily_state *s)
         return 1;
     }
     else
-        parser->rs->pending = 1;
+        parser->flags |= PARSER_HAS_REWIND;
 
     return 0;
 }
@@ -6811,7 +6808,7 @@ int lily_parse_expr(lily_state *s, const char **text)
         return 1;
     }
     else
-        parser->rs->pending = 1;
+        parser->flags |= PARSER_HAS_REWIND;
 
     return 0;
 }
