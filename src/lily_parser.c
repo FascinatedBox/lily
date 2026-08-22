@@ -5900,26 +5900,19 @@ static void keyword_protected(lily_parse_state *parser)
     dispatch_post_modifier(parser, read_modifiers(parser, KEY_PROTECTED));
 }
 
-static void maybe_capture_stdout(lily_parse_state *parser)
+static void maybe_fix_stdout_and_print(lily_parse_state *parser)
 {
     lily_global_state *gs = parser->vm->gs;
-
-    if (gs->stdout_reg_spot != UINT16_MAX)
-        return;
-
     lily_module *prelude = parser->prelude;
-    lily_var *stdout_var = lily_find_var(prelude, "stdout");
 
-    if (stdout_var)
-        gs->stdout_reg_spot = stdout_var->reg_spot;
-}
+    if (gs->stdout_reg_spot == UINT16_MAX) {
+        lily_var *stdout_var = lily_find_var(prelude, "stdout");
 
-static void maybe_fix_print(lily_parse_state *parser)
-{
-    lily_global_state *gs = parser->vm->gs;
-
-    if (gs->stdout_reg_spot == UINT16_MAX)
-        return;
+        if (stdout_var)
+            gs->stdout_reg_spot = stdout_var->reg_spot;
+        else
+            return;
+    }
 
     lily_var *print_var = lily_find_var(parser->prelude, "print");
 
@@ -5942,8 +5935,7 @@ static void main_func_setup(lily_parse_state *parser)
     parser->vm->gs->readonly_table = parser->symtab->literals->data;
     parser->vm->gs->virt_table = parser->vs->table;
 
-    maybe_capture_stdout(parser);
-    maybe_fix_print(parser);
+    maybe_fix_stdout_and_print(parser);
 
     parser->flags |= PARSER_IS_EXECUTING;
     lily_call_prepare(parser->vm, parser->toplevel_func);
