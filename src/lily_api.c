@@ -2,6 +2,7 @@
 
 #include "lily.h"
 #include "lily_alloc.h"
+#include "lily_parser.h"
 #include "lily_value.h"
 #include "lily_vm.h"
 
@@ -1302,3 +1303,21 @@ int lily_has_exited(lily_state *s)
     return s->gs->has_exited;
 }
 
+lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
+{
+    lily_module *m = vm->gs->parser->symtab->active_module;
+    lily_var *v = lily_find_var(m, name);
+    lily_function_val *result;
+
+    if (v)
+        result = vm->gs->readonly_table[v->reg_spot]->value.function;
+    else
+        result = NULL;
+
+    return result;
+}
+
+lily_config *lily_config_get(lily_state *s)
+{
+    return s->gs->parser->config;
+}

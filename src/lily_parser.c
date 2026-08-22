@@ -6815,21 +6815,3 @@ int lily_parse_expr(lily_state *s, const char **text)
 
     return 0;
 }
-
-lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
-{
-    lily_var *v = find_active_var(vm->gs->parser, name);
-    lily_function_val *result;
-
-    if (v)
-        result = vm->gs->readonly_table[v->reg_spot]->value.function;
-    else
-        result = NULL;
-
-    return result;
-}
-
-lily_config *lily_config_get(lily_state *s)
-{
-    return s->gs->parser->config;
-}
