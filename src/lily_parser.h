@@ -47,7 +47,6 @@
    initial content loading. */
 #define PARSER_HAS_REWIND   0x80
 
-struct lily_rewind_state_;
 struct lily_import_state_;
 
 typedef struct {
@@ -56,6 +55,16 @@ typedef struct {
     uint16_t size;
     uint32_t pad;
 } lily_doc_stack;
+
+typedef struct {
+    lily_class *main_class_start;
+    lily_var *main_var_start;
+    lily_boxed_sym *main_boxed_start;
+    lily_module *main_last_module;
+    uint16_t line_num;
+    uint16_t pad1;
+    uint32_t pad2;
+} lily_rewind_state;
 
 typedef struct lily_parse_state_ {
     lily_module *prelude;
@@ -99,13 +108,14 @@ typedef struct lily_parse_state_ {
     lily_type_maker *tm;
     lily_raiser *raiser;
     lily_config *config;
-    struct lily_rewind_state_ *rs;
+    lily_rewind_state *rs;
     struct lily_import_state_ *ims;
     lily_var *spare_vars;
     struct lily_virt_state_ *vs;
     lily_doc_stack *doc;
 } lily_parse_state;
 
+void lily_rewind_parser(lily_parse_state *);
 void lily_parser_hide_match_vars(lily_parse_state *);
 void lily_parser_lambda_init(lily_parse_state *, const char *, uint16_t,
       uint16_t);
@@ -114,5 +124,8 @@ lily_named_sym *lily_find_or_dl_member(lily_parse_state *, lily_class *,
         const char *);
 lily_class *lily_dynaload_exception(lily_parse_state *, const char *);
 void lily_pa_add_data_string(lily_parse_state *, const char *);
+void lily_parse_one_expression(lily_parse_state *);
+void lily_manifest_loop(lily_parse_state *);
+void lily_parser_loop(lily_parse_state *);
 
 #endif

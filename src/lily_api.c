@@ -1,9 +1,13 @@
+#include <errno.h>
 #include <string.h>
 
 #include "lily.h"
 #include "lily_alloc.h"
+#include "lily_import.h"
 #include "lily_parser.h"
+#include "lily_platform.h"
 #include "lily_value.h"
+#include "lily_virt.h"
 #include "lily_vm.h"
 
 /* This file contains implementations for most of the functions in lily.h, and
@@ -15,9 +19,11 @@
    file should have the same order as the matching header files. */
 
 extern lily_gc_entry *lily_gc_stopper;
+extern lily_type *lily_unit_type;
 
 void lily_destroy_hash(lily_value *);
 void lily_destroy_vm(lily_vm_state *);
+void lily_stdout_print(lily_vm_state *);
 void lily_vm_grow_registers(lily_vm_state *, uint16_t);
 
 
@@ -1320,4 +1326,352 @@ lily_function_val *lily_find_function(lily_vm_state *vm, const char *name)
 lily_config *lily_config_get(lily_state *s)
 {
     return s->gs->parser->config;
+}
+
+void lily_config_init(lily_config *conf)
+{
+    conf->argc = 0;
+    conf->argv = NULL;
+
+    /* Starting gc options are completely arbitrary. */
+    conf->gc_start = 100;
+    conf->gc_multiplier = 4;
+
+    char key[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+
+    memcpy(conf->sipkey, key, sizeof(key));
+
+    conf->import_func = lily_default_import_func;
+    conf->data = NULL;
+    conf->extra_info = 0;
+    conf->sandbox = 0;
+    conf->use_sys_dirs = 0;
+    conf->sys_dirs = LILY_CONFIG_SYS_DIRS_INIT;
+}
+
+
+/* Parser entry api. */
+
+
+static void rewind_interpreter(lily_parse_state *parser)
+{
+    lily_rewind_state *rs = parser->rs;
+    uint16_t executing = parser->flags & PARSER_IS_EXECUTING;
+
+    lily_rewind_parser(parser);
+    lily_rewind_generic_pool(parser->generics);
+    lily_rewind_expr_state(parser->expr);
+    lily_rewind_emit_state(parser->emit);
+    lily_rewind_type_system(parser->emit->ts);
+    lily_rewind_lex_state(parser->lex, rs->line_num);
+    lily_rewind_vm(parser->vm);
+
+    /* Symtab will hide or delete symbols based on the execution state. Symbols
+       that made it to execution might still be in use and are hidden. If they
+       didn't make it that far, they'll be deleted. */
+    lily_rewind_symtab(parser->symtab, parser->main_module,
+            rs->main_class_start, rs->main_var_start, rs->main_boxed_start,
+            executing);
+}
+
+static void initialize_rewind(lily_parse_state *parser)
+{
+    lily_rewind_state *rs = parser->rs;
+    lily_module *m = parser->main_module;
+
+    rs->main_class_start = m->class_chain;
+    rs->main_var_start = m->var_chain;
+    rs->main_boxed_start = m->boxed_chain;
+    rs->main_last_module = parser->ims->module_top;
+    rs->line_num = parser->lex->line_num;
+}
+
+static void maybe_fix_stdout_and_print(lily_parse_state *parser)
+{
+    lily_global_state *gs = parser->vm->gs;
+    lily_module *prelude = parser->prelude;
+
+    if (gs->stdout_reg_spot == UINT16_MAX) {
+        lily_var *stdout_var = lily_find_var(prelude, "stdout");
+
+        if (stdout_var)
+            gs->stdout_reg_spot = stdout_var->reg_spot;
+        else
+            return;
+    }
+
+    lily_var *print_var = lily_find_var(parser->prelude, "print");
+
+    if (print_var == NULL)
+        return;
+
+    /* Swap out the default implementation of print for one that will check if
+       stdin is closed first. */
+    lily_value *print_value = gs->readonly_table[print_var->reg_spot];
+    lily_function_val *print_func = print_value->value.function;
+
+    print_func->foreign_func = lily_stdout_print;
+}
+
+static void main_func_setup(lily_parse_state *parser)
+{
+    lily_register_classes(parser->symtab, parser->vm, parser->prelude);
+    lily_prepare_main(parser->emit, parser->toplevel_func);
+
+    parser->vm->gs->readonly_table = parser->symtab->literals->data;
+    parser->vm->gs->virt_table = parser->vs->table;
+
+    maybe_fix_stdout_and_print(parser);
+
+    parser->flags |= PARSER_IS_EXECUTING;
+    lily_call_prepare(parser->vm, parser->toplevel_func);
+    /* The above function pushes a Unit value to act as a sink for lily_call to
+       put a value into. __main__ won't return a value so get rid of it. */
+    lily_stack_drop_top(parser->vm);
+}
+
+static void main_func_teardown(lily_parse_state *parser)
+{
+    parser->vm->call_chain = parser->vm->call_chain->prev;
+    parser->flags &= ~PARSER_IS_EXECUTING;
+}
+
+static void update_main_name(lily_parse_state *parser,
+        const char *filename)
+{
+    lily_module *module = parser->main_module;
+
+    if (module->path &&
+        strcmp(module->path, filename) == 0)
+        return;
+
+    /* The first module isn't likely to have several names. Instead of creating
+       a special stack to store all of them, throw it into a literal. It'll
+       survive until the interpreter is done and won't leak. */
+    lily_type *t;
+    lily_literal *lit = lily_get_string_literal(parser->symtab, &t, filename);
+    char *path = lily_as_string_raw((lily_value *)lit);
+
+    lily_free(module->dirname);
+
+    /* Strange errors occur when the first module is allowed to import itself.
+       Setting this prevents those errors. */
+    module->flags = MODULE_IN_EXECUTION;
+    module->path = path;
+    module->dirname = lily_ims_dir_from_path(path);
+    module->cmp_len = (uint16_t)strlen(path);
+    module->root_dirname = module->dirname;
+    /* The loadname isn't set because the first module isn't importable. */
+
+    parser->emit->protos->data[0]->module_path = path;
+}
+
+static FILE *load_file_to_parse(lily_parse_state *parser, const char *path)
+{
+    FILE *load_file = fopen(path, "r");
+    if (load_file == NULL) {
+        char buffer[LILY_STRERROR_BUFFER_SIZE];
+
+        lily_strerror(buffer);
+        lily_raise_raw(parser->raiser, "Failed to open %s: (%s).", path,
+                buffer);
+    }
+
+    return load_file;
+}
+
+static int open_first_content(lily_state *s, const char *filename,
+        char *content)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if (parser->flags & PARSER_HAS_CONTENT ||
+        s->gs->has_exited)
+        return 0;
+
+    /* Loading initial content should only be done outside of execution, so
+       using the parser's base jump is okay. */
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_ims_process_sys_dirs(parser, parser->config);
+
+        lily_lex_entry_type load_type;
+        void *load_content;
+
+        if (content == NULL) {
+            char *suffix = strrchr(filename, '.');
+            if (suffix == NULL || strcmp(suffix, ".lily") != 0)
+                lily_raise_raw(parser->raiser,
+                        "File name must end with '.lily'.");
+
+            load_type = et_file;
+            load_content = load_file_to_parse(parser, filename);
+        }
+        else {
+            /* Strings sent to be parsed are expected to be on a caller's stack
+               somewhere. There shouldn't be a need to copy this string. */
+            load_type = et_shallow_string;
+            load_content = content;
+        }
+
+        /* Rewind before loading content so it starts with a fresh slate. */
+        if (parser->flags & PARSER_HAS_REWIND)
+            rewind_interpreter(parser);
+
+        /* Always rewind the raiser to account for content loading not setting a
+           pending rewind if it fails. */
+        lily_rewind_raiser(parser->raiser);
+        initialize_rewind(parser);
+        lily_lexer_load(parser->lex, load_type, load_content);
+        /* The first module is now rooted based on the name given. */
+        update_main_name(parser, filename);
+
+        parser->flags = PARSER_HAS_CONTENT;
+        return 1;
+    }
+
+    /* Do not set a pending rewind here, because no processing took place. */
+
+    return 0;
+}
+
+int lily_load_file(lily_state *s, const char *filename)
+{
+    return open_first_content(s, filename, NULL);
+}
+
+int lily_load_string(lily_state *s, const char *context,
+        const char *str)
+{
+    return open_first_content(s, context, (char *)str);
+}
+
+int lily_parse_manifest(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
+        return 0;
+
+    parser->flags = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_manifest_loop(parser);
+
+        lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
+
+        /* Manifest should never run code. */
+        lily_clear_main(parser->emit);
+
+        return 1;
+    }
+    else
+        parser->flags |= PARSER_HAS_REWIND;
+
+    return 0;
+}
+
+int lily_parse_content(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
+        return 0;
+
+    parser->flags = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_parser_loop(parser);
+
+        main_func_setup(parser);
+        lily_call(parser->vm, 0);
+        main_func_teardown(parser);
+
+        lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
+
+        return 1;
+    }
+    else
+        parser->flags |= PARSER_HAS_REWIND;
+
+    return 0;
+}
+
+int lily_validate_content(lily_state *s)
+{
+    lily_parse_state *parser = s->gs->parser;
+
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
+        return 0;
+
+    parser->flags = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_parser_loop(parser);
+
+        lily_pop_lex_entry(parser->lex);
+        lily_mb_flush(parser->msgbuf);
+        /* Clear __main__ so the code doesn't run on the next pass. This allows
+           running introspection after validation. */
+        lily_clear_main(parser->emit);
+
+        return 1;
+    }
+    else
+        parser->flags |= PARSER_HAS_REWIND;
+
+    return 0;
+}
+
+int lily_parse_expr(lily_state *s, const char **text)
+{
+    if (text)
+        *text = NULL;
+
+    lily_parse_state *parser = s->gs->parser;
+
+    if ((parser->flags & PARSER_HAS_CONTENT) == 0)
+        return 0;
+
+    parser->flags = 0;
+
+    if (setjmp(parser->raiser->all_jumps->jump) == 0) {
+        lily_parse_one_expression(parser);
+
+        lily_sym *sym = parser->expr->root->result;
+
+        main_func_setup(parser);
+        lily_call(parser->vm, 0);
+        main_func_teardown(parser);
+
+        lily_pop_lex_entry(parser->lex);
+
+        if (sym && text) {
+            /* This grabs the symbol from __main__. */
+            lily_value *reg = s->call_chain->next->start[sym->reg_spot];
+            lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
+
+            /* Add value doesn't quote String values, because most callers do
+               not want that. This one does, so bypass that. */
+            if (reg->flags & V_STRING_FLAG)
+                lily_mb_add_fmt(msgbuf, "\"%s\"\n", reg->value.string->string);
+            else if (sym->type != lily_unit_type) {
+                lily_mb_add_value(msgbuf, s, reg);
+
+                /* Traceback has a newline at the end. Follow that example. */
+                lily_mb_add_char(msgbuf, '\n');
+            }
+
+            /* Unit values are not interesting enough to print. */
+
+            *text = lily_mb_raw(msgbuf);
+        }
+
+        return 1;
+    }
+    else
+        parser->flags |= PARSER_HAS_REWIND;
+
+    return 0;
 }
