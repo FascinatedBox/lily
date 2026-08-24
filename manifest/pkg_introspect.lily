@@ -306,7 +306,7 @@ foreign static class ModuleEntry
     public define boxed_enums: List[EnumEntry]
 
     ### Return all functions that were directly imported into this module
-    ### (`import (somevariant) somefile`).
+    ### (`import (somefunction) somefile`).
     public define boxed_functions: List[FunctionEntry]
 
     ### Return all vars that were directly imported into this module
