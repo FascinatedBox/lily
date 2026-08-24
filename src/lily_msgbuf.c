@@ -237,10 +237,10 @@ static void add_byte(lily_msgbuf *msgbuf, uint8_t i)
 
     if (esc_ch)
         sprintf(buf, "'\\%c'", esc_ch);
-    else if (isprint(ch))
+    else if (isprint(i))
         sprintf(buf, "'%c'", ch);
     else
-        sprintf(buf, "'\\%03d'", (unsigned char) ch);
+        sprintf(buf, "'\\%03u'", i);
 
     lily_mb_add(msgbuf, buf);
 }
