@@ -4123,8 +4123,7 @@ static void keyword_do(lily_parse_state *parser)
 static void link_import_syms(lily_parse_state *parser,
         lily_module *source, uint16_t count)
 {
-    lily_symtab *symtab = parser->symtab;
-    lily_module *active = symtab->active_module;
+    lily_module *active = parser->symtab->active_module;
     lily_buffer_u16 *buffer = parser->data_stack;
     uint16_t start = lily_u16_pos(buffer) - (count * 2);
     uint16_t iter = start, restore_to = start;
@@ -4132,32 +4131,27 @@ static void link_import_syms(lily_parse_state *parser,
     do {
         uint16_t search_pos = lily_u16_get(buffer, iter + 1);
         char *name = lily_sp_get(parser->data_strings, search_pos);
-        lily_sym *sym = lily_find_symbol(active, name);
-
-        if (sym) {
-fail_redeclaration: ;
-            uint16_t line = lily_u16_get(buffer, iter);
-
-            lily_raise_syn_at(parser->raiser, line,
-                    "'%s' has already been declared.", name);
-        }
-
-        sym = lily_find_symbol(source, name);
+        lily_sym *sym = lily_find_symbol(source, name);
 
         if (sym == NULL)
             sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
 
         if (sym == NULL && strcmp(name, "self") == 0) {
             name = source->loadname;
-            sym = lily_find_symbol(active, name);
-
-            if (sym)
-                goto fail_redeclaration;
-
             sym = (lily_sym *)source;
         }
 
-        if (sym == NULL) {
+        if (sym) {
+            lily_sym *check = lily_find_symbol(active, name);
+
+            if (check) {
+                uint16_t line = lily_u16_get(buffer, iter);
+
+                lily_raise_syn_at(parser->raiser, line,
+                        "'%s' has already been declared.", name);
+            }
+        }
+        else {
             uint16_t line = lily_u16_get(buffer, iter);
 
             lily_raise_syn_at(parser->raiser, line,
