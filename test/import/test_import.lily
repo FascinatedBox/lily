@@ -601,4 +601,112 @@ class TestImport < TestCase
             import (is_green) green
         """)
     }
+
+    public define test_nested_import
+    {
+        # one-level nested target between two flat targets
+        var t = Interpreter.with_targets(
+            ImportTarget(
+                :path "a", :data "import (c, d.somevar, e) b"),
+            ImportTarget(
+                :path "b", :data """
+                    import d
+                    var c = 10
+                    var e = 12
+                """),
+            ImportTarget(
+                :path "d", :data "var somevar = 11")
+        )
+
+        assert_parse_string(t, """
+            import a
+
+            if a.c != 10 ||
+                a.somevar != 11 ||
+                a.e != 12: {
+                0/0
+            }
+        """)
+
+
+        # multi-level target
+
+
+        t = Interpreter.with_targets(
+            ImportTarget(
+                :path "a", :data "import (c.d.e) b"
+            ),
+            ImportTarget(
+                :path "b", :data "import c"
+            ),
+            ImportTarget(
+                :path "c", :data "import d"
+            ),
+            ImportTarget(
+                :path "d", :data "var e = 10"
+            )
+        )
+
+        assert_parse_string(t, """
+            import a
+
+            if a.e != 10: { 0/0 }
+        """)
+
+
+        # multi-level loading multi-level
+
+
+        t = Interpreter.with_targets(
+            ImportTarget(
+                :path "a", :data "import (one, e.f, two) b"
+            ),
+            ImportTarget(
+                :path "b", :data """
+                    import (d.e) c
+                    var one = 10
+                    var two = 11
+                """
+            ),
+            ImportTarget(
+                :path "c", :data "import d"
+            ),
+            ImportTarget(
+                :path "d", :data "import e"
+            ),
+            ImportTarget(
+                :path "e", :data "var f = 12"
+            )
+        )
+
+
+        # unintentional but funny
+        # hard to block and (more importantly) harmless, so letting it stay
+
+
+        assert_parse_string(t, """
+            import (self.self.self.self) sys
+        """)
+
+
+        # 'c' conflicts, but 'd' does not
+
+
+        t = Interpreter.with_targets(
+            ImportTarget(
+                :path "a", :data """
+                    var c = 10
+                    import (c.d) b
+                """
+            ),
+            ImportTarget(
+                :path "b", :data "import c"
+            ),
+            ImportTarget(
+                :path "c", :data "var d = 10"
+            )
+        )
+
+        assert_parse_string(t, "import a")
+    }
 }

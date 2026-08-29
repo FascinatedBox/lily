@@ -741,4 +741,66 @@ class TestBadImport < TestCase
             import (self) sys
         """)
     }
+
+    public define test_bad_direct_nested_import
+    {
+        var t = Interpreter.with_targets(
+            ImportTarget(:path "a", :data "import b"),
+            ImportTarget(:path "b", :data "")
+        )
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot find symbol 'c' inside of module 'b'.
+                from [test]:1:
+        """,
+        """\
+            import (b.c) a
+        """)
+
+        # expect 'x.y', not 'x.' or '.y'
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a symbol name (module, class, etc.) here.
+
+               |
+             1 | import (argv.) sys
+               |              ^
+
+                from [test]:1:
+        """,
+        """\
+            import (argv.) sys
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Expected a symbol name (module, class, etc.) here.
+
+               |
+             1 | import (.argv) sys
+               |         ^
+
+                from [test]:1:
+        """,
+        """\
+            import (.argv) sys
+        """)
+
+        # no importing non-modules (self and non-self)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot import from non-module 'argv'.
+                from [test]:1:
+        """,
+        """\
+            import (argv.self) sys
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot import from non-module 'FunctionEntry'.
+                from [test]:1:
+        """,
+        """\
+            import (FunctionEntry.name) introspect
+        """)
+    }
 }

@@ -4123,12 +4123,16 @@ static void keyword_do(lily_parse_state *parser)
 static void link_import_syms(lily_parse_state *parser,
         lily_module *source, uint16_t count)
 {
+    lily_module *initial_source = source;
     lily_module *active = parser->symtab->active_module;
     lily_buffer_u16 *buffer = parser->data_stack;
-    uint16_t start = lily_u16_pos(buffer) - (count * 2);
-    uint16_t iter = start, restore_to = start;
+    uint16_t start = lily_u16_pop(buffer);
+    uint16_t iter = start;
+    uint16_t dots_remaining = lily_u16_get(buffer, iter);
 
-    do {
+    iter++;
+
+    while (1) {
         uint16_t search_pos = lily_u16_get(buffer, iter + 1);
         char *name = lily_sp_get(parser->data_strings, search_pos);
         lily_sym *sym = lily_find_symbol(source, name);
@@ -4136,27 +4140,43 @@ static void link_import_syms(lily_parse_state *parser,
         if (sym == NULL)
             sym = (lily_sym *)try_toplevel_dynaload(parser, source, name);
 
-        if (sym == NULL && strcmp(name, "self") == 0) {
-            name = source->loadname;
-            sym = (lily_sym *)source;
-        }
-
-        if (sym) {
-            lily_sym *check = lily_find_symbol(active, name);
-
-            if (check) {
+        if (sym == NULL) {
+            if (strcmp(name, "self") == 0) {
+                name = source->loadname;
+                sym = (lily_sym *)source;
+            }
+            else {
                 uint16_t line = lily_u16_get(buffer, iter);
 
                 lily_raise_syn_at(parser->raiser, line,
-                        "'%s' has already been declared.", name);
+                        "Cannot find symbol '%s' inside of module '%s'.",
+                        name, source->loadname);
             }
         }
-        else {
+
+        if (dots_remaining) {
+            if (sym->item_kind == ITEM_MODULE) {
+                iter += 2;
+                dots_remaining--;
+                source = (lily_module *)sym;
+                continue;
+            }
+            else {
+                uint16_t line = lily_u16_get(buffer, iter);
+
+                lily_raise_syn_at(parser->raiser, line,
+                        "Cannot import from non-module '%s'.",
+                        name);
+            }
+        }
+
+        lily_sym *check = lily_find_symbol(active, name);
+
+        if (check) {
             uint16_t line = lily_u16_get(buffer, iter);
 
             lily_raise_syn_at(parser->raiser, line,
-                    "Cannot find symbol '%s' inside of module '%s'.",
-                    name, source->loadname);
+                    "'%s' has already been declared.", name);
         }
 
         if (sym->item_kind != ITEM_MODULE)
@@ -4164,44 +4184,79 @@ static void link_import_syms(lily_parse_state *parser,
         else
             lily_ims_link_module_to(active, (lily_module *)sym, name);
 
-        iter += 2;
         count--;
-    } while (count);
 
-    lily_u16_set_pos(parser->data_stack, restore_to);
+        if (count == 0)
+            break;
+
+        iter += 2;
+        dots_remaining = lily_u16_get(buffer, iter);
+        source = initial_source;
+        iter++;
+    }
+
+    lily_u16_set_pos(parser->data_stack, start);
 }
 
-/* This function collects symbol names within parentheses for import. The result
-   is how many names were collected, and is never zero. */
+/* Check for direct imports (symbols between parentheses). This is done before
+   the import is run. After the import is run, link_import_syms will read what
+   this has stored and attempt to resolve accordingly. The result is how many
+   groups were written. */
 static uint16_t parse_import_refs(lily_parse_state *parser)
 {
     lily_lex_state *lex = parser->lex;
     uint16_t count = 0;
 
     if (lex->token == tk_left_parenth) {
-        lily_u16_write_1(parser->data_stack, parser->data_string_pos);
+        lily_u16_write_2(parser->data_stack, parser->data_string_pos, 0);
+
+        uint16_t counter_pos = lily_u16_pos(parser->data_stack) - 1;
+        uint16_t dot_count = 0;
+
+        /* Symbol walking will start on the first set of pairs. */
+        uint16_t start = counter_pos;
+
+        count = 1;
 
         while (1) {
             NEED_NEXT_IDENT(
                     "Expected a symbol name (module, class, etc.) here.")
 
+            /* 0: The line number, in case of error. */
             lily_u16_write_1(parser->data_stack, lex->line_num);
-            lily_pa_add_data_string(parser, lex->label);
-            count++;
 
+            /* 1: The text to find. */
+            lily_pa_add_data_string(parser, lex->label);
             lily_next_token(lex);
 
-            if (lex->token == tk_right_parenth)
-                break;
-            else if (lex->token != tk_comma)
-                lily_raise_syn(parser->raiser,
-                        "Expected either ',' or ')' here.");
+            if (lex->token == tk_dot)
+                dot_count++;
+            else {
+                /* Patch the search start to hold the count. */
+                lily_u16_set_at(parser->data_stack, counter_pos, dot_count);
+
+                if (lex->token == tk_comma) {
+                    counter_pos = lily_u16_pos(parser->data_stack);
+
+                    /* The next start to be patched. */
+                    lily_u16_write_1(parser->data_stack, 0);
+                    dot_count = 0;
+                    count++;
+                }
+                else if (lex->token == tk_right_parenth)
+                    break;
+                else
+                    lily_raise_syn(parser->raiser,
+                            "Expected either ',' or ')' here.");
+            }
         }
 
         lily_next_token(lex);
+        lily_u16_write_2(parser->data_stack, start, count);
     }
+    else
+        lily_u16_write_1(parser->data_stack, 0);
 
-    lily_u16_write_1(parser->data_stack, count);
     return count;
 }
 
