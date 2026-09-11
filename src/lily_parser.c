@@ -364,10 +364,37 @@ static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
     return result;
 }
 
-static uint16_t store_docblock(lily_parse_state *parser)
+static char **build_docblock(lily_parse_state *parser, uint16_t size)
 {
     parser->flags &= ~PARSER_HAS_DOCBLOCK;
-    return build_doc_data(parser, 1);
+
+    char **text = lily_malloc(size * sizeof(*text));
+    uint16_t start = lily_u16_pop(parser->data_stack);
+    char *input = lily_sp_get(parser->data_strings, start);
+    char *content = lily_malloc((strlen(input) + 1) * sizeof(*content));
+
+    strcpy(content, input);
+    text[0] = content;
+    parser->data_string_pos = start;
+    lily_u16_pop(parser->data_stack);
+    return text;
+}
+
+static uint16_t attach_docblock(lily_parse_state *parser, char **block)
+{
+    lily_doc_stack *d = parser->doc;
+
+    if (d->pos == d->size)
+        grow_docs(d);
+
+    d->data[d->pos] = block;
+    d->pos++;
+    return d->pos - 1;
+}
+
+static uint16_t store_simple_docblock(lily_parse_state *parser)
+{
+    return attach_docblock(parser, build_docblock(parser, 1));
 }
 
 void lily_pa_add_data_string(lily_parse_state *parser, const char *to_add)
@@ -383,18 +410,6 @@ static void save_docblock(lily_parse_state *parser)
         lily_pa_add_data_string(parser, parser->lex->label);
         parser->flags |= PARSER_HAS_DOCBLOCK;
     }
-}
-
-static uint16_t store_enum_docblock(lily_parse_state *parser)
-{
-    if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
-        lily_u16_write_1(parser->data_stack, 0);
-        lily_pa_add_data_string(parser, "");
-    }
-    else
-        parser->flags &= ~PARSER_HAS_DOCBLOCK;
-
-    return build_doc_data(parser, 1);
 }
 
 static void set_definition_doc(lily_parse_state *parser)
@@ -772,7 +787,7 @@ static lily_var *declare_constant(lily_parse_state *parser)
     var = new_constant_var(parser, lex->label, lex->line_num);
 
     if (parser->flags & PARSER_HAS_DOCBLOCK)
-        var->doc_id = store_docblock(parser);
+        var->doc_id = store_simple_docblock(parser);
 
     lily_next_token(lex);
     return var;
@@ -825,7 +840,7 @@ static lily_var *declare_scoped_var(lily_parse_state *parser)
         var = new_global_var(parser, lex->label, lex->line_num);
 
     if (parser->flags & PARSER_HAS_DOCBLOCK)
-        var->doc_id = store_docblock(parser);
+        var->doc_id = store_simple_docblock(parser);
 
     lily_next_token(lex);
     return var;
@@ -3432,7 +3447,7 @@ static lily_prop_entry *declare_property(lily_parse_state *parser,
             lex->label, lex->line_num, flags);
 
     if (parser->flags & PARSER_HAS_DOCBLOCK)
-        prop->doc_id = store_docblock(parser);
+        prop->doc_id = store_simple_docblock(parser);
 
     lily_next_token(lex);
     return prop;
@@ -5074,8 +5089,8 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
     else
         enum_cls->flags |= CLS_NO_DYNA;
 
-    if (parser->flags & PARSER_EXTRA_INFO)
-        enum_cls->doc_id = store_enum_docblock(parser);
+    if (parser->flags & PARSER_HAS_DOCBLOCK)
+        enum_cls->doc_id = store_simple_docblock(parser);
 
     NEED_CURRENT_TOK(tk_left_curly)
     lily_next_token(lex);
@@ -5111,16 +5126,8 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
         else
             parse_value_variant(parser, variant_cls);
 
-        if (parser->flags & PARSER_EXTRA_INFO) {
-            if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
-                lily_u16_write_1(parser->data_stack, 0);
-                lily_pa_add_data_string(parser, "");
-            }
-            else
-                parser->flags &= ~PARSER_HAS_DOCBLOCK;
-
-            variant_cls->doc_id = build_doc_data(parser, 1);
-        }
+        if (parser->flags & PARSER_HAS_DOCBLOCK)
+            variant_cls->doc_id = store_simple_docblock(parser);
 
         if (lex->token == tk_comma) {
             lily_next_token(lex);
@@ -6243,7 +6250,7 @@ static void manifest_library(lily_parse_state *parser)
     }
 
     if (parser->flags & PARSER_HAS_DOCBLOCK)
-        m->doc_id = store_docblock(parser);
+        m->doc_id = store_simple_docblock(parser);
 
     lily_free(m->loadname);
     m->loadname = lily_malloc((strlen(lex->label) + 1) * sizeof(*m->loadname));
