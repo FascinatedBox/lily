@@ -439,22 +439,11 @@ void lily_introspect_PropertyEntry_scope(lily_state *s)
     lily_return_integer(s, flags_to_scope(entry->flags));
 }
 
-static char *get_var_generics(lily_state *s, lily_var *v)
-{
-    /* Generics are stored after arguments. */
-    uint16_t generic_spot = v->type->subtype_count;
-    char **doc_data = s->gs->parser->doc->data[v->doc_id];
-    char *result = doc_data[generic_spot];
-
-    return result;
-}
-
-static void return_generics(lily_state *s, char *generic_str)
+static void return_generics(lily_state *s, uint16_t count)
 {
     /* Cache generics are in letter order. All this function needs to do is to
        iter the saved count of times. */
     lily_generic_class **generics = s->gs->parser->generics->cache_generics;
-    uint16_t count = (uint16_t)generic_str[0];
     lily_container_val *list_val = lily_push_list(s, count);
     uint16_t i;
 
@@ -473,13 +462,13 @@ void lily_introspect_FunctionEntry_generics(lily_state *s)
 {
     UNPACK_FIRST_ARG(FunctionEntry, lily_var *);
 
-    if (entry->doc_id == UINT16_MAX) {
+    if ((entry->type->flags & TYPE_IS_UNRESOLVED) == 0) {
         lily_push_list(s, 0);
         lily_return_top(s);
         return;
     }
 
-    return_generics(s, get_var_generics(s, entry));
+    return_generics(s, lily_ts_find_last_generic_used(entry->type));
 }
 
 void lily_introspect_FunctionEntry_is_varargs(lily_state *s)
@@ -599,24 +588,16 @@ void lily_introspect_ClassEntry_generics(lily_state *s)
 {
     UNPACK_FIRST_ARG(ClassEntry, lily_class *);
 
-    /* The first test isn't technically necessary right now since enough
-       information is stored on the class. It's blocked anyway so that there's
-       no regression in this function when generics become more exciting.
-       The second test blocks magic classes (Function and Tuple), which have
-       a count of -1 to denote that they take any amount. The lack of a cast on
-       the second is intended, as the count is signed. */
-    if (entry->doc_id == UINT16_MAX ||
-        entry->generic_count == -1) {
+    /* Two internal classes (Function and Tuple) use -1 to denote any arity.
+       Since they don't have any explicit generics, send back nothing. If the
+       count is 0, there's nothing. */
+    if (entry->generic_count <= 0) {
         lily_push_list(s, 0);
         lily_return_top(s);
         return;
     }
 
-    /* All other classes have a reasonable maximum that fits in any char. */
-    char count = (char)entry->generic_count;
-    char generic_str[] = {count, '\0'};
-
-    return_generics(s, generic_str);
+    return_generics(s, (uint16_t)entry->generic_count);
 }
 
 void lily_introspect_ClassEntry_id(lily_state *s)

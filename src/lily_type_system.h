@@ -86,6 +86,11 @@ void lily_ts_generics_seen(lily_type_system *, uint16_t);
    virtual matches. */
 int lily_ts_verify_virtual_type(lily_type *, lily_type *);
 
+/* Introspect calls this to walk a type to find how many generics were used.
+   The result is a count (A = 1, B = 2, etc). Only unresolved Functions are
+   given to this. */
+uint16_t lily_ts_find_last_generic_used(lily_type *);
+
 /* Determine if the first class passed is either a base class or the same class
    as the second one. This doesn't take the ts because the information needed
    is within the classes themselves. */

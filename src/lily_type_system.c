@@ -512,6 +512,30 @@ int lily_ts_verify_virtual_type(lily_type *base, lily_type *given)
     return matches == base->subtype_count;
 }
 
+static void walk_for_last_generic(lily_type *t, uint16_t *pos)
+{
+    if (t->cls_id == LILY_ID_GENERIC) {
+        uint16_t g = ((lily_generic_type *)t)->generic_pos;
+
+        if (*pos < g)
+            *pos = g;
+    }
+    else if (t->subtype_count) {
+        for (uint16_t i = 0;i < t->subtype_count;i++)
+            walk_for_last_generic(t->subtypes[i], pos);
+    }
+}
+
+uint16_t lily_ts_find_last_generic_used(lily_type *t)
+{
+    uint16_t result = 0;
+
+    for (uint16_t i = 0;i < t->subtype_count;i++)
+        walk_for_last_generic(t->subtypes[i], &result);
+
+    return result + 1;
+}
+
 int lily_class_greater_eq(lily_class *left, lily_class *right)
 {
     int ret = 0;

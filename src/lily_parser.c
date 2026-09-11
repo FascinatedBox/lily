@@ -385,20 +385,6 @@ static void save_docblock(lily_parse_state *parser)
     }
 }
 
-static void write_generics(lily_parse_state *parser, uint16_t where)
-{
-    lily_generic_pool *gp = parser->generics;
-    lily_msgbuf *msgbuf = lily_mb_flush(parser->msgbuf);
-
-    /* Since generics are required to be in letter order, introspect only needs
-       the total available. It can walk the generic pool later on. */
-    char range = (char)(gp->scope_end - gp->scope_start);
-
-    lily_mb_add_char(msgbuf, range);
-    lily_u16_write_1(parser->data_stack, where);
-    lily_pa_add_data_string(parser, lily_mb_raw(msgbuf));
-}
-
 static uint16_t store_enum_docblock(lily_parse_state *parser)
 {
     if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
@@ -408,8 +394,7 @@ static uint16_t store_enum_docblock(lily_parse_state *parser)
     else
         parser->flags &= ~PARSER_HAS_DOCBLOCK;
 
-    write_generics(parser, 1);
-    return build_doc_data(parser, 2);
+    return build_doc_data(parser, 1);
 }
 
 static void set_definition_doc(lily_parse_state *parser)
@@ -460,8 +445,7 @@ static void set_definition_doc(lily_parse_state *parser)
         lily_pa_add_data_string(parser, "");
     }
 
-    write_generics(parser, count + 1);
-    define_var->doc_id = build_doc_data(parser, count + 2);
+    define_var->doc_id = build_doc_data(parser, count + 1);
 
     if (is_ctor)
         /* Give the info to the class too since it has the docblock. */
@@ -5135,8 +5119,7 @@ static void parse_enum_header(lily_parse_state *parser, lily_class *enum_cls)
             else
                 parser->flags &= ~PARSER_HAS_DOCBLOCK;
 
-            write_generics(parser, 1);
-            variant_cls->doc_id = build_doc_data(parser, 2);
+            variant_cls->doc_id = build_doc_data(parser, 1);
         }
 
         if (lex->token == tk_comma) {
