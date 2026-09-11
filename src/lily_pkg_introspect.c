@@ -61,30 +61,6 @@ for (i = 0;source != NULL;source = source->next) { \
  \
 lily_return_top(s);
 
-/* This is for properties and methods which take the class as well as a source
-   value to wrap over. */
-#define BUILD_LIST_FROM_2(check_func, build_func) \
-int i, count = 0; \
- \
-while (source_iter) { \
-    if (check_func(source_iter)) \
-        count++; \
- \
-    source_iter = source_iter->next; \
-} \
- \
-lily_container_val *lv = lily_push_list(s, count); \
- \
-for (i = 0;source != NULL;source = source->next) { \
-    if (check_func(source)) { \
-        build_func(s, entry, source); \
-        lily_con_set_from_stack(s, lv, i); \
-        i++; \
-    } \
-} \
- \
-lily_return_top(s);
-
 typedef struct {
     LILY_FOREIGN_HEADER
     lily_class *entry;
@@ -108,7 +84,6 @@ typedef struct {
 typedef struct {
     LILY_FOREIGN_HEADER
     lily_var *entry;
-    lily_class *parent;
 } lily_introspect_MethodEntry;
 
 typedef struct {
@@ -129,13 +104,11 @@ typedef struct {
 typedef struct {
     LILY_FOREIGN_HEADER
     lily_variant_class *entry;
-    lily_class *parent;
 } lily_introspect_VariantEntry;
 
 typedef struct {
     LILY_FOREIGN_HEADER
     lily_prop_entry *entry;
-    lily_class *parent;
 } lily_introspect_PropertyEntry;
 
 static void introspect_dtor(void *p) { (void)p; }
@@ -280,12 +253,10 @@ static void make_function(lily_state *s, lily_var *source)
     new_entry->entry = source;
 }
 
-static void make_method(lily_state *s, lily_class *entry,
-                        lily_named_sym *source)
+static void make_method(lily_state *s, lily_named_sym *source)
 {
     lily_introspect_MethodEntry *new_entry = INIT_MethodEntry(s);
     new_entry->entry = (lily_var *)source;
-    new_entry->parent = entry;
 }
 
 static void make_module(lily_state *s, lily_module *source) {
@@ -298,12 +269,10 @@ static void make_module_from_link(lily_state *s, lily_module_link *source) {
     new_entry->entry = source->module;
 }
 
-static void make_property(lily_state *s, lily_class *entry,
-                          lily_named_sym *source)
+static void make_property(lily_state *s, lily_named_sym *source)
 {
     lily_introspect_PropertyEntry *new_entry = INIT_PropertyEntry(s);
     new_entry->entry = (lily_prop_entry *)source;
-    new_entry->parent = entry;
 }
 
 static void make_var(lily_state *s, lily_var *source)
@@ -312,12 +281,10 @@ static void make_var(lily_state *s, lily_var *source)
     new_entry->entry = source;
 }
 
-static void make_variant(lily_state *s, lily_class *entry,
-                         lily_named_sym *source)
+static void make_variant(lily_state *s, lily_named_sym *source)
 {
     lily_introspect_VariantEntry *new_entry = INIT_VariantEntry(s);
     new_entry->entry = (lily_variant_class *)source;
-    new_entry->parent = entry;
 }
 
 static void boxed_make_class(lily_state *s, lily_boxed_sym *source)
@@ -684,7 +651,7 @@ void lily_introspect_ClassEntry_methods(lily_state *s)
     lily_named_sym *source = entry->members;
     lily_named_sym *source_iter = source;
 
-    BUILD_LIST_FROM_2(allow_methods, make_method);
+    BUILD_LIST_FROM(allow_methods, make_method);
 }
 
 void lily_introspect_ClassEntry_parent(lily_state *s)
@@ -710,7 +677,7 @@ void lily_introspect_ClassEntry_properties(lily_state *s)
     lily_named_sym *source = entry->members;
     lily_named_sym *source_iter = source;
 
-    BUILD_LIST_FROM_2(allow_properties, make_property);
+    BUILD_LIST_FROM(allow_properties, make_property);
 }
 
 void lily_introspect_ClassEntry_property_count(lily_state *s)
@@ -787,17 +754,16 @@ void lily_introspect_EnumEntry_methods(lily_state *s)
     lily_named_sym *source = entry->members;
     lily_named_sym *source_iter = source;
 
-    BUILD_LIST_FROM_2(allow_methods, make_method);
+    BUILD_LIST_FROM(allow_methods, make_method);
 }
 
 void lily_introspect_EnumEntry_variants(lily_state *s)
 {
     lily_introspect_EnumEntry *introspect_entry = ARG_EnumEntry(s, 0);
-    lily_class *entry = introspect_entry->entry;
     lily_named_sym *source = introspect_entry->entry->members;
     lily_named_sym *source_iter = source;
 
-    BUILD_LIST_FROM_2(allow_variants, make_variant);
+    BUILD_LIST_FROM(allow_variants, make_variant);
 }
 
 void lily_introspect_ModuleEntry_boxed_classes(lily_state *s)
