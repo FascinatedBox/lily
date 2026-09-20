@@ -3987,6 +3987,9 @@ static lily_var *parse_for_var(lily_parse_state *parser)
             (result->flags & VAR_IS_GLOBAL) == 0)
         /* Blocked because closures and for loop vars tend to mix poorly. */
         lily_raise_syn(parser->raiser, "Loop var cannot be an upvalue.");
+    else if (result->item_kind != ITEM_VAR)
+        /* Don't allow constants, defines, or any other non-var. */
+        error_var_redeclaration(parser, result);
 
     result->flags |= SYM_NOT_INITIALIZED;
     lily_next_token(lex);

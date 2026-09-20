@@ -599,7 +599,39 @@ class TestBadSyntax < TestCase
             class Container[A] {}
             var v: Container[Integer, Integer, Integer] = Container()
         """)
-    }
+
+        # for loop var shadowing a constant
+
+        assert_parse_fails(t, """\
+            SyntaxError: x has already been declared.
+
+               |
+             2 | for x in [1]: {}
+               |     ^
+
+                from [test]:2:
+        """,
+        """\
+            constant x = 10
+            for x in [1]: {}
+        """)
+
+        # for loop var shadowing a define
+
+        assert_parse_fails(t, """\
+            SyntaxError: f has already been declared.
+
+               |
+             2 | for f in [1]: {}
+               |     ^
+
+                from [test]:2:
+        """,
+        """\
+            define f {}
+            for f in [1]: {}
+        """)
+     }
 
     public define test_bad_literal
     {
