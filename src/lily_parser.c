@@ -347,23 +347,6 @@ static char **build_strings_by_data(lily_parse_state *parser,
     return keys;
 }
 
-static uint16_t build_doc_data(lily_parse_state *parser, uint16_t arg_count)
-{
-    lily_doc_stack *d = parser->doc;
-
-    if (d->pos == d->size)
-        grow_docs(d);
-
-    uint16_t start = lily_u16_pos(parser->data_stack) - (arg_count * 2);
-    char **text = build_strings_by_data(parser, arg_count, start);
-    uint16_t result = d->pos;
-
-    d->data[d->pos] = text;
-    d->pos++;
-
-    return result;
-}
-
 static char **build_docblock(lily_parse_state *parser, uint16_t size)
 {
     parser->flags &= ~PARSER_HAS_DOCBLOCK;
@@ -418,22 +401,20 @@ static void set_definition_doc(lily_parse_state *parser)
     lily_var *var_iter = parser->symtab->active_module->var_chain;
     uint16_t count = define_var->type->subtype_count - 1;
     uint16_t offset = 0;
+    uint16_t start = lily_u16_pos(parser->data_stack);
     int is_ctor = 0;
     uint16_t i;
 
-    if ((parser->flags & PARSER_HAS_DOCBLOCK) == 0) {
-        lily_u16_write_1(parser->data_stack, 0);
-        lily_pa_add_data_string(parser, "");
-    }
-    else
+    if (parser->flags & PARSER_HAS_DOCBLOCK) {
+        /* Go back two spaces to include the docblock. */
+        start -= 2;
         parser->flags &= ~PARSER_HAS_DOCBLOCK;
+    }
 
     if (define_var->parent &&
         (define_var->flags & VAR_IS_STATIC) == 0) {
         if (define_var->name[0] != '<') {
-            /* This is a non-static class method. The self of class methods is
-               held in a storage instead of a var, but is in the type. An extra
-               space is added later so that parameters and types line up. */
+            /* The self of a method is in a storage, not a var. */
             offset = 1;
         }
         else
@@ -447,20 +428,15 @@ static void set_definition_doc(lily_parse_state *parser)
             var_iter = var_iter->next;
         }
     }
-    else {
-        /* Forward virtuals only collect types, so there's no vars to pull. */
-        for (i = count;i > offset;i--) {
-            lily_u16_write_1(parser->data_stack, i);
-            lily_pa_add_data_string(parser, "");
-        }
-    }
 
-    if (offset) {
-        lily_u16_write_1(parser->data_stack, i);
-        lily_pa_add_data_string(parser, "");
-    }
+    /* String building will tap the first entry to find the pool offset. Don't
+       send it an empty block. */
+    if (start == lily_u16_pos(parser->data_stack))
+        return;
 
-    define_var->doc_id = build_doc_data(parser, count + 1);
+    char **text = build_strings_by_data(parser, count + 1, start);
+
+    define_var->doc_id = attach_docblock(parser, text);
 
     if (is_ctor)
         /* Give the info to the class too since it has the docblock. */
