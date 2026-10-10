@@ -1,3 +1,39 @@
+Version 2.6 (2026-10-10)
+========================
+
+Highlights:
+
+* `enum` now operates as `scoped enum` did (#656). In prior releases, the
+  variants of an enum were visible in the module within which they were
+  declared. Now, only the variants of `Option` and `Result` have that behavior.
+  This unification of enum behavior was the result of variant shorthand making
+  user-defined flat enums obsolete.
+
+* Direct imports now allow dots `import (x.y) z` (#648). The subject of a direct
+  import must be a toplevel symbol (cannot be a method or a variant).
+
+Removed:
+
+* Removed `is_public`, `is_protected`, and `is_private` methods of
+  `PropertyEntry` and `MethodEntry`. (Use `SymScope` instead).
+
+* Removed `EnumEntry.is_flat`, `EnumEntry.is_scoped`,
+  `ModuleEntry.boxed_variants`, and `VariantEntry.is_scoped` (obsolete).
+
+Changes:
+
+* When comparing two `Function` types for equality, varargs is now ignored
+  (#651). This was preventing the `dis` library's `dis` function from accepting
+  vararg functions.
+
+Fixes:
+
+* Prevent for loop vars from shadowing non-vars (#663).
+
+* Fix undefined behavior in `add_byte` (!386).
+
+* Enum methods are now seen as `.Public` by `SymScope` (#658).
+
 Version 2.5 (2026-7-10)
 =======================
 
