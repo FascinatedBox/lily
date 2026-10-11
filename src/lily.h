@@ -543,11 +543,11 @@ const char *lily_import_current_root_dir(lily_state *s);
 
 // Macro: LILY_ID_UNSET
 // False identity for testing if a value is unset.
-// 
+//
 // This id is for use by functions that have optional keyword arguments. Suppose
 // a function takes three keyword arguments, but is only given the first and the
 // third. In such a case, the interpreter sends an 'unset' value to stand in for
-// the second argument to allow using the same calling opcode. 
+// the second argument to allow using the same calling opcode.
 #define LILY_ID_UNSET         0
 
 // Macro: LILY_ID_INTEGER
@@ -653,7 +653,7 @@ const char *lily_import_current_root_dir(lily_state *s);
 ////////////////////////////////
 // Section: Raw value operations
 ////////////////////////////////
-// Functions that interact with raw values. 
+// Functions that interact with raw values.
 
 // Function: lily_bytestring_raw
 // Get the raw buffer behind a ByteString.

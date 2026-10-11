@@ -123,4 +123,4 @@ void lily_lexer_verify_path_string(lily_lex_state *);
 int64_t lily_scan_number(char *, int *);
 
 #endif
- 
+

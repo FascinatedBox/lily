@@ -19,7 +19,7 @@ lib/
 Makefile
 Testing/
 
-# CMake Windows 
+# CMake Windows
 
 *.dir
 *.vcxproj

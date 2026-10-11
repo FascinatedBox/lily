@@ -589,7 +589,7 @@ class TestBadImport < TestCase
         # On Windows, '|' is replaced with the current process directory, since
         # there is no official directory for libraries.
         # This checks that *some* kind of replacement was done.
-        # The non-Windows side doesn't check as much, because 
+        # The non-Windows side doesn't check as much, because
 
         var message = t.error().split("\n")
         var dirs_checked = message.select(|s| s.starts_with("    no file"))
@@ -661,11 +661,11 @@ class TestBadImport < TestCase
             SyntaxError: Cannot import 'abc/def':
                 no file './abc/def.lily'
                 no file './abc/def.so'
-            
+
                |
              1 | import "abc/def"
                |        ^
-            
+
                 from [test]:1:
         """, t.error())
     }
