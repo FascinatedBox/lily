@@ -811,4 +811,144 @@ class TestMatchWith < TestCase
             }
         """)
     }
+
+    public define test_match_expression_raise
+    {
+        var t = Interpreter()
+
+        # returning match raise with raise after
+
+        assert_parse_string(t, """
+            define unpack_i(a: Option[Integer]): Integer
+            {
+                return match a: {
+                    case Some(s):
+                        s
+                    else:
+                        raise ValueError("failed")
+                }
+            }
+
+            if unpack_i(Some(1)) != 1: {
+                0/0
+            }
+
+            try: {
+                unpack_i(None)
+                0/0
+            except ValueError:
+            except Exception:
+                0/0
+            }
+        """)
+
+        # do the raise first
+
+        assert_parse_string(t, """
+            define unpack_i_2(a: Option[Integer]): Integer
+            {
+                return match a: {
+                    case None:
+                        raise ValueError("failed")
+                    case Some(s):
+                        s
+                }
+            }
+
+            if unpack_i_2(Some(1)) != 1: {
+                0/0
+            }
+
+            try: {
+                unpack_i_2(None)
+                0/0
+            except ValueError:
+            except Exception:
+                0/0
+            }
+        """)
+
+        # assign instead of return
+
+        assert_parse_string(t, """
+            define assign_check(a: Option[String]) {
+                var v = match a: {
+                    case Some(s):
+                        s
+                    case None:
+                        raise ValueError("failed")
+                }
+
+                if v.parse_i().unwrap() != 10 ||
+                    v != a.unwrap(): {
+                    0/0
+                }
+            }
+
+            assign_check(Some("10"))
+
+            try: {
+                assign_check(None)
+                0/0
+            except ValueError:
+            except Exception:
+                0/0
+            }
+        """)
+
+        # return where both / all sides raise
+        # not useful, but doesn't appear harmful, so allowing it
+
+        assert_parse_string(t, """
+            define always_raises(a: Option[Integer]): Integer
+            {
+                return match a: {
+                    case Some(s):
+                        raise IndexError("abc")
+                    else:
+                        raise ValueError("failed")
+                }
+            }
+
+            try: {
+                always_raises(Some(1))
+            except IndexError:
+
+            except Exception:
+                0/0
+            }
+
+            try: {
+                always_raises(None)
+            except ValueError:
+
+            except Exception:
+                0/0
+            }
+        """)
+
+        # raise a value
+
+        assert_parse_string(t, """
+            define ok_or_raise(a: Option[Integer], b: Exception): Integer
+            {
+                return match a: {
+                    case Some(s):
+                        s
+                    else:
+                        raise b
+                }
+            }
+
+            ok_or_raise(Some(10), Exception(""))
+
+            try: {
+                ok_or_raise(None, ValueError("123"))
+                0/0
+            except ValueError:
+            except Exception:
+                0/0
+            }
+        """)
+    }
 }

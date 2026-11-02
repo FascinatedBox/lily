@@ -1160,4 +1160,83 @@ class TestBadMatchWith < TestCase
             }
         """)
     }
+
+    public define test_bad_match_expression_raise
+    {
+        var t = Interpreter()
+
+        # The interpreter doesn't have a type to represent this.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Right side of assignment is incomplete type '?'.
+                from [test]:3:
+        """,
+        """\
+            define unpack_i(a: Option[Integer]): Integer
+            {
+                var v = match a: {
+                    case Some(s):
+                        raise Exception("abc")
+                    else:
+                        raise ValueError("failed")
+                }
+            }
+        """)
+
+        # Must be able to raise it.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Invalid class 'Integer' given to raise.
+                from [test]:6:
+        """,
+        """\
+            define unpack_i(a: Option[Integer]): Integer
+            {
+                var v = match a: {
+                    case Some(s):
+                        raise 10
+                }
+            }
+        """)
+
+        # These two check that nesting is blocked.
+
+        assert_parse_fails(t, """\
+            SyntaxError: Cannot use a match expression here.
+
+               |
+             5 | raise match
+               |       ^
+
+                from [test]:5:
+        """,
+        """\
+            define unpack_i(a: Option[Integer]): Integer
+            {
+                var v = match a: {
+                    case Some(s):
+                        raise match
+                }
+            }
+        """)
+
+        assert_parse_fails(t, """\
+            SyntaxError: raise has not been declared.
+
+               |
+             5 | raise raise
+               |       ^
+
+                from [test]:5:
+        """,
+        """\
+            define unpack_i(a: Option[Integer]): Integer
+            {
+                var v = match a: {
+                    case Some(s):
+                        raise raise
+                }
+            }
+        """)
+    }
 }

@@ -18,6 +18,7 @@ typedef enum {
     tree_expr_branch_else,
     tree_expr_match_case,
     tree_expr_match,
+    tree_expr_raise,
     tree_global_var,
     tree_hash,
     tree_inherited_new,

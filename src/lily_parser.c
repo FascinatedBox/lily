@@ -5571,7 +5571,21 @@ first_case:
         } while (0);
 
         lily_next_token(lex);
+
+        int has_raise = 0;
+
+        if (lex->token == tk_word && strcmp(lex->label, "raise") == 0) {
+            has_raise = 1;
+            lily_next_token(lex);
+        }
+
         simple_expression(parser);
+
+        if (has_raise) {
+            lily_es_enter_tree(parser->expr, tree_expr_raise);
+            lily_es_leave_tree(parser->expr);
+        }
+
         hide_match_var_types(parser);
         lily_es_collect_arg(parser->expr);
 

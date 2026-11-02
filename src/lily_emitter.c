@@ -3219,6 +3219,20 @@ static void redirect_match_case_result(lily_emit_state *emit, lily_ast *ast,
                 ast->result->reg_spot, ast->line_num);
 }
 
+static void eval_expr_raise(lily_emit_state *emit, lily_ast *ast)
+{
+    lily_sym *sym = lily_eval_for_result(emit, ast->arg_start);
+    lily_class *raise_cls = sym->type->cls;
+
+    if (lily_class_greater_eq_id(LILY_ID_EXCEPTION, raise_cls) == 0) {
+        lily_raise_tree(emit->raiser, ast,
+                "Invalid class '%s' given to raise.", raise_cls->name);
+    }
+
+    lily_u16_write_3(emit->code, o_exception_raise, sym->reg_spot,
+            ast->line_num);
+}
+
 static void eval_expr_match(lily_emit_state *emit, lily_ast *ast,
         lily_type *expect)
 {
@@ -3255,17 +3269,26 @@ static void eval_expr_match(lily_emit_state *emit, lily_ast *ast,
             expr_branch_else(emit, arg);
 
         arg = arg->next_arg;
-        eval_tree(emit, arg, expect);
 
-        if (expect != lily_question_type)
-            verify_match_case_result(emit, arg, expect);
-        else
-            expect = arg->result->type;
+        if (arg->tree_type != tree_expr_raise) {
+            eval_tree(emit, arg, expect);
 
-        if (ast->result == NULL)
-            ast->result = (lily_sym *)get_storage(emit, expect);
+            if (expect != lily_question_type)
+                verify_match_case_result(emit, arg, expect);
+            else
+                expect = arg->result->type;
 
-        redirect_match_case_result(emit, ast, arg);
+            if (ast->result == NULL)
+                ast->result = (lily_sym *)get_storage(emit, expect);
+
+            redirect_match_case_result(emit, ast, arg);
+        }
+        else {
+            eval_expr_raise(emit, arg);
+
+            if (arg->next_arg == NULL && ast->result == NULL)
+                ast->result = (lily_sym *)get_storage(emit, expect);
+        }
     }
 
     if (lily_emit_try_leave_match_block(emit) == 0)
