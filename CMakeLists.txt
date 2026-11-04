@@ -32,16 +32,6 @@ set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}")
 set(LILY_MAJOR             "2")
 set(LILY_MINOR             "6")
 
-# BSD libc includes the dl* functions and there's no libdl on them.
-# Unfortunately, CMake doesn't seem to distinguish *BSD from the other *nixen.
-STRING(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
-
-if(IS_BSD OR MINGW OR MSVC OR APPLE OR HAIKU)
-    set(LILY_NEED_DL 0)
-else()
-    set(LILY_NEED_DL 1)
-endif()
-
 # Windows doesn't have a math library to link against.
 
 if(WIN32)

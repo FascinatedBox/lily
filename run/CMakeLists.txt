@@ -6,13 +6,10 @@ target_compile_definitions(lily
     LILY_MAJOR="${LILY_MAJOR}"
     LILY_MINOR="${LILY_MINOR}")
 set_target_properties(lily PROPERTIES ENABLE_EXPORTS TRUE)
+target_link_libraries(lily ${CMAKE_DL_LIBS})
 
 if(LILY_NEED_M)
     target_link_libraries(lily m)
-endif()
-
-if(LILY_NEED_DL)
-    target_link_libraries(lily dl)
 endif()
 
 install(TARGETS lily DESTINATION bin)

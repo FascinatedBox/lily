@@ -31,9 +31,7 @@ if(NOT WIN32)
     set_target_properties(liblily PROPERTIES PREFIX "")
 endif()
 
-if(LILY_NEED_DL)
-    target_link_libraries(liblily dl)
-endif()
+target_link_libraries(liblily ${CMAKE_DL_LIBS})
 
 if(LILY_NEED_M)
     target_link_libraries(liblily m)
