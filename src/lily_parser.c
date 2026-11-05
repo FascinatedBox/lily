@@ -1803,22 +1803,23 @@ static void dynaload_constant(lily_parse_state *parser, lily_dyna_state *ds)
    called when dynaload sees a predefined class. */
 static void fix_predefined_class_id(lily_parse_state *parser, lily_class *cls)
 {
-    char *name = cls->name;
+    /* It's a closed set and the second letter is different for each one. */
+    char ch = cls->name[1];
     uint16_t new_id = 12345;
 
-    if (strcmp(name, "DivisionByZeroError") == 0)
+    if (ch == 'i')
         new_id = LILY_ID_DBZERROR;
-    else if (strcmp(name, "Exception") == 0)
+    else if (ch == 'x')
         new_id = LILY_ID_EXCEPTION;
-    else if (strcmp(name, "IndexError") == 0)
+    else if (ch == 'n')
         new_id = LILY_ID_INDEXERROR;
-    else if (strcmp(name, "IOError") == 0)
+    else if (ch == 'O')
         new_id = LILY_ID_IOERROR;
-    else if (strcmp(name, "KeyError") == 0)
+    else if (ch == 'e')
         new_id = LILY_ID_KEYERROR;
-    else if (strcmp(name, "RuntimeError") == 0)
+    else if (ch == 'u')
         new_id = LILY_ID_RUNTIMEERROR;
-    else if (strcmp(name, "ValueError") == 0)
+    else if (ch == 'a')
         new_id = LILY_ID_VALUEERROR;
 
     parser->symtab->next_class_id--;
